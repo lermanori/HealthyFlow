@@ -25,7 +25,6 @@ export default function VoiceInput({
     error,
     startListening,
     stopListening,
-    abortListening,
     clearTranscript,
     getAvailableLanguages
   } = useSTT()
@@ -274,4 +273,4 @@ export default function VoiceInput({
       )}
     </div>
   )
-} 
+}

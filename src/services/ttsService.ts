@@ -14,7 +14,6 @@ export interface TTSState {
 
 export class TTSService {
   private speechSynthesis: SpeechSynthesis
-  private currentUtterance: SpeechSynthesisUtterance | null = null
   private state: TTSState = {
     isSpeaking: false,
     currentText: '',
@@ -68,7 +67,6 @@ export class TTSService {
       this.state.isSpeaking = true
       this.state.currentText = text
       this.state.progress = 0
-      this.currentUtterance = utterance
       this.notifyListeners()
     }
 
@@ -76,7 +74,6 @@ export class TTSService {
       this.state.isSpeaking = false
       this.state.currentText = ''
       this.state.progress = 100
-      this.currentUtterance = null
       this.notifyListeners()
     }
 
@@ -94,7 +91,6 @@ export class TTSService {
       console.error('TTS Error:', event)
       this.state.isSpeaking = false
       this.state.currentText = ''
-      this.currentUtterance = null
       this.notifyListeners()
     }
 
@@ -120,7 +116,6 @@ export class TTSService {
       this.state.isSpeaking = false
       this.state.currentText = ''
       this.state.progress = 0
-      this.currentUtterance = null
       this.notifyListeners()
     }
   }
@@ -159,4 +154,4 @@ export class TTSService {
 }
 
 // Create singleton instance
-export const ttsService = new TTSService() 
+export const ttsService = new TTSService()

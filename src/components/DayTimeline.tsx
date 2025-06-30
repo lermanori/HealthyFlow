@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd'
 import { Task } from '../services/api'
 import TaskCard from './TaskCard'
-import { format, addHours } from 'date-fns'
+import { format } from 'date-fns'
 
 interface DayTimelineProps {
   tasks: Task[]

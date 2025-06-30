@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Sparkles, Loader2, Brain, Clock, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react'
+import { X, Sparkles, Loader2, Brain } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { taskService } from '../services/api'
-import { format, isToday, isTomorrow, isPast, parseISO } from 'date-fns'
-import api from '../services/api'
+import { format } from 'date-fns'
 
 interface AskAIModalProps {
   isOpen: boolean
@@ -21,13 +20,6 @@ export default function AskAIModal({ isOpen, onClose }: AskAIModalProps) {
   const { data: todayTasks = [] } = useQuery({
     queryKey: ['tasks', format(new Date(), 'yyyy-MM-dd')],
     queryFn: () => taskService.getTasks(format(new Date(), 'yyyy-MM-dd')),
-    enabled: isOpen
-  })
-
-  // Get all tasks for broader context
-  const { data: allTasks = [] } = useQuery({
-    queryKey: ['all-tasks'],
-    queryFn: () => taskService.getTasks(),
     enabled: isOpen
   })
 

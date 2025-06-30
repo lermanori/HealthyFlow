@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Brain, Sparkles, Wand2, Plus, X, Loader2, Key, Mic, MicOff } from 'lucide-react'
+import { Brain, Sparkles, Wand2, Plus, X, Loader2, Key, Mic } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { taskService } from '../services/api'
 import { useTTS } from '../hooks/useTTS'
@@ -45,7 +45,7 @@ export default function AITextAnalyzer({
   const [inputMode, setInputMode] = useState<'text' | 'voice'>('text')
   
   const queryClient = useQueryClient()
-  const { speak, stop, isSpeaking } = useTTS()
+  const { speak } = useTTS()
 
   const addTasksMutation = useMutation({
     mutationFn: async (tasks: Omit<TaskSuggestion, 'id' | 'priority'>[]) => {

@@ -1,4 +1,4 @@
-import { Play, Pause, Square, Volume2, Loader2 } from 'lucide-react'
+import { Play, Pause, Square, Volume2 } from 'lucide-react'
 import { useTTS } from '../hooks/useTTS'
 
 interface TTSActionsProps {
@@ -60,4 +60,4 @@ export default function TTSActions({
       )}
     </div>
   )
-} 
+}

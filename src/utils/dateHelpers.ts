@@ -1,4 +1,4 @@
-import { format, isToday, isTomorrow, isYesterday, startOfWeek, endOfWeek, addDays } from 'date-fns'
+import { format, isToday, isTomorrow, isYesterday, startOfWeek, addDays } from 'date-fns'
 
 export function formatRelativeDate(date: Date): string {
   if (isToday(date)) return 'Today'

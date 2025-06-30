@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Brain, Lightbulb, Heart, TrendingUp, X, Sparkles } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { aiService, AIRecommendation } from '../services/api'
+import { aiService } from '../services/api'
 import LoadingSpinner from './LoadingSpinner'
 
 export default function AIRecommendationsBox() {
