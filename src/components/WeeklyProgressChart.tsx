@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { format, startOfWeek, addDays } from 'date-fns'
+import { format } from 'date-fns'
 import { TrendingUp, Sparkles } from 'lucide-react'
 
 interface WeeklyProgressChartProps {

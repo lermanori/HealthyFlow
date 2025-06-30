@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Key, Save, Brain, Sparkles } from 'lucide-react'
+import { Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Save, Brain, Sparkles } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
 import toast from 'react-hot-toast'

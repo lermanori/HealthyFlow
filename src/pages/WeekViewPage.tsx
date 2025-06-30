@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { format, startOfWeek, addDays, isSameDay } from 'date-fns'
+import { format, isSameDay } from 'date-fns'
 import { Calendar, TrendingUp, Brain, Sparkles, BarChart3, Target } from 'lucide-react'
 import { taskService, summaryService } from '../services/api'
 import HabitTrackerBar from '../components/HabitTrackerBar'

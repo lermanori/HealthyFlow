@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Clock, Tag, Repeat, Sparkles } from 'lucide-react'
+import { X, Clock, Tag, Sparkles } from 'lucide-react'
 import { Task } from '../services/api'
 
 interface TaskEditModalProps {
