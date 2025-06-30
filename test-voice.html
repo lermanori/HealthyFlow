@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Features Test - HealthyFlow</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #ffffff;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid #3a3a3a;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        button {
+            background: #06b6d4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            background: #0891b2;
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #065f46; }
+        .error { background: #7f1d1d; }
+        .info { background: #1e40af; }
+        .warning { background: #92400e; }
+        
+        .voice-wave {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            margin: 10px 0;
+        }
+        .voice-wave-bar {
+            width: 3px;
+            background: #06b6d4;
+            border-radius: 2px;
+            animation: voice-wave 1.2s ease-in-out infinite;
+        }
+        .voice-wave-bar:nth-child(1) { animation-delay: 0s; }
+        .voice-wave-bar:nth-child(2) { animation-delay: 0.1s; }
+        .voice-wave-bar:nth-child(3) { animation-delay: 0.2s; }
+        .voice-wave-bar:nth-child(4) { animation-delay: 0.3s; }
+        .voice-wave-bar:nth-child(5) { animation-delay: 0.4s; }
+        
+        @keyframes voice-wave {
+            0%, 100% { height: 8px; opacity: 0.5; }
+            50% { height: 20px; opacity: 1; }
+        }
+        
+        .confidence-indicator {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin: 5px;
+        }
+        .confidence-excellent { background: #065f46; color: #10b981; }
+        .confidence-good { background: #92400e; color: #f59e0b; }
+        .confidence-fair { background: #7f1d1d; color: #ef4444; }
+        
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            border-radius: 4px;
+            color: white;
+            padding: 10px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        
+        .input-toggle {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .toggle-btn {
+            flex: 1;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .toggle-btn.active {
+            border-color: #06b6d4;
+            background: rgba(6, 182, 212, 0.1);
+        }
+        .toggle-btn:hover {
+            border-color: #06b6d4;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎤 Voice Features Test - HealthyFlow</h1>
+    
+    <div class="test-section">
+        <h2>🔍 Browser Support Check</h2>
+        <div id="support-status"></div>
+        <div id="voices-list"></div>
+    </div>
+
+    <div class="feature-grid">
+        <!-- Text-to-Speech Section -->
+        <div class="test-section">
+            <h2>🔊 Text-to-Speech (TTS)</h2>
+            <textarea id="tts-input" placeholder="Enter text to speak...">Hello! I'm your AI productivity assistant. I'm here to help you plan your day effectively.</textarea>
+            
+            <div class="input-toggle">
+                <div class="toggle-btn" onclick="setTTSMode('basic')">
+                    <h3>Basic TTS</h3>
+                    <p>Simple text-to-speech</p>
+                </div>
+                <div class="toggle-btn" onclick="setTTSMode('ai')">
+                    <h3>AI Analysis</h3>
+                    <p>Simulate AI task analysis</p>
+                </div>
+            </div>
+            
+            <button onclick="testTTS()">🔊 Speak Text</button>
+            <button onclick="testVoiceSelection()">🎭 Test Voice Selection</button>
+            <button onclick="testRateControl()">⚡ Test Rate Control</button>
+            <button onclick="stopTTS()">⏹️ Stop TTS</button>
+            
+            <div id="tts-status"></div>
+        </div>
+
+        <!-- Speech-to-Text Section -->
+        <div class="test-section">
+            <h2>🎤 Speech-to-Text (STT)</h2>
+            <textarea id="stt-output" placeholder="Your speech will appear here..." readonly></textarea>
+            
+            <div class="input-toggle">
+                <div class="toggle-btn" onclick="setSTTMode('basic')">
+                    <h3>Basic STT</h3>
+                    <p>Simple speech recognition</p>
+                </div>
+                <div class="toggle-btn" onclick="setSTTMode('task')">
+                    <h3>Task Planning</h3>
+                    <p>Simulate task planning speech</p>
+                </div>
+            </div>
+            
+            <button onclick="startSTT()" id="start-stt">🎤 Start Listening</button>
+            <button onclick="stopSTT()" id="stop-stt" disabled>⏹️ Stop Listening</button>
+            <button onclick="clearSTT()">🗑️ Clear</button>
+            
+            <div id="stt-status"></div>
+            <div id="confidence-display"></div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔄 Full Voice Workflow Test</h2>
+        <p>Test the complete voice interaction workflow:</p>
+        <ol>
+            <li>Speak your tasks using the STT section</li>
+            <li>Copy the recognized text to the TTS section</li>
+            <li>Hear the AI analysis response</li>
+        </ol>
+        
+        <button onclick="testFullWorkflow()">🚀 Test Full Workflow</button>
+        <div id="workflow-status"></div>
+    </div>
+
+    <script>
+        let currentUtterance = null;
+        let voices = [];
+        let recognition = null;
+        let ttsMode = 'basic';
+        let sttMode = 'basic';
+        let isListening = false;
+
+        // Initialize on page load
+        window.onload = function() {
+            checkSupport();
+            setupSTT();
+        };
+
+        function checkSupport() {
+            const supportDiv = document.getElementById('support-status');
+            const voicesDiv = document.getElementById('voices-list');
+            
+            let supportStatus = '<div class="status info">Checking browser support...</div>';
+            
+            // Check TTS support
+            if ('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window) {
+                supportStatus = '<div class="status success">✅ TTS is supported</div>';
+                
+                // Load voices
+                voices = speechSynthesis.getVoices();
+                if (voices.length === 0) {
+                    speechSynthesis.onvoiceschanged = () => {
+                        voices = speechSynthesis.getVoices();
+                        displayVoices();
+                    };
+                } else {
+                    displayVoices();
+                }
+            } else {
+                supportStatus = '<div class="status error">❌ TTS is not supported</div>';
+            }
+            
+            // Check STT support
+            if ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window) {
+                supportStatus += '<div class="status success">✅ STT is supported</div>';
+            } else {
+                supportStatus += '<div class="status error">❌ STT is not supported</div>';
+            }
+            
+            supportDiv.innerHTML = supportStatus;
+        }
+
+        function displayVoices() {
+            const voicesDiv = document.getElementById('voices-list');
+            voicesDiv.innerHTML = '<h3>Available TTS Voices:</h3><ul>' + 
+                voices.map(voice => `<li>${voice.name} (${voice.lang})</li>`).join('') + 
+                '</ul>';
+        }
+
+        function setTTSMode(mode) {
+            ttsMode = mode;
+            document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.toggle-btn').classList.add('active');
+        }
+
+        function setSTTMode(mode) {
+            sttMode = mode;
+            document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.closest('.toggle-btn').classList.add('active');
+        }
+
+        function testTTS() {
+            const text = document.getElementById('tts-input').value;
+            if (!text.trim()) {
+                updateStatus('tts-status', 'Please enter some text to speak', 'error');
+                return;
+            }
+
+            let speakText = text;
+            if (ttsMode === 'ai') {
+                speakText = `I've analyzed your input and created a comprehensive plan. ${text} I recommend breaking this down into manageable tasks and scheduling them throughout your day for optimal productivity.`;
+            }
+
+            speak(speakText);
+        }
+
+        function speak(text, options = {}) {
+            stopTTS();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            
+            if (options.voice) {
+                utterance.voice = options.voice;
+            }
+            if (options.rate) {
+                utterance.rate = options.rate;
+            }
+            if (options.pitch) {
+                utterance.pitch = options.pitch;
+            }
+            if (options.volume) {
+                utterance.volume = options.volume;
+            }
+
+            utterance.onstart = () => {
+                updateStatus('tts-status', '🔊 Speaking: ' + text.substring(0, 50) + '...', 'info');
+            };
+
+            utterance.onend = () => {
+                updateStatus('tts-status', '✅ Finished speaking', 'success');
+                currentUtterance = null;
+            };
+
+            utterance.onerror = (event) => {
+                updateStatus('tts-status', '❌ TTS Error: ' + event.error, 'error');
+                currentUtterance = null;
+            };
+
+            currentUtterance = utterance;
+            speechSynthesis.speak(utterance);
+        }
+
+        function testVoiceSelection() {
+            if (voices.length > 1) {
+                const text = "This is a test of voice selection. I'm using a different voice now.";
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.voice = voices[1];
+                speakUtterance(utterance);
+            } else {
+                updateStatus('tts-status', 'Only one voice available', 'warning');
+            }
+        }
+
+        function testRateControl() {
+            const text = "This is a test of speech rate control. I'm speaking at a different speed.";
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.8;
+            speakUtterance(utterance);
+        }
+
+        function speakUtterance(utterance) {
+            stopTTS();
+            currentUtterance = utterance;
+            
+            utterance.onstart = () => {
+                updateStatus('tts-status', '🔊 Speaking with custom settings...', 'info');
+            };
+
+            utterance.onend = () => {
+                updateStatus('tts-status', '✅ Finished speaking', 'success');
+                currentUtterance = null;
+            };
+
+            utterance.onerror = (event) => {
+                updateStatus('tts-status', '❌ TTS Error: ' + event.error, 'error');
+                currentUtterance = null;
+            };
+
+            speechSynthesis.speak(utterance);
+        }
+
+        function stopTTS() {
+            if (currentUtterance) {
+                speechSynthesis.cancel();
+                updateStatus('tts-status', '⏹️ TTS stopped', 'info');
+                currentUtterance = null;
+            }
+        }
+
+        function setupSTT() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (SpeechRecognition) {
+                recognition = new SpeechRecognition();
+                recognition.continuous = false;
+                recognition.interimResults = true;
+                recognition.lang = 'en-US';
+
+                recognition.onstart = () => {
+                    isListening = true;
+                    updateStatus('stt-status', '🎤 Listening...', 'info');
+                    document.getElementById('start-stt').disabled = true;
+                    document.getElementById('stop-stt').disabled = false;
+                    showVoiceWave();
+                };
+
+                recognition.onend = () => {
+                    isListening = false;
+                    updateStatus('stt-status', '✅ Stopped listening', 'success');
+                    document.getElementById('start-stt').disabled = false;
+                    document.getElementById('stop-stt').disabled = true;
+                    hideVoiceWave();
+                };
+
+                recognition.onresult = (event) => {
+                    let finalTranscript = '';
+                    let interimTranscript = '';
+                    let confidence = 0;
+
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        const isFinal = event.results[i].isFinal;
+                        
+                        if (isFinal) {
+                            finalTranscript += transcript;
+                            confidence = Math.max(confidence, event.results[i][0].confidence);
+                        } else {
+                            interimTranscript += transcript;
+                        }
+                    }
+
+                    const output = document.getElementById('stt-output');
+                    output.value = finalTranscript || interimTranscript;
+                    
+                    if (confidence > 0) {
+                        showConfidence(confidence);
+                    }
+                };
+
+                recognition.onerror = (event) => {
+                    isListening = false;
+                    updateStatus('stt-status', '❌ STT Error: ' + getErrorMessage(event.error), 'error');
+                    document.getElementById('start-stt').disabled = false;
+                    document.getElementById('stop-stt').disabled = true;
+                    hideVoiceWave();
+                };
+
+                recognition.onnomatch = () => {
+                    isListening = false;
+                    updateStatus('stt-status', '❌ No speech was recognized', 'error');
+                    document.getElementById('start-stt').disabled = false;
+                    document.getElementById('stop-stt').disabled = true;
+                    hideVoiceWave();
+                };
+            }
+        }
+
+        function startSTT() {
+            if (!recognition) {
+                updateStatus('stt-status', '❌ Speech recognition not available', 'error');
+                return;
+            }
+
+            try {
+                recognition.start();
+            } catch (error) {
+                updateStatus('stt-status', '❌ Failed to start recognition: ' + error, 'error');
+            }
+        }
+
+        function stopSTT() {
+            if (recognition && isListening) {
+                recognition.stop();
+            }
+        }
+
+        function clearSTT() {
+            document.getElementById('stt-output').value = '';
+            document.getElementById('confidence-display').innerHTML = '';
+        }
+
+        function showVoiceWave() {
+            const statusDiv = document.getElementById('stt-status');
+            const waveDiv = document.createElement('div');
+            waveDiv.className = 'voice-wave';
+            waveDiv.id = 'voice-wave';
+            for (let i = 0; i < 5; i++) {
+                const bar = document.createElement('div');
+                bar.className = 'voice-wave-bar';
+                waveDiv.appendChild(bar);
+            }
+            statusDiv.appendChild(waveDiv);
+        }
+
+        function hideVoiceWave() {
+            const waveDiv = document.getElementById('voice-wave');
+            if (waveDiv) {
+                waveDiv.remove();
+            }
+        }
+
+        function showConfidence(confidence) {
+            const confidenceDiv = document.getElementById('confidence-display');
+            let className = 'confidence-fair';
+            let text = 'Fair';
+            
+            if (confidence > 0.8) {
+                className = 'confidence-excellent';
+                text = 'Excellent';
+            } else if (confidence > 0.6) {
+                className = 'confidence-good';
+                text = 'Good';
+            }
+            
+            confidenceDiv.innerHTML = `<span class="confidence-indicator ${className}">${text} (${Math.round(confidence * 100)}%)</span>`;
+        }
+
+        function getErrorMessage(error) {
+            switch (error) {
+                case 'no-speech': return 'No speech was detected';
+                case 'audio-capture': return 'Audio capture failed';
+                case 'not-allowed': return 'Microphone access denied';
+                case 'network': return 'Network error occurred';
+                case 'service-not-allowed': return 'Speech recognition service not allowed';
+                case 'bad-grammar': return 'Bad grammar in speech';
+                case 'language-not-supported': return 'Language not supported';
+                default: return error;
+            }
+        }
+
+        function testFullWorkflow() {
+            updateStatus('workflow-status', '🚀 Starting full workflow test...', 'info');
+            
+            // Simulate the workflow
+            setTimeout(() => {
+                const sampleSpeech = "I need to go to the gym, prepare for tomorrow's meeting, and buy groceries";
+                document.getElementById('stt-output').value = sampleSpeech;
+                updateStatus('workflow-status', '✅ Speech recognized: "' + sampleSpeech + '"', 'success');
+                
+                setTimeout(() => {
+                    const aiResponse = "I've analyzed your input and created 3 tasks for you. The plan includes fitness, work, and personal activities totaling 120 minutes. Gym workout at 07:00. Meeting preparation at 09:30. Grocery shopping at 14:00. Would you like me to add these to your schedule?";
+                    document.getElementById('tts-input').value = aiResponse;
+                    updateStatus('workflow-status', '✅ AI analysis generated', 'success');
+                    
+                    setTimeout(() => {
+                        speak(aiResponse);
+                        updateStatus('workflow-status', '🎉 Full workflow test completed!', 'success');
+                    }, 1000);
+                }, 1000);
+            }, 1000);
+        }
+
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+    </script>
+</body>
+</html> 

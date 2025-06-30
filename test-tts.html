@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTS Test - HealthyFlow</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #ffffff;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border: 1px solid #3a3a3a;
+        }
+        button {
+            background: #06b6d4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0891b2;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #065f46; }
+        .error { background: #7f1d1d; }
+        .info { background: #1e40af; }
+    </style>
+</head>
+<body>
+    <h1>🎤 TTS Test - HealthyFlow</h1>
+    
+    <div class="test-section">
+        <h2>Browser TTS Support</h2>
+        <div id="tts-support"></div>
+        <div id="voices-list"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Voice Controls</h2>
+        <button onclick="testBasicTTS()">Test Basic TTS</button>
+        <button onclick="testVoiceSelection()">Test Voice Selection</button>
+        <button onclick="testRateControl()">Test Rate Control</button>
+        <button onclick="stopTTS()">Stop TTS</button>
+        <div id="tts-status"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>AI Analyzer Simulation</h2>
+        <button onclick="testAIAnalysis()">Simulate AI Analysis</button>
+        <button onclick="testTaskDetails()">Test Task Details</button>
+        <div id="ai-status"></div>
+    </div>
+
+    <script>
+        let currentUtterance = null;
+        let voices = [];
+
+        // Check TTS support
+        function checkTTSSupport() {
+            const supportDiv = document.getElementById('tts-support');
+            const voicesDiv = document.getElementById('voices-list');
+            
+            if ('speechSynthesis' in window && 'SpeechSynthesisUtterance' in window) {
+                supportDiv.innerHTML = '<div class="status success">✅ TTS is supported in this browser</div>';
+                
+                // Load voices
+                voices = speechSynthesis.getVoices();
+                if (voices.length === 0) {
+                    speechSynthesis.onvoiceschanged = () => {
+                        voices = speechSynthesis.getVoices();
+                        displayVoices();
+                    };
+                } else {
+                    displayVoices();
+                }
+            } else {
+                supportDiv.innerHTML = '<div class="status error">❌ TTS is not supported in this browser</div>';
+            }
+        }
+
+        function displayVoices() {
+            const voicesDiv = document.getElementById('voices-list');
+            voicesDiv.innerHTML = '<h3>Available Voices:</h3><ul>' + 
+                voices.map(voice => `<li>${voice.name} (${voice.lang})</li>`).join('') + 
+                '</ul>';
+        }
+
+        function testBasicTTS() {
+            const text = "Hello! I'm your AI productivity assistant. I'm here to help you plan your day effectively.";
+            speak(text);
+        }
+
+        function testVoiceSelection() {
+            if (voices.length > 0) {
+                const text = "This is a test of voice selection. I'm using a different voice now.";
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.voice = voices[1] || voices[0]; // Use second voice if available
+                speakUtterance(utterance);
+            }
+        }
+
+        function testRateControl() {
+            const text = "This is a test of speech rate control. I'm speaking at a different speed.";
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.8; // Slower speed
+            speakUtterance(utterance);
+        }
+
+        function testAIAnalysis() {
+            const summary = "I've analyzed your input and created 3 tasks for you. The plan includes health, work, and personal activities totaling 120 minutes. Morning meditation at 07:00. Deep work session at 09:30. Evening reading at 20:00. Would you like me to add these to your schedule?";
+            speak(summary);
+        }
+
+        function testTaskDetails() {
+            const taskDetails = "Morning meditation. This is a high priority health task. Estimated duration: 15 minutes. Scheduled for 07:00.";
+            speak(taskDetails);
+        }
+
+        function speak(text, options = {}) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            
+            if (options.voice) {
+                utterance.voice = options.voice;
+            }
+            if (options.rate) {
+                utterance.rate = options.rate;
+            }
+            if (options.pitch) {
+                utterance.pitch = options.pitch;
+            }
+            if (options.volume) {
+                utterance.volume = options.volume;
+            }
+
+            speakUtterance(utterance);
+        }
+
+        function speakUtterance(utterance) {
+            // Stop any current speech
+            if (currentUtterance) {
+                speechSynthesis.cancel();
+            }
+
+            currentUtterance = utterance;
+            
+            utterance.onstart = () => {
+                document.getElementById('tts-status').innerHTML = 
+                    '<div class="status info">🔊 Speaking: ' + utterance.text.substring(0, 50) + '...</div>';
+            };
+
+            utterance.onend = () => {
+                document.getElementById('tts-status').innerHTML = 
+                    '<div class="status success">✅ Finished speaking</div>';
+                currentUtterance = null;
+            };
+
+            utterance.onerror = (event) => {
+                document.getElementById('tts-status').innerHTML = 
+                    '<div class="status error">❌ TTS Error: ' + event.error + '</div>';
+                currentUtterance = null;
+            };
+
+            speechSynthesis.speak(utterance);
+        }
+
+        function stopTTS() {
+            if (currentUtterance) {
+                speechSynthesis.cancel();
+                document.getElementById('tts-status').innerHTML = 
+                    '<div class="status info">⏹️ TTS stopped</div>';
+                currentUtterance = null;
+            }
+        }
+
+        // Initialize on page load
+        window.onload = function() {
+            checkTTSSupport();
+        };
+    </script>
+</body>
+</html> 
