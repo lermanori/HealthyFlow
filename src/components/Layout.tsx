@@ -10,6 +10,7 @@ import {
   Sparkles
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import PWAInstallPrompt from './PWAInstallPrompt'
 
 interface LayoutProps {
   children: ReactNode
@@ -28,6 +29,9 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-gray-900">
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
+      
       {/* Futuristic background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse"></div>
