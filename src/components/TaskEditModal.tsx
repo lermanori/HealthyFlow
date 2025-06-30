@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Clock, Tag, Repeat } from 'lucide-react'
+import { X, Clock, Tag, Repeat, Sparkles } from 'lucide-react'
 import { Task } from '../services/api'
 
 interface TaskEditModalProps {
@@ -38,10 +38,10 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
   }
 
   const categories = [
-    { value: 'health', label: 'Health', color: 'bg-green-100 text-green-800' },
-    { value: 'work', label: 'Work', color: 'bg-blue-100 text-blue-800' },
-    { value: 'personal', label: 'Personal', color: 'bg-purple-100 text-purple-800' },
-    { value: 'fitness', label: 'Fitness', color: 'bg-orange-100 text-orange-800' },
+    { value: 'health', label: 'Health', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
+    { value: 'work', label: 'Work', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+    { value: 'personal', label: 'Personal', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
+    { value: 'fitness', label: 'Fitness', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
   ]
 
   return (
@@ -52,7 +52,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="absolute inset-0 bg-black bg-opacity-50"
+            className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
             onClick={onClose}
           />
           
@@ -60,21 +60,26 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4"
+            className="relative card ai-glow w-full max-w-md mx-4"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Edit Task</h2>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center animate-float">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-100 neon-text">Edit Task</h2>
+              </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-700 transition-colors text-gray-400 hover:text-gray-200"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="title" className="block text-sm font-medium text-gray-200 mb-2">
                   Title
                 </label>
                 <input
@@ -88,23 +93,23 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-200 mb-3">
                   <Tag className="w-4 h-4 inline mr-1" />
                   Category
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-3">
                   {categories.map((category) => (
                     <button
                       key={category.value}
                       type="button"
                       onClick={() => setFormData({ ...formData, category: category.value })}
-                      className={`p-2 rounded-lg border-2 text-left transition-colors ${
+                      className={`p-3 rounded-xl border-2 text-left transition-all duration-300 ${
                         formData.category === category.value
-                          ? 'border-primary-500 bg-primary-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/20'
+                          : 'border-gray-600 hover:border-gray-500 bg-gray-800/50'
                       }`}
                     >
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${category.color}`}>
+                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${category.color}`}>
                         {category.label}
                       </span>
                     </button>
@@ -114,7 +119,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="startTime" className="block text-sm font-medium text-gray-200 mb-2">
                     <Clock className="w-4 h-4 inline mr-1" />
                     Start Time
                   </label>
@@ -127,7 +132,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                   />
                 </div>
                 <div>
-                  <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="duration" className="block text-sm font-medium text-gray-200 mb-2">
                     Duration (min)
                   </label>
                   <input
@@ -143,7 +148,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                 </div>
               </div>
 
-              <div className="flex items-center justify-end space-x-3 pt-4">
+              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-gray-700/50">
                 <button
                   type="button"
                   onClick={onClose}

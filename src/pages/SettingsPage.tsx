@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Key, Save } from 'lucide-react'
+import { Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Key, Save, Brain, Sparkles } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
 import toast from 'react-hot-toast'
@@ -81,10 +81,10 @@ export default function SettingsPage() {
   }) => (
     <div className="flex items-center justify-between py-4">
       <div className="flex-1">
-        <h3 className={`text-sm font-medium ${disabled ? 'text-gray-400' : 'text-gray-900'}`}>
+        <h3 className={`text-sm font-medium ${disabled ? 'text-gray-500' : 'text-gray-200'}`}>
           {label}
         </h3>
-        <p className={`text-sm ${disabled ? 'text-gray-400' : 'text-gray-600'}`}>
+        <p className={`text-sm ${disabled ? 'text-gray-600' : 'text-gray-400'}`}>
           {description}
         </p>
       </div>
@@ -93,10 +93,10 @@ export default function SettingsPage() {
         disabled={disabled}
         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
           disabled 
-            ? 'bg-gray-200 cursor-not-allowed'
+            ? 'bg-gray-700 cursor-not-allowed'
             : checked 
-              ? 'bg-primary-600' 
-              : 'bg-gray-200'
+              ? 'bg-cyan-500' 
+              : 'bg-gray-600'
         }`}
       >
         <span
@@ -112,20 +112,22 @@ export default function SettingsPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center space-x-3">
-        <Settings className="w-6 h-6 text-primary-600" />
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+        <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center animate-float">
+          <Settings className="w-4 h-4 text-white" />
+        </div>
+        <h1 className="text-2xl font-bold text-gray-100 neon-text">Settings</h1>
       </div>
 
       {/* Profile Section */}
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
-          <User className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Profile</h2>
+          <User className="w-5 h-5 text-cyan-400" />
+          <h2 className="text-lg font-semibold text-gray-100">Profile</h2>
         </div>
         
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+            <label className="block text-sm font-medium text-gray-200 mb-1">Name</label>
             <input
               type="text"
               value={user?.name || ''}
@@ -134,7 +136,7 @@ export default function SettingsPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-200 mb-1">Email</label>
             <input
               type="email"
               value={user?.email || ''}
@@ -146,16 +148,19 @@ export default function SettingsPage() {
       </div>
 
       {/* AI Configuration */}
-      <div className="card">
+      <div className="card ai-glow">
         <div className="flex items-center space-x-3 mb-4">
-          <Key className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold text-gray-900">AI Configuration</h2>
+          <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
+            <Brain className="w-3 h-3 text-white" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-100">AI Configuration</h2>
+          <Sparkles className="w-4 h-4 text-cyan-400 animate-neon-flicker" />
         </div>
 
         <div className="space-y-4">
-          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 className="text-sm font-medium text-blue-900 mb-2">OpenAI API Key</h3>
-            <p className="text-sm text-blue-700 mb-3">
+          <div className="p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/30 rounded-xl">
+            <h3 className="text-sm font-medium text-blue-300 mb-2">OpenAI API Key</h3>
+            <p className="text-sm text-gray-300 mb-3">
               Add your OpenAI API key to enable personalized AI recommendations and insights.
               Your key is stored locally and never sent to our servers.
             </p>
@@ -172,7 +177,7 @@ export default function SettingsPage() {
                   href="https://platform.openai.com/api-keys"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:text-blue-700"
+                  className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
                 >
                   Get your API key from OpenAI →
                 </a>
@@ -189,7 +194,7 @@ export default function SettingsPage() {
 
           {aiSettings.enableAI && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-200 mb-2">
                 AI Personality
               </label>
               <select
@@ -204,10 +209,10 @@ export default function SettingsPage() {
             </div>
           )}
 
-          <div className="flex items-center space-x-3 p-3 rounded-lg bg-gray-50">
-            <div className={`w-3 h-3 rounded-full ${aiSettings.enableAI ? 'bg-green-500' : 'bg-gray-400'}`}></div>
-            <span className="text-sm text-gray-700">
-              AI Features: {aiSettings.enableAI ? 'Enabled' : 'Disabled'}
+          <div className="flex items-center space-x-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700/50">
+            <div className={`w-3 h-3 rounded-full ${aiSettings.enableAI ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`}></div>
+            <span className="text-sm text-gray-300">
+              AI Features: {aiSettings.enableAI ? 'Enhanced Mode' : 'Basic Mode'}
             </span>
           </div>
         </div>
@@ -216,18 +221,18 @@ export default function SettingsPage() {
       {/* Notifications */}
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
-          <Bell className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Notifications</h2>
+          <Bell className="w-5 h-5 text-cyan-400" />
+          <h2 className="text-lg font-semibold text-gray-100">Notifications</h2>
         </div>
 
         {/* Browser Permission */}
         {permission.default && (
-          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mb-4 p-4 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl">
             <div className="flex items-center space-x-3">
-              <Smartphone className="w-5 h-5 text-blue-600" />
+              <Smartphone className="w-5 h-5 text-blue-400" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-blue-900">Enable Browser Notifications</p>
-                <p className="text-sm text-blue-700">Allow HealthyFlow to send you reminders and updates</p>
+                <p className="text-sm font-medium text-blue-300">Enable Browser Notifications</p>
+                <p className="text-sm text-gray-300">Allow HealthyFlow to send you reminders and updates</p>
               </div>
               <button
                 onClick={handleNotificationPermission}
@@ -240,18 +245,18 @@ export default function SettingsPage() {
         )}
 
         {permission.denied && (
-          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="mb-4 p-4 bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/30 rounded-xl">
             <div className="flex items-center space-x-3">
-              <Bell className="w-5 h-5 text-red-600" />
+              <Bell className="w-5 h-5 text-red-400" />
               <div>
-                <p className="text-sm font-medium text-red-900">Notifications Blocked</p>
-                <p className="text-sm text-red-700">Please enable notifications in your browser settings to receive reminders</p>
+                <p className="text-sm font-medium text-red-300">Notifications Blocked</p>
+                <p className="text-sm text-gray-300">Please enable notifications in your browser settings to receive reminders</p>
               </div>
             </div>
           </div>
         )}
         
-        <div className="divide-y divide-gray-200">
+        <div className="divide-y divide-gray-700/50">
           <SettingToggle
             label="Push Notifications"
             description="Receive notifications for task reminders and updates"
@@ -286,11 +291,11 @@ export default function SettingsPage() {
       {/* AI & Sync */}
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
-          <Sync className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Features</h2>
+          <Sync className="w-5 h-5 text-cyan-400" />
+          <h2 className="text-lg font-semibold text-gray-100">Features</h2>
         </div>
         
-        <div className="divide-y divide-gray-200">
+        <div className="divide-y divide-gray-700/50">
           <SettingToggle
             label="AI Suggestions"
             description="Get personalized recommendations based on your habits"
@@ -319,14 +324,14 @@ export default function SettingsPage() {
       {/* Privacy */}
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
-          <Shield className="w-5 h-5 text-gray-600" />
-          <h2 className="text-lg font-semibold text-gray-900">Privacy & Security</h2>
+          <Shield className="w-5 h-5 text-cyan-400" />
+          <h2 className="text-lg font-semibold text-gray-100">Privacy & Security</h2>
         </div>
         
         <div className="space-y-4">
-          <button className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors">
-            <div className="font-medium text-gray-900">Export Data</div>
-            <div className="text-sm text-gray-600">Download all your data in JSON format</div>
+          <button className="w-full text-left p-3 rounded-lg border border-gray-600 hover:bg-gray-800/50 transition-colors">
+            <div className="font-medium text-gray-200">Export Data</div>
+            <div className="text-sm text-gray-400">Download all your data in JSON format</div>
           </button>
           
           <button 
@@ -334,24 +339,24 @@ export default function SettingsPage() {
               localStorage.clear()
               toast.success('Cache cleared successfully')
             }}
-            className="w-full text-left p-3 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+            className="w-full text-left p-3 rounded-lg border border-gray-600 hover:bg-gray-800/50 transition-colors"
           >
-            <div className="font-medium text-gray-900">Clear Cache</div>
-            <div className="text-sm text-gray-600">Clear all locally stored data including API keys</div>
+            <div className="font-medium text-gray-200">Clear Cache</div>
+            <div className="text-sm text-gray-400">Clear all locally stored data including API keys</div>
           </button>
           
           {/* Clear All Tasks Button */}
           <button 
             onClick={handleClearAllTasks}
-            className="w-full text-left p-3 rounded-lg border border-red-200 hover:bg-red-50 transition-colors"
+            className="w-full text-left p-3 rounded-lg border border-red-500/30 hover:bg-red-500/10 transition-colors"
           >
-            <div className="font-medium text-red-600">Clear All Tasks</div>
-            <div className="text-sm text-red-500">Delete all your tasks from the database (cannot be undone)</div>
+            <div className="font-medium text-red-400">Clear All Tasks</div>
+            <div className="text-sm text-red-300">Delete all your tasks from the database (cannot be undone)</div>
           </button>
           
-          <button className="w-full text-left p-3 rounded-lg border border-red-200 hover:bg-red-50 transition-colors">
-            <div className="font-medium text-red-600">Delete Account</div>
-            <div className="text-sm text-red-500">Permanently delete your account and data</div>
+          <button className="w-full text-left p-3 rounded-lg border border-red-500/30 hover:bg-red-500/10 transition-colors">
+            <div className="font-medium text-red-400">Delete Account</div>
+            <div className="text-sm text-red-300">Permanently delete your account and data</div>
           </button>
         </div>
       </div>

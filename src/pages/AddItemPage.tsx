@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Clock, Repeat, Tag, Calendar } from 'lucide-react'
+import { ArrowLeft, Clock, Repeat, Tag, Calendar, Sparkles, Brain } from 'lucide-react'
 import { taskService } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { format, addDays } from 'date-fns'
@@ -53,10 +53,10 @@ export default function AddItemPage() {
   }
 
   const categories = [
-    { value: 'health', label: 'Health', color: 'bg-green-100 text-green-800' },
-    { value: 'work', label: 'Work', color: 'bg-blue-100 text-blue-800' },
-    { value: 'personal', label: 'Personal', color: 'bg-purple-100 text-purple-800' },
-    { value: 'fitness', label: 'Fitness', color: 'bg-orange-100 text-orange-800' },
+    { value: 'health', label: 'Health', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
+    { value: 'work', label: 'Work', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
+    { value: 'personal', label: 'Personal', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
+    { value: 'fitness', label: 'Fitness', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
   ]
 
   // Generate quick date options
@@ -72,17 +72,22 @@ export default function AddItemPage() {
       <div className="flex items-center space-x-4 mb-6">
         <button
           onClick={() => navigate('/')}
-          className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          className="p-3 rounded-xl hover:bg-gray-800/50 transition-all duration-300 text-gray-400 hover:text-cyan-400 hover:shadow-lg hover:shadow-cyan-500/20"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
-        <h1 className="text-2xl font-bold text-gray-900">Add New Item</h1>
+        <div className="flex items-center space-x-3">
+          <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center animate-float">
+            <Brain className="w-4 h-4 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-100 neon-text">Add New Item</h1>
+        </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="card space-y-6">
+      <form onSubmit={handleSubmit} className="card ai-glow space-y-6">
         {/* Title */}
         <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="title" className="block text-sm font-medium text-gray-200 mb-2">
             Title *
           </label>
           <input
@@ -98,40 +103,40 @@ export default function AddItemPage() {
 
         {/* Type */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
+          <label className="block text-sm font-medium text-gray-200 mb-3">
             Type
           </label>
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => setFormData({ ...formData, type: 'task' })}
-              className={`p-4 rounded-lg border-2 text-left transition-colors ${
+              className={`p-4 rounded-xl border-2 text-left transition-all duration-300 ${
                 formData.type === 'task'
-                  ? 'border-primary-500 bg-primary-50'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/20'
+                  : 'border-gray-600 hover:border-gray-500 bg-gray-800/50'
               }`}
             >
-              <div className="font-medium">Task</div>
-              <div className="text-sm text-gray-600">One-time or scheduled activity</div>
+              <div className="font-medium text-gray-100">Task</div>
+              <div className="text-sm text-gray-400">One-time or scheduled activity</div>
             </button>
             <button
               type="button"
               onClick={() => setFormData({ ...formData, type: 'habit' })}
-              className={`p-4 rounded-lg border-2 text-left transition-colors ${
+              className={`p-4 rounded-xl border-2 text-left transition-all duration-300 ${
                 formData.type === 'habit'
-                  ? 'border-primary-500 bg-primary-50'
-                  : 'border-gray-200 hover:border-gray-300'
+                  ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/20'
+                  : 'border-gray-600 hover:border-gray-500 bg-gray-800/50'
               }`}
             >
-              <div className="font-medium">Habit</div>
-              <div className="text-sm text-gray-600">Recurring daily activity</div>
+              <div className="font-medium text-gray-100">Habit</div>
+              <div className="text-sm text-gray-400">Recurring daily activity</div>
             </button>
           </div>
         </div>
 
         {/* Scheduled Date */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
+          <label className="block text-sm font-medium text-gray-200 mb-3">
             <Calendar className="w-4 h-4 inline mr-1" />
             Schedule For
           </label>
@@ -143,10 +148,10 @@ export default function AddItemPage() {
                 key={date.value}
                 type="button"
                 onClick={() => setFormData({ ...formData, scheduledDate: date.value })}
-                className={`p-2 rounded-lg border text-sm transition-colors ${
+                className={`p-3 rounded-xl border-2 text-sm transition-all duration-300 ${
                   formData.scheduledDate === date.value
-                    ? 'border-primary-500 bg-primary-50 text-primary-700'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-lg shadow-cyan-500/20'
+                    : 'border-gray-600 hover:border-gray-500 text-gray-300 bg-gray-800/50'
                 }`}
               >
                 {date.label}
@@ -166,7 +171,7 @@ export default function AddItemPage() {
 
         {/* Category */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
+          <label className="block text-sm font-medium text-gray-200 mb-3">
             <Tag className="w-4 h-4 inline mr-1" />
             Category
           </label>
@@ -176,13 +181,13 @@ export default function AddItemPage() {
                 key={category.value}
                 type="button"
                 onClick={() => setFormData({ ...formData, category: category.value })}
-                className={`p-3 rounded-lg border-2 text-left transition-colors ${
+                className={`p-3 rounded-xl border-2 text-left transition-all duration-300 ${
                   formData.category === category.value
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/20'
+                    : 'border-gray-600 hover:border-gray-500 bg-gray-800/50'
                 }`}
               >
-                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${category.color}`}>
+                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${category.color}`}>
                   {category.label}
                 </span>
               </button>
@@ -193,7 +198,7 @@ export default function AddItemPage() {
         {/* Time & Duration */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="startTime" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="startTime" className="block text-sm font-medium text-gray-200 mb-2">
               <Clock className="w-4 h-4 inline mr-1" />
               Start Time
             </label>
@@ -206,7 +211,7 @@ export default function AddItemPage() {
             />
           </div>
           <div>
-            <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="duration" className="block text-sm font-medium text-gray-200 mb-2">
               Duration (minutes)
             </label>
             <input
@@ -224,7 +229,7 @@ export default function AddItemPage() {
 
         {/* Repeat */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
+          <label className="block text-sm font-medium text-gray-200 mb-3">
             <Repeat className="w-4 h-4 inline mr-1" />
             Repeat
           </label>
@@ -238,10 +243,10 @@ export default function AddItemPage() {
                 key={option.value}
                 type="button"
                 onClick={() => setFormData({ ...formData, repeat: option.value as any })}
-                className={`p-3 rounded-lg border-2 text-center transition-colors ${
+                className={`p-3 rounded-xl border-2 text-center transition-all duration-300 ${
                   formData.repeat === option.value
-                    ? 'border-primary-500 bg-primary-50'
-                    : 'border-gray-200 hover:border-gray-300'
+                    ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-lg shadow-cyan-500/20'
+                    : 'border-gray-600 hover:border-gray-500 text-gray-300 bg-gray-800/50'
                 }`}
               >
                 {option.label}
@@ -251,7 +256,7 @@ export default function AddItemPage() {
         </div>
 
         {/* Submit */}
-        <div className="flex items-center justify-end space-x-3 pt-4">
+        <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-700/50">
           <button
             type="button"
             onClick={() => navigate('/')}
@@ -265,9 +270,15 @@ export default function AddItemPage() {
             className="btn-primary flex items-center space-x-2"
           >
             {addTaskMutation.isPending ? (
-              <LoadingSpinner size="sm" />
+              <>
+                <LoadingSpinner size="sm" />
+                <span>Adding...</span>
+              </>
             ) : (
-              <span>Add Item</span>
+              <>
+                <Sparkles className="w-4 h-4" />
+                <span>Add Item</span>
+              </>
             )}
           </button>
         </div>

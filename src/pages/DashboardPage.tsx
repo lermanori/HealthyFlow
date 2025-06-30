@@ -146,15 +146,19 @@ export default function DashboardPage() {
     return acc
   }, {} as Record<string, { total: number; completed: number }>)
 
-  // Clear today's tasks
-  const handleClearToday = async () => {
-    if (confirm('Are you sure you want to delete all tasks for today? This cannot be undone.')) {
+  // Clear current date's tasks
+  const handleClearCurrentDate = async () => {
+    const dateStr = format(selectedDate, 'yyyy-MM-dd')
+    const isToday = dateStr === format(new Date(), 'yyyy-MM-dd')
+    const dateLabel = isToday ? 'today' : formatRelativeDate(selectedDate).toLowerCase()
+    
+    if (confirm(`Are you sure you want to delete all tasks for ${dateLabel}? This cannot be undone.`)) {
       try {
-        await api.delete('/tasks', { params: { date: format(selectedDate, 'yyyy-MM-dd') } })
+        await api.delete('/tasks', { params: { date: dateStr } })
         queryClient.invalidateQueries({ queryKey: ['tasks'] })
-        toast.success('All tasks for today deleted')
+        toast.success(`All tasks for ${dateLabel} deleted`)
       } catch (e) {
-        toast.error('Failed to delete today\'s tasks')
+        toast.error(`Failed to delete ${dateLabel}'s tasks`)
       }
     }
   }
@@ -253,15 +257,15 @@ export default function DashboardPage() {
             <span>Ask AI</span>
           </motion.button>
 
-          {/* Clear Today's Tasks Button */}
+          {/* Clear Current Date's Tasks Button */}
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={handleClearToday}
+            onClick={handleClearCurrentDate}
             className="btn-secondary flex items-center space-x-2 text-red-400 border-red-400 hover:bg-red-500/10"
           >
             <span>🗑️</span>
-            <span>Clear Today</span>
+            <span>Clear {formatRelativeDate(selectedDate)}</span>
           </motion.button>
 
           <Link
