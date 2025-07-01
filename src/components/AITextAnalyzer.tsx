@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Brain, Sparkles, Wand2, Plus, X, Loader2, Key, Mic, Calendar, Clock } from 'lucide-react'
+import { Brain, Lightbulb, Heart, TrendingUp, X, Sparkles, Plus, Calendar, Clock } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { taskService } from '../services/api'
 import { useTTS } from '../hooks/useTTS'
@@ -539,6 +539,9 @@ Example output:
     { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
   ]
 
+  // Check if we're on mobile
+  const isMobile = window.innerWidth < 768
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -563,7 +566,6 @@ Example output:
                 </div>
               ) : (
                 <div className="flex items-center space-x-1">
-                  <Key className="w-3 h-3 text-yellow-400" />
                   <span className="text-xs text-yellow-400">Basic Mode</span>
                 </div>
               )}
@@ -581,7 +583,7 @@ Example output:
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto space-y-6">
+      <div className="flex-1 overflow-y-auto space-y-6 pb-20">
         {/* TTS Settings */}
         <TTSSettings
           ttsEnabled={ttsEnabled}
@@ -656,7 +658,7 @@ Example output:
             }`}
           >
             <span className="flex items-center space-x-2">
-              <Mic className="w-4 h-4" />
+              <span>🎤</span>
               <span>Speak</span>
             </span>
           </button>
@@ -666,7 +668,6 @@ Example output:
         {!hasOpenAIKey && (
           <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
             <div className="flex items-center space-x-2">
-              <Key className="w-4 h-4 text-yellow-400" />
               <span className="text-sm text-yellow-400 font-medium">Enhanced AI Available</span>
             </div>
             <p className="text-xs text-gray-300 mt-1">
@@ -714,14 +715,14 @@ Examples:
           >
             {isAnalyzing ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <span className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
                 <span className="text-white">
                   {hasOpenAIKey ? 'Analyzing with OpenAI...' : 'Analyzing with AI...'}
                 </span>
               </>
             ) : (
               <>
-                <Wand2 className="w-5 h-5" />
+                <Sparkles className="w-5 h-5" />
                 <span className="text-white">
                   {inputMode === 'voice' ? 'Analyze Voice Input' : 'Analyze & Generate Tasks'}
                 </span>
@@ -878,6 +879,20 @@ Examples:
           }
         </AnimatePresence>
       </div>
+
+      {/* Fixed Add Button at Bottom for Mobile */}
+      {suggestions.length > 0 && isMobile && (
+        <div className="fixed bottom-20 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30">
+          <button
+            onClick={addSelectedTasks}
+            disabled={selectedSuggestions.size === 0 || addTasksMutation.isPending}
+            className="btn-primary w-full flex items-center justify-center space-x-2"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add Selected Tasks ({selectedSuggestions.size})</span>
+          </button>
+        </div>
+      )}
     </motion.div>
   )
 }

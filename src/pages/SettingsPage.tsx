@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Save, Brain, Sparkles, Eye, EyeOff, Copy, Check } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
@@ -18,12 +18,6 @@ export default function SettingsPage() {
     completionSounds: true,
   })
 
-  const [aiSettings, setAiSettings] = useState({
-    openaiApiKey: localStorage.getItem('openai_api_key') || '',
-    enableAI: localStorage.getItem('openai_api_key') ? true : false,
-    aiPersonality: 'encouraging', // encouraging, professional, casual
-  })
-
   const [showApiKey, setShowApiKey] = useState(false)
   const [copied, setCopied] = useState(false)
   const [apiKeyParts, setApiKeyParts] = useState({
@@ -32,8 +26,14 @@ export default function SettingsPage() {
     suffix: ''
   })
 
+  const [aiSettings, setAiSettings] = useState({
+    openaiApiKey: localStorage.getItem('openai_api_key') || '',
+    enableAI: localStorage.getItem('openai_api_key') ? true : false,
+    aiPersonality: 'encouraging', // encouraging, professional, casual
+  })
+
   // Initialize API key parts when component loads
-  useState(() => {
+  useEffect(() => {
     const savedKey = localStorage.getItem('openai_api_key') || ''
     if (savedKey && savedKey.startsWith('sk-')) {
       setApiKeyParts({
@@ -42,7 +42,7 @@ export default function SettingsPage() {
         suffix: savedKey.substring(savedKey.length - 4)
       })
     }
-  })
+  }, [])
 
   const handleSettingChange = (key: string, value: boolean) => {
     setSettings(prev => ({ ...prev, [key]: value }))
@@ -83,15 +83,6 @@ export default function SettingsPage() {
     }
   }
 
-  const handleNotificationPermission = async () => {
-    const granted = await requestPermission()
-    if (granted) {
-      toast.success('Notifications enabled!')
-    } else {
-      toast.error('Notifications permission denied')
-    }
-  }
-
   const copyApiKey = () => {
     const key = aiSettings.openaiApiKey
     if (key) {
@@ -128,6 +119,15 @@ export default function SettingsPage() {
       }
     } catch (error) {
       toast.error('Failed to paste from clipboard')
+    }
+  }
+
+  const handleNotificationPermission = async () => {
+    const granted = await requestPermission()
+    if (granted) {
+      toast.success('Notifications enabled!')
+    } else {
+      toast.error('Notifications permission denied')
     }
   }
 
@@ -186,7 +186,7 @@ export default function SettingsPage() {
   )
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6 pb-24 md:pb-0">
       {/* Header */}
       <div className="flex items-center space-x-3">
         <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center animate-float">

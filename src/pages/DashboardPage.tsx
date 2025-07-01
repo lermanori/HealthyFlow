@@ -212,7 +212,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
+    <div className="space-y-4 md:space-y-6 pb-28 md:pb-0">
       {/* Smart Reminders */}
       <SmartReminders />
 

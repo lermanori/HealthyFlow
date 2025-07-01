@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode, useEffect, useState, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { 
   Home, 
@@ -24,6 +24,7 @@ export default function Layout({ children }: LayoutProps) {
   const { user, logout } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   // Check if device is mobile
   useEffect(() => {
@@ -308,7 +309,7 @@ export default function Layout({ children }: LayoutProps) {
         <MobileNavigation />
 
         {/* Main Content */}
-        <main className={`flex-1 ${isMobile ? 'p-4' : 'p-6'}`}>
+        <main className={`flex-1 ${isMobile ? 'p-4' : 'p-6'}`} ref={contentRef}>
           <div className={`${isMobile ? 'max-w-full' : 'max-w-6xl'} mx-auto`}>
             {children}
           </div>
