@@ -9,7 +9,8 @@ import {
   Brain,
   Sparkles,
   Menu,
-  X
+  X,
+  User
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import PWAInstallPrompt from './PWAInstallPrompt'
@@ -209,11 +210,15 @@ export default function Layout({ children }: LayoutProps) {
               <h1 className="text-lg font-bold text-gray-100 neon-text">HealthyFlow</h1>
             </div>
             
-            <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full flex items-center justify-center">
+            {/* Mobile User Menu Button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full flex items-center justify-center"
+            >
               <span className="text-white font-semibold text-sm">
                 {user?.name?.charAt(0).toUpperCase()}
               </span>
-            </div>
+            </button>
           </div>
         </header>
       )}
@@ -314,7 +319,7 @@ export default function Layout({ children }: LayoutProps) {
       {/* Mobile Bottom Navigation */}
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30">
-          <div className="grid grid-cols-4 gap-1 p-2">
+          <div className="grid grid-cols-5 gap-1 p-2">
             {navigation.map((item) => {
               const isActive = location.pathname === item.href
               return (
@@ -335,6 +340,15 @@ export default function Layout({ children }: LayoutProps) {
                 </Link>
               )
             })}
+            
+            {/* User Profile/Logout Button in Bottom Nav */}
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="flex flex-col items-center space-y-1 p-3 rounded-xl transition-all duration-300 text-gray-400 hover:text-gray-200 hover:bg-gray-800/50"
+            >
+              <User className="w-5 h-5" />
+              <span className="text-xs font-medium">Profile</span>
+            </button>
           </div>
           
           {/* Safe area padding for devices with home indicator */}
