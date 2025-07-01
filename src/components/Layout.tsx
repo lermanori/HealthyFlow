@@ -341,13 +341,13 @@ export default function Layout({ children }: LayoutProps) {
               )
             })}
             
-            {/* User Profile/Logout Button in Bottom Nav */}
+            {/* Logout Button in Bottom Nav */}
             <button
-              onClick={() => setIsMobileMenuOpen(true)}
+              onClick={logout}
               className="flex flex-col items-center space-y-1 p-3 rounded-xl transition-all duration-300 text-gray-400 hover:text-gray-200 hover:bg-gray-800/50"
             >
-              <User className="w-5 h-5" />
-              <span className="text-xs font-medium">Profile</span>
+              <LogOut className="w-5 h-5" />
+              <span className="text-xs font-medium">Logout</span>
             </button>
           </div>
           
