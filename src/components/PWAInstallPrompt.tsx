@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Download, X, Smartphone, Apple, Chrome } from 'lucide-react'
+import { Download, X, Smartphone, Apple } from 'lucide-react'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
@@ -141,26 +141,6 @@ export default function PWAInstallPrompt() {
       <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
         <p className="text-xs text-cyan-300">
           💡 Once installed, HealthyFlow will work offline and feel like a native app!
-        </p>
-      </div>
-    </div>
-  )
-
-  const AndroidInstallPrompt = () => (
-    <div className="space-y-4">
-      <div className="flex items-center space-x-3">
-        <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
-          <Smartphone className="w-4 h-4" />
-        </div>
-        <div>
-          <p className="font-medium text-sm">Install HealthyFlow</p>
-          <p className="text-xs opacity-90">Get the full app experience!</p>
-        </div>
-      </div>
-      
-      <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
-        <p className="text-xs text-cyan-300">
-          ✨ Works offline • Push notifications • Faster loading • Native feel
         </p>
       </div>
     </div>

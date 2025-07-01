@@ -38,6 +38,10 @@
     <!-- Preload critical resources -->
     <link rel="preload" href="/icons/icon-192x192.png" as="image" />
     
+    <!-- Performance optimizations -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
     <!-- Prevent zoom on iOS -->
     <style>
       html {
@@ -60,34 +64,129 @@
       body {
         overscroll-behavior-y: contain;
       }
+      
+      /* Loading screen */
+      #loading-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        transition: opacity 0.5s ease-out;
+      }
+      
+      .loading-logo {
+        width: 80px;
+        height: 80px;
+        background: linear-gradient(135deg, #06b6d4, #3b82f6);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+        animation: float 2s ease-in-out infinite;
+      }
+      
+      .loading-text {
+        color: #06b6d4;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 10px;
+        text-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
+      }
+      
+      .loading-subtitle {
+        color: #9ca3af;
+        font-family: system-ui, -apple-system, sans-serif;
+        font-size: 14px;
+        margin-bottom: 30px;
+      }
+      
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(6, 182, 212, 0.3);
+        border-top: 3px solid #06b6d4;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
     </style>
-<<<<<<< HEAD
-    <script type="module" crossorigin src="/assets/index-d89e9f8c.js"></script>
+    <script type="module" crossorigin src="/assets/index-49305aee.js"></script>
     <link rel="modulepreload" crossorigin href="/assets/vendor-2ff140ed.js">
     <link rel="modulepreload" crossorigin href="/assets/router-f0acf443.js">
     <link rel="modulepreload" crossorigin href="/assets/query-59b9af94.js">
-    <link rel="modulepreload" crossorigin href="/assets/ui-e220d47a.js">
-=======
-    <script type="module" crossorigin src="/assets/index-90a86fef.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/vendor-66b0ef43.js">
-    <link rel="modulepreload" crossorigin href="/assets/query-710939d6.js">
-    <link rel="modulepreload" crossorigin href="/assets/router-64fe0fcd.js">
-    <link rel="modulepreload" crossorigin href="/assets/ui-e3d3a3dc.js">
->>>>>>> c041bcd9011a2ed53b436c8189434195a6c246b0
-    <link rel="stylesheet" href="/assets/index-8d064487.css">
+    <link rel="modulepreload" crossorigin href="/assets/ui-b90f62dd.js">
+    <link rel="stylesheet" href="/assets/index-a3ffbc94.css">
   </head>
   <body>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+      <div class="loading-logo">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M9.5 2C8.67157 2 8 2.67157 8 3.5V4.5C8 5.32843 8.67157 6 9.5 6H14.5C15.3284 6 16 5.32843 16 4.5V3.5C16 2.67157 15.3284 2 14.5 2H9.5Z" fill="white"/>
+          <path d="M12 8C8.68629 8 6 10.6863 6 14C6 17.3137 8.68629 20 12 20C15.3137 20 18 17.3137 18 14C18 10.6863 15.3137 8 12 8Z" fill="white"/>
+          <path d="M12 10C11.4477 10 11 10.4477 11 11V14C11 14.5523 11.4477 15 12 15C12.5523 15 13 14.5523 13 14V11C13 10.4477 12.5523 10 12 10Z" fill="#06b6d4"/>
+        </svg>
+      </div>
+      <div class="loading-text">HealthyFlow</div>
+      <div class="loading-subtitle">AI-Powered Daily Planner</div>
+      <div class="loading-spinner"></div>
+    </div>
+    
     <div id="root"></div>
     
     
     <!-- PWA Registration Script -->
     <script>
+      // Hide loading screen when app loads
+      window.addEventListener('load', () => {
+        setTimeout(() => {
+          const loadingScreen = document.getElementById('loading-screen');
+          if (loadingScreen) {
+            loadingScreen.style.opacity = '0';
+            setTimeout(() => {
+              loadingScreen.style.display = 'none';
+            }, 500);
+          }
+        }, 1000);
+      });
+      
       // Register service worker
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
             .then((registration) => {
               console.log('SW registered: ', registration);
+              
+              // Check for updates
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // New content available, show update notification
+                    if (confirm('New version available! Reload to update?')) {
+                      window.location.reload();
+                    }
+                  }
+                });
+              });
             })
             .catch((registrationError) => {
               console.log('SW registration failed: ', registrationError);
@@ -95,76 +194,44 @@
         });
       }
       
-      // Install prompt
-      let deferredPrompt;
-      window.addEventListener('beforeinstallprompt', (e) => {
-        e.preventDefault();
-        deferredPrompt = e;
-        
-        // Show install button or banner
-        const installBanner = document.createElement('div');
-        installBanner.innerHTML = `
-          <div style="
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(135deg, #06b6d4, #3b82f6);
-            color: white;
-            padding: 12px 16px;
-            text-align: center;
-            z-index: 9999;
-            font-family: system-ui, -apple-system, sans-serif;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-          ">
-            <div style="display: flex; align-items: center; justify-content: space-between; max-width: 400px; margin: 0 auto;">
-              <span style="font-size: 14px; font-weight: 500;">📱 Install HealthyFlow for the best experience!</span>
-              <button id="install-btn" style="
-                background: rgba(255,255,255,0.2);
-                border: 1px solid rgba(255,255,255,0.3);
-                color: white;
-                padding: 6px 12px;
-                border-radius: 6px;
-                font-size: 12px;
-                font-weight: 500;
-                cursor: pointer;
-                margin-left: 8px;
-              ">Install</button>
-              <button id="close-banner" style="
-                background: none;
-                border: none;
-                color: white;
-                font-size: 18px;
-                cursor: pointer;
-                padding: 0 4px;
-                margin-left: 8px;
-              ">×</button>
-            </div>
-          </div>
-        `;
-        
-        document.body.appendChild(installBanner);
-        
-        document.getElementById('install-btn').addEventListener('click', () => {
-          deferredPrompt.prompt();
-          deferredPrompt.userChoice.then((choiceResult) => {
-            if (choiceResult.outcome === 'accepted') {
-              console.log('User accepted the install prompt');
-            }
-            deferredPrompt = null;
-            installBanner.remove();
-          });
-        });
-        
-        document.getElementById('close-banner').addEventListener('click', () => {
-          installBanner.remove();
-        });
-      });
+      // Handle app shortcuts
+      if ('navigator' in window && 'setAppBadge' in navigator) {
+        // Set app badge for unread notifications
+        navigator.setAppBadge(0);
+      }
       
       // Handle app installation
       window.addEventListener('appinstalled', (evt) => {
         console.log('App was installed');
+        // Track installation analytics
+        if ('gtag' in window) {
+          gtag('event', 'app_installed', {
+            event_category: 'PWA',
+            event_label: 'HealthyFlow'
+          });
+        }
       });
+      
+      // Handle online/offline status
+      window.addEventListener('online', () => {
+        console.log('App is online');
+        document.body.classList.remove('offline');
+      });
+      
+      window.addEventListener('offline', () => {
+        console.log('App is offline');
+        document.body.classList.add('offline');
+      });
+      
+      // Performance monitoring
+      if ('performance' in window) {
+        window.addEventListener('load', () => {
+          setTimeout(() => {
+            const perfData = performance.getEntriesByType('navigation')[0];
+            console.log('Page load time:', perfData.loadEventEnd - perfData.loadEventStart);
+          }, 0);
+        });
+      }
     </script>
   </body>
 </html>

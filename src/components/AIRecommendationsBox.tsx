@@ -7,12 +7,6 @@ import LoadingSpinner from './LoadingSpinner'
 
 export default function AIRecommendationsBox() {
   const [dismissedIds, setDismissedIds] = useState<string[]>([])
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
-
-  // Update isMobile state on window resize
-  window.addEventListener('resize', () => {
-    setIsMobile(window.innerWidth < 768)
-  })
 
   const { data: recommendations, isLoading } = useQuery({
     queryKey: ['ai-recommendations'],

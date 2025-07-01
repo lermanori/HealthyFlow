@@ -6,8 +6,10 @@
   "display": "standalone",
   "background_color": "#0f0f23",
   "theme_color": "#06b6d4",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
   "scope": "/",
+  "lang": "en",
+  "categories": ["productivity", "lifestyle", "health", "utilities"],
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
@@ -58,19 +60,20 @@
       "purpose": "maskable any"
     }
   ],
-  "categories": ["productivity", "lifestyle", "health"],
   "screenshots": [
     {
       "src": "/screenshots/desktop.png",
       "sizes": "1280x720",
       "type": "image/png",
-      "form_factor": "wide"
+      "form_factor": "wide",
+      "label": "HealthyFlow Desktop View"
     },
     {
       "src": "/screenshots/mobile.png",
       "sizes": "390x844",
       "type": "image/png",
-      "form_factor": "narrow"
+      "form_factor": "narrow",
+      "label": "HealthyFlow Mobile View"
     }
   ],
   "shortcuts": [
@@ -88,7 +91,7 @@
     },
     {
       "name": "Week View",
-      "short_name": "Week View",
+      "short_name": "Week View", 
       "description": "View weekly progress",
       "url": "/week",
       "icons": [
@@ -97,6 +100,24 @@
           "sizes": "96x96"
         }
       ]
+    },
+    {
+      "name": "AI Analyzer",
+      "short_name": "AI Analyzer",
+      "description": "Open AI task analyzer",
+      "url": "/?ai=true",
+      "icons": [
+        {
+          "src": "/icons/icon-96x96.png",
+          "sizes": "96x96"
+        }
+      ]
     }
-  ]
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "edge_side_panel": {
+    "preferred_width": 400
+  }
 }

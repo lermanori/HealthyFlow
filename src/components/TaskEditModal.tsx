@@ -64,9 +64,6 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
     return format(new Date(date), 'MMM d, yyyy')
   }
 
-  // Detect if we're on mobile
-  const isMobile = window.innerWidth < 768
-
   return (
     <AnimatePresence>
       {isOpen && (
