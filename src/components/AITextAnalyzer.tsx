@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Brain, Sparkles, Wand2, Plus, X, Loader2, Key, Mic } from 'lucide-react'
+import { Brain, Sparkles, Wand2, Plus, X, Loader2, Key, Mic, Calendar, Clock } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { taskService } from '../services/api'
 import { useTTS } from '../hooks/useTTS'
 import TTSSettings from './TTSSettings'
 import TTSActions from './TTSActions'
 import VoiceInput from './VoiceInput'
+import { format, addDays } from 'date-fns'
 import toast from 'react-hot-toast'
 
 interface TaskSuggestion {
@@ -17,6 +18,7 @@ interface TaskSuggestion {
   priority: 'high' | 'medium' | 'low'
   type: 'task' | 'habit'
   startTime?: string
+  scheduledDate: string // Make this required
 }
 
 interface AITextAnalyzerProps {
@@ -34,6 +36,7 @@ export default function AITextAnalyzer({
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [suggestions, setSuggestions] = useState<TaskSuggestion[]>([])
   const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(new Set())
+  const [defaultScheduleDate, setDefaultScheduleDate] = useState(scheduledDate || format(new Date(), 'yyyy-MM-dd'))
   
   // TTS State
   const [ttsEnabled, setTtsEnabled] = useState(enableTTS)
@@ -49,9 +52,7 @@ export default function AITextAnalyzer({
 
   const addTasksMutation = useMutation({
     mutationFn: async (tasks: Omit<TaskSuggestion, 'id' | 'priority'>[]) => {
-      console.log('AITextAnalyzer - scheduledDate prop:', scheduledDate)
-      console.log('AITextAnalyzer - fallback date:', new Date().toISOString().split('T')[0])
-      console.log('AITextAnalyzer - final scheduledDate:', scheduledDate || new Date().toISOString().split('T')[0])
+      console.log('AITextAnalyzer - Adding tasks with dates:', tasks)
       
       const promises = tasks.map(task => 
         taskService.addTask({
@@ -61,14 +62,31 @@ export default function AITextAnalyzer({
           duration: task.estimatedDuration,
           startTime: task.startTime,
           repeat: task.type === 'habit' ? 'daily' : 'none',
-          scheduledDate: scheduledDate || new Date().toISOString().split('T')[0]
+          scheduledDate: task.scheduledDate
         })
       )
       return Promise.all(promises)
     },
     onSuccess: (tasks) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      toast.success(`Added ${tasks.length} task${tasks.length > 1 ? 's' : ''} successfully! 🚀`)
+      
+      // Group tasks by date for better feedback
+      const tasksByDate = tasks.reduce((acc, task) => {
+        const date = task.scheduledDate || 'unknown'
+        if (!acc[date]) acc[date] = []
+        acc[date].push(task.title)
+        return acc
+      }, {} as Record<string, string[]>)
+      
+      // Show success message with date info
+      const dateInfo = Object.entries(tasksByDate).map(([date, taskTitles]) => {
+        const dateLabel = date === format(new Date(), 'yyyy-MM-dd') ? 'today' : 
+                         date === format(addDays(new Date(), 1), 'yyyy-MM-dd') ? 'tomorrow' :
+                         format(new Date(date), 'MMM d')
+        return `${taskTitles.length} task${taskTitles.length > 1 ? 's' : ''} for ${dateLabel}`
+      }).join(', ')
+      
+      toast.success(`Added ${tasks.length} task${tasks.length > 1 ? 's' : ''} successfully! (${dateInfo}) 🚀`)
       setSuggestions([])
       setInputText('')
       setSelectedSuggestions(new Set())
@@ -87,21 +105,37 @@ export default function AITextAnalyzer({
     const categories = [...new Set(suggestions.map(s => s.category))]
     const totalDuration = suggestions.reduce((sum, s) => sum + s.estimatedDuration, 0)
     
-    const taskList = suggestions.map(s => 
-      `${s.title} at ${s.startTime || 'flexible time'}`
-    ).join('. ')
+    // Group by date for better summary
+    const tasksByDate = suggestions.reduce((acc, task) => {
+      const date = task.scheduledDate
+      if (!acc[date]) acc[date] = []
+      acc[date].push(task)
+      return acc
+    }, {} as Record<string, TaskSuggestion[]>)
     
-    return `I've analyzed your input and created ${totalTasks} tasks for you. 
+    const dateInfo = Object.entries(tasksByDate).map(([date, tasks]) => {
+      const dateLabel = date === format(new Date(), 'yyyy-MM-dd') ? 'today' : 
+                       date === format(addDays(new Date(), 1), 'yyyy-MM-dd') ? 'tomorrow' :
+                       format(new Date(date), 'EEEE, MMMM d')
+      const taskList = tasks.map(t => `${t.title} at ${t.startTime || 'flexible time'}`).join(', ')
+      return `${tasks.length} task${tasks.length > 1 ? 's' : ''} for ${dateLabel}: ${taskList}`
+    }).join('. ')
+    
+    return `I've analyzed your input and created ${totalTasks} tasks across ${Object.keys(tasksByDate).length} day${Object.keys(tasksByDate).length > 1 ? 's' : ''}. 
       The plan includes ${categories.join(', ')} activities totaling ${totalDuration} minutes. 
-      ${taskList}. 
+      ${dateInfo}. 
       Would you like me to add these to your schedule?`
   }
 
   // Speak individual task details
   const speakTaskDetails = (task: TaskSuggestion) => {
+    const dateLabel = task.scheduledDate === format(new Date(), 'yyyy-MM-dd') ? 'today' : 
+                     task.scheduledDate === format(addDays(new Date(), 1), 'yyyy-MM-dd') ? 'tomorrow' :
+                     format(new Date(task.scheduledDate), 'EEEE, MMMM d')
+    
     const text = `${task.title}. This is a ${task.priority} priority ${task.category} task. 
       Estimated duration: ${task.estimatedDuration} minutes. 
-      ${task.startTime ? `Scheduled for ${task.startTime}` : 'Flexible timing'}.`
+      Scheduled for ${dateLabel} ${task.startTime ? `at ${task.startTime}` : 'with flexible timing'}.`
     
     speak(text, { 
       voice: selectedVoice, 
@@ -122,7 +156,7 @@ export default function AITextAnalyzer({
 
   // Test voice function
   const testVoice = () => {
-    const testText = "Hello! I'm your AI productivity assistant. I'm here to help you plan your day effectively."
+    const testText = "Hello! I'm your AI productivity assistant. I can help you plan tasks for today, tomorrow, or any future date."
     speak(testText, { 
       voice: selectedVoice, 
       rate: speechRate 
@@ -152,7 +186,7 @@ export default function AITextAnalyzer({
         messages: [
           {
             role: 'system',
-            content: `Convert user input into actionable tasks. Respond ONLY with a valid JSON array.
+            content: `Convert user input into actionable tasks with smart date scheduling. Respond ONLY with a valid JSON array.
 
 Required fields for each task:
 - title: Clear, specific task name
@@ -160,36 +194,46 @@ Required fields for each task:
 - estimatedDuration: Time in minutes
 - priority: "high", "medium", or "low"
 - type: "habit" for daily activities, "task" for one-time
-- startTime: "HH:MM" format (24-hour)
+- startTime: "HH:MM" format (24-hour) or null for flexible
+- scheduledDate: "YYYY-MM-DD" format
 
-Keep it simple and direct. Focus on essential tasks only.
+SMART DATE SCHEDULING RULES:
+- If user mentions "today" or "now" → use today's date
+- If user mentions "tomorrow" → use tomorrow's date
+- If user mentions "this weekend" → use next Saturday
+- If user mentions "next week" → use next Monday
+- If user mentions "morning" → schedule for today if before 12pm, tomorrow if after
+- If user mentions "evening" or "tonight" → schedule for today
+- If user mentions specific days (Monday, Tuesday, etc.) → use the next occurrence
+- If no time context → use today's date as default
+- For habits → always use today's date
+- For work tasks → prefer weekdays
+- For personal tasks → can be any day
 
-Example input: "I want to have a productive day with exercise, work, and a date tonight"
+Today's date: ${format(new Date(), 'yyyy-MM-dd')}
+Tomorrow's date: ${format(addDays(new Date(), 1), 'yyyy-MM-dd')}
+Current time: ${format(new Date(), 'HH:mm')}
+
+Example input: "I want to go to the gym tomorrow morning and prepare for Monday's meeting"
 Example output:
 [
   {
-    "title": "Morning workout",
+    "title": "Gym workout",
     "category": "fitness",
+    "estimatedDuration": 60,
+    "priority": "high",
+    "type": "task",
+    "startTime": "07:00",
+    "scheduledDate": "${format(addDays(new Date(), 1), 'yyyy-MM-dd')}"
+  },
+  {
+    "title": "Prepare for meeting",
+    "category": "work",
     "estimatedDuration": 45,
     "priority": "high",
-    "type": "habit",
-    "startTime": "07:00"
-  },
-  {
-    "title": "Work on priority project",
-    "category": "work",
-    "estimatedDuration": 120,
-    "priority": "high",
     "type": "task",
-    "startTime": "09:00"
-  },
-  {
-    "title": "Prepare for date",
-    "category": "personal",
-    "estimatedDuration": 30,
-    "priority": "medium",
-    "type": "task",
-    "startTime": "18:00"
+    "startTime": "09:00",
+    "scheduledDate": "${format(addDays(new Date(), 1), 'yyyy-MM-dd')}"
   }
 ]`
           },
@@ -233,7 +277,8 @@ Example output:
         estimatedDuration: task.estimatedDuration || 30,
         priority: task.priority || 'medium',
         type: task.type || 'task',
-        startTime: task.startTime
+        startTime: task.startTime,
+        scheduledDate: task.scheduledDate || defaultScheduleDate
       }))
     } catch (error) {
       console.error('Failed to parse OpenAI response:', content)
@@ -317,6 +362,24 @@ Example output:
   const generateMockSuggestions = (text: string): TaskSuggestion[] => {
     const suggestions: TaskSuggestion[] = []
     const lowerText = text.toLowerCase()
+    
+    // Smart date detection for mock analysis
+    const getSmartDate = (text: string): string => {
+      const today = format(new Date(), 'yyyy-MM-dd')
+      const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd')
+      const weekend = format(addDays(new Date(), 6 - new Date().getDay()), 'yyyy-MM-dd')
+      
+      if (text.includes('tomorrow') || text.includes('next day')) return tomorrow
+      if (text.includes('weekend') || text.includes('saturday') || text.includes('sunday')) return weekend
+      if (text.includes('next week') || text.includes('monday')) return format(addDays(new Date(), 7), 'yyyy-MM-dd')
+      if (text.includes('today') || text.includes('now')) return today
+      
+      // Default based on time context
+      if (text.includes('morning') && new Date().getHours() > 12) return tomorrow
+      if (text.includes('evening') || text.includes('tonight')) return today
+      
+      return defaultScheduleDate
+    }
 
     // Simple keyword-based analysis (fallback when OpenAI is not available)
     if (lowerText.includes('workout') || lowerText.includes('exercise') || lowerText.includes('gym')) {
@@ -327,7 +390,8 @@ Example output:
         estimatedDuration: 60,
         priority: 'high',
         type: 'habit',
-        startTime: '07:00'
+        startTime: '07:00',
+        scheduledDate: getSmartDate(lowerText)
       })
     }
 
@@ -339,7 +403,8 @@ Example output:
         estimatedDuration: 30,
         priority: 'high',
         type: 'task',
-        startTime: '09:00'
+        startTime: '09:00',
+        scheduledDate: getSmartDate(lowerText)
       })
     }
 
@@ -351,7 +416,8 @@ Example output:
         estimatedDuration: 30,
         priority: 'medium',
         type: 'habit',
-        startTime: '20:00'
+        startTime: '20:00',
+        scheduledDate: getSmartDate(lowerText)
       })
     }
 
@@ -363,7 +429,8 @@ Example output:
         estimatedDuration: 15,
         priority: 'medium',
         type: 'habit',
-        startTime: '06:30'
+        startTime: '06:30',
+        scheduledDate: getSmartDate(lowerText)
       })
     }
 
@@ -375,7 +442,8 @@ Example output:
         estimatedDuration: 45,
         priority: 'medium',
         type: 'task',
-        startTime: '14:00'
+        startTime: '14:00',
+        scheduledDate: getSmartDate(lowerText)
       })
     }
 
@@ -387,7 +455,8 @@ Example output:
         category: 'personal',
         estimatedDuration: 30,
         priority: 'medium',
-        type: 'task'
+        type: 'task',
+        scheduledDate: getSmartDate(lowerText)
       })
     }
 
@@ -402,6 +471,12 @@ Example output:
       newSelected.add(id)
     }
     setSelectedSuggestions(newSelected)
+  }
+
+  const updateTaskDate = (taskId: string, newDate: string) => {
+    setSuggestions(prev => prev.map(task => 
+      task.id === taskId ? { ...task, scheduledDate: newDate } : task
+    ))
   }
 
   const addSelectedTasks = () => {
@@ -436,7 +511,33 @@ Example output:
     return colors[category as keyof typeof colors] || colors.personal
   }
 
+  const getDateLabel = (date: string) => {
+    const today = format(new Date(), 'yyyy-MM-dd')
+    const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd')
+    
+    if (date === today) return 'Today'
+    if (date === tomorrow) return 'Tomorrow'
+    return format(new Date(date), 'MMM d')
+  }
+
+  const getDateColor = (date: string) => {
+    const today = format(new Date(), 'yyyy-MM-dd')
+    const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd')
+    
+    if (date === today) return 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
+    if (date === tomorrow) return 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+    return 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+  }
+
   const hasOpenAIKey = !!localStorage.getItem('openai_api_key')
+
+  // Quick date options
+  const quickDates = [
+    { label: 'Today', value: format(new Date(), 'yyyy-MM-dd') },
+    { label: 'Tomorrow', value: format(addDays(new Date(), 1), 'yyyy-MM-dd') },
+    { label: 'This Weekend', value: format(addDays(new Date(), 6 - new Date().getDay()), 'yyyy-MM-dd') },
+    { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
+  ]
 
   return (
     <motion.div
@@ -494,6 +595,43 @@ Example output:
           onTestVoice={testVoice}
         />
 
+        {/* Default Schedule Date */}
+        <div className="bg-gray-800/50 rounded-xl p-4 border border-cyan-500/30">
+          <div className="flex items-center space-x-2 mb-3">
+            <Calendar className="w-4 h-4 text-cyan-400" />
+            <h4 className="text-sm font-medium text-gray-200">Default Schedule Date</h4>
+          </div>
+          
+          {/* Quick Date Buttons */}
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {quickDates.map((date) => (
+              <button
+                key={date.value}
+                onClick={() => setDefaultScheduleDate(date.value)}
+                className={`p-2 rounded-lg border text-xs transition-all duration-300 ${
+                  defaultScheduleDate === date.value
+                    ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400'
+                    : 'border-gray-600 hover:border-gray-500 text-gray-300 bg-gray-800/50'
+                }`}
+              >
+                {date.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Custom Date Picker */}
+          <input
+            type="date"
+            value={defaultScheduleDate}
+            onChange={(e) => setDefaultScheduleDate(e.target.value)}
+            className="input-field text-sm w-full"
+            min={format(new Date(), 'yyyy-MM-dd')}
+          />
+          <p className="text-xs text-gray-400 mt-2">
+            Tasks will be scheduled for this date unless specified otherwise in your input
+          </p>
+        </div>
+
         {/* Input Mode Toggle */}
         <div className="flex items-center justify-center space-x-2">
           <button
@@ -532,7 +670,7 @@ Example output:
               <span className="text-sm text-yellow-400 font-medium">Enhanced AI Available</span>
             </div>
             <p className="text-xs text-gray-300 mt-1">
-              Add your OpenAI API key in Settings for more intelligent task analysis
+              Add your OpenAI API key in Settings for more intelligent task analysis and smart date scheduling
             </p>
           </div>
         )}
@@ -548,9 +686,10 @@ Example output:
 
 Examples:
 • 'I need to prepare for tomorrow's presentation, go to the gym, and buy groceries'
-• 'Start a morning routine with meditation and reading'
+• 'Start a morning routine with meditation and reading for next week'
 • 'Plan a productive work day with meetings and focused coding time'
-• 'I want to have a testosterone-boosting day with surf session and a date tonight'"
+• 'I want to have a testosterone-boosting day with surf session and a date tonight'
+• 'Schedule gym sessions for this weekend and meal prep for Monday'"
                 className="input-field min-h-32 resize-none holographic text-gray-100 placeholder-gray-400"
                 disabled={isAnalyzing}
                 maxLength={500}
@@ -660,9 +799,51 @@ Examples:
                           </span>
                           {suggestion.startTime && (
                             <span className="px-2 py-1 rounded-full text-xs bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                              <Clock className="w-3 h-3 inline mr-1" />
                               {suggestion.startTime}
                             </span>
                           )}
+                          {/* Date Badge */}
+                          <span className={`px-2 py-1 rounded-full text-xs border ${getDateColor(suggestion.scheduledDate)}`}>
+                            <Calendar className="w-3 h-3 inline mr-1" />
+                            {getDateLabel(suggestion.scheduledDate)}
+                          </span>
+                        </div>
+
+                        {/* Date Selector */}
+                        <div className="mb-3">
+                          <label className="text-xs text-gray-400 block mb-1">Schedule for:</label>
+                          <div className="flex items-center space-x-2">
+                            <input
+                              type="date"
+                              value={suggestion.scheduledDate}
+                              onChange={(e) => {
+                                e.stopPropagation()
+                                updateTaskDate(suggestion.id, e.target.value)
+                              }}
+                              className="input-field text-xs py-1 px-2 w-auto"
+                              min={format(new Date(), 'yyyy-MM-dd')}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            <div className="flex space-x-1">
+                              {quickDates.slice(0, 2).map((date) => (
+                                <button
+                                  key={date.value}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    updateTaskDate(suggestion.id, date.value)
+                                  }}
+                                  className={`px-2 py-1 rounded text-xs transition-all ${
+                                    suggestion.scheduledDate === date.value
+                                      ? 'bg-cyan-500 text-white'
+                                      : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                                  }`}
+                                >
+                                  {date.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         </div>
 
                         {/* TTS Button for Individual Task */}
