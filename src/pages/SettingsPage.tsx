@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Save, Brain, Sparkles } from 'lucide-react'
+import { Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Save, Brain, Sparkles, Eye, EyeOff, Copy, Check } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
 import toast from 'react-hot-toast'
@@ -24,6 +24,26 @@ export default function SettingsPage() {
     aiPersonality: 'encouraging', // encouraging, professional, casual
   })
 
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [apiKeyParts, setApiKeyParts] = useState({
+    prefix: '',
+    middle: '',
+    suffix: ''
+  })
+
+  // Initialize API key parts when component loads
+  useState(() => {
+    const savedKey = localStorage.getItem('openai_api_key') || ''
+    if (savedKey && savedKey.startsWith('sk-')) {
+      setApiKeyParts({
+        prefix: savedKey.substring(0, 3),
+        middle: savedKey.substring(3, savedKey.length - 4),
+        suffix: savedKey.substring(savedKey.length - 4)
+      })
+    }
+  })
+
   const handleSettingChange = (key: string, value: boolean) => {
     setSettings(prev => ({ ...prev, [key]: value }))
     toast.success('Settings updated')
@@ -33,9 +53,27 @@ export default function SettingsPage() {
     setAiSettings(prev => ({ ...prev, [key]: value }))
   }
 
+  const handleApiKeyPartChange = (part: 'prefix' | 'middle' | 'suffix', value: string) => {
+    setApiKeyParts(prev => ({ ...prev, [part]: value }))
+    
+    // Reconstruct the full API key
+    const newParts = { ...apiKeyParts, [part]: value }
+    const fullKey = newParts.prefix + newParts.middle + newParts.suffix
+    
+    // Update the main state
+    setAiSettings(prev => ({ ...prev, openaiApiKey: fullKey }))
+  }
+
   const handleSaveAiSettings = () => {
-    if (aiSettings.openaiApiKey.trim()) {
-      localStorage.setItem('openai_api_key', aiSettings.openaiApiKey.trim())
+    // Reconstruct the full API key from parts if using the segmented input
+    let keyToSave = aiSettings.openaiApiKey
+    
+    if (apiKeyParts.prefix || apiKeyParts.middle || apiKeyParts.suffix) {
+      keyToSave = apiKeyParts.prefix + apiKeyParts.middle + apiKeyParts.suffix
+    }
+    
+    if (keyToSave.trim()) {
+      localStorage.setItem('openai_api_key', keyToSave.trim())
       setAiSettings(prev => ({ ...prev, enableAI: true }))
       toast.success('AI settings saved! You can now receive personalized recommendations.')
     } else {
@@ -51,6 +89,45 @@ export default function SettingsPage() {
       toast.success('Notifications enabled!')
     } else {
       toast.error('Notifications permission denied')
+    }
+  }
+
+  const copyApiKey = () => {
+    const key = aiSettings.openaiApiKey
+    if (key) {
+      navigator.clipboard.writeText(key)
+        .then(() => {
+          setCopied(true)
+          setTimeout(() => setCopied(false), 2000)
+          toast.success('API key copied to clipboard')
+        })
+        .catch(() => {
+          toast.error('Failed to copy API key')
+        })
+    }
+  }
+
+  const pasteApiKey = async () => {
+    try {
+      const text = await navigator.clipboard.readText()
+      if (text.trim().startsWith('sk-')) {
+        setAiSettings(prev => ({ ...prev, openaiApiKey: text.trim() }))
+        
+        // Also update the segmented parts
+        if (text.length > 7) {
+          setApiKeyParts({
+            prefix: text.substring(0, 3),
+            middle: text.substring(3, text.length - 4),
+            suffix: text.substring(text.length - 4)
+          })
+        }
+        
+        toast.success('API key pasted')
+      } else {
+        toast.error('Invalid API key format')
+      }
+    } catch (error) {
+      toast.error('Failed to paste from clipboard')
     }
   }
 
@@ -164,14 +241,85 @@ export default function SettingsPage() {
               Add your OpenAI API key to enable personalized AI recommendations and insights.
               Your key is stored locally and never sent to our servers.
             </p>
+            
+            {/* Mobile-friendly API Key Input */}
             <div className="space-y-3">
-              <input
-                type="password"
-                value={aiSettings.openaiApiKey}
-                onChange={(e) => handleAiSettingChange('openaiApiKey', e.target.value)}
-                placeholder="sk-..."
-                className="input-field"
-              />
+              {/* Standard Input with Show/Hide Toggle */}
+              <div className="relative">
+                <input
+                  type={showApiKey ? "text" : "password"}
+                  value={aiSettings.openaiApiKey}
+                  onChange={(e) => handleAiSettingChange('openaiApiKey', e.target.value)}
+                  placeholder="sk-..."
+                  className="input-field pr-20"
+                />
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                    className="p-2 rounded-lg hover:bg-gray-700/50 text-gray-400"
+                    aria-label={showApiKey ? "Hide API key" : "Show API key"}
+                  >
+                    {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={copyApiKey}
+                    className="p-2 rounded-lg hover:bg-gray-700/50 text-gray-400"
+                    aria-label="Copy API key"
+                  >
+                    {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+              
+              {/* Segmented Input for Mobile */}
+              <div className="space-y-2">
+                <label className="text-xs text-gray-400">
+                  Mobile-friendly input (enter your key in parts):
+                </label>
+                <div className="flex space-x-2">
+                  <div className="w-16">
+                    <input
+                      type="text"
+                      value={apiKeyParts.prefix}
+                      onChange={(e) => handleApiKeyPartChange('prefix', e.target.value)}
+                      placeholder="sk-"
+                      className="input-field text-center"
+                      maxLength={3}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <input
+                      type={showApiKey ? "text" : "password"}
+                      value={apiKeyParts.middle}
+                      onChange={(e) => handleApiKeyPartChange('middle', e.target.value)}
+                      placeholder="middle part"
+                      className="input-field"
+                    />
+                  </div>
+                  <div className="w-16">
+                    <input
+                      type="text"
+                      value={apiKeyParts.suffix}
+                      onChange={(e) => handleApiKeyPartChange('suffix', e.target.value)}
+                      placeholder="end"
+                      className="input-field text-center"
+                      maxLength={4}
+                    />
+                  </div>
+                </div>
+              </div>
+              
+              {/* Paste Button for Mobile */}
+              <button
+                onClick={pasteApiKey}
+                className="w-full p-3 rounded-lg bg-gray-700 hover:bg-gray-600 text-gray-300 flex items-center justify-center space-x-2"
+              >
+                <Smartphone className="w-4 h-4" />
+                <span>Paste from Clipboard</span>
+              </button>
+              
               <div className="flex items-center justify-between">
                 <a
                   href="https://platform.openai.com/api-keys"
