@@ -9,8 +9,7 @@ import {
   Brain,
   Sparkles,
   Menu,
-  X,
-  User
+  X
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import PWAInstallPrompt from './PWAInstallPrompt'
