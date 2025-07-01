@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Brain, Mail, Lock, Sparkles, Zap } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -8,7 +8,15 @@ export default function LoginPage() {
   const [email, setEmail] = useState('demo@healthyflow.com')
   const [password, setPassword] = useState('demo123')
   const [loading, setLoading] = useState(false)
+  const [isStandalone, setIsStandalone] = useState(false)
   const { login } = useAuth()
+
+  // Check if running in standalone mode (installed PWA)
+  useEffect(() => {
+    const standalone = window.matchMedia('(display-mode: standalone)').matches
+    const iosStandalone = (window.navigator as any).standalone === true
+    setIsStandalone(standalone || iosStandalone)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -16,6 +24,11 @@ export default function LoginPage() {
     
     try {
       await login(email, password)
+      
+      // Vibrate on successful login if supported
+      if ('navigator' in window && 'vibrate' in navigator) {
+        navigator.vibrate([100, 50, 200])
+      }
     } catch (error) {
       // Error is handled in AuthContext
     } finally {
@@ -69,7 +82,7 @@ export default function LoginPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <h1 className="text-3xl font-bold text-gray-100 neon-text mb-2">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-100 neon-text mb-2">
                 Welcome to HealthyFlow
               </h1>
               <p className="text-cyan-400 font-medium">AI-Powered Future Planner</p>
@@ -96,6 +109,7 @@ export default function LoginPage() {
                   className="input-field pl-12"
                   placeholder="Enter your email"
                   required
+                  autoComplete="email"
                 />
               </div>
             </motion.div>
@@ -118,6 +132,7 @@ export default function LoginPage() {
                   className="input-field pl-12"
                   placeholder="Enter your password"
                   required
+                  autoComplete="current-password"
                 />
               </div>
             </motion.div>
@@ -140,7 +155,7 @@ export default function LoginPage() {
               ) : (
                 <>
                   <Brain className="w-5 h-5" />
-                  <span>Initialize AI Session</span>
+                  <span>{isStandalone ? 'Login' : 'Initialize AI Session'}</span>
                   <Sparkles className="w-4 h-4 animate-neon-flicker" />
                 </>
               )}
@@ -163,6 +178,21 @@ export default function LoginPage() {
               </div>
             </div>
           </motion.div>
+          
+          {/* PWA Status Indicator */}
+          {isStandalone && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.8 }}
+              className="mt-4 p-3 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30"
+            >
+              <div className="flex items-center justify-center space-x-2">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+                <p className="text-xs text-cyan-400">Running as installed app</p>
+              </div>
+            </motion.div>
+          )}
         </div>
       </motion.div>
     </div>

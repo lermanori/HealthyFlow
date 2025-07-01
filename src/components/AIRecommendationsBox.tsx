@@ -7,6 +7,12 @@ import LoadingSpinner from './LoadingSpinner'
 
 export default function AIRecommendationsBox() {
   const [dismissedIds, setDismissedIds] = useState<string[]>([])
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+
+  // Update isMobile state on window resize
+  window.addEventListener('resize', () => {
+    setIsMobile(window.innerWidth < 768)
+  })
 
   const { data: recommendations, isLoading } = useQuery({
     queryKey: ['ai-recommendations'],
@@ -20,6 +26,11 @@ export default function AIRecommendationsBox() {
 
   const handleDismiss = (id: string) => {
     setDismissedIds(prev => [...prev, id])
+    
+    // Vibrate on dismiss if supported
+    if ('navigator' in window && 'vibrate' in navigator) {
+      navigator.vibrate(50)
+    }
   }
 
   const getIcon = (type: string) => {
@@ -118,6 +129,7 @@ export default function AIRecommendationsBox() {
               <button
                 onClick={() => handleDismiss(recommendation.id)}
                 className="absolute top-2 right-2 p-1 rounded-full hover:bg-black/20 transition-colors z-10"
+                aria-label="Dismiss"
               >
                 <X className="w-4 h-4" />
               </button>

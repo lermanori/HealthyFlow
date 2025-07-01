@@ -22,6 +22,12 @@ export default function DayTimeline({
   onDeleteTask 
 }: DayTimelineProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+
+  // Update isMobile state on window resize
+  window.addEventListener('resize', () => {
+    setIsMobile(window.innerWidth < 768)
+  })
 
   const handleDragEnd = (result: DropResult) => {
     setDraggedTaskId(null)
@@ -51,27 +57,29 @@ export default function DayTimeline({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold text-gray-100">Today's Schedule</h2>
-        <div className="text-sm text-gray-300">
+        <div className="text-sm text-gray-300 hidden md:block">
           Drag and drop to reorder tasks
         </div>
       </div>
 
       <DragDropContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
-        <div className="grid grid-cols-12 gap-4">
-          {/* Time column */}
-          <div className="col-span-2 space-y-4">
-            {timeSlots.map((time) => (
-              <div key={time} className="h-20 flex items-center">
-                <span className="text-sm text-gray-400 font-medium">{time}</span>
-              </div>
-            ))}
-          </div>
+        <div className={isMobile ? "space-y-3" : "grid grid-cols-12 gap-4"}>
+          {/* Time column - only show on desktop */}
+          {!isMobile && (
+            <div className="col-span-2 space-y-4">
+              {timeSlots.map((time) => (
+                <div key={time} className="h-20 flex items-center">
+                  <span className="text-sm text-gray-400 font-medium">{time}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Tasks column */}
-          <div className="col-span-10">
+          <div className={isMobile ? "w-full" : "col-span-10"}>
             <Droppable droppableId="tasks">
               {(provided, snapshot) => (
                 <div

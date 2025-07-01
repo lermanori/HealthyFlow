@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays } from 'date-fns'
 import { Plus, Calendar, ChevronLeft, ChevronRight, Brain, Sparkles } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import api, { taskService, Task } from '../services/api'
 import DayTimeline from '../components/DayTimeline'
 import HabitTrackerBar from '../components/HabitTrackerBar'
@@ -24,27 +24,50 @@ export default function DashboardPage() {
   const [showConfetti, setShowConfetti] = useState(false)
   const [showAIAnalyzer, setShowAIAnalyzer] = useState(false)
   const [showAskAIModal, setShowAskAIModal] = useState(false)
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const queryClient = useQueryClient()
   const { showNotification } = useNotifications()
+  const location = useLocation()
+
+  // Check for AI parameter in URL
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    if (params.get('ai') === 'true') {
+      setShowAIAnalyzer(true)
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [location])
+
+  // Update isMobile state on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // Register for vibration feedback if available
+  const hasVibration = 'navigator' in window && 'vibrate' in navigator
 
   const { data: tasks = [], isLoading } = useQuery({
     queryKey: ['tasks', format(selectedDate, 'yyyy-MM-dd')],
     queryFn: () => taskService.getTasks(format(selectedDate, 'yyyy-MM-dd')),
   })
-  console.log('DashboardPage - selectedDate:', selectedDate)
-  console.log('DashboardPage - formatted date for query:', format(selectedDate, 'yyyy-MM-dd'))
-  console.log('DashboardPage - tasks received:', tasks)
   
-  // Test alert to see if code is running
-  if (selectedDate) {
-    console.log('TEST: DashboardPage is running, selectedDate exists')
-  }
-
   const completeTaskMutation = useMutation({
     mutationFn: taskService.completeTask,
     onSuccess: (completedTask) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       setShowConfetti(true)
+      
+      // Vibrate on task completion if supported
+      if (hasVibration) {
+        navigator.vibrate([100, 50, 100])
+      }
+      
       showNotification('Task Completed! 🚀', {
         body: `Excellent work completing "${completedTask.title}"!`,
         tag: 'task-completion'
@@ -95,6 +118,11 @@ export default function DashboardPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       toast.success('Task deleted')
+      
+      // Vibrate on delete if supported
+      if (hasVibration) {
+        navigator.vibrate(200)
+      }
     },
   })
 
@@ -164,6 +192,11 @@ export default function DashboardPage() {
         await api.delete('/tasks', { params: { date: dateStr } })
         queryClient.invalidateQueries({ queryKey: ['tasks'] })
         toast.success(`All tasks for ${dateLabel} deleted`)
+        
+        // Vibrate on clear if supported
+        if (hasVibration) {
+          navigator.vibrate([100, 50, 100, 50, 100])
+        }
       } catch (e) {
         toast.error(`Failed to delete ${dateLabel}'s tasks`)
       }
@@ -179,7 +212,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
       {/* Smart Reminders */}
       <SmartReminders />
 
@@ -193,39 +226,41 @@ export default function DashboardPage() {
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex items-center justify-between"
+        className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0"
       >
         <div className="flex items-center space-x-4">
           <div>
             <div className="flex items-center space-x-3">
               <button
                 onClick={handlePreviousDay}
-                className="p-3 rounded-xl hover:bg-gray-800/50 transition-all duration-300 text-gray-400 hover:text-cyan-400 hover:shadow-lg hover:shadow-cyan-500/20"
+                className="p-2 md:p-3 rounded-xl hover:bg-gray-800/50 transition-all duration-300 text-gray-400 hover:text-cyan-400 hover:shadow-lg hover:shadow-cyan-500/20"
+                aria-label="Previous day"
               >
                 <ChevronLeft className="w-5 h-5" />
               </button>
               
-              <h1 className="text-3xl font-bold text-gray-100 neon-text">
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-100 neon-text">
                 {formatRelativeDate(selectedDate)}
               </h1>
               
               <button
                 onClick={handleNextDay}
-                className="p-3 rounded-xl hover:bg-gray-800/50 transition-all duration-300 text-gray-400 hover:text-cyan-400 hover:shadow-lg hover:shadow-cyan-500/20"
+                className="p-2 md:p-3 rounded-xl hover:bg-gray-800/50 transition-all duration-300 text-gray-400 hover:text-cyan-400 hover:shadow-lg hover:shadow-cyan-500/20"
+                aria-label="Next day"
               >
                 <ChevronRight className="w-5 h-5" />
               </button>
             </div>
             
             <div className="flex items-center space-x-4 mt-2">
-              <p className="text-gray-400">
+              <p className="text-sm md:text-base text-gray-400">
                 {format(selectedDate, 'EEEE, MMMM d, yyyy')}
               </p>
               
               {!format(selectedDate, 'yyyy-MM-dd').includes(format(new Date(), 'yyyy-MM-dd')) && (
                 <button
                   onClick={handleToday}
-                  className="text-sm text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
+                  className="text-xs md:text-sm text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
                 >
                   Go to Today
                 </button>
@@ -233,7 +268,7 @@ export default function DashboardPage() {
             </div>
             
             <div className="flex items-center space-x-4 mt-2">
-              <span className="text-gray-500 text-sm">
+              <span className="text-xs md:text-sm text-gray-500">
                 {tasks.length} tasks • {tasks.filter(t => t.completed).length} completed
               </span>
               <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
@@ -241,15 +276,16 @@ export default function DashboardPage() {
           </div>
         </div>
         
-        <div className="flex items-center space-x-3">
+        {/* Action Buttons - Responsive Layout */}
+        <div className={`flex ${isMobile ? 'flex-wrap gap-2' : 'items-center space-x-3'}`}>
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowAIAnalyzer(true)}
-            className="btn-primary flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500"
+            className={`btn-primary flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 ${isMobile ? 'text-sm py-2 px-3' : ''}`}
           >
             <Brain className="w-4 h-4" />
-            <span>AI Analyzer</span>
+            <span>{isMobile ? 'AI' : 'AI Analyzer'}</span>
             <Sparkles className="w-4 h-4 animate-neon-flicker" />
           </motion.button>
 
@@ -258,37 +294,39 @@ export default function DashboardPage() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setShowAskAIModal(true)}
-            className="btn-secondary flex items-center space-x-2"
+            className={`btn-secondary flex items-center space-x-2 ${isMobile ? 'text-sm py-2 px-3' : ''}`}
           >
             <Sparkles className="w-4 h-4 text-cyan-400" />
-            <span>Ask AI</span>
+            <span>{isMobile ? 'Ask' : 'Ask AI'}</span>
           </motion.button>
 
-          {/* Clear Current Date's Tasks Button */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleClearCurrentDate}
-            className="btn-secondary flex items-center space-x-2 text-red-400 border-red-400 hover:bg-red-500/10"
-          >
-            <span>🗑️</span>
-            <span>Clear {formatRelativeDate(selectedDate)}</span>
-          </motion.button>
+          {/* Clear Current Date's Tasks Button - Hide on mobile to save space */}
+          {!isMobile && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={handleClearCurrentDate}
+              className="btn-secondary flex items-center space-x-2 text-red-400 border-red-400 hover:bg-red-500/10"
+            >
+              <span>🗑️</span>
+              <span>Clear {formatRelativeDate(selectedDate)}</span>
+            </motion.button>
+          )}
 
           <Link
             to="/add"
-            className="btn-primary flex items-center space-x-2"
+            className={`btn-primary flex items-center space-x-2 ${isMobile ? 'text-sm py-2 px-3' : ''}`}
           >
             <Plus className="w-4 h-4" />
-            <span>Add Task</span>
+            <span>{isMobile ? 'Add' : 'Add Task'}</span>
           </Link>
           
           <Link
             to="/week"
-            className="btn-secondary flex items-center space-x-2"
+            className={`btn-secondary flex items-center space-x-2 ${isMobile ? 'text-sm py-2 px-3' : ''}`}
           >
             <Calendar className="w-4 h-4" />
-            <span>Week View</span>
+            <span>{isMobile ? 'Week' : 'Week View'}</span>
           </Link>
         </div>
       </motion.div>
@@ -303,12 +341,7 @@ export default function DashboardPage() {
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
             onClick={() => setShowAIAnalyzer(false)}
           >
-            <div onClick={(e) => e.stopPropagation()}>
-              {(() => {
-                console.log('DashboardPage - selectedDate:', selectedDate)
-                console.log('DashboardPage - formatted scheduledDate:', format(selectedDate, 'yyyy-MM-dd'))
-                return null
-              })()}
+            <div onClick={(e) => e.stopPropagation()} className="w-full max-w-4xl">
               <AITextAnalyzer 
                 onClose={() => setShowAIAnalyzer(false)}
                 scheduledDate={format(selectedDate, 'yyyy-MM-dd')}
@@ -321,7 +354,7 @@ export default function DashboardPage() {
       {/* Ask AI Modal */}
       <AskAIModal isOpen={showAskAIModal} onClose={() => setShowAskAIModal(false)} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Main Timeline */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
@@ -338,11 +371,11 @@ export default function DashboardPage() {
           />
         </motion.div>
 
-        {/* Futuristic Sidebar */}
+        {/* Futuristic Sidebar - Responsive Layout */}
         <motion.div
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          className="space-y-6"
+          className="space-y-4 md:space-y-6"
         >
           {/* Habit Tracker */}
           <div className="card holographic">
@@ -391,6 +424,21 @@ export default function DashboardPage() {
         onClose={() => setEditingTask(null)}
         onSave={handleSaveTask}
       />
+      
+      {/* Mobile Clear Button - Fixed at bottom */}
+      {isMobile && (
+        <div className="fixed bottom-20 right-4 z-20">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleClearCurrentDate}
+            className="btn-secondary flex items-center space-x-2 text-red-400 border-red-400 hover:bg-red-500/10 shadow-lg"
+          >
+            <span>🗑️</span>
+            <span>Clear {formatRelativeDate(selectedDate)}</span>
+          </motion.button>
+        </div>
+      )}
     </div>
   )
 }

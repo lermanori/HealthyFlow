@@ -64,6 +64,9 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
     return format(new Date(date), 'MMM d, yyyy')
   }
 
+  // Detect if we're on mobile
+  const isMobile = window.innerWidth < 768
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -92,6 +95,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
               <button
                 onClick={onClose}
                 className="p-2 rounded-lg hover:bg-gray-700 transition-colors text-gray-400 hover:text-gray-200"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>

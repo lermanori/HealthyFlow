@@ -52,36 +52,11 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
         isDragging ? 'dragging' : ''
       } ${
         task.completed 
-          ? 'opacity-75' 
-          : 'hover:shadow-xl hover:shadow-cyan-500/10 hover:border-cyan-500/30'
+          ? 'opacity-75 task-card-completed' 
+          : 'hover:shadow-xl hover:shadow-cyan-500/10 hover:border-cyan-500/30 task-card'
       }`}
-      style={{
-        // FIXED: Much more solid background
-        background: task.completed 
-          ? 'linear-gradient(135deg, rgba(55, 65, 81, 0.95) 0%, rgba(31, 41, 55, 0.98) 100%)'
-          : 'linear-gradient(135deg, rgba(31, 41, 55, 0.98) 0%, rgba(17, 24, 39, 1) 100%)',
-        backdropFilter: 'blur(16px)',
-        // FIXED: Much stronger border
-        border: task.completed 
-          ? '2px solid rgba(75, 85, 99, 0.8)'
-          : '2px solid rgba(55, 65, 81, 0.9)',
-        borderRadius: '1rem',
-        padding: '1.5rem',
-        // FIXED: Stronger shadow
-        boxShadow: task.completed 
-          ? '0 8px 16px rgba(0, 0, 0, 0.4)'
-          : '0 20px 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(6, 182, 212, 0.1)',
-        // FIXED: Ensure proper z-index for the card itself
-        zIndex: showMenu ? 100 : 1,
-        position: 'relative'
-      }}
     >
-      {/* Holographic border effect for active tasks */}
-      {!task.completed && (
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-cyan-500/10 via-transparent to-blue-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-      )}
-
-      <div className="relative flex items-start justify-between">
+      <div className="relative flex items-start justify-between p-4 md:p-6">
         <div className="flex items-start space-x-4 flex-1">
           <button
             onClick={handleComplete}
@@ -91,6 +66,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                 : 'border-gray-500 hover:border-cyan-400 hover:bg-cyan-500/10 hover:shadow-lg hover:shadow-cyan-500/20'
             }`}
             title={task.completed ? 'Click to mark as incomplete' : 'Click to mark as complete'}
+            aria-label={task.completed ? 'Mark as incomplete' : 'Mark as complete'}
           >
             {task.completed ? (
               <motion.div
@@ -117,7 +93,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
               {task.title}
             </h3>
             
-            <div className="flex items-center space-x-3 mt-3">
+            <div className="flex flex-wrap gap-2 mt-3">
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getCategoryColor(task.category)}`}>
                 {task.category}
               </span>
@@ -137,40 +113,32 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
           </div>
         </div>
 
-        {/* FIXED: Menu with much higher z-index and better positioning */}
-        <div className="relative" style={{ zIndex: showMenu ? 200 : 10 }}>
+        {/* Menu Button with higher z-index */}
+        <div className="relative" style={{ zIndex: 200 }}>
           <button
             onClick={() => setShowMenu(!showMenu)}
             className="p-2 rounded-lg hover:bg-gray-700/50 opacity-0 group-hover:opacity-100 transition-all duration-300 text-gray-400 hover:text-gray-200"
-            style={{ zIndex: showMenu ? 201 : 11 }}
+            style={{ zIndex: 201 }}
+            aria-label="Task options"
           >
             <MoreVertical className="w-4 h-4" />
           </button>
 
           {showMenu && (
             <>
-              {/* FIXED: Much higher z-index backdrop */}
+              {/* Backdrop with high z-index */}
               <div 
                 className="fixed inset-0" 
                 style={{ zIndex: 150 }}
                 onClick={() => setShowMenu(false)}
               />
               
-              {/* FIXED: Much higher z-index menu with solid background */}
+              {/* Menu with very high z-index */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: -10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                className="absolute right-0 top-10 w-40"
-                style={{
-                  zIndex: 300, // VERY HIGH Z-INDEX
-                  background: 'rgba(17, 24, 39, 0.98)', // SOLID BACKGROUND
-                  backdropFilter: 'blur(20px)',
-                  border: '2px solid rgba(75, 85, 99, 0.8)', // STRONGER BORDER
-                  borderRadius: '0.75rem',
-                  padding: '0.5rem',
-                  boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(6, 182, 212, 0.3)' // MUCH STRONGER SHADOW
-                }}
+                className="absolute right-0 top-10 w-40 task-menu"
               >
                 {task.completed && onUncomplete && (
                   <button

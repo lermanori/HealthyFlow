@@ -71,6 +71,20 @@ export default {
       },
       backdropBlur: {
         xs: '2px',
+      },
+      spacing: {
+        'safe-area-inset-top': 'env(safe-area-inset-top)',
+        'safe-area-inset-bottom': 'env(safe-area-inset-bottom)',
+        'safe-area-inset-left': 'env(safe-area-inset-left)',
+        'safe-area-inset-right': 'env(safe-area-inset-right)',
+      },
+      minHeight: {
+        'screen-safe': 'calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom))',
+      },
+      screens: {
+        'xs': '475px',
+        'tall': { 'raw': '(min-height: 800px)' },
+        'short': { 'raw': '(max-height: 600px)' },
       }
     },
   },
