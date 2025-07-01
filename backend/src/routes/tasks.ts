@@ -10,21 +10,30 @@ router.get('/', authenticateToken, (req: AuthRequest, res) => {
   const userId = req.user.userId
   const { date } = req.query
 
+  console.log('Backend - Getting tasks for date:', date)
+  console.log('Backend - User ID:', userId)
+
   let query = 'SELECT * FROM tasks WHERE user_id = ?'
   const params = [userId]
 
   if (date) {
-    // Filter by scheduled date
-    query += ' AND (scheduled_date = ? OR scheduled_date IS NULL)'
+    // Filter by scheduled date - only show tasks for the specific date
+    query += ' AND scheduled_date = ?'
     params.push(date)
   }
 
   query += ' ORDER BY start_time ASC, created_at ASC'
 
+  console.log('Backend - Query:', query)
+  console.log('Backend - Params:', params)
+
   db.all(query, params, (err, tasks) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' })
     }
+
+    console.log('Backend - Raw tasks from database:', tasks)
+    console.log('Backend - Number of tasks found:', tasks.length)
 
     const formattedTasks = tasks.map((task: any) => ({
       id: task.id,
@@ -40,6 +49,7 @@ router.get('/', authenticateToken, (req: AuthRequest, res) => {
       overdueNotified: Boolean(task.overdue_notified)
     }))
 
+    console.log('Backend - Formatted tasks being sent:', formattedTasks)
     res.json(formattedTasks)
   })
 })
@@ -48,6 +58,9 @@ router.get('/', authenticateToken, (req: AuthRequest, res) => {
 router.post('/', authenticateToken, (req: AuthRequest, res) => {
   const userId = req.user.userId
   const { title, type, category, startTime, duration, repeat, scheduledDate } = req.body
+
+  console.log('Backend - Adding task with scheduledDate:', scheduledDate)
+  console.log('Backend - Task details:', { title, type, category, startTime, duration, repeat, scheduledDate })
 
   const taskId = uuidv4()
 

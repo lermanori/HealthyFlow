@@ -31,7 +31,14 @@ export default function DashboardPage() {
     queryKey: ['tasks', format(selectedDate, 'yyyy-MM-dd')],
     queryFn: () => taskService.getTasks(format(selectedDate, 'yyyy-MM-dd')),
   })
-  console.log('DashboardPage tasks:', tasks)
+  console.log('DashboardPage - selectedDate:', selectedDate)
+  console.log('DashboardPage - formatted date for query:', format(selectedDate, 'yyyy-MM-dd'))
+  console.log('DashboardPage - tasks received:', tasks)
+  
+  // Test alert to see if code is running
+  if (selectedDate) {
+    console.log('TEST: DashboardPage is running, selectedDate exists')
+  }
 
   const completeTaskMutation = useMutation({
     mutationFn: taskService.completeTask,
@@ -297,6 +304,11 @@ export default function DashboardPage() {
             onClick={() => setShowAIAnalyzer(false)}
           >
             <div onClick={(e) => e.stopPropagation()}>
+              {(() => {
+                console.log('DashboardPage - selectedDate:', selectedDate)
+                console.log('DashboardPage - formatted scheduledDate:', format(selectedDate, 'yyyy-MM-dd'))
+                return null
+              })()}
               <AITextAnalyzer 
                 onClose={() => setShowAIAnalyzer(false)}
                 scheduledDate={format(selectedDate, 'yyyy-MM-dd')}

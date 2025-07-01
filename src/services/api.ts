@@ -86,7 +86,9 @@ export const authService = {
 // Task Service
 export const taskService = {
   getTasks: async (date?: string): Promise<Task[]> => {
+    console.log('API - getTasks called with date:', date)
     const response = await api.get('/tasks', { params: { date } })
+    console.log('API - getTasks response:', response.data)
     return response.data
   },
 

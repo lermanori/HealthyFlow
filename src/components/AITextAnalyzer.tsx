@@ -49,6 +49,10 @@ export default function AITextAnalyzer({
 
   const addTasksMutation = useMutation({
     mutationFn: async (tasks: Omit<TaskSuggestion, 'id' | 'priority'>[]) => {
+      console.log('AITextAnalyzer - scheduledDate prop:', scheduledDate)
+      console.log('AITextAnalyzer - fallback date:', new Date().toISOString().split('T')[0])
+      console.log('AITextAnalyzer - final scheduledDate:', scheduledDate || new Date().toISOString().split('T')[0])
+      
       const promises = tasks.map(task => 
         taskService.addTask({
           title: task.title,
@@ -148,67 +152,41 @@ export default function AITextAnalyzer({
         messages: [
           {
             role: 'system',
-            content: `You are an expert productivity coach and task analyzer. Convert the user's natural language input into a comprehensive, actionable daily plan.
+            content: `Convert user input into actionable tasks. Respond ONLY with a valid JSON array.
 
-IMPORTANT: Respond ONLY with a valid JSON array. No additional text, explanations, or markdown formatting.
+Required fields for each task:
+- title: Clear, specific task name
+- category: "health", "work", "personal", or "fitness"
+- estimatedDuration: Time in minutes
+- priority: "high", "medium", or "low"
+- type: "habit" for daily activities, "task" for one-time
+- startTime: "HH:MM" format (24-hour)
 
-For each task you identify, create an object with these exact fields:
-- title: Clear, specific, actionable task name (be creative and detailed)
-- category: Choose from "health", "work", "personal", or "fitness" 
-- estimatedDuration: Realistic time in minutes (be thoughtful about duration)
-- priority: "high", "medium", or "low" based on importance and urgency
-- type: "habit" for recurring daily activities, "task" for one-time activities
-- startTime: Suggested time in "HH:MM" format (24-hour), consider optimal timing
-
-Guidelines:
-- Break down complex activities into specific, manageable tasks
-- Consider natural energy levels and optimal timing for different activities
-- Be intelligent about categorization and realistic about time estimates
-- Include preparation time and transitions between activities
-- Suggest logical sequences and timing
-- For health/fitness activities, consider testosterone optimization, circadian rhythms
-- For work tasks, consider peak productivity hours
-- Add complementary activities that support the main goals
+Keep it simple and direct. Focus on essential tasks only.
 
 Example input: "I want to have a productive day with exercise, work, and a date tonight"
 Example output:
 [
   {
-    "title": "Morning sunlight exposure and hydration",
-    "category": "health", 
-    "estimatedDuration": 15,
+    "title": "Morning workout",
+    "category": "fitness",
+    "estimatedDuration": 45,
     "priority": "high",
     "type": "habit",
     "startTime": "07:00"
   },
   {
-    "title": "High-intensity strength training session",
-    "category": "fitness",
-    "estimatedDuration": 45, 
-    "priority": "high",
-    "type": "habit",
-    "startTime": "07:30"
-  },
-  {
-    "title": "Post-workout protein meal and recovery",
-    "category": "health",
-    "estimatedDuration": 30,
-    "priority": "medium", 
-    "type": "task",
-    "startTime": "08:30"
-  },
-  {
-    "title": "Deep work session - priority project",
+    "title": "Work on priority project",
     "category": "work",
     "estimatedDuration": 120,
     "priority": "high",
-    "type": "task", 
-    "startTime": "09:30"
+    "type": "task",
+    "startTime": "09:00"
   },
   {
-    "title": "Grooming and outfit preparation for date",
+    "title": "Prepare for date",
     "category": "personal",
-    "estimatedDuration": 45,
+    "estimatedDuration": 30,
     "priority": "medium",
     "type": "task",
     "startTime": "18:00"
