@@ -56,18 +56,24 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
           : 'hover:shadow-xl hover:shadow-cyan-500/10 hover:border-cyan-500/30'
       }`}
       style={{
+        // FIXED: Much more solid background
         background: task.completed 
-          ? 'linear-gradient(135deg, rgba(55, 65, 81, 0.6) 0%, rgba(31, 41, 55, 0.8) 100%)'
-          : 'linear-gradient(135deg, rgba(31, 41, 55, 0.95) 0%, rgba(17, 24, 39, 0.98) 100%)',
-        backdropFilter: 'blur(10px)',
+          ? 'linear-gradient(135deg, rgba(55, 65, 81, 0.95) 0%, rgba(31, 41, 55, 0.98) 100%)'
+          : 'linear-gradient(135deg, rgba(31, 41, 55, 0.98) 0%, rgba(17, 24, 39, 1) 100%)',
+        backdropFilter: 'blur(16px)',
+        // FIXED: Much stronger border
         border: task.completed 
-          ? '1px solid rgba(75, 85, 99, 0.4)'
-          : '1px solid rgba(55, 65, 81, 0.6)',
+          ? '2px solid rgba(75, 85, 99, 0.8)'
+          : '2px solid rgba(55, 65, 81, 0.9)',
         borderRadius: '1rem',
         padding: '1.5rem',
+        // FIXED: Stronger shadow
         boxShadow: task.completed 
-          ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-          : '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
+          ? '0 8px 16px rgba(0, 0, 0, 0.4)'
+          : '0 20px 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(6, 182, 212, 0.1)',
+        // FIXED: Ensure proper z-index for the card itself
+        zIndex: showMenu ? 100 : 1,
+        position: 'relative'
       }}
     >
       {/* Holographic border effect for active tasks */}
@@ -131,34 +137,39 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
           </div>
         </div>
 
-        <div className="relative">
+        {/* FIXED: Menu with much higher z-index and better positioning */}
+        <div className="relative" style={{ zIndex: showMenu ? 200 : 10 }}>
           <button
             onClick={() => setShowMenu(!showMenu)}
             className="p-2 rounded-lg hover:bg-gray-700/50 opacity-0 group-hover:opacity-100 transition-all duration-300 text-gray-400 hover:text-gray-200"
+            style={{ zIndex: showMenu ? 201 : 11 }}
           >
             <MoreVertical className="w-4 h-4" />
           </button>
 
           {showMenu && (
             <>
-              {/* Backdrop to close menu */}
+              {/* FIXED: Much higher z-index backdrop */}
               <div 
-                className="fixed inset-0 z-40" 
+                className="fixed inset-0" 
+                style={{ zIndex: 150 }}
                 onClick={() => setShowMenu(false)}
               />
               
+              {/* FIXED: Much higher z-index menu with solid background */}
               <motion.div
                 initial={{ opacity: 0, scale: 0.95, y: -10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                className="absolute right-0 top-10 w-40 z-50 shadow-xl"
+                className="absolute right-0 top-10 w-40"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(31, 41, 55, 0.98) 0%, rgba(17, 24, 39, 0.99) 100%)',
-                  backdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(75, 85, 99, 0.6)',
+                  zIndex: 300, // VERY HIGH Z-INDEX
+                  background: 'rgba(17, 24, 39, 0.98)', // SOLID BACKGROUND
+                  backdropFilter: 'blur(20px)',
+                  border: '2px solid rgba(75, 85, 99, 0.8)', // STRONGER BORDER
                   borderRadius: '0.75rem',
                   padding: '0.5rem',
-                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 20px rgba(6, 182, 212, 0.1)'
+                  boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(6, 182, 212, 0.3)' // MUCH STRONGER SHADOW
                 }}
               >
                 {task.completed && onUncomplete && (
@@ -167,7 +178,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                       onUncomplete(task.id)
                       setShowMenu(false)
                     }}
-                    className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-yellow-400 hover:bg-yellow-500/10 hover:text-yellow-300 transition-colors rounded-lg"
+                    className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-yellow-400 hover:bg-yellow-500/20 hover:text-yellow-300 transition-colors rounded-lg"
                   >
                     <RotateCcw className="w-4 h-4" />
                     <span>Mark Incomplete</span>
@@ -179,7 +190,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                     onEdit(task)
                     setShowMenu(false)
                   }}
-                  className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-gray-200 hover:bg-gray-700/50 hover:text-cyan-400 transition-colors rounded-lg"
+                  className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-gray-200 hover:bg-gray-700/70 hover:text-cyan-400 transition-colors rounded-lg"
                 >
                   <Edit className="w-4 h-4" />
                   <span>Edit</span>
@@ -190,7 +201,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                     onDelete(task.id)
                     setShowMenu(false)
                   }}
-                  className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors rounded-lg"
+                  className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500/20 hover:text-red-300 transition-colors rounded-lg"
                 >
                   <Trash2 className="w-4 h-4" />
                   <span>Delete</span>
