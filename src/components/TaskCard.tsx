@@ -48,13 +48,27 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       whileHover={{ scale: 1.02 }}
-      className={`card relative group transition-all duration-300 ${
+      className={`relative group transition-all duration-300 ${
         isDragging ? 'dragging' : ''
       } ${
         task.completed 
-          ? 'opacity-75 bg-gray-800/30 border-gray-600/30' 
+          ? 'opacity-75' 
           : 'hover:shadow-xl hover:shadow-cyan-500/10 hover:border-cyan-500/30'
       }`}
+      style={{
+        background: task.completed 
+          ? 'linear-gradient(135deg, rgba(55, 65, 81, 0.6) 0%, rgba(31, 41, 55, 0.8) 100%)'
+          : 'linear-gradient(135deg, rgba(31, 41, 55, 0.95) 0%, rgba(17, 24, 39, 0.98) 100%)',
+        backdropFilter: 'blur(10px)',
+        border: task.completed 
+          ? '1px solid rgba(75, 85, 99, 0.4)'
+          : '1px solid rgba(55, 65, 81, 0.6)',
+        borderRadius: '1rem',
+        padding: '1.5rem',
+        boxShadow: task.completed 
+          ? '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+          : '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
+      }}
     >
       {/* Holographic border effect for active tasks */}
       {!task.completed && (
@@ -129,7 +143,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
             <>
               {/* Backdrop to close menu */}
               <div 
-                className="fixed inset-0 z-10" 
+                className="fixed inset-0 z-40" 
                 onClick={() => setShowMenu(false)}
               />
               
@@ -137,7 +151,15 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                 initial={{ opacity: 0, scale: 0.95, y: -10 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: -10 }}
-                className="absolute right-0 top-10 w-40 glass-effect rounded-xl border border-gray-600/50 py-2 z-50 shadow-xl"
+                className="absolute right-0 top-10 w-40 z-50 shadow-xl"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(31, 41, 55, 0.98) 0%, rgba(17, 24, 39, 0.99) 100%)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(75, 85, 99, 0.6)',
+                  borderRadius: '0.75rem',
+                  padding: '0.5rem',
+                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 20px rgba(6, 182, 212, 0.1)'
+                }}
               >
                 {task.completed && onUncomplete && (
                   <button
@@ -145,7 +167,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                       onUncomplete(task.id)
                       setShowMenu(false)
                     }}
-                    className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-yellow-400 hover:bg-yellow-500/10 hover:text-yellow-300 transition-colors"
+                    className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-yellow-400 hover:bg-yellow-500/10 hover:text-yellow-300 transition-colors rounded-lg"
                   >
                     <RotateCcw className="w-4 h-4" />
                     <span>Mark Incomplete</span>
@@ -157,7 +179,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                     onEdit(task)
                     setShowMenu(false)
                   }}
-                  className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-gray-200 hover:bg-gray-700/50 hover:text-cyan-400 transition-colors"
+                  className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-gray-200 hover:bg-gray-700/50 hover:text-cyan-400 transition-colors rounded-lg"
                 >
                   <Edit className="w-4 h-4" />
                   <span>Edit</span>
@@ -168,7 +190,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                     onDelete(task.id)
                     setShowMenu(false)
                   }}
-                  className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+                  className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors rounded-lg"
                 >
                   <Trash2 className="w-4 h-4" />
                   <span>Delete</span>
