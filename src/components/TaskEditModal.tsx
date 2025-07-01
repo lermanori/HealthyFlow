@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Clock, Tag, Sparkles } from 'lucide-react'
+import { X, Clock, Tag, Sparkles, Calendar } from 'lucide-react'
+import { format, addDays } from 'date-fns'
 import { Task } from '../services/api'
 
 interface TaskEditModalProps {
@@ -16,6 +17,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
     category: 'personal',
     startTime: '',
     duration: 30,
+    scheduledDate: format(new Date(), 'yyyy-MM-dd'), // Add scheduled date
   })
 
   useEffect(() => {
@@ -25,6 +27,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
         category: task.category,
         startTime: task.startTime || '',
         duration: task.duration || 30,
+        scheduledDate: task.scheduledDate || format(new Date(), 'yyyy-MM-dd'), // Use task's date or default to today
       })
     }
   }, [task])
@@ -44,6 +47,23 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
     { value: 'fitness', label: 'Fitness', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
   ]
 
+  // Quick date options
+  const quickDates = [
+    { label: 'Today', value: format(new Date(), 'yyyy-MM-dd') },
+    { label: 'Tomorrow', value: format(addDays(new Date(), 1), 'yyyy-MM-dd') },
+    { label: 'This Weekend', value: format(addDays(new Date(), 6 - new Date().getDay()), 'yyyy-MM-dd') },
+    { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
+  ]
+
+  const getDateLabel = (date: string) => {
+    const today = format(new Date(), 'yyyy-MM-dd')
+    const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd')
+    
+    if (date === today) return 'Today'
+    if (date === tomorrow) return 'Tomorrow'
+    return format(new Date(date), 'MMM d, yyyy')
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -60,7 +80,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative card ai-glow w-full max-w-md mx-4"
+            className="relative card ai-glow w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
@@ -115,6 +135,52 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                     </button>
                   ))}
                 </div>
+              </div>
+
+              {/* Scheduled Date Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-200 mb-3">
+                  <Calendar className="w-4 h-4 inline mr-1" />
+                  Scheduled Date
+                </label>
+                
+                {/* Current Date Display */}
+                <div className="mb-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700/50">
+                  <div className="flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-cyan-400" />
+                    <span className="text-sm text-gray-300">Currently scheduled for:</span>
+                    <span className="text-sm font-medium text-cyan-400">
+                      {getDateLabel(formData.scheduledDate)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Quick Date Buttons */}
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                  {quickDates.map((date) => (
+                    <button
+                      key={date.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, scheduledDate: date.value })}
+                      className={`p-3 rounded-xl border-2 text-sm transition-all duration-300 ${
+                        formData.scheduledDate === date.value
+                          ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-lg shadow-cyan-500/20'
+                          : 'border-gray-600 hover:border-gray-500 text-gray-300 bg-gray-800/50'
+                      }`}
+                    >
+                      {date.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Custom Date Picker */}
+                <input
+                  type="date"
+                  value={formData.scheduledDate}
+                  onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
+                  className="input-field"
+                  min={format(new Date(), 'yyyy-MM-dd')}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
