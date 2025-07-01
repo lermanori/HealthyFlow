@@ -92,14 +92,14 @@ export function migrateDatabase() {
 }
 
 // Run migration if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  migrateDatabase()
-    .then(() => {
-      console.log('🎉 Database migration completed!')
-      process.exit(0)
-    })
-    .catch((err) => {
-      console.error('💥 Migration failed:', err)
-      process.exit(1)
-    })
-} 
+// if (import.meta.url === `file://${process.argv[1]}`) {
+//   migrateDatabase()
+//     .then(() => {
+//       console.log('🎉 Database migration completed!')
+//       process.exit(0)
+//     })
+//     .catch((err) => {
+//       console.error('💥 Migration failed:', err)
+//       process.exit(1)
+//     })
+// } 
