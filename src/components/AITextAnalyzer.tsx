@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Brain, Lightbulb, Heart, TrendingUp, X, Sparkles, Plus, Calendar, Clock } from 'lucide-react'
+import { Brain, X, Sparkles, Plus, Calendar, Clock } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { taskService } from '../services/api'
 import { useTTS } from '../hooks/useTTS'
