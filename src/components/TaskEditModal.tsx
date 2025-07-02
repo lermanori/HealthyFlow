@@ -113,143 +113,126 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
             </div>
 
             {/* Scrollable Content Area */}
-            <div className="flex-1 overflow-y-auto pb-24">
+            <div className="flex-1 overflow-y-auto">
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
-                  <label htmlFor="title" className="block text-sm font-medium text-gray-200 mb-2">
-                    Title
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Task Title
                   </label>
                   <input
-                    id="title"
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="input-field"
+                    className={`w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${isMobile ? 'text-base' : ''}`}
+                    placeholder="Enter task title..."
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-3">
-                    <Tag className="w-4 h-4 inline mr-1" />
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
                     Category
                   </label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className={`grid ${isMobile ? 'grid-cols-2 gap-2' : 'grid-cols-4 gap-3'}`}>
                     {categories.map((category) => (
                       <button
                         key={category.value}
                         type="button"
                         onClick={() => setFormData({ ...formData, category: category.value })}
-                        className={`p-3 rounded-xl border-2 text-left transition-all duration-300 ${
-                          formData.category === category.value
-                            ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/20'
-                            : 'border-gray-600 hover:border-gray-500 bg-gray-800/50'
-                        }`}
+                        className={`p-3 rounded-lg border-2 transition-all ${formData.category === category.value 
+                          ? `${category.color} border-current` 
+                          : 'border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300'
+                        } ${isMobile ? 'text-sm' : ''}`}
                       >
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${category.color}`}>
-                          {category.label}
-                        </span>
+                        {category.label}
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Scheduled Date Section */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-200 mb-3">
-                    <Calendar className="w-4 h-4 inline mr-1" />
-                    Scheduled Date
-                  </label>
-                  
-                  {/* Current Date Display */}
-                  <div className="mb-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700/50">
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="w-4 h-4 text-cyan-400" />
-                      <span className="text-sm text-gray-300">Currently scheduled for:</span>
-                      <span className="text-sm font-medium text-cyan-400">
-                        {getDateLabel(formData.scheduledDate)}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Quick Date Buttons */}
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    {quickDates.map((date) => (
-                      <button
-                        key={date.value}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, scheduledDate: date.value })}
-                        className={`p-3 rounded-xl border-2 text-sm transition-all duration-300 ${
-                          formData.scheduledDate === date.value
-                            ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-lg shadow-cyan-500/20'
-                            : 'border-gray-600 hover:border-gray-500 text-gray-300 bg-gray-800/50'
-                        }`}
-                      >
-                        {date.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Custom Date Picker */}
-                  <input
-                    type="date"
-                    value={formData.scheduledDate}
-                    onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
-                    className="input-field"
-                    min={format(new Date(), 'yyyy-MM-dd')}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                <div className={`grid ${isMobile ? 'grid-cols-1 gap-4' : 'grid-cols-2 gap-4'}`}>
                   <div>
-                    <label htmlFor="startTime" className="block text-sm font-medium text-gray-200 mb-2">
-                      <Clock className="w-4 h-4 inline mr-1" />
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <Clock className="inline w-4 h-4 mr-2" />
                       Start Time
                     </label>
                     <input
-                      id="startTime"
                       type="time"
                       value={formData.startTime}
                       onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                      className="input-field"
+                      className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     />
                   </div>
+
                   <div>
-                    <label htmlFor="duration" className="block text-sm font-medium text-gray-200 mb-2">
-                      Duration (min)
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Duration (minutes)
                     </label>
                     <input
-                      id="duration"
                       type="number"
+                      value={formData.duration}
+                      onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 30 })}
                       min="5"
                       max="480"
-                      step="5"
-                      value={formData.duration}
-                      onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
-                      className="input-field"
+                      className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     />
                   </div>
                 </div>
-              </form>
-            </div>
 
-            {/* Action Buttons - Fixed at bottom for mobile */}
-            <div className={`${isMobile ? 'fixed bottom-32 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30' : 'mt-6 pt-4 border-t border-gray-700/50'}`}>
-              <div className="flex items-center justify-end space-x-3 max-w-md mx-auto">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSubmit}
-                  className="btn-primary"
-                >
-                  Save Changes
-                </button>
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <Calendar className="inline w-4 h-4 mr-2" />
+                    Scheduled Date
+                  </label>
+                  <div className="space-y-2">
+                    <input
+                      type="date"
+                      value={formData.scheduledDate}
+                      onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
+                      className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                    />
+                    
+                    {/* Quick date options */}
+                    <div className={`flex ${isMobile ? 'flex-wrap gap-2' : 'space-x-2'}`}>
+                      {quickDates.map((dateOption) => (
+                        <button
+                          key={dateOption.value}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, scheduledDate: dateOption.value })}
+                          className={`px-3 py-2 text-xs rounded-lg border transition-colors ${
+                            formData.scheduledDate === dateOption.value
+                              ? 'border-cyan-500 text-cyan-400 bg-cyan-500/20'
+                              : 'border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300'
+                          }`}
+                        >
+                          {dateOption.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons - Part of scrollable content */}
+                <div className="pt-6 border-t border-gray-700/50">
+                  <div className="flex items-center justify-end space-x-3">
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className={`px-4 py-2 rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-700/50 transition-colors ${isMobile ? 'flex-1' : ''}`}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSubmit}
+                      className={`btn-primary ${isMobile ? 'flex-1 py-3 text-base font-medium' : ''}`}
+                    >
+                      {isMobile ? '💾 Save Changes' : 'Save Changes'}
+                    </button>
+                  </div>
+                </div>
+                {/* Extra spacer for scrollable area above bottom nav */}
+                <div className="h-24" />
+              </form>
             </div>
           </motion.div>
         </div>
