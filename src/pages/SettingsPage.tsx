@@ -185,9 +185,6 @@ export default function SettingsPage() {
     </div>
   )
 
-  // Check if we're on mobile
-  const isMobile = window.innerWidth < 768
-
   return (
     <div className="max-w-2xl mx-auto space-y-6 pb-28 md:pb-0">
       {/* Header */}
