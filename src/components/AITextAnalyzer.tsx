@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Brain, X, Sparkles, Plus, Calendar, Clock } from 'lucide-react'
+import { Brain, X, Clock, Calendar, Plus, Sparkles } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { taskService } from '../services/api'
 import { useTTS } from '../hooks/useTTS'
@@ -777,6 +777,7 @@ Examples:
                           <motion.div
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
                             className="w-2 h-2 bg-white rounded-full"
                           />
                         )}
@@ -864,25 +865,14 @@ Examples:
                   </motion.div>
                 ))}
               </div>
-
-              <div className="flex items-center justify-between pt-4 border-t border-gray-700/50">
-                <button
-                  onClick={addSelectedTasks}
-                  disabled={selectedSuggestions.size === 0 || addTasksMutation.isPending}
-                  className="btn-primary flex items-center space-x-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Selected Tasks ({selectedSuggestions.size})</span>
-                </button>
-              </div>
             </motion.div>
           }
         </AnimatePresence>
       </div>
 
       {/* Fixed Add Button at Bottom for Mobile */}
-      {suggestions.length > 0 && isMobile && (
-        <div className="fixed bottom-20 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30">
+      {suggestions.length > 0 && (
+        <div className="fixed bottom-28 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30 md:static md:bg-transparent md:backdrop-blur-none md:border-t-0 md:p-0 md:z-auto">
           <button
             onClick={addSelectedTasks}
             disabled={selectedSuggestions.size === 0 || addTasksMutation.isPending}

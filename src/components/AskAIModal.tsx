@@ -34,6 +34,7 @@ export default function AskAIModal({ isOpen, onClose }: AskAIModalProps) {
       if (lowerQuestion.includes('now') || lowerQuestion.includes('urgent') || lowerQuestion.includes('priority')) {
         const urgentTasks = pendingTasks.filter(t => {
           if (!t.startTime) return false
+          
           const taskTime = new Date(`2000-01-01T${t.startTime}`)
           const currentTime = new Date()
           const taskMinutes = taskTime.getHours() * 60 + taskTime.getMinutes()
@@ -222,7 +223,7 @@ Provide specific, actionable advice based on their actual tasks and schedule.`
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4">
+            <div className="flex-1 overflow-y-auto space-y-4 pb-28 md:pb-0 modal-content">
               {/* Quick Questions */}
               <div>
                 <h3 className="text-sm font-medium text-gray-300 mb-2">Quick Questions:</h3>
@@ -315,6 +316,16 @@ Provide specific, actionable advice based on their actual tasks and schedule.`
                   </span>
                 </div>
               </div>
+            </div>
+
+            {/* Fixed position buttons for mobile */}
+            <div className="fixed bottom-28 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30 md:hidden">
+              <button
+                onClick={onClose}
+                className="btn-secondary w-full"
+              >
+                Close
+              </button>
             </div>
           </motion.div>
         </div>

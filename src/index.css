@@ -287,98 +287,6 @@
   50% { background-position: 100% 50%; }
 }
 
-/* Mobile-specific responsive utilities */
-@media (max-width: 768px) {
-  .mobile-hidden {
-    display: none !important;
-  }
-  
-  .mobile-full-width {
-    width: 100% !important;
-  }
-  
-  .mobile-padding {
-    padding: 1rem !important;
-  }
-  
-  .mobile-text-sm {
-    font-size: 0.875rem !important;
-  }
-  
-  .mobile-spacing {
-    gap: 0.5rem !important;
-  }
-}
-
-/* Landscape mobile optimizations */
-@media (max-width: 768px) and (orientation: landscape) {
-  .landscape-compact {
-    padding: 0.5rem !important;
-  }
-  
-  .landscape-small-text {
-    font-size: 0.75rem !important;
-  }
-}
-
-/* High DPI display optimizations */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-  .crisp-edges {
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
-  }
-}
-
-/* Dark mode optimizations for OLED displays */
-@media (prefers-color-scheme: dark) {
-  body {
-    background: #000000;
-  }
-  
-  .oled-black {
-    background-color: #000000 !important;
-  }
-}
-
-/* Reduced motion preferences */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-  
-  .animate-float,
-  .animate-neon-flicker,
-  .animate-pulse {
-    animation: none !important;
-  }
-}
-
-/* Focus improvements for accessibility */
-@media (prefers-reduced-motion: no-preference) {
-  :focus-visible {
-    outline: 2px solid #06b6d4;
-    outline-offset: 2px;
-    border-radius: 4px;
-  }
-}
-
-/* Print styles */
-@media print {
-  .no-print {
-    display: none !important;
-  }
-  
-  body {
-    background: white !important;
-    color: black !important;
-  }
-}
-
 /* Task suggestion styles */
 .task-suggestion {
   @apply p-4 rounded-xl border border-gray-700/50 bg-gray-800/30 transition-all duration-300;
@@ -402,5 +310,14 @@
   /* Adjust fixed position buttons to be above the nav bar */
   .fixed.bottom-20 {
     bottom: 6rem !important;
+  }
+
+  .fixed.bottom-28 {
+    bottom: 8rem !important;
+  }
+
+  /* Fix for save buttons in modals */
+  .fixed.bottom-28 {
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
