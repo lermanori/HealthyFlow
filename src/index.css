@@ -378,3 +378,29 @@
     color: black !important;
   }
 }
+
+/* Task suggestion styles */
+.task-suggestion {
+  @apply p-4 rounded-xl border border-gray-700/50 bg-gray-800/30 transition-all duration-300;
+}
+
+.task-suggestion:hover {
+  @apply border-cyan-500/30 bg-cyan-500/10 shadow-lg shadow-cyan-500/10;
+}
+
+/* Fix for bottom navigation bar overlap */
+@media (max-width: 768px) {
+  .pb-28 {
+    padding-bottom: 8rem !important; /* Increased padding to avoid bottom nav overlap */
+  }
+  
+  /* Ensure modals have enough bottom padding */
+  .modal-content {
+    padding-bottom: 5rem !important;
+  }
+  
+  /* Adjust fixed position buttons to be above the nav bar */
+  .fixed.bottom-20 {
+    bottom: 6rem !important;
+  }
+}

@@ -64,6 +64,9 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
     return format(new Date(date), 'MMM d, yyyy')
   }
 
+  // Check if we're on mobile
+  const isMobile = window.innerWidth < 768
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -98,7 +101,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6 pb-6 md:pb-0">
               <div>
                 <label htmlFor="title" className="block text-sm font-medium text-gray-200 mb-2">
                   Title

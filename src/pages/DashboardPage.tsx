@@ -425,9 +425,9 @@ export default function DashboardPage() {
         onSave={handleSaveTask}
       />
       
-      {/* Mobile Clear Button - Fixed at bottom */}
+      {/* Mobile Clear Button - Fixed at bottom with increased bottom margin */}
       {isMobile && (
-        <div className="fixed bottom-20 right-4 z-20">
+        <div className="fixed bottom-28 right-4 z-20">
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}

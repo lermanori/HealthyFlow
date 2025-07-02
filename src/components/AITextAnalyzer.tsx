@@ -583,7 +583,7 @@ Example output:
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto space-y-6 pb-20">
+      <div className="flex-1 overflow-y-auto space-y-6 pb-28 md:pb-20">
         {/* TTS Settings */}
         <TTSSettings
           ttsEnabled={ttsEnabled}

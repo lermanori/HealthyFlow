@@ -67,8 +67,11 @@ export default function AddItemPage() {
     { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
   ]
 
+  // Check if we're on mobile
+  const isMobile = window.innerWidth < 768
+
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto pb-28 md:pb-0">
       <div className="flex items-center space-x-4 mb-6">
         <button
           onClick={() => navigate('/')}
