@@ -19,6 +19,17 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
     duration: 30,
     scheduledDate: format(new Date(), 'yyyy-MM-dd'), // Add scheduled date
   })
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
+
+  // Update isMobile state on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   useEffect(() => {
     if (task) {
@@ -68,6 +79,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -76,12 +88,14 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
             onClick={onClose}
           />
           
+          {/* Modal */}
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative card ai-glow w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto"
+            className="relative card ai-glow w-full max-w-md mx-4 max-h-[90vh] overflow-hidden flex flex-col"
           >
+            {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
                 <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center animate-float">
@@ -98,127 +112,130 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6 pb-32 md:pb-0">
-              <div>
-                <label htmlFor="title" className="block text-sm font-medium text-gray-200 mb-2">
-                  Title
-                </label>
-                <input
-                  id="title"
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="input-field"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-200 mb-3">
-                  <Tag className="w-4 h-4 inline mr-1" />
-                  Category
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {categories.map((category) => (
-                    <button
-                      key={category.value}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, category: category.value })}
-                      className={`p-3 rounded-xl border-2 text-left transition-all duration-300 ${
-                        formData.category === category.value
-                          ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/20'
-                          : 'border-gray-600 hover:border-gray-500 bg-gray-800/50'
-                      }`}
-                    >
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${category.color}`}>
-                        {category.label}
-                      </span>
-                    </button>
-                  ))}
+            {/* Scrollable Content Area */}
+            <div className="flex-1 overflow-y-auto pb-24">
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div>
+                  <label htmlFor="title" className="block text-sm font-medium text-gray-200 mb-2">
+                    Title
+                  </label>
+                  <input
+                    id="title"
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    className="input-field"
+                    required
+                  />
                 </div>
-              </div>
 
-              {/* Scheduled Date Section */}
-              <div>
-                <label className="block text-sm font-medium text-gray-200 mb-3">
-                  <Calendar className="w-4 h-4 inline mr-1" />
-                  Scheduled Date
-                </label>
-                
-                {/* Current Date Display */}
-                <div className="mb-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700/50">
-                  <div className="flex items-center space-x-2">
-                    <Calendar className="w-4 h-4 text-cyan-400" />
-                    <span className="text-sm text-gray-300">Currently scheduled for:</span>
-                    <span className="text-sm font-medium text-cyan-400">
-                      {getDateLabel(formData.scheduledDate)}
-                    </span>
+                <div>
+                  <label className="block text-sm font-medium text-gray-200 mb-3">
+                    <Tag className="w-4 h-4 inline mr-1" />
+                    Category
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {categories.map((category) => (
+                      <button
+                        key={category.value}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, category: category.value })}
+                        className={`p-3 rounded-xl border-2 text-left transition-all duration-300 ${
+                          formData.category === category.value
+                            ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/20'
+                            : 'border-gray-600 hover:border-gray-500 bg-gray-800/50'
+                        }`}
+                      >
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${category.color}`}>
+                          {category.label}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                {/* Quick Date Buttons */}
-                <div className="grid grid-cols-2 gap-2 mb-3">
-                  {quickDates.map((date) => (
-                    <button
-                      key={date.value}
-                      type="button"
-                      onClick={() => setFormData({ ...formData, scheduledDate: date.value })}
-                      className={`p-3 rounded-xl border-2 text-sm transition-all duration-300 ${
-                        formData.scheduledDate === date.value
-                          ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-lg shadow-cyan-500/20'
-                          : 'border-gray-600 hover:border-gray-500 text-gray-300 bg-gray-800/50'
-                      }`}
-                    >
-                      {date.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Custom Date Picker */}
-                <input
-                  type="date"
-                  value={formData.scheduledDate}
-                  onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
-                  className="input-field"
-                  min={format(new Date(), 'yyyy-MM-dd')}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+                {/* Scheduled Date Section */}
                 <div>
-                  <label htmlFor="startTime" className="block text-sm font-medium text-gray-200 mb-2">
-                    <Clock className="w-4 h-4 inline mr-1" />
-                    Start Time
+                  <label className="block text-sm font-medium text-gray-200 mb-3">
+                    <Calendar className="w-4 h-4 inline mr-1" />
+                    Scheduled Date
                   </label>
+                  
+                  {/* Current Date Display */}
+                  <div className="mb-3 p-3 rounded-lg bg-gray-800/50 border border-gray-700/50">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="w-4 h-4 text-cyan-400" />
+                      <span className="text-sm text-gray-300">Currently scheduled for:</span>
+                      <span className="text-sm font-medium text-cyan-400">
+                        {getDateLabel(formData.scheduledDate)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quick Date Buttons */}
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    {quickDates.map((date) => (
+                      <button
+                        key={date.value}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, scheduledDate: date.value })}
+                        className={`p-3 rounded-xl border-2 text-sm transition-all duration-300 ${
+                          formData.scheduledDate === date.value
+                            ? 'border-cyan-500 bg-cyan-500/10 text-cyan-400 shadow-lg shadow-cyan-500/20'
+                            : 'border-gray-600 hover:border-gray-500 text-gray-300 bg-gray-800/50'
+                        }`}
+                      >
+                        {date.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Custom Date Picker */}
                   <input
-                    id="startTime"
-                    type="time"
-                    value={formData.startTime}
-                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                    type="date"
+                    value={formData.scheduledDate}
+                    onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
                     className="input-field"
+                    min={format(new Date(), 'yyyy-MM-dd')}
                   />
                 </div>
-                <div>
-                  <label htmlFor="duration" className="block text-sm font-medium text-gray-200 mb-2">
-                    Duration (min)
-                  </label>
-                  <input
-                    id="duration"
-                    type="number"
-                    min="5"
-                    max="480"
-                    step="5"
-                    value={formData.duration}
-                    onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
-                    className="input-field"
-                  />
-                </div>
-              </div>
-            </form>
 
-            {/* Fixed position buttons for mobile */}
-            <div className="fixed bottom-32 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30 md:static md:bg-transparent md:backdrop-blur-none md:border-t-0 md:p-0 md:z-auto">
-              <div className="flex items-center justify-end space-x-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="startTime" className="block text-sm font-medium text-gray-200 mb-2">
+                      <Clock className="w-4 h-4 inline mr-1" />
+                      Start Time
+                    </label>
+                    <input
+                      id="startTime"
+                      type="time"
+                      value={formData.startTime}
+                      onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                      className="input-field"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="duration" className="block text-sm font-medium text-gray-200 mb-2">
+                      Duration (min)
+                    </label>
+                    <input
+                      id="duration"
+                      type="number"
+                      min="5"
+                      max="480"
+                      step="5"
+                      value={formData.duration}
+                      onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })}
+                      className="input-field"
+                    />
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            {/* Action Buttons - Fixed at bottom for mobile */}
+            <div className={`${isMobile ? 'fixed bottom-32 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30' : 'mt-6 pt-4 border-t border-gray-700/50'}`}>
+              <div className="flex items-center justify-end space-x-3 max-w-md mx-auto">
                 <button
                   type="button"
                   onClick={onClose}
@@ -227,7 +244,6 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                   Cancel
                 </button>
                 <button
-                  type="submit"
                   onClick={handleSubmit}
                   className="btn-primary"
                 >

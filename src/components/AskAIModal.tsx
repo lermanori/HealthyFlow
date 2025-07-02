@@ -223,7 +223,7 @@ Provide specific, actionable advice based on their actual tasks and schedule.`
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pb-32 md:pb-0">
+            <div className="flex-1 overflow-y-auto space-y-4 pb-20">
               {/* Quick Questions */}
               <div>
                 <h3 className="text-sm font-medium text-gray-300 mb-2">Quick Questions:</h3>
@@ -318,11 +318,11 @@ Provide specific, actionable advice based on their actual tasks and schedule.`
               </div>
             </div>
 
-            {/* Fixed position buttons for mobile */}
-            <div className="fixed bottom-32 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30 md:hidden">
+            {/* Action buttons at the bottom */}
+            <div className="mt-auto pt-4 border-t border-gray-700/50">
               <button
                 onClick={onClose}
-                className="btn-secondary w-full"
+                className="w-full btn-secondary"
               >
                 Close
               </button>
