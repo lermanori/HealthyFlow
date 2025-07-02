@@ -98,7 +98,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-6 pb-28 md:pb-0 modal-content">
+            <form onSubmit={handleSubmit} className="space-y-6 pb-32 md:pb-0">
               <div>
                 <label htmlFor="title" className="block text-sm font-medium text-gray-200 mb-2">
                   Title
@@ -214,26 +214,27 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                   />
                 </div>
               </div>
-
-              {/* Fixed position buttons for mobile */}
-              <div className="fixed bottom-28 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30 md:static md:bg-transparent md:backdrop-blur-none md:border-t-0 md:p-0 md:z-auto">
-                <div className="flex items-center justify-end space-x-3">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="btn-secondary"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                  >
-                    Save Changes
-                  </button>
-                </div>
-              </div>
             </form>
+
+            {/* Fixed position buttons for mobile */}
+            <div className="fixed bottom-32 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30 md:static md:bg-transparent md:backdrop-blur-none md:border-t-0 md:p-0 md:z-auto">
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  onClick={handleSubmit}
+                  className="btn-primary"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
           </motion.div>
         </div>
       )}

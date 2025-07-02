@@ -150,15 +150,6 @@
     border: 1px solid rgba(255, 255, 255, 0.1);
   }
 
-  /* Mobile-specific improvements */
-  .mobile-card {
-    @apply p-4 rounded-xl;
-  }
-
-  .mobile-button {
-    @apply min-h-[44px] min-w-[44px] flex items-center justify-center;
-  }
-
   /* Task card mobile optimizations */
   .task-card {
     background: rgba(17, 24, 39, 0.98) !important;
@@ -184,34 +175,13 @@
     box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(6, 182, 212, 0.3) !important;
   }
 
-  .task-menu-backdrop {
-    z-index: 9998 !important;
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
+  /* Task suggestion styles */
+  .task-suggestion {
+    @apply p-4 rounded-xl border border-gray-700/50 bg-gray-800/30 transition-all duration-300;
   }
 
-  /* Safe area utilities */
-  .safe-area-top {
-    padding-top: env(safe-area-inset-top);
-  }
-
-  .safe-area-bottom {
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
-  .safe-area-left {
-    padding-left: env(safe-area-inset-left);
-  }
-
-  .safe-area-right {
-    padding-right: env(safe-area-inset-right);
-  }
-
-  .h-safe-area-inset-bottom {
-    height: env(safe-area-inset-bottom);
+  .task-suggestion:hover {
+    @apply border-cyan-500/30 bg-cyan-500/10 shadow-lg shadow-cyan-500/10;
   }
 }
 
@@ -287,15 +257,6 @@
   50% { background-position: 100% 50%; }
 }
 
-/* Task suggestion styles */
-.task-suggestion {
-  @apply p-4 rounded-xl border border-gray-700/50 bg-gray-800/30 transition-all duration-300;
-}
-
-.task-suggestion:hover {
-  @apply border-cyan-500/30 bg-cyan-500/10 shadow-lg shadow-cyan-500/10;
-}
-
 /* Fix for bottom navigation bar overlap */
 @media (max-width: 768px) {
   .pb-28 {
@@ -315,9 +276,102 @@
   .fixed.bottom-28 {
     bottom: 8rem !important;
   }
-
+  
   /* Fix for save buttons in modals */
-  .fixed.bottom-28 {
+  .fixed.bottom-32 {
+    bottom: 8rem !important;
     padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Mobile-specific responsive utilities */
+@media (max-width: 768px) {
+  .mobile-hidden {
+    display: none !important;
+  }
+  
+  .mobile-full-width {
+    width: 100% !important;
+  }
+  
+  .mobile-padding {
+    padding: 1rem !important;
+  }
+  
+  .mobile-text-sm {
+    font-size: 0.875rem !important;
+  }
+  
+  .mobile-spacing {
+    gap: 0.5rem !important;
+  }
+}
+
+/* Landscape mobile optimizations */
+@media (max-width: 768px) and (orientation: landscape) {
+  .landscape-compact {
+    padding: 0.5rem !important;
+  }
+  
+  .landscape-small-text {
+    font-size: 0.75rem !important;
+  }
+}
+
+/* High DPI display optimizations */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .crisp-edges {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+/* Dark mode optimizations for OLED displays */
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000000;
+  }
+  
+  .oled-black {
+    background-color: #000000 !important;
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .animate-float,
+  .animate-neon-flicker,
+  .animate-pulse {
+    animation: none !important;
+  }
+}
+
+/* Focus improvements for accessibility */
+@media (prefers-reduced-motion: no-preference) {
+  :focus-visible {
+    outline: 2px solid #06b6d4;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
   }
 }

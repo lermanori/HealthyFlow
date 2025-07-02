@@ -583,7 +583,7 @@ Example output:
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto space-y-6 pb-28 md:pb-20">
+      <div className="flex-1 overflow-y-auto space-y-6 pb-32 md:pb-20">
         {/* TTS Settings */}
         <TTSSettings
           ttsEnabled={ttsEnabled}
@@ -870,9 +870,9 @@ Examples:
         </AnimatePresence>
       </div>
 
-      {/* Fixed Add Button at Bottom for Mobile */}
+      {/* Fixed Add Button at Bottom */}
       {suggestions.length > 0 && (
-        <div className="fixed bottom-28 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30 md:static md:bg-transparent md:backdrop-blur-none md:border-t-0 md:p-0 md:z-auto">
+        <div className="fixed bottom-32 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30 md:static md:bg-transparent md:backdrop-blur-none md:border-t-0 md:p-0 md:z-auto">
           <button
             onClick={addSelectedTasks}
             disabled={selectedSuggestions.size === 0 || addTasksMutation.isPending}
