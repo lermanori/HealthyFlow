@@ -539,9 +539,6 @@ Example output:
     { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
   ]
 
-  // Check if we're on mobile
-  const isMobile = window.innerWidth < 768
-
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}

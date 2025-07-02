@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Clock, Tag, Sparkles, Calendar } from 'lucide-react'
+import { X, Clock, Sparkles, Calendar } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { Task } from '../services/api'
 
@@ -65,15 +65,6 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
     { label: 'This Weekend', value: format(addDays(new Date(), 6 - new Date().getDay()), 'yyyy-MM-dd') },
     { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
   ]
-
-  const getDateLabel = (date: string) => {
-    const today = format(new Date(), 'yyyy-MM-dd')
-    const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd')
-    
-    if (date === today) return 'Today'
-    if (date === tomorrow) return 'Tomorrow'
-    return format(new Date(date), 'MMM d, yyyy')
-  }
 
   return (
     <AnimatePresence>
