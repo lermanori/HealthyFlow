@@ -21,7 +21,8 @@ CREATE TABLE tasks (
     completed_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     scheduled_date TEXT,
-    overdue_notified BOOLEAN DEFAULT FALSE
+    overdue_notified BOOLEAN DEFAULT FALSE,
+    original_habit_id UUID REFERENCES tasks(id) ON DELETE SET NULL
 );
 
 -- Create ai_recommendations table

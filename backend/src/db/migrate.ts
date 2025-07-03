@@ -33,6 +33,25 @@ export function migrateDatabase() {
         const columnNames = columns.map(col => col.name)
         const hasScheduledDate = columnNames.includes('scheduled_date')
         const hasOverdueNotified = columnNames.includes('overdue_notified')
+        const hasOriginalHabitId = columnNames.includes('original_habit_id')
+
+        const addOriginalHabitId = () => {
+          if (!hasOriginalHabitId) {
+            console.log('🔄 Adding original_habit_id column to tasks table...')
+            db.run(`ALTER TABLE tasks ADD COLUMN original_habit_id TEXT`, (err) => {
+              if (err) {
+                console.error('❌ Migration failed:', err)
+                reject(err)
+              } else {
+                console.log('✅ original_habit_id column added!')
+                resolve()
+              }
+            })
+          } else {
+            console.log('✅ original_habit_id column already exists')
+            resolve()
+          }
+        }
 
         const addOverdueNotified = () => {
           if (!hasOverdueNotified) {
@@ -43,11 +62,12 @@ export function migrateDatabase() {
                 reject(err)
               } else {
                 console.log('✅ overdue_notified column added!')
-                resolve()
+                addOriginalHabitId()
               }
             })
           } else {
-            resolve()
+            console.log('✅ overdue_notified column already exists')
+            addOriginalHabitId()
           }
         }
 

@@ -14,7 +14,15 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   console.log('Backend - User ID:', userId)
 
   try {
-    const tasks = await db.getTasksByUserId(userId, date as string)
+    let tasks;
+    
+    if (date) {
+      // Use the enhanced function that handles recurring habits
+      tasks = await db.getTasksWithRecurringHabits(userId, date as string)
+    } else {
+      // If no date specified, get all tasks
+      tasks = await db.getTasksByUserId(userId)
+    }
 
     console.log('Backend - Raw tasks from database:', tasks)
     console.log('Backend - Number of tasks found:', tasks.length)
@@ -30,12 +38,15 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
       completed: Boolean(task.completed),
       scheduledDate: task.scheduled_date,
       createdAt: task.created_at,
-      overdueNotified: Boolean(task.overdue_notified)
+      overdueNotified: Boolean(task.overdue_notified),
+      isHabitInstance: Boolean(task.is_habit_instance),
+      originalHabitId: task.original_habit_id
     }))
 
     console.log('Backend - Formatted tasks being sent:', formattedTasks)
     res.json(formattedTasks)
   } catch (error) {
+    console.error('Backend - Error getting tasks:', error)
     res.status(500).json({ error: 'Database error' })
   }
 })
@@ -147,24 +158,52 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
   const taskId = req.params.id
 
   try {
-    const task = await db.updateTask(taskId, {
-      completed: true,
-      completed_at: new Date().toISOString()
-    })
+    // Check if this is a virtual habit instance (format: originalId-date)
+    if (taskId.includes('-') && taskId.match(/^[^-]+-\d{4}-\d{2}-\d{2}$/)) {
+      const [originalHabitId, date] = taskId.split('-').slice(0, 2)
+      const fullDate = taskId.split('-').slice(1).join('-') // In case date has multiple dashes
+      
+      console.log('Backend - Completing virtual habit instance:', { originalHabitId, date: fullDate, taskId })
+      
+      // Create a real habit instance for this date
+      const habitInstance = await db.createHabitInstance(originalHabitId, fullDate, userId)
+      
+      res.json({
+        id: habitInstance.id,
+        title: habitInstance.title,
+        type: habitInstance.type,
+        category: habitInstance.category,
+        startTime: habitInstance.start_time,
+        duration: habitInstance.duration,
+        repeat: habitInstance.repeat_type,
+        completed: Boolean(habitInstance.completed),
+        scheduledDate: habitInstance.scheduled_date,
+        createdAt: habitInstance.created_at,
+        originalHabitId: habitInstance.original_habit_id
+      })
+    } else {
+      // Handle regular task or existing habit instance completion
+      const task = await db.updateTask(taskId, {
+        completed: true,
+        completed_at: new Date().toISOString()
+      })
 
-    res.json({
-      id: task.id,
-      title: task.title,
-      type: task.type,
-      category: task.category,
-      startTime: task.start_time,
-      duration: task.duration,
-      repeat: task.repeat_type,
-      completed: Boolean(task.completed),
-      scheduledDate: task.scheduled_date,
-      createdAt: task.created_at
-    })
+      res.json({
+        id: task.id,
+        title: task.title,
+        type: task.type,
+        category: task.category,
+        startTime: task.start_time,
+        duration: task.duration,
+        repeat: task.repeat_type,
+        completed: Boolean(task.completed),
+        scheduledDate: task.scheduled_date,
+        createdAt: task.created_at,
+        originalHabitId: task.original_habit_id
+      })
+    }
   } catch (error) {
+    console.error('Backend - Error completing task:', error)
     res.status(500).json({ error: 'Database error' })
   }
 })
@@ -214,6 +253,68 @@ router.patch('/overdue-notified', authenticateToken, async (req: AuthRequest, re
     res.json({ success: true, updated: taskIds.length })
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
+  }
+})
+
+// Rollover incomplete tasks from previous day
+router.post('/rollover', authenticateToken, async (req: AuthRequest, res) => {
+  const userId = req.user.userId
+  const { fromDate, toDate } = req.body
+
+  console.log('Backend - Rolling over tasks from', fromDate, 'to', toDate)
+
+  try {
+    // Get incomplete tasks from the previous day
+    const incompleteTasks = await db.getTasksByUserId(userId, fromDate)
+    const tasksToRollover = incompleteTasks.filter((task: any) => !task.completed && task.type === 'task')
+
+    // Get all tasks for the target day to check for duplicates
+    const nextDayTasks = await db.getTasksByUserId(userId, toDate)
+
+    console.log('Rollover - FULL nextDayTasks:', JSON.stringify(nextDayTasks, null, 2))
+    console.log('Rollover - Next day tasks (summary):', nextDayTasks.map((t: any) => ({ id: t.id, title: t.title, rolled_over_from_task_id: t.rolled_over_from_task_id })))
+
+    // Improved duplicate check: prevent rollover if any next day task has rolled_over_from_task_id equal to this task's id OR to this task's rolled_over_from_task_id (if it exists)
+    const rolloverPromises = tasksToRollover.map(async (task: any) => {
+      console.log(`Rollover - Checking task id ${task.id} (${task.title}): task.rolled_over_from_task_id=${task.rolled_over_from_task_id}`)
+      const alreadyExists = nextDayTasks.some((t: any) =>
+        t.rolled_over_from_task_id === task.id ||
+        (task.rolled_over_from_task_id && t.rolled_over_from_task_id === task.rolled_over_from_task_id)
+      )
+      console.log(`Rollover - Checking task id ${task.id} (${task.title}): alreadyExists=${alreadyExists}`)
+      if (!alreadyExists) {
+        console.log(`Rollover - Creating rollover for task id ${task.id} (${task.title})`)
+        return db.createTask({
+          user_id: userId,
+          title: task.title,
+          type: task.type,
+          category: task.category,
+          start_time: task.start_time,
+          duration: task.duration,
+          repeat_type: task.repeat_type,
+          scheduled_date: toDate,
+          completed: false,
+          rolled_over_from_task_id: task.rolled_over_from_task_id || task.id
+        })
+      }
+      return null
+    })
+
+    const rolledOverTasks = (await Promise.all(rolloverPromises)).filter(Boolean)
+
+    console.log('Backend - Successfully rolled over', rolledOverTasks.length, 'tasks')
+    if (rolledOverTasks.length > 0) {
+      console.log('Rollover - New rolled over tasks:', rolledOverTasks.map((t: any) => ({ id: t.id, title: t.title, rolled_over_from_task_id: t.rolled_over_from_task_id })))
+    }
+
+    res.json({
+      success: true,
+      message: `Rolled over ${rolledOverTasks.length} incomplete tasks`,
+      rolledOverTasks: rolledOverTasks.length
+    })
+  } catch (error) {
+    console.error('Backend - Error rolling over tasks:', error)
+    res.status(500).json({ error: 'Failed to rollover tasks' })
   }
 })
 

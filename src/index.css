@@ -372,3 +372,160 @@
     color: black !important;
   }
 }
+
+/* PWA Standalone mode optimizations */
+@media (display-mode: standalone) {
+  /* Enhanced safe area support for PWA */
+  body {
+    padding-top: max(env(safe-area-inset-top), 20px);
+    padding-bottom: max(env(safe-area-inset-bottom), 20px);
+    padding-left: max(env(safe-area-inset-left), 0px);
+    padding-right: max(env(safe-area-inset-right), 0px);
+  }
+
+  /* Adjust card backgrounds for better PWA appearance */
+  .card {
+    background: linear-gradient(135deg, rgba(31, 41, 55, 0.95) 0%, rgba(17, 24, 39, 0.98) 100%) !important;
+    border: 1px solid rgba(55, 65, 81, 0.8) !important;
+    backdrop-filter: blur(25px) !important;
+  }
+
+  /* Enhance task card visibility in PWA */
+  .task-card {
+    background: rgba(17, 24, 39, 0.99) !important;
+    border: 2px solid rgba(55, 65, 81, 0.95) !important;
+    backdrop-filter: blur(25px) !important;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4) !important;
+  }
+
+  /* Improve glass effect for PWA */
+  .glass-effect {
+    background: rgba(31, 41, 55, 0.15) !important;
+    backdrop-filter: blur(15px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  }
+
+  /* Better gradient visibility in PWA */
+  .btn-primary {
+    background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%) !important;
+    box-shadow: 0 0 25px rgba(6, 182, 212, 0.4) !important;
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #0891b2 0%, #2563eb 100%) !important;
+    box-shadow: 0 0 30px rgba(6, 182, 212, 0.5) !important;
+  }
+
+  /* Enhanced neon effects for PWA */
+  .neon-text {
+    text-shadow: 0 0 15px rgba(0, 212, 255, 0.9), 0 0 25px rgba(0, 212, 255, 0.7), 0 0 35px rgba(0, 212, 255, 0.5) !important;
+  }
+
+  /* Improve AI glow effect in PWA */
+  .ai-glow::before {
+    background: linear-gradient(45deg, #00d4ff, #0099cc, #00ffff, #00d4ff) !important;
+    animation: ai-pulse 2s ease-in-out infinite alternate !important;
+    opacity: 0.9 !important;
+  }
+
+  /* Better holographic effects in PWA */
+  .holographic {
+    background: linear-gradient(45deg, 
+      rgba(0, 212, 255, 0.15) 0%,
+      rgba(0, 255, 255, 0.08) 25%,
+      rgba(0, 153, 204, 0.15) 50%,
+      rgba(0, 255, 255, 0.08) 75%,
+      rgba(0, 212, 255, 0.15) 100%
+    ) !important;
+  }
+
+  /* Enhanced input field appearance in PWA */
+  .input-field {
+    background: rgba(31, 41, 55, 0.8) !important;
+    border: 1px solid rgba(75, 85, 99, 0.8) !important;
+    backdrop-filter: blur(20px) !important;
+  }
+
+  .input-field:focus {
+    background: rgba(31, 41, 55, 0.9) !important;
+    border: 1px solid rgba(6, 182, 212, 0.6) !important;
+    box-shadow: 0 0 25px rgba(6, 182, 212, 0.3), inset 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+  }
+
+  /* Better task menu visibility in PWA */
+  .task-menu {
+    background: rgba(17, 24, 39, 0.99) !important;
+    border: 2px solid rgba(75, 85, 99, 0.9) !important;
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 0 0 35px rgba(6, 182, 212, 0.4) !important;
+    backdrop-filter: blur(25px) !important;
+  }
+
+  /* Improve mobile bottom navigation in PWA */
+  .fixed.bottom-0 {
+    background: rgba(17, 24, 39, 0.98) !important;
+    backdrop-filter: blur(25px) !important;
+    border-top: 1px solid rgba(75, 85, 99, 0.8) !important;
+  }
+
+  /* Enhanced scrollbar for PWA */
+  ::-webkit-scrollbar-thumb {
+    background: linear-gradient(45deg, #00d4ff, #0099cc) !important;
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.4) !important;
+  }
+
+  /* Better background effects for PWA */
+  .min-h-screen {
+    background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%) !important;
+  }
+
+  /* Enhance loading screen for PWA */
+  #loading-screen {
+    background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%) !important;
+  }
+
+  /* Better animation performance in PWA */
+  .animate-float,
+  .animate-neon-flicker,
+  .animate-pulse {
+    will-change: transform, opacity !important;
+    transform: translateZ(0) !important;
+  }
+}
+
+/* iOS PWA specific optimizations */
+@media (display-mode: standalone) and (-webkit-touch-callout: none) {
+  /* iOS specific safe area handling */
+  body {
+    padding-top: max(env(safe-area-inset-top), 44px);
+  }
+  
+  /* Better touch targets for iOS PWA */
+  button, [role="button"], a {
+    min-height: 48px !important;
+    min-width: 48px !important;
+  }
+
+  /* Improve iOS PWA scrolling */
+  * {
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Better iOS PWA input handling */
+  .input-field {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+    border-radius: 12px !important;
+  }
+}
+
+/* Android PWA specific optimizations */
+@media (display-mode: standalone) and (not (-webkit-touch-callout: none)) {
+  /* Android specific improvements */
+  .card {
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(6, 182, 212, 0.1) !important;
+  }
+
+  /* Better Android PWA navigation */
+  .fixed.bottom-0 {
+    padding-bottom: max(env(safe-area-inset-bottom), 16px) !important;
+  }
+}

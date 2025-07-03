@@ -62,7 +62,8 @@ export default function AITextAnalyzer({
           duration: task.estimatedDuration,
           startTime: task.startTime,
           repeat: task.type === 'habit' ? 'daily' : 'none',
-          scheduledDate: task.scheduledDate
+          // For habits, always use today as the start date so they begin recurring immediately
+          scheduledDate: task.type === 'habit' ? format(new Date(), 'yyyy-MM-dd') : task.scheduledDate
         })
       )
       return Promise.all(promises)
@@ -70,23 +71,38 @@ export default function AITextAnalyzer({
     onSuccess: (tasks) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       
-      // Group tasks by date for better feedback
-      const tasksByDate = tasks.reduce((acc, task) => {
-        const date = task.scheduledDate || 'unknown'
-        if (!acc[date]) acc[date] = []
-        acc[date].push(task.title)
-        return acc
-      }, {} as Record<string, string[]>)
+      // Count habits separately since they start recurring from today
+      const regularTasks = tasks.filter(t => t.type !== 'habit')
+      const habits = tasks.filter(t => t.type === 'habit')
       
-      // Show success message with date info
-      const dateInfo = Object.entries(tasksByDate).map(([date, taskTitles]) => {
-        const dateLabel = date === format(new Date(), 'yyyy-MM-dd') ? 'today' : 
-                         date === format(addDays(new Date(), 1), 'yyyy-MM-dd') ? 'tomorrow' :
-                         format(new Date(date), 'MMM d')
-        return `${taskTitles.length} task${taskTitles.length > 1 ? 's' : ''} for ${dateLabel}`
-      }).join(', ')
+      let successMessage = ''
       
-      toast.success(`Added ${tasks.length} task${tasks.length > 1 ? 's' : ''} successfully! (${dateInfo}) 🚀`)
+      if (habits.length > 0) {
+        successMessage += `Added ${habits.length} daily habit${habits.length > 1 ? 's' : ''} (will appear every day starting today)`
+      }
+      
+      if (regularTasks.length > 0) {
+        if (successMessage) successMessage += ' and '
+        
+        // Group regular tasks by date for better feedback
+        const tasksByDate = regularTasks.reduce((acc, task) => {
+          const date = task.scheduledDate || 'unknown'
+          if (!acc[date]) acc[date] = []
+          acc[date].push(task.title)
+          return acc
+        }, {} as Record<string, string[]>)
+        
+        const dateInfo = Object.entries(tasksByDate).map(([date, taskTitles]) => {
+          const dateLabel = date === format(new Date(), 'yyyy-MM-dd') ? 'today' : 
+                           date === format(addDays(new Date(), 1), 'yyyy-MM-dd') ? 'tomorrow' :
+                           format(new Date(date), 'MMM d')
+          return `${taskTitles.length} task${taskTitles.length > 1 ? 's' : ''} for ${dateLabel}`
+        }).join(', ')
+        
+        successMessage += `Added ${regularTasks.length} task${regularTasks.length > 1 ? 's' : ''} (${dateInfo})`
+      }
+      
+      toast.success(`${successMessage} 🚀`)
       setSuggestions([])
       setInputText('')
       setSelectedSuggestions(new Set())
@@ -206,17 +222,28 @@ SMART DATE SCHEDULING RULES:
 - If user mentions "evening" or "tonight" → schedule for today
 - If user mentions specific days (Monday, Tuesday, etc.) → use the next occurrence
 - If no time context → use today's date as default
-- For habits → always use today's date
+- For habits → ALWAYS use today's date (habits will automatically recur daily)
 - For work tasks → prefer weekdays
 - For personal tasks → can be any day
+
+IMPORTANT: Daily habits will automatically appear every day once created, so always use today's date for habits regardless of user input.
 
 Today's date: ${format(new Date(), 'yyyy-MM-dd')}
 Tomorrow's date: ${format(addDays(new Date(), 1), 'yyyy-MM-dd')}
 Current time: ${format(new Date(), 'HH:mm')}
 
-Example input: "I want to go to the gym tomorrow morning and prepare for Monday's meeting"
+Example input: "I want to start meditating daily and go to the gym tomorrow morning"
 Example output:
 [
+  {
+    "title": "Daily meditation",
+    "category": "health",
+    "estimatedDuration": 15,
+    "priority": "high",
+    "type": "habit",
+    "startTime": "07:00",
+    "scheduledDate": "${format(new Date(), 'yyyy-MM-dd')}"
+  },
   {
     "title": "Gym workout",
     "category": "fitness",
@@ -224,15 +251,6 @@ Example output:
     "priority": "high",
     "type": "task",
     "startTime": "07:00",
-    "scheduledDate": "${format(addDays(new Date(), 1), 'yyyy-MM-dd')}"
-  },
-  {
-    "title": "Prepare for meeting",
-    "category": "work",
-    "estimatedDuration": 45,
-    "priority": "high",
-    "type": "task",
-    "startTime": "09:00",
     "scheduledDate": "${format(addDays(new Date(), 1), 'yyyy-MM-dd')}"
   }
 ]`

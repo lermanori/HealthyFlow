@@ -17,7 +17,6 @@ import { formatRelativeDate } from '../utils/dateHelpers'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import AskAIModal from '../components/AskAIModal'
-
 export default function DashboardPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -28,6 +27,10 @@ export default function DashboardPage() {
   const queryClient = useQueryClient()
   const { showNotification } = useNotifications()
   const location = useLocation()
+  const [rolloverCompleted, setRolloverCompleted] = useState(false)
+
+  const today = format(new Date(), 'yyyy-MM-dd')
+  const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd')
 
   // Check for AI parameter in URL
   useEffect(() => {
@@ -52,7 +55,7 @@ export default function DashboardPage() {
   // Register for vibration feedback if available
   const hasVibration = 'navigator' in window && 'vibrate' in navigator
 
-  const { data: tasks = [], isLoading } = useQuery({
+  const { data: tasksData = [], isLoading } = useQuery({
     queryKey: ['tasks', format(selectedDate, 'yyyy-MM-dd')],
     queryFn: () => taskService.getTasks(format(selectedDate, 'yyyy-MM-dd')),
   })
@@ -167,10 +170,10 @@ export default function DashboardPage() {
   }
 
   // Calculate habit statistics
-  const habits = tasks.filter(task => task.type === 'habit')
-  const completedHabits = habits.filter(habit => habit.completed)
+  const habits = tasksData.filter((task: Task) => task.type === 'habit')
+  const completedHabits = habits.filter((habit: Task) => habit.completed)
   
-  const categories = tasks.reduce((acc, task) => {
+  const categories = tasksData.reduce((acc: Record<string, { total: number; completed: number }>, task: Task) => {
     if (!acc[task.category]) {
       acc[task.category] = { total: 0, completed: 0 }
     }
@@ -202,6 +205,34 @@ export default function DashboardPage() {
       }
     }
   }
+
+  // Automatic task rollover effect
+  useEffect(() => {
+    const performRollover = async () => {
+      if (rolloverCompleted) return
+      
+      try {
+        console.log('Dashboard - Performing automatic task rollover from', yesterday, 'to', today)
+        const result = await taskService.rolloverTasks(yesterday, today)
+        
+        if (result.rolledOverTasks > 0) {
+          console.log('Dashboard - Rolled over', result.rolledOverTasks, 'tasks')
+          // Refresh tasks to show the rolled over ones
+          queryClient.invalidateQueries({ queryKey: ['tasks'] })
+        }
+        
+        setRolloverCompleted(true)
+      } catch (error) {
+        console.error('Dashboard - Error during rollover:', error)
+        // Don't show error to user as this is a background operation
+      }
+    }
+
+    // Only perform rollover once per session and only if we have tasks loaded
+    if (tasksData.length > 0 && !rolloverCompleted) {
+      performRollover()
+    }
+  }, [tasksData, rolloverCompleted, queryClient])
 
   if (isLoading) {
     return (
@@ -269,7 +300,7 @@ export default function DashboardPage() {
             
             <div className="flex items-center space-x-4 mt-2">
               <span className="text-xs md:text-sm text-gray-500">
-                {tasks.length} tasks • {tasks.filter(t => t.completed).length} completed
+                {tasksData.length} tasks • {tasksData.filter((t: Task) => t.completed).length} completed
               </span>
               <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
             </div>
@@ -362,7 +393,7 @@ export default function DashboardPage() {
           className="lg:col-span-2"
         >
           <DayTimeline
-            tasks={tasks}
+            tasks={tasksData}
             onTasksReorder={handleTasksReorder}
             onCompleteTask={handleCompleteTask}
             onUncompleteTask={handleUncompleteTask}

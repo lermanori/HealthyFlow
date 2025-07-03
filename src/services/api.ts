@@ -40,6 +40,8 @@ export interface Task {
   scheduledDate?: string
   createdAt: string
   overdueNotified?: boolean
+  isHabitInstance?: boolean
+  originalHabitId?: string
 }
 
 export interface WeeklySummary {
@@ -110,6 +112,12 @@ export const taskService = {
 
   deleteTask: async (id: string): Promise<void> => {
     await api.delete(`/tasks/${id}`)
+  },
+
+  // Rollover incomplete tasks from previous day
+  async rolloverTasks(fromDate: string, toDate: string): Promise<{ success: boolean; message: string; rolledOverTasks: number }> {
+    const response = await api.post('/tasks/rollover', { fromDate, toDate })
+    return response.data
   },
 }
 

@@ -105,6 +105,9 @@ export const db = {
       .order('created_at', { ascending: true });
     
     if (error) throw error;
+    if (data) {
+      console.log('getTasksByUserId - Returned tasks:', data.map(t => ({ id: t.id, title: t.title, scheduled_date: t.scheduled_date, rolled_over_from_task_id: t.rolled_over_from_task_id })));
+    }
     return data;
   },
 
@@ -274,5 +277,150 @@ export const db = {
       .eq('user_id', userId);
     
     if (error) throw error;
-  }
+  },
+
+  // Enhanced function to get tasks with recurring habits for a specific date
+  async getTasksWithRecurringHabits(userId: string, date: string) {
+    try {
+      // Get regular tasks for the specific date (excluding daily habits)
+      const { data: regularTasks, error: regularError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('scheduled_date', date)
+        .order('start_time', { ascending: true })
+        .order('created_at', { ascending: true })
+
+      if (regularError) throw regularError
+
+      // Get all daily habits (original habits with repeat_type = 'daily')
+      const { data: dailyHabits, error: habitsError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('type', 'habit')
+        .eq('repeat_type', 'daily')
+        .order('created_at', { ascending: true })
+
+      if (habitsError) throw habitsError
+
+      // Get existing habit instances for this date (habit instances have original_habit_id set)
+      const { data: existingInstances, error: instancesError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('scheduled_date', date)
+        .not('original_habit_id', 'is', null)
+
+      if (instancesError) throw instancesError
+
+      // Get original habits scheduled for this date (original_habit_id is null, scheduled_date = date)
+      const { data: originalHabitsForDate, error: origHabitsError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('type', 'habit')
+        .eq('repeat_type', 'daily')
+        .eq('scheduled_date', date)
+        .is('original_habit_id', null)
+
+      if (origHabitsError) throw origHabitsError
+
+      // Build a set of habit ids that already have a real or original instance for this date
+      const habitIdsWithInstance = new Set([
+        ...existingInstances.map(inst => inst.original_habit_id),
+        ...originalHabitsForDate.map(orig => orig.id)
+      ])
+
+      // Create virtual habit instances for habits that don't have a real or original instance for this date
+      const virtualHabitInstances = dailyHabits
+        .filter(habit => !habitIdsWithInstance.has(habit.id))
+        .map(habit => ({
+          id: `${habit.id}-${date}`,
+          title: habit.title,
+          type: 'habit' as const,
+          category: habit.category,
+          start_time: habit.start_time,
+          duration: habit.duration,
+          repeat_type: habit.repeat_type,
+          completed: false,
+          completed_at: null,
+          created_at: habit.created_at,
+          scheduled_date: date,
+          overdue_notified: false,
+          user_id: userId,
+          original_habit_id: habit.id,
+          isHabitInstance: true
+        }))
+
+      // Combine all tasks for the day (deduplicate by habit id: only one per habit per day)
+      const allTasks = [
+        ...regularTasks,
+        ...existingInstances,
+        ...originalHabitsForDate,
+        ...virtualHabitInstances
+      ]
+
+      // Deduplicate habits: only one per habit id per day
+      const seenHabitIds = new Set()
+      const dedupedTasks = allTasks.filter(task => {
+        if (task.type !== 'habit') return true
+        const habitId = task.original_habit_id || task.id
+        if (seenHabitIds.has(habitId)) return false
+        seenHabitIds.add(habitId)
+        return true
+      })
+
+      // Sort by start time and creation time
+      return dedupedTasks.sort((a, b) => {
+        if (a.start_time && b.start_time) {
+          return a.start_time.localeCompare(b.start_time)
+        }
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      })
+    } catch (error) {
+      console.error('Error getting tasks with recurring habits:', error)
+      throw error
+    }
+  },
+
+  // Create a real habit instance for a specific date
+  async createHabitInstance(originalHabitId: string, date: string, userId: string) {
+    try {
+      // Get the original habit
+      const { data: originalHabit, error: fetchError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('id', originalHabitId)
+        .single()
+
+      if (fetchError) throw fetchError
+      if (!originalHabit) throw new Error('Original habit not found')
+
+      // Create the habit instance
+      const { data: habitInstance, error: createError } = await supabase
+        .from('tasks')
+        .insert({
+          user_id: userId,
+          title: originalHabit.title,
+          type: 'habit',
+          category: originalHabit.category,
+          start_time: originalHabit.start_time,
+          duration: originalHabit.duration,
+          repeat_type: originalHabit.repeat_type,
+          completed: true, // Mark as completed since this is created when user completes it
+          completed_at: new Date().toISOString(),
+          scheduled_date: date,
+          original_habit_id: originalHabitId
+        })
+        .select()
+        .single()
+
+      if (createError) throw createError
+      return habitInstance
+    } catch (error) {
+      console.error('Error creating habit instance:', error)
+      throw error
+    }
+  },
 }; 
