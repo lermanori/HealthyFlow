@@ -1,6 +1,6 @@
 import express from 'express'
 import { v4 as uuidv4 } from 'uuid'
-import { db } from '../supabase-client'
+import { db, supabase } from '../supabase-client'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 
 const router = express.Router()
@@ -40,7 +40,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
       createdAt: task.created_at,
       overdueNotified: Boolean(task.overdue_notified),
       isHabitInstance: Boolean(task.is_habit_instance),
-      originalHabitId: task.original_habit_id
+      originalHabitId: task.original_habit_id,
+      rolledOverFromTaskId: task.rolled_over_from_task_id,
+      originalCreatedAt: task.original_created_at
     }))
 
     console.log('Backend - Formatted tasks being sent:', formattedTasks)
@@ -84,7 +86,9 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       repeat: task.repeat_type,
       completed: false,
       scheduledDate: task.scheduled_date,
-      createdAt: task.created_at
+      createdAt: task.created_at,
+      rolledOverFromTaskId: task.rolled_over_from_task_id,
+      originalCreatedAt: task.original_created_at
     })
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
@@ -145,7 +149,9 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
       repeat: updatedTask.repeat_type,
       completed: Boolean(updatedTask.completed),
       scheduledDate: updatedTask.scheduled_date,
-      createdAt: updatedTask.created_at
+      createdAt: updatedTask.created_at,
+      rolledOverFromTaskId: updatedTask.rolled_over_from_task_id,
+      originalCreatedAt: updatedTask.original_created_at
     })
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
@@ -179,7 +185,9 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
         completed: Boolean(habitInstance.completed),
         scheduledDate: habitInstance.scheduled_date,
         createdAt: habitInstance.created_at,
-        originalHabitId: habitInstance.original_habit_id
+        originalHabitId: habitInstance.original_habit_id,
+        rolledOverFromTaskId: habitInstance.rolled_over_from_task_id,
+        originalCreatedAt: habitInstance.original_created_at
       })
     } else {
       // Handle regular task or existing habit instance completion
@@ -199,7 +207,9 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
         completed: Boolean(task.completed),
         scheduledDate: task.scheduled_date,
         createdAt: task.created_at,
-        originalHabitId: task.original_habit_id
+        originalHabitId: task.original_habit_id,
+        rolledOverFromTaskId: task.rolled_over_from_task_id,
+        originalCreatedAt: task.original_created_at
       })
     }
   } catch (error) {
@@ -256,31 +266,55 @@ router.patch('/overdue-notified', authenticateToken, async (req: AuthRequest, re
   }
 })
 
-// Rollover incomplete tasks from previous day
+// Rollover incomplete tasks without specific dates to current day
 router.post('/rollover', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
-  const { fromDate, toDate } = req.body
+  const { toDate } = req.body
 
-  console.log('Backend - Rolling over tasks from', fromDate, 'to', toDate)
+  console.log('Backend - Rolling over tasks without dates to', toDate)
 
   try {
-    // Get incomplete tasks from the previous day
-    const incompleteTasks = await db.getTasksByUserId(userId, fromDate)
-    const tasksToRollover = incompleteTasks.filter((task: any) => !task.completed && task.type === 'task')
+    // Get all incomplete tasks without a specific scheduled date
+    const { data: tasksWithoutDate, error: fetchError } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_id', userId)
+      .is('start_time', null)
+      .eq('completed', false)
+      .eq('type', 'task')
+      .order('created_at', { ascending: true })
+
+    if (fetchError) {
+      console.error('Backend - Error fetching tasks without date:', fetchError)
+      return res.status(500).json({ error: 'Failed to fetch tasks' })
+    }
+
+    console.log('Backend - Found', tasksWithoutDate.length, 'tasks without dates to roll over')
 
     // Get all tasks for the target day to check for duplicates
     const nextDayTasks = await db.getTasksByUserId(userId, toDate)
 
-    console.log('Rollover - FULL nextDayTasks:', JSON.stringify(nextDayTasks, null, 2))
     console.log('Rollover - Next day tasks (summary):', nextDayTasks.map((t: any) => ({ id: t.id, title: t.title, rolled_over_from_task_id: t.rolled_over_from_task_id })))
 
-    // Improved duplicate check: prevent rollover if any next day task has rolled_over_from_task_id equal to this task's id OR to this task's rolled_over_from_task_id (if it exists)
-    const rolloverPromises = tasksToRollover.map(async (task: any) => {
-      console.log(`Rollover - Checking task id ${task.id} (${task.title}): task.rolled_over_from_task_id=${task.rolled_over_from_task_id}`)
-      const alreadyExists = nextDayTasks.some((t: any) =>
-        t.rolled_over_from_task_id === task.id ||
-        (task.rolled_over_from_task_id && t.rolled_over_from_task_id === task.rolled_over_from_task_id)
-      )
+    // Check for duplicates and create rollover tasks
+    const rolloverPromises = tasksWithoutDate.map(async (task: any) => {
+      console.log(`Rollover - Checking task id ${task.id} (${task.title})`)
+      
+      // Check if this task has already been rolled over to the target date
+      const alreadyExists = nextDayTasks.some((t: any) => {
+        // Check if any task in the target day has this task's ID as its rolled_over_from_task_id
+        if (t.rolled_over_from_task_id === task.id) {
+          return true
+        }
+        
+        // Check if this task is itself a rolled over task and if its original task has already been rolled over
+        if (task.rolled_over_from_task_id && t.rolled_over_from_task_id === task.rolled_over_from_task_id) {
+          return true
+        }
+        
+        return false
+      })
+      
       console.log(`Rollover - Checking task id ${task.id} (${task.title}): alreadyExists=${alreadyExists}`)
       if (!alreadyExists) {
         console.log(`Rollover - Creating rollover for task id ${task.id} (${task.title})`)
@@ -294,7 +328,8 @@ router.post('/rollover', authenticateToken, async (req: AuthRequest, res) => {
           repeat_type: task.repeat_type,
           scheduled_date: toDate,
           completed: false,
-          rolled_over_from_task_id: task.rolled_over_from_task_id || task.id
+          rolled_over_from_task_id: task.rolled_over_from_task_id || task.id,
+          original_created_at: task.created_at // Store the original creation date
         })
       }
       return null
@@ -309,7 +344,7 @@ router.post('/rollover', authenticateToken, async (req: AuthRequest, res) => {
 
     res.json({
       success: true,
-      message: `Rolled over ${rolledOverTasks.length} incomplete tasks`,
+      message: `Rolled over ${rolledOverTasks.length} tasks without dates`,
       rolledOverTasks: rolledOverTasks.length
     })
   } catch (error) {

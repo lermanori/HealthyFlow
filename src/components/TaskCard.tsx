@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Clock, Check, MoreVertical, Edit, Trash2, Zap, RotateCcw } from 'lucide-react'
+import { Clock, Check, MoreVertical, Edit, Trash2, Zap, RotateCcw, Calendar } from 'lucide-react'
 import { Task } from '../services/api'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 
 interface TaskCardProps {
   task: Task
@@ -39,6 +39,14 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
     return type === 'habit' 
       ? 'bg-purple-500/20 text-purple-400 border-purple-500/30' 
       : 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
+  }
+
+  // Check if this is a rolled over task (has rolledOverFromTaskId)
+  const isRolledOver = task.rolledOverFromTaskId
+  
+  // Debug logging
+  if (task.rolledOverFromTaskId) {
+    console.log('🎯 Task with rollover:', task.title, 'rolledOverFromTaskId:', task.rolledOverFromTaskId, 'originalCreatedAt:', task.originalCreatedAt);
   }
 
   return (
@@ -179,6 +187,19 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
           )}
         </div>
       </div>
+
+      {/* Rolled over task indicator - positioned in bottom right */}
+      {isRolledOver && (
+        <div className="absolute bottom-2 right-2 flex items-center space-x-1 text-xs text-gray-500/60 hover:text-gray-400/80 transition-colors duration-200 group-hover:opacity-100 opacity-70">
+          <Calendar className="w-3 h-3" />
+          <span className="font-mono">
+            {task.originalCreatedAt 
+              ? `Rolled over from ${format(parseISO(task.originalCreatedAt), 'MMM d')}`
+              : 'Rolled over'
+            }
+          </span>
+        </div>
+      )}
     </motion.div>
   )
 }

@@ -42,6 +42,8 @@ export interface Task {
   overdueNotified?: boolean
   isHabitInstance?: boolean
   originalHabitId?: string
+  rolledOverFromTaskId?: string
+  originalCreatedAt?: string
 }
 
 export interface WeeklySummary {
@@ -92,6 +94,13 @@ export const taskService = {
     console.log('API - getTasks called with date:', date)
     const response = await api.get('/tasks', { params: { date } })
     console.log('API - getTasks response:', response.data)
+    
+    // Debug: Check for rolled over tasks
+    const rolledOverTasks = response.data.filter((task: Task) => task.rolledOverFromTaskId)
+    if (rolledOverTasks.length > 0) {
+      console.log('🔄 Found rolled over tasks:', rolledOverTasks.map((t: Task) => ({ title: t.title, rolledOverFromTaskId: t.rolledOverFromTaskId })))
+    }
+    
     return response.data
   },
 
@@ -114,9 +123,9 @@ export const taskService = {
     await api.delete(`/tasks/${id}`)
   },
 
-  // Rollover incomplete tasks from previous day
-  async rolloverTasks(fromDate: string, toDate: string): Promise<{ success: boolean; message: string; rolledOverTasks: number }> {
-    const response = await api.post('/tasks/rollover', { fromDate, toDate })
+  // Rollover incomplete tasks without dates to current day
+  async rolloverTasks(toDate: string): Promise<{ success: boolean; message: string; rolledOverTasks: number }> {
+    const response = await api.post('/tasks/rollover', { toDate })
     return response.data
   },
 }

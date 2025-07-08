@@ -29,9 +29,6 @@ export default function DashboardPage() {
   const location = useLocation()
   const [rolloverCompleted, setRolloverCompleted] = useState(false)
 
-  const today = format(new Date(), 'yyyy-MM-dd')
-  const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd')
-
   // Check for AI parameter in URL
   useEffect(() => {
     const params = new URLSearchParams(location.search)
@@ -211,12 +208,14 @@ export default function DashboardPage() {
     const performRollover = async () => {
       if (rolloverCompleted) return
       
+      const today = format(new Date(), 'yyyy-MM-dd')
+      
       try {
-        console.log('Dashboard - Performing automatic task rollover from', yesterday, 'to', today)
-        const result = await taskService.rolloverTasks(yesterday, today)
+        console.log('Dashboard - Performing automatic rollover of tasks without dates to', today)
+        const result = await taskService.rolloverTasks(today)
         
         if (result.rolledOverTasks > 0) {
-          console.log('Dashboard - Rolled over', result.rolledOverTasks, 'tasks')
+          console.log('Dashboard - Rolled over', result.rolledOverTasks, 'tasks without dates')
           // Refresh tasks to show the rolled over ones
           queryClient.invalidateQueries({ queryKey: ['tasks'] })
         }
@@ -228,11 +227,11 @@ export default function DashboardPage() {
       }
     }
 
-    // Only perform rollover once per session and only if we have tasks loaded
-    if (tasksData.length > 0 && !rolloverCompleted) {
+    // Perform rollover when component mounts, regardless of whether there are tasks
+    if (!rolloverCompleted) {
       performRollover()
     }
-  }, [tasksData, rolloverCompleted, queryClient])
+  }, [rolloverCompleted, queryClient])
 
   if (isLoading) {
     return (
