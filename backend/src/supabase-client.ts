@@ -279,15 +279,16 @@ export const db = {
     if (error) throw error;
   },
 
-  // Enhanced function to get tasks with recurring habits for a specific date
+  // Enhanced function to get tasks with recurring habits and virtual rollover tasks for a specific date
   async getTasksWithRecurringHabits(userId: string, date: string) {
     try {
-      // Get regular tasks for the specific date (excluding daily habits)
+      // Get regular tasks for the specific date (excluding daily habits and rolled-over tasks)
       const { data: regularTasks, error: regularError } = await supabase
         .from('tasks')
         .select('*')
         .eq('user_id', userId)
         .eq('scheduled_date', date)
+        .is('rolled_over_from_task_id', null) // Exclude rolled-over tasks
         .order('start_time', { ascending: true })
         .order('created_at', { ascending: true })
 
@@ -326,6 +327,39 @@ export const db = {
 
       if (origHabitsError) throw origHabitsError
 
+      // Get incomplete tasks without scheduled dates for virtual rollover
+      const { data: tasksWithoutDate, error: rolloverError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .is('start_time', null)
+        // .is('scheduled_date', null)
+        .is('rolled_over_from_task_id', null)
+        .eq('completed', false)
+        .eq('type', 'task')
+        .order('created_at', { ascending: true })
+
+      if (rolloverError) throw rolloverError
+
+      // Fetch undated, completed tasks with completed_at date matching the selected date
+      const { data: completedRollovers, error: completedRolloversError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('completed', true)
+        .filter('completed_at', 'gte', `${date}T00:00:00.000Z`)
+        .filter('completed_at', 'lt', `${date}T23:59:59.999Z`)
+        .order('created_at', { ascending: true })
+
+      if (completedRolloversError) throw completedRolloversError
+
+      // Map them to look like completed rollover tasks for the UI
+      const completedRolloverTasks = (completedRollovers || []).map(task => ({
+        ...task,
+        scheduled_date: date,
+        isRolloverTask: true
+      }))
+
       // Build a set of habit ids that already have a real or original instance for this date
       const habitIdsWithInstance = new Set([
         ...existingInstances.map(inst => inst.original_habit_id),
@@ -335,22 +369,53 @@ export const db = {
       // Create virtual habit instances for habits that don't have a real or original instance for this date
       const virtualHabitInstances = dailyHabits
         .filter(habit => !habitIdsWithInstance.has(habit.id))
-        .map(habit => ({
-          id: `${habit.id}-${date}`,
-          title: habit.title,
-          type: 'habit' as const,
-          category: habit.category,
-          start_time: habit.start_time,
-          duration: habit.duration,
-          repeat_type: habit.repeat_type,
+        .map(habit => {
+          // Debug log
+          console.log('[DEBUG] Creating virtual habit instance:', {
+            habit_id: habit.id,
+            habit_original_habit_id: habit.original_habit_id
+          });
+          return {
+            id: `${habit.id}-${date}`,
+            title: habit.title,
+            type: 'habit' as const,
+            category: habit.category,
+            start_time: habit.start_time,
+            duration: habit.duration,
+            repeat_type: habit.repeat_type,
+            completed: false,
+            completed_at: null,
+            created_at: habit.created_at,
+            scheduled_date: date,
+            overdue_notified: false,
+            user_id: userId,
+            original_habit_id: habit.original_habit_id || habit.id,
+            isHabitInstance: true
+          }
+        })
+
+      // Create virtual rollover tasks for tasks without dates
+      // Only generate for incomplete, undated tasks (already filtered by .eq('completed', false))
+      const virtualRolloverTasks = tasksWithoutDate
+        .filter(task => !task.completed) // Defensive: ensure only incomplete
+        .map(task => ({
+          id: `rollover-${task.id}-${date}`,
+          title: task.title,
+          type: 'task' as const,
+          category: task.category,
+          start_time: task.start_time,
+          duration: task.duration,
+          repeat_type: task.repeat_type,
           completed: false,
           completed_at: null,
-          created_at: habit.created_at,
+          created_at: task.created_at,
           scheduled_date: date,
           overdue_notified: false,
           user_id: userId,
-          original_habit_id: habit.id,
-          isHabitInstance: true
+          original_habit_id: null,
+          rolled_over_from_task_id: task.id,
+          original_created_at: task.created_at,
+          isRolloverTask: true
         }))
 
       // Combine all tasks for the day (deduplicate by habit id: only one per habit per day)
@@ -358,10 +423,25 @@ export const db = {
         ...regularTasks,
         ...existingInstances,
         ...originalHabitsForDate,
-        ...virtualHabitInstances
+        ...virtualHabitInstances,
+        ...virtualRolloverTasks,
+        ...completedRolloverTasks
       ]
 
-      // Deduplicate habits: only one per habit id per day
+      // Sort so that completed habit instances come first, then originals, then virtuals
+      allTasks.sort((a, b) => {
+        if (a.type === 'habit' && b.type === 'habit') {
+          // Prefer completed habit instances
+          const aIsCompletedInstance = a.completed && a.original_habit_id
+          const bIsCompletedInstance = b.completed && b.original_habit_id
+          if (aIsCompletedInstance && !bIsCompletedInstance) return -1
+          if (!aIsCompletedInstance && bIsCompletedInstance) return 1
+        }
+        // Otherwise, keep original order
+        return 0
+      })
+
+      // Deduplicate habits: only one per habit id per day, prefer completed instance
       const seenHabitIds = new Set()
       const dedupedTasks = allTasks.filter(task => {
         if (task.type !== 'habit') return true

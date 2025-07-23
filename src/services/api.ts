@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 import axios from 'axios'
-// export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-const API_BASE_URL = 'https://healthyflow-production.up.railway.app/api'
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// const API_BASE_URL = 'https://healthyflow-production.up.railway.app/api'
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -41,9 +41,12 @@ export interface Task {
   createdAt: string
   overdueNotified?: boolean
   isHabitInstance?: boolean
+  isRolloverTask?: boolean
   originalHabitId?: string
   rolledOverFromTaskId?: string
   originalCreatedAt?: string
+  completedAt?: string
+
 }
 
 export interface WeeklySummary {

@@ -27,23 +27,40 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
     console.log('Backend - Raw tasks from database:', tasks)
     console.log('Backend - Number of tasks found:', tasks.length)
 
-    const formattedTasks = tasks.map((task: any) => ({
-      id: task.id,
-      title: task.title,
-      type: task.type,
-      category: task.category,
-      startTime: task.start_time,
-      duration: task.duration,
-      repeat: task.repeat_type,
-      completed: Boolean(task.completed),
-      scheduledDate: task.scheduled_date,
-      createdAt: task.created_at,
-      overdueNotified: Boolean(task.overdue_notified),
-      isHabitInstance: Boolean(task.is_habit_instance),
-      originalHabitId: task.original_habit_id,
-      rolledOverFromTaskId: task.rolled_over_from_task_id,
-      originalCreatedAt: task.original_created_at
-    }))
+    const formattedTasks = tasks.map((task: any) => {
+      let originalHabitId = task.original_habit_id;
+      if (task.type === 'habit' && typeof task.id === 'string') {
+        // Always extract the UUID from the id if it matches the virtual pattern
+        const match = task.id.match(/^([0-9a-fA-F-]{36})-\d{4}-\d{2}-\d{2}$/);
+        if (match) {
+          originalHabitId = match[1];
+        }
+        // Debug log for mapping
+        console.log('[DEBUG] Habit mapping:', {
+          id: task.id,
+          original_habit_id: task.original_habit_id,
+          computed_originalHabitId: originalHabitId
+        });
+      }
+      return {
+        id: task.id,
+        title: task.title,
+        type: task.type,
+        category: task.category,
+        startTime: task.start_time,
+        duration: task.duration,
+        repeat: task.repeat_type,
+        completed: Boolean(task.completed),
+        scheduledDate: task.scheduled_date,
+        createdAt: task.created_at,
+        overdueNotified: Boolean(task.overdue_notified),
+        isHabitInstance: Boolean(task.is_habit_instance),
+        originalHabitId,
+        rolledOverFromTaskId: task.rolled_over_from_task_id,
+        originalCreatedAt: task.original_created_at,
+        completedAt: task.completed_at
+      }
+    })
 
     console.log('Backend - Formatted tasks being sent:', formattedTasks)
     res.json(formattedTasks)
@@ -165,15 +182,13 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
 
   try {
     // Check if this is a virtual habit instance (format: originalId-date)
-    if (taskId.includes('-') && taskId.match(/^[^-]+-\d{4}-\d{2}-\d{2}$/)) {
-      const [originalHabitId, date] = taskId.split('-').slice(0, 2)
-      const fullDate = taskId.split('-').slice(1).join('-') // In case date has multiple dashes
-      
+    const match = taskId.match(/^([0-9a-fA-F-]{36})-(\d{4}-\d{2}-\d{2})$/)
+    if (match) {
+      const originalHabitId = match[1]
+      const fullDate = match[2]
       console.log('Backend - Completing virtual habit instance:', { originalHabitId, date: fullDate, taskId })
-      
       // Create a real habit instance for this date
       const habitInstance = await db.createHabitInstance(originalHabitId, fullDate, userId)
-      
       res.json({
         id: habitInstance.id,
         title: habitInstance.title,
@@ -188,6 +203,40 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
         originalHabitId: habitInstance.original_habit_id,
         rolledOverFromTaskId: habitInstance.rolled_over_from_task_id,
         originalCreatedAt: habitInstance.original_created_at
+      })
+    } else if (taskId.startsWith('rollover-')) {
+      // Handle virtual rollover task completion by marking the original undated task as completed
+      const match = taskId.match(/^rollover-([0-9a-fA-F-]{36})-(\d{4}-\d{2}-\d{2})$/)
+      if (!match) {
+        return res.status(400).json({ error: 'Invalid rollover task ID format' })
+      }
+      const originalTaskId = match[1]
+      // Mark the original undated task as completed
+      const originalTask = await db.getTaskById(originalTaskId)
+      if (!originalTask || originalTask.user_id !== userId) {
+        return res.status(403).json({ error: 'Forbidden' })
+      }
+      const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+      const updatedTask = await db.updateTask(originalTaskId, {
+        completed: true,
+        completed_at: new Date().toISOString()
+      })
+      // Return the updated original task, optionally with a flag for UI
+      return res.json({
+        id: updatedTask.id,
+        title: updatedTask.title,
+        type: updatedTask.type,
+        category: updatedTask.category,
+        startTime: updatedTask.start_time,
+        duration: updatedTask.duration,
+        repeat: updatedTask.repeat_type,
+        completed: Boolean(updatedTask.completed),
+        scheduledDate: updatedTask.scheduled_date,
+        createdAt: updatedTask.created_at,
+        originalHabitId: updatedTask.original_habit_id,
+        rolledOverFromTaskId: updatedTask.rolled_over_from_task_id,
+        originalCreatedAt: updatedTask.original_created_at,
+        isRolloverTask: true // for UI if needed
       })
     } else {
       // Handle regular task or existing habit instance completion
@@ -266,7 +315,7 @@ router.patch('/overdue-notified', authenticateToken, async (req: AuthRequest, re
   }
 })
 
-// Rollover incomplete tasks without specific dates to current day
+// Rollover incomplete tasks without specific dates to current day (virtual only)
 router.post('/rollover', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
   const { toDate } = req.body
@@ -279,7 +328,9 @@ router.post('/rollover', authenticateToken, async (req: AuthRequest, res) => {
       .from('tasks')
       .select('*')
       .eq('user_id', userId)
+      // .is('scheduled_date', null)
       .is('start_time', null)
+      .is('rolled_over_from_task_id', null)
       .eq('completed', false)
       .eq('type', 'task')
       .order('created_at', { ascending: true })
@@ -291,61 +342,11 @@ router.post('/rollover', authenticateToken, async (req: AuthRequest, res) => {
 
     console.log('Backend - Found', tasksWithoutDate.length, 'tasks without dates to roll over')
 
-    // Get all tasks for the target day to check for duplicates
-    const nextDayTasks = await db.getTasksByUserId(userId, toDate)
-
-    console.log('Rollover - Next day tasks (summary):', nextDayTasks.map((t: any) => ({ id: t.id, title: t.title, rolled_over_from_task_id: t.rolled_over_from_task_id })))
-
-    // Check for duplicates and create rollover tasks
-    const rolloverPromises = tasksWithoutDate.map(async (task: any) => {
-      console.log(`Rollover - Checking task id ${task.id} (${task.title})`)
-      
-      // Check if this task has already been rolled over to the target date
-      const alreadyExists = nextDayTasks.some((t: any) => {
-        // Check if any task in the target day has this task's ID as its rolled_over_from_task_id
-        if (t.rolled_over_from_task_id === task.id) {
-          return true
-        }
-        
-        // Check if this task is itself a rolled over task and if its original task has already been rolled over
-        if (task.rolled_over_from_task_id && t.rolled_over_from_task_id === task.rolled_over_from_task_id) {
-          return true
-        }
-        
-        return false
-      })
-      
-      console.log(`Rollover - Checking task id ${task.id} (${task.title}): alreadyExists=${alreadyExists}`)
-      if (!alreadyExists) {
-        console.log(`Rollover - Creating rollover for task id ${task.id} (${task.title})`)
-        return db.createTask({
-          user_id: userId,
-          title: task.title,
-          type: task.type,
-          category: task.category,
-          start_time: task.start_time,
-          duration: task.duration,
-          repeat_type: task.repeat_type,
-          scheduled_date: toDate,
-          completed: false,
-          rolled_over_from_task_id: task.rolled_over_from_task_id || task.id,
-          original_created_at: task.created_at // Store the original creation date
-        })
-      }
-      return null
-    })
-
-    const rolledOverTasks = (await Promise.all(rolloverPromises)).filter(Boolean)
-
-    console.log('Backend - Successfully rolled over', rolledOverTasks.length, 'tasks')
-    if (rolledOverTasks.length > 0) {
-      console.log('Rollover - New rolled over tasks:', rolledOverTasks.map((t: any) => ({ id: t.id, title: t.title, rolled_over_from_task_id: t.rolled_over_from_task_id })))
-    }
-
+    // Return success - the tasks will be displayed virtually in the next GET request
     res.json({
       success: true,
-      message: `Rolled over ${rolledOverTasks.length} tasks without dates`,
-      rolledOverTasks: rolledOverTasks.length
+      message: `Rolled over ${tasksWithoutDate.length} tasks without dates (virtual display)`,
+      rolledOverTasks: tasksWithoutDate.length
     })
   } catch (error) {
     console.error('Backend - Error rolling over tasks:', error)

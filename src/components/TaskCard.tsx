@@ -41,9 +41,12 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       : 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
   }
 
-  // Check if this is a rolled over task (has rolledOverFromTaskId)
-  const isRolledOver = task.rolledOverFromTaskId
-  
+  // Check if this is a rolled over task (has rolledOverFromTaskId or isRolloverTask)
+  // const isRolledOver = task.rolledOverFromTaskId || task.isRolloverTask;
+  const isRolledOver = task.createdAt && task.completedAt &&
+  (new Date(task.completedAt).getTime() - new Date(task.createdAt).getTime() >= 24 * 60 * 60 * 1000);
+
+
   // Debug logging
   if (task.rolledOverFromTaskId) {
     console.log('🎯 Task with rollover:', task.title, 'rolledOverFromTaskId:', task.rolledOverFromTaskId, 'originalCreatedAt:', task.originalCreatedAt);
@@ -193,8 +196,8 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
         <div className="absolute bottom-2 right-2 flex items-center space-x-1 text-xs text-gray-500/60 hover:text-gray-400/80 transition-colors duration-200 group-hover:opacity-100 opacity-70">
           <Calendar className="w-3 h-3" />
           <span className="font-mono">
-            {task.originalCreatedAt 
-              ? `Rolled over from ${format(parseISO(task.originalCreatedAt), 'MMM d')}`
+            {task.createdAt 
+              ? `Rolled over from ${format(parseISO(task.createdAt), 'MMM d')}`
               : 'Rolled over'
             }
           </span>
