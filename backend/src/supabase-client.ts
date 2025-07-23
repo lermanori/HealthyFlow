@@ -369,30 +369,23 @@ export const db = {
       // Create virtual habit instances for habits that don't have a real or original instance for this date
       const virtualHabitInstances = dailyHabits
         .filter(habit => !habitIdsWithInstance.has(habit.id))
-        .map(habit => {
-          // Debug log
-          console.log('[DEBUG] Creating virtual habit instance:', {
-            habit_id: habit.id,
-            habit_original_habit_id: habit.original_habit_id
-          });
-          return {
-            id: `${habit.id}-${date}`,
-            title: habit.title,
-            type: 'habit' as const,
-            category: habit.category,
-            start_time: habit.start_time,
-            duration: habit.duration,
-            repeat_type: habit.repeat_type,
-            completed: false,
-            completed_at: null,
-            created_at: habit.created_at,
-            scheduled_date: date,
-            overdue_notified: false,
-            user_id: userId,
-            original_habit_id: habit.original_habit_id || habit.id,
-            isHabitInstance: true
-          }
-        })
+        .map(habit => ({
+          id: `${habit.id}-${date}`,
+          title: habit.title,
+          type: 'habit' as const,
+          category: habit.category,
+          start_time: habit.start_time,
+          duration: habit.duration,
+          repeat_type: habit.repeat_type,
+          completed: false,
+          completed_at: null,
+          created_at: habit.created_at,
+          scheduled_date: date,
+          overdue_notified: false,
+          user_id: userId,
+          original_habit_id: habit.original_habit_id || habit.id,
+          isHabitInstance: true
+        }))
 
       // Create virtual rollover tasks for tasks without dates
       // Only generate for incomplete, undated tasks (already filtered by .eq('completed', false))

@@ -35,12 +35,6 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
         if (match) {
           originalHabitId = match[1];
         }
-        // Debug log for mapping
-        console.log('[DEBUG] Habit mapping:', {
-          id: task.id,
-          original_habit_id: task.original_habit_id,
-          computed_originalHabitId: originalHabitId
-        });
       }
       return {
         id: task.id,
