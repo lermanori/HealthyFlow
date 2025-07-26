@@ -28,25 +28,79 @@ api.interceptors.response.use(
   }
 )
 
+export interface Project {
+  id: string
+  name: string
+  description?: string
+  color: string // hex color for visual distinction
+  userId: string
+  createdAt: string
+  isArchived: boolean
+}
+
 export interface Task {
   id: string
   title: string
-  type: 'task' | 'habit'
+  type: 'task' | 'habit' | 'grocery' | 'meal' | 'workout'
+  category: string
   startTime?: string
   duration?: number
-  completed: boolean
-  category: string
   repeat?: 'daily' | 'weekly' | 'none'
-  scheduledDate?: string
+  completed: boolean
+  scheduledDate: string
   createdAt: string
   overdueNotified?: boolean
   isHabitInstance?: boolean
-  isRolloverTask?: boolean
   originalHabitId?: string
   rolledOverFromTaskId?: string
   originalCreatedAt?: string
   completedAt?: string
-
+  isRolloverTask?: boolean
+  
+  // Project grouping
+  projectId?: string
+  project?: Project // populated when fetching with project info
+  
+  // New unified fields for different item types
+  itemType?: 'grocery' | 'meal' | 'workout' | 'task'
+  
+  // Grocery specific fields
+  groceryInfo?: {
+    quantity?: string
+    price?: number
+    groceryCategory?: 'produce' | 'dairy' | 'meat' | 'pantry' | 'frozen' | 'other'
+    store?: string
+    notes?: string
+  }
+  
+  // Meal specific fields
+  mealInfo?: {
+    mealType?: 'breakfast' | 'lunch' | 'dinner' | 'snack'
+    calories?: number
+    protein?: number
+    carbs?: number
+    fat?: number
+    ingredients?: Array<{ name: string; amount: string }>
+    instructions?: string
+    dietPlanId?: string
+  }
+  
+  // Workout specific fields
+  workoutInfo?: {
+    exercises?: Array<{
+      name: string
+      sets?: number
+      reps?: number
+      weight?: number
+      duration?: number
+      restTime?: number
+    }>
+    workoutType?: 'strength' | 'cardio' | 'flexibility' | 'sports'
+    intensity?: 'low' | 'medium' | 'high'
+    caloriesBurned?: number
+    workoutPlanId?: string
+    notes?: string
+  }
 }
 
 export interface WeeklySummary {
@@ -189,6 +243,32 @@ export const analyticsService = {
     const response = await api.get('/analytics/time-distribution')
     return response.data
   },
+}
+
+export const projectService = {
+  getProjects: async (): Promise<Project[]> => {
+    const response = await api.get('/projects')
+    return response.data
+  },
+
+  createProject: async (project: Omit<Project, 'id' | 'createdAt' | 'userId'>): Promise<Project> => {
+    const response = await api.post('/projects', project)
+    return response.data
+  },
+
+  updateProject: async (id: string, updates: Partial<Project>): Promise<Project> => {
+    const response = await api.put(`/projects/${id}`, updates)
+    return response.data
+  },
+
+  deleteProject: async (id: string): Promise<void> => {
+    await api.delete(`/projects/${id}`)
+  },
+
+  archiveProject: async (id: string): Promise<Project> => {
+    const response = await api.patch(`/projects/${id}/archive`)
+    return response.data
+  }
 }
 
 export default api
