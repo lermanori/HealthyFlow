@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Brain, X, Clock, Calendar, Plus, Sparkles } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { taskService } from '../services/api'
+import { taskService, aiService } from '../services/api'
 import { useTTS } from '../hooks/useTTS'
 import TTSSettings from './TTSSettings'
 import TTSActions from './TTSActions'
@@ -46,6 +46,7 @@ export default function AITextAnalyzer({
   
   // Voice Input State
   const [inputMode, setInputMode] = useState<'text' | 'voice'>('text')
+  const [syncToGoogle, setSyncToGoogle] = useState(false)
   
   const queryClient = useQueryClient()
   const { speak } = useTTS()
@@ -54,18 +55,23 @@ export default function AITextAnalyzer({
     mutationFn: async (tasks: Omit<TaskSuggestion, 'id' | 'priority'>[]) => {
       console.log('AITextAnalyzer - Adding tasks with dates:', tasks)
       
-      const promises = tasks.map(task => 
-        taskService.addTask({
+      const promises = tasks.map(task => {
+        const taskData = {
           title: task.title,
           type: task.type,
           category: task.category,
           duration: task.estimatedDuration,
           startTime: task.startTime,
-          repeat: task.type === 'habit' ? 'daily' : 'none',
+          repeat: (task.type === 'habit' ? 'daily' : 'none') as 'daily' | 'none' | 'weekly',
           // For habits, always use today as the start date so they begin recurring immediately
           scheduledDate: task.type === 'habit' ? format(new Date(), 'yyyy-MM-dd') : task.scheduledDate
-        })
-      )
+        }
+        
+        // Use Google Calendar sync for tasks with time/date, otherwise use regular addTask
+        return syncToGoogle && task.type === 'task' && task.startTime 
+          ? taskService.addTaskWithGoogleSync(taskData)
+          : taskService.addTask(taskData)
+      })
       return Promise.all(promises)
     },
     onSuccess: (tasks) => {
@@ -99,7 +105,8 @@ export default function AITextAnalyzer({
           return `${taskTitles.length} task${taskTitles.length > 1 ? 's' : ''} for ${dateLabel}`
         }).join(', ')
         
-        successMessage += `Added ${regularTasks.length} task${regularTasks.length > 1 ? 's' : ''} (${dateInfo})`
+        const syncInfo = syncToGoogle ? ' and synced to Google Calendar' : ''
+        successMessage += `Added ${regularTasks.length} task${regularTasks.length > 1 ? 's' : ''} (${dateInfo})${syncInfo}`
       }
       
       toast.success(`${successMessage} 🚀`)
@@ -184,124 +191,10 @@ export default function AITextAnalyzer({
     setInputText(transcript)
   }
 
-  const analyzeWithOpenAI = async (text: string): Promise<TaskSuggestion[]> => {
-    const apiKey = localStorage.getItem('openai_api_key')
-    
-    if (!apiKey) {
-      throw new Error('OpenAI API key not configured')
-    }
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: `Convert user input into actionable tasks with smart date scheduling. Respond ONLY with a valid JSON array.
-
-Required fields for each task:
-- title: Clear, specific task name
-- category: "health", "work", "personal", or "fitness"
-- estimatedDuration: Time in minutes
-- priority: "high", "medium", or "low"
-- type: "habit" for daily activities, "task" for one-time
-- startTime: "HH:MM" format (24-hour) or null for flexible
-- scheduledDate: "YYYY-MM-DD" format
-
-SMART DATE SCHEDULING RULES:
-- If user mentions "today" or "now" → use today's date
-- If user mentions "tomorrow" → use tomorrow's date
-- If user mentions "this weekend" → use next Saturday
-- If user mentions "next week" → use next Monday
-- If user mentions "morning" → schedule for today if before 12pm, tomorrow if after
-- If user mentions "evening" or "tonight" → schedule for today
-- If user mentions specific days (Monday, Tuesday, etc.) → use the next occurrence
-- If no time context → use today's date as default
-- For habits → ALWAYS use today's date (habits will automatically recur daily)
-- For work tasks → prefer weekdays
-- For personal tasks → can be any day
-
-IMPORTANT: Daily habits will automatically appear every day once created, so always use today's date for habits regardless of user input.
-
-Today's date: ${format(new Date(), 'yyyy-MM-dd')}
-Tomorrow's date: ${format(addDays(new Date(), 1), 'yyyy-MM-dd')}
-Current time: ${format(new Date(), 'HH:mm')}
-
-Example input: "I want to start meditating daily and go to the gym tomorrow morning"
-Example output:
-[
-  {
-    "title": "Daily meditation",
-    "category": "health",
-    "estimatedDuration": 15,
-    "priority": "high",
-    "type": "habit",
-    "startTime": "07:00",
-    "scheduledDate": "${format(new Date(), 'yyyy-MM-dd')}"
-  },
-  {
-    "title": "Gym workout",
-    "category": "fitness",
-    "estimatedDuration": 60,
-    "priority": "high",
-    "type": "task",
-    "startTime": "07:00",
-    "scheduledDate": "${format(addDays(new Date(), 1), 'yyyy-MM-dd')}"
-  }
-]`
-          },
-          {
-            role: 'user',
-            content: text
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 1500
-      })
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(`OpenAI API error: ${response.statusText} - ${errorData.error?.message || 'Unknown error'}`)
-    }
-
-    const data = await response.json()
-    const content = data.choices[0]?.message?.content
-
-    if (!content) {
-      throw new Error('No response from OpenAI')
-    }
-
-    try {
-      // Clean the response in case there's any extra text
-      const jsonMatch = content.match(/\[[\s\S]*\]/)
-      const jsonString = jsonMatch ? jsonMatch[0] : content
-      
-      const tasks = JSON.parse(jsonString)
-      
-      if (!Array.isArray(tasks)) {
-        throw new Error('Response is not an array')
-      }
-
-      return tasks.map((task: any, index: number) => ({
-        id: `ai-task-${index}-${Date.now()}`,
-        title: task.title || 'Untitled Task',
-        category: task.category || 'personal',
-        estimatedDuration: task.estimatedDuration || 30,
-        priority: task.priority || 'medium',
-        type: task.type || 'task',
-        startTime: task.startTime,
-        scheduledDate: task.scheduledDate || defaultScheduleDate
-      }))
-    } catch (error) {
-      console.error('Failed to parse OpenAI response:', content)
-      throw new Error('Failed to parse AI response - please try again')
-    }
+  const analyzeWithBackend = async (text: string): Promise<TaskSuggestion[]> => {
+    // Use the new parse-tasks endpoint for true OpenAI task parsing
+    const { tasks } = await aiService.parseTasks(text)
+    return tasks
   }
 
   const analyzeText = async () => {
@@ -313,45 +206,20 @@ Example output:
     setIsAnalyzing(true)
     
     try {
-      const apiKey = localStorage.getItem('openai_api_key')
+      toast.loading('Analyzing with AI...', { id: 'ai-analysis' })
+      const aiSuggestions = await analyzeWithBackend(inputText)
+      setSuggestions(aiSuggestions)
+      setSelectedSuggestions(new Set(aiSuggestions.map(s => s.id)))
+      toast.success('AI analysis complete! 🧠', { id: 'ai-analysis' })
       
-      if (apiKey) {
-        // Use OpenAI API
-        toast.loading('Analyzing with OpenAI...', { id: 'ai-analysis' })
-        const aiSuggestions = await analyzeWithOpenAI(inputText)
-        setSuggestions(aiSuggestions)
-        setSelectedSuggestions(new Set(aiSuggestions.map(s => s.id)))
-        toast.success('AI analysis complete! 🧠', { id: 'ai-analysis' })
-        
-        // Auto-speak results if enabled
-        if (ttsEnabled && autoSpeakResults) {
-          setTimeout(() => {
-            const summary = generateTTSSummary(aiSuggestions)
-            speak(summary, { 
-              voice: selectedVoice, 
-              rate: speechRate 
-            })
-          }, 1000) // Small delay to let user see results first
-        }
-      } else {
-        // Fallback to mock analysis
-        toast.loading('Analyzing...', { id: 'ai-analysis' })
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        const mockSuggestions = generateMockSuggestions(inputText)
-        setSuggestions(mockSuggestions)
-        setSelectedSuggestions(new Set(mockSuggestions.map(s => s.id)))
-        toast.success('Analysis complete! (Add OpenAI key for enhanced AI)', { id: 'ai-analysis' })
-        
-        // Auto-speak results if enabled
-        if (ttsEnabled && autoSpeakResults) {
-          setTimeout(() => {
-            const summary = generateTTSSummary(mockSuggestions)
-            speak(summary, { 
-              voice: selectedVoice, 
-              rate: speechRate 
-            })
-          }, 1000)
-        }
+      if (ttsEnabled && autoSpeakResults) {
+        setTimeout(() => {
+          const summary = generateTTSSummary(aiSuggestions)
+          speak(summary, { 
+            voice: selectedVoice, 
+            rate: speechRate 
+          })
+        }, 1000)
       }
     } catch (error) {
       console.error('AI Analysis error:', error)
@@ -646,6 +514,26 @@ Example output:
           />
           <p className="text-xs text-gray-400 mt-2">
             Tasks will be scheduled for this date unless specified otherwise in your input
+          </p>
+        </div>
+
+        {/* Google Calendar Sync Toggle */}
+        <div className="bg-gray-800/50 rounded-xl p-4 border border-blue-500/30">
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="syncToGoogleAI"
+              checked={syncToGoogle}
+              onChange={(e) => setSyncToGoogle(e.target.checked)}
+              className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+            />
+            <label htmlFor="syncToGoogleAI" className="text-sm text-blue-400 flex items-center space-x-2">
+              <span>📅</span>
+              <span>Sync tasks to Google Calendar</span>
+            </label>
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            Only tasks with specific times will be synced to Google Calendar
           </p>
         </div>
 

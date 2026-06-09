@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Sparkles, Loader2, Brain } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { taskService } from '../services/api'
+import { taskService, aiService } from '../services/api'
 import { format } from 'date-fns'
 
 interface AskAIModalProps {
@@ -127,45 +127,11 @@ export default function AskAIModal({ isOpen, onClose }: AskAIModalProps) {
     setAnswer('')
     
     try {
-      const openaiKey = localStorage.getItem('openai_api_key')
-      
-      if (openaiKey) {
-        // Use OpenAI API for enhanced responses
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${openaiKey}`
-          },
-          body: JSON.stringify({
-            model: 'gpt-3.5-turbo',
-            messages: [
-              {
-                role: 'system',
-                content: `You are a helpful AI productivity assistant for HealthyFlow. Analyze the user's tasks and provide actionable, encouraging advice. Be concise but insightful. Use emojis and formatting to make responses engaging. Focus on productivity, time management, and motivation.
-
-Current user tasks: ${JSON.stringify(todayTasks, null, 2)}
-
-Provide specific, actionable advice based on their actual tasks and schedule.`
-              },
-              {
-                role: 'user',
-                content: question
-              }
-            ],
-            temperature: 0.7,
-            max_tokens: 300
-          })
-        })
-
-        if (!response.ok) {
-          throw new Error('OpenAI API request failed')
-        }
-
-        const data = await response.json()
-        setAnswer(data.choices[0]?.message?.content || 'No response generated.')
+      // Always route through backend
+      const { answer } = await aiService.queryTasks(question.trim())
+      if (answer) {
+        setAnswer(answer)
       } else {
-        // Use local AI analysis
         const intelligentAnswer = analyzeTasksWithAI(question, todayTasks)
         setAnswer(intelligentAnswer)
       }
