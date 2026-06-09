@@ -1,5 +1,6 @@
 import express from 'express'
 import { v4 as uuidv4 } from 'uuid'
+import { z } from 'zod'
 import { db } from '../supabase-client'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 import { AIService } from '../services/aiService'
@@ -140,139 +141,91 @@ router.post('/query-tasks', authenticateToken, async (req: AuthRequest, res) => 
   }
 })
 
-// AI-powered task parsing endpoint (convert free-form text to structured tasks)
+// AI-powered Item parser: free-form text -> validated { items: ParsedItem[] }.
+// See CONTEXT.md (Item / Task / Habit / parse-tasks) and
+// .scratch/ai-harness-v1/PRD.md for the contract.
+const ParsedItem = z.object({
+  title: z.string().min(1),
+  type: z.enum(['task', 'habit']),
+  category: z.enum(['health', 'work', 'personal', 'fitness', 'grocery', 'nutrition']),
+  duration: z.number().int().positive(),
+  priority: z.enum(['high', 'medium', 'low']),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
+  scheduledDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  repeat: z.enum(['daily', 'weekly', 'none']),
+})
+const ParsedItems = z.object({ items: z.array(ParsedItem).max(20) })
+const PARSED_ITEMS_JSON_SCHEMA = z.toJSONSchema(ParsedItems)
+
 router.post('/parse-tasks', authenticateToken, async (req: AuthRequest, res) => {
-  const { text, apiKey } = req.body
+  const { text } = req.body
 
   if (!text || !text.trim()) {
     return res.status(400).json({ error: 'Text input is required' })
   }
 
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    return res.status(500).json({ error: 'Could not parse — try again' })
+  }
+
+  const today = new Date().toISOString().split('T')[0]
+  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
   try {
-    const effectiveKey = apiKey || process.env.OPENAI_API_KEY
-    if (!effectiveKey) {
-      return res.status(400).json({ error: 'OpenAI API key required' })
-    }
-
-    const today = new Date().toISOString().split('T')[0]
-    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-
     const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${effectiveKey}`
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: `Convert user input into actionable tasks with smart date scheduling. Respond ONLY with a valid JSON array.
+            content: `Convert user input into a list of HealthyFlow Items.
 
-Required fields for each task:
-- title: Clear, specific task name
-- category: "health", "work", "personal", or "fitness"
-- estimatedDuration: Time in minutes
-- priority: "high", "medium", or "low"
-- type: "habit" for daily activities, "task" for one-time
-- startTime: "HH:MM" format (24-hour) or null for flexible
-- scheduledDate: "YYYY-MM-DD" format
+Each Item is either a Task (one-shot, repeat: "none") or a Habit (recurring, repeat: "daily" or "weekly").
 
-SMART DATE SCHEDULING RULES:
-- If user mentions "today" or "now" → use today's date
-- If user mentions "tomorrow" → use tomorrow's date
-- If user mentions "this weekend" → use next Saturday
-- If user mentions "next week" → use next Monday
-- If user mentions "morning" → schedule for today if before 12pm, tomorrow if after
-- If user mentions "evening" or "tonight" → schedule for today
-- If user mentions specific days (Monday, Tuesday, etc.) → use the next occurrence
-- If no time context → use today's date as default
-- For habits → ALWAYS use today's date (habits will automatically recur daily)
-- For work tasks → prefer weekdays
-- For personal tasks → can be any day
-
-IMPORTANT: Daily habits will automatically appear every day once created, so always use today's date for habits regardless of user input.
-
-Today's date: ${today}
-Tomorrow's date: ${tomorrow}
-Current time: ${new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })}
-
-Example input: "I want to start meditating daily and go to the gym tomorrow morning"
-Example output:
-[
-  {
-    "title": "Daily meditation",
-    "category": "health",
-    "estimatedDuration": 15,
-    "priority": "high",
-    "type": "habit",
-    "startTime": "07:00",
-    "scheduledDate": "${today}"
-  },
-  {
-    "title": "Gym workout",
-    "category": "fitness",
-    "estimatedDuration": 60,
-    "priority": "high",
-    "type": "task",
-    "startTime": "07:00",
-    "scheduledDate": "${tomorrow}"
-  }
-]`
+Field rules:
+- category: one of health, work, personal, fitness, grocery, nutrition
+- duration: estimated minutes (positive integer)
+- startTime: "HH:MM" 24h or null if flexible
+- scheduledDate: "YYYY-MM-DD"; for Habits use today's date (${today})
+- "tomorrow" -> ${tomorrow}, "tonight"/"evening" -> today, "this weekend" -> next Saturday`,
           },
-          {
-            role: 'user',
-            content: text
-          }
+          { role: 'user', content: text },
         ],
-        temperature: 0.7,
-        max_tokens: 1500
-      })
+        temperature: 0.2,
+        response_format: {
+          type: 'json_schema',
+          json_schema: {
+            name: 'parsed_items',
+            schema: PARSED_ITEMS_JSON_SCHEMA,
+            strict: true,
+          },
+        },
+      }),
     })
 
     if (!openaiRes.ok) {
-      const errorData = await openaiRes.json().catch(() => ({})) as any
-      throw new Error(`OpenAI API error: ${openaiRes.statusText} - ${errorData.error?.message || 'Unknown error'}`)
+      console.error('OpenAI upstream error:', openaiRes.status, openaiRes.statusText)
+      return res.status(500).json({ error: 'Could not parse — try again' })
     }
 
-    const data = await openaiRes.json() as any
+    const data = (await openaiRes.json()) as any
     const content = data.choices?.[0]?.message?.content
-
     if (!content) {
-      throw new Error('No response from OpenAI')
+      console.error('OpenAI response missing content:', data)
+      return res.status(500).json({ error: 'Could not parse — try again' })
     }
 
-    try {
-      // Clean the response in case there's any extra text
-      const jsonMatch = content.match(/\[[\s\S]*\]/)
-      const jsonString = jsonMatch ? jsonMatch[0] : content
-      
-      const tasks = JSON.parse(jsonString)
-      
-      if (!Array.isArray(tasks)) {
-        throw new Error('Response is not an array')
-      }
-
-      const parsedTasks = tasks.map((task: any, index: number) => ({
-        id: `ai-task-${index}-${Date.now()}`,
-        title: task.title || 'Untitled Task',
-        category: task.category || 'personal',
-        estimatedDuration: task.estimatedDuration || 30,
-        priority: task.priority || 'medium',
-        type: task.type || 'task',
-        startTime: task.startTime,
-        scheduledDate: task.scheduledDate || today
-      }))
-
-      res.json({ tasks: parsedTasks })
-    } catch (error) {
-      console.error('Failed to parse OpenAI response:', content)
-      throw new Error('Failed to parse AI response - please try again')
-    }
+    const parsed = ParsedItems.parse(JSON.parse(content))
+    res.json(parsed)
   } catch (error) {
-    console.error('AI parsing error:', error)
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to parse tasks' })
+    console.error('parse-tasks failed:', error)
+    res.status(500).json({ error: 'Could not parse — try again' })
   }
 })
 

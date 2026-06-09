@@ -225,6 +225,22 @@ export const aiService = {
     })
     return response.data
   },
+
+  parseTasks: async (text: string): Promise<{ items: ParsedItem[] }> => {
+    const response = await api.post('/ai/parse-tasks', { text })
+    return response.data
+  },
+}
+
+export interface ParsedItem {
+  title: string
+  type: 'task' | 'habit'
+  category: 'health' | 'work' | 'personal' | 'fitness' | 'grocery' | 'nutrition'
+  duration: number
+  priority: 'high' | 'medium' | 'low'
+  startTime: string | null
+  scheduledDate: string
+  repeat: 'daily' | 'weekly' | 'none'
 }
 
 // Analytics Service
