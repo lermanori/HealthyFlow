@@ -21,6 +21,14 @@ ngrok.log
 # Netlify
 .netlify
 
+# Local-only issue tracker (used by Pocock skills)
+.scratch
+
+# Skills installer drop (managed by `npx skills add`)
+.agents
+skills-lock.json
+.claude/skills
+
 # OS / editor
 .DS_Store
 .vscode
