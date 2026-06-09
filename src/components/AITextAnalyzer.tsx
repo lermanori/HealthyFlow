@@ -192,9 +192,17 @@ export default function AITextAnalyzer({
   }
 
   const analyzeWithBackend = async (text: string): Promise<TaskSuggestion[]> => {
-    // Use the new parse-tasks endpoint for true OpenAI task parsing
-    const { tasks } = await aiService.parseTasks(text)
-    return tasks
+    const { items } = await aiService.parseTasks(text)
+    return items.map((it, idx) => ({
+      id: `ai-${idx}`,
+      title: it.title,
+      category: it.category,
+      estimatedDuration: it.duration,
+      priority: it.priority,
+      type: it.type,
+      startTime: it.startTime ?? undefined,
+      scheduledDate: it.scheduledDate,
+    }))
   }
 
   const analyzeText = async () => {
@@ -223,130 +231,10 @@ export default function AITextAnalyzer({
       }
     } catch (error) {
       console.error('AI Analysis error:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to analyze text', { id: 'ai-analysis' })
-      
-      // Fallback to mock analysis on error
-      const mockSuggestions = generateMockSuggestions(inputText)
-      setSuggestions(mockSuggestions)
-      setSelectedSuggestions(new Set(mockSuggestions.map(s => s.id)))
-      
-      // Auto-speak results if enabled
-      if (ttsEnabled && autoSpeakResults) {
-        setTimeout(() => {
-          const summary = generateTTSSummary(mockSuggestions)
-          speak(summary, { 
-            voice: selectedVoice, 
-            rate: speechRate 
-          })
-        }, 1000)
-      }
+      toast.error('Could not parse — try again', { id: 'ai-analysis' })
     } finally {
       setIsAnalyzing(false)
     }
-  }
-
-  const generateMockSuggestions = (text: string): TaskSuggestion[] => {
-    const suggestions: TaskSuggestion[] = []
-    const lowerText = text.toLowerCase()
-    
-    // Smart date detection for mock analysis
-    const getSmartDate = (text: string): string => {
-      const today = format(new Date(), 'yyyy-MM-dd')
-      const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd')
-      const weekend = format(addDays(new Date(), 6 - new Date().getDay()), 'yyyy-MM-dd')
-      
-      if (text.includes('tomorrow') || text.includes('next day')) return tomorrow
-      if (text.includes('weekend') || text.includes('saturday') || text.includes('sunday')) return weekend
-      if (text.includes('next week') || text.includes('monday')) return format(addDays(new Date(), 7), 'yyyy-MM-dd')
-      if (text.includes('today') || text.includes('now')) return today
-      
-      // Default based on time context
-      if (text.includes('morning') && new Date().getHours() > 12) return tomorrow
-      if (text.includes('evening') || text.includes('tonight')) return today
-      
-      return defaultScheduleDate
-    }
-
-    // Simple keyword-based analysis (fallback when OpenAI is not available)
-    if (lowerText.includes('workout') || lowerText.includes('exercise') || lowerText.includes('gym')) {
-      suggestions.push({
-        id: 'workout-1',
-        title: 'Complete workout session',
-        category: 'fitness',
-        estimatedDuration: 60,
-        priority: 'high',
-        type: 'habit',
-        startTime: '07:00',
-        scheduledDate: getSmartDate(lowerText)
-      })
-    }
-
-    if (lowerText.includes('meeting') || lowerText.includes('call') || lowerText.includes('presentation')) {
-      suggestions.push({
-        id: 'work-1',
-        title: 'Prepare for meeting',
-        category: 'work',
-        estimatedDuration: 30,
-        priority: 'high',
-        type: 'task',
-        startTime: '09:00',
-        scheduledDate: getSmartDate(lowerText)
-      })
-    }
-
-    if (lowerText.includes('read') || lowerText.includes('book') || lowerText.includes('study')) {
-      suggestions.push({
-        id: 'personal-1',
-        title: 'Reading session',
-        category: 'personal',
-        estimatedDuration: 30,
-        priority: 'medium',
-        type: 'habit',
-        startTime: '20:00',
-        scheduledDate: getSmartDate(lowerText)
-      })
-    }
-
-    if (lowerText.includes('meditat') || lowerText.includes('mindful') || lowerText.includes('relax')) {
-      suggestions.push({
-        id: 'health-1',
-        title: 'Meditation practice',
-        category: 'health',
-        estimatedDuration: 15,
-        priority: 'medium',
-        type: 'habit',
-        startTime: '06:30',
-        scheduledDate: getSmartDate(lowerText)
-      })
-    }
-
-    if (lowerText.includes('shop') || lowerText.includes('grocery') || lowerText.includes('buy')) {
-      suggestions.push({
-        id: 'personal-2',
-        title: 'Grocery shopping',
-        category: 'personal',
-        estimatedDuration: 45,
-        priority: 'medium',
-        type: 'task',
-        startTime: '14:00',
-        scheduledDate: getSmartDate(lowerText)
-      })
-    }
-
-    // If no specific keywords found, create a generic task
-    if (suggestions.length === 0) {
-      suggestions.push({
-        id: 'generic-1',
-        title: text.slice(0, 50) + (text.length > 50 ? '...' : ''),
-        category: 'personal',
-        estimatedDuration: 30,
-        priority: 'medium',
-        type: 'task',
-        scheduledDate: getSmartDate(lowerText)
-      })
-    }
-
-    return suggestions
   }
 
   const toggleSuggestion = (id: string) => {
