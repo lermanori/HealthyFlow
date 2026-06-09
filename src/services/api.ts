@@ -212,20 +212,6 @@ export const aiService = {
     return response.data
   },
 
-  // OpenAI Integration (when API key is provided)
-  getOpenAIRecommendations: async (taskHistory: any[]): Promise<AIRecommendation[]> => {
-    const apiKey = localStorage.getItem('openai_api_key')
-    if (!apiKey) {
-      throw new Error('OpenAI API key not configured')
-    }
-
-    const response = await api.post('/ai/openai-recommendations', {
-      taskHistory,
-      apiKey
-    })
-    return response.data
-  },
-
   parseTasks: async (text: string): Promise<{ items: ParsedItem[] }> => {
     const response = await api.post('/ai/parse-tasks', { text })
     return response.data

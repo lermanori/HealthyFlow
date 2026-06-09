@@ -70,29 +70,6 @@ router.get('/tasks', authenticateToken, async (req: AuthRequest, res) => {
   }
 })
 
-// OpenAI Integration endpoint (when user provides API key)
-router.post('/openai-recommendations', authenticateToken, async (req, res) => {
-  const { taskHistory, apiKey } = req.body
-  
-  if (!apiKey) {
-    return res.status(400).json({ error: 'OpenAI API key required' })
-  }
-
-  try {
-    // This would integrate with OpenAI API
-    // For now, return enhanced recommendations
-    const recommendations = AIService.generateRecommendations(taskHistory).map(rec => ({
-      ...rec,
-      message: `[AI Enhanced] ${rec.message}`,
-      source: 'openai'
-    }))
-
-    res.json(recommendations)
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to get OpenAI recommendations' })
-  }
-})
-
 // AI-powered task query endpoint
 router.post('/query-tasks', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
