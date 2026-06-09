@@ -278,7 +278,7 @@ export default function AskAIModal({ isOpen, onClose }: AskAIModalProps) {
                   <span>
                     Analyzing {todayTasks.length} tasks • 
                     {todayTasks.filter(t => t.completed).length} completed • 
-                    {localStorage.getItem('openai_api_key') ? 'AI Enhanced' : 'Smart Analysis'}
+                    AI Analysis
                   </span>
                 </div>
               </div>

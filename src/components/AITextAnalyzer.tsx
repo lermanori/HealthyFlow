@@ -303,8 +303,6 @@ export default function AITextAnalyzer({
     return 'bg-gray-500/20 text-gray-400 border-gray-500/30'
   }
 
-  const hasOpenAIKey = !!localStorage.getItem('openai_api_key')
-
   // Quick date options
   const quickDates = [
     { label: 'Today', value: format(new Date(), 'yyyy-MM-dd') },
@@ -328,19 +326,7 @@ export default function AITextAnalyzer({
           </div>
           <div>
             <h2 className="text-xl font-bold text-gray-100 neon-text">AI Task Analyzer</h2>
-            <div className="flex items-center space-x-2">
-              <p className="text-gray-300 text-sm">Transform your thoughts into structured tasks</p>
-              {hasOpenAIKey ? (
-                <div className="flex items-center space-x-1">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="text-xs text-green-400">AI Enhanced</span>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-1">
-                  <span className="text-xs text-yellow-400">Basic Mode</span>
-                </div>
-              )}
-            </div>
+            <p className="text-gray-300 text-sm">Transform your thoughts into structured tasks</p>
           </div>
         </div>
         {onClose && (
@@ -455,18 +441,6 @@ export default function AITextAnalyzer({
           </button>
         </div>
 
-        {/* OpenAI Status */}
-        {!hasOpenAIKey && (
-          <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-yellow-400 font-medium">Enhanced AI Available</span>
-            </div>
-            <p className="text-xs text-gray-300 mt-1">
-              Add your OpenAI API key in Settings for more intelligent task analysis and smart date scheduling
-            </p>
-          </div>
-        )}
-
         {/* Input Section */}
         <div className="space-y-4">
           {inputMode === 'text' ? (
@@ -508,7 +482,7 @@ Examples:
               <>
                 <span className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
                 <span className="text-white">
-                  {hasOpenAIKey ? 'Analyzing with OpenAI...' : 'Analyzing with AI...'}
+                  Analyzing with AI...
                 </span>
               </>
             ) : (
