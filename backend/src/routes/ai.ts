@@ -1,7 +1,7 @@
 import express from 'express'
-import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
 import { db } from '../supabase-client'
+import { Openai } from '../openai'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 
 const router = express.Router()
@@ -20,46 +20,31 @@ router.get('/tasks', authenticateToken, async (req: AuthRequest, res) => {
 // AI-powered task query endpoint
 router.post('/query-tasks', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
-  const { question, apiKey } = req.body
+  const { question } = req.body
 
   try {
-    // Fetch all tasks for the user
     const tasks = await db.getTasksByUserId(userId)
 
-    // Use OpenAI or a placeholder to generate an answer
-    // For now, use a mock response
-    // In production, call OpenAI API with a prompt like:
-    // "Given the following tasks: ... and the question: ... generate a helpful answer."
-    let answer = ''
-    const effectiveKey = apiKey || process.env.OPENAI_API_KEY
-    if (effectiveKey) {
-      try {
-        const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${effectiveKey}`
-          },
-          body: JSON.stringify({
-            model: 'gpt-3.5-turbo',
-            messages: [
-              { role: 'system', content: 'You are a productivity assistant. Answer questions about the user\'s tasks based on the provided data.' },
-              { role: 'user', content: `Tasks: ${JSON.stringify(tasks)}\nQuestion: ${question}` }
-            ],
-            temperature: 0.5,
-            max_tokens: 500
-          })
-        })
-        const data = await openaiRes.json() as any
-        answer = data.choices?.[0]?.message?.content?.trim() || 'No answer generated.'
-      } catch (e) {
-        answer = 'AI service unavailable.'
-      }
-    } else {
+    if (!process.env.OPENAI_API_KEY) {
       // Mock answer for development
-      answer = `You asked: "${question}". You have ${tasks.length} tasks. (AI answer would go here.)`
+      return res.json({
+        answer: `You asked: "${question}". You have ${tasks.length} tasks. (AI answer would go here.)`,
+      })
     }
-    res.json({ answer })
+
+    const result = await Openai.callText({
+      model: 'gpt-3.5-turbo',
+      systemPrompt:
+        "You are a productivity assistant. Answer questions about the user's tasks based on the provided data.",
+      userPrompt: `Tasks: ${JSON.stringify(tasks)}\nQuestion: ${question}`,
+      temperature: 0.5,
+      maxTokens: 500,
+    })
+
+    if (!result.ok) {
+      return res.json({ answer: 'AI service unavailable.' })
+    }
+    res.json({ answer: result.value || 'No answer generated.' })
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
   }
@@ -88,27 +73,12 @@ router.post('/parse-tasks', authenticateToken, async (req: AuthRequest, res) => 
     return res.status(400).json({ error: 'Text input is required' })
   }
 
-  const apiKey = process.env.OPENAI_API_KEY
-  if (!apiKey) {
-    return res.status(500).json({ error: 'Could not parse — try again' })
-  }
-
   const today = new Date().toISOString().split('T')[0]
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-  try {
-    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `Convert user input into a list of HealthyFlow Items.
+  const result = await Openai.callStructured({
+    model: 'gpt-4o-mini',
+    systemPrompt: `Convert user input into a list of HealthyFlow Items.
 
 Each Item is either a Task (one-shot, repeat: "none") or a Habit (recurring, repeat: "daily" or "weekly").
 
@@ -118,39 +88,17 @@ Field rules:
 - startTime: "HH:MM" 24h or null if flexible
 - scheduledDate: "YYYY-MM-DD"; for Habits use today's date (${today})
 - "tomorrow" -> ${tomorrow}, "tonight"/"evening" -> today, "this weekend" -> next Saturday`,
-          },
-          { role: 'user', content: text },
-        ],
-        temperature: 0.2,
-        response_format: {
-          type: 'json_schema',
-          json_schema: {
-            name: 'parsed_items',
-            schema: PARSED_ITEMS_JSON_SCHEMA,
-            strict: true,
-          },
-        },
-      }),
-    })
+    userPrompt: text,
+    temperature: 0.2,
+    schemaName: 'parsed_items',
+    jsonSchema: PARSED_ITEMS_JSON_SCHEMA,
+    parser: (v) => ParsedItems.parse(v),
+  })
 
-    if (!openaiRes.ok) {
-      console.error('OpenAI upstream error:', openaiRes.status, openaiRes.statusText)
-      return res.status(500).json({ error: 'Could not parse — try again' })
-    }
-
-    const data = (await openaiRes.json()) as any
-    const content = data.choices?.[0]?.message?.content
-    if (!content) {
-      console.error('OpenAI response missing content:', data)
-      return res.status(500).json({ error: 'Could not parse — try again' })
-    }
-
-    const parsed = ParsedItems.parse(JSON.parse(content))
-    res.json(parsed)
-  } catch (error) {
-    console.error('parse-tasks failed:', error)
-    res.status(500).json({ error: 'Could not parse — try again' })
+  if (!result.ok) {
+    return res.status(500).json({ error: 'Could not parse — try again' })
   }
+  res.json(result.value)
 })
 
 export { router as aiRoutes }
