@@ -1,6 +1,7 @@
 import express from 'express'
 import { v4 as uuidv4 } from 'uuid'
-import { db, supabase } from '../supabase-client'
+import { db } from '../supabase-client'
+import { Rollover } from '../rollover'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 
 const router = express.Router()
@@ -198,24 +199,15 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
         rolledOverFromTaskId: habitInstance.rolled_over_from_task_id,
         originalCreatedAt: habitInstance.original_created_at
       })
-    } else if (taskId.startsWith('rollover-')) {
-      // Handle virtual rollover task completion by marking the original undated task as completed
-      const match = taskId.match(/^rollover-([0-9a-fA-F-]{36})-(\d{4}-\d{2}-\d{2})$/)
-      if (!match) {
-        return res.status(400).json({ error: 'Invalid rollover task ID format' })
-      }
-      const originalTaskId = match[1]
-      // Mark the original undated task as completed
-      const originalTask = await db.getTaskById(originalTaskId)
-      if (!originalTask || originalTask.user_id !== userId) {
+    } else if (Rollover.isRolloverRef(taskId)) {
+      const result = await Rollover.complete(taskId, userId)
+      if (!result.ok) {
+        if (result.reason === 'invalid') {
+          return res.status(400).json({ error: 'Invalid rollover task ID format' })
+        }
         return res.status(403).json({ error: 'Forbidden' })
       }
-      const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
-      const updatedTask = await db.updateTask(originalTaskId, {
-        completed: true,
-        completed_at: new Date().toISOString()
-      })
-      // Return the updated original task, optionally with a flag for UI
+      const updatedTask = result.task
       return res.json({
         id: updatedTask.id,
         title: updatedTask.title,
@@ -230,7 +222,7 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
         originalHabitId: updatedTask.original_habit_id,
         rolledOverFromTaskId: updatedTask.rolled_over_from_task_id,
         originalCreatedAt: updatedTask.original_created_at,
-        isRolloverTask: true // for UI if needed
+        isRolloverTask: true
       })
     } else {
       // Handle regular task or existing habit instance completion
@@ -309,38 +301,17 @@ router.patch('/overdue-notified', authenticateToken, async (req: AuthRequest, re
   }
 })
 
-// Rollover incomplete tasks without specific dates to current day (virtual only)
+// No-op rollover endpoint: virtual rows are produced on the next GET. Kept for
+// backward compatibility with existing clients; the count comes from Rollover.
+// TODO: candidate for deletion once we confirm no client depends on this route.
 router.post('/rollover', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
-  const { toDate } = req.body
-
-  console.log('Backend - Rolling over tasks without dates to', toDate)
-
   try {
-    // Get all incomplete tasks without a specific scheduled date
-    const { data: tasksWithoutDate, error: fetchError } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('user_id', userId)
-      // .is('scheduled_date', null)
-      .is('start_time', null)
-      .is('rolled_over_from_task_id', null)
-      .eq('completed', false)
-      .eq('type', 'task')
-      .order('created_at', { ascending: true })
-
-    if (fetchError) {
-      console.error('Backend - Error fetching tasks without date:', fetchError)
-      return res.status(500).json({ error: 'Failed to fetch tasks' })
-    }
-
-    console.log('Backend - Found', tasksWithoutDate.length, 'tasks without dates to roll over')
-
-    // Return success - the tasks will be displayed virtually in the next GET request
+    const count = await Rollover.countIncompleteForDay(userId)
     res.json({
       success: true,
-      message: `Rolled over ${tasksWithoutDate.length} tasks without dates (virtual display)`,
-      rolledOverTasks: tasksWithoutDate.length
+      message: `Rolled over ${count} tasks without dates (virtual display)`,
+      rolledOverTasks: count
     })
   } catch (error) {
     console.error('Backend - Error rolling over tasks:', error)
