@@ -3,61 +3,8 @@ import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
 import { db } from '../supabase-client'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
-import { AIService } from '../services/aiService'
 
 const router = express.Router()
-
-// Get AI recommendations for the week
-router.get('/recommendations', authenticateToken, async (req: AuthRequest, res) => {
-  const userId = req.user.userId
-  const { weekStart, weekEnd } = req.query
-
-  try {
-    const tasks = await db.getWeeklyTasks(userId)
-    // Ensure created_at is included
-    const recommendations = AIService.generateRecommendations(tasks.map((task: any) => ({
-      category: task.category,
-      completed: task.completed,
-      type: task.type,
-      created_at: task.created_at || new Date().toISOString()
-    })))
-    res.json(recommendations)
-  } catch (error) {
-    res.status(500).json({ error: 'Database error' })
-  }
-})
-
-// Get personalized tips
-router.get('/tips', authenticateToken, async (req: AuthRequest, res) => {
-  const userId = req.user.userId
-  try {
-    const stats = await db.getMonthlyCategoryStats(userId)
-    const tips = AIService.generatePersonalizedTips(stats)
-    res.json(tips)
-  } catch (error) {
-    res.status(500).json({ error: 'Database error' })
-  }
-})
-
-// Get motivation (fallback to recommendations)
-router.get('/motivation', authenticateToken, async (req: AuthRequest, res) => {
-  const userId = req.user.userId
-  try {
-    const progress = await db.getTodayProgress(userId)
-    // Fallback: use generateRecommendations for motivation
-    const recommendations = AIService.generateRecommendations(progress.map((task: any) => ({
-      category: task.category || 'general',
-      completed: task.completed,
-      type: task.type || 'task',
-      created_at: task.created_at || new Date().toISOString()
-    })))
-    // Return the first encouragement or suggestion as motivation
-    const motivation = recommendations.find((rec: any) => rec.type === 'encouragement' || rec.type === 'suggestion') || recommendations[0]
-    res.json(motivation)
-  } catch (error) {
-    res.status(500).json({ error: 'Database error' })
-  }
-})
 
 // Query tasks for AI
 router.get('/tasks', authenticateToken, async (req: AuthRequest, res) => {
