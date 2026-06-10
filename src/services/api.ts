@@ -216,6 +216,11 @@ export const aiService = {
     const response = await api.post('/ai/parse-tasks', { text })
     return response.data
   },
+
+  queryTasks: async (question: string): Promise<{ answer: string }> => {
+    const response = await api.post('/ai/query-tasks', { question })
+    return response.data
+  },
 }
 
 export interface ParsedItem {

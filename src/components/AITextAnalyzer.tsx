@@ -46,7 +46,6 @@ export default function AITextAnalyzer({
   
   // Voice Input State
   const [inputMode, setInputMode] = useState<'text' | 'voice'>('text')
-  const [syncToGoogle, setSyncToGoogle] = useState(false)
   
   const queryClient = useQueryClient()
   const { speak } = useTTS()
@@ -67,10 +66,7 @@ export default function AITextAnalyzer({
           scheduledDate: task.type === 'habit' ? format(new Date(), 'yyyy-MM-dd') : task.scheduledDate
         }
         
-        // Use Google Calendar sync for tasks with time/date, otherwise use regular addTask
-        return syncToGoogle && task.type === 'task' && task.startTime 
-          ? taskService.addTaskWithGoogleSync(taskData)
-          : taskService.addTask(taskData)
+        return taskService.addTask(taskData)
       })
       return Promise.all(promises)
     },
@@ -105,8 +101,7 @@ export default function AITextAnalyzer({
           return `${taskTitles.length} task${taskTitles.length > 1 ? 's' : ''} for ${dateLabel}`
         }).join(', ')
         
-        const syncInfo = syncToGoogle ? ' and synced to Google Calendar' : ''
-        successMessage += `Added ${regularTasks.length} task${regularTasks.length > 1 ? 's' : ''} (${dateInfo})${syncInfo}`
+        successMessage += `Added ${regularTasks.length} task${regularTasks.length > 1 ? 's' : ''} (${dateInfo})`
       }
       
       toast.success(`${successMessage} 🚀`)
@@ -388,26 +383,6 @@ export default function AITextAnalyzer({
           />
           <p className="text-xs text-gray-400 mt-2">
             Tasks will be scheduled for this date unless specified otherwise in your input
-          </p>
-        </div>
-
-        {/* Google Calendar Sync Toggle */}
-        <div className="bg-gray-800/50 rounded-xl p-4 border border-blue-500/30">
-          <div className="flex items-center space-x-3">
-            <input
-              type="checkbox"
-              id="syncToGoogleAI"
-              checked={syncToGoogle}
-              onChange={(e) => setSyncToGoogle(e.target.checked)}
-              className="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
-            />
-            <label htmlFor="syncToGoogleAI" className="text-sm text-blue-400 flex items-center space-x-2">
-              <span>📅</span>
-              <span>Sync tasks to Google Calendar</span>
-            </label>
-          </div>
-          <p className="text-xs text-gray-400 mt-2">
-            Only tasks with specific times will be synced to Google Calendar
           </p>
         </div>
 
