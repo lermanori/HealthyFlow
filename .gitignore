@@ -1,6 +1,27 @@
+# Dependencies
 node_modules
-node_modules
-.env
 
-# Local Netlify folder
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist
+backend/dist
+
+# Local databases (use Supabase in production)
+*.db
+*.db-journal
+
+# Logs
+*.log
+ngrok.log
+
+# Netlify
 .netlify
+
+# OS / editor
+.DS_Store
+.vscode
+.idea

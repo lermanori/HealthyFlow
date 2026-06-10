@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
+import { Rollover } from './rollover';
 
 // Load .env from parent directory
 dotenv.config({ path: path.join(__dirname, '../../.env') });
@@ -327,38 +328,8 @@ export const db = {
 
       if (origHabitsError) throw origHabitsError
 
-      // Get incomplete tasks without scheduled dates for virtual rollover
-      const { data: tasksWithoutDate, error: rolloverError } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', userId)
-        .is('start_time', null)
-        // .is('scheduled_date', null)
-        .is('rolled_over_from_task_id', null)
-        .eq('completed', false)
-        .eq('type', 'task')
-        .order('created_at', { ascending: true })
-
-      if (rolloverError) throw rolloverError
-
-      // Fetch undated, completed tasks with completed_at date matching the selected date
-      const { data: completedRollovers, error: completedRolloversError } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('completed', true)
-        .filter('completed_at', 'gte', `${date}T00:00:00.000Z`)
-        .filter('completed_at', 'lt', `${date}T23:59:59.999Z`)
-        .order('created_at', { ascending: true })
-
-      if (completedRolloversError) throw completedRolloversError
-
-      // Map them to look like completed rollover tasks for the UI
-      const completedRolloverTasks = (completedRollovers || []).map(task => ({
-        ...task,
-        scheduled_date: date,
-        isRolloverTask: true
-      }))
+      // Rollover rows (virtual incomplete + completed-undated for the day) live behind Rollover.
+      const rolloverRows = await Rollover.listForDay(userId, date)
 
       // Build a set of habit ids that already have a real or original instance for this date
       const habitIdsWithInstance = new Set([
@@ -387,38 +358,13 @@ export const db = {
           isHabitInstance: true
         }))
 
-      // Create virtual rollover tasks for tasks without dates
-      // Only generate for incomplete, undated tasks (already filtered by .eq('completed', false))
-      const virtualRolloverTasks = tasksWithoutDate
-        .filter(task => !task.completed) // Defensive: ensure only incomplete
-        .map(task => ({
-          id: `rollover-${task.id}-${date}`,
-          title: task.title,
-          type: 'task' as const,
-          category: task.category,
-          start_time: task.start_time,
-          duration: task.duration,
-          repeat_type: task.repeat_type,
-          completed: false,
-          completed_at: null,
-          created_at: task.created_at,
-          scheduled_date: date,
-          overdue_notified: false,
-          user_id: userId,
-          original_habit_id: null,
-          rolled_over_from_task_id: task.id,
-          original_created_at: task.created_at,
-          isRolloverTask: true
-        }))
-
       // Combine all tasks for the day (deduplicate by habit id: only one per habit per day)
       const allTasks = [
         ...regularTasks,
         ...existingInstances,
         ...originalHabitsForDate,
         ...virtualHabitInstances,
-        ...virtualRolloverTasks,
-        ...completedRolloverTasks
+        ...rolloverRows,
       ]
 
       // Sort so that completed habit instances come first, then originals, then virtuals
