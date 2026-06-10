@@ -212,19 +212,26 @@ export const aiService = {
     return response.data
   },
 
-  // OpenAI Integration (when API key is provided)
-  getOpenAIRecommendations: async (taskHistory: any[]): Promise<AIRecommendation[]> => {
-    const apiKey = localStorage.getItem('openai_api_key')
-    if (!apiKey) {
-      throw new Error('OpenAI API key not configured')
-    }
-
-    const response = await api.post('/ai/openai-recommendations', {
-      taskHistory,
-      apiKey
-    })
+  parseTasks: async (text: string): Promise<{ items: ParsedItem[] }> => {
+    const response = await api.post('/ai/parse-tasks', { text })
     return response.data
   },
+
+  queryTasks: async (question: string): Promise<{ answer: string }> => {
+    const response = await api.post('/ai/query-tasks', { question })
+    return response.data
+  },
+}
+
+export interface ParsedItem {
+  title: string
+  type: 'task' | 'habit'
+  category: 'health' | 'work' | 'personal' | 'fitness' | 'grocery' | 'nutrition'
+  duration: number
+  priority: 'high' | 'medium' | 'low'
+  startTime: string | null
+  scheduledDate: string
+  repeat: 'daily' | 'weekly' | 'none'
 }
 
 // Analytics Service

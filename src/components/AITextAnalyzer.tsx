@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Brain, X, Clock, Calendar, Plus, Sparkles } from 'lucide-react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { taskService } from '../services/api'
+import { taskService, aiService } from '../services/api'
 import { useTTS } from '../hooks/useTTS'
 import TTSSettings from './TTSSettings'
 import TTSActions from './TTSActions'
@@ -54,18 +54,20 @@ export default function AITextAnalyzer({
     mutationFn: async (tasks: Omit<TaskSuggestion, 'id' | 'priority'>[]) => {
       console.log('AITextAnalyzer - Adding tasks with dates:', tasks)
       
-      const promises = tasks.map(task => 
-        taskService.addTask({
+      const promises = tasks.map(task => {
+        const taskData = {
           title: task.title,
           type: task.type,
           category: task.category,
           duration: task.estimatedDuration,
           startTime: task.startTime,
-          repeat: task.type === 'habit' ? 'daily' : 'none',
+          repeat: (task.type === 'habit' ? 'daily' : 'none') as 'daily' | 'none' | 'weekly',
           // For habits, always use today as the start date so they begin recurring immediately
           scheduledDate: task.type === 'habit' ? format(new Date(), 'yyyy-MM-dd') : task.scheduledDate
-        })
-      )
+        }
+        
+        return taskService.addTask(taskData)
+      })
       return Promise.all(promises)
     },
     onSuccess: (tasks) => {
@@ -184,124 +186,18 @@ export default function AITextAnalyzer({
     setInputText(transcript)
   }
 
-  const analyzeWithOpenAI = async (text: string): Promise<TaskSuggestion[]> => {
-    const apiKey = localStorage.getItem('openai_api_key')
-    
-    if (!apiKey) {
-      throw new Error('OpenAI API key not configured')
-    }
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: `Convert user input into actionable tasks with smart date scheduling. Respond ONLY with a valid JSON array.
-
-Required fields for each task:
-- title: Clear, specific task name
-- category: "health", "work", "personal", or "fitness"
-- estimatedDuration: Time in minutes
-- priority: "high", "medium", or "low"
-- type: "habit" for daily activities, "task" for one-time
-- startTime: "HH:MM" format (24-hour) or null for flexible
-- scheduledDate: "YYYY-MM-DD" format
-
-SMART DATE SCHEDULING RULES:
-- If user mentions "today" or "now" → use today's date
-- If user mentions "tomorrow" → use tomorrow's date
-- If user mentions "this weekend" → use next Saturday
-- If user mentions "next week" → use next Monday
-- If user mentions "morning" → schedule for today if before 12pm, tomorrow if after
-- If user mentions "evening" or "tonight" → schedule for today
-- If user mentions specific days (Monday, Tuesday, etc.) → use the next occurrence
-- If no time context → use today's date as default
-- For habits → ALWAYS use today's date (habits will automatically recur daily)
-- For work tasks → prefer weekdays
-- For personal tasks → can be any day
-
-IMPORTANT: Daily habits will automatically appear every day once created, so always use today's date for habits regardless of user input.
-
-Today's date: ${format(new Date(), 'yyyy-MM-dd')}
-Tomorrow's date: ${format(addDays(new Date(), 1), 'yyyy-MM-dd')}
-Current time: ${format(new Date(), 'HH:mm')}
-
-Example input: "I want to start meditating daily and go to the gym tomorrow morning"
-Example output:
-[
-  {
-    "title": "Daily meditation",
-    "category": "health",
-    "estimatedDuration": 15,
-    "priority": "high",
-    "type": "habit",
-    "startTime": "07:00",
-    "scheduledDate": "${format(new Date(), 'yyyy-MM-dd')}"
-  },
-  {
-    "title": "Gym workout",
-    "category": "fitness",
-    "estimatedDuration": 60,
-    "priority": "high",
-    "type": "task",
-    "startTime": "07:00",
-    "scheduledDate": "${format(addDays(new Date(), 1), 'yyyy-MM-dd')}"
-  }
-]`
-          },
-          {
-            role: 'user',
-            content: text
-          }
-        ],
-        temperature: 0.7,
-        max_tokens: 1500
-      })
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(`OpenAI API error: ${response.statusText} - ${errorData.error?.message || 'Unknown error'}`)
-    }
-
-    const data = await response.json()
-    const content = data.choices[0]?.message?.content
-
-    if (!content) {
-      throw new Error('No response from OpenAI')
-    }
-
-    try {
-      // Clean the response in case there's any extra text
-      const jsonMatch = content.match(/\[[\s\S]*\]/)
-      const jsonString = jsonMatch ? jsonMatch[0] : content
-      
-      const tasks = JSON.parse(jsonString)
-      
-      if (!Array.isArray(tasks)) {
-        throw new Error('Response is not an array')
-      }
-
-      return tasks.map((task: any, index: number) => ({
-        id: `ai-task-${index}-${Date.now()}`,
-        title: task.title || 'Untitled Task',
-        category: task.category || 'personal',
-        estimatedDuration: task.estimatedDuration || 30,
-        priority: task.priority || 'medium',
-        type: task.type || 'task',
-        startTime: task.startTime,
-        scheduledDate: task.scheduledDate || defaultScheduleDate
-      }))
-    } catch (error) {
-      console.error('Failed to parse OpenAI response:', content)
-      throw new Error('Failed to parse AI response - please try again')
-    }
+  const analyzeWithBackend = async (text: string): Promise<TaskSuggestion[]> => {
+    const { items } = await aiService.parseTasks(text)
+    return items.map((it, idx) => ({
+      id: `ai-${idx}`,
+      title: it.title,
+      category: it.category,
+      estimatedDuration: it.duration,
+      priority: it.priority,
+      type: it.type,
+      startTime: it.startTime ?? undefined,
+      scheduledDate: it.scheduledDate,
+    }))
   }
 
   const analyzeText = async () => {
@@ -313,172 +209,27 @@ Example output:
     setIsAnalyzing(true)
     
     try {
-      const apiKey = localStorage.getItem('openai_api_key')
+      toast.loading('Analyzing with AI...', { id: 'ai-analysis' })
+      const aiSuggestions = await analyzeWithBackend(inputText)
+      setSuggestions(aiSuggestions)
+      setSelectedSuggestions(new Set(aiSuggestions.map(s => s.id)))
+      toast.success('AI analysis complete! 🧠', { id: 'ai-analysis' })
       
-      if (apiKey) {
-        // Use OpenAI API
-        toast.loading('Analyzing with OpenAI...', { id: 'ai-analysis' })
-        const aiSuggestions = await analyzeWithOpenAI(inputText)
-        setSuggestions(aiSuggestions)
-        setSelectedSuggestions(new Set(aiSuggestions.map(s => s.id)))
-        toast.success('AI analysis complete! 🧠', { id: 'ai-analysis' })
-        
-        // Auto-speak results if enabled
-        if (ttsEnabled && autoSpeakResults) {
-          setTimeout(() => {
-            const summary = generateTTSSummary(aiSuggestions)
-            speak(summary, { 
-              voice: selectedVoice, 
-              rate: speechRate 
-            })
-          }, 1000) // Small delay to let user see results first
-        }
-      } else {
-        // Fallback to mock analysis
-        toast.loading('Analyzing...', { id: 'ai-analysis' })
-        await new Promise(resolve => setTimeout(resolve, 2000))
-        const mockSuggestions = generateMockSuggestions(inputText)
-        setSuggestions(mockSuggestions)
-        setSelectedSuggestions(new Set(mockSuggestions.map(s => s.id)))
-        toast.success('Analysis complete! (Add OpenAI key for enhanced AI)', { id: 'ai-analysis' })
-        
-        // Auto-speak results if enabled
-        if (ttsEnabled && autoSpeakResults) {
-          setTimeout(() => {
-            const summary = generateTTSSummary(mockSuggestions)
-            speak(summary, { 
-              voice: selectedVoice, 
-              rate: speechRate 
-            })
-          }, 1000)
-        }
-      }
-    } catch (error) {
-      console.error('AI Analysis error:', error)
-      toast.error(error instanceof Error ? error.message : 'Failed to analyze text', { id: 'ai-analysis' })
-      
-      // Fallback to mock analysis on error
-      const mockSuggestions = generateMockSuggestions(inputText)
-      setSuggestions(mockSuggestions)
-      setSelectedSuggestions(new Set(mockSuggestions.map(s => s.id)))
-      
-      // Auto-speak results if enabled
       if (ttsEnabled && autoSpeakResults) {
         setTimeout(() => {
-          const summary = generateTTSSummary(mockSuggestions)
+          const summary = generateTTSSummary(aiSuggestions)
           speak(summary, { 
             voice: selectedVoice, 
             rate: speechRate 
           })
         }, 1000)
       }
+    } catch (error) {
+      console.error('AI Analysis error:', error)
+      toast.error('Could not parse — try again', { id: 'ai-analysis' })
     } finally {
       setIsAnalyzing(false)
     }
-  }
-
-  const generateMockSuggestions = (text: string): TaskSuggestion[] => {
-    const suggestions: TaskSuggestion[] = []
-    const lowerText = text.toLowerCase()
-    
-    // Smart date detection for mock analysis
-    const getSmartDate = (text: string): string => {
-      const today = format(new Date(), 'yyyy-MM-dd')
-      const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd')
-      const weekend = format(addDays(new Date(), 6 - new Date().getDay()), 'yyyy-MM-dd')
-      
-      if (text.includes('tomorrow') || text.includes('next day')) return tomorrow
-      if (text.includes('weekend') || text.includes('saturday') || text.includes('sunday')) return weekend
-      if (text.includes('next week') || text.includes('monday')) return format(addDays(new Date(), 7), 'yyyy-MM-dd')
-      if (text.includes('today') || text.includes('now')) return today
-      
-      // Default based on time context
-      if (text.includes('morning') && new Date().getHours() > 12) return tomorrow
-      if (text.includes('evening') || text.includes('tonight')) return today
-      
-      return defaultScheduleDate
-    }
-
-    // Simple keyword-based analysis (fallback when OpenAI is not available)
-    if (lowerText.includes('workout') || lowerText.includes('exercise') || lowerText.includes('gym')) {
-      suggestions.push({
-        id: 'workout-1',
-        title: 'Complete workout session',
-        category: 'fitness',
-        estimatedDuration: 60,
-        priority: 'high',
-        type: 'habit',
-        startTime: '07:00',
-        scheduledDate: getSmartDate(lowerText)
-      })
-    }
-
-    if (lowerText.includes('meeting') || lowerText.includes('call') || lowerText.includes('presentation')) {
-      suggestions.push({
-        id: 'work-1',
-        title: 'Prepare for meeting',
-        category: 'work',
-        estimatedDuration: 30,
-        priority: 'high',
-        type: 'task',
-        startTime: '09:00',
-        scheduledDate: getSmartDate(lowerText)
-      })
-    }
-
-    if (lowerText.includes('read') || lowerText.includes('book') || lowerText.includes('study')) {
-      suggestions.push({
-        id: 'personal-1',
-        title: 'Reading session',
-        category: 'personal',
-        estimatedDuration: 30,
-        priority: 'medium',
-        type: 'habit',
-        startTime: '20:00',
-        scheduledDate: getSmartDate(lowerText)
-      })
-    }
-
-    if (lowerText.includes('meditat') || lowerText.includes('mindful') || lowerText.includes('relax')) {
-      suggestions.push({
-        id: 'health-1',
-        title: 'Meditation practice',
-        category: 'health',
-        estimatedDuration: 15,
-        priority: 'medium',
-        type: 'habit',
-        startTime: '06:30',
-        scheduledDate: getSmartDate(lowerText)
-      })
-    }
-
-    if (lowerText.includes('shop') || lowerText.includes('grocery') || lowerText.includes('buy')) {
-      suggestions.push({
-        id: 'personal-2',
-        title: 'Grocery shopping',
-        category: 'personal',
-        estimatedDuration: 45,
-        priority: 'medium',
-        type: 'task',
-        startTime: '14:00',
-        scheduledDate: getSmartDate(lowerText)
-      })
-    }
-
-    // If no specific keywords found, create a generic task
-    if (suggestions.length === 0) {
-      suggestions.push({
-        id: 'generic-1',
-        title: text.slice(0, 50) + (text.length > 50 ? '...' : ''),
-        category: 'personal',
-        estimatedDuration: 30,
-        priority: 'medium',
-        type: 'task',
-        scheduledDate: getSmartDate(lowerText)
-      })
-    }
-
-    return suggestions
   }
 
   const toggleSuggestion = (id: string) => {
@@ -547,8 +298,6 @@ Example output:
     return 'bg-gray-500/20 text-gray-400 border-gray-500/30'
   }
 
-  const hasOpenAIKey = !!localStorage.getItem('openai_api_key')
-
   // Quick date options
   const quickDates = [
     { label: 'Today', value: format(new Date(), 'yyyy-MM-dd') },
@@ -572,19 +321,7 @@ Example output:
           </div>
           <div>
             <h2 className="text-xl font-bold text-gray-100 neon-text">AI Task Analyzer</h2>
-            <div className="flex items-center space-x-2">
-              <p className="text-gray-300 text-sm">Transform your thoughts into structured tasks</p>
-              {hasOpenAIKey ? (
-                <div className="flex items-center space-x-1">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="text-xs text-green-400">AI Enhanced</span>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-1">
-                  <span className="text-xs text-yellow-400">Basic Mode</span>
-                </div>
-              )}
-            </div>
+            <p className="text-gray-300 text-sm">Transform your thoughts into structured tasks</p>
           </div>
         </div>
         {onClose && (
@@ -679,18 +416,6 @@ Example output:
           </button>
         </div>
 
-        {/* OpenAI Status */}
-        {!hasOpenAIKey && (
-          <div className="p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-yellow-400 font-medium">Enhanced AI Available</span>
-            </div>
-            <p className="text-xs text-gray-300 mt-1">
-              Add your OpenAI API key in Settings for more intelligent task analysis and smart date scheduling
-            </p>
-          </div>
-        )}
-
         {/* Input Section */}
         <div className="space-y-4">
           {inputMode === 'text' ? (
@@ -732,7 +457,7 @@ Examples:
               <>
                 <span className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
                 <span className="text-white">
-                  {hasOpenAIKey ? 'Analyzing with OpenAI...' : 'Analyzing with AI...'}
+                  Analyzing with AI...
                 </span>
               </>
             ) : (
