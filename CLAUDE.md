@@ -44,6 +44,25 @@ Express route handlers do minimal work: validate the request (Zod), call a servi
 
 See `CONTEXT.md` at the repo root for the canonical definition of all domain terms (Item, Task, Habit, Rollover, Habit instance, parse-tasks, BYOK, etc.). Use the vocabulary there consistently; do not introduce synonyms.
 
+## Agent commit workflow
+
+When the user says "commit" (with or without a message), the agent should:
+
+1. Run `git status` to see what has changed.
+2. Write a concise commit message in the form `<type>: <summary>` (e.g. `feat:`, `fix:`, `docs:`, `refactor:`). Use the user's words if they supplied a message.
+3. Prepend a new entry to `LEDGER.md` using this format:
+
+```
+### YYYY-MM-DD HH:MM — `<branch>`
+
+<2–4 sentence human-readable narrative of what was accomplished this session and where the project stands. Not a copy of the commit message — write it as a status update.>
+
+---
+```
+
+4. Stage all changed files plus `LEDGER.md` with `git add`.
+5. Run `git commit -m "<message>"`.
+
 ## Agent skills
 
 ### Issue tracker
