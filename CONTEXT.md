@@ -41,3 +41,9 @@ _Avoid_: "AI parser" (too vague), "task extractor" (loses the habit case)
 
 **BYOK** (Bring Your Own Key):
 Pattern where the user supplies their own OpenAI API key, stored client-side. The frontend reads it from `localStorage` and sends it to the backend per request, which uses it instead of any server-side default.
+
+## Task Tracking
+
+- **GitHub Issues**: https://github.com/lermanori/HealthyFlow/issues
+- **GitHub Project (kanban)**: https://github.com/users/lermanori/projects/1/views/1
+- Note: At the start of any AI session working on HealthyFlow, check the kanban board for current task state before acting. Issues are the source of truth for what's in progress and what's next.
