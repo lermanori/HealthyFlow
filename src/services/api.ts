@@ -202,9 +202,9 @@ export const summaryService = {
 
 // AI Service
 export const aiService = {
+  // ponytail: route not implemented server-side; return empty so UI shows graceful fallback, no 404
   getRecommendations: async (): Promise<AIRecommendation[]> => {
-    const response = await api.post('/ai/recommend')
-    return response.data
+    return []
   },
 
   getPersonalizedTips: async (): Promise<string[]> => {

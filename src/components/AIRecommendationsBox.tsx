@@ -11,7 +11,7 @@ export default function AIRecommendationsBox() {
   const { data: recommendations, isLoading } = useQuery({
     queryKey: ['ai-recommendations'],
     queryFn: aiService.getRecommendations,
-    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes
+    // ponytail: no refetch — endpoint not live, function returns [] synchronously
   })
 
   const visibleRecommendations = recommendations?.filter(
