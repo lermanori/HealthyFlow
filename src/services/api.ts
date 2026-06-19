@@ -38,33 +38,40 @@ export interface Project {
   isArchived: boolean
 }
 
-export interface Task {
+// Fields present on every item variant
+interface ItemBase {
   id: string
   title: string
-  type: 'task' | 'habit' | 'grocery' | 'meal' | 'workout'
   category: string
   startTime?: string
   duration?: number
-  repeat?: 'daily' | 'weekly' | 'none'
   completed: boolean
   scheduledDate: string
   createdAt: string
   overdueNotified?: boolean
-  isHabitInstance?: boolean
-  originalHabitId?: string
   rolledOverFromTaskId?: string
   originalCreatedAt?: string
   completedAt?: string
   isRolloverTask?: boolean
-  
-  // Project grouping
   projectId?: string
-  project?: Project // populated when fetching with project info
-  
-  // New unified fields for different item types
-  itemType?: 'grocery' | 'meal' | 'workout' | 'task'
-  
-  // Grocery specific fields
+  project?: Project
+}
+
+export interface TaskItem extends ItemBase {
+  type: 'task'
+  repeat?: 'none'
+}
+
+export interface HabitItem extends ItemBase {
+  type: 'habit'
+  repeat?: 'daily' | 'weekly'
+  isHabitInstance?: boolean
+  originalHabitId?: string
+}
+
+export interface GroceryItem extends ItemBase {
+  type: 'grocery'
+  repeat?: 'none'
   groceryInfo?: {
     quantity?: string
     price?: number
@@ -72,8 +79,11 @@ export interface Task {
     store?: string
     notes?: string
   }
-  
-  // Meal specific fields
+}
+
+export interface MealItem extends ItemBase {
+  type: 'meal'
+  repeat?: 'none'
   mealInfo?: {
     mealType?: 'breakfast' | 'lunch' | 'dinner' | 'snack'
     calories?: number
@@ -84,8 +94,11 @@ export interface Task {
     instructions?: string
     dietPlanId?: string
   }
-  
-  // Workout specific fields
+}
+
+export interface WorkoutItem extends ItemBase {
+  type: 'workout'
+  repeat?: 'none'
   workoutInfo?: {
     exercises?: Array<{
       name: string
@@ -102,6 +115,12 @@ export interface Task {
     notes?: string
   }
 }
+
+// Discriminated union — keyed on `type`
+export type Item = TaskItem | HabitItem | GroceryItem | MealItem | WorkoutItem
+
+// Backwards-compat alias — all existing `Task` references keep working
+export type Task = Item
 
 export interface WeeklySummary {
   totalTasks: number
