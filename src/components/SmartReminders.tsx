@@ -30,6 +30,7 @@ export default function SmartReminders() {
 
   useEffect(() => {
     const now = new Date()
+    const todayStr = now.toISOString().slice(0, 10) // ponytail: date-only compare avoids TZ issues
     const currentTime = now.getHours() * 60 + now.getMinutes()
 
     const newReminders: Reminder[] = []
@@ -41,8 +42,8 @@ export default function SmartReminders() {
         const taskTime = hours * 60 + minutes
         const timeDiff = taskTime - currentTime
 
-        // Upcoming task (15 minutes before)
-        if (timeDiff > 0 && timeDiff <= 15) {
+        // Upcoming task (15 minutes before) — only for today's tasks
+        if (timeDiff > 0 && timeDiff <= 15 && task.scheduledDate <= todayStr) {
           newReminders.push({
             id: `upcoming-${task.id}`,
             taskTitle: task.title,
@@ -51,8 +52,8 @@ export default function SmartReminders() {
           })
         }
 
-        // Overdue task (30 minutes after start time) and not notified
-        if (timeDiff < -30 && !task.overdueNotified && !notifiedRef.current.has(task.id)) {
+        // Overdue: scheduledDate must be today or past AND startTime > 30 min ago (issue #20)
+        if (task.scheduledDate <= todayStr && timeDiff < -30 && !task.overdueNotified && !notifiedRef.current.has(task.id)) {
           newReminders.push({
             id: `overdue-${task.id}`,
             taskTitle: task.title,
