@@ -402,9 +402,7 @@ export default function DashboardPage() {
         </motion.div>
 
         {/* Futuristic Sidebar - Responsive Layout */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
+        <div
           className="space-y-4 md:space-y-6"
         >
           {/* Habit Tracker */}
@@ -444,7 +442,7 @@ export default function DashboardPage() {
 
           {/* AI Recommendations */}
           <AIRecommendationsBox />
-        </motion.div>
+        </div>
       </div>
 
       {/* Task Edit Modal */}
