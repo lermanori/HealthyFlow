@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-19 20:00 — `main`
+
+Verified issue #2 (AI parser canonical fields) end-to-end: `OPENAI_API_KEY` was added to `.env` and all three test phrases ("30 minute run tomorrow morning", "Weekly meal prep every Sunday 2 hours", "Take vitamins daily") returned correct `duration`, `repeat`, and `category` fields from GPT with no hardcoding. Diagnosed and fixed the UI not working: `VITE_API_URL` was pinned to the production Railway URL, so the browser was calling Railway (which has no API key) instead of localhost. Swapped it to `http://localhost:3001/api` for local dev. Production Railway still needs `OPENAI_API_KEY` added via the Railway dashboard before the AI analyzer works in prod.
+
+---
+
 ### 2026-06-19 13:30 — `main`
 
 Fixed the self-signup rate limiter crashing the backend on boot (`ERR_ERL_KEY_GEN_IPV6`): removed the unsafe custom `keyGenerator` in `auth.ts` and now rely on express-rate-limit's IPv6-safe default, with `app.set('trust proxy', 1)` in `index.ts` so `req.ip` resolves to the real client behind Railway's proxy (one bucket per client, not per proxy). Added `backend/scripts/seed-demo.ts`, an idempotent seed that upserts `demo@healthyflow.com` with a fresh `demo123` hash so the advertised demo credentials actually log in. All 17 backend tests still pass.
