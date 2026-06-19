@@ -360,7 +360,7 @@ export default function AITextAnalyzer({
           <div className="grid grid-cols-2 gap-2 mb-3">
             {quickDates.map((date) => (
               <button
-                key={date.value}
+                key={date.label}
                 onClick={() => setDefaultScheduleDate(date.value)}
                 className={`p-2 rounded-lg border text-xs transition-all duration-300 ${
                   defaultScheduleDate === date.value
@@ -548,7 +548,7 @@ Examples:
                             <div className="flex space-x-1">
                               {quickDates.slice(0, 2).map((date) => (
                                 <button
-                                  key={date.value}
+                                  key={date.label}
                                   onClick={(e) => {
                                     e.stopPropagation()
                                     updateTaskDate(suggestion.id, date.value)
