@@ -16,6 +16,9 @@ dotenv.config({ path: path.join(__dirname, '../.env') })
 const app = express()
 const PORT = process.env.PORT || 3001
 
+// Trust the first proxy hop (Railway) so req.ip is the real client for rate limiting
+app.set('trust proxy', 1)
+
 // Middleware
 app.use(cors())
 app.use(express.json())

@@ -21,8 +21,8 @@ const signupLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  // Trust X-Forwarded-For (set by proxies / tests)
-  keyGenerator: (req) => req.headers['x-forwarded-for'] as string || req.ip || 'unknown',
+  // Default keyGenerator uses req.ip (IPv6-safe); requires app-level `trust proxy`
+  // so req.ip reflects the real client behind Railway's proxy.
   message: { error: 'Too many signup attempts, please try again later.' },
 })
 
