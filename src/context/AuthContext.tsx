@@ -12,6 +12,7 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
+  signup: (email: string, password: string, name: string) => Promise<void>
   logout: () => void
 }
 
@@ -52,6 +53,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const signup = async (email: string, password: string, name: string) => {
+    try {
+      const { user: userData, token } = await authService.signup(email, password, name)
+      localStorage.setItem('token', token)
+      setUser(userData)
+      toast.success('Account created! Welcome to HealthyFlow.')
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || 'Signup failed'
+      toast.error(msg)
+      throw error
+    }
+  }
+
   const logout = () => {
     localStorage.removeItem('token')
     setUser(null)
@@ -59,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   )

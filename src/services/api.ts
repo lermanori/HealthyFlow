@@ -139,6 +139,11 @@ export const authService = {
     return response.data
   },
 
+  signup: async (email: string, password: string, name: string) => {
+    const response = await api.post('/auth/signup', { email, password, name })
+    return response.data
+  },
+
   verifyToken: async () => {
     const response = await api.get('/auth/verify')
     return response.data
