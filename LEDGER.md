@@ -19,6 +19,12 @@ Fixed a "Maximum update depth exceeded" render loop in SmartReminders.tsx. The r
 
 ---
 
+### 2026-06-19 20:30 — `issue-22-aitextanalyzer-dup-keys`
+
+Fixed issue #22 (P2 cosmetic): AITextAnalyzer emitted React's duplicate-key warning with a date-string value. Root cause was the two `quickDates` button maps keyed on `date.value` (the YYYY-MM-DD string); on certain weekdays "This Weekend" (`addDays(now, 6 - getDay())`) resolves to the same date as "Tomorrow" (`addDays(now, 1)`), producing two sibling buttons with an identical key. Switched both maps to key on the unique `date.label`. (The suggestion-id map was already sibling-unique and was not the cause.) TypeScript typecheck passes.
+
+---
+
 ### 2026-06-19 20:00 — `main`
 
 Verified issue #2 (AI parser canonical fields) end-to-end: `OPENAI_API_KEY` was added to `.env` and all three test phrases ("30 minute run tomorrow morning", "Weekly meal prep every Sunday 2 hours", "Take vitamins daily") returned correct `duration`, `repeat`, and `category` fields from GPT with no hardcoding. Diagnosed and fixed the UI not working: `VITE_API_URL` was pinned to the production Railway URL, so the browser was calling Railway (which has no API key) instead of localhost. Swapped it to `http://localhost:3001/api` for local dev. Production Railway still needs `OPENAI_API_KEY` added via the Railway dashboard before the AI analyzer works in prod.
