@@ -314,7 +314,7 @@ export default function AITextAnalyzer({
       className="card ai-glow max-w-4xl mx-auto max-h-[90vh] overflow-hidden flex flex-col"
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 flex-shrink-0">
+      <div className="flex items-center justify-between mb-6 px-6 pt-6 flex-shrink-0">
         <div className="flex items-center space-x-3">
           <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center animate-float">
             <Brain className="w-6 h-6 text-white" />
@@ -335,8 +335,8 @@ export default function AITextAnalyzer({
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto space-y-6 pb-32 md:pb-20">
-        {/* TTS Settings */}
+      <div className="flex-1 overflow-y-auto space-y-6 px-6">
+        {/* TTS Settings - add this section inside scrollable content */}
         <TTSSettings
           ttsEnabled={ttsEnabled}
           onTTSEnabledChange={setTtsEnabled}
@@ -423,7 +423,7 @@ export default function AITextAnalyzer({
               <textarea
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder="Describe what you want to accomplish... 
+                placeholder="Describe what you want to accomplish...
 
 Examples:
 • 'I need to prepare for tomorrow's presentation, go to the gym, and buy groceries'
@@ -447,28 +447,6 @@ Examples:
               disabled={isAnalyzing}
             />
           )}
-
-          <button
-            onClick={analyzeText}
-            disabled={isAnalyzing || !inputText.trim()}
-            className="btn-primary w-full flex items-center justify-center space-x-2"
-          >
-            {isAnalyzing ? (
-              <>
-                <span className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
-                <span className="text-white">
-                  Analyzing with AI...
-                </span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-5 h-5" />
-                <span className="text-white">
-                  {inputMode === 'voice' ? 'Analyze Voice Input' : 'Analyze & Generate Tasks'}
-                </span>
-              </>
-            )}
-          </button>
         </div>
 
         {/* AI Analysis Results */}
@@ -610,9 +588,30 @@ Examples:
         </AnimatePresence>
       </div>
 
-      {/* Fixed Add Button at Bottom */}
-      {suggestions.length > 0 && (
-        <div className="fixed bottom-32 left-0 right-0 p-4 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30 md:static md:bg-transparent md:backdrop-blur-none md:border-t-0 md:p-0 md:z-auto">
+      {/* Fixed Footer with Buttons */}
+      <div className="flex-shrink-0 border-t border-gray-700/50 bg-gray-900/95 backdrop-blur-xl p-4 space-y-3">
+        <button
+          onClick={analyzeText}
+          disabled={isAnalyzing || !inputText.trim()}
+          className="btn-primary w-full flex items-center justify-center space-x-2"
+        >
+          {isAnalyzing ? (
+            <>
+              <span className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></span>
+              <span className="text-white">
+                Analyzing with AI...
+              </span>
+            </>
+          ) : (
+            <>
+              <Sparkles className="w-5 h-5" />
+              <span className="text-white">
+                {inputMode === 'voice' ? 'Analyze Voice Input' : 'Analyze & Generate Tasks'}
+              </span>
+            </>
+          )}
+        </button>
+        {suggestions.length > 0 && (
           <button
             onClick={addSelectedTasks}
             disabled={selectedSuggestions.size === 0 || addTasksMutation.isPending}
@@ -621,8 +620,8 @@ Examples:
             <Plus className="w-4 h-4" />
             <span>Add Selected Tasks ({selectedSuggestions.size})</span>
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </motion.div>
   )
 }
