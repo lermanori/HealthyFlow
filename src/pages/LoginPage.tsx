@@ -1,36 +1,65 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Brain, Mail, Lock, Sparkles, Zap } from 'lucide-react'
+import { Brain, Mail, Lock, User, Sparkles, Zap } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('demo@healthyflow.com')
-  const [password, setPassword] = useState('demo123')
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
+  const [email, setEmail] = useState(mode === 'login' ? 'demo@healthyflow.com' : '')
+  const [password, setPassword] = useState(mode === 'login' ? 'demo123' : '')
+  const [name, setName] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
-  const { login } = useAuth()
+  const { login, signup } = useAuth()
 
-  // Check if running in standalone mode (installed PWA)
   useEffect(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches
     const iosStandalone = (window.navigator as any).standalone === true
     setIsStandalone(standalone || iosStandalone)
   }, [])
 
+  // Reset form when switching modes
+  const switchMode = (next: 'login' | 'signup') => {
+    setMode(next)
+    setError('')
+    setEmail(next === 'login' ? 'demo@healthyflow.com' : '')
+    setPassword(next === 'login' ? 'demo123' : '')
+    setName('')
+    setConfirmPassword('')
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
+
+    if (mode === 'signup') {
+      if (password !== confirmPassword) {
+        setError('Passwords do not match')
+        return
+      }
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters')
+        return
+      }
+    }
+
     setLoading(true)
-    
     try {
-      await login(email, password)
-      
-      // Vibrate on successful login if supported
+      if (mode === 'login') {
+        await login(email, password)
+      } else {
+        await signup(email, password, name)
+      }
       if ('navigator' in window && 'vibrate' in navigator) {
         navigator.vibrate([100, 50, 200])
       }
-    } catch (error) {
-      // Error is handled in AuthContext
+    } catch (err: any) {
+      // Surface inline error for "email already taken" and similar
+      const msg = err?.response?.data?.error
+      if (msg) setError(msg)
     } finally {
       setLoading(false)
     }
@@ -76,7 +105,7 @@ export default function LoginPage() {
               <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-cyan-400 animate-neon-flicker" />
               <Zap className="absolute -bottom-1 -left-1 w-5 h-5 text-blue-400 animate-pulse" />
             </motion.div>
-            
+
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -88,14 +117,49 @@ export default function LoginPage() {
               <p className="text-cyan-400 font-medium">AI-Powered Future Planner</p>
               <p className="text-gray-400 text-sm mt-1">Neural networks ready to optimize your life</p>
             </motion.div>
+
+            {/* Mode toggle */}
+            <div className="flex mt-4 rounded-xl overflow-hidden border border-gray-700">
+              <button
+                type="button"
+                onClick={() => switchMode('login')}
+                className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === 'login' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200'}`}
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => switchMode('signup')}
+                className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === 'signup' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200'}`}
+              >
+                Create account
+              </button>
+            </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 }}
-            >
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === 'signup' && (
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    id="name"
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="input-field pl-12"
+                    placeholder="Your name"
+                    required
+                    autoComplete="name"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
                 Email Address
               </label>
@@ -112,13 +176,9 @@ export default function LoginPage() {
                   autoComplete="email"
                 />
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5 }}
-            >
+            <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
                 Password
               </label>
@@ -130,55 +190,80 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="input-field pl-12"
-                  placeholder="Enter your password"
+                  placeholder={mode === 'signup' ? 'At least 8 characters' : 'Enter your password'}
                   required
-                  autoComplete="current-password"
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                 />
               </div>
-            </motion.div>
+            </div>
+
+            {mode === 'signup' && (
+              <div>
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    id="confirmPassword"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="input-field pl-12"
+                    placeholder="Repeat password"
+                    required
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Inline error */}
+            {error && (
+              <p className="text-red-400 text-sm text-center">{error}</p>
+            )}
 
             <motion.button
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={loading}
-              className="w-full btn-primary flex items-center justify-center space-x-2 py-4"
+              className="w-full btn-primary flex items-center justify-center space-x-2 py-4 mt-2"
             >
               {loading ? (
                 <>
                   <LoadingSpinner size="sm" />
-                  <span>Connecting to Neural Network...</span>
+                  <span>{mode === 'login' ? 'Connecting to Neural Network...' : 'Creating account...'}</span>
                 </>
               ) : (
                 <>
                   <Brain className="w-5 h-5" />
-                  <span>{isStandalone ? 'Login' : 'Initialize AI Session'}</span>
+                  <span>{mode === 'login' ? (isStandalone ? 'Login' : 'Initialize AI Session') : 'Create Account'}</span>
                   <Sparkles className="w-4 h-4 animate-neon-flicker" />
                 </>
               )}
             </motion.button>
           </form>
 
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.7 }}
-            className="mt-6 p-4 rounded-xl bg-gradient-to-r from-gray-800/50 to-gray-700/50 border border-gray-600/50"
-          >
-            <div className="text-center">
-              <p className="text-sm text-gray-300 font-medium mb-2">
-                🚀 Demo Access Credentials
-              </p>
-              <div className="space-y-1 text-xs text-gray-400">
-                <p><strong className="text-cyan-400">Email:</strong> demo@healthyflow.com</p>
-                <p><strong className="text-cyan-400">Password:</strong> demo123</p>
+          {mode === 'login' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7 }}
+              className="mt-6 p-4 rounded-xl bg-gradient-to-r from-gray-800/50 to-gray-700/50 border border-gray-600/50"
+            >
+              <div className="text-center">
+                <p className="text-sm text-gray-300 font-medium mb-2">
+                  🚀 Demo Access Credentials
+                </p>
+                <div className="space-y-1 text-xs text-gray-400">
+                  <p><strong className="text-cyan-400">Email:</strong> demo@healthyflow.com</p>
+                  <p><strong className="text-cyan-400">Password:</strong> demo123</p>
+                </div>
               </div>
-            </div>
-          </motion.div>
-          
+            </motion.div>
+          )}
+
           {/* PWA Status Indicator */}
           {isStandalone && (
             <motion.div

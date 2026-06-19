@@ -1,10 +1,55 @@
 import express from 'express'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
+import rateLimit from 'express-rate-limit'
+import { z } from 'zod'
 import { db } from '../supabase-client'
 
 const router = express.Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
+
+// Zod schema — single source of truth for signup input (CLAUDE.md)
+const SignupSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  name: z.string().min(1),
+})
+
+// ponytail: scoped to /signup only — don't rate-limit login or admin routes
+const signupLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  // Trust X-Forwarded-For (set by proxies / tests)
+  keyGenerator: (req) => req.headers['x-forwarded-for'] as string || req.ip || 'unknown',
+  message: { error: 'Too many signup attempts, please try again later.' },
+})
+
+// Public self-signup
+router.post('/signup', signupLimiter, async (req, res) => {
+  const parsed = SignupSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message })
+  }
+  const { email, password, name } = parsed.data
+
+  try {
+    const existing = await db.getUserByEmail(email)
+    if (existing) {
+      return res.status(409).json({ error: 'Email already taken' })
+    }
+
+    const password_hash = await bcrypt.hash(password, 10)
+    const user = await db.createUser({ email, name, password_hash })
+
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' })
+    return res.json({ user: { id: user.id, email: user.email, name: user.name }, token })
+  } catch (error) {
+    console.error('Signup error:', error)
+    return res.status(500).json({ error: 'Database error' })
+  }
+})
 
 // Login
 router.post('/login', async (req, res) => {

@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { Rollover } from './rollover';
+import { sortTasksForTimeline } from './utils/sortTasksForTimeline';
 
 // Load .env from parent directory
 dotenv.config({ path: path.join(__dirname, '../../.env') });
@@ -390,13 +391,8 @@ export const db = {
         return true
       })
 
-      // Sort by start time and creation time
-      return dedupedTasks.sort((a, b) => {
-        if (a.start_time && b.start_time) {
-          return a.start_time.localeCompare(b.start_time)
-        }
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      })
+      // Sort by start time and creation time (issue #8 fix: use sortTasksForTimeline)
+      return sortTasksForTimeline(dedupedTasks)
     } catch (error) {
       console.error('Error getting tasks with recurring habits:', error)
       throw error
