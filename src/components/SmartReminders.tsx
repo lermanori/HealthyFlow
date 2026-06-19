@@ -65,7 +65,9 @@ export default function SmartReminders() {
       }
     })
 
-    setReminders(newReminders.filter(r => !dismissedIds.includes(r.id)))
+    // ponytail: don't filter dismissedIds here — visibleReminders (line below) already does it.
+    // Keeping dismissedIds in deps + unconditional setReminders caused the render loop.
+    setReminders(newReminders)
 
     // Only update if there are new IDs
     if (overdueToNotify.length > 0) {
@@ -76,9 +78,8 @@ export default function SmartReminders() {
         return updated
       })
     }
-    // DO NOT include notifiedOverdueIds in the dependency array!
-    // eslint-disable-next-line
-  }, [tasks, dismissedIds])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks])
 
   const handleDismiss = (id: string) => {
     setDismissedIds(prev => [...prev, id])
