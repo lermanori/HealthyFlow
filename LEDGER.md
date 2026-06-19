@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-19 21:00 — `issue-20-overdue-date-blind`
+
+Fixed a P1 bug where overdue toast notifications fired immediately for tasks scheduled on future dates. The overdue check in SmartReminders was comparing time-of-day only, ignoring `scheduledDate`; a task at 08:00 tomorrow would trigger "Overdue" as soon as it was added if the current time was past 08:30. The fix adds a `scheduledDate <= today` guard to both the overdue and upcoming checks. A new `isTaskOverdue` utility in `backend/src/utils/isOverdue.ts` documents the contract with 7 unit tests covering future dates, past dates, and the 30-minute boundary.
+
+---
+
 ### 2026-06-19 20:00 — `main`
 
 Verified issue #2 (AI parser canonical fields) end-to-end: `OPENAI_API_KEY` was added to `.env` and all three test phrases ("30 minute run tomorrow morning", "Weekly meal prep every Sunday 2 hours", "Take vitamins daily") returned correct `duration`, `repeat`, and `category` fields from GPT with no hardcoding. Diagnosed and fixed the UI not working: `VITE_API_URL` was pinned to the production Railway URL, so the browser was calling Railway (which has no API key) instead of localhost. Swapped it to `http://localhost:3001/api` for local dev. Production Railway still needs `OPENAI_API_KEY` added via the Railway dashboard before the AI analyzer works in prod.
