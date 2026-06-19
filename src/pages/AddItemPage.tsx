@@ -22,13 +22,16 @@ const categories = [
   { value: 'nutrition', label: 'Nutrition', color: 'bg-rose-500/20 text-rose-400 border-rose-500/30' },
 ]
 
-const itemTypes = [
+const allItemTypes = [
   { value: 'task', label: 'Task', icon: CheckSquare, description: 'One-time tasks and reminders' },
   { value: 'habit', label: 'Habit', icon: Zap, description: 'Daily recurring activities' },
   { value: 'grocery', label: 'Grocery', icon: ShoppingCart, description: 'Shopping list items' },
   { value: 'meal', label: 'Meal', icon: Utensils, description: 'Meals and nutrition tracking' },
   { value: 'workout', label: 'Workout', icon: Dumbbell, description: 'Exercise and fitness activities' },
 ]
+
+// ponytail: remove unbuilt types from UI selector; full types stay in schema for v2.2
+const itemTypes = allItemTypes.filter(t => t.value === 'task' || t.value === 'habit')
 
 export default function AddItemPage() {
   const navigate = useNavigate()

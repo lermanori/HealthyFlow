@@ -30,11 +30,13 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
 
     const formattedTasks = tasks.map((task: any) => {
       let originalHabitId = task.original_habit_id;
+      let isVirtualInstance = false;
       if (task.type === 'habit' && typeof task.id === 'string') {
         // Always extract the UUID from the id if it matches the virtual pattern
         const match = task.id.match(/^([0-9a-fA-F-]{36})-\d{4}-\d{2}-\d{2}$/);
         if (match) {
           originalHabitId = match[1];
+          isVirtualInstance = true;
         }
       }
       return {
@@ -49,7 +51,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
         scheduledDate: task.scheduled_date,
         createdAt: task.created_at,
         overdueNotified: Boolean(task.overdue_notified),
-        isHabitInstance: Boolean(task.is_habit_instance),
+        isHabitInstance: isVirtualInstance || Boolean(task.is_habit_instance),
         originalHabitId,
         rolledOverFromTaskId: task.rolled_over_from_task_id,
         originalCreatedAt: task.original_created_at,
