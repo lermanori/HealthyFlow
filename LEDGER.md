@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-19 16:32 — `issue-16-ask-ai-input`
+
+Fixed the AskAI input collapsing after sending by converting single-answer state to a conversation thread array. Input now clears after each send but remains visible and focused, letting users ask follow-up questions immediately. Each exchange renders as question+answer pair in the thread, and quick-question buttons hide once conversation starts. Frontend build passed with no type errors.
+
+---
+
 ### 2026-06-19 15:47 — `issue-15-sticky-footer`
 
 Fixed the Analyze button hiding on scroll in the AITextAnalyzer modal. Restructured the modal into three flex zones: fixed header, scrollable content area, and fixed footer. Moved the "Analyze & Generate Tasks" button to the sticky footer so it remains visible and clickable regardless of content height. Both the analyze and add-tasks buttons now live in the footer, ensuring users can always trigger analysis. Build confirmed clean.

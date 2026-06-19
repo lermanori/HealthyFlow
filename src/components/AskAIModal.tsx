@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Sparkles, Loader2, Brain } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -10,11 +10,17 @@ interface AskAIModalProps {
   onClose: () => void
 }
 
+interface ConversationEntry {
+  question: string
+  answer: string
+}
+
 export default function AskAIModal({ isOpen, onClose }: AskAIModalProps) {
   const [question, setQuestion] = useState('')
-  const [answer, setAnswer] = useState('')
+  const [conversation, setConversation] = useState<ConversationEntry[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   // Get user's tasks for context
   const { data: todayTasks = [] } = useQuery({
@@ -122,26 +128,25 @@ export default function AskAIModal({ isOpen, onClose }: AskAIModalProps) {
 
   const handleAsk = async () => {
     if (!question.trim()) return
+    const currentQuestion = question.trim()
+    setQuestion('')
     setLoading(true)
     setError('')
-    setAnswer('')
-    
+
     try {
       // Always route through backend
-      const { answer } = await aiService.queryTasks(question.trim())
-      if (answer) {
-        setAnswer(answer)
-      } else {
-        const intelligentAnswer = analyzeTasksWithAI(question, todayTasks)
-        setAnswer(intelligentAnswer)
-      }
+      const { answer } = await aiService.queryTasks(currentQuestion)
+      const answer_text = answer || analyzeTasksWithAI(currentQuestion, todayTasks)
+      setConversation(prev => [...prev, { question: currentQuestion, answer: answer_text }])
     } catch (e: any) {
       console.error('AI Analysis error:', e)
       // Fallback to local analysis
-      const fallbackAnswer = analyzeTasksWithAI(question, todayTasks)
-      setAnswer(fallbackAnswer)
+      const fallbackAnswer = analyzeTasksWithAI(currentQuestion, todayTasks)
+      setConversation(prev => [...prev, { question: currentQuestion, answer: fallbackAnswer }])
     } finally {
       setLoading(false)
+      // ponytail: refocus input for immediate follow-up
+      setTimeout(() => inputRef.current?.focus(), 0)
     }
   }
 
@@ -190,29 +195,75 @@ export default function AskAIModal({ isOpen, onClose }: AskAIModalProps) {
             </div>
 
             <div className="flex-1 overflow-y-auto space-y-4 pb-20">
-              {/* Quick Questions */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-300 mb-2">Quick Questions:</h3>
-                <div className="flex flex-wrap gap-2">
-                  {quickQuestions.map((q, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleQuickQuestion(q)}
-                      className="text-xs px-3 py-1 rounded-full bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-cyan-400 transition-colors"
-                    >
-                      {q}
-                    </button>
-                  ))}
+              {/* Quick Questions (show only if no conversation) */}
+              {conversation.length === 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-300 mb-2">Quick Questions:</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {quickQuestions.map((q, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleQuickQuestion(q)}
+                        className="text-xs px-3 py-1 rounded-full bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-cyan-400 transition-colors"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Conversation thread */}
+              {conversation.map((entry, idx) => (
+                <div key={idx} className="space-y-2">
+                  {/* Question */}
+                  <div className="p-3 rounded-lg bg-gray-700/50 border border-gray-600/50">
+                    <div className="text-sm text-gray-200 whitespace-pre-line">
+                      {entry.question}
+                    </div>
+                  </div>
+                  {/* Answer */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-4 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30"
+                  >
+                    <div className="flex items-start space-x-3">
+                      <div className="w-6 h-6 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
+                        <Brain className="w-3 h-3 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-gray-200 whitespace-pre-line leading-relaxed">
+                          {entry.answer}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                </div>
+              ))}
+
+              {/* Context Info */}
+              <div className="p-3 rounded-lg bg-gray-800/50 border border-gray-700/50">
+                <div className="flex items-center space-x-2 text-xs text-gray-400">
+                  <Brain className="w-3 h-3" />
+                  <span>
+                    Analyzing {todayTasks.length} tasks •
+                    {todayTasks.filter(t => t.completed).length} completed •
+                    AI Analysis
+                  </span>
                 </div>
               </div>
+            </div>
 
-              {/* Question Input */}
+            {/* Input area - always visible */}
+            <div className="pt-4 border-t border-gray-700/50 flex-shrink-0">
               <div>
                 <textarea
+                  ref={inputRef}
                   value={question}
                   onChange={e => setQuestion(e.target.value)}
                   placeholder="Ask anything about your tasks, productivity, or schedule..."
-                  className="input-field min-h-24 resize-none w-full text-gray-100 placeholder-gray-400"
+                  className="input-field min-h-20 resize-none w-full text-gray-100 placeholder-gray-400"
                   disabled={loading}
                   maxLength={300}
                   onKeyDown={(e) => {
@@ -246,46 +297,14 @@ export default function AskAIModal({ isOpen, onClose }: AskAIModalProps) {
 
               {/* Error Display */}
               {error && (
-                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm mt-2">
                   {error}
                 </div>
               )}
-
-              {/* Answer Display */}
-              {answer && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="p-4 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30"
-                >
-                  <div className="flex items-start space-x-3">
-                    <div className="w-6 h-6 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <Brain className="w-3 h-3 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-gray-200 whitespace-pre-line leading-relaxed">
-                        {answer}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Context Info */}
-              <div className="p-3 rounded-lg bg-gray-800/50 border border-gray-700/50">
-                <div className="flex items-center space-x-2 text-xs text-gray-400">
-                  <Brain className="w-3 h-3" />
-                  <span>
-                    Analyzing {todayTasks.length} tasks • 
-                    {todayTasks.filter(t => t.completed).length} completed • 
-                    AI Analysis
-                  </span>
-                </div>
-              </div>
             </div>
 
-            {/* Action buttons at the bottom */}
-            <div className="mt-auto pt-4 border-t border-gray-700/50">
+            {/* Close button at the bottom */}
+            <div className="pt-2 border-t border-gray-700/50">
               <button
                 onClick={onClose}
                 className="w-full btn-secondary"
