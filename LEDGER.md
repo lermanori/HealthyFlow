@@ -25,6 +25,12 @@ Fixed issue #22 (P2 cosmetic): AITextAnalyzer emitted React's duplicate-key warn
 
 ---
 
+### 2026-06-19 — `issue-23-recommend-404`
+
+Stopped `POST /api/ai/recommend` 404s that fired on every dashboard load (issue #23). The `/api/ai/recommend` route does not exist server-side; the fix stubs `aiService.getRecommendations` to return `[]` immediately, so the existing graceful-degradation UI ("Complete more tasks to unlock personalized AI recommendations") shows without any network request. Also removed the 5-minute polling interval from the query to avoid repeated no-op calls. No backend changes needed.
+
+---
+
 ### 2026-06-19 20:00 — `main`
 
 Verified issue #2 (AI parser canonical fields) end-to-end: `OPENAI_API_KEY` was added to `.env` and all three test phrases ("30 minute run tomorrow morning", "Weekly meal prep every Sunday 2 hours", "Take vitamins daily") returned correct `duration`, `repeat`, and `category` fields from GPT with no hardcoding. Diagnosed and fixed the UI not working: `VITE_API_URL` was pinned to the production Railway URL, so the browser was calling Railway (which has no API key) instead of localhost. Swapped it to `http://localhost:3001/api` for local dev. Production Railway still needs `OPENAI_API_KEY` added via the Railway dashboard before the AI analyzer works in prod.
