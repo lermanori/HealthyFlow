@@ -3,8 +3,8 @@ import type { TaskSuggestion } from './parseTasksSchema'
 
 export async function parseTasks(text: string): Promise<TaskSuggestion[]> {
   const { items } = await aiService.parseTasks(text)
-  return items.map((it, idx) => ({
-    id: `ai-${idx}`,
+  return items.map((it) => ({
+    id: crypto.randomUUID(),
     title: it.title,
     category: it.category,
     estimatedDuration: it.duration,
