@@ -30,7 +30,9 @@ export default function SmartReminders() {
 
   useEffect(() => {
     const now = new Date()
-    const todayStr = now.toISOString().slice(0, 10) // ponytail: date-only compare avoids TZ issues
+    // Use local date components — toISOString() returns UTC and can be a day ahead in UTC-N zones,
+    // which would make tomorrow's tasks match "today" and trigger false overdue notifications.
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
     const currentTime = now.getHours() * 60 + now.getMinutes()
 
     const newReminders: Reminder[] = []

@@ -7,6 +7,18 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-20 — `fix/ai-analyzer-duplicate-keys`
+
+Closed out bug #22 (duplicate React keys in AITextAnalyzer). The original quickDates `key={date.value}` fix was already preserved through the recent AITextAnalyzer refactor. Additionally hardened suggestion id generation in `parseTasksApi.ts` from index-based `ai-${idx}` to `crypto.randomUUID()`, making each parsed item carry a truly unique stable id as React key — eliminating any future risk of cross-render key collisions. Build passes clean.
+
+---
+
+### 2026-06-20 — `fix/overdue-notifications-date-blind`
+
+Patched a remaining timezone bug in SmartReminders' overdue detection. The previous fix added a `scheduledDate <= todayStr` guard but computed `todayStr` via `toISOString()`, which returns the UTC date — in UTC-N timezones this is one day ahead of the local date, making tomorrow's tasks compare as "today" and fire false overdue toasts. Fixed by computing `todayStr` from local date components (`getFullYear/getMonth/getDate`) so the date boundary always matches what the user sees. Build passes clean.
+
+---
+
 ### 2026-06-19 — `refactor/split-ai-text-analyzer`
 
 Completed both architecture refactors (#6 and #7). For #7: replaced the flat 60-field Task interface in `src/services/api.ts` with a discriminated union `Item = TaskItem | HabitItem | GroceryItem | MealItem | WorkoutItem`; `Task` kept as a re-export alias for backward compat. For #6: split the 627-line AITextAnalyzer monolith — business logic now lives in `src/lib/ai/parseTasksSchema.ts` (types), `src/lib/ai/parseTasksApi.ts` (HTTP + mapping), `src/hooks/useParsedItems.ts` (parse-tasks state), and `src/hooks/useAddItems.ts` (mutation + cache invalidation); UI reduced to `src/components/AITextAnalyzer/` with `SuggestionCard.tsx` sub-component and `utils.ts` display helpers. No behaviour changes; build passes clean.
