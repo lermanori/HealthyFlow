@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Plus, Folder, FolderOpen, X } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { projectService } from '../services/api'
 import { motion, AnimatePresence } from 'framer-motion'
 
@@ -15,6 +16,7 @@ export default function ProjectSelector({
   onProjectSelect, 
   className = "" 
 }: ProjectSelectorProps) {
+  const queryClient = useQueryClient()
   const [showCreateForm, setShowCreateForm] = useState(false)
   const [newProjectName, setNewProjectName] = useState('')
   const [newProjectColor, setNewProjectColor] = useState('#3B82F6')
@@ -29,17 +31,20 @@ export default function ProjectSelector({
 
   const handleCreateProject = async () => {
     if (!newProjectName.trim()) return
-    
+
     try {
-      await projectService.createProject({
+      const newProject = await projectService.createProject({
         name: newProjectName.trim(),
         color: newProjectColor,
         isArchived: false
       })
       setNewProjectName('')
       setShowCreateForm(false)
+      await queryClient.invalidateQueries({ queryKey: ['projects'] })
+      onProjectSelect(newProject.id)
     } catch (error) {
       console.error('Failed to create project:', error)
+      toast.error('Failed to create project')
     }
   }
 

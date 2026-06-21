@@ -8,6 +8,7 @@ import { summaryRoutes } from './routes/summary'
 import { aiRoutes } from './routes/ai'
 import { analyticsRoutes } from './routes/analytics'
 import { adminRoutes } from './routes/admin'
+import { projectRoutes } from './routes/projects'
 import { initDatabase } from './db/database'
 
 // Load .env from parent directory
@@ -33,6 +34,7 @@ app.use('/api', summaryRoutes)
 app.use('/api/ai', aiRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/projects', projectRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {

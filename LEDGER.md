@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-21 17:15 — `issue-40-projects-backend`
+
+Added the missing backend for the projects feature (issue #40): a Supabase migration (`projects` table), five `db.*` project methods in the deep-module `supabase-client.ts`, and a thin `/api/projects` route covering GET, POST, PUT, DELETE, and PATCH /archive — all scoped to the authenticated user. Frontend `ProjectSelector.tsx` now shows a visible toast on failure and auto-selects + invalidates the projects query on success. All 48 prior tests remain green; 13 new TDD-driven tests bring the total to 61.
+
+---
+
 ### 2026-06-21 16:45 — `main`
 
 Committed a standalone Rollover dedupe fix that had been sitting uncommitted in the worktree. `Rollover.listForDay` and the count query now guard on `scheduled_date IS NULL`, so dated "Anytime backlog" tasks (which carry a real `scheduled_date` since #26/#27) are no longer returned both as a regular task for their day and as a rollover. The completed-rollover query gained the same guard plus `start_time`/`rolled_over_from_task_id`/`type` filters so a dated task completed today can't surface as a phantom "completed rollover." All 48 backend Jest tests pass. Also gitignored `.claude/`.
