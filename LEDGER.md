@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-21 14:45 — `issue-27-drag-set-time`
+
+Orchestrator review fix for #27: the new hour-slot bucketing matched tasks with `startTime === "HH:00"` exactly, so any timed task on a non-:00 minute (e.g. "09:30", common from the `type="time"` inputs and the AI parser) — or outside 6am–11pm — matched no slot and, having a startTime, also couldn't fall into the Anytime backlog, vanishing from the timeline entirely. Re-bucketed scheduled tasks by their floored hour, clamped into the 6–23 range, so every timed task stays visible; drops still snap to ":00". Frontend build green; backend 37 Jest tests green.
+
+---
+
 ### 2026-06-21 14:30 — `issue-27-drag-set-time`
 
 Implemented drag-to-schedule: the Scheduled section now renders one Droppable per hour slot (6am–11pm, droppableId="HH:00"), and the drop handler branches on destination zone — hour slot sets startTime and clears position, anytime clears startTime and assigns position. Two new pure backend utils (hourSlots, zoneToUpdate) with 7 Jest tests cover the decision logic. Both sections now live inside a single DragDropContext, making timed↔untimed drag fully functional. Backend PUT /tasks/:id already accepted null for startTime; no route changes were needed.

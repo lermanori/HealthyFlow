@@ -36,12 +36,19 @@ export default function DayTimeline({
   const scheduled = tasks.filter(t => t.startTime)
   const anytime = tasks.filter(t => !t.startTime)
 
-  // Group scheduled tasks by their slot (HH:00) — tasks in same slot order by createdAt
+  // Group scheduled tasks into hour buckets. A task keeps its real startTime (e.g.
+  // "09:30") but renders under its hour's slot; off-the-hour times only snap to ":00"
+  // when actually dragged. Hours outside 6am–11pm clamp to the nearest edge slot so a
+  // timed task is never dropped from the view (it has a startTime, so it can't fall
+  // through to the Anytime backlog).
   const slotBuckets: Record<string, Task[]> = {}
+  for (const slot of HOUR_SLOTS) slotBuckets[slot] = []
+  for (const t of scheduled) {
+    const hour = Math.min(23, Math.max(6, parseInt(t.startTime as string, 10)))
+    slotBuckets[`${String(hour).padStart(2, '0')}:00`].push(t)
+  }
   for (const slot of HOUR_SLOTS) {
-    slotBuckets[slot] = scheduled
-      .filter(t => t.startTime === slot)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    slotBuckets[slot].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   }
 
   const handleDragStart = (start: any) => {
