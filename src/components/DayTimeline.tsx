@@ -66,23 +66,37 @@ export default function DayTimeline({
     if (!task) return
 
     if (zone === 'anytime') {
-      // timed→untimed: clear startTime, assign position by drop index
+      // timed→untimed (or virtual habit→anytime): clear startTime, assign position by drop index
       const newAnytime = anytime.filter(t => t.id !== taskId)
       newAnytime.splice(destination.index, 0, { ...task, startTime: undefined, position: destination.index })
       onTasksReorder([...scheduled.filter(t => t.id !== taskId), ...newAnytime])
 
-      await taskService.updateTask(taskId, { startTime: null as any, position: destination.index })
+      // updateTask returns the real row (may have a new real id if this was a virtual habit instance)
+      const updated = await taskService.updateTask(taskId, { startTime: null as any, position: destination.index })
+      if (updated.id !== taskId) {
+        // Virtual habit was materialized — id changed; swap in real row for next interaction
+        // ponytail: cast needed because spread of discriminated-union loses narrowing
+        onTasksReorder(tasks.map(t => (t.id === taskId ? ({ ...t, ...updated } as Task) : t)))
+      }
       // Re-persist ordering for the whole anytime list after this insertion
-      await taskService.reorderTasks(newAnytime.map(t => t.id))
+      // Use real id (updated.id) in case taskId was virtual
+      const finalAnytime = newAnytime.map(t => (t.id === taskId ? updated.id : t.id))
+      await taskService.reorderTasks(finalAnytime)
     } else {
-      // untimed→timed or timed→timed: set startTime to slot, clear position
+      // untimed→timed or timed→timed (or virtual habit→hour slot): set startTime to slot, clear position
       const updatedTask = { ...task, startTime: zone, position: null }
       const newScheduled = scheduled.filter(t => t.id !== taskId)
-      newScheduled.push(updatedTask)
+      newScheduled.push(updatedTask as Task)
       const newAnytime = anytime.filter(t => t.id !== taskId)
       onTasksReorder([...newScheduled, ...newAnytime])
 
-      await taskService.updateTask(taskId, { startTime: zone, position: null as any })
+      // updateTask materializes virtual habit instances; returned row has the real id
+      const updated = await taskService.updateTask(taskId, { startTime: zone, position: null as any })
+      if (updated.id !== taskId) {
+        // Swap synthetic id for real id so next drag uses the real row
+        // ponytail: cast needed because spread of discriminated-union loses narrowing
+        onTasksReorder(tasks.map(t => (t.id === taskId ? ({ ...t, ...updated } as Task) : t)))
+      }
     }
   }
 

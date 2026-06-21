@@ -429,8 +429,19 @@ export const db = {
     }
   },
 
-  // Create a real habit instance for a specific date
-  async createHabitInstance(originalHabitId: string, date: string, userId: string) {
+  // Create a real habit instance for a specific date.
+  // overrides: optional fields that replace the habit's defaults (drag case uses
+  // completed:false + start_time or position; completion case uses the defaults).
+  async createHabitInstance(
+    originalHabitId: string,
+    date: string,
+    userId: string,
+    overrides: {
+      completed?: boolean
+      start_time?: string | null
+      position?: number | null
+    } = {}
+  ) {
     try {
       // Get the original habit
       const { data: originalHabit, error: fetchError } = await supabase
@@ -442,6 +453,7 @@ export const db = {
       if (fetchError) throw fetchError
       if (!originalHabit) throw new Error('Original habit not found')
 
+      const isCompleted = overrides.completed ?? true
       // Create the habit instance
       const { data: habitInstance, error: createError } = await supabase
         .from('tasks')
@@ -450,13 +462,15 @@ export const db = {
           title: originalHabit.title,
           type: 'habit',
           category: originalHabit.category,
-          start_time: originalHabit.start_time,
+          // Allow drag to override start_time; fall back to the habit's own time
+          start_time: 'start_time' in overrides ? overrides.start_time : originalHabit.start_time,
           duration: originalHabit.duration,
           repeat_type: originalHabit.repeat_type,
-          completed: true, // Mark as completed since this is created when user completes it
-          completed_at: new Date().toISOString(),
+          completed: isCompleted,
+          completed_at: isCompleted ? new Date().toISOString() : null,
           scheduled_date: date,
-          original_habit_id: originalHabitId
+          original_habit_id: originalHabitId,
+          position: overrides.position ?? null,
         })
         .select()
         .single()
