@@ -22,7 +22,7 @@ Add logic to existing deep modules rather than creating new files for each featu
 All data shapes are defined as Zod schemas. TypeScript types are derived from schemas (`z.infer<>`), not written separately. Validators, API response shapes, and AI output contracts all reference the same Zod definitions.
 
 ### Virtual-first data (habit instances)
-Habit instances are synthesized at query time from the parent habit record — they are not written to the database until the user actually completes one. This avoids pre-populating rows for every future day. When a habit is completed, a row is written; otherwise the instance is computed on the fly.
+Habit instances are synthesized at query time from the parent habit record — they are not written to the database until the user completes one **or drags the instance** (to set a per-day time or position override). This avoids pre-populating rows for every future day. When a habit is completed or dragged into a time slot / the Anytime backlog, a real row is written (with `original_habit_id` set); otherwise the instance is computed on the fly. See `docs/adr/0001-materialize-habit-instance-on-drag.md` for the drag-materialization decision.
 
 ### Thin routes
 Express route handlers do minimal work: validate the request (Zod), call a service function, return the result. Business logic belongs in service modules, not in route files.

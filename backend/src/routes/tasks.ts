@@ -5,6 +5,7 @@ import { db } from '../supabase-client'
 import { Rollover } from '../rollover'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 import { positionsFromIds } from '../utils/positionsFromIds'
+import { parseHabitInstanceId } from '../utils/parseHabitInstanceId'
 
 const router = express.Router()
 
@@ -36,11 +37,10 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
       let originalHabitId = task.original_habit_id;
       let isVirtualInstance = false;
       if (task.type === 'habit' && typeof task.id === 'string') {
-        // Always extract the UUID from the id if it matches the virtual pattern
-        const match = task.id.match(/^([0-9a-fA-F-]{36})-\d{4}-\d{2}-\d{2}$/);
-        if (match) {
-          originalHabitId = match[1];
-          isVirtualInstance = true;
+        const parsed = parseHabitInstanceId(task.id)
+        if (parsed) {
+          originalHabitId = parsed.originalHabitId
+          isVirtualInstance = true
         }
       }
       return {
@@ -162,7 +162,47 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
   }
 
   try {
-    // Only update if the task belongs to the user
+    // Drag on a virtual habit instance: materialize a real row (non-completed)
+    // carrying the requested start_time / position override.
+    const parsedVirtual = parseHabitInstanceId(taskId)
+    if (parsedVirtual) {
+      const { originalHabitId, date } = parsedVirtual
+      // Ownership: verify the original habit belongs to this user
+      const originalHabit = await db.getTaskById(originalHabitId)
+      if (!originalHabit || originalHabit.user_id !== userId) {
+        return res.status(403).json({ error: 'Forbidden' })
+      }
+      // Materialize a non-completed instance with the drag overrides
+      const materializedRow = await db.createHabitInstance(
+        originalHabitId,
+        date,
+        userId,
+        {
+          completed: false,
+          ...(updateData.start_time !== undefined ? { start_time: updateData.start_time } : {}),
+          ...(updateData.position !== undefined ? { position: updateData.position } : {}),
+        }
+      )
+      return res.json({
+        id: materializedRow.id,
+        title: materializedRow.title,
+        type: materializedRow.type,
+        category: materializedRow.category,
+        startTime: materializedRow.start_time,
+        duration: materializedRow.duration,
+        repeat: materializedRow.repeat_type,
+        completed: Boolean(materializedRow.completed),
+        scheduledDate: materializedRow.scheduled_date,
+        createdAt: materializedRow.created_at,
+        originalHabitId: materializedRow.original_habit_id,
+        isHabitInstance: true,
+        rolledOverFromTaskId: materializedRow.rolled_over_from_task_id,
+        originalCreatedAt: materializedRow.original_created_at,
+        position: materializedRow.position ?? null,
+      })
+    }
+
+    // Regular task update path
     const task = await db.getTaskById(taskId)
     if (!task || task.user_id !== userId) {
       return res.status(403).json({ error: 'Forbidden' })
@@ -218,10 +258,9 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
 
   try {
     // Check if this is a virtual habit instance (format: originalId-date)
-    const match = taskId.match(/^([0-9a-fA-F-]{36})-(\d{4}-\d{2}-\d{2})$/)
-    if (match) {
-      const originalHabitId = match[1]
-      const fullDate = match[2]
+    const parsedInstance = parseHabitInstanceId(taskId)
+    if (parsedInstance) {
+      const { originalHabitId, date: fullDate } = parsedInstance
       console.log('Backend - Completing virtual habit instance:', { originalHabitId, date: fullDate, taskId })
       // Create a real habit instance for this date
       const habitInstance = await db.createHabitInstance(originalHabitId, fullDate, userId)

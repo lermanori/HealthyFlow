@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-21 16:00 — `issue-28-materialize-habit-on-drag`
+
+Implemented Option B for #28: dragging a virtual habit instance (untimed or timed) into an hour slot or the Anytime backlog now materialises a real `tasks` row (`completed: false`) carrying the per-day start_time or position override, so the change survives a page reload. A new `parseHabitInstanceId` helper centralises synthetic-id detection (was three copies of the same regex); `PUT /tasks/:id` detects the virtual id, verifies ownership against the original habit, and calls the extended `db.createHabitInstance` with overrides. The frontend swaps the returned real id in place of the stale synthetic id so a second drag operates on the real row. ADR 0001 records the Option A vs B tradeoff. All 48 backend Jest tests pass; backend and frontend builds clean.
+
+---
+
 ### 2026-06-21 14:45 — `issue-27-drag-set-time`
 
 Orchestrator review fix for #27: the new hour-slot bucketing matched tasks with `startTime === "HH:00"` exactly, so any timed task on a non-:00 minute (e.g. "09:30", common from the `type="time"` inputs and the AI parser) — or outside 6am–11pm — matched no slot and, having a startTime, also couldn't fall into the Anytime backlog, vanishing from the timeline entirely. Re-bucketed scheduled tasks by their floored hour, clamped into the 6–23 range, so every timed task stays visible; drops still snap to ":00". Frontend build green; backend 37 Jest tests green.
