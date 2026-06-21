@@ -13,6 +13,15 @@ interface DayTimelineProps {
   onDeleteTask: (id: string) => void
 }
 
+// ponytail: mirrors backend/src/utils/hourSlots.ts — 18 slots 6am–11pm
+const HOUR_SLOTS: string[] = Array.from({ length: 18 }, (_, i) => `${String(i + 6).padStart(2, '0')}:00`)
+
+function formatHour(slot: string): string {
+  const h = parseInt(slot, 10)
+  if (h === 0 || h === 12) return h === 0 ? '12 AM' : '12 PM'
+  return h < 12 ? `${h} AM` : `${h - 12} PM`
+}
+
 export default function DayTimeline({
   tasks,
   onTasksReorder,
@@ -23,58 +32,121 @@ export default function DayTimeline({
 }: DayTimelineProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
 
-  // Split into two sections
+  // Split: scheduled tasks go into hour-slot buckets, untimed go into anytime
   const scheduled = tasks.filter(t => t.startTime)
   const anytime = tasks.filter(t => !t.startTime)
 
-  const handleDragEnd = async (result: DropResult) => {
-    setDraggedTaskId(null)
-    if (!result.destination) return
-    if (result.source.droppableId !== 'anytime') return
-
-    const reordered = Array.from(anytime)
-    const [moved] = reordered.splice(result.source.index, 1)
-    reordered.splice(result.destination.index, 0, moved)
-
-    // Optimistically update local state by re-assembling the full task list
-    onTasksReorder([...scheduled, ...reordered])
-
-    // Persist — single batch call
-    await taskService.reorderTasks(reordered.map(t => t.id))
+  // Group scheduled tasks by their slot (HH:00) — tasks in same slot order by createdAt
+  const slotBuckets: Record<string, Task[]> = {}
+  for (const slot of HOUR_SLOTS) {
+    slotBuckets[slot] = scheduled
+      .filter(t => t.startTime === slot)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
   }
 
   const handleDragStart = (start: any) => {
     setDraggedTaskId(start.draggableId)
   }
 
+  const handleDragEnd = async (result: DropResult) => {
+    setDraggedTaskId(null)
+    if (!result.destination) return
+
+    const { draggableId: taskId, destination } = result
+    const zone = destination.droppableId // 'anytime' | 'HH:00'
+
+    const task = tasks.find(t => t.id === taskId)
+    if (!task) return
+
+    if (zone === 'anytime') {
+      // timed→untimed: clear startTime, assign position by drop index
+      const newAnytime = anytime.filter(t => t.id !== taskId)
+      newAnytime.splice(destination.index, 0, { ...task, startTime: undefined, position: destination.index })
+      onTasksReorder([...scheduled.filter(t => t.id !== taskId), ...newAnytime])
+
+      await taskService.updateTask(taskId, { startTime: null as any, position: destination.index })
+      // Re-persist ordering for the whole anytime list after this insertion
+      await taskService.reorderTasks(newAnytime.map(t => t.id))
+    } else {
+      // untimed→timed or timed→timed: set startTime to slot, clear position
+      const updatedTask = { ...task, startTime: zone, position: null }
+      const newScheduled = scheduled.filter(t => t.id !== taskId)
+      newScheduled.push(updatedTask)
+      const newAnytime = anytime.filter(t => t.id !== taskId)
+      onTasksReorder([...newScheduled, ...newAnytime])
+
+      await taskService.updateTask(taskId, { startTime: zone, position: null as any })
+    }
+  }
+
   return (
     <div className="space-y-4 md:space-y-6">
       <h2 className="text-xl font-semibold text-gray-100">Today's Schedule</h2>
 
-      {/* Scheduled section — not draggable */}
-      {scheduled.length > 0 && (
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Scheduled</h3>
-          <div className="space-y-3">
-            {scheduled.map(task => (
-              <TaskCard
-                key={task.id}
-                task={task}
-                onComplete={onCompleteTask}
-                onUncomplete={onUncompleteTask}
-                onEdit={onEditTask}
-                onDelete={onDeleteTask}
-                isDragging={false}
-              />
-            ))}
-          </div>
-        </div>
-      )}
+      <DragDropContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
+        {/* Scheduled section — one droppable per hour slot */}
+        <div className="space-y-1">
+          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">Scheduled</h3>
+          {HOUR_SLOTS.map(slot => {
+            const slotTasks = slotBuckets[slot]
+            const hasContent = slotTasks.length > 0
 
-      {/* Anytime section — draggable */}
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Anytime</h3>
-        <DragDropContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
+            return (
+              <Droppable droppableId={slot} key={slot}>
+                {(provided, snapshot) => (
+                  <div
+                    {...provided.droppableProps}
+                    ref={provided.innerRef}
+                    className={`flex gap-2 min-h-10 px-2 py-1 rounded transition-colors ${
+                      snapshot.isDraggingOver
+                        ? 'bg-blue-900/40 drop-zone'
+                        : hasContent
+                        ? 'bg-gray-800/30'
+                        : 'bg-transparent hover:bg-gray-800/10'
+                    }`}
+                  >
+                    {/* Time label */}
+                    <span className={`text-xs w-12 flex-shrink-0 pt-2 ${hasContent || snapshot.isDraggingOver ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {formatHour(slot)}
+                    </span>
+
+                    {/* Tasks in this slot */}
+                    <div className="flex-1 space-y-1">
+                      {slotTasks.map((task, index) => (
+                        <Draggable key={task.id} draggableId={task.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                            >
+                              <TaskCard
+                                task={task}
+                                onComplete={onCompleteTask}
+                                onUncomplete={onUncompleteTask}
+                                onEdit={onEditTask}
+                                onDelete={onDeleteTask}
+                                isDragging={snapshot.isDragging || draggedTaskId === task.id}
+                              />
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                      {snapshot.isDraggingOver && slotTasks.length === 0 && (
+                        <div className="text-xs text-blue-400 py-1 px-1">Drop to schedule at {formatHour(slot)}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </Droppable>
+            )
+          })}
+        </div>
+
+        {/* Anytime section — single droppable for untimed backlog */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Anytime</h3>
           <Droppable droppableId="anytime">
             {(provided, snapshot) => (
               <div
@@ -109,14 +181,14 @@ export default function DayTimeline({
                 {anytime.length === 0 && (
                   <div className="text-center py-8 text-gray-400">
                     <p className="text-gray-300">No unscheduled tasks.</p>
-                    <p className="text-sm mt-1 text-gray-400">Add tasks without a time to see them here.</p>
+                    <p className="text-sm mt-1 text-gray-400">Add tasks without a time, or drag a scheduled task here to unschedule.</p>
                   </div>
                 )}
               </div>
             )}
           </Droppable>
-        </DragDropContext>
-      </div>
+        </div>
+      </DragDropContext>
 
       {/* Empty state when both sections are empty */}
       {tasks.length === 0 && (

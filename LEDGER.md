@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-21 14:30 — `issue-27-drag-set-time`
+
+Implemented drag-to-schedule: the Scheduled section now renders one Droppable per hour slot (6am–11pm, droppableId="HH:00"), and the drop handler branches on destination zone — hour slot sets startTime and clears position, anytime clears startTime and assigns position. Two new pure backend utils (hourSlots, zoneToUpdate) with 7 Jest tests cover the decision logic. Both sections now live inside a single DragDropContext, making timed↔untimed drag fully functional. Backend PUT /tasks/:id already accepted null for startTime; no route changes were needed.
+
+---
+
 ### 2026-06-21 12:50 — `issue-26-untimed-backlog-reorder`
 
 Orchestrator review fix for #26: the new PATCH /tasks/reorder route wrote positions via `db.updateTask(id, …)`, which filters by id only — letting a user reorder another user's tasks (IDOR). Added an owner-scoped `db.reorderTasks(userId, pairs)` that filters each update by `user_id`, mirroring the ownership guard already on PUT /:id, and pointed the route at it. Backend build + 30 Jest tests green; frontend build green.
