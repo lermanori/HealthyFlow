@@ -12,10 +12,16 @@ export const Rollover = {
   },
 
   async listForDay(userId: string, date: string): Promise<any[]> {
+    // Rollover candidates are *undated* backlog tasks (scheduled_date IS NULL), per
+    // ROLLOVER_IMPROVEMENTS.md. Dated untimed tasks (the Anytime backlog from #26/#27 set
+    // a real scheduled_date) are regular tasks for their day and are returned by
+    // getTasksWithRecurringHabits' regularTasks query — including them here too would show
+    // them twice (once as a regular task, once as a rollover).
     const { data: tasksWithoutDate, error: rolloverError } = await supabase
       .from('tasks')
       .select('*')
       .eq('user_id', userId)
+      .is('scheduled_date', null)
       .is('start_time', null)
       .is('rolled_over_from_task_id', null)
       .eq('completed', false)
@@ -23,10 +29,16 @@ export const Rollover = {
       .order('created_at', { ascending: true })
     if (rolloverError) throw rolloverError
 
+    // Same scheduled_date IS NULL guard for the completed side: a dated task completed
+    // today must not also surface here as a "completed rollover".
     const { data: completedRollovers, error: completedRolloversError } = await supabase
       .from('tasks')
       .select('*')
       .eq('user_id', userId)
+      .is('scheduled_date', null)
+      .is('start_time', null)
+      .is('rolled_over_from_task_id', null)
+      .eq('type', 'task')
       .eq('completed', true)
       .filter('completed_at', 'gte', `${date}T00:00:00.000Z`)
       .filter('completed_at', 'lt', `${date}T23:59:59.999Z`)
@@ -69,6 +81,7 @@ export const Rollover = {
       .from('tasks')
       .select('id')
       .eq('user_id', userId)
+      .is('scheduled_date', null)
       .is('start_time', null)
       .is('rolled_over_from_task_id', null)
       .eq('completed', false)

@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-21 16:45 — `main`
+
+Committed a standalone Rollover dedupe fix that had been sitting uncommitted in the worktree. `Rollover.listForDay` and the count query now guard on `scheduled_date IS NULL`, so dated "Anytime backlog" tasks (which carry a real `scheduled_date` since #26/#27) are no longer returned both as a regular task for their day and as a rollover. The completed-rollover query gained the same guard plus `start_time`/`rolled_over_from_task_id`/`type` filters so a dated task completed today can't surface as a phantom "completed rollover." All 48 backend Jest tests pass. Also gitignored `.claude/`.
+
+---
+
 ### 2026-06-21 16:30 — `main`
 
 Reconciled the contradictory issue-tracker docs: CLAUDE.md previously named GitHub Issues + Project 1 as the source of truth at the top but instructed agents to use local `.scratch/` markdown in the Agent-skills section. Made GitHub Issues + the Project 1 kanban the single source of truth across CLAUDE.md, `docs/agents/issue-tracker.md`, and `docs/agents/triage-labels.md` (triage roles now map onto the board's `Status` field). Removed the `.scratch` ignore line, deleted the stray `.scratch` reading guide, and dropped a stale `.scratch` PRD reference from a comment in `routes/ai.ts`. Surfaced while filing #40 (project creation in the task form has no backend `/projects` route — still unimplemented).
