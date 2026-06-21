@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-21 12:50 — `issue-26-untimed-backlog-reorder`
+
+Orchestrator review fix for #26: the new PATCH /tasks/reorder route wrote positions via `db.updateTask(id, …)`, which filters by id only — letting a user reorder another user's tasks (IDOR). Added an owner-scoped `db.reorderTasks(userId, pairs)` that filters each update by `user_id`, mirroring the ownership guard already on PUT /:id, and pointed the route at it. Backend build + 30 Jest tests green; frontend build green.
+
+---
+
 ### 2026-06-21 09:00 — `issue-26-untimed-backlog-reorder`
 
 Added end-to-end persistence for manual reordering of untimed (Anytime) tasks. A new `position INTEGER` column lands via Supabase migration; GET /tasks returns it; PUT /tasks/:id accepts it; a new PATCH /tasks/reorder batch-writes positions from an ordered id list using the `positionsFromIds` utility. The frontend DayTimeline is restructured into two sections — Scheduled (non-draggable, sorted by start_time) and Anytime (draggable, persisted via the single batch call) — replacing the old per-task update loop. New untimed tasks append to the end of the Anytime backlog via `getNextPosition`.

@@ -200,15 +200,11 @@ router.patch('/reorder', authenticateToken, async (req: AuthRequest, res) => {
 
   try {
     const pairs = positionsFromIds(ids)
-    // One batch update per pair — supabase-js doesn't support multi-row upsert with
-    // different values per row without rpc, so we use Promise.all for the batch.
+    // Owner-scoped batch write: db.reorderTasks filters each update by user_id so a
+    // user can only reorder their own tasks (mirrors the ownership guard on PUT /:id).
     // ponytail: N parallel updates beats N serial; an rpc would be one call but adds a
     // migration dependency. Swap to rpc if contention matters.
-    await Promise.all(
-      pairs.map(({ id, position }) =>
-        db.updateTask(id, { position })
-      )
-    )
+    await db.reorderTasks(userId, pairs)
     res.json({ success: true, updated: pairs.length })
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
