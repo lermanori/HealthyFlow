@@ -169,6 +169,22 @@ export const db = {
     if (error) throw error;
   },
 
+  async getNextPosition(userId: string, scheduledDate: string): Promise<number> {
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('position')
+      .eq('user_id', userId)
+      .eq('scheduled_date', scheduledDate)
+      .is('start_time', null)
+      .not('position', 'is', null)
+      .order('position', { ascending: false })
+      .limit(1)
+
+    if (error) throw error
+    if (!data || data.length === 0) return 0
+    return (data[0].position as number) + 1
+  },
+
   // Analytics queries
   async getWeeklyTasks(userId: string) {
     const { data, error } = await supabase

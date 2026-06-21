@@ -55,6 +55,7 @@ interface ItemBase {
   isRolloverTask?: boolean
   projectId?: string
   project?: Project
+  position?: number | null
 }
 
 export interface TaskItem extends ItemBase {
@@ -208,6 +209,11 @@ export const taskService = {
   async rolloverTasks(toDate: string): Promise<{ success: boolean; message: string; rolledOverTasks: number }> {
     const response = await api.post('/tasks/rollover', { toDate })
     return response.data
+  },
+
+  // Batch-persist Anytime backlog order; ids ordered front-to-back
+  async reorderTasks(ids: string[]): Promise<void> {
+    await api.patch('/tasks/reorder', { ids })
   },
 }
 

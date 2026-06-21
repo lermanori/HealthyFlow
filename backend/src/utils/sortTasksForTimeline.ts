@@ -4,16 +4,17 @@
  * Rules:
  *  1. Tasks with start_time come before tasks without.
  *  2. Among timed tasks, sort ascending by start_time ("HH:MM" 24-h).
- *  3. Among untimed tasks, sort ascending by created_at.
+ *  3. Among untimed tasks: sort by position (nulls last), then by created_at.
  *
- * Previously the inline sort fell through to created_at comparison whenever
- * either side lacked a start_time, so a PM task created earlier would sort
- * before an AM task created later (issue #8).
+ * Issue #8: previously the inline sort fell through to created_at comparison
+ * whenever either side lacked a start_time.
+ * Issue #26: untimed tasks now use the position field for manual ordering.
  */
 
 type SortableTask = {
   start_time?: string | null
   created_at: string
+  position?: number | null
 }
 
 export function sortTasksForTimeline<T extends SortableTask>(tasks: T[]): T[] {
@@ -28,7 +29,12 @@ export function sortTasksForTimeline<T extends SortableTask>(tasks: T[]): T[] {
     // Both timed: lexicographic on "HH:MM" is correct for zero-padded 24-h
     if (aTime && bTime) return aTime.localeCompare(bTime)
 
-    // Both untimed: sort by creation time
+    // Both untimed: sort by position (nulls last), then created_at as tiebreak
+    const aPos = a.position ?? null
+    const bPos = b.position ?? null
+    if (aPos !== null && bPos === null) return -1
+    if (aPos === null && bPos !== null) return 1
+    if (aPos !== null && bPos !== null) return aPos - bPos
     return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   })
 }
