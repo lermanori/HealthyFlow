@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-21 17:40 — `main`
+
+Applied the #40 projects migration to the live Supabase (`healthflow`) via `supabase db push`. The first push failed because the spec-derived migration declared `user_id text` while the production `users.id` is `uuid` — corrected the migration to match the existing tasks/users style (UUID PK with `gen_random_uuid()`, `user_id UUID ... ON DELETE CASCADE`, plus an `idx_projects_user_id` index). Re-pushed clean; remote and local migrations are now in sync. Route code needed no change — it passes `uuidv4()` strings which a UUID column accepts, same as tasks.
+
+---
+
 ### 2026-06-21 17:15 — `issue-40-projects-backend`
 
 Added the missing backend for the projects feature (issue #40): a Supabase migration (`projects` table), five `db.*` project methods in the deep-module `supabase-client.ts`, and a thin `/api/projects` route covering GET, POST, PUT, DELETE, and PATCH /archive — all scoped to the authenticated user. Frontend `ProjectSelector.tsx` now shows a visible toast on failure and auto-selects + invalidates the projects query on success. All 48 prior tests remain green; 13 new TDD-driven tests bring the total to 61.

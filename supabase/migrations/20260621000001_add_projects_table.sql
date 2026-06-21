@@ -1,9 +1,12 @@
-create table if not exists projects (
-  id          text primary key,
-  user_id     text not null references users(id),
-  name        text not null,
-  description text,
-  color       text not null,
-  is_archived boolean not null default false,
-  created_at  timestamptz not null default now()
+-- Create projects table (matches users/tasks UUID + cascade style)
+CREATE TABLE IF NOT EXISTS projects (
+    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    name        TEXT NOT NULL,
+    description TEXT,
+    color       TEXT NOT NULL,
+    is_archived BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
