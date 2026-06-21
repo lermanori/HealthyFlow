@@ -1,10 +1,14 @@
 import express from 'express'
+import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '../supabase-client'
 import { Rollover } from '../rollover'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
+import { positionsFromIds } from '../utils/positionsFromIds'
 
 const router = express.Router()
+
+const ReorderBody = z.object({ ids: z.array(z.string()).nonempty() })
 
 // Get tasks
 router.get('/', authenticateToken, async (req: AuthRequest, res) => {
@@ -55,7 +59,8 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
         originalHabitId,
         rolledOverFromTaskId: task.rolled_over_from_task_id,
         originalCreatedAt: task.original_created_at,
-        completedAt: task.completed_at
+        completedAt: task.completed_at,
+        position: task.position ?? null,
       }
     })
 
@@ -76,6 +81,12 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   console.log('Backend - Task details:', { title, type, category, startTime, duration, repeat, scheduledDate })
 
   try {
+    // For untimed tasks, append to end of Anytime backlog (MAX position + 1, or null)
+    let position: number | null = null
+    if (!startTime && scheduledDate) {
+      position = await db.getNextPosition(userId, scheduledDate)
+    }
+
     const taskData = {
       id: uuidv4(),
       user_id: userId,
@@ -85,7 +96,8 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       start_time: startTime,
       duration,
       repeat_type: repeat,
-      scheduled_date: scheduledDate
+      scheduled_date: scheduledDate,
+      position,
     }
 
     const task = await db.createTask(taskData)
@@ -102,7 +114,8 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       scheduledDate: task.scheduled_date,
       createdAt: task.created_at,
       rolledOverFromTaskId: task.rolled_over_from_task_id,
-      originalCreatedAt: task.original_created_at
+      originalCreatedAt: task.original_created_at,
+      position: task.position ?? null,
     })
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
@@ -140,6 +153,9 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
       updateData.completed_at = null
     }
   }
+  if (updates.position !== undefined) {
+    updateData.position = updates.position
+  }
 
   if (Object.keys(updateData).length === 0) {
     return res.status(400).json({ error: 'No valid fields to update' })
@@ -165,8 +181,31 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
       scheduledDate: updatedTask.scheduled_date,
       createdAt: updatedTask.created_at,
       rolledOverFromTaskId: updatedTask.rolled_over_from_task_id,
-      originalCreatedAt: updatedTask.original_created_at
+      originalCreatedAt: updatedTask.original_created_at,
+      position: updatedTask.position ?? null,
     })
+  } catch (error) {
+    res.status(500).json({ error: 'Database error' })
+  }
+})
+
+// Batch-reorder untimed tasks (Anytime backlog)
+router.patch('/reorder', authenticateToken, async (req: AuthRequest, res) => {
+  const userId = req.user.userId
+  const parsed = ReorderBody.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'ids must be a non-empty array of strings' })
+  }
+  const { ids } = parsed.data
+
+  try {
+    const pairs = positionsFromIds(ids)
+    // Owner-scoped batch write: db.reorderTasks filters each update by user_id so a
+    // user can only reorder their own tasks (mirrors the ownership guard on PUT /:id).
+    // ponytail: N parallel updates beats N serial; an rpc would be one call but adds a
+    // migration dependency. Swap to rpc if contention matters.
+    await db.reorderTasks(userId, pairs)
+    res.json({ success: true, updated: pairs.length })
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
   }

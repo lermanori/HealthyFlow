@@ -99,19 +99,8 @@ export default function DashboardPage() {
     },
   })
 
-  const updateTasksMutation = useMutation({
-    mutationFn: async (reorderedTasks: Task[]) => {
-      for (let i = 0; i < reorderedTasks.length; i++) {
-        await taskService.updateTask(reorderedTasks[i].id, { 
-          ...reorderedTasks[i],
-        })
-      }
-      return reorderedTasks
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-    },
-  })
+  // ponytail: reorder mutation is now a no-op; DayTimeline calls taskService.reorderTasks directly
+  // and passes back the reordered array for the optimistic cache update below.
 
   const deleteTaskMutation = useMutation({
     mutationFn: taskService.deleteTask,
@@ -134,9 +123,9 @@ export default function DashboardPage() {
     uncompleteTaskMutation.mutate(id)
   }
 
+  // Optimistic local update only — persistence happens inside DayTimeline via reorderTasks
   const handleTasksReorder = (reorderedTasks: Task[]) => {
     queryClient.setQueryData(['tasks', format(selectedDate, 'yyyy-MM-dd')], reorderedTasks)
-    updateTasksMutation.mutate(reorderedTasks)
   }
 
   const handleEditTask = (task: Task) => {
