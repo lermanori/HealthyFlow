@@ -51,8 +51,7 @@ router.post('/query-tasks', authenticateToken, async (req: AuthRequest, res) => 
 })
 
 // AI-powered Item parser: free-form text -> validated { items: ParsedItem[] }.
-// See CONTEXT.md (Item / Task / Habit / parse-tasks) and
-// .scratch/ai-harness-v1/PRD.md for the contract.
+// See CONTEXT.md (Item / Task / Habit / parse-tasks) for the contract.
 const ParsedItem = z.object({
   title: z.string().min(1),
   type: z.enum(['task', 'habit']),

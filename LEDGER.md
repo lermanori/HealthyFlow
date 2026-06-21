@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-21 16:30 — `main`
+
+Reconciled the contradictory issue-tracker docs: CLAUDE.md previously named GitHub Issues + Project 1 as the source of truth at the top but instructed agents to use local `.scratch/` markdown in the Agent-skills section. Made GitHub Issues + the Project 1 kanban the single source of truth across CLAUDE.md, `docs/agents/issue-tracker.md`, and `docs/agents/triage-labels.md` (triage roles now map onto the board's `Status` field). Removed the `.scratch` ignore line, deleted the stray `.scratch` reading guide, and dropped a stale `.scratch` PRD reference from a comment in `routes/ai.ts`. Surfaced while filing #40 (project creation in the task form has no backend `/projects` route — still unimplemented).
+
+---
+
 ### 2026-06-21 16:00 — `issue-28-materialize-habit-on-drag`
 
 Implemented Option B for #28: dragging a virtual habit instance (untimed or timed) into an hour slot or the Anytime backlog now materialises a real `tasks` row (`completed: false`) carrying the per-day start_time or position override, so the change survives a page reload. A new `parseHabitInstanceId` helper centralises synthetic-id detection (was three copies of the same regex); `PUT /tasks/:id` detects the virtual id, verifies ownership against the original habit, and calls the extended `db.createHabitInstance` with overrides. The frontend swaps the returned real id in place of the stale synthetic id so a second drag operates on the real row. ADR 0001 records the Option A vs B tradeoff. All 48 backend Jest tests pass; backend and frontend builds clean.

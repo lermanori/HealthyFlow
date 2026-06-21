@@ -67,7 +67,7 @@ When the user says "commit" (with or without a message), the agent should:
 
 ### Issue tracker
 
-Local markdown under `.scratch/<feature-slug>/`. No GitHub Issues. See `docs/agents/issue-tracker.md`.
+GitHub Issues + the GitHub Project (kanban) are the single source of truth. Publish issues to the repo and add them to Project 1; record triage/workflow state via the project's `Status` field, not a file. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

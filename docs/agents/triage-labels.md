@@ -1,21 +1,17 @@
 # Triage Labels
 
-The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
+The skills speak in terms of five canonical triage roles. This file maps those roles onto the GitHub Project board's `Status` field (the source of truth for workflow state).
 
-For local-markdown issues, "applying a label" means writing the string into the `Status:` line at the top of the issue file, e.g.
+"Applying a label" means setting the issue's `Status` on Project 1, e.g. moving it to `Ready`.
 
-```
-Status: ready-for-agent
-```
+| Canonical role (skills) | Board `Status`           | Meaning                                  |
+| ----------------------- | ------------------------ | ---------------------------------------- |
+| `needs-triage`          | `Backlog`                | Maintainer needs to evaluate this issue  |
+| `needs-info`            | `Backlog` (+ `question` label) | Waiting on reporter for more information |
+| `ready-for-agent`       | `Ready`                  | Fully specified, ready for an AFK agent  |
+| `ready-for-human`       | `Backlog` (HITL)         | Requires a human decision before work    |
+| `wontfix`               | close issue + `wontfix` label | Will not be actioned                |
 
-| Label in mattpocock/skills | Label in our tracker | Meaning                                  |
-| -------------------------- | -------------------- | ---------------------------------------- |
-| `needs-triage`             | `needs-triage`       | Maintainer needs to evaluate this issue  |
-| `needs-info`               | `needs-info`         | Waiting on reporter for more information |
-| `ready-for-agent`          | `ready-for-agent`    | Fully specified, ready for an AFK agent  |
-| `ready-for-human`          | `ready-for-human`    | Requires human implementation            |
-| `wontfix`                  | `wontfix`            | Will not be actioned                     |
+In-flight work uses `In progress` → `In review` → `Done` as it moves across the board.
 
-When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
-
-Edit the right-hand column to match whatever vocabulary you actually use.
+When a skill mentions a role (e.g. "apply the AFK-ready triage label"), set the corresponding board `Status` from this table.
