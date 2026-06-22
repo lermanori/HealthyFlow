@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd'
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { Task } from '../services/api'
 import TaskCard from './TaskCard'
 import { taskService } from '../services/api'

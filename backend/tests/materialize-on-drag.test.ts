@@ -39,34 +39,78 @@ describe('parseHabitInstanceId — drag-path detection', () => {
 // Materialize-on-drag override logic (pure; no Supabase)
 // ---------------------------------------------------------------------------
 describe('createHabitInstance overrides shape', () => {
-  // Mirror the override object that routes/tasks.ts builds for the drag path
+  // Mirror the override object that routes/tasks.ts builds for the drag path.
+  // A drag must OMIT `completed` so it never clobbers an existing row's done state
+  // (dragging a completed instance keeps it completed; idempotent createHabitInstance).
   function buildDragOverrides(updateData: { start_time?: string | null; position?: number | null }) {
     return {
-      completed: false,
       ...(updateData.start_time !== undefined ? { start_time: updateData.start_time } : {}),
       ...(updateData.position !== undefined ? { position: updateData.position } : {}),
     }
   }
 
-  it('hour-slot drag: overrides carry start_time and completed:false', () => {
+  it('hour-slot drag: overrides carry start_time, no completed flag', () => {
     const overrides = buildDragOverrides({ start_time: '09:00' })
-    expect(overrides.completed).toBe(false)
-    expect(overrides.start_time).toBe('09:00')
+    expect('completed' in overrides).toBe(false)
+    expect((overrides as any).start_time).toBe('09:00')
     expect('position' in overrides).toBe(false)
   })
 
-  it('anytime drag: overrides carry position and completed:false, no start_time', () => {
+  it('anytime drag: overrides carry position, no completed flag, no start_time', () => {
     const overrides = buildDragOverrides({ start_time: null, position: 2 })
-    expect(overrides.completed).toBe(false)
-    expect(overrides.start_time).toBeNull()
-    expect(overrides.position).toBe(2)
+    expect('completed' in overrides).toBe(false)
+    expect((overrides as any).start_time).toBeNull()
+    expect((overrides as any).position).toBe(2)
   })
 
-  it('completion flow (no overrides): defaults preserve completed:true', () => {
-    // The default call shape (no 4th arg) should keep completed true
-    // We model this as an empty overrides object → isCompleted falls back to true
-    const defaultOverrides: { completed?: boolean } = {}
-    const isCompleted = defaultOverrides.completed ?? true
-    expect(isCompleted).toBe(true)
+  it('completion passes completed:true explicitly (fresh inserts default to not-completed)', () => {
+    // The completion path now passes { completed: true }; createHabitInstance only
+    // defaults to completed when no flag is supplied, which is `false`.
+    const completionOverrides: { completed?: boolean } = { completed: true }
+    expect(completionOverrides.completed ?? false).toBe(true)
+    const dragOverrides: { completed?: boolean } = {}
+    expect(dragOverrides.completed ?? false).toBe(false)
+  })
+
+  // This-day-only EDIT (editScope:'instance') carries the full field set so a single
+  // day's habit can be customised (time, title, category, duration) without touching
+  // the parent. Mirrors the override object routes/tasks.ts builds for that path.
+  function buildInstanceEditOverrides(updateData: {
+    start_time?: string | null
+    title?: string
+    category?: string
+    duration?: number | null
+    position?: number | null
+  }) {
+    return {
+      completed: false,
+      ...(updateData.start_time !== undefined ? { start_time: updateData.start_time } : {}),
+      ...(updateData.title !== undefined ? { title: updateData.title } : {}),
+      ...(updateData.category !== undefined ? { category: updateData.category } : {}),
+      ...(updateData.duration !== undefined ? { duration: updateData.duration } : {}),
+      ...(updateData.position !== undefined ? { position: updateData.position } : {}),
+    }
+  }
+
+  it('this-day edit: overrides carry the edited fields and completed:false', () => {
+    const overrides = buildInstanceEditOverrides({
+      start_time: '07:00',
+      title: 'Long workout',
+      category: 'fitness',
+      duration: 90,
+    })
+    expect(overrides.completed).toBe(false)
+    expect(overrides.start_time).toBe('07:00')
+    expect(overrides.title).toBe('Long workout')
+    expect(overrides.category).toBe('fitness')
+    expect(overrides.duration).toBe(90)
+  })
+
+  it('this-day edit: omitted fields are absent so createHabitInstance falls back to the parent', () => {
+    const overrides = buildInstanceEditOverrides({ duration: 45 })
+    expect(overrides.duration).toBe(45)
+    expect('title' in overrides).toBe(false)
+    expect('category' in overrides).toBe(false)
+    expect('start_time' in overrides).toBe(false)
   })
 })

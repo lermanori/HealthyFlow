@@ -6,10 +6,32 @@ import { Rollover } from '../rollover'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 import { positionsFromIds } from '../utils/positionsFromIds'
 import { parseHabitInstanceId } from '../utils/parseHabitInstanceId'
+import { isPureDragUpdate } from '../utils/isPureDragUpdate'
 
 const router = express.Router()
 
 const ReorderBody = z.object({ ids: z.array(z.string()).nonempty() })
+
+// Shared PUT/materialize response shape (DB row → API task).
+function formatTaskResponse(row: any, opts: { isHabitInstance?: boolean } = {}) {
+  return {
+    id: row.id,
+    title: row.title,
+    type: row.type,
+    category: row.category,
+    startTime: row.start_time,
+    duration: row.duration,
+    repeat: row.repeat_type,
+    completed: Boolean(row.completed),
+    scheduledDate: row.scheduled_date,
+    createdAt: row.created_at,
+    originalHabitId: row.original_habit_id,
+    isHabitInstance: opts.isHabitInstance ?? Boolean(row.original_habit_id),
+    rolledOverFromTaskId: row.rolled_over_from_task_id,
+    originalCreatedAt: row.original_created_at,
+    position: row.position ?? null,
+  }
+}
 
 // Get tasks
 router.get('/', authenticateToken, async (req: AuthRequest, res) => {
@@ -161,69 +183,90 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
     return res.status(400).json({ error: 'No valid fields to update' })
   }
 
-  try {
-    // Drag on a virtual habit instance: materialize a real row (non-completed)
-    // carrying the requested start_time / position override.
-    const parsedVirtual = parseHabitInstanceId(taskId)
-    if (parsedVirtual) {
-      const { originalHabitId, date } = parsedVirtual
-      // Ownership: verify the original habit belongs to this user
-      const originalHabit = await db.getTaskById(originalHabitId)
-      if (!originalHabit || originalHabit.user_id !== userId) {
-        return res.status(403).json({ error: 'Forbidden' })
-      }
-      // Materialize a non-completed instance with the drag overrides
-      const materializedRow = await db.createHabitInstance(
-        originalHabitId,
-        date,
-        userId,
-        {
-          completed: false,
-          ...(updateData.start_time !== undefined ? { start_time: updateData.start_time } : {}),
-          ...(updateData.position !== undefined ? { position: updateData.position } : {}),
-        }
-      )
-      return res.json({
-        id: materializedRow.id,
-        title: materializedRow.title,
-        type: materializedRow.type,
-        category: materializedRow.category,
-        startTime: materializedRow.start_time,
-        duration: materializedRow.duration,
-        repeat: materializedRow.repeat_type,
-        completed: Boolean(materializedRow.completed),
-        scheduledDate: materializedRow.scheduled_date,
-        createdAt: materializedRow.created_at,
-        originalHabitId: materializedRow.original_habit_id,
-        isHabitInstance: true,
-        rolledOverFromTaskId: materializedRow.rolled_over_from_task_id,
-        originalCreatedAt: materializedRow.original_created_at,
-        position: materializedRow.position ?? null,
-      })
-    }
+  // Habit edits carry a scope: 'habit' changes the whole habit (today + future),
+  // 'instance' (default) keeps the change to that one day. Drags ignore this.
+  const editScope: 'instance' | 'habit' = updates.editScope === 'habit' ? 'habit' : 'instance'
 
-    // Regular task update path
-    const task = await db.getTaskById(taskId)
+  try {
+    // A habit interaction can target three identities; resolve all of them to the
+    // parent habit id + the affected date (and the existing per-day row, if any):
+    //  - virtual instance (synthetic id `${habitId}-${date}`) → task is the parent
+    //  - materialized instance (real row with original_habit_id) → task is that row
+    //  - the parent habit row itself (dated day)
+    const parsedVirtual = parseHabitInstanceId(taskId)
+    const lookupId = parsedVirtual ? parsedVirtual.originalHabitId : taskId
+    const task = await db.getTaskById(lookupId)
     if (!task || task.user_id !== userId) {
       return res.status(403).json({ error: 'Forbidden' })
     }
-    const updatedTask = await db.updateTask(taskId, updateData)
 
-    res.json({
-      id: updatedTask.id,
-      title: updatedTask.title,
-      type: updatedTask.type,
-      category: updatedTask.category,
-      startTime: updatedTask.start_time,
-      duration: updatedTask.duration,
-      repeat: updatedTask.repeat_type,
-      completed: Boolean(updatedTask.completed),
-      scheduledDate: updatedTask.scheduled_date,
-      createdAt: updatedTask.created_at,
-      rolledOverFromTaskId: updatedTask.rolled_over_from_task_id,
-      originalCreatedAt: updatedTask.original_created_at,
-      position: updatedTask.position ?? null,
-    })
+    let parentHabitId: string | null = null
+    let instanceRow: any = null
+    let instanceDate: string | null = null
+    if (parsedVirtual) {
+      parentHabitId = task.id
+      instanceDate = parsedVirtual.date
+    } else if (task.type === 'habit' && task.original_habit_id) {
+      instanceRow = task
+      parentHabitId = task.original_habit_id
+      instanceDate = task.scheduled_date
+    } else if (task.type === 'habit' && task.repeat_type) {
+      parentHabitId = task.id
+      instanceDate = task.scheduled_date
+    }
+
+    if (parentHabitId) {
+      // DRAG (pure start_time/position): always a per-day override, never the parent.
+      // The timeline dedup prefers the instance over the parent for the day. (#28)
+      if (isPureDragUpdate(updateData)) {
+        if (instanceRow) {
+          const updated = await db.updateTask(instanceRow.id, updateData)
+          return res.json(formatTaskResponse(updated, { isHabitInstance: true }))
+        }
+        // Omit `completed` so dragging a completed instance keeps it completed.
+        const materialized = await db.createHabitInstance(parentHabitId, instanceDate!, userId, {
+          ...(updateData.start_time !== undefined ? { start_time: updateData.start_time } : {}),
+          ...(updateData.position !== undefined ? { position: updateData.position } : {}),
+        })
+        return res.json(formatTaskResponse(materialized, { isHabitInstance: true }))
+      }
+
+      // EDIT — WHOLE HABIT: update the parent so it applies to today + every future
+      // virtual instance. Past completed/dragged days are their own rows and keep
+      // their saved values ("freeze real history"). Don't write scheduled_date — a
+      // recurring habit has no single date.
+      if (editScope === 'habit') {
+        const habitUpdate = { ...updateData }
+        delete habitUpdate.scheduled_date
+        const updatedHabit = await db.updateTask(parentHabitId, habitUpdate)
+        return res.json(formatTaskResponse(updatedHabit, { isHabitInstance: false }))
+      }
+
+      // EDIT — THIS DAY ONLY: keep the change on a per-day instance.
+      if (instanceRow) {
+        const updated = await db.updateTask(instanceRow.id, updateData)
+        return res.json(formatTaskResponse(updated, { isHabitInstance: true }))
+      }
+      // Virtual day or parent-row day: materialize an instance carrying the edits.
+      const materialized = await db.createHabitInstance(
+        parentHabitId,
+        updateData.scheduled_date || instanceDate!,
+        userId,
+        {
+          // Omit `completed` so editing a completed day keeps it completed.
+          ...(updateData.start_time !== undefined ? { start_time: updateData.start_time } : {}),
+          ...(updateData.title !== undefined ? { title: updateData.title } : {}),
+          ...(updateData.category !== undefined ? { category: updateData.category } : {}),
+          ...(updateData.duration !== undefined ? { duration: updateData.duration } : {}),
+          ...(updateData.position !== undefined ? { position: updateData.position } : {}),
+        }
+      )
+      return res.json(formatTaskResponse(materialized, { isHabitInstance: true }))
+    }
+
+    // Regular (non-habit) task update path
+    const updatedTask = await db.updateTask(taskId, updateData)
+    return res.json(formatTaskResponse(updatedTask, { isHabitInstance: false }))
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
   }
@@ -262,8 +305,9 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
     if (parsedInstance) {
       const { originalHabitId, date: fullDate } = parsedInstance
       console.log('Backend - Completing virtual habit instance:', { originalHabitId, date: fullDate, taskId })
-      // Create a real habit instance for this date
-      const habitInstance = await db.createHabitInstance(originalHabitId, fullDate, userId)
+      // Mark this date's instance complete (idempotent: updates an already-materialized
+      // row in place, keeping any dragged time, instead of inserting an untimed dup).
+      const habitInstance = await db.createHabitInstance(originalHabitId, fullDate, userId, { completed: true })
       res.json({
         id: habitInstance.id,
         title: habitInstance.title,

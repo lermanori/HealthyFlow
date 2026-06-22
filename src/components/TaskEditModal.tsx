@@ -8,7 +8,7 @@ interface TaskEditModalProps {
   task: Task | null
   isOpen: boolean
   onClose: () => void
-  onSave: (taskId: string, updates: Partial<Task>) => void
+  onSave: (taskId: string, updates: Partial<Task>, editScope?: 'instance' | 'habit') => void
 }
 
 export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEditModalProps) {
@@ -19,6 +19,9 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
     duration: 30,
     scheduledDate: format(new Date(), 'yyyy-MM-dd'), // Add scheduled date
   })
+  // For recurring habits: 'instance' = just this day, 'habit' = the whole habit.
+  const [editScope, setEditScope] = useState<'instance' | 'habit'>('instance')
+  const isHabit = task?.type === 'habit'
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
 
   // Update isMobile state on window resize
@@ -40,13 +43,14 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
         duration: task.duration || 30,
         scheduledDate: task.scheduledDate || format(new Date(), 'yyyy-MM-dd'), // Use task's date or default to today
       })
+      setEditScope('instance') // default to this-day-only each time the modal opens
     }
   }, [task])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (task) {
-      onSave(task.id, formData)
+      onSave(task.id, formData, task.type === 'habit' ? editScope : undefined)
       onClose()
     }
   }
@@ -202,6 +206,44 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                     </div>
                   </div>
                 </div>
+
+                {/* Habit edit scope — only for recurring habits */}
+                {isHabit && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Apply changes to
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setEditScope('instance')}
+                        className={`p-3 rounded-lg border-2 text-sm transition-all ${
+                          editScope === 'instance'
+                            ? 'border-cyan-500 text-cyan-400 bg-cyan-500/20'
+                            : 'border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300'
+                        }`}
+                      >
+                        This day only
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditScope('habit')}
+                        className={`p-3 rounded-lg border-2 text-sm transition-all ${
+                          editScope === 'habit'
+                            ? 'border-cyan-500 text-cyan-400 bg-cyan-500/20'
+                            : 'border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300'
+                        }`}
+                      >
+                        The whole habit
+                      </button>
+                    </div>
+                    <p className="mt-2 text-xs text-gray-500">
+                      {editScope === 'instance'
+                        ? 'Changes affect only this date.'
+                        : 'Changes apply from today forward; past days keep their saved values.'}
+                    </p>
+                  </div>
+                )}
 
                 {/* Action Buttons - Part of scrollable content */}
                 <div className="pt-6 border-t border-gray-700/50">

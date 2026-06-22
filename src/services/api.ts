@@ -191,8 +191,12 @@ export const taskService = {
     return response.data
   },
 
-  updateTask: async (id: string, updates: Partial<Task>): Promise<Task> => {
-    const response = await api.put(`/tasks/${id}`, updates)
+  updateTask: async (
+    id: string,
+    updates: Partial<Task>,
+    editScope?: 'instance' | 'habit'
+  ): Promise<Task> => {
+    const response = await api.put(`/tasks/${id}`, editScope ? { ...updates, editScope } : updates)
     return response.data
   },
 
