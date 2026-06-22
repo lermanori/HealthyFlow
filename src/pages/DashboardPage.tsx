@@ -91,8 +91,8 @@ export default function DashboardPage() {
   })
 
   const updateTaskMutation = useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Partial<Task> }) => 
-      taskService.updateTask(id, updates),
+    mutationFn: ({ id, updates, editScope }: { id: string; updates: Partial<Task>; editScope?: 'instance' | 'habit' }) =>
+      taskService.updateTask(id, updates, editScope),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       toast.success('Task updated successfully!')
@@ -132,8 +132,8 @@ export default function DashboardPage() {
     setEditingTask(task)
   }
 
-  const handleSaveTask = (taskId: string, updates: Partial<Task>) => {
-    updateTaskMutation.mutate({ id: taskId, updates })
+  const handleSaveTask = (taskId: string, updates: Partial<Task>, editScope?: 'instance' | 'habit') => {
+    updateTaskMutation.mutate({ id: taskId, updates, editScope })
     setEditingTask(null)
   }
 

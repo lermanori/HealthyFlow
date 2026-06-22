@@ -429,9 +429,13 @@ export const db = {
     }
   },
 
-  // Create a real habit instance for a specific date.
-  // overrides: optional fields that replace the habit's defaults (drag case uses
-  // completed:false + start_time or position; completion case uses the defaults).
+  // Materialize the real habit-instance row for a given habit + date (idempotent:
+  // at most one row per habit per day). If a row already exists for that date it is
+  // UPDATED with only the supplied overrides — so completing a previously-dragged
+  // instance keeps its time, and dragging a completed instance keeps it completed.
+  // Only callers that pass `completed` change the completion flag; drag/edit must omit
+  // it so they never clobber an existing row's done state. Fresh rows default to
+  // not-completed.
   async createHabitInstance(
     originalHabitId: string,
     date: string,
@@ -440,6 +444,9 @@ export const db = {
       completed?: boolean
       start_time?: string | null
       position?: number | null
+      title?: string
+      category?: string
+      duration?: number | null
     } = {}
   ) {
     try {
@@ -453,18 +460,53 @@ export const db = {
       if (fetchError) throw fetchError
       if (!originalHabit) throw new Error('Original habit not found')
 
-      const isCompleted = overrides.completed ?? true
+      // Already materialized for this date? Update it instead of inserting a duplicate.
+      const { data: existingRows, error: existingError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('original_habit_id', originalHabitId)
+        .eq('scheduled_date', date)
+        .order('created_at', { ascending: true })
+        .limit(1)
+      if (existingError) throw existingError
+      const existing = existingRows && existingRows[0]
+
+      if (existing) {
+        const upd: any = {}
+        if ('completed' in overrides) {
+          upd.completed = overrides.completed
+          upd.completed_at = overrides.completed ? new Date().toISOString() : null
+        }
+        if ('start_time' in overrides) upd.start_time = overrides.start_time
+        if ('position' in overrides) upd.position = overrides.position
+        if ('title' in overrides) upd.title = overrides.title
+        if ('category' in overrides) upd.category = overrides.category
+        if ('duration' in overrides) upd.duration = overrides.duration
+        if (Object.keys(upd).length === 0) return existing
+        const { data: updated, error: updateError } = await supabase
+          .from('tasks')
+          .update(upd)
+          .eq('id', existing.id)
+          .select()
+          .single()
+        if (updateError) throw updateError
+        return updated
+      }
+
+      const isCompleted = overrides.completed ?? false
       // Create the habit instance
       const { data: habitInstance, error: createError } = await supabase
         .from('tasks')
         .insert({
           user_id: userId,
-          title: originalHabit.title,
+          // Per-day overrides (this-day-only edit) fall back to the habit's own values
+          title: 'title' in overrides ? overrides.title : originalHabit.title,
           type: 'habit',
-          category: originalHabit.category,
+          category: 'category' in overrides ? overrides.category : originalHabit.category,
           // Allow drag to override start_time; fall back to the habit's own time
           start_time: 'start_time' in overrides ? overrides.start_time : originalHabit.start_time,
-          duration: originalHabit.duration,
+          duration: 'duration' in overrides ? overrides.duration : originalHabit.duration,
           repeat_type: originalHabit.repeat_type,
           completed: isCompleted,
           completed_at: isCompleted ? new Date().toISOString() : null,

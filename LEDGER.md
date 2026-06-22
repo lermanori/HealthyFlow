@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-22 — `fix/habit-drag-edit-scheduling`
+
+Fixed a cluster of habit drag/edit scheduling bugs and added per-day vs whole-habit edit scope. Swapped the abandoned `react-beautiful-dnd` for the maintained `@hello-pangea/dnd` so drops actually register under React 18 StrictMode. Stopped habit drags/edits from leaking a per-day time into the parent (and thus all future virtual instances): drags on a recurring-habit parent now materialize a dated instance, and the edit modal offers "This day only" (per-day override) vs "The whole habit" (parent, today-forward; past real history stays frozen). Made `createHabitInstance` idempotent (one row per habit/day) with explicit `completed` semantics, fixing completed habits flipping incomplete on drag and teleporting to untimed on complete. Backend suite now 69 green (added `isPureDragUpdate` + override-shape specs).
+
+---
+
 ### 2026-06-21 17:40 — `main`
 
 Applied the #40 projects migration to the live Supabase (`healthflow`) via `supabase db push`. The first push failed because the spec-derived migration declared `user_id text` while the production `users.id` is `uuid` — corrected the migration to match the existing tasks/users style (UUID PK with `gen_random_uuid()`, `user_id UUID ... ON DELETE CASCADE`, plus an `idx_projects_user_id` index). Re-pushed clean; remote and local migrations are now in sync. Route code needed no change — it passes `uuidv4()` strings which a UUID column accepts, same as tasks.
