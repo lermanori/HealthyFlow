@@ -74,3 +74,56 @@ Concretely:
   ideal when users drag but never complete. Acceptable given the use case.
 - **Out of scope**: Time granularity finer than the existing hour slots,
   changing how completion works, bulk-materializing future instances.
+
+---
+
+## Addendum — 2026-06-22 (drag/edit scheduling follow-ups)
+
+Building on the materialize-on-drag decision, three follow-up issues surfaced
+while planning a week of habits. All resolved on
+`fix/habit-drag-edit-scheduling`.
+
+### 1. Parent-row drags must not leak into the parent
+
+A habit created from the form carries a `scheduled_date` on its **parent** row,
+so on that day the timeline renders the parent (real UUID), not a virtual
+instance. The original drag path only materialized for *synthetic* ids, so
+dragging the parent fell through to a plain `updateTask`, mutating the parent's
+`start_time` — which every future virtual instance then inherited.
+
+**Decision**: a *pure drag* (only `start_time`/`position`) on a recurring-habit
+parent materializes a dated instance instead of touching the parent. A drag is
+distinguished from an edit by `isPureDragUpdate` (an edit also sends
+title/category/duration). The timeline dedup already prefers the instance over
+the parent for that day, so there is no double-render.
+
+### 2. Edit scope: this-day vs whole-habit
+
+Editing a habit now offers an explicit scope (calendar-style), since both
+"customise one day" and "change the habit" are valid:
+
+- **This day only** (default) — materializes a per-day instance carrying the full
+  edit (time, title, category, duration). Parent and other days untouched.
+- **The whole habit** — updates the parent, applying to today + every future
+  virtual instance. `scheduled_date` is stripped from the parent write.
+
+Past handling follows "freeze real history": completed/dragged days are their
+own rows and keep their saved values; uncompleted past days (no row) re-synthesize
+from the parent and may reflect a whole-habit change. No effective-from boundary
+was added (rejected as over-engineering for now).
+
+### 3. `createHabitInstance` is now idempotent
+
+The function always INSERTed, so nothing guaranteed one instance per habit/day,
+and the `completed` flag was fought over by callers — dragging a completed habit
+made it incomplete (drag forced `completed:false`), and completing a dragged
+habit spawned a second untimed row.
+
+**Decision**: `createHabitInstance` looks up the existing `(user, habit, date)`
+row and updates it with only the supplied overrides, else inserts. `completed` is
+only changed when a caller passes it: completion passes `{ completed: true }`;
+drag/edit omit it (preserving done state); fresh inserts default to
+**not-completed** (changed from the old `true` default).
+
+- **Out of scope (still)**: deleting duplicate instance rows left in the DB by
+  the pre-idempotency bug — handled, if needed, by a one-off cleanup query.
