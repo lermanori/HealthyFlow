@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-23 — `issue-32-task-lifecycle`
+
+Completed issue #32: task lifecycle (complete/edit/delete) golden-path E2E tests. Created `tests/e2e/items-lifecycle.spec.ts` with three fully independent tests: **Complete** (mark complete via checkbox, assert strikethrough, reload, assert persisted), **Edit** (open menu, click Edit, change title via modal input, click "Save Changes", assert new title on Dashboard), and **Delete** (open menu, click Delete, accept confirm dialog, assert task vanishes). All tests start from `POST /test/reset` for isolation, create the task via the real UI (no API shortcuts), and drive completion through actual UI interactions. Selectors confirmed against source: checkbox is first button in TaskCard flex container; MoreVertical menu button is second button (revealed on hover); Edit/Delete are dropdown menu items; TaskEditModal input has placeholder "Enter task title..."; save button is "Save Changes" (not type="submit"). All 9 e2e specs green (6 prior + 3 new); backend Jest 81/81; build passes.
+
+---
+
 ### 2026-06-23 15:45 — `issue-31-auth-session`
 
 Completed issue #31: added logout + session-persistence E2E tests. Restructured `tests/e2e/auth.spec.ts` into two `test.describe` blocks with independent `test.use({ storageState })` — one for unauthenticated flows, one for authenticated flows — so tests are order-independent and can mix storage states cleanly. Added "logout" test: logs in, finds and clicks the logout button in the Layout header (selector: `button:has-text("Logout")`), asserts LoginPage is visible afterward, and navigates to `/` to confirm it does NOT redirect back to the authenticated Dashboard. Added "persist-across-reload" test: uses the shared `storageState` from `auth.setup.ts`, navigates to `/`, reloads the page, and asserts the Dashboard is still visible. All 6 e2e tests green (setup + 5 specs); backend Jest 81/81 green; build passes. Logout affordance confirmed: `button:has-text("Logout")` in both desktop header and mobile menu in `Layout.tsx`.
