@@ -13,21 +13,6 @@ import { useEffect } from 'react'
 function App() {
   const { user, loading } = useAuth()
 
-  // Register service worker for PWA
-  useEffect(() => {
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-          .then(registration => {
-            console.log('Service Worker registered with scope:', registration.scope)
-          })
-          .catch(error => {
-            console.error('Service Worker registration failed:', error)
-          })
-      })
-    }
-  }, [])
-
   // Handle app visibility changes
   useEffect(() => {
     const handleVisibilityChange = () => {

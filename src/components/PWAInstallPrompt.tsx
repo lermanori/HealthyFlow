@@ -140,7 +140,7 @@ export default function PWAInstallPrompt() {
       
       <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
         <p className="text-xs text-cyan-300">
-          💡 Once installed, HealthyFlow will work offline and feel like a native app!
+          Once installed, HealthyFlow opens like a native app and keeps the app shell available offline.
         </p>
       </div>
     </div>
@@ -183,7 +183,7 @@ export default function PWAInstallPrompt() {
                   </div>
                   <div className="flex-1">
                     <p className="font-medium text-sm">Install HealthyFlow</p>
-                    <p className="text-xs opacity-90">Works offline • Push notifications</p>
+                    <p className="text-xs opacity-90">Quick access • Offline app shell</p>
                   </div>
                 </div>
                 

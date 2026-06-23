@@ -37,3 +37,27 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </React.StrictMode>,
 )
+
+const isViteDevServer = location.port === '5173'
+
+if ('serviceWorker' in navigator && !isViteDevServer) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((registration) => {
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing
+          if (!newWorker) return
+
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              window.dispatchEvent(new Event('healthyflow:update-ready'))
+            }
+          })
+        })
+      })
+      .catch((error) => {
+        console.error('Service worker registration failed:', error)
+      })
+  })
+}

@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-23 19:32 — `main`
+
+Shipped the installable PWA version to Netlify and redeployed the Railway backend. The frontend now has real manifest/icon assets, a focused service worker, Netlify SPA/PWA headers, and a stronger PWA regression test; production was verified with an active service worker and Railway-backed API URL. Railway deployment was repaired by making the backend install/build from `backend/package.json` during image build and start the compiled server directly; the live health endpoint returns 200.
+
+---
+
 ### 2026-06-23 18:43 — `codex/calendar-sync`
 
 Merged `main` into the Google Calendar sync branch to resolve PR #42 conflicts. Combined the regular-task update path so it both applies the ADR-0002 someday→today normalization (from main) and syncs the row to Google Calendar (from this branch); dropped the dead `/rollover` route per main's intentional removal. The calendar sync foundation remains: OAuth connection management, imported Google events in the day timeline, outbound timed-task syncing, visible sync badges, and matching wall-clock rendering for synced/imported events.
@@ -246,4 +252,3 @@ Simplified the commit workflow: the post-commit hook has been stripped down to a
   - LEDGER.md
 
 ---
-
