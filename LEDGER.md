@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-23 14:30 — `issue-29-e2e-spine`
+
+Laid the Playwright E2E spine (issue #29). Added `@playwright/test` as a devDependency, `playwright.config.ts` with two webServer entries (Vite + Express in HF_TEST_MODE), and `tests/e2e/` containing globalSetup (idempotent Supabase test-user seed + task reset), `auth.spec.ts` (one login→Dashboard golden-path test), and a README. Backend gained `db.resetTestUser` in `supabase-client.ts` and a `POST /test/reset` route in `index.ts` that mounts only when `HF_TEST_MODE=1`. TDD'd the 404 guard (red→green before wiring the route). Full backend suite 81 green; `npm run test:e2e` passes in ~3s locally.
+
+---
+
 ### 2026-06-23 — `main`
 
 Closed out the habit/rollover scheduling work and fixed the last "drag doesn't persist" bug. Root cause was not the write path but GET assembly: the `dailyHabits` query matched instance rows (not just templates), so another day's instance leaked into the viewed day, and habit templates carried a stray `scheduled_date` that made them double as a dated day-0 row colliding with materialized instances. Fix: `dailyHabits` now selects templates only (`original_habit_id IS NULL`), the `originalHabitsForDate` query/branch is gone, and read-time dedup is deterministic (real beats virtual, oldest wins). Ran a one-off cleanup (`backend/scripts/cleanup-habit-model.js`) nulling templates' stray dates and collapsing duplicate instances. Landed ADR-0002 (one rule for untimed tasks) and the slimmed `rollover.ts`/`tasks.ts`. Backend suite 79 green (added `habit-instance-dedup` + `rollover-carry-forward` specs); issue #9 moved to Done.

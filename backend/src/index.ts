@@ -10,6 +10,7 @@ import { analyticsRoutes } from './routes/analytics'
 import { adminRoutes } from './routes/admin'
 import { projectRoutes } from './routes/projects'
 import { initDatabase } from './db/database'
+import { db } from './supabase-client'
 
 // Load .env from parent directory
 dotenv.config({ path: path.join(__dirname, '../.env') })
@@ -35,6 +36,20 @@ app.use('/api/ai', aiRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/projects', projectRoutes)
+
+// Test-mode reset route — 404 in production, mounted only when HF_TEST_MODE=1
+if (process.env.HF_TEST_MODE === '1') {
+  const TEST_USER_EMAIL = 'e2e@test.healthyflow.local'
+  app.post('/test/reset', async (req, res) => {
+    try {
+      const user = await db.getUserByEmail(TEST_USER_EMAIL)
+      if (user) await db.resetTestUser(user.id)
+      res.json({ ok: true })
+    } catch (err: any) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+}
 
 // Health check
 app.get('/api/health', (req, res) => {

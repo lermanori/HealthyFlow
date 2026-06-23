@@ -597,4 +597,13 @@ export const db = {
       .eq('id', projectId)
     if (error) throw error
   },
-}; 
+
+  // ponytail: test-mode only — deletes all task rows for the given user
+  async resetTestUser(userId: string) {
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('user_id', userId)
+    if (error) throw error
+  },
+};
