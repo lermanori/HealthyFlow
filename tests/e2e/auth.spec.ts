@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/ai-stubs'
 import { TEST_EMAIL, TEST_PASSWORD } from './globalSetup'
 
 test.describe('unauthenticated flows', () => {

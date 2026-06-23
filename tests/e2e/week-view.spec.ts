@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/ai-stubs'
 import { format, addDays, startOfWeek } from 'date-fns'
 
 test('Week view golden path: tasks appear under their correct day columns', async ({ page }) => {

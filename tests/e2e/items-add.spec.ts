@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/ai-stubs'
 
 // storageState is injected from playwright.config.ts (setup project)
 

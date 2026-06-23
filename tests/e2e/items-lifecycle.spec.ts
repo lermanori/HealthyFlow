@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/ai-stubs'
 
 // Each test fully independent: reset, add task, perform action, assert persistence
 

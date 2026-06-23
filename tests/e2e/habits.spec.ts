@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/ai-stubs'
 
 test('Habit golden path: completing today does NOT bleed into tomorrow', async ({ page }) => {
   // Reset test user state via backend (React Router catch-all blocks GET /test/reset)

@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from './fixtures/ai-stubs'
 import { format, subDays } from 'date-fns'
 
 // ADR-0002 golden path: an incomplete untimed task dated yesterday must appear

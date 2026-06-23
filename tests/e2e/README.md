@@ -38,3 +38,34 @@ npm run test:e2e:headed  # visible browser
 3. This will persist cookies AND localStorage across all tests in that project
 
 See Playwright docs: https://playwright.dev/docs/auth#reuse-signed-in-state
+
+## AI network stubs
+
+All AI endpoints (`/api/ai/*`) are intercepted by Playwright before they reach the backend or OpenAI. This means the suite runs green with `OPENAI_API_KEY` unset.
+
+### How it works
+
+Every spec imports `{ test, expect }` from `./fixtures/ai-stubs` instead of `@playwright/test`. The stub fixture extends Playwright's `page` fixture to register `page.route()` handlers that reply with committed JSON fixtures before any request leaves the browser.
+
+```
+tests/e2e/fixtures/
+├── ai-stubs.ts          ← shared fixture; import from here in all specs
+└── ai/
+    ├── tips.json        ← GET /api/ai/tips
+    ├── motivation.json  ← GET /api/ai/motivation
+    ├── parse-tasks.json ← POST /api/ai/parse-tasks
+    └── query-tasks.json ← POST /api/ai/query-tasks
+```
+
+`auth.setup.ts` remains on `@playwright/test` directly (it's a setup project, not a spec).
+
+### How to add a fixture for a new AI endpoint
+
+1. Add `tests/e2e/fixtures/ai/<endpoint>.json` with a shape matching what the frontend component renders.
+2. Add a `page.route(...)` handler in `tests/e2e/fixtures/ai-stubs.ts` pointing at the new file.
+
+### Running with key unset
+
+```sh
+OPENAI_API_KEY= npm run test:e2e
+```

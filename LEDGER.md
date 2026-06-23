@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-23 14:30 — `issue-36-ai-stubs`
+
+Added Playwright AI network stubs so the full e2e suite (12 tests) runs green with `OPENAI_API_KEY` unset. All four `/api/ai/*` routes are intercepted by a shared `ai-stubs.ts` fixture before reaching the backend; committed JSON fixtures under `tests/e2e/fixtures/ai/` provide shape-correct stub responses. All specs now import `{ test, expect }` from the stub fixture instead of `@playwright/test` directly. Backend Jest (81 tests) and `npm run build` remain green.
+
+---
+
 ### 2026-06-23 — `issue-35-week-view`
 
 Week view golden path (#35) — feature + e2e. The week view was a stub (only today's tasks fetched; other days rendered `Math.random()` placeholders), so the golden path needed the feature made real first: `WeekViewPage` now fetches all 7 days in parallel via `useQueries`, removes the random data, and renders each day's real tasks + completed/total counts (day cards tagged `data-date` for stable targeting). New `tests/e2e/week-view.spec.ts` adds a task for today and a timed task for another in-week day, then asserts each lands under its correct day column (timed so ADR-0002 carry-forward doesn't leak it into today). Also hardened the suite: replaced the no-op `page.goto('/test/reset')` (swallowed by the SPA catch-all) with `page.request.post('/test/reset')` in the habit + lifecycle specs, and set Playwright `workers: 1` — every spec resets the one shared Supabase test user, so parallel workers were clobbering each other (flake policy item for #37: per-worker test users would re-enable parallelism). Suite 12 green across two consecutive runs; backend 81 green; build clean.
