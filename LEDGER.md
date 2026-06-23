@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-23 15:45 — `issue-31-auth-session`
+
+Completed issue #31: added logout + session-persistence E2E tests. Restructured `tests/e2e/auth.spec.ts` into two `test.describe` blocks with independent `test.use({ storageState })` — one for unauthenticated flows, one for authenticated flows — so tests are order-independent and can mix storage states cleanly. Added "logout" test: logs in, finds and clicks the logout button in the Layout header (selector: `button:has-text("Logout")`), asserts LoginPage is visible afterward, and navigates to `/` to confirm it does NOT redirect back to the authenticated Dashboard. Added "persist-across-reload" test: uses the shared `storageState` from `auth.setup.ts`, navigates to `/`, reloads the page, and asserts the Dashboard is still visible. All 6 e2e tests green (setup + 5 specs); backend Jest 81/81 green; build passes. Logout affordance confirmed: `button:has-text("Logout")` in both desktop header and mobile menu in `Layout.tsx`.
+
+---
+
 ### 2026-06-23 — `issue-30-add-task`
 
 Completed issue #30: reusable Playwright auth fixture + items-add E2E golden path. Added `tests/e2e/auth.setup.ts` (setup project that logs in via real UI, waits for authenticated nav to appear, saves `storageState` to `.auth/user.json`). Updated `playwright.config.ts` to add a `setup` project and a `chromium` project that depends on it with shared `storageState`. Fixed `auth.spec.ts` to opt out via `test.use({ storageState: { cookies: [], origins: [] } })` so the login-flow test starts unauthenticated. Rewrote `items-add.spec.ts` to rely on shared auth (no manual login per test): tests navigate directly to `/add`, fill the form, submit, and assert the task appears on the Dashboard. Root cause of previous agent's blocker: a stray Vite dev server from another project (named "Adama") was occupying port 5173 via `reuseExistingServer: true`; additionally the `h1` locator prematurely matched the LoginPage heading before login completed. All 5 e2e tests green; backend Jest 81/81; build passes.
