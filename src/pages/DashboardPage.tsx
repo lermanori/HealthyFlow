@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays } from 'date-fns'
-import { Plus, Calendar, ChevronLeft, ChevronRight, Brain, Sparkles } from 'lucide-react'
+import { Plus, Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import api, { calendarService, taskService, ExternalCalendarEvent, Task } from '../services/api'
 import DayTimeline from '../components/DayTimeline'
@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [showConfetti, setShowConfetti] = useState(false)
   const [showAIAnalyzer, setShowAIAnalyzer] = useState(false)
   const [showAskAIModal, setShowAskAIModal] = useState(false)
+  const [habitDeleteCandidate, setHabitDeleteCandidate] = useState<Task | null>(null)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const queryClient = useQueryClient()
   const { showNotification } = useNotifications()
@@ -148,9 +149,11 @@ export default function DashboardPage() {
   // and passes back the reordered array for the optimistic cache update below.
 
   const deleteTaskMutation = useMutation({
-    mutationFn: taskService.deleteTask,
+    mutationFn: ({ id, deleteScope }: { id: string; deleteScope?: 'instance' | 'habit' }) =>
+      taskService.deleteTask(id, deleteScope),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      setHabitDeleteCandidate(null)
       toast.success('Task deleted')
       
       // Vibrate on delete if supported
@@ -186,10 +189,23 @@ export default function DashboardPage() {
     setEditingTask(null)
   }
 
-  const handleDeleteTask = (id: string) => {
-    if (confirm('Are you sure you want to delete this task?')) {
-      deleteTaskMutation.mutate(id)
+  const handleDeleteTask = (task: Task) => {
+    if (task.type === 'habit') {
+      setHabitDeleteCandidate(task)
+      return
     }
+
+    if (confirm('Are you sure you want to delete this task?')) {
+      deleteTaskMutation.mutate({ id: task.id })
+    }
+  }
+
+  const confirmHabitDelete = (deleteScope: 'instance' | 'habit') => {
+    if (!habitDeleteCandidate) return
+    deleteTaskMutation.mutate({
+      id: habitDeleteCandidate.id,
+      deleteScope,
+    })
   }
 
   const handlePreviousDay = () => {
@@ -395,6 +411,65 @@ export default function DashboardPage() {
 
       {/* Ask AI Modal */}
       <AskAIModal isOpen={showAskAIModal} onClose={() => setShowAskAIModal(false)} />
+
+      <AnimatePresence>
+        {habitDeleteCandidate && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={() => setHabitDeleteCandidate(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.96, y: 16 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.96, y: 16 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-xl border border-gray-700 bg-gray-900 p-5 shadow-2xl"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-red-500/30 bg-red-500/15 text-red-300">
+                  <Trash2 className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <h3 className="text-lg font-semibold text-gray-100">Delete habit</h3>
+                  <p className="mt-1 text-sm text-gray-400">
+                    Choose what to remove for "{habitDeleteCandidate.title}".
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => confirmHabitDelete('instance')}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-sm font-medium text-gray-100 transition-colors hover:bg-gray-700"
+                >
+                  <Calendar className="h-4 w-4" />
+                  This day
+                </button>
+                <button
+                  type="button"
+                  onClick={() => confirmHabitDelete('habit')}
+                  className="flex items-center justify-center gap-2 rounded-lg border border-red-500/40 bg-red-500/15 px-4 py-3 text-sm font-medium text-red-200 transition-colors hover:bg-red-500/25"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Whole habit
+                </button>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setHabitDeleteCandidate(null)}
+                className="mt-3 w-full rounded-lg px-4 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-200"
+              >
+                Cancel
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Main Timeline */}

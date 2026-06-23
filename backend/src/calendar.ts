@@ -498,6 +498,7 @@ export async function syncTimedTasksForDate(userId: string, date: string): Promi
     .eq('user_id', userId)
     .eq('type', 'task')
     .eq('scheduled_date', date)
+    .is('deleted_at', null)
     .not('start_time', 'is', null)
 
   if (error) throw error

@@ -12,7 +12,7 @@ interface TaskCardProps {
   task: Task
   onComplete: (id: string) => void
   onEdit: (task: Task) => void
-  onDelete: (id: string) => void
+  onDelete: (task: Task) => void
   onUncomplete?: (id: string) => void
   isDragging?: boolean
 }
@@ -259,7 +259,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                   </button>
                   <button
                     onClick={() => {
-                      onDelete(task.id)
+                      onDelete(task)
                       setShowMenu(false)
                     }}
                     className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-gray-700 rounded-b-lg"

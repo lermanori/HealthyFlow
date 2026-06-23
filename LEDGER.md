@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-23 20:12 — `main`
+
+Added scoped deletion for recurring habits. The dashboard now asks whether to remove only the selected habit day or the entire recurring habit, and the backend persists per-day skips with a `deleted_at` tombstone so virtual instances do not reappear after refresh. The delete route now handles virtual habit ids, materialized habit instances, whole-series deletes, Google Calendar cleanup, and regular task deletes with focused regression coverage.
+
+---
+
 ### 2026-06-23 19:32 — `main`
 
 Shipped the installable PWA version to Netlify and redeployed the Railway backend. The frontend now has real manifest/icon assets, a focused service worker, Netlify SPA/PWA headers, and a stronger PWA regression test; production was verified with an active service worker and Railway-backed API URL. Railway deployment was repaired by making the backend install/build from `backend/package.json` during image build and start the compiled server directly; the live health endpoint returns 200.

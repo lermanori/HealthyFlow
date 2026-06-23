@@ -124,6 +124,7 @@ export type Item = TaskItem | HabitItem | GroceryItem | MealItem | WorkoutItem
 
 // Backwards-compat alias — all existing `Task` references keep working
 export type Task = Item
+export type DeleteScope = 'instance' | 'habit'
 
 export interface WeeklySummary {
   totalTasks: number
@@ -207,8 +208,10 @@ export const taskService = {
     return response.data
   },
 
-  deleteTask: async (id: string): Promise<void> => {
-    await api.delete(`/tasks/${id}`)
+  deleteTask: async (id: string, deleteScope?: DeleteScope): Promise<void> => {
+    await api.delete(`/tasks/${id}`, {
+      data: deleteScope ? { deleteScope } : undefined,
+    })
   },
 
   // Batch-persist Anytime backlog order; ids ordered front-to-back

@@ -11,6 +11,9 @@ import { deleteGoogleCalendarEvent, syncTaskToGoogleCalendar } from '../calendar
 const router = express.Router()
 
 const ReorderBody = z.object({ ids: z.array(z.string()).nonempty() })
+const DeleteBody = z.object({
+  deleteScope: z.enum(['instance', 'habit']).optional(),
+})
 
 // Shared PUT/materialize response shape (DB row → API task).
 function formatTaskResponse(row: any, opts: { isHabitInstance?: boolean } = {}) {
@@ -60,6 +63,14 @@ async function syncTaskRowToGoogle(row: any) {
     })
     throw error
   }
+}
+
+async function deleteGoogleEventsForRows(userId: string, rows: any[]) {
+  await Promise.all(
+    rows
+      .filter(row => row.google_event_id)
+      .map(row => deleteGoogleCalendarEvent(userId, row.google_event_id))
+  )
 }
 
 // Get tasks
@@ -409,13 +420,53 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
 router.delete('/:id', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
   const taskId = req.params.id
+  const parsedBody = DeleteBody.safeParse(req.body ?? {})
+  if (!parsedBody.success) {
+    return res.status(400).json({ error: 'Invalid delete scope' })
+  }
+  const deleteScope = parsedBody.data.deleteScope ?? 'instance'
 
   try {
-    // Only delete if the task belongs to the user
-    const task = await db.getTaskById(taskId)
+    const parsedVirtual = parseHabitInstanceId(taskId)
+    const lookupId = parsedVirtual ? parsedVirtual.originalHabitId : taskId
+    const task = await db.getTaskById(lookupId)
     if (!task || task.user_id !== userId) {
       return res.status(403).json({ error: 'Forbidden' })
     }
+
+    if (parsedVirtual) {
+      if (task.type !== 'habit') {
+        return res.status(400).json({ error: 'Task is not a recurring habit' })
+      }
+      if (deleteScope === 'habit') {
+        const rows = await db.getHabitSeriesRows(task.id, userId)
+        await deleteGoogleEventsForRows(userId, rows)
+        await db.deleteHabitSeries(task.id, userId)
+      } else {
+        await db.softDeleteHabitInstance(task.id, parsedVirtual.date, userId)
+      }
+      return res.json({ success: true })
+    }
+
+    if (task.type === 'habit') {
+      const parentHabitId = task.original_habit_id || task.id
+      if (deleteScope === 'habit') {
+        const rows = await db.getHabitSeriesRows(parentHabitId, userId)
+        await deleteGoogleEventsForRows(userId, rows)
+        await db.deleteHabitSeries(parentHabitId, userId)
+      } else if (task.original_habit_id) {
+        if (task.google_event_id) {
+          await deleteGoogleCalendarEvent(userId, task.google_event_id)
+        }
+        await db.softDeleteTask(task.id)
+      } else if (task.scheduled_date) {
+        await db.softDeleteHabitInstance(parentHabitId, task.scheduled_date, userId)
+      } else {
+        return res.status(400).json({ error: 'Recurring habit delete requires a habit scope' })
+      }
+      return res.json({ success: true })
+    }
+
     if (task.google_event_id) {
       await deleteGoogleCalendarEvent(userId, task.google_event_id)
     }

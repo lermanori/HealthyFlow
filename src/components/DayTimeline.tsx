@@ -13,7 +13,7 @@ interface DayTimelineProps {
   onUncompleteTask: (id: string) => void
   onCalendarEventComplete: (id: string, completed: boolean) => void
   onEditTask: (task: Task) => void
-  onDeleteTask: (id: string) => void
+  onDeleteTask: (task: Task) => void
 }
 
 // ponytail: mirrors backend/src/utils/hourSlots.ts — 18 slots 6am–11pm

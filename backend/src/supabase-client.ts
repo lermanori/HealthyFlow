@@ -96,7 +96,8 @@ export const db = {
     let query = supabase
       .from('tasks')
       .select('*')
-      .eq('user_id', userId);
+      .eq('user_id', userId)
+      .is('deleted_at', null);
     
     if (date) {
       query = query.eq('scheduled_date', date);
@@ -118,6 +119,7 @@ export const db = {
       .from('tasks')
       .select('*')
       .eq('id', taskId)
+      .is('deleted_at', null)
       .single();
     
     if (error) throw error;
@@ -159,6 +161,41 @@ export const db = {
     if (error) throw error;
   },
 
+  async softDeleteTask(taskId: string) {
+    const { error } = await supabase
+      .from('tasks')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', taskId);
+
+    if (error) throw error;
+  },
+
+  async deleteHabitSeries(parentHabitId: string, userId: string) {
+    const { error } = await supabase
+      .from('tasks')
+      .delete()
+      .eq('user_id', userId)
+      .or(`id.eq.${parentHabitId},original_habit_id.eq.${parentHabitId}`);
+
+    if (error) throw error;
+  },
+
+  async getHabitSeriesRows(parentHabitId: string, userId: string) {
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('id, google_event_id')
+      .eq('user_id', userId)
+      .or(`id.eq.${parentHabitId},original_habit_id.eq.${parentHabitId}`);
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async softDeleteHabitInstance(parentHabitId: string, date: string, userId: string) {
+    const instance = await this.createHabitInstance(parentHabitId, date, userId);
+    await this.softDeleteTask(instance.id);
+  },
+
   async deleteTasksByUserId(userId: string, date?: string) {
     let query = supabase
       .from('tasks')
@@ -178,6 +215,7 @@ export const db = {
       .from('tasks')
       .update({ overdue_notified: true })
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .in('id', taskIds);
     
     if (error) throw error;
@@ -190,6 +228,7 @@ export const db = {
       .eq('user_id', userId)
       .eq('scheduled_date', scheduledDate)
       .is('start_time', null)
+      .is('deleted_at', null)
       .not('position', 'is', null)
       .order('position', { ascending: false })
       .limit(1)
@@ -205,6 +244,7 @@ export const db = {
       .from('tasks')
       .select('category, completed, type')
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
     
     if (error) throw error;
@@ -216,6 +256,7 @@ export const db = {
       .from('tasks')
       .select('category, completed')
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
     
     if (error) throw error;
@@ -228,6 +269,7 @@ export const db = {
       .from('tasks')
       .select('completed')
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .gte('created_at', today);
     
     if (error) throw error;
@@ -239,6 +281,7 @@ export const db = {
       .from('tasks')
       .select('created_at, category, type, completed')
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .gte('created_at', new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString());
     
     if (error) throw error;
@@ -251,6 +294,7 @@ export const db = {
       .select('title, category, completed, completed_at')
       .eq('user_id', userId)
       .eq('type', 'habit')
+      .is('deleted_at', null)
       .gte('created_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
     
     if (error) throw error;
@@ -263,6 +307,7 @@ export const db = {
       .select('category, duration')
       .eq('user_id', userId)
       .eq('completed', true)
+      .is('deleted_at', null)
       .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
     
     if (error) throw error;
@@ -320,6 +365,7 @@ export const db = {
         .select('*')
         .eq('user_id', userId)
         .eq('scheduled_date', date)
+        .is('deleted_at', null)
         .is('rolled_over_from_task_id', null) // Exclude rolled-over tasks
         .order('start_time', { ascending: true })
         .order('created_at', { ascending: true })
@@ -337,6 +383,7 @@ export const db = {
         .eq('type', 'habit')
         .eq('repeat_type', 'daily')
         .is('original_habit_id', null)
+        .is('deleted_at', null)
         .order('created_at', { ascending: true })
 
       if (habitsError) throw habitsError
@@ -347,6 +394,7 @@ export const db = {
         .select('*')
         .eq('user_id', userId)
         .eq('scheduled_date', date)
+        .is('deleted_at', null)
         .not('original_habit_id', 'is', null)
 
       if (instancesError) throw instancesError
@@ -471,6 +519,7 @@ export const db = {
         .from('tasks')
         .select('*')
         .eq('id', originalHabitId)
+        .is('deleted_at', null)
         .single()
 
       if (fetchError) throw fetchError

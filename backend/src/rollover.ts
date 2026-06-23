@@ -16,6 +16,7 @@ export const Rollover = {
       .is('rolled_over_from_task_id', null)
       .eq('type', 'task')
       .eq('completed', false)
+      .is('deleted_at', null)
       .or(`scheduled_date.is.null,scheduled_date.lt.${date}`)
       .order('created_at', { ascending: true })
     if (incompleteError) throw incompleteError
@@ -30,6 +31,7 @@ export const Rollover = {
       .is('rolled_over_from_task_id', null)
       .eq('type', 'task')
       .eq('completed', true)
+      .is('deleted_at', null)
       .or(`scheduled_date.is.null,scheduled_date.lt.${date}`)
       .filter('completed_at', 'gte', `${date}T00:00:00.000Z`)
       .filter('completed_at', 'lt', `${date}T23:59:59.999Z`)
