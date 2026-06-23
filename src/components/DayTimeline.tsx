@@ -1,14 +1,17 @@
 import { useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
-import { Task } from '../services/api'
+import { CalendarDays, Check, Clock, MapPin } from 'lucide-react'
+import { ExternalCalendarEvent, Task } from '../services/api'
 import TaskCard from './TaskCard'
 import { taskService } from '../services/api'
 
 interface DayTimelineProps {
   tasks: Task[]
+  calendarEvents?: ExternalCalendarEvent[]
   onTasksReorder: (tasks: Task[]) => void
   onCompleteTask: (id: string) => void
   onUncompleteTask: (id: string) => void
+  onCalendarEventComplete: (id: string, completed: boolean) => void
   onEditTask: (task: Task) => void
   onDeleteTask: (id: string) => void
 }
@@ -22,11 +25,101 @@ function formatHour(slot: string): string {
   return h < 12 ? `${h} AM` : `${h - 12} PM`
 }
 
+function eventHour(event: ExternalCalendarEvent): number | null {
+  if (event.allDay) return null
+  if (event.localStartTime) return parseInt(event.localStartTime, 10)
+  if (!event.startAt) return null
+  return new Date(event.startAt).getHours()
+}
+
+function eventTimeRange(event: ExternalCalendarEvent): string {
+  if (event.allDay) return 'All day'
+  if (event.localStartTime) {
+    return event.localEndTime ? `${event.localStartTime} - ${event.localEndTime}` : event.localStartTime
+  }
+
+  if (!event.startAt) return 'Time not set'
+  const formatter = new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+  const start = formatter.format(new Date(event.startAt))
+  const end = event.endAt ? formatter.format(new Date(event.endAt)) : null
+  return end ? `${start} - ${end}` : start
+}
+
+function CalendarEventBlock({
+  event,
+  onComplete,
+}: {
+  event: ExternalCalendarEvent
+  onComplete: (id: string, completed: boolean) => void
+}) {
+  return (
+    <div
+      className={`group relative rounded-xl border p-4 transition-all duration-300 ${
+        event.completed
+          ? 'bg-gray-800/50 border-gray-600/50 opacity-75'
+          : 'card glass-effect hover:shadow-lg'
+      }`}
+    >
+      <div className="flex items-start space-x-3">
+        <button
+          type="button"
+          onClick={() => onComplete(event.id, !event.completed)}
+          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+            event.completed
+              ? 'bg-gradient-to-r from-green-500 to-emerald-600 border-green-500 text-white'
+              : 'border-gray-600 hover:border-cyan-400 hover:bg-cyan-400/10'
+          }`}
+          aria-label={event.completed ? 'Uncheck calendar event' : 'Check calendar event'}
+        >
+          {event.completed && <Check className="h-3 w-3" />}
+        </button>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center space-x-2">
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/20 text-emerald-300">
+                <CalendarDays className="h-4 w-4" />
+              </div>
+              <h3 className={`truncate font-medium ${
+                event.completed ? 'line-through text-gray-500' : 'text-gray-100'
+              }`}>
+                {event.title}
+              </h3>
+            </div>
+
+            <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300">
+              Calendar
+            </span>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
+            <span className="inline-flex items-center gap-1 text-gray-400">
+              <Clock className="h-3 w-3" />
+              {eventTimeRange(event)}
+            </span>
+            {event.location && (
+              <span className="inline-flex min-w-0 items-center gap-1 text-gray-400">
+                <MapPin className="h-3 w-3 shrink-0" />
+                <span className="truncate">{event.location}</span>
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function DayTimeline({
   tasks,
+  calendarEvents = [],
   onTasksReorder,
   onCompleteTask,
   onUncompleteTask,
+  onCalendarEventComplete,
   onEditTask,
   onDeleteTask,
 }: DayTimelineProps) {
@@ -49,6 +142,16 @@ export default function DayTimeline({
   }
   for (const slot of HOUR_SLOTS) {
     slotBuckets[slot].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  }
+
+  const calendarBuckets: Record<string, ExternalCalendarEvent[]> = {}
+  for (const slot of HOUR_SLOTS) calendarBuckets[slot] = []
+  const allDayEvents = calendarEvents.filter(event => event.allDay || !event.startAt)
+  for (const event of calendarEvents) {
+    const hour = eventHour(event)
+    if (hour === null) continue
+    const clampedHour = Math.min(23, Math.max(6, hour))
+    calendarBuckets[`${String(clampedHour).padStart(2, '0')}:00`].push(event)
   }
 
   const handleDragStart = (start: any) => {
@@ -110,7 +213,8 @@ export default function DayTimeline({
           <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">Scheduled</h3>
           {HOUR_SLOTS.map(slot => {
             const slotTasks = slotBuckets[slot]
-            const hasContent = slotTasks.length > 0
+            const slotCalendarEvents = calendarBuckets[slot]
+            const hasContent = slotTasks.length > 0 || slotCalendarEvents.length > 0
 
             return (
               <Droppable droppableId={slot} key={slot}>
@@ -133,6 +237,13 @@ export default function DayTimeline({
 
                     {/* Tasks in this slot */}
                     <div className="flex-1 space-y-1">
+                      {slotCalendarEvents.map(event => (
+                        <CalendarEventBlock
+                          key={event.id}
+                          event={event}
+                          onComplete={onCalendarEventComplete}
+                        />
+                      ))}
                       {slotTasks.map((task, index) => (
                         <Draggable key={task.id} draggableId={task.id} index={index}>
                           {(provided, snapshot) => (
@@ -164,6 +275,21 @@ export default function DayTimeline({
             )
           })}
         </div>
+
+        {allDayEvents.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Calendar</h3>
+            <div className="space-y-2 rounded-lg bg-gray-800/20 p-4">
+              {allDayEvents.map(event => (
+                <CalendarEventBlock
+                  key={event.id}
+                  event={event}
+                  onComplete={onCalendarEventComplete}
+                />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Anytime section — single droppable for untimed backlog */}
         <div className="space-y-2">
@@ -212,7 +338,7 @@ export default function DayTimeline({
       </DragDropContext>
 
       {/* Empty state when both sections are empty */}
-      {tasks.length === 0 && (
+      {tasks.length === 0 && calendarEvents.length === 0 && (
         <div className="text-center py-12 text-gray-400">
           <p className="text-gray-300">No tasks scheduled for today.</p>
           <p className="text-sm mt-1 text-gray-400">Add some tasks to get started!</p>

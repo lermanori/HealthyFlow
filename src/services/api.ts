@@ -55,6 +55,9 @@ interface ItemBase {
   projectId?: string
   project?: Project
   position?: number | null
+  googleEventId?: string | null
+  syncedToGoogle?: boolean
+  googleSyncStatus?: 'pending' | 'synced' | 'skipped' | 'failed'
 }
 
 export interface TaskItem extends ItemBase {
@@ -303,6 +306,64 @@ export const projectService = {
     const response = await api.patch(`/projects/${id}/archive`)
     return response.data
   }
+}
+
+export interface CalendarConnectionStatus {
+  provider: 'google'
+  connected: boolean
+  accountEmail: string | null
+  connectedAt: string | null
+  scopes: string[]
+}
+
+export interface ExternalCalendarEvent {
+  id: string
+  provider: 'google'
+  calendarId: string
+  externalEventId: string
+  title: string
+  description: string | null
+  location: string | null
+  startAt: string | null
+  endAt: string | null
+  localStartTime: string | null
+  localEndTime: string | null
+  allDay: boolean
+  status: string | null
+  htmlLink: string | null
+  completed: boolean
+  completedAt: string | null
+}
+
+export const calendarService = {
+  getGoogleStatus: async (): Promise<CalendarConnectionStatus> => {
+    const response = await api.get('/calendar/google/status')
+    return response.data
+  },
+
+  getGoogleConnectUrl: async (): Promise<string> => {
+    const response = await api.get('/calendar/google/connect-url')
+    return response.data.url
+  },
+
+  disconnectGoogle: async (): Promise<void> => {
+    await api.delete('/calendar/google/disconnect')
+  },
+
+  getGoogleEvents: async (date: string): Promise<ExternalCalendarEvent[]> => {
+    const response = await api.get('/calendar/google/events', { params: { date } })
+    return response.data
+  },
+
+  updateGoogleEventCompletion: async (id: string, completed: boolean): Promise<ExternalCalendarEvent> => {
+    const response = await api.patch(`/calendar/google/events/${id}/completion`, { completed })
+    return response.data
+  },
+
+  syncTimedTasks: async (date: string): Promise<{ synced: number }> => {
+    const response = await api.post('/calendar/google/sync-timed-tasks', { date })
+    return response.data
+  },
 }
 
 export default api

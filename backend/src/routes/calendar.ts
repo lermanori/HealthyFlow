@@ -1,0 +1,113 @@
+import express from 'express'
+import { z } from 'zod'
+import { authenticateToken, AuthRequest } from '../middleware/auth'
+import {
+  completeGoogleCalendarOAuth,
+  disconnectGoogleCalendar,
+  getCalendarOAuthReturnUrl,
+  getGoogleCalendarConnectUrl,
+  getGoogleCalendarStatus,
+  syncTimedTasksForDate,
+  syncGoogleCalendarEventsForDate,
+  updateExternalCalendarEventCompletion,
+} from '../calendar'
+
+const router = express.Router()
+
+router.get('/google/connect-url', authenticateToken, (req: AuthRequest, res) => {
+  try {
+    res.json({ url: getGoogleCalendarConnectUrl(req.user.userId) })
+  } catch (error) {
+    console.error('Google Calendar connect URL error:', error)
+    res.status(500).json({ error: 'Failed to start Google Calendar connection' })
+  }
+})
+
+router.get('/google/callback', async (req, res) => {
+  const code = typeof req.query.code === 'string' ? req.query.code : null
+  const state = typeof req.query.state === 'string' ? req.query.state : null
+  const oauthError = typeof req.query.error === 'string' ? req.query.error : null
+
+  if (oauthError) {
+    return res.redirect(getCalendarOAuthReturnUrl('error', oauthError))
+  }
+
+  if (!code || !state) {
+    return res.redirect(getCalendarOAuthReturnUrl('error', 'Missing Google OAuth callback data'))
+  }
+
+  try {
+    await completeGoogleCalendarOAuth(code, state)
+    return res.redirect(getCalendarOAuthReturnUrl('connected'))
+  } catch (error) {
+    console.error('Google Calendar OAuth callback error:', error)
+    return res.redirect(getCalendarOAuthReturnUrl('error', 'Google Calendar connection failed'))
+  }
+})
+
+router.get('/google/status', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    res.json(await getGoogleCalendarStatus(req.user.userId))
+  } catch (error) {
+    console.error('Google Calendar status error:', error)
+    res.status(500).json({ error: 'Failed to load Google Calendar status' })
+  }
+})
+
+router.get('/google/events', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse(req.query)
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'date must be YYYY-MM-DD' })
+  }
+
+  try {
+    res.json(await syncGoogleCalendarEventsForDate(req.user.userId, parsed.data.date))
+  } catch (error) {
+    console.error('Google Calendar events error:', error)
+    res.status(500).json({ error: 'Failed to load Google Calendar events' })
+  }
+})
+
+router.patch('/google/events/:id/completion', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = z.object({ completed: z.boolean() }).safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'completed must be a boolean' })
+  }
+
+  try {
+    res.json(await updateExternalCalendarEventCompletion(
+      req.user.userId,
+      req.params.id,
+      parsed.data.completed
+    ))
+  } catch (error) {
+    console.error('Google Calendar event completion error:', error)
+    res.status(500).json({ error: 'Failed to update calendar event completion' })
+  }
+})
+
+router.post('/google/sync-timed-tasks', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'date must be YYYY-MM-DD' })
+  }
+
+  try {
+    res.json(await syncTimedTasksForDate(req.user.userId, parsed.data.date))
+  } catch (error) {
+    console.error('Google Calendar timed task sync error:', error)
+    res.status(500).json({ error: 'Failed to sync timed tasks to Google Calendar' })
+  }
+})
+
+router.delete('/google/disconnect', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    await disconnectGoogleCalendar(req.user.userId)
+    res.status(204).send()
+  } catch (error) {
+    console.error('Google Calendar disconnect error:', error)
+    res.status(500).json({ error: 'Failed to disconnect Google Calendar' })
+  }
+})
+
+export { router as calendarRoutes }

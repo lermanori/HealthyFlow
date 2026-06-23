@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-23 18:43 — `codex/calendar-sync`
+
+Merged `main` into the Google Calendar sync branch to resolve PR #42 conflicts. Combined the regular-task update path so it both applies the ADR-0002 someday→today normalization (from main) and syncs the row to Google Calendar (from this branch); dropped the dead `/rollover` route per main's intentional removal. The calendar sync foundation remains: OAuth connection management, imported Google events in the day timeline, outbound timed-task syncing, visible sync badges, and matching wall-clock rendering for synced/imported events.
+
+---
+
 ### 2026-06-23 18:43 — `issue-37-docs-flake-ci`
 
 Extended `tests/e2e/README.md` with comprehensive documentation: what the 12-test suite covers (6 specs listed in a table), what it intentionally does NOT (AI correctness, performance, visual regression, parallelism), how to run headed/headless with and without the OpenAI key, how `/test/reset` works including the `page.request.post()` gotcha (SPA catch-all blocks `page.goto()` to the endpoint), how AI stubbing works + the pattern for adding new fixtures, how to view Playwright traces on failure, and the flake-quarantine policy (two flakes within a calendar week → `test.fixme()` + new tracking issue, no `test.retry(N>1)`, run-level retries stay 1 on CI / 0 locally). Added a CI-shape check section documenting the measured ~47s wall-clock (under 90s target), exit codes, and that GitHub Actions wiring is a follow-up. Updated root `README.md` with a one-line regression gate: "if `npm run test:e2e` is green, the golden paths still work" linking to the e2e README. No spec logic changed; all 12 tests still pass in serial mode; backend Jest 81/81 green; build clean.

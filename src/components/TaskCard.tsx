@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { 
   Clock, Check, MoreVertical, Edit, Trash2, Zap, RotateCcw, Calendar,
   ShoppingCart, Utensils, Dumbbell, CheckSquare, Circle, Flame,
-  DollarSign, Target, Folder
+  DollarSign, Target, Folder, RefreshCw, AlertTriangle
 } from 'lucide-react'
 import { Task } from '../services/api'
 import { format, parseISO } from 'date-fns'
@@ -153,6 +153,39 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
     }
   }
 
+  const renderGoogleSyncBadge = () => {
+    if (!task.startTime || task.type !== 'task') return null
+
+    if (task.syncedToGoogle && task.googleSyncStatus === 'synced') {
+      return (
+        <span className="flex items-center space-x-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300">
+          <Calendar className="w-3 h-3" />
+          <span>Synced</span>
+        </span>
+      )
+    }
+
+    if (task.googleSyncStatus === 'failed') {
+      return (
+        <span className="flex items-center space-x-1 rounded-full border border-red-500/30 bg-red-500/15 px-2 py-1 text-xs text-red-300">
+          <AlertTriangle className="w-3 h-3" />
+          <span>Sync failed</span>
+        </span>
+      )
+    }
+
+    if (task.googleSyncStatus === 'pending') {
+      return (
+        <span className="flex items-center space-x-1 rounded-full border border-cyan-500/30 bg-cyan-500/15 px-2 py-1 text-xs text-cyan-300">
+          <RefreshCw className="w-3 h-3" />
+          <span>Syncing</span>
+        </span>
+      )
+    }
+
+    return null
+  }
+
   // Check if this is a rolled over task
   const isRolledOver = task.createdAt && task.completedAt &&
     (new Date(task.completedAt).getTime() - new Date(task.createdAt).getTime() >= 24 * 60 * 60 * 1000);
@@ -278,6 +311,8 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                 <span>Daily</span>
               </span>
             )}
+
+            {renderGoogleSyncBadge()}
           </div>
 
           {/* Item-specific details */}
