@@ -12,7 +12,19 @@ export default defineConfig({
     screenshot: 'on-first-retry',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'setup',
+      testMatch: /auth\.setup\.ts/,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'chromium',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/e2e/.auth/user.json',
+      },
+      dependencies: ['setup'],
+    },
   ],
   webServer: [
     {

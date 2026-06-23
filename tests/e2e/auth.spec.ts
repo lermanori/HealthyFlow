@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test'
 import { TEST_EMAIL, TEST_PASSWORD } from './globalSetup'
 
+// ponytail: clear storageState so this test starts unauthenticated
+test.use({ storageState: { cookies: [], origins: [] } })
+
 test('login with seeded credentials lands on Dashboard', async ({ page }) => {
   // unauthenticated root renders the Login page
   await page.goto('/')
