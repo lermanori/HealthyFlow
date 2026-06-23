@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-23 — `issue-30-add-task`
+
+Attempted implementation of issue #30 (add-task E2E golden path). Created `tests/e2e/items-add.spec.ts` with tests for adding a task via UI and validating the category dropdown's closed set {health, work, personal, fitness, grocery, nutrition}. **Blocked on a localStorage persistence issue**: the auth token set during login doesn't persist across `page.goto()` navigation in Playwright, so protected routes like `/add` redirect back to login even though the login itself succeeds (auth.spec.ts passes). This is a known Playwright pattern requiring a proper `storageState` setup project (see #31). Updated `tests/e2e/README.md` to document the blocker and the fix approach. Backend build + Jest suite both pass (81 green).
+
+---
+
 ### 2026-06-23 14:30 — `issue-29-e2e-spine`
 
 Laid the Playwright E2E spine (issue #29). Added `@playwright/test` as a devDependency, `playwright.config.ts` with two webServer entries (Vite + Express in HF_TEST_MODE), and `tests/e2e/` containing globalSetup (idempotent Supabase test-user seed + task reset), `auth.spec.ts` (one login→Dashboard golden-path test), and a README. Backend gained `db.resetTestUser` in `supabase-client.ts` and a `POST /test/reset` route in `index.ts` that mounts only when `HF_TEST_MODE=1`. TDD'd the 404 guard (red→green before wiring the route). Full backend suite 81 green; `npm run test:e2e` passes in ~3s locally.
