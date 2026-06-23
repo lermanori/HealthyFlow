@@ -7,6 +7,7 @@ import { authenticateToken, AuthRequest } from '../middleware/auth'
 import { positionsFromIds } from '../utils/positionsFromIds'
 import { parseHabitInstanceId } from '../utils/parseHabitInstanceId'
 import { isPureDragUpdate } from '../utils/isPureDragUpdate'
+import { deleteGoogleCalendarEvent, syncTaskToGoogleCalendar } from '../calendar'
 
 const router = express.Router()
 
@@ -30,6 +31,35 @@ function formatTaskResponse(row: any, opts: { isHabitInstance?: boolean } = {}) 
     rolledOverFromTaskId: row.rolled_over_from_task_id,
     originalCreatedAt: row.original_created_at,
     position: row.position ?? null,
+    googleEventId: row.google_event_id ?? null,
+    syncedToGoogle: Boolean(row.synced_to_google),
+    googleSyncStatus: row.google_sync_status ?? 'pending',
+  }
+}
+
+async function syncTaskRowToGoogle(row: any) {
+  try {
+    const result = await syncTaskToGoogleCalendar(row)
+    return db.updateTask(row.id, {
+      google_event_id: result.googleEventId,
+      synced_to_google: result.synced,
+      google_sync_status: result.status,
+    })
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Google Calendar is not connected') {
+      return db.updateTask(row.id, {
+        google_event_id: null,
+        synced_to_google: false,
+        google_sync_status: 'skipped',
+      })
+    }
+
+    console.error('Backend - Google Calendar task sync failed:', error)
+    await db.updateTask(row.id, {
+      synced_to_google: false,
+      google_sync_status: 'failed',
+    })
+    throw error
   }
 }
 
@@ -83,6 +113,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
         originalCreatedAt: task.original_created_at,
         completedAt: task.completed_at,
         position: task.position ?? null,
+        googleEventId: task.google_event_id ?? null,
+        syncedToGoogle: Boolean(task.synced_to_google),
+        googleSyncStatus: task.google_sync_status ?? 'pending',
       }
     })
 
@@ -122,7 +155,10 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       position,
     }
 
-    const task = await db.createTask(taskData)
+    let task = await db.createTask(taskData)
+    if (task.type === 'task' && task.scheduled_date && task.start_time) {
+      task = await syncTaskRowToGoogle(task)
+    }
 
     res.json({
       id: task.id,
@@ -138,6 +174,9 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       rolledOverFromTaskId: task.rolled_over_from_task_id,
       originalCreatedAt: task.original_created_at,
       position: task.position ?? null,
+      googleEventId: task.google_event_id ?? null,
+      syncedToGoogle: Boolean(task.synced_to_google),
+      googleSyncStatus: task.google_sync_status ?? 'pending',
     })
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
@@ -265,7 +304,10 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
     }
 
     // Regular (non-habit) task update path
-    const updatedTask = await db.updateTask(taskId, updateData)
+    let updatedTask = await db.updateTask(taskId, updateData)
+    if (updatedTask.type === 'task') {
+      updatedTask = await syncTaskRowToGoogle(updatedTask)
+    }
     return res.json(formatTaskResponse(updatedTask, { isHabitInstance: false }))
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
@@ -388,6 +430,9 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res) => {
     if (!task || task.user_id !== userId) {
       return res.status(403).json({ error: 'Forbidden' })
     }
+    if (task.google_event_id) {
+      await deleteGoogleCalendarEvent(userId, task.google_event_id)
+    }
     await db.deleteTask(taskId)
     res.json({ success: true })
   } catch (error) {
@@ -401,6 +446,12 @@ router.delete('/', authenticateToken, async (req: AuthRequest, res) => {
   const { date } = req.query
 
   try {
+    const tasks = await db.getTasksByUserId(userId, date as string | undefined)
+    await Promise.all(
+      tasks
+        .filter((task: any) => task.google_event_id)
+        .map((task: any) => deleteGoogleCalendarEvent(userId, task.google_event_id))
+    )
     await db.deleteTasksByUserId(userId, date as string)
     res.json({ success: true })
   } catch (error) {

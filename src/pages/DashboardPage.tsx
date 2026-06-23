@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays } from 'date-fns'
 import { Plus, Calendar, ChevronLeft, ChevronRight, Brain, Sparkles } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
-import api, { taskService, Task } from '../services/api'
+import api, { calendarService, taskService, ExternalCalendarEvent, Task } from '../services/api'
 import DayTimeline from '../components/DayTimeline'
 import HabitTrackerBar from '../components/HabitTrackerBar'
 import AIRecommendationsBox from '../components/AIRecommendationsBox'
@@ -56,6 +56,36 @@ export default function DashboardPage() {
     queryKey: ['tasks', format(selectedDate, 'yyyy-MM-dd')],
     queryFn: () => taskService.getTasks(format(selectedDate, 'yyyy-MM-dd')),
   })
+
+  const { data: calendarEvents = [] } = useQuery({
+    queryKey: ['google-calendar-events', format(selectedDate, 'yyyy-MM-dd')],
+    queryFn: () => calendarService.getGoogleEvents(format(selectedDate, 'yyyy-MM-dd')),
+    retry: false,
+  })
+
+  useEffect(() => {
+    const syncTimedTasks = async () => {
+      if (isLoading || tasksData.length === 0) return
+      const date = format(selectedDate, 'yyyy-MM-dd')
+      const hasTimedTasks = tasksData.some((task: Task) =>
+        task.type === 'task' &&
+        task.scheduledDate === date &&
+        task.startTime &&
+        (!task.syncedToGoogle || task.googleSyncStatus === 'failed')
+      )
+      if (!hasTimedTasks) return
+
+      try {
+        await calendarService.syncTimedTasks(date)
+        queryClient.invalidateQueries({ queryKey: ['google-calendar-events', date] })
+        queryClient.invalidateQueries({ queryKey: ['tasks', date] })
+      } catch (error) {
+        console.error('Dashboard - Error syncing timed tasks to Google Calendar:', error)
+      }
+    }
+
+    syncTimedTasks()
+  }, [isLoading, tasksData, selectedDate, queryClient])
   
   const completeTaskMutation = useMutation({
     mutationFn: taskService.completeTask,
@@ -99,6 +129,22 @@ export default function DashboardPage() {
     },
   })
 
+  const updateCalendarEventCompletionMutation = useMutation({
+    mutationFn: ({ id, completed }: { id: string; completed: boolean }) =>
+      calendarService.updateGoogleEventCompletion(id, completed),
+    onSuccess: (updatedEvent) => {
+      const date = format(selectedDate, 'yyyy-MM-dd')
+      queryClient.setQueryData(
+        ['google-calendar-events', date],
+        (events: ExternalCalendarEvent[] = []) =>
+          events.map(event => event.id === updatedEvent.id ? updatedEvent : event)
+      )
+    },
+    onError: () => {
+      toast.error('Failed to update calendar event')
+    },
+  })
+
   // ponytail: reorder mutation is now a no-op; DayTimeline calls taskService.reorderTasks directly
   // and passes back the reordered array for the optimistic cache update below.
 
@@ -121,6 +167,10 @@ export default function DashboardPage() {
 
   const handleUncompleteTask = (id: string) => {
     uncompleteTaskMutation.mutate(id)
+  }
+
+  const handleCalendarEventComplete = (id: string, completed: boolean) => {
+    updateCalendarEventCompletionMutation.mutate({ id, completed })
   }
 
   // Optimistic local update only — persistence happens inside DayTimeline via reorderTasks
@@ -382,9 +432,11 @@ export default function DashboardPage() {
         >
           <DayTimeline
             tasks={tasksData}
+            calendarEvents={calendarEvents}
             onTasksReorder={handleTasksReorder}
             onCompleteTask={handleCompleteTask}
             onUncompleteTask={handleUncompleteTask}
+            onCalendarEventComplete={handleCalendarEventComplete}
             onEditTask={handleEditTask}
             onDeleteTask={handleDeleteTask}
           />

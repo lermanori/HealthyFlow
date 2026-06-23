@@ -1,13 +1,16 @@
-import { useState } from 'react'
-import { Settings, Bell, FolderSync as Sync, User, Shield, Smartphone } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { CalendarDays, CheckCircle2, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Unplug } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
 import toast from 'react-hot-toast'
-import api from '../services/api'
+import api, { calendarService, CalendarConnectionStatus } from '../services/api'
 
 export default function SettingsPage() {
   const { user } = useAuth()
   const { permission, requestPermission } = useNotifications()
+  const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
+  const [calendarLoading, setCalendarLoading] = useState(true)
+  const [calendarActionLoading, setCalendarActionLoading] = useState(false)
   const [settings, setSettings] = useState({
     notifications: true,
     dailyReminders: true,
@@ -17,6 +20,65 @@ export default function SettingsPage() {
     smartReminders: true,
     completionSounds: true,
   })
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const calendarResult = params.get('calendar')
+    const message = params.get('message')
+
+    if (calendarResult === 'connected') {
+      toast.success('Google Calendar connected')
+    }
+
+    if (calendarResult === 'error') {
+      toast.error(message || 'Google Calendar connection failed')
+    }
+
+    if (calendarResult) {
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadCalendarStatus()
+  }, [])
+
+  const loadCalendarStatus = async () => {
+    try {
+      setCalendarLoading(true)
+      const status = await calendarService.getGoogleStatus()
+      setCalendarStatus(status)
+      setSettings(prev => ({ ...prev, calendarSync: status.connected }))
+    } catch (e) {
+      toast.error('Failed to load calendar status')
+    } finally {
+      setCalendarLoading(false)
+    }
+  }
+
+  const handleConnectGoogleCalendar = async () => {
+    try {
+      setCalendarActionLoading(true)
+      const url = await calendarService.getGoogleConnectUrl()
+      window.location.href = url
+    } catch (e) {
+      toast.error('Failed to start Google Calendar connection')
+      setCalendarActionLoading(false)
+    }
+  }
+
+  const handleDisconnectGoogleCalendar = async () => {
+    try {
+      setCalendarActionLoading(true)
+      await calendarService.disconnectGoogle()
+      toast.success('Google Calendar disconnected')
+      await loadCalendarStatus()
+    } catch (e) {
+      toast.error('Failed to disconnect Google Calendar')
+    } finally {
+      setCalendarActionLoading(false)
+    }
+  }
 
   const handleSettingChange = (key: string, value: boolean) => {
     setSettings(prev => ({ ...prev, [key]: value }))
@@ -83,6 +145,20 @@ export default function SettingsPage() {
           }`}
         />
       </button>
+    </div>
+  )
+
+  const CalendarSyncLed = ({ connected }: { connected: boolean }) => (
+    <div className="relative h-16 w-16 shrink-0 rounded-full bg-gradient-to-br from-gray-950 via-gray-800 to-gray-950 p-2 shadow-inner shadow-black/80 border border-gray-700">
+      <div className={`absolute inset-1 rounded-full blur-md transition-opacity duration-500 ${connected ? 'bg-emerald-400/50 opacity-100' : 'bg-gray-700/20 opacity-40'}`} />
+      <div className={`relative h-full w-full rounded-full border transition-all duration-500 ${
+        connected
+          ? 'border-emerald-200 bg-gradient-to-br from-emerald-200 via-emerald-500 to-green-800 shadow-[0_0_24px_rgba(52,211,153,0.75),inset_0_0_12px_rgba(255,255,255,0.45)]'
+          : 'border-gray-600 bg-gradient-to-br from-gray-500 via-gray-700 to-gray-950 shadow-[inset_0_0_12px_rgba(0,0,0,0.75)]'
+      }`}>
+        <div className="absolute left-3 top-2 h-4 w-6 rounded-full bg-white/30 blur-sm" />
+        {connected && <div className="absolute inset-0 rounded-full animate-pulse bg-emerald-300/15" />}
+      </div>
     </div>
   )
 
@@ -217,13 +293,51 @@ export default function SettingsPage() {
             onChange={(checked) => handleSettingChange('completionSounds', checked)}
           />
           
-          <SettingToggle
-            label="Calendar Sync"
-            description="Sync with Google Calendar (coming soon)"
-            checked={settings.calendarSync}
-            onChange={(checked) => handleSettingChange('calendarSync', checked)}
-            disabled={true}
-          />
+          <div className="py-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <CalendarSyncLed connected={Boolean(calendarStatus?.connected)} />
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-medium text-gray-200">Calendar Sync</h3>
+                    {calendarStatus?.connected && <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
+                  </div>
+                  <p className="text-sm text-gray-400">
+                    {calendarStatus?.connected
+                      ? `Connected to ${calendarStatus.accountEmail || 'Google Calendar'}`
+                      : 'Connect Google Calendar to start syncing timed tasks'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 sm:justify-end">
+                {calendarLoading ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Checking
+                  </div>
+                ) : calendarStatus?.connected ? (
+                  <button
+                    onClick={handleDisconnectGoogleCalendar}
+                    disabled={calendarActionLoading}
+                    className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 px-3 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {calendarActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unplug className="h-4 w-4" />}
+                    Disconnect
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleConnectGoogleCalendar}
+                    disabled={calendarActionLoading}
+                    className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
+                  >
+                    {calendarActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
+                    Connect Google
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 

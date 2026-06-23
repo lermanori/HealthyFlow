@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-23 18:35 — `codex/calendar-sync`
+
+Added the Google Calendar sync foundation: OAuth connection management, imported Google events in the day timeline, outbound timed-task syncing, and visible sync badges for HealthyFlow tasks. The dashboard now treats imported calendar events like lightweight tasks with a Calendar mark and a persisted local completion state, while HealthyFlow-created timed tasks create or update matching Google Calendar events. Also corrected the local time rendering path so Google and HealthyFlow show the same wall-clock time for synced and imported events.
+
+---
+
 ### 2026-06-22 — `fix/habit-drag-edit-scheduling`
 
 Fixed a cluster of habit drag/edit scheduling bugs and added per-day vs whole-habit edit scope. Swapped the abandoned `react-beautiful-dnd` for the maintained `@hello-pangea/dnd` so drops actually register under React 18 StrictMode. Stopped habit drags/edits from leaking a per-day time into the parent (and thus all future virtual instances): drags on a recurring-habit parent now materialize a dated instance, and the edit modal offers "This day only" (per-day override) vs "The whole habit" (parent, today-forward; past real history stays frozen). Made `createHabitInstance` idempotent (one row per habit/day) with explicit `completed` semantics, fixing completed habits flipping incomplete on drag and teleporting to untimed on complete. Backend suite now 69 green (added `isPureDragUpdate` + override-shape specs).
