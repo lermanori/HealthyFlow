@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test'
 
 test('Habit golden path: completing today does NOT bleed into tomorrow', async ({ page }) => {
-  // Reset test user's tasks
-  await page.goto('/test/reset', { waitUntil: 'networkidle' })
+  // Reset test user state via backend (React Router catch-all blocks GET /test/reset)
+  const reset = await page.request.post('http://localhost:3001/test/reset')
+  expect(reset.ok()).toBeTruthy()
 
   // Add a daily habit via the UI
   await page.goto('/add')

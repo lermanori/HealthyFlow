@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueries } from '@tanstack/react-query'
 import { format, isSameDay } from 'date-fns'
 import { Calendar, TrendingUp, Brain, Sparkles, BarChart3, Target } from 'lucide-react'
-import { taskService, summaryService } from '../services/api'
+import { taskService, summaryService, Task } from '../services/api'
 import HabitTrackerBar from '../components/HabitTrackerBar'
 import WeeklyProgressChart from '../components/WeeklyProgressChart'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -17,29 +17,32 @@ export default function WeekViewPage() {
     queryFn: summaryService.getWeeklySummary,
   })
 
-  const { data: todayTasks = [], isLoading: tasksLoading } = useQuery({
-    queryKey: ['tasks', format(today, 'yyyy-MM-dd')],
-    queryFn: () => taskService.getTasks(format(today, 'yyyy-MM-dd')),
+  // ponytail: 7 parallel queries — no N+1 concern for 7 days; simpler than a batch endpoint
+  const dayQueries = useQueries({
+    queries: weekDates.map((date) => ({
+      queryKey: ['tasks', format(date, 'yyyy-MM-dd')],
+      queryFn: () => taskService.getTasks(format(date, 'yyyy-MM-dd')),
+    })),
   })
 
-  // Generate mock data for weekly progress chart
-  const weeklyProgressData = weekDates.map(date => {
-    const isToday = isSameDay(date, today)
-    const tasks = isToday ? todayTasks : []
-    return {
-      date,
-      completed: tasks.filter(t => t.completed).length,
-      total: tasks.length || (Math.floor(Math.random() * 5) + 2) // Mock data for other days
-    }
-  })
+  const isLoading = summaryLoading || dayQueries.some((q) => q.isLoading)
 
-  if (summaryLoading || tasksLoading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <LoadingSpinner size="lg" />
       </div>
     )
   }
+
+  const weeklyProgressData = weekDates.map((date, i) => {
+    const tasks: Task[] = dayQueries[i].data ?? []
+    return {
+      date,
+      completed: tasks.filter((t) => t.completed).length,
+      total: tasks.length,
+    }
+  })
 
   return (
     <div className="space-y-6">
@@ -90,7 +93,7 @@ export default function WeekViewPage() {
             <div>
               <p className="text-sm text-gray-400">Tasks Completed</p>
               <p className="text-2xl font-bold text-gray-100 neon-text">
-                {weeklySummary?.completedTasks || 0}
+                {weeklySummary?.completedTasks ?? 0}
               </p>
             </div>
           </div>
@@ -109,7 +112,7 @@ export default function WeekViewPage() {
             <div>
               <p className="text-sm text-gray-400">Total Tasks</p>
               <p className="text-2xl font-bold text-gray-100 neon-text">
-                {weeklySummary?.totalTasks || 0}
+                {weeklySummary?.totalTasks ?? 0}
               </p>
             </div>
           </div>
@@ -140,14 +143,18 @@ export default function WeekViewPage() {
             <h2 className="text-lg font-semibold text-gray-100">This Week</h2>
           </div>
           <div className="grid grid-cols-7 gap-2">
-            {weekDates.map((day) => {
+            {weekDates.map((day, i) => {
               const isToday = isSameDay(day, today)
-              const dayTasks = isToday ? todayTasks : [] // In a real app, you'd fetch tasks for each day
-              const completedTasks = dayTasks.filter(task => task.completed).length
+              const dayTasks: Task[] = dayQueries[i].data ?? []
+              const completedCount = dayTasks.filter((t) => t.completed).length
+              const totalCount = dayTasks.length
+              const pct = totalCount > 0 ? (completedCount / totalCount) * 100 : 0
+              const dateKey = format(day, 'yyyy-MM-dd')
 
               return (
                 <div
-                  key={day.toISOString()}
+                  key={dateKey}
+                  data-date={dateKey}
                   className={`p-3 rounded-xl border-2 transition-all duration-300 ${
                     isToday
                       ? 'border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/20'
@@ -161,22 +168,30 @@ export default function WeekViewPage() {
                     <p className={`text-lg font-bold ${isToday ? 'text-cyan-400 neon-text' : 'text-gray-200'}`}>
                       {format(day, 'd')}
                     </p>
-                    {(dayTasks.length > 0 || !isToday) && (
-                      <div className="mt-2">
-                        <div className="text-xs text-gray-400">
-                          {isToday ? `${completedTasks}/${dayTasks.length}` : `${Math.floor(Math.random() * 3) + 1}/${Math.floor(Math.random() * 2) + 3}`}
-                        </div>
-                        <div className="w-full bg-gray-700 rounded-full h-1 mt-1">
-                          <div
-                            className="bg-gradient-to-r from-cyan-500 to-blue-600 h-1 rounded-full transition-all"
-                            style={{
-                              width: isToday 
-                                ? `${dayTasks.length > 0 ? (completedTasks / dayTasks.length) * 100 : 0}%`
-                                : `${Math.random() * 100}%`
-                            }}
-                          />
-                        </div>
+                    <div className="mt-2">
+                      <div className="text-xs text-gray-400">
+                        {completedCount}/{totalCount}
                       </div>
+                      <div className="w-full bg-gray-700 rounded-full h-1 mt-1">
+                        <div
+                          className="bg-gradient-to-r from-cyan-500 to-blue-600 h-1 rounded-full transition-all"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                    {/* Task titles for this day — used by e2e and for real value */}
+                    {dayTasks.length > 0 && (
+                      <ul className="mt-2 space-y-1 text-left">
+                        {dayTasks.map((task) => (
+                          <li
+                            key={task.id}
+                            className={`text-xs truncate ${task.completed ? 'line-through text-gray-500' : 'text-gray-300'}`}
+                            title={task.title}
+                          >
+                            {task.title}
+                          </li>
+                        ))}
+                      </ul>
                     )}
                   </div>
                 </div>

@@ -3,8 +3,9 @@ import { test, expect } from '@playwright/test'
 // Each test fully independent: reset, add task, perform action, assert persistence
 
 test('Complete Task: marking complete persists across reload', async ({ page }) => {
-  // Reset test user's tasks
-  await page.goto('/test/reset', { waitUntil: 'networkidle' })
+  // Reset test user state via backend (React Router catch-all blocks GET /test/reset)
+  const reset1 = await page.request.post('http://localhost:3001/test/reset')
+  expect(reset1.ok()).toBeTruthy()
 
   // Add a task via the UI
   await page.goto('/add')

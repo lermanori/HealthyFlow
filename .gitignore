@@ -34,3 +34,6 @@ skills-lock.json
 
 # E2E test auth state (sensitive, varies per dev)
 tests/e2e/.auth/
+
+# Playwright run artifacts
+test-results/

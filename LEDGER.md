@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-23 — `issue-35-week-view`
+
+Week view golden path (#35) — feature + e2e. The week view was a stub (only today's tasks fetched; other days rendered `Math.random()` placeholders), so the golden path needed the feature made real first: `WeekViewPage` now fetches all 7 days in parallel via `useQueries`, removes the random data, and renders each day's real tasks + completed/total counts (day cards tagged `data-date` for stable targeting). New `tests/e2e/week-view.spec.ts` adds a task for today and a timed task for another in-week day, then asserts each lands under its correct day column (timed so ADR-0002 carry-forward doesn't leak it into today). Also hardened the suite: replaced the no-op `page.goto('/test/reset')` (swallowed by the SPA catch-all) with `page.request.post('/test/reset')` in the habit + lifecycle specs, and set Playwright `workers: 1` — every spec resets the one shared Supabase test user, so parallel workers were clobbering each other (flake policy item for #37: per-worker test users would re-enable parallelism). Suite 12 green across two consecutive runs; backend 81 green; build clean.
+
+---
+
 ### 2026-06-23 18:00 — `issue-34-rollover`
 
 Added `tests/e2e/rollover.spec.ts`, the ADR-0002 golden-path E2E test. The spec uses the Add Item form's date field to create a real untimed task dated yesterday (no Date mocking, no API seeding), then asserts it surfaces on today's Dashboard via carry-forward. Key finding: AddItemPage does not inherit the Dashboard's selected date — it always defaults to today, but exposes a `<input type="date">` that the test fills directly with yesterday's date. Full E2E suite now 11/11 passing; backend Jest 81/81 green.
