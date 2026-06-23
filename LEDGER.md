@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-23 — `issue-33-habit`
+
+Added the habit golden path E2E spec (issue #33), guarding the per-day isolation invariant: completing today's habit instance must not bleed into tomorrow's. The test uses the real UI — Item Type toggle to select Habit, the "Next day" arrow for date navigation — no URL hacking. All 10 Playwright tests pass (plus backend Jest 81/81 and frontend build green). Confirmed the server-side fix already in place; the spec found no bug.
+
+---
+
 ### 2026-06-23 — `issue-32-task-lifecycle`
 
 Completed issue #32: task lifecycle (complete/edit/delete) golden-path E2E tests. Created `tests/e2e/items-lifecycle.spec.ts` with three fully independent tests: **Complete** (mark complete via checkbox, assert strikethrough, reload, assert persisted), **Edit** (open menu, click Edit, change title via modal input, click "Save Changes", assert new title on Dashboard), and **Delete** (open menu, click Delete, accept confirm dialog, assert task vanishes). All tests start from `POST /test/reset` for isolation, create the task via the real UI (no API shortcuts), and drive completion through actual UI interactions. Selectors confirmed against source: checkbox is first button in TaskCard flex container; MoreVertical menu button is second button (revealed on hover); Edit/Delete are dropdown menu items; TaskEditModal input has placeholder "Enter task title..."; save button is "Save Changes" (not type="submit"). All 9 e2e specs green (6 prior + 3 new); backend Jest 81/81; build passes.
