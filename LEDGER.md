@@ -7,9 +7,69 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
-### 2026-06-23 18:35 — `codex/calendar-sync`
+### 2026-06-23 18:43 — `codex/calendar-sync`
 
-Added the Google Calendar sync foundation: OAuth connection management, imported Google events in the day timeline, outbound timed-task syncing, and visible sync badges for HealthyFlow tasks. The dashboard now treats imported calendar events like lightweight tasks with a Calendar mark and a persisted local completion state, while HealthyFlow-created timed tasks create or update matching Google Calendar events. Also corrected the local time rendering path so Google and HealthyFlow show the same wall-clock time for synced and imported events.
+Merged `main` into the Google Calendar sync branch to resolve PR #42 conflicts. Combined the regular-task update path so it both applies the ADR-0002 someday→today normalization (from main) and syncs the row to Google Calendar (from this branch); dropped the dead `/rollover` route per main's intentional removal. The calendar sync foundation remains: OAuth connection management, imported Google events in the day timeline, outbound timed-task syncing, visible sync badges, and matching wall-clock rendering for synced/imported events.
+
+---
+
+### 2026-06-23 18:43 — `issue-37-docs-flake-ci`
+
+Extended `tests/e2e/README.md` with comprehensive documentation: what the 12-test suite covers (6 specs listed in a table), what it intentionally does NOT (AI correctness, performance, visual regression, parallelism), how to run headed/headless with and without the OpenAI key, how `/test/reset` works including the `page.request.post()` gotcha (SPA catch-all blocks `page.goto()` to the endpoint), how AI stubbing works + the pattern for adding new fixtures, how to view Playwright traces on failure, and the flake-quarantine policy (two flakes within a calendar week → `test.fixme()` + new tracking issue, no `test.retry(N>1)`, run-level retries stay 1 on CI / 0 locally). Added a CI-shape check section documenting the measured ~47s wall-clock (under 90s target), exit codes, and that GitHub Actions wiring is a follow-up. Updated root `README.md` with a one-line regression gate: "if `npm run test:e2e` is green, the golden paths still work" linking to the e2e README. No spec logic changed; all 12 tests still pass in serial mode; backend Jest 81/81 green; build clean.
+
+---
+
+### 2026-06-23 14:30 — `issue-36-ai-stubs`
+
+Added Playwright AI network stubs so the full e2e suite (12 tests) runs green with `OPENAI_API_KEY` unset. All four `/api/ai/*` routes are intercepted by a shared `ai-stubs.ts` fixture before reaching the backend; committed JSON fixtures under `tests/e2e/fixtures/ai/` provide shape-correct stub responses. All specs now import `{ test, expect }` from the stub fixture instead of `@playwright/test` directly. Backend Jest (81 tests) and `npm run build` remain green.
+
+---
+
+### 2026-06-23 — `issue-35-week-view`
+
+Week view golden path (#35) — feature + e2e. The week view was a stub (only today's tasks fetched; other days rendered `Math.random()` placeholders), so the golden path needed the feature made real first: `WeekViewPage` now fetches all 7 days in parallel via `useQueries`, removes the random data, and renders each day's real tasks + completed/total counts (day cards tagged `data-date` for stable targeting). New `tests/e2e/week-view.spec.ts` adds a task for today and a timed task for another in-week day, then asserts each lands under its correct day column (timed so ADR-0002 carry-forward doesn't leak it into today). Also hardened the suite: replaced the no-op `page.goto('/test/reset')` (swallowed by the SPA catch-all) with `page.request.post('/test/reset')` in the habit + lifecycle specs, and set Playwright `workers: 1` — every spec resets the one shared Supabase test user, so parallel workers were clobbering each other (flake policy item for #37: per-worker test users would re-enable parallelism). Suite 12 green across two consecutive runs; backend 81 green; build clean.
+
+---
+
+### 2026-06-23 18:00 — `issue-34-rollover`
+
+Added `tests/e2e/rollover.spec.ts`, the ADR-0002 golden-path E2E test. The spec uses the Add Item form's date field to create a real untimed task dated yesterday (no Date mocking, no API seeding), then asserts it surfaces on today's Dashboard via carry-forward. Key finding: AddItemPage does not inherit the Dashboard's selected date — it always defaults to today, but exposes a `<input type="date">` that the test fills directly with yesterday's date. Full E2E suite now 11/11 passing; backend Jest 81/81 green.
+
+---
+
+### 2026-06-23 — `issue-33-habit`
+
+Added the habit golden path E2E spec (issue #33), guarding the per-day isolation invariant: completing today's habit instance must not bleed into tomorrow's. The test uses the real UI — Item Type toggle to select Habit, the "Next day" arrow for date navigation — no URL hacking. All 10 Playwright tests pass (plus backend Jest 81/81 and frontend build green). Confirmed the server-side fix already in place; the spec found no bug.
+
+---
+
+### 2026-06-23 — `issue-32-task-lifecycle`
+
+Completed issue #32: task lifecycle (complete/edit/delete) golden-path E2E tests. Created `tests/e2e/items-lifecycle.spec.ts` with three fully independent tests: **Complete** (mark complete via checkbox, assert strikethrough, reload, assert persisted), **Edit** (open menu, click Edit, change title via modal input, click "Save Changes", assert new title on Dashboard), and **Delete** (open menu, click Delete, accept confirm dialog, assert task vanishes). All tests start from `POST /test/reset` for isolation, create the task via the real UI (no API shortcuts), and drive completion through actual UI interactions. Selectors confirmed against source: checkbox is first button in TaskCard flex container; MoreVertical menu button is second button (revealed on hover); Edit/Delete are dropdown menu items; TaskEditModal input has placeholder "Enter task title..."; save button is "Save Changes" (not type="submit"). All 9 e2e specs green (6 prior + 3 new); backend Jest 81/81; build passes.
+
+---
+
+### 2026-06-23 15:45 — `issue-31-auth-session`
+
+Completed issue #31: added logout + session-persistence E2E tests. Restructured `tests/e2e/auth.spec.ts` into two `test.describe` blocks with independent `test.use({ storageState })` — one for unauthenticated flows, one for authenticated flows — so tests are order-independent and can mix storage states cleanly. Added "logout" test: logs in, finds and clicks the logout button in the Layout header (selector: `button:has-text("Logout")`), asserts LoginPage is visible afterward, and navigates to `/` to confirm it does NOT redirect back to the authenticated Dashboard. Added "persist-across-reload" test: uses the shared `storageState` from `auth.setup.ts`, navigates to `/`, reloads the page, and asserts the Dashboard is still visible. All 6 e2e tests green (setup + 5 specs); backend Jest 81/81 green; build passes. Logout affordance confirmed: `button:has-text("Logout")` in both desktop header and mobile menu in `Layout.tsx`.
+
+---
+
+### 2026-06-23 — `issue-30-add-task`
+
+Completed issue #30: reusable Playwright auth fixture + items-add E2E golden path. Added `tests/e2e/auth.setup.ts` (setup project that logs in via real UI, waits for authenticated nav to appear, saves `storageState` to `.auth/user.json`). Updated `playwright.config.ts` to add a `setup` project and a `chromium` project that depends on it with shared `storageState`. Fixed `auth.spec.ts` to opt out via `test.use({ storageState: { cookies: [], origins: [] } })` so the login-flow test starts unauthenticated. Rewrote `items-add.spec.ts` to rely on shared auth (no manual login per test): tests navigate directly to `/add`, fill the form, submit, and assert the task appears on the Dashboard. Root cause of previous agent's blocker: a stray Vite dev server from another project (named "Adama") was occupying port 5173 via `reuseExistingServer: true`; additionally the `h1` locator prematurely matched the LoginPage heading before login completed. All 5 e2e tests green; backend Jest 81/81; build passes.
+
+---
+
+### 2026-06-23 14:30 — `issue-29-e2e-spine`
+
+Laid the Playwright E2E spine (issue #29). Added `@playwright/test` as a devDependency, `playwright.config.ts` with two webServer entries (Vite + Express in HF_TEST_MODE), and `tests/e2e/` containing globalSetup (idempotent Supabase test-user seed + task reset), `auth.spec.ts` (one login→Dashboard golden-path test), and a README. Backend gained `db.resetTestUser` in `supabase-client.ts` and a `POST /test/reset` route in `index.ts` that mounts only when `HF_TEST_MODE=1`. TDD'd the 404 guard (red→green before wiring the route). Full backend suite 81 green; `npm run test:e2e` passes in ~3s locally.
+
+---
+
+### 2026-06-23 — `main`
+
+Closed out the habit/rollover scheduling work and fixed the last "drag doesn't persist" bug. Root cause was not the write path but GET assembly: the `dailyHabits` query matched instance rows (not just templates), so another day's instance leaked into the viewed day, and habit templates carried a stray `scheduled_date` that made them double as a dated day-0 row colliding with materialized instances. Fix: `dailyHabits` now selects templates only (`original_habit_id IS NULL`), the `originalHabitsForDate` query/branch is gone, and read-time dedup is deterministic (real beats virtual, oldest wins). Ran a one-off cleanup (`backend/scripts/cleanup-habit-model.js`) nulling templates' stray dates and collapsing duplicate instances. Landed ADR-0002 (one rule for untimed tasks) and the slimmed `rollover.ts`/`tasks.ts`. Backend suite 79 green (added `habit-instance-dedup` + `rollover-carry-forward` specs); issue #9 moved to Done.
 
 ---
 

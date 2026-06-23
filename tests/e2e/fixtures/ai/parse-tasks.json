@@ -1,0 +1,14 @@
+{
+  "items": [
+    {
+      "title": "Stub task from AI",
+      "type": "task",
+      "category": "personal",
+      "duration": 30,
+      "priority": "medium",
+      "startTime": null,
+      "scheduledDate": "2026-06-23",
+      "repeat": "none"
+    }
+  ]
+}

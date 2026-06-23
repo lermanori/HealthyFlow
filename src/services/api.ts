@@ -52,7 +52,6 @@ interface ItemBase {
   rolledOverFromTaskId?: string
   originalCreatedAt?: string
   completedAt?: string
-  isRolloverTask?: boolean
   projectId?: string
   project?: Project
   position?: number | null
@@ -210,12 +209,6 @@ export const taskService = {
 
   deleteTask: async (id: string): Promise<void> => {
     await api.delete(`/tasks/${id}`)
-  },
-
-  // Rollover incomplete tasks without dates to current day
-  async rolloverTasks(toDate: string): Promise<{ success: boolean; message: string; rolledOverTasks: number }> {
-    const response = await api.post('/tasks/rollover', { toDate })
-    return response.data
   },
 
   // Batch-persist Anytime backlog order; ids ordered front-to-back

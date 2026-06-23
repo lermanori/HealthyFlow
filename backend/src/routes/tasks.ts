@@ -2,7 +2,6 @@ import express from 'express'
 import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
 import { db } from '../supabase-client'
-import { Rollover } from '../rollover'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 import { positionsFromIds } from '../utils/positionsFromIds'
 import { parseHabitInstanceId } from '../utils/parseHabitInstanceId'
@@ -130,7 +129,13 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
 // Add task
 router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
-  const { title, type, category, startTime, duration, repeat, scheduledDate } = req.body
+  const { title, type, category, startTime, duration, repeat } = req.body
+  // Normalize at the write boundary (ADR-0002): a time implies a day — start_time
+  // with no scheduled_date is scheduled for today. No date and no time stays someday.
+  let scheduledDate = req.body.scheduledDate
+  if (startTime && !scheduledDate) {
+    scheduledDate = new Date().toISOString().slice(0, 10)
+  }
 
   console.log('Backend - Adding task with scheduledDate:', scheduledDate)
   console.log('Backend - Task details:', { title, type, category, startTime, duration, repeat, scheduledDate })
@@ -303,7 +308,12 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
       return res.json(formatTaskResponse(materialized, { isHabitInstance: true }))
     }
 
-    // Regular (non-habit) task update path
+    // Regular (non-habit) task update path. Normalize at the write boundary
+    // (ADR-0002): giving a someday task a start_time with no date schedules it for
+    // today (dragging out of the someday bucket onto a slot).
+    if (updateData.start_time && updates.scheduledDate === undefined && !task.scheduled_date) {
+      updateData.scheduled_date = new Date().toISOString().slice(0, 10)
+    }
     let updatedTask = await db.updateTask(taskId, updateData)
     if (updatedTask.type === 'task') {
       updatedTask = await syncTaskRowToGoogle(updatedTask)
@@ -365,33 +375,9 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
         rolledOverFromTaskId: habitInstance.rolled_over_from_task_id,
         originalCreatedAt: habitInstance.original_created_at
       })
-    } else if (Rollover.isRolloverRef(taskId)) {
-      const result = await Rollover.complete(taskId, userId)
-      if (!result.ok) {
-        if (result.reason === 'invalid') {
-          return res.status(400).json({ error: 'Invalid rollover task ID format' })
-        }
-        return res.status(403).json({ error: 'Forbidden' })
-      }
-      const updatedTask = result.task
-      return res.json({
-        id: updatedTask.id,
-        title: updatedTask.title,
-        type: updatedTask.type,
-        category: updatedTask.category,
-        startTime: updatedTask.start_time,
-        duration: updatedTask.duration,
-        repeat: updatedTask.repeat_type,
-        completed: Boolean(updatedTask.completed),
-        scheduledDate: updatedTask.scheduled_date,
-        createdAt: updatedTask.created_at,
-        originalHabitId: updatedTask.original_habit_id,
-        rolledOverFromTaskId: updatedTask.rolled_over_from_task_id,
-        originalCreatedAt: updatedTask.original_created_at,
-        isRolloverTask: true
-      })
     } else {
-      // Handle regular task or existing habit instance completion
+      // Handle regular task or existing habit instance completion (carried tasks are
+      // real rows now — they complete here via the normal path, ADR-0002).
       const task = await db.updateTask(taskId, {
         completed: true,
         completed_at: new Date().toISOString()
@@ -473,24 +459,6 @@ router.patch('/overdue-notified', authenticateToken, async (req: AuthRequest, re
     res.json({ success: true, updated: taskIds.length })
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
-  }
-})
-
-// No-op rollover endpoint: virtual rows are produced on the next GET. Kept for
-// backward compatibility with existing clients; the count comes from Rollover.
-// TODO: candidate for deletion once we confirm no client depends on this route.
-router.post('/rollover', authenticateToken, async (req: AuthRequest, res) => {
-  const userId = req.user.userId
-  try {
-    const count = await Rollover.countIncompleteForDay(userId)
-    res.json({
-      success: true,
-      message: `Rolled over ${count} tasks without dates (virtual display)`,
-      rolledOverTasks: count
-    })
-  } catch (error) {
-    console.error('Backend - Error rolling over tasks:', error)
-    res.status(500).json({ error: 'Failed to rollover tasks' })
   }
 })
 
