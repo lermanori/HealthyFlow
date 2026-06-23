@@ -23,11 +23,23 @@ Item types with specialised fields (quantity, store, exercise sets, etc.). Out o
 
 ### Item lifecycle
 
-**Rollover**:
-Carrying an incomplete item from one day to the next. The next day's instance is a new row pointing back at the original via `rolled_over_from_task_id`. See `ROLLOVER_IMPROVEMENTS.md` and `original_created_at`.
+See `docs/adr/0002-task-scheduling-and-materialization-model.md` for the full model. The one rule: **a virtual item becomes a real `tasks` row when it is placed (given a `start_time` or `position`) or completed — never on a plain read, never via a display-only field.**
+
+**Materialize**:
+Writing the real `tasks` row for an item that was being shown virtually. Triggered by placing (drag to a time slot or backlog position) or completing.
+
+**Anytime backlog**:
+Untimed tasks that belong to a specific day (`scheduled_date` set, `start_time` NULL). Manually ordered within the day by `position`.
+
+**Someday backlog**:
+Tasks with neither a date nor a time (`scheduled_date` and `start_time` both NULL, incomplete). A deliberate dateless bucket — a real row shown on every day until the user completes or places it. A `start_time` with no date normalises to today; only the absence of *both* keeps a task in someday.
+
+**Rollover (carry-forward)**:
+Surfacing an incomplete, untimed task on a later day, so "a task I left yesterday shows up today." Governed by one rule (ADR-0002): an untimed task shows on day D if it's incomplete and its `scheduled_date` is NULL or ≤ D, or it was completed on D. Rows and ids are real — nothing is faked or rewritten. Tasks carry forward; **habits do not** — a missed habit day re-synthesises fresh.
+_Legacy_: `rolled_over_from_task_id` and `original_created_at` are write-dead columns from the old "create a new row per rollover" approach (see `ROLLOVER_IMPROVEMENTS.md`, historical); they survive only as negative filters hiding pre-cleanup rows.
 
 **Habit instance**:
-The per-day materialisation of a habit. The user sees one row per day for a daily habit, each with its own `completed` state, all linking back to the original via `original_habit_id`.
+The per-day materialisation of a habit. The user sees one row per day for a daily habit, each with its own `completed` state, all linking back to the original via `original_habit_id`. Daily only — weekly habits (`repeat_type: 'weekly'`) are not yet synthesised (known gap, see ADR-0002).
 
 ### Categories
 

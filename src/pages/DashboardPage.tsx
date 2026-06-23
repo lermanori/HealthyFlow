@@ -27,7 +27,6 @@ export default function DashboardPage() {
   const queryClient = useQueryClient()
   const { showNotification } = useNotifications()
   const location = useLocation()
-  const [rolloverCompleted, setRolloverCompleted] = useState(false)
 
   // Check for AI parameter in URL
   useEffect(() => {
@@ -192,35 +191,9 @@ export default function DashboardPage() {
     }
   }
 
-  // Automatic task rollover effect
-  useEffect(() => {
-    const performRollover = async () => {
-      if (rolloverCompleted) return
-      
-      const today = format(new Date(), 'yyyy-MM-dd')
-      
-      try {
-        console.log('Dashboard - Performing automatic rollover of tasks without dates to', today)
-        const result = await taskService.rolloverTasks(today)
-        
-        if (result.rolledOverTasks > 0) {
-          console.log('Dashboard - Rolled over', result.rolledOverTasks, 'tasks without dates')
-          // Refresh tasks to show the rolled over ones
-          queryClient.invalidateQueries({ queryKey: ['tasks'] })
-        }
-        
-        setRolloverCompleted(true)
-      } catch (error) {
-        console.error('Dashboard - Error during rollover:', error)
-        // Don't show error to user as this is a background operation
-      }
-    }
-
-    // Perform rollover when component mounts, regardless of whether there are tasks
-    if (!rolloverCompleted) {
-      performRollover()
-    }
-  }, [rolloverCompleted, queryClient])
+  // Carry-forward is now query-time (ADR-0002): incomplete untimed tasks with
+  // scheduled_date NULL or < the viewed day surface automatically on GET. No
+  // client-side rollover trigger needed.
 
   if (isLoading) {
     return (

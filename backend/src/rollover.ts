@@ -1,118 +1,41 @@
 import { supabase } from './supabase-client'
 
-const ROLLOVER_REF_RE = /^rollover-([0-9a-fA-F-]{36})-(\d{4}-\d{2}-\d{2})$/
-
-export type RolloverCompleteResult =
-  | { ok: true; task: any }
-  | { ok: false; reason: 'invalid' | 'forbidden' }
-
 export const Rollover = {
-  isRolloverRef(id: string): boolean {
-    return ROLLOVER_REF_RE.test(id)
-  },
-
+  // Untimed-task carry-forward, the one rule (ADR-0002): an untimed task shows on
+  // `date` if it is incomplete with scheduled_date NULL or < date, or it was
+  // completed on `date`. (=date is owned by getTasksWithRecurringHabits' regularTasks
+  // query, kept disjoint via the strict `< date` here, so nothing shows twice.)
+  // Rows and ids are REAL — returned unchanged, no synthetic id, no scheduled_date
+  // override. Completion and edits go through the normal task path on the real id.
   async listForDay(userId: string, date: string): Promise<any[]> {
-    // Rollover candidates are *undated* backlog tasks (scheduled_date IS NULL), per
-    // ROLLOVER_IMPROVEMENTS.md. Dated untimed tasks (the Anytime backlog from #26/#27 set
-    // a real scheduled_date) are regular tasks for their day and are returned by
-    // getTasksWithRecurringHabits' regularTasks query — including them here too would show
-    // them twice (once as a regular task, once as a rollover).
-    const { data: tasksWithoutDate, error: rolloverError } = await supabase
+    const { data: incomplete, error: incompleteError } = await supabase
       .from('tasks')
       .select('*')
       .eq('user_id', userId)
-      .is('scheduled_date', null)
       .is('start_time', null)
       .is('rolled_over_from_task_id', null)
-      .eq('completed', false)
       .eq('type', 'task')
+      .eq('completed', false)
+      .or(`scheduled_date.is.null,scheduled_date.lt.${date}`)
       .order('created_at', { ascending: true })
-    if (rolloverError) throw rolloverError
+    if (incompleteError) throw incompleteError
 
-    // Same scheduled_date IS NULL guard for the completed side: a dated task completed
-    // today must not also surface here as a "completed rollover".
-    const { data: completedRollovers, error: completedRolloversError } = await supabase
+    // Completed-on-`date` side: a carried task checked off today should still show
+    // (struck through) on the day it was completed.
+    const { data: completedToday, error: completedError } = await supabase
       .from('tasks')
       .select('*')
       .eq('user_id', userId)
-      .is('scheduled_date', null)
       .is('start_time', null)
       .is('rolled_over_from_task_id', null)
       .eq('type', 'task')
       .eq('completed', true)
+      .or(`scheduled_date.is.null,scheduled_date.lt.${date}`)
       .filter('completed_at', 'gte', `${date}T00:00:00.000Z`)
       .filter('completed_at', 'lt', `${date}T23:59:59.999Z`)
       .order('created_at', { ascending: true })
-    if (completedRolloversError) throw completedRolloversError
+    if (completedError) throw completedError
 
-    const virtualRolloverTasks = (tasksWithoutDate || [])
-      .filter(task => !task.completed)
-      .map(task => ({
-        id: `rollover-${task.id}-${date}`,
-        title: task.title,
-        type: 'task' as const,
-        category: task.category,
-        start_time: task.start_time,
-        duration: task.duration,
-        repeat_type: task.repeat_type,
-        completed: false,
-        completed_at: null,
-        created_at: task.created_at,
-        scheduled_date: date,
-        overdue_notified: false,
-        user_id: userId,
-        original_habit_id: null,
-        rolled_over_from_task_id: task.id,
-        original_created_at: task.created_at,
-        isRolloverTask: true,
-      }))
-
-    const completedRolloverTasks = (completedRollovers || []).map(task => ({
-      ...task,
-      scheduled_date: date,
-      isRolloverTask: true,
-    }))
-
-    return [...virtualRolloverTasks, ...completedRolloverTasks]
-  },
-
-  async countIncompleteForDay(userId: string): Promise<number> {
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('id')
-      .eq('user_id', userId)
-      .is('scheduled_date', null)
-      .is('start_time', null)
-      .is('rolled_over_from_task_id', null)
-      .eq('completed', false)
-      .eq('type', 'task')
-    if (error) throw error
-    return (data || []).length
-  },
-
-  async complete(ref: string, userId: string): Promise<RolloverCompleteResult> {
-    const match = ref.match(ROLLOVER_REF_RE)
-    if (!match) return { ok: false, reason: 'invalid' }
-    const originalTaskId = match[1]
-
-    const { data: originalTask, error: fetchErr } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('id', originalTaskId)
-      .single()
-    if (fetchErr) throw fetchErr
-    if (!originalTask || originalTask.user_id !== userId) {
-      return { ok: false, reason: 'forbidden' }
-    }
-
-    const { data: updatedTask, error: updateErr } = await supabase
-      .from('tasks')
-      .update({ completed: true, completed_at: new Date().toISOString() })
-      .eq('id', originalTaskId)
-      .select()
-      .single()
-    if (updateErr) throw updateErr
-
-    return { ok: true, task: updatedTask }
+    return [...(incomplete || []), ...(completedToday || [])]
   },
 }

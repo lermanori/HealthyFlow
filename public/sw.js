@@ -1,6 +1,6 @@
-const CACHE_NAME = 'healthyflow-v2.0.0'
-const STATIC_CACHE = 'healthyflow-static-v2.0.0'
-const DYNAMIC_CACHE = 'healthyflow-dynamic-v2.0.0'
+const CACHE_NAME = 'healthyflow-v2.1.0'
+const STATIC_CACHE = 'healthyflow-static-v2.1.0'
+const DYNAMIC_CACHE = 'healthyflow-dynamic-v2.1.0'
 
 // Assets to cache immediately
 const STATIC_ASSETS = [
@@ -9,13 +9,6 @@ const STATIC_ASSETS = [
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
   // Add other critical assets
-]
-
-// API endpoints to cache
-const API_CACHE_PATTERNS = [
-  /\/api\/tasks/,
-  /\/api\/week-summary/,
-  /\/api\/ai\/recommendations/
 ]
 
 // Install event - cache static assets
@@ -52,7 +45,7 @@ self.addEventListener('activate', (event) => {
   )
 })
 
-// Fetch event - network first for API, cache first for static assets
+// Fetch event - API bypasses the SW (always live), cache-first for static assets
 self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
@@ -60,11 +53,11 @@ self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (request.method !== 'GET') return
 
-  // Handle API requests with network-first strategy
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(networkFirstStrategy(request))
-    return
-  }
+  // NEVER intercept or cache /api/ — task state is mutable and must always be live.
+  // Caching API GETs here served stale data after a mutation (e.g. dragging a habit
+  // to a time slot persisted on the server but reverted on refresh). React Query
+  // already provides in-app caching + invalidation. Let these hit the network directly.
+  if (url.pathname.startsWith('/api/')) return
 
   // Handle static assets with cache-first strategy
   if (request.destination === 'image' || 
@@ -85,38 +78,18 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(networkFirstStrategy(request))
 })
 
-// Network-first strategy for API calls
+// Network-first strategy (default fallthrough for misc GETs). Does not cache —
+// /api/ is bypassed entirely above, and we don't want to serve stale data.
 async function networkFirstStrategy(request) {
   try {
-    const networkResponse = await fetch(request)
-    
-    // Cache successful API responses
-    if (networkResponse.ok && shouldCacheApiResponse(request)) {
-      const cache = await caches.open(DYNAMIC_CACHE)
-      cache.put(request, networkResponse.clone())
-    }
-    
-    return networkResponse
+    return await fetch(request)
   } catch (error) {
     console.log('SW: Network failed, trying cache:', request.url)
     const cachedResponse = await caches.match(request)
-    
     if (cachedResponse) {
       return cachedResponse
     }
-    
-    // Return offline fallback for API calls
-    return new Response(
-      JSON.stringify({ 
-        error: 'Offline', 
-        message: 'You are currently offline. Some features may be limited.' 
-      }),
-      {
-        status: 503,
-        statusText: 'Service Unavailable',
-        headers: { 'Content-Type': 'application/json' }
-      }
-    )
+    return new Response('Offline', { status: 503, statusText: 'Service Unavailable' })
   }
 }
 
@@ -153,11 +126,6 @@ async function navigationStrategy(request) {
     const cachedResponse = await caches.match('/')
     return cachedResponse || new Response('Offline', { status: 503 })
   }
-}
-
-// Check if API response should be cached
-function shouldCacheApiResponse(request) {
-  return API_CACHE_PATTERNS.some(pattern => pattern.test(request.url))
 }
 
 // Background sync for offline task creation

@@ -326,13 +326,17 @@ export const db = {
 
       if (regularError) throw regularError
 
-      // Get all daily habits (original habits with repeat_type = 'daily')
+      // Get all daily habit TEMPLATES (original_habit_id IS NULL). Instance rows also
+      // have type='habit' + repeat_type='daily', so without this filter the synthesis
+      // below would treat another day's instance as a template and fabricate a virtual
+      // instance from it — leaking instances across days.
       const { data: dailyHabits, error: habitsError } = await supabase
         .from('tasks')
         .select('*')
         .eq('user_id', userId)
         .eq('type', 'habit')
         .eq('repeat_type', 'daily')
+        .is('original_habit_id', null)
         .order('created_at', { ascending: true })
 
       if (habitsError) throw habitsError
@@ -347,28 +351,23 @@ export const db = {
 
       if (instancesError) throw instancesError
 
-      // Get original habits scheduled for this date (original_habit_id is null, scheduled_date = date)
-      const { data: originalHabitsForDate, error: origHabitsError } = await supabase
-        .from('tasks')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('type', 'habit')
-        .eq('repeat_type', 'daily')
-        .eq('scheduled_date', date)
-        .is('original_habit_id', null)
+      // NB: a parent habit row is a pure template (scheduled_date NULL) — it never
+      // appears as a concrete dated row, so it is NOT queried here. Each habit-day is
+      // either a materialized instance (existingInstances) or a virtual instance
+      // (synthesized below); the parent can never collide with either. This removes the
+      // parent-vs-instance dedup ambiguity that previously dropped dragged per-day times.
 
-      if (origHabitsError) throw origHabitsError
-
-      // Rollover rows (virtual incomplete + completed-undated for the day) live behind Rollover.
+      // Carry-forward rows (real tasks with scheduled_date NULL or < date, plus those
+      // completed today) live behind Rollover. Disjoint from regularTasks (= date), so
+      // no task appears twice; task rows are not run through the habit dedup below.
       const rolloverRows = await Rollover.listForDay(userId, date)
 
-      // Build a set of habit ids that already have a real or original instance for this date
-      const habitIdsWithInstance = new Set([
-        ...existingInstances.map(inst => inst.original_habit_id),
-        ...originalHabitsForDate.map(orig => orig.id)
-      ])
+      // Build a set of habit ids that already have a real instance for this date
+      const habitIdsWithInstance = new Set(
+        existingInstances.map(inst => inst.original_habit_id)
+      )
 
-      // Create virtual habit instances for habits that don't have a real or original instance for this date
+      // Create virtual habit instances for habits that don't have a real instance for this date
       const virtualHabitInstances = dailyHabits
         .filter(habit => !habitIdsWithInstance.has(habit.id))
         .map(habit => ({
@@ -389,37 +388,54 @@ export const db = {
           isHabitInstance: true
         }))
 
-      // Combine all tasks for the day (deduplicate by habit id: only one per habit per day)
+      // Combine all tasks for the day. Habit instances appear in BOTH regularTasks
+      // (scheduled_date = date) and existingInstances, so dedup below collapses that
+      // overlap to one row per habit per day.
       const allTasks = [
         ...regularTasks,
         ...existingInstances,
-        ...originalHabitsForDate,
         ...virtualHabitInstances,
         ...rolloverRows,
       ]
 
-      // Sort so that completed habit instances come first, then originals, then virtuals
-      allTasks.sort((a, b) => {
-        if (a.type === 'habit' && b.type === 'habit') {
-          // Prefer completed habit instances
-          const aIsCompletedInstance = a.completed && a.original_habit_id
-          const bIsCompletedInstance = b.completed && b.original_habit_id
-          if (aIsCompletedInstance && !bIsCompletedInstance) return -1
-          if (!aIsCompletedInstance && bIsCompletedInstance) return 1
+      // Deduplicate habits: exactly one row per habit per day. Non-habit rows pass
+      // through untouched. Now that the parent is a pure template (no dated row), the
+      // only habit rows that can share a habit id are (a) the same materialized instance
+      // arriving via both regularTasks and existingInstances, and (b) a virtual instance
+      // (only synthesized when no real instance exists). Pick deterministically:
+      //   1. a real materialized instance (original_habit_id set on a real row) wins over
+      //      a virtual instance;
+      //   2. among real instances — only stale pre-cleanup duplicates should ever collide
+      //      here — prefer the OLDEST created_at, the exact row createHabitInstance updates
+      //      in place (its idempotency target), so GET returns what the write path mutates.
+      const habitWinners = new Map<string, any>()
+      const dedupedTasks: any[] = []
+      for (const task of allTasks) {
+        if (task.type !== 'habit') {
+          dedupedTasks.push(task)
+          continue
         }
-        // Otherwise, keep original order
-        return 0
-      })
-
-      // Deduplicate habits: only one per habit id per day, prefer completed instance
-      const seenHabitIds = new Set()
-      const dedupedTasks = allTasks.filter(task => {
-        if (task.type !== 'habit') return true
         const habitId = task.original_habit_id || task.id
-        if (seenHabitIds.has(habitId)) return false
-        seenHabitIds.add(habitId)
-        return true
-      })
+        const current = habitWinners.get(habitId)
+        if (!current) {
+          habitWinners.set(habitId, task)
+          continue
+        }
+        // A virtual instance has the synthetic id `${habitId}-${date}`; a real
+        // materialized row has a plain UUID. Prefer the real row.
+        const taskIsVirtual = task.id === `${habitId}-${date}`
+        const currentIsVirtual = current.id === `${habitId}-${date}`
+        if (taskIsVirtual !== currentIsVirtual) {
+          if (currentIsVirtual) habitWinners.set(habitId, task) // real beats virtual
+          continue
+        }
+        // Both real (only stale pre-cleanup duplicates collide here): prefer the older
+        // row (matches createHabitInstance's idempotency target).
+        if (task.created_at && current.created_at && task.created_at < current.created_at) {
+          habitWinners.set(habitId, task)
+        }
+      }
+      dedupedTasks.push(...habitWinners.values())
 
       // Sort by start time and creation time (issue #8 fix: use sortTasksForTimeline)
       return sortTasksForTimeline(dedupedTasks)

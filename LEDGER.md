@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-23 — `main`
+
+Closed out the habit/rollover scheduling work and fixed the last "drag doesn't persist" bug. Root cause was not the write path but GET assembly: the `dailyHabits` query matched instance rows (not just templates), so another day's instance leaked into the viewed day, and habit templates carried a stray `scheduled_date` that made them double as a dated day-0 row colliding with materialized instances. Fix: `dailyHabits` now selects templates only (`original_habit_id IS NULL`), the `originalHabitsForDate` query/branch is gone, and read-time dedup is deterministic (real beats virtual, oldest wins). Ran a one-off cleanup (`backend/scripts/cleanup-habit-model.js`) nulling templates' stray dates and collapsing duplicate instances. Landed ADR-0002 (one rule for untimed tasks) and the slimmed `rollover.ts`/`tasks.ts`. Backend suite 79 green (added `habit-instance-dedup` + `rollover-carry-forward` specs); issue #9 moved to Done.
+
+---
+
 ### 2026-06-22 — `fix/habit-drag-edit-scheduling`
 
 Fixed a cluster of habit drag/edit scheduling bugs and added per-day vs whole-habit edit scope. Swapped the abandoned `react-beautiful-dnd` for the maintained `@hello-pangea/dnd` so drops actually register under React 18 StrictMode. Stopped habit drags/edits from leaking a per-day time into the parent (and thus all future virtual instances): drags on a recurring-habit parent now materialize a dated instance, and the edit modal offers "This day only" (per-day override) vs "The whole habit" (parent, today-forward; past real history stays frozen). Made `createHabitInstance` idempotent (one row per habit/day) with explicit `completed` semantics, fixing completed habits flipping incomplete on drag and teleporting to untimed on complete. Backend suite now 69 green (added `isPureDragUpdate` + override-shape specs).
