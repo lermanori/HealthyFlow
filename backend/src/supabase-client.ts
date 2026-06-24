@@ -20,7 +20,7 @@ export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
 // Enhanced functions to replace SQLite operations
 export const db = {
   // Users
-  async createUser(userData: { email: string; name: string; password_hash: string }) {
+  async createUser(userData: { email: string; name: string; password_hash: string; role?: 'admin' | 'user' }) {
     const { data, error } = await supabase
       .from('users')
       .insert(userData)
@@ -44,7 +44,7 @@ export const db = {
   async getUserById(userId: string) {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, name')
+      .select('id, email, name, role')
       .eq('id', userId)
       .single();
     
@@ -55,7 +55,7 @@ export const db = {
   async getAllUsers() {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, name, created_at')
+      .select('id, email, name, role, created_at')
       .order('created_at', { ascending: false });
     
     if (error) throw error;
@@ -701,8 +701,88 @@ export const db = {
     base_tokens?: number
     markup_tokens?: number
     estimated?: boolean
+    balance_before?: number
+    balance_after?: number
   }) {
     const { error } = await supabase.from('ai_usage_log').insert(row)
     if (error) throw error
+  },
+
+  async setCreditBalance(userId: string, balance: number): Promise<number> {
+    const { data, error } = await supabase
+      .from('user_credits')
+      .upsert({ user_id: userId, balance, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      .select('balance')
+      .single()
+    if (error) throw error
+    return data.balance
+  },
+
+  async getUsersWithCreditBalances() {
+    const users = await this.getAllUsers()
+    const { data: credits, error } = await supabase
+      .from('user_credits')
+      .select('user_id, balance, updated_at')
+    if (error) throw error
+
+    const balances = new Map((credits ?? []).map(row => [row.user_id, row]))
+    return users.map(user => {
+      const credit = balances.get(user.id)
+      return {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role ?? 'user',
+        created_at: user.created_at,
+        balance: credit?.balance ?? 0,
+        balance_updated_at: credit?.updated_at ?? null,
+      }
+    })
+  },
+
+  async getBillingSettings() {
+    const { data, error } = await supabase
+      .from('ai_billing_settings')
+      .select('app_tokens_per_usd, markup_rate, min_markup_tokens, updated_at')
+      .eq('id', true)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async updateBillingSettings(settings: { markup_rate: number; min_markup_tokens: number }) {
+    const { data, error } = await supabase
+      .from('ai_billing_settings')
+      .upsert({
+        id: true,
+        app_tokens_per_usd: 1000,
+        markup_rate: settings.markup_rate,
+        min_markup_tokens: settings.min_markup_tokens,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' })
+      .select('app_tokens_per_usd, markup_rate, min_markup_tokens, updated_at')
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async getUsageLogsSince(sinceIso: string) {
+    const { data, error } = await supabase
+      .from('ai_usage_log')
+      .select('id, user_id, endpoint, model, prompt_tokens, completion_tokens, total_tokens, credits_delta, reason, reserved_tokens, base_tokens, markup_tokens, estimated, balance_before, balance_after, created_at')
+      .gte('created_at', sinceIso)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return data ?? []
+  },
+
+  async getRecentUsageLogs(limit = 100) {
+    const { data, error } = await supabase
+      .from('ai_usage_log')
+      .select('id, user_id, endpoint, model, prompt_tokens, completion_tokens, total_tokens, credits_delta, reason, reserved_tokens, base_tokens, markup_tokens, estimated, balance_before, balance_after, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit)
+    if (error) throw error
+    return data ?? []
   },
 };

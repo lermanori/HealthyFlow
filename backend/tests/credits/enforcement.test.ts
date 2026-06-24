@@ -67,7 +67,7 @@ const validOpenAIResponse = {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockCredits.estimateReserve.mockReturnValue(10)
+  mockCredits.estimateReserve.mockResolvedValue(10)
   mockCredits.settleReserved.mockResolvedValue({ ok: true, chargeTokens: 6, adjustmentTokens: 4 })
 })
 

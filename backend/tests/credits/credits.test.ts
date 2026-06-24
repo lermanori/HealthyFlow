@@ -14,9 +14,15 @@ import { db } from '../../src/supabase-client'
 jest.mock('../../src/supabase-client', () => ({
   db: {
     getCreditBalance: jest.fn(),
+    getBillingSettings: jest.fn(),
+    updateBillingSettings: jest.fn(),
     reserveCredits: jest.fn(),
     grantCredits: jest.fn(),
     insertUsageLog: jest.fn(),
+    setCreditBalance: jest.fn(),
+    getUsersWithCreditBalances: jest.fn(),
+    getUsageLogsSince: jest.fn(),
+    getRecentUsageLogs: jest.fn(),
   },
 }))
 
@@ -31,6 +37,12 @@ import {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockDb.getBillingSettings.mockResolvedValue({
+    app_tokens_per_usd: 1000,
+    markup_rate: 0.25,
+    min_markup_tokens: 5,
+    updated_at: null,
+  })
 })
 
 describe('Credits.reserve', () => {
@@ -143,6 +155,24 @@ describe('billing math', () => {
       maxOutputTokens: 100,
     })).toThrow(UnpricedModelError)
   })
+
+  it('uses persisted markup settings for reserve estimates', async () => {
+    mockDb.getBillingSettings.mockResolvedValue({
+      app_tokens_per_usd: 1000,
+      markup_rate: 1,
+      min_markup_tokens: 10,
+      updated_at: null,
+    })
+
+    const reserve = await Credits.estimateReserve({
+      model: 'gpt-4o-mini',
+      systemPrompt: 'sys',
+      userPrompt: 'hello',
+      maxOutputTokens: 100,
+    })
+
+    expect(reserve).toBe(11)
+  })
 })
 
 describe('Credits.grant', () => {
@@ -178,5 +208,25 @@ describe('Credits.getBalance', () => {
     const balance = await Credits.getBalance('user-1')
 
     expect(balance).toBe(0)
+  })
+})
+
+describe('Credits.setBalance', () => {
+  it('sets the final balance and logs the delta with before/after values', async () => {
+    mockDb.getCreditBalance.mockResolvedValue(10)
+    mockDb.setCreditBalance.mockResolvedValue(25)
+    mockDb.insertUsageLog.mockResolvedValue(undefined)
+
+    const result = await Credits.setBalance('user-1', 25)
+
+    expect(result).toEqual({ balance: 25, delta: 15 })
+    expect(mockDb.setCreditBalance).toHaveBeenCalledWith('user-1', 25)
+    expect(mockDb.insertUsageLog).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: 'user-1',
+      credits_delta: 15,
+      reason: 'admin_balance_set',
+      balance_before: 10,
+      balance_after: 25,
+    }))
   })
 })

@@ -53,7 +53,7 @@ router.post('/query-tasks', authenticateToken, async (req: AuthRequest, res) => 
     let reservedTokens = 0
 
     try {
-      reservedTokens = Credits.estimateReserve({
+      reservedTokens = await Credits.estimateReserve({
         model: QUERY_TASKS_MODEL,
         systemPrompt,
         userPrompt,
@@ -173,7 +173,7 @@ Field rules:
   let reservedTokens = 0
 
   try {
-    reservedTokens = Credits.estimateReserve({
+    reservedTokens = await Credits.estimateReserve({
       model: PARSE_TASKS_MODEL,
       systemPrompt,
       userPrompt: userContent,

@@ -18,8 +18,9 @@ interface DayTimelineProps {
 
 // ponytail: mirrors backend/src/utils/hourSlots.ts — 18 slots 6am–11pm
 const HOUR_SLOTS: string[] = Array.from({ length: 18 }, (_, i) => `${String(i + 6).padStart(2, '0')}:00`)
-const HOUR_SLOT_HEIGHT_PX = 48
+const HOUR_SLOT_HEIGHT_PX = 72
 const MIN_TIMED_TASK_MINUTES = 30
+const MIN_TIMED_TASK_HEIGHT_PX = 52
 
 function formatHour(slot: string): string {
   const h = parseInt(slot, 10)
@@ -52,7 +53,7 @@ function eventTimeRange(event: ExternalCalendarEvent): string {
 
 function timedBlockHeight(duration?: number): number {
   const minutes = Math.max(duration || MIN_TIMED_TASK_MINUTES, MIN_TIMED_TASK_MINUTES)
-  return Math.round((minutes / 60) * HOUR_SLOT_HEIGHT_PX)
+  return Math.max(MIN_TIMED_TASK_HEIGHT_PX, Math.round((minutes / 60) * HOUR_SLOT_HEIGHT_PX))
 }
 
 function CalendarEventBlock({
@@ -272,7 +273,8 @@ export default function DayTimeline({
                                 onEdit={onEditTask}
                                 onDelete={onDeleteTask}
                                 isDragging={snapshot.isDragging || draggedTaskId === task.id}
-                                className="h-full p-5"
+                                compact
+                                className="h-full"
                               />
                             </div>
                           )}

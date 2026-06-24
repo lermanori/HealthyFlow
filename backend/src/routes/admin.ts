@@ -1,8 +1,19 @@
 import express from 'express'
+import { z } from 'zod'
 import { db } from '../supabase-client'
-import { authenticateToken, AuthRequest } from '../middleware/auth'
+import { Credits } from '../credits'
+import { authenticateToken, AuthRequest, requireAdminRole } from '../middleware/auth'
 
 const router = express.Router()
+
+const SetBalanceSchema = z.object({
+  balance: z.number().int().min(0),
+})
+
+const BillingSettingsSchema = z.object({
+  markupRate: z.number().min(0).max(10),
+  minMarkupTokens: z.number().int().min(0),
+})
 
 // Middleware to check if user is admin
 const requireAdmin = (req: AuthRequest, res: any, next: any) => {
@@ -14,6 +25,46 @@ const requireAdmin = (req: AuthRequest, res: any, next: any) => {
   
   next()
 }
+
+router.get('/token-manager/overview', authenticateToken, requireAdminRole, async (req, res) => {
+  try {
+    const overview = await Credits.getTokenManagerOverview()
+    res.json(overview)
+  } catch (error) {
+    console.error('Token manager overview error:', error)
+    res.status(500).json({ error: 'Database error' })
+  }
+})
+
+router.patch('/token-manager/users/:userId/balance', authenticateToken, requireAdminRole, async (req, res) => {
+  const parsed = SetBalanceSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message })
+  }
+
+  try {
+    const result = await Credits.setBalance(req.params.userId, parsed.data.balance)
+    res.json(result)
+  } catch (error) {
+    console.error('Set token balance error:', error)
+    res.status(500).json({ error: 'Database error' })
+  }
+})
+
+router.patch('/token-manager/settings', authenticateToken, requireAdminRole, async (req, res) => {
+  const parsed = BillingSettingsSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message })
+  }
+
+  try {
+    const settings = await Credits.updateBillingSettings(parsed.data)
+    res.json(settings)
+  } catch (error) {
+    console.error('Update billing settings error:', error)
+    res.status(500).json({ error: 'Database error' })
+  }
+})
 
 // Get all users with their task counts
 router.get('/users', requireAdmin, async (req, res) => {
@@ -104,4 +155,4 @@ router.get('/stats', requireAdmin, async (req, res) => {
   }
 })
 
-export { router as adminRoutes } 
+export { router as adminRoutes }

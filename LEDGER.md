@@ -1,3 +1,9 @@
+### 2026-06-24 12:35 — `main`
+
+Added the admin-only Token Manager and first-class user roles. The Supabase schema now defaults users to `user`, marks `lermanori@gmail.com` as `admin`, stores editable AI billing settings, and exposes a role-gated admin dashboard for user balances, OpenAI cost, base app tokens, markup, and charged token totals. The token ledger was reset for a fresh start with the admin account seeded at 1000 app tokens, and the backend/frontend builds plus backend test suite are green.
+
+---
+
 ### 2026-06-24 12:09 — `main`
 
 Converted AI billing from a flat per-action credit into usage-based AI Tokens. The backend now estimates a pre-call reserve, prices actual OpenAI prompt/completion usage by model, applies the 25% or 5-token minimum markup, and refunds or settles the reserve after each call. The UI now labels the balance as AI Tokens, and the test suite covers billing math, reserve/refund/settlement behavior, image estimation, and insufficient-token handling.

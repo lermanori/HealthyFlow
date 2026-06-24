@@ -5,6 +5,7 @@ import DashboardPage from './pages/DashboardPage'
 import AddItemPage from './pages/AddItemPage'
 import WeekViewPage from './pages/WeekViewPage'
 import SettingsPage from './pages/SettingsPage'
+import TokenManagerPage from './pages/TokenManagerPage'
 import LoginPage from './pages/LoginPage'
 import LoadingSpinner from './components/LoadingSpinner'
 import OfflineNotification from './components/OfflineNotification'
@@ -49,6 +50,7 @@ function App() {
           <Route path="/add" element={<AddItemPage />} />
           <Route path="/week" element={<WeekViewPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/token-manager" element={user.role === 'admin' ? <TokenManagerPage /> : <Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

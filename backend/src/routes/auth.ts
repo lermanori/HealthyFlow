@@ -46,7 +46,7 @@ router.post('/signup', signupLimiter, async (req, res) => {
     await Credits.grant(user.id, FREE_SIGNUP_CREDITS, 'signup_bonus')
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' })
-    return res.json({ user: { id: user.id, email: user.email, name: user.name }, token })
+    return res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role ?? 'user' }, token })
   } catch (error) {
     console.error('Signup error:', error)
     return res.status(500).json({ error: 'Database error' })
@@ -77,7 +77,8 @@ router.post('/login', async (req, res) => {
       user: {
         id: user.id,
         email: user.email,
-        name: user.name
+        name: user.name,
+        role: user.role ?? 'user'
       },
       token
     })
@@ -103,7 +104,12 @@ router.get('/verify', async (req, res) => {
       return res.status(401).json({ error: 'Invalid token' })
     }
 
-    res.json(user)
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role ?? 'user',
+    })
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' })
   }
@@ -162,6 +168,7 @@ router.get('/users', async (req, res) => {
       id: user.id,
       email: user.email,
       name: user.name,
+      role: user.role ?? 'user',
       created_at: user.created_at
     })))
   } catch (error) {

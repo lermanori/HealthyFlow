@@ -163,6 +163,68 @@ export interface AnalyticsData {
   }
 }
 
+export interface BillingSettings {
+  appTokensPerUsd: number
+  markupRate: number
+  minMarkupTokens: number
+  updatedAt?: string | null
+}
+
+export interface TokenManagerUser {
+  id: string
+  email: string
+  name: string
+  role: 'admin' | 'user'
+  created_at: string
+  balance: number
+  balance_updated_at: string | null
+}
+
+export interface TokenManagerTotals {
+  requestCount: number
+  billedTokens: number
+  markupTokens: number
+  baseTokens: number
+  openAiCostUsd: number
+  promptTokens: number
+  completionTokens: number
+  totalOpenAiTokens: number
+}
+
+export interface TokenManagerActivity {
+  id: string
+  userId: string
+  userEmail: string | null
+  userName: string | null
+  endpoint: string | null
+  model: string | null
+  promptTokens: number
+  completionTokens: number
+  totalOpenAiTokens: number
+  openAiCostUsd: number
+  creditsDelta: number
+  billedTokens: number
+  reservedTokens: number | null
+  baseTokens: number
+  markupTokens: number
+  reason: string | null
+  estimated: boolean
+  balanceBefore: number | null
+  balanceAfter: number | null
+  createdAt: string
+}
+
+export interface TokenManagerOverview {
+  users: TokenManagerUser[]
+  settings: BillingSettings
+  totals: {
+    today: TokenManagerTotals
+    thisWeek: TokenManagerTotals
+    thisMonth: TokenManagerTotals
+  }
+  activity: TokenManagerActivity[]
+}
+
 // Auth Service
 export const authService = {
   login: async (email: string, password: string) => {
@@ -387,6 +449,23 @@ export const calendarService = {
 export const creditsService = {
   getBalance: async (): Promise<{ balance: number }> => {
     const response = await api.get('/credits/balance')
+    return response.data
+  },
+}
+
+export const tokenManagerService = {
+  getOverview: async (): Promise<TokenManagerOverview> => {
+    const response = await api.get('/admin/token-manager/overview')
+    return response.data
+  },
+
+  setUserBalance: async (userId: string, balance: number): Promise<{ balance: number; delta: number }> => {
+    const response = await api.patch(`/admin/token-manager/users/${userId}/balance`, { balance })
+    return response.data
+  },
+
+  updateSettings: async (settings: { markupRate: number; minMarkupTokens: number }): Promise<BillingSettings> => {
+    const response = await api.patch('/admin/token-manager/settings', settings)
     return response.data
   },
 }

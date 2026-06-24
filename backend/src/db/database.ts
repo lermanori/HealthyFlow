@@ -21,6 +21,7 @@ export async function initDatabase() {
       email TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
       password_hash TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'user')),
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `)

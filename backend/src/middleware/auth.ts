@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken'
 import { Request, Response, NextFunction } from 'express'
+import { db } from '../supabase-client'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
@@ -23,4 +24,23 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
     req.user = user
     next()
   })
+}
+
+export async function requireAdminRole(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user?.userId
+    if (!userId) {
+      return res.status(401).json({ error: 'Access token required' })
+    }
+
+    const user = await db.getUserById(userId)
+    if (user?.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' })
+    }
+
+    next()
+  } catch (error) {
+    console.error('Admin role check failed:', error)
+    return res.status(500).json({ error: 'Database error' })
+  }
 }

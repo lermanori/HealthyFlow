@@ -16,9 +16,10 @@ interface TaskCardProps {
   onUncomplete?: (id: string) => void
   isDragging?: boolean
   className?: string
+  compact?: boolean
 }
 
-export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncomplete, isDragging, className = '' }: TaskCardProps) {
+export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncomplete, isDragging, className = '', compact = false }: TaskCardProps) {
   const [showMenu, setShowMenu] = useState(false)
 
   const handleComplete = () => {
@@ -159,7 +160,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
 
     if (task.syncedToGoogle && task.googleSyncStatus === 'synced') {
       return (
-        <span className="flex items-center space-x-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300">
+        <span className={`flex items-center space-x-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 text-xs text-emerald-300 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
           <Calendar className="w-3 h-3" />
           <span>Synced</span>
         </span>
@@ -168,7 +169,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
 
     if (task.googleSyncStatus === 'failed') {
       return (
-        <span className="flex items-center space-x-1 rounded-full border border-red-500/30 bg-red-500/15 px-2 py-1 text-xs text-red-300">
+        <span className={`flex items-center space-x-1 rounded-full border border-red-500/30 bg-red-500/15 text-xs text-red-300 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
           <AlertTriangle className="w-3 h-3" />
           <span>Sync failed</span>
         </span>
@@ -177,7 +178,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
 
     if (task.googleSyncStatus === 'pending') {
       return (
-        <span className="flex items-center space-x-1 rounded-full border border-cyan-500/30 bg-cyan-500/15 px-2 py-1 text-xs text-cyan-300">
+        <span className={`flex items-center space-x-1 rounded-full border border-cyan-500/30 bg-cyan-500/15 text-xs text-cyan-300 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
           <RefreshCw className="w-3 h-3" />
           <span>Syncing</span>
         </span>
@@ -203,33 +204,39 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       }}
       exit={{ opacity: 0, y: -20 }}
       whileHover={{ scale: 1.01 }}
-      className={`group relative p-4 rounded-xl border transition-all duration-300 ${
+      className={`group relative border transition-all duration-300 ${
+        compact ? 'overflow-hidden rounded-lg p-2.5' : 'rounded-xl p-4'
+      } ${
         task.completed 
           ? 'bg-gray-800/50 border-gray-600/50 opacity-75' 
           : 'card glass-effect hover:shadow-lg'
       } ${isDragging ? 'z-10 rotate-1' : ''} ${className}`}
     >
       {/* Completion Checkbox */}
-      <div className="flex items-start space-x-3">
+      <div className={`flex min-h-0 items-start ${compact ? 'space-x-2' : 'space-x-3'}`}>
         <button
           onClick={handleComplete}
-          className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+          className={`flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+            compact ? 'mt-0.5 h-4 w-4' : 'h-5 w-5'
+          } ${
             task.completed
               ? 'bg-gradient-to-r from-green-500 to-emerald-600 border-green-500 text-white'
               : 'border-gray-600 hover:border-cyan-400 hover:bg-cyan-400/10'
           }`}
         >
-          {task.completed && <Check className="w-3 h-3" />}
+          {task.completed && <Check className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />}
         </button>
 
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           {/* Header with title and type */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 min-w-0">
-              <div className={`flex items-center justify-center w-6 h-6 rounded-lg ${getTypeColor(task.type)}`}>
-                {getItemIcon(task.type)}
-              </div>
-              <h3 className={`font-medium truncate ${
+          <div className="flex min-w-0 items-center justify-between">
+            <div className={`flex min-w-0 items-center ${compact ? 'space-x-1.5' : 'space-x-2'}`}>
+              {!compact && (
+                <div className={`flex h-6 w-6 items-center justify-center rounded-lg ${getTypeColor(task.type)}`}>
+                  {getItemIcon(task.type)}
+                </div>
+              )}
+              <h3 className={`truncate font-medium ${compact ? 'text-sm leading-5' : ''} ${
                 task.completed ? 'line-through text-gray-500' : 'text-gray-100'
               }`}>
                 {task.title}
@@ -240,7 +247,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
             <div className="relative flex-shrink-0">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-gray-700 transition-all duration-200"
+                className={`${compact ? 'p-0.5' : 'p-1'} rounded-lg opacity-0 group-hover:opacity-100 hover:bg-gray-700 transition-all duration-200`}
               >
                 <MoreVertical className="w-4 h-4 text-gray-400" />
               </button>
@@ -274,34 +281,34 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
           </div>
 
                      {/* Category, Project, and Time Info */}
-           <div className="flex items-center space-x-2 mt-2 flex-wrap">
-             <span className={`px-2 py-1 rounded-full text-xs border ${getCategoryColor(task.category)}`}>
+           <div className={`flex min-w-0 items-center overflow-hidden ${compact ? 'mt-1 gap-1.5 whitespace-nowrap' : 'mt-2 flex-wrap gap-2'}`}>
+             <span className={`shrink-0 rounded-full border text-xs ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} ${getCategoryColor(task.category)}`}>
                {task.category}
              </span>
              
              {task.project && (
                <span 
-                 className="flex items-center space-x-1 px-2 py-1 rounded-full text-xs border"
+                 className={`flex min-w-0 items-center space-x-1 rounded-full border text-xs ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}
                  style={{ 
                    borderColor: `${task.project.color}50`,
                    backgroundColor: `${task.project.color}20`,
                    color: task.project.color
                  }}
                >
-                 <Folder className="w-3 h-3" />
-                 <span>{task.project.name}</span>
+                 <Folder className="h-3 w-3 shrink-0" />
+                 <span className="truncate">{task.project.name}</span>
                </span>
              )}
             
             {task.startTime && (
-              <span className="flex items-center space-x-1 text-xs text-gray-400">
-                <Clock className="w-3 h-3" />
+              <span className="flex shrink-0 items-center space-x-1 text-xs text-gray-400">
+                <Clock className="h-3 w-3" />
                 <span>{task.startTime}</span>
               </span>
             )}
             
             {task.duration && (
-              <span className="text-xs text-gray-400">
+              <span className="shrink-0 text-xs text-gray-400">
                 {task.duration}min
               </span>
             )}

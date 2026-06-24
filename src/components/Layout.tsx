@@ -9,7 +9,8 @@ import {
   Brain,
   Sparkles,
   Menu,
-  X
+  X,
+  Coins
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import PWAInstallPrompt from './PWAInstallPrompt'
@@ -60,6 +61,7 @@ export default function Layout({ children }: LayoutProps) {
     { name: 'Add Item', href: '/add', icon: Plus },
     { name: 'Week View', href: '/week', icon: Calendar },
     { name: 'Settings', href: '/settings', icon: Settings },
+    ...(user?.role === 'admin' ? [{ name: 'Token Manager', href: '/token-manager', icon: Coins }] : []),
   ]
 
   const MobileNavigation = () => (
@@ -319,7 +321,10 @@ export default function Layout({ children }: LayoutProps) {
       {/* Mobile Bottom Navigation */}
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30">
-          <div className="grid grid-cols-5 gap-1 p-2">
+          <div
+            className="grid gap-1 p-2"
+            style={{ gridTemplateColumns: `repeat(${navigation.length + 1}, minmax(0, 1fr))` }}
+          >
             {navigation.map((item) => {
               const isActive = location.pathname === item.href
               return (
