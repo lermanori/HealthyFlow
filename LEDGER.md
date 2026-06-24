@@ -1,3 +1,9 @@
+### 2026-06-24 15:08 — `fix-credits-review`
+
+Hardened the token-billing feature after a post-merge review of Codex's usage-based billing + admin token-manager work. Fixed a ledger drift where failed-call refunds wrote a phantom positive row (balance now always reconstructable from `ai_usage_log`), and stopped settlement underfunds from discarding an already-paid AI result (drain to zero, still return it). Migrated the legacy admin routes off the shared `ADMIN_TOKEN`/query-param check onto identity-based `requireAdminRole`, biased the image-token reserve estimate high, and made model pricing overridable via `AI_MODEL_PRICING` without a code change. Backend suite green (22 suites / 131 tests), build clean.
+
+---
+
 ### 2026-06-24 13:26 — `main`
 
 Shipped task location support across the full stack. Users can now assign, edit, and clear an optional location for tasks from the creation form, edit modal, and timeline dashboard card. These location updates are bidirectionally synchronized with Google Calendar events. Database schema changes have been pushed to remote Supabase, and the full backend and Playwright E2E test suites are green.

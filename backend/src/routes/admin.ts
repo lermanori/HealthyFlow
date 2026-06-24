@@ -2,7 +2,7 @@ import express from 'express'
 import { z } from 'zod'
 import { db } from '../supabase-client'
 import { Credits } from '../credits'
-import { authenticateToken, AuthRequest, requireAdminRole } from '../middleware/auth'
+import { authenticateToken, requireAdminRole } from '../middleware/auth'
 
 const router = express.Router()
 
@@ -14,17 +14,6 @@ const BillingSettingsSchema = z.object({
   markupRate: z.number().min(0).max(10),
   minMarkupTokens: z.number().int().min(0),
 })
-
-// Middleware to check if user is admin
-const requireAdmin = (req: AuthRequest, res: any, next: any) => {
-  const adminToken = req.headers['x-admin-token'] || req.query.adminToken
-  
-  if (adminToken !== process.env.ADMIN_TOKEN) {
-    return res.status(403).json({ error: 'Admin access required' })
-  }
-  
-  next()
-}
 
 router.get('/token-manager/overview', authenticateToken, requireAdminRole, async (req, res) => {
   try {
@@ -67,7 +56,7 @@ router.patch('/token-manager/settings', authenticateToken, requireAdminRole, asy
 })
 
 // Get all users with their task counts
-router.get('/users', requireAdmin, async (req, res) => {
+router.get('/users', authenticateToken, requireAdminRole, async (req, res) => {
   try {
     const users = await db.getAllUsers()
     
@@ -85,7 +74,7 @@ router.get('/users', requireAdmin, async (req, res) => {
 })
 
 // Get user details with all their data
-router.get('/users/:userId', requireAdmin, async (req, res) => {
+router.get('/users/:userId', authenticateToken, requireAdminRole, async (req, res) => {
   const { userId } = req.params
   
   try {
@@ -110,7 +99,7 @@ router.get('/users/:userId', requireAdmin, async (req, res) => {
 })
 
 // Delete user and all their data
-router.delete('/users/:userId', requireAdmin, async (req, res) => {
+router.delete('/users/:userId', authenticateToken, requireAdminRole, async (req, res) => {
   const { userId } = req.params
   
   try {
@@ -131,7 +120,7 @@ router.delete('/users/:userId', requireAdmin, async (req, res) => {
 })
 
 // Get system statistics
-router.get('/stats', requireAdmin, async (req, res) => {
+router.get('/stats', authenticateToken, requireAdminRole, async (req, res) => {
   try {
     const users = await db.getAllUsers()
     const allTasks = await Promise.all(
