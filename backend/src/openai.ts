@@ -2,8 +2,14 @@ const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 
 export type OpenAIErrorCode = 'no_key' | 'upstream' | 'invalid_response'
 
+export type TokenUsage = {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+}
+
 export type OpenAIResult<T> =
-  | { ok: true; value: T }
+  | { ok: true; value: T; usage?: TokenUsage }
   | { ok: false; code: OpenAIErrorCode; message: string }
 
 type CallOpts = {
@@ -52,7 +58,15 @@ async function rawCall(
       console.error('OpenAI response missing content:', data)
       return { ok: false, code: 'invalid_response', message: 'Missing content' }
     }
-    return { ok: true, value: String(content) }
+    const rawUsage = data.usage
+    const usage: TokenUsage | undefined = rawUsage
+      ? {
+          promptTokens: rawUsage.prompt_tokens,
+          completionTokens: rawUsage.completion_tokens,
+          totalTokens: rawUsage.total_tokens,
+        }
+      : undefined
+    return { ok: true, value: String(content), usage }
   } catch (e) {
     console.error('OpenAI call threw:', e)
     return { ok: false, code: 'upstream', message: 'Network error' }
@@ -63,7 +77,7 @@ export const Openai = {
   async callText(opts: CallOpts): Promise<OpenAIResult<string>> {
     const result = await rawCall(opts)
     if (!result.ok) return result
-    return { ok: true, value: result.value.trim() }
+    return { ok: true, value: result.value.trim(), usage: result.usage }
   },
 
   async callStructured<T>(
@@ -87,7 +101,7 @@ export const Openai = {
     if (!result.ok) return result
     try {
       const parsed = opts.parser(JSON.parse(result.value))
-      return { ok: true, value: parsed }
+      return { ok: true, value: parsed, usage: result.usage }
     } catch (e) {
       console.error('OpenAI structured parse failed:', e)
       return { ok: false, code: 'invalid_response', message: 'Schema validation failed' }

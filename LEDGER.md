@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-24 00:00 — `issue-43-ai-credits`
+
+Laid the foundation for per-user AI credits and token metering (issue #43, Slice A). Added a migration creating `user_credits` and `ai_usage_log` tables plus atomic `reserve_credits`/`grant_credits` Postgres functions so balance checks and debits happen in one statement with no overspend race. Added a new `credits.ts` deep module (reserve/settle/grant/getBalance) backed by thin `supabase-client.ts` helpers, and threaded OpenAI's token `usage` block through `callText`/`callStructured` non-breakingly so future settlement has real token counts to log.
+
+---
+
 ### 2026-06-23 20:12 — `main`
 
 Added scoped deletion for recurring habits. The dashboard now asks whether to remove only the selected habit day or the entire recurring habit, and the backend persists per-day skips with a `deleted_at` tombstone so virtual instances do not reappear after refresh. The delete route now handles virtual habit ids, materialized habit instances, whole-series deletes, Google Calendar cleanup, and regular task deletes with focused regression coverage.
