@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-24 11:37 — `main`
+
+Fixed Google Calendar task sync to use the browser's local timezone instead of a hardcoded offset, so timed tasks keep their HealthyFlow wall-clock time when they appear in Google/Apple Calendar. Added regression coverage for local calendar event payloads, including events that cross midnight. Also kept the day timeline height behavior aligned with task duration while restoring the roomier card padding requested during mobile review.
+
+---
+
 ### 2026-06-24 11:12 — `main`
 
 Refined the AI Task Analyzer into a focused prompt-first composer. The toolbar now holds upload, dictation, voice assistant, default schedule date, and the compact analyze action, with clearer borders and modal settings for voice/date configuration. The selected default schedule date is now sent through parse-tasks so unspecific tasks land on the intended date, and the analyzer overlay now covers the full viewport via a body-level portal. Build is green and the UI is ready for deployment.

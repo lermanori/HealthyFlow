@@ -15,6 +15,11 @@ const DeleteBody = z.object({
   deleteScope: z.enum(['instance', 'habit']).optional(),
 })
 
+function clientTimeZone(req: AuthRequest): string | undefined {
+  const value = req.header('x-client-time-zone')
+  return value && value.length <= 100 ? value : undefined
+}
+
 // Shared PUT/materialize response shape (DB row → API task).
 function formatTaskResponse(row: any, opts: { isHabitInstance?: boolean } = {}) {
   return {
@@ -39,9 +44,9 @@ function formatTaskResponse(row: any, opts: { isHabitInstance?: boolean } = {}) 
   }
 }
 
-async function syncTaskRowToGoogle(row: any) {
+async function syncTaskRowToGoogle(row: any, timeZone?: string) {
   try {
-    const result = await syncTaskToGoogleCalendar(row)
+    const result = await syncTaskToGoogleCalendar(row, timeZone)
     return db.updateTask(row.id, {
       google_event_id: result.googleEventId,
       synced_to_google: result.synced,
@@ -184,7 +189,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
 
     let task = await db.createTask(taskData)
     if (task.type === 'task' && task.scheduled_date && task.start_time) {
-      task = await syncTaskRowToGoogle(task)
+      task = await syncTaskRowToGoogle(task, clientTimeZone(req))
     }
 
     res.json({
@@ -338,7 +343,7 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
     }
     let updatedTask = await db.updateTask(taskId, updateData)
     if (updatedTask.type === 'task') {
-      updatedTask = await syncTaskRowToGoogle(updatedTask)
+      updatedTask = await syncTaskRowToGoogle(updatedTask, clientTimeZone(req))
     }
     return res.json(formatTaskResponse(updatedTask, { isHabitInstance: false }))
   } catch (error) {

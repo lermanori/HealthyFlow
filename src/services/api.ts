@@ -13,6 +13,10 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  if (timeZone) {
+    config.headers['X-Client-Time-Zone'] = timeZone
+  }
   return config
 })
 
@@ -368,7 +372,10 @@ export const calendarService = {
   },
 
   syncTimedTasks: async (date: string): Promise<{ synced: number }> => {
-    const response = await api.post('/calendar/google/sync-timed-tasks', { date })
+    const response = await api.post('/calendar/google/sync-timed-tasks', {
+      date,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    })
     return response.data
   },
 }
