@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Brain, X, Calendar, Plus, Sparkles } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { useTTS } from '../../hooks/useTTS'
+import { useCredits } from '../../hooks/useCredits'
 import TTSSettings from '../TTSSettings'
 import TTSActions from '../TTSActions'
 import VoiceInput from '../VoiceInput'
@@ -21,6 +22,7 @@ export default function AITextAnalyzer({ onClose, scheduledDate, enableTTS = tru
   const [inputMode, setInputMode] = useState<'text' | 'voice'>('text')
 
   const { speak } = useTTS()
+  const { refetch: refetchCredits } = useCredits()
   const { suggestions, selectedSuggestions, isAnalyzing, analyzeText, toggleSuggestion, updateTaskDate, reset } =
     useParsedItems()
   const { mutation: addTasksMutation, addSelectedTasks } = useAddItems(() => {
@@ -79,6 +81,7 @@ export default function AITextAnalyzer({ onClose, scheduledDate, enableTTS = tru
 
   const handleAnalyzeText = () => {
     analyzeText(inputText, (items) => {
+      refetchCredits()
       if (ttsEnabled && autoSpeakResults) {
         setTimeout(() => {
           speak(generateTTSSummary(items), { voice: selectedVoice, rate: speechRate })

@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 import axios from 'axios'
+import toast from 'react-hot-toast'
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 // const API_BASE_URL = 'https://healthyflow-production.up.railway.app/api'
 
@@ -16,13 +17,16 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Handle auth errors
+// Handle auth and credit errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       window.location.reload()
+    }
+    if (error.response?.status === 402) {
+      toast.error('Out of AI credits')
     }
     return Promise.reject(error)
   }
@@ -365,6 +369,13 @@ export const calendarService = {
 
   syncTimedTasks: async (date: string): Promise<{ synced: number }> => {
     const response = await api.post('/calendar/google/sync-timed-tasks', { date })
+    return response.data
+  },
+}
+
+export const creditsService = {
+  getBalance: async (): Promise<{ balance: number }> => {
+    const response = await api.get('/credits/balance')
     return response.data
   },
 }

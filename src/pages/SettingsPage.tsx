@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, CheckCircle2, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Unplug } from 'lucide-react'
+import { CalendarDays, CheckCircle2, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Unplug, Sparkles } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
+import { useCredits } from '../hooks/useCredits'
 import toast from 'react-hot-toast'
 import api, { calendarService, CalendarConnectionStatus } from '../services/api'
 
 export default function SettingsPage() {
   const { user } = useAuth()
   const { permission, requestPermission } = useNotifications()
+  const { balance, isLoading: creditsLoading } = useCredits()
   const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
   const [calendarLoading, setCalendarLoading] = useState(true)
   const [calendarActionLoading, setCalendarActionLoading] = useState(false)
@@ -178,7 +180,7 @@ export default function SettingsPage() {
           <User className="w-5 h-5 text-cyan-400" />
           <h2 className="text-lg font-semibold text-gray-100">Profile</h2>
         </div>
-        
+
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-200 mb-1">Name</label>
@@ -198,6 +200,34 @@ export default function SettingsPage() {
               readOnly
             />
           </div>
+        </div>
+      </div>
+
+      {/* AI Credits */}
+      <div className="card">
+        <div className="flex items-center space-x-3 mb-4">
+          <Sparkles className="w-5 h-5 text-cyan-400" />
+          <h2 className="text-lg font-semibold text-gray-100">AI Credits</h2>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-gray-300">Available Credits</span>
+            <span className="text-2xl font-bold text-cyan-400">
+              {creditsLoading ? '...' : balance}
+            </span>
+          </div>
+
+          <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+            <div
+              className="bg-gradient-to-r from-cyan-500 to-blue-600 h-full transition-all duration-300"
+              style={{ width: `${Math.min((balance / 50) * 100, 100)}%` }}
+            />
+          </div>
+
+          <p className="text-xs text-gray-400">
+            Credits are used for AI-powered features like task parsing and smart suggestions. Top-ups coming soon.
+          </p>
         </div>
       </div>
 

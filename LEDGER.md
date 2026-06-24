@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-24 11:23 — `issue-43-ai-credits`
+
+Shipped Slice C (Frontend) of the per-user AI credits feature. Added a lightweight `creditsService` to the API layer and a `useCredits` hook using React Query for balance fetching. Extended the response interceptor to catch HTTP 402 errors and toast "Out of AI credits" without interfering with the existing 401 auth flow. Wired the credits hook into `AITextAnalyzer` to refetch the balance after successful parse operations. Added a new "AI Credits" card in Settings showing the current balance with a visual progress bar (capped at 50 credits for display). All changes compile clean and no build errors.
+
+---
+
 ### 2026-06-24 14:30 — `issue-43-ai-credits`
 
 Wired enforcement on top of Slice A's credits foundation (issue #44, Slice B). Both AI routes (`parse-tasks`, `query-tasks`) now reserve a credit before calling OpenAI, return 402 `insufficient_credits` if the reserve fails, refund via `Credits.grant` on AI failure, and settle real token usage (or zeroed counts when OpenAI omits the usage block) on success. Signup now seeds new users with `FREE_SIGNUP_CREDITS` (50), and a new thin `GET /api/credits/balance` endpoint exposes the current balance. Added `backend/tests/credits/enforcement.test.ts` covering all four behaviors, plus updated three pre-existing suites whose mocks didn't yet account for the new real `Credits` calls; full suite is green (18/18 suites, 102/102 tests) and the TypeScript build is clean.
