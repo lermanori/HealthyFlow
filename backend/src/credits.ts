@@ -2,7 +2,8 @@ import { db } from './supabase-client'
 import type { TokenUsage } from './openai'
 
 export const CREDITS_PER_ACTION = 1
-export const FREE_SIGNUP_CREDITS = 50
+// 0 = new users start empty; top up manually (see admin grant / SQL).
+export const FREE_SIGNUP_CREDITS = 0
 
 // ponytail: flat per-action pricing for now. Token-based pricing is the
 // documented future switch — swap the constant charge below for:

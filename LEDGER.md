@@ -1,3 +1,9 @@
+### 2026-06-24 11:33 — `issue-43-ai-credits`
+
+New users now start with **0** AI credits (was 50); balances are filled by manual top-up. Backend suite green (102/102), build clean.
+
+---
+
 # HealthyFlow — Project Ledger
 
 Auto-updated on every commit. Newest entries appear first.
