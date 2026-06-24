@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-24 10:42 — `main`
+
+Captured the project operating instructions in `AGENTS.md` so future agent sessions have the same architecture rules, AI harness constraints, issue-tracker workflow, and commit process available in-repo. Preserved the June 23 handoff note under `.scratch/` as a historical launch-readiness snapshot and next-session checklist. This gives the project a clearer trail from sprint state to current implementation work.
+
+---
+
 ### 2026-06-24 10:41 — `main`
 
 Fixed deletion for tasks that still reference Google Calendar events after the user disconnects Google Calendar. The task delete path now treats only the explicit "Google Calendar is not connected" cleanup failure as non-blocking, so HealthyFlow still removes the local task while preserving real Google API failures. Added regression coverage for a synced task with a stale external event id.
