@@ -3,6 +3,20 @@ import nock from 'nock'
 import jwt from 'jsonwebtoken'
 import { app } from '../../src/index'
 
+// ponytail: this suite predates credit enforcement — stub Credits so the
+// route's reserve/settle calls don't hit real Supabase. Enforcement itself
+// is covered by tests/credits/enforcement.test.ts.
+jest.mock('../../src/credits', () => ({
+  Credits: {
+    reserve: jest.fn().mockResolvedValue(true),
+    settle: jest.fn().mockResolvedValue(undefined),
+    grant: jest.fn().mockResolvedValue(undefined),
+    getBalance: jest.fn(),
+  },
+  CREDITS_PER_ACTION: 1,
+  FREE_SIGNUP_CREDITS: 50,
+}))
+
 const authHeader = () => {
   const token = jwt.sign({ userId: 'test-user-id' }, process.env.JWT_SECRET!)
   return `Bearer ${token}`

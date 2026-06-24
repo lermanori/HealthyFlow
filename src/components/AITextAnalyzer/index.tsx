@@ -4,6 +4,7 @@ import { Brain, X, Calendar, Plus, Sparkles, Image as ImageIcon, Mic, CornerDown
 import { format, addDays } from 'date-fns'
 import toast from 'react-hot-toast'
 import { useTTS } from '../../hooks/useTTS'
+import { useCredits } from '../../hooks/useCredits'
 import TTSSettings from '../TTSSettings'
 import TTSActions from '../TTSActions'
 import { useParsedItems } from '../../hooks/useParsedItems'
@@ -29,6 +30,7 @@ export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAna
   const dictatedBaseTextRef = useRef('')
 
   const { speak } = useTTS()
+  const { refetch: refetchCredits } = useCredits()
   const {
     isListening,
     isSupported: isDictationSupported,
@@ -112,6 +114,7 @@ export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAna
 
   const handleAnalyzeText = () => {
     analyzeText(inputText, photo, defaultScheduleDate, (items) => {
+      refetchCredits()
       if (ttsEnabled && autoSpeakResults) {
         setTimeout(() => {
           speak(generateTTSSummary(items), { voice: selectedVoice, rate: speechRate })

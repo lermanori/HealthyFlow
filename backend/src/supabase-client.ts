@@ -655,4 +655,50 @@ export const db = {
       .eq('user_id', userId)
     if (error) throw error
   },
+
+  // Credits
+  async getCreditBalance(userId: string): Promise<number> {
+    const { data, error } = await supabase
+      .from('user_credits')
+      .select('balance')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (error) throw error
+    return data?.balance ?? 0
+  },
+
+  // Atomic decrement via Postgres function — returns new balance, or null when
+  // the balance is insufficient (no overspend, no read-then-write race).
+  async reserveCredits(userId: string, cost: number): Promise<number | null> {
+    const { data, error } = await supabase.rpc('reserve_credits', {
+      p_user_id: userId,
+      p_cost: cost,
+    })
+    if (error) throw error
+    return data ?? null
+  },
+
+  async grantCredits(userId: string, amount: number): Promise<number> {
+    const { data, error } = await supabase.rpc('grant_credits', {
+      p_user_id: userId,
+      p_amount: amount,
+    })
+    if (error) throw error
+    return data
+  },
+
+  async insertUsageLog(row: {
+    user_id: string
+    endpoint?: string
+    model?: string
+    prompt_tokens?: number
+    completion_tokens?: number
+    total_tokens?: number
+    credits_delta: number
+    reason?: string
+    request_id?: string
+  }) {
+    const { error } = await supabase.from('ai_usage_log').insert(row)
+    if (error) throw error
+  },
 };
