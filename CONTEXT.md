@@ -48,11 +48,14 @@ The closed set of category values the UI offers when creating items: `health`, `
 ### Calorie tracking
 
 **Calorie entry**:
-A manually logged food item for a given day: `name`, `calories`, optional macros (protein/carbs/fat in grams), an optional `quantity` (e.g. "2 eggs"), and a `date`. Its own concern, not an `Item`/`Task`/`Habit` — lives in the `calorie_entries` table, never written into `tasks`. Managed on the dedicated `/calories` page.
+A manually logged food item for a given day: `name`, `calories`, optional macros (protein/carbs/fat in grams), an optional `quantity` (e.g. "2 eggs"), a `date`, and an optional `time` used to group entries visually in the log. Its own concern, not an `Item`/`Task`/`Habit` — lives in the `calorie_entries` table, never written into `tasks`. Managed on the dedicated `/calories` page.
 _Avoid_: "food log item", "meal entry" (an Item type already named `meal` exists and is unrelated)
 
 **Macros**:
 Shorthand for protein, carbs, and fat (all in grams) on a calorie entry. All three are optional — manual entry only requires `name` and `calories` so logging stays fast.
+
+**Weight entry**:
+A kg-only body-weight measurement for a specific `date`. Users may skip days, but can record at most one weight entry per date; the UI emphasizes the latest entry, latest-vs-previous delta, and a trend graph of recent recorded entries. Its own concern, not an `Item`/`Task`/`Habit` — lives in the `weight_entries` table and is surfaced inside the `/calories` page.
 
 The `/calories` page and its nav entry are gated on the `calorieIntake` user setting (see #47); when off, neither the route nor the nav item appears.
 

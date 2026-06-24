@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Brain, X, Calendar, Plus, Sparkles, Image as ImageIcon, Mic, CornerDownLeft, Square } from 'lucide-react'
 import { format, addDays } from 'date-fns'
@@ -11,7 +11,7 @@ import { useParsedItems } from '../../hooks/useParsedItems'
 import { useAddItems } from '../../hooks/useAddItems'
 import SuggestionCard from './SuggestionCard'
 import type { AITextAnalyzerProps, AnalyzerPhoto, TaskSuggestion } from '../../lib/ai/parseTasksSchema'
-import { useSTT } from '../../hooks/useSTT'
+import { useDictatedText } from '../../hooks/useDictatedText'
 
 const ACCEPTED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024
@@ -27,22 +27,18 @@ export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAna
   const [selectedVoice, setSelectedVoice] = useState('')
   const [speechRate, setSpeechRate] = useState(1.0)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const dictatedBaseTextRef = useRef('')
 
   const { speak } = useTTS()
   const { refetch: refetchCredits } = useCredits()
-  const {
-    isListening,
-    isSupported: isDictationSupported,
-    transcript,
-    interimTranscript,
-    error: dictationError,
-    startListening,
-    stopListening,
-    clearTranscript,
-  } = useSTT()
   const { suggestions, selectedSuggestions, isAnalyzing, analyzeText, toggleSuggestion, updateTaskDate, reset } =
     useParsedItems()
+  const {
+    isListening,
+    isDictationSupported,
+    dictationError,
+    toggleDictation,
+    clearTranscript,
+  } = useDictatedText({ text: inputText, setText: setInputText, disabled: isAnalyzing })
   const { mutation: addTasksMutation, addSelectedTasks } = useAddItems(() => {
     reset()
     setInputText('')
@@ -50,13 +46,6 @@ export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAna
     clearTranscript()
     onClose?.()
   })
-
-  useEffect(() => {
-    const dictatedText = transcript || interimTranscript
-    if (!dictatedText) return
-
-    setInputText([dictatedBaseTextRef.current, dictatedText.trim()].filter(Boolean).join(' '))
-  }, [transcript, interimTranscript])
 
   const generateTTSSummary = (items: TaskSuggestion[]): string => {
     if (items.length === 0) return ''
@@ -120,27 +109,6 @@ export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAna
           speak(generateTTSSummary(items), { voice: selectedVoice, rate: speechRate })
         }, 1000)
       }
-    })
-  }
-
-  const handleToggleDictation = () => {
-    if (isAnalyzing) return
-    if (!isDictationSupported) {
-      toast.error('Dictation is not supported in this browser')
-      return
-    }
-    if (isListening) {
-      stopListening()
-      return
-    }
-
-    dictatedBaseTextRef.current = inputText.trim()
-    clearTranscript()
-    startListening({
-      language: 'en-US',
-      continuous: false,
-      interimResults: true,
-      maxAlternatives: 1,
     })
   }
 
@@ -307,7 +275,7 @@ Examples:
               </div>
               <button
                 type="button"
-                onClick={handleToggleDictation}
+                onClick={toggleDictation}
                 disabled={isAnalyzing || !isDictationSupported}
                 className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   isListening

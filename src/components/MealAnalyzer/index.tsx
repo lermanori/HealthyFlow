@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Brain, X, Plus, Sparkles, Image as ImageIcon, CornerDownLeft } from 'lucide-react'
+import { Brain, X, Plus, Sparkles, Image as ImageIcon, CornerDownLeft, Mic, Square } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { aiService, ParsedMeal, CalorieEntryInput } from '../../services/api'
 import { useCalorieEntries } from '../../hooks/useCalorieEntries'
+import { useDictatedText } from '../../hooks/useDictatedText'
 
 const ACCEPTED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024
+const currentTime = () => new Date().toTimeString().slice(0, 5)
 
 type Photo = { fileName: string; mimeType: (typeof ACCEPTED_PHOTO_TYPES)[number]; data: string; previewUrl: string }
 
@@ -23,6 +25,13 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { createEntry } = useCalorieEntries(date)
+  const {
+    isListening,
+    isDictationSupported,
+    dictationError,
+    toggleDictation,
+    clearTranscript,
+  } = useDictatedText({ text: inputText, setText: setInputText, disabled: isAnalyzing })
 
   const handlePhotoChange = async (file: File | undefined) => {
     if (!file) return
@@ -91,6 +100,7 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
     toAdd.forEach((meal) => {
       const entry: CalorieEntryInput = {
         date,
+        time: currentTime(),
         name: meal.name,
         calories: meal.calories,
         protein: meal.protein,
@@ -104,6 +114,7 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
     setSuggestions([])
     setSelected(new Set())
     setInputText('')
+    clearTranscript()
     setPhoto(undefined)
     onClose?.()
   }
@@ -156,7 +167,7 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
           disabled={isAnalyzing}
           maxLength={2000}
         />
-        <div className="mt-3 flex items-center gap-2 border-t border-cyan-300/10 pt-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-cyan-300/10 pt-3">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -167,7 +178,22 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
             <Plus className="h-6 w-6" />
           </button>
           {photo && <ImageIcon className="h-4 w-4 text-cyan-400" />}
+          <button
+            type="button"
+            onClick={toggleDictation}
+            disabled={isAnalyzing || !isDictationSupported}
+            className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+              isListening
+                ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
+                : 'border-cyan-500/25 bg-gray-900/25 text-gray-300 hover:bg-gray-700'
+            }`}
+            aria-label={isListening ? 'Stop dictation' : 'Dictate'}
+          >
+            {isListening ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </button>
           <div className="ml-auto flex items-center gap-2">
+            {isListening && <span className="text-xs text-cyan-300">Listening</span>}
+            {dictationError && <span className="max-w-32 truncate text-xs text-red-300">{dictationError}</span>}
             <Sparkles className="h-4 w-4 animate-neon-flicker text-cyan-400" />
             <button
               onClick={handleAnalyze}

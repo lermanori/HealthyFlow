@@ -498,6 +498,7 @@ export interface CalorieEntry {
   id: string
   userId: string
   date: string
+  time: string | null
   name: string
   calories: number
   protein: number | null
@@ -510,6 +511,7 @@ export interface CalorieEntry {
 
 export type CalorieEntryInput = {
   date: string
+  time?: string | null
   name: string
   calories: number
   protein?: number | null
@@ -536,6 +538,53 @@ export const caloriesService = {
 
   remove: async (id: string): Promise<void> => {
     await api.delete(`/calories/${id}`)
+  },
+}
+
+export interface WeightEntry {
+  id: string
+  userId: string
+  date: string
+  weightKg: number
+  createdAt: string
+  updatedAt: string
+}
+
+export type WeightEntryInput = {
+  date: string
+  weightKg: number
+}
+
+export interface WeightTrend {
+  entries: WeightEntry[]
+  latest: WeightEntry | null
+  previous: WeightEntry | null
+  deltaKg: number | null
+}
+
+export const weightService = {
+  getByDate: async (date: string): Promise<WeightEntry | null> => {
+    const response = await api.get('/weight', { params: { date } })
+    return response.data
+  },
+
+  recent: async (limit = 30): Promise<WeightTrend> => {
+    const response = await api.get('/weight/recent', { params: { limit } })
+    return response.data
+  },
+
+  create: async (entry: WeightEntryInput): Promise<WeightEntry> => {
+    const response = await api.post('/weight', entry)
+    return response.data
+  },
+
+  update: async (id: string, patch: Partial<WeightEntryInput>): Promise<WeightEntry> => {
+    const response = await api.patch(`/weight/${id}`, patch)
+    return response.data
+  },
+
+  remove: async (id: string): Promise<void> => {
+    await api.delete(`/weight/${id}`)
   },
 }
 

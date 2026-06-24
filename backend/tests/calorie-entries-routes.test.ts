@@ -24,6 +24,7 @@ function row(overrides: Record<string, unknown> = {}) {
     id: 'entry-1',
     user_id: USER_ID,
     date: '2026-06-24',
+    time: '08:30',
     name: 'Eggs',
     calories: 140,
     protein: null,
@@ -56,6 +57,7 @@ describe('calorie entries API', () => {
       date: '2026-06-24',
       name: 'Eggs',
       calories: 140,
+      time: '08:30',
       protein: null,
       carbs: null,
       fat: null,
@@ -140,6 +142,29 @@ describe('calorie entries API', () => {
     }))
   })
 
+  it('accepts a time when creating an entry', async () => {
+    mockDb.createCalorieEntry.mockResolvedValue(row({ time: '12:45' }))
+
+    const res = await request(app)
+      .post('/api/calories')
+      .set('Authorization', TOKEN)
+      .send({ date: '2026-06-24', time: '12:45', name: 'Lunch', calories: 500 })
+
+    expect(res.status).toBe(201)
+    expect(mockDb.createCalorieEntry).toHaveBeenCalledWith(expect.objectContaining({ time: '12:45' }))
+    expect(res.body.time).toBe('12:45')
+  })
+
+  it('rejects creation with an invalid time', async () => {
+    const res = await request(app)
+      .post('/api/calories')
+      .set('Authorization', TOKEN)
+      .send({ date: '2026-06-24', time: '25:99', name: 'Eggs', calories: 140 })
+
+    expect(res.status).toBe(400)
+    expect(mockDb.createCalorieEntry).not.toHaveBeenCalled()
+  })
+
   it('updates an entry it owns', async () => {
     mockDb.getCalorieEntryById.mockResolvedValue(row())
     mockDb.updateCalorieEntry.mockResolvedValue(row({ calories: 200 }))
@@ -147,10 +172,10 @@ describe('calorie entries API', () => {
     const res = await request(app)
       .patch('/api/calories/entry-1')
       .set('Authorization', TOKEN)
-      .send({ calories: 200 })
+      .send({ calories: 200, time: '09:15' })
 
     expect(res.status).toBe(200)
-    expect(mockDb.updateCalorieEntry).toHaveBeenCalledWith('entry-1', expect.objectContaining({ calories: 200 }))
+    expect(mockDb.updateCalorieEntry).toHaveBeenCalledWith('entry-1', expect.objectContaining({ calories: 200, time: '09:15' }))
     expect(res.body.calories).toBe(200)
   })
 

@@ -1,3 +1,9 @@
+### 2026-06-24 17:20 — `main`
+
+Extended the calorie module into a clearer health-tracking surface. Calorie entries now support optional times, are visually grouped by time, and display labeled macro chips so calories, protein, carbs, and fat are readable at a glance. AI meal entry now reuses the same dictation hook as AI task analysis, and a new kg-only weight tracker adds one-entry-per-day logging, latest-vs-previous delta, and a recent-entry trend graph inside `/calories`.
+
+---
+
 ### 2026-06-24 17:05 — `main`
 
 Fixed a 400 from OpenAI on the new parse-meals endpoint. The meal macros/quantity were declared `.nullable().optional()`, but OpenAI strict structured-output mode requires every property to appear in the schema's `required` list — optional fields are rejected. Changed them to nullable-but-required (model returns null when unknown), matching the parse-tasks pattern. The nock-based tests had masked this since they never validate the outgoing schema against OpenAI's rules, so added a regression test that walks the actual json_schema sent to OpenAI and asserts every object property is required. Backend suite now 151 green.

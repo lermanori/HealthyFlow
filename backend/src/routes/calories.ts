@@ -7,12 +7,14 @@ import { authenticateToken, AuthRequest } from '../middleware/auth'
 const router = express.Router()
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
 // ponytail: snake_case ↔ camelCase in one place, exactly what the frontend expects
 const toClient = (row: any) => ({
   id: row.id,
   userId: row.user_id,
   date: row.date,
+  time: row.time ? String(row.time).slice(0, 5) : null,
   name: row.name,
   calories: row.calories,
   protein: row.protein ?? null,
@@ -25,6 +27,7 @@ const toClient = (row: any) => ({
 
 const CreateBody = z.object({
   date: z.string().regex(DATE_RE),
+  time: z.string().regex(TIME_RE).nullable().optional(),
   name: z.string().min(1),
   calories: z.number().int().nonnegative(),
   protein: z.number().nonnegative().nullable().optional(),
@@ -35,6 +38,7 @@ const CreateBody = z.object({
 
 const UpdateBody = z.object({
   date: z.string().regex(DATE_RE).optional(),
+  time: z.string().regex(TIME_RE).nullable().optional(),
   name: z.string().min(1).optional(),
   calories: z.number().int().nonnegative().optional(),
   protein: z.number().nonnegative().nullable().optional(),
@@ -68,6 +72,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       id: uuidv4(),
       user_id: req.user.userId,
       date: parsed.data.date,
+      time: parsed.data.time ?? null,
       name: parsed.data.name,
       calories: parsed.data.calories,
       protein: parsed.data.protein ?? null,

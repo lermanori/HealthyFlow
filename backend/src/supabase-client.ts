@@ -654,6 +654,7 @@ export const db = {
       .select('*')
       .eq('user_id', userId)
       .eq('date', date)
+      .order('time', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true })
     if (error) throw error
     return data
@@ -663,6 +664,7 @@ export const db = {
     id: string
     user_id: string
     date: string
+    time?: string | null
     name: string
     calories: number
     protein?: number | null
@@ -703,6 +705,73 @@ export const db = {
   async deleteCalorieEntry(entryId: string) {
     const { error } = await supabase
       .from('calorie_entries')
+      .delete()
+      .eq('id', entryId)
+    if (error) throw error
+  },
+
+  // Weight entries
+  async getWeightEntryByDay(userId: string, date: string) {
+    const { data, error } = await supabase
+      .from('weight_entries')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('date', date)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async getRecentWeightEntries(userId: string, limit: number) {
+    const { data, error } = await supabase
+      .from('weight_entries')
+      .select('*')
+      .eq('user_id', userId)
+      .order('date', { ascending: false })
+      .limit(limit)
+    if (error) throw error
+    return data
+  },
+
+  async createWeightEntry(entryData: {
+    id: string
+    user_id: string
+    date: string
+    weight_kg: number
+  }) {
+    const { data, error } = await supabase
+      .from('weight_entries')
+      .insert(entryData)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async getWeightEntryById(entryId: string) {
+    const { data, error } = await supabase
+      .from('weight_entries')
+      .select('*')
+      .eq('id', entryId)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async updateWeightEntry(entryId: string, updates: Record<string, unknown>) {
+    const { data, error } = await supabase
+      .from('weight_entries')
+      .update(updates)
+      .eq('id', entryId)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async deleteWeightEntry(entryId: string) {
+    const { error } = await supabase
+      .from('weight_entries')
       .delete()
       .eq('id', entryId)
     if (error) throw error
