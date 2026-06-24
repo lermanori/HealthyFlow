@@ -647,6 +647,29 @@ export const db = {
     if (error) throw error
   },
 
+  // Settings — single JSONB column, upsert keeps it to one row per user
+  async getUserSettings(userId: string): Promise<Record<string, unknown>> {
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('settings')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (error) throw error
+    return (data?.settings as Record<string, unknown>) ?? {}
+  },
+
+  async upsertUserSettings(userId: string, settings: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const existing = await this.getUserSettings(userId)
+    const merged = { ...existing, ...settings }
+    const { data, error } = await supabase
+      .from('user_settings')
+      .upsert({ user_id: userId, settings: merged, updated_at: new Date().toISOString() })
+      .select('settings')
+      .single()
+    if (error) throw error
+    return data.settings as Record<string, unknown>
+  },
+
   // ponytail: test-mode only — deletes all task rows for the given user
   async resetTestUser(userId: string) {
     const { error } = await supabase

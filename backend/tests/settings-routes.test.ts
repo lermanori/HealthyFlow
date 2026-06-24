@@ -1,0 +1,85 @@
+import request from 'supertest'
+import jwt from 'jsonwebtoken'
+import { app } from '../src/index'
+import { db } from '../src/supabase-client'
+
+jest.mock('../src/supabase-client', () => ({
+  db: {
+    getUserSettings: jest.fn(),
+    upsertUserSettings: jest.fn(),
+  },
+}))
+
+const mockDb = db as jest.Mocked<typeof db>
+
+const USER_ID = 'user-1'
+const TOKEN = `Bearer ${jwt.sign({ userId: USER_ID }, process.env.JWT_SECRET!)}`
+
+beforeEach(() => {
+  jest.clearAllMocks()
+})
+
+describe('settings API', () => {
+  it('GET returns defaults merged with stored partial settings', async () => {
+    mockDb.getUserSettings.mockResolvedValue({ aiSuggestions: false })
+
+    const res = await request(app)
+      .get('/api/settings')
+      .set('Authorization', TOKEN)
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({
+      notifications: true,
+      dailyReminders: true,
+      weeklyReports: true,
+      aiSuggestions: false,
+      smartReminders: true,
+      completionSounds: true,
+      calorieIntake: false,
+    })
+  })
+
+  it('PATCH validates, persists, and returns merged settings', async () => {
+    mockDb.getUserSettings.mockResolvedValue({})
+    mockDb.upsertUserSettings.mockResolvedValue({ calorieIntake: true })
+
+    const res = await request(app)
+      .patch('/api/settings')
+      .set('Authorization', TOKEN)
+      .send({ calorieIntake: true })
+
+    expect(res.status).toBe(200)
+    expect(mockDb.upsertUserSettings).toHaveBeenCalledWith(USER_ID, { calorieIntake: true })
+    expect(res.body.calorieIntake).toBe(true)
+  })
+
+  it('PATCH rejects unknown keys', async () => {
+    const res = await request(app)
+      .patch('/api/settings')
+      .set('Authorization', TOKEN)
+      .send({ notARealSetting: true })
+
+    expect(res.status).toBe(400)
+    expect(mockDb.upsertUserSettings).not.toHaveBeenCalled()
+  })
+
+  it('PATCH rejects garbage values for known keys', async () => {
+    const res = await request(app)
+      .patch('/api/settings')
+      .set('Authorization', TOKEN)
+      .send({ aiSuggestions: 'yes' })
+
+    expect(res.status).toBe(400)
+    expect(mockDb.upsertUserSettings).not.toHaveBeenCalled()
+  })
+
+  it('defaults calorieIntake to false when nothing is stored', async () => {
+    mockDb.getUserSettings.mockResolvedValue({})
+
+    const res = await request(app)
+      .get('/api/settings')
+      .set('Authorization', TOKEN)
+
+    expect(res.body.calorieIntake).toBe(false)
+  })
+})

@@ -11,6 +11,7 @@ import { adminRoutes } from './routes/admin'
 import { projectRoutes } from './routes/projects'
 import { calendarRoutes } from './routes/calendar'
 import { creditsRoutes } from './routes/credits'
+import { settingsRoutes } from './routes/settings'
 import { initDatabase } from './db/database'
 import { db } from './supabase-client'
 
@@ -40,6 +41,7 @@ app.use('/api/admin', adminRoutes)
 app.use('/api/projects', projectRoutes)
 app.use('/api/calendar', calendarRoutes)
 app.use('/api/credits', creditsRoutes)
+app.use('/api/settings', settingsRoutes)
 
 // Test-mode reset route — 404 in production, mounted only when HF_TEST_MODE=1
 if (process.env.HF_TEST_MODE === '1') {

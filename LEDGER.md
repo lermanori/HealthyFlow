@@ -1,3 +1,9 @@
+### 2026-06-24 14:10 — `issue-47-persisted-settings`
+
+Made user settings persist server-side instead of living only in local React state. Added a single-row-per-user `user_settings` table with one JSONB column, thin Zod-validated GET/PATCH routes, a `settingsService` + `useSettings` React Query hook with optimistic updates, and wired the Settings page's toggles through it. Added the new Calorie Intake feature toggle (default off) as the future gate for the calorie module; Calendar Sync was left untouched since it has its own backend flow. Backend tests (131) and the frontend build are green.
+
+---
+
 ### 2026-06-24 13:26 — `main`
 
 Shipped task location support across the full stack. Users can now assign, edit, and clear an optional location for tasks from the creation form, edit modal, and timeline dashboard card. These location updates are bidirectionally synchronized with Google Calendar events. Database schema changes have been pushed to remote Supabase, and the full backend and Playwright E2E test suites are green.

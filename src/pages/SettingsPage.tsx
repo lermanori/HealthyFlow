@@ -3,25 +3,18 @@ import { CalendarDays, CheckCircle2, Loader2, Settings, Bell, FolderSync as Sync
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
 import { useCredits } from '../hooks/useCredits'
+import { useSettings } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
-import api, { calendarService, CalendarConnectionStatus } from '../services/api'
+import api, { calendarService, CalendarConnectionStatus, UserSettings } from '../services/api'
 
 export default function SettingsPage() {
   const { user } = useAuth()
   const { permission, requestPermission } = useNotifications()
   const { balance, isLoading: creditsLoading } = useCredits()
+  const { settings, updateSetting } = useSettings()
   const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
   const [calendarLoading, setCalendarLoading] = useState(true)
   const [calendarActionLoading, setCalendarActionLoading] = useState(false)
-  const [settings, setSettings] = useState({
-    notifications: true,
-    dailyReminders: true,
-    weeklyReports: true,
-    aiSuggestions: true,
-    calendarSync: false,
-    smartReminders: true,
-    completionSounds: true,
-  })
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -50,7 +43,6 @@ export default function SettingsPage() {
       setCalendarLoading(true)
       const status = await calendarService.getGoogleStatus()
       setCalendarStatus(status)
-      setSettings(prev => ({ ...prev, calendarSync: status.connected }))
     } catch (e) {
       toast.error('Failed to load calendar status')
     } finally {
@@ -82,8 +74,8 @@ export default function SettingsPage() {
     }
   }
 
-  const handleSettingChange = (key: string, value: boolean) => {
-    setSettings(prev => ({ ...prev, [key]: value }))
+  const handleSettingChange = (key: keyof UserSettings, value: boolean) => {
+    updateSetting(key, value)
     toast.success('Settings updated')
   }
 
@@ -273,29 +265,29 @@ export default function SettingsPage() {
           <SettingToggle
             label="Push Notifications"
             description="Receive notifications for task reminders and updates"
-            checked={settings.notifications}
+            checked={settings?.notifications ?? true}
             onChange={(checked) => handleSettingChange('notifications', checked)}
             disabled={!permission.granted}
           />
-          
+
           <SettingToggle
             label="Daily Reminders"
             description="Get reminded about your daily tasks and habits"
-            checked={settings.dailyReminders}
+            checked={settings?.dailyReminders ?? true}
             onChange={(checked) => handleSettingChange('dailyReminders', checked)}
           />
-          
+
           <SettingToggle
             label="Smart Reminders"
             description="Intelligent reminders based on your schedule and habits"
-            checked={settings.smartReminders}
+            checked={settings?.smartReminders ?? true}
             onChange={(checked) => handleSettingChange('smartReminders', checked)}
           />
-          
+
           <SettingToggle
             label="Weekly Reports"
             description="Receive weekly progress summaries"
-            checked={settings.weeklyReports}
+            checked={settings?.weeklyReports ?? true}
             onChange={(checked) => handleSettingChange('weeklyReports', checked)}
           />
         </div>
@@ -312,17 +304,24 @@ export default function SettingsPage() {
           <SettingToggle
             label="AI Suggestions"
             description="Get personalized recommendations based on your habits"
-            checked={settings.aiSuggestions}
+            checked={settings?.aiSuggestions ?? true}
             onChange={(checked) => handleSettingChange('aiSuggestions', checked)}
           />
-          
+
           <SettingToggle
             label="Completion Sounds"
             description="Play celebratory sounds when completing tasks"
-            checked={settings.completionSounds}
+            checked={settings?.completionSounds ?? true}
             onChange={(checked) => handleSettingChange('completionSounds', checked)}
           />
-          
+
+          <SettingToggle
+            label="Calorie Intake"
+            description="Track calorie intake alongside your tasks and habits"
+            checked={settings?.calorieIntake ?? false}
+            onChange={(checked) => handleSettingChange('calorieIntake', checked)}
+          />
+
           <div className="py-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">

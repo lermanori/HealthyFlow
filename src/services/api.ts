@@ -454,6 +454,28 @@ export const creditsService = {
   },
 }
 
+export interface UserSettings {
+  notifications: boolean
+  dailyReminders: boolean
+  weeklyReports: boolean
+  aiSuggestions: boolean
+  smartReminders: boolean
+  completionSounds: boolean
+  calorieIntake: boolean
+}
+
+export const settingsService = {
+  getSettings: async (): Promise<UserSettings> => {
+    const response = await api.get('/settings')
+    return response.data
+  },
+
+  updateSettings: async (partial: Partial<UserSettings>): Promise<UserSettings> => {
+    const response = await api.patch('/settings', partial)
+    return response.data
+  },
+}
+
 export const tokenManagerService = {
   getOverview: async (): Promise<TokenManagerOverview> => {
     const response = await api.get('/admin/token-manager/overview')
