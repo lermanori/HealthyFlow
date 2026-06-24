@@ -90,6 +90,51 @@ test('Edit Task: changing title updates Dashboard and persists', async ({ page }
   await expect(titleHeading).not.toBeVisible()
 })
 
+test('Task location: create, edit, and clear location on the card', async ({ page }) => {
+  const reset = await page.request.post('http://localhost:3001/test/reset')
+  expect(reset.ok()).toBeTruthy()
+
+  await page.goto('/add')
+  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+
+  const taskTitle = 'Location Test Task'
+  await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
+  await page.locator('input[placeholder="Add a place or address..."]').fill('Cafe Noga')
+  await page.locator('button[type="submit"]').click()
+
+  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  const titleHeading = page.locator('h3', { hasText: taskTitle }).first()
+  await expect(titleHeading).toBeVisible()
+  await expect(page.locator('text=Cafe Noga')).toBeVisible()
+
+  const taskCardOuter = titleHeading.locator('xpath=ancestor::div[contains(@class, "duration")]').first()
+  await taskCardOuter.hover()
+  await taskCardOuter.evaluate((el) => {
+    const buttons = el.querySelectorAll('div > button')
+    if (buttons.length >= 2) (buttons[1] as HTMLElement).click()
+  })
+
+  await page.locator('button', { hasText: 'Edit' }).first().click()
+  const locationInput = page.locator('input[placeholder="Add a place or address..."]').first()
+  await expect(locationInput).toBeVisible({ timeout: 5_000 })
+  await locationInput.fill('Library Room 2')
+  await page.locator('button', { hasText: 'Save Changes' }).first().click()
+
+  await expect(page.locator('text=Library Room 2')).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('text=Cafe Noga')).not.toBeVisible()
+
+  await taskCardOuter.hover()
+  await taskCardOuter.evaluate((el) => {
+    const buttons = el.querySelectorAll('div > button')
+    if (buttons.length >= 2) (buttons[1] as HTMLElement).click()
+  })
+  await page.locator('button', { hasText: 'Edit' }).first().click()
+  await page.locator('input[placeholder="Add a place or address..."]').first().fill('')
+  await page.locator('button', { hasText: 'Save Changes' }).first().click()
+
+  await expect(page.locator('text=Library Room 2')).not.toBeVisible({ timeout: 10_000 })
+})
+
 test('Delete Task: removing task makes it disappear from Dashboard', async ({ page }) => {
   // Reset test user's tasks
   await page.goto('/test/reset', { waitUntil: 'networkidle' })

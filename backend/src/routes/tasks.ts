@@ -15,6 +15,12 @@ const DeleteBody = z.object({
   deleteScope: z.enum(['instance', 'habit']).optional(),
 })
 
+function normalizeLocation(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
 function clientTimeZone(req: AuthRequest): string | undefined {
   const value = req.header('x-client-time-zone')
   return value && value.length <= 100 ? value : undefined
@@ -28,6 +34,7 @@ function formatTaskResponse(row: any, opts: { isHabitInstance?: boolean } = {}) 
     type: row.type,
     category: row.category,
     startTime: row.start_time,
+    location: row.location ?? null,
     duration: row.duration,
     repeat: row.repeat_type,
     completed: Boolean(row.completed),
@@ -127,6 +134,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
         type: task.type,
         category: task.category,
         startTime: task.start_time,
+        location: task.location ?? null,
         duration: task.duration,
         repeat: task.repeat_type,
         completed: Boolean(task.completed),
@@ -157,6 +165,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
 router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
   const { title, type, category, startTime, duration, repeat } = req.body
+  const location = type === 'task' ? normalizeLocation(req.body.location) : null
   // Normalize at the write boundary (ADR-0002): a time implies a day — start_time
   // with no scheduled_date is scheduled for today. No date and no time stays someday.
   let scheduledDate = req.body.scheduledDate
@@ -181,6 +190,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       type,
       category,
       start_time: startTime,
+      location,
       duration,
       repeat_type: repeat,
       scheduled_date: scheduledDate,
@@ -198,6 +208,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       type: task.type,
       category: task.category,
       startTime: task.start_time,
+      location: task.location ?? null,
       duration: task.duration,
       repeat: task.repeat_type,
       completed: false,
@@ -234,6 +245,9 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
   }
   if (updates.category !== undefined) {
     updateData.category = updates.category
+  }
+  if (updates.location !== undefined) {
+    updateData.location = normalizeLocation(updates.location)
   }
   if (updates.scheduledDate !== undefined) {
     updateData.scheduled_date = updates.scheduledDate
@@ -287,6 +301,13 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
     }
 
     if (parentHabitId) {
+      if (updateData.location !== undefined) {
+        delete updateData.location
+        if (Object.keys(updateData).length === 0) {
+          return res.status(400).json({ error: 'No valid fields to update' })
+        }
+      }
+
       // DRAG (pure start_time/position): always a per-day override, never the parent.
       // The timeline dedup prefers the instance over the parent for the day. (#28)
       if (isPureDragUpdate(updateData)) {
@@ -394,6 +415,7 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
         category: habitInstance.category,
         startTime: habitInstance.start_time,
         duration: habitInstance.duration,
+        location: habitInstance.location ?? null,
         repeat: habitInstance.repeat_type,
         completed: Boolean(habitInstance.completed),
         scheduledDate: habitInstance.scheduled_date,
@@ -417,6 +439,7 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
         category: task.category,
         startTime: task.start_time,
         duration: task.duration,
+        location: task.location ?? null,
         repeat: task.repeat_type,
         completed: Boolean(task.completed),
         scheduledDate: task.scheduled_date,

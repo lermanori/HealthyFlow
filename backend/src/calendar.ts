@@ -84,6 +84,7 @@ type GoogleSyncedTask = {
   start_time: string | null
   duration: number | null
   scheduled_date: string | null
+  location?: string | null
   google_event_id?: string | null
 }
 
@@ -359,6 +360,11 @@ function getCalendarTimeZone(timeZone?: string): string {
   return timeZone || process.env.GOOGLE_CALENDAR_TIME_ZONE || 'UTC'
 }
 
+function normalizeLocation(value: string | undefined | null): string | null {
+  const trimmed = value?.trim()
+  return trimmed ? trimmed : null
+}
+
 function isTimedTask(row: GoogleSyncedTask): boolean {
   return row.type === 'task' && Boolean(row.scheduled_date && row.start_time)
 }
@@ -392,6 +398,7 @@ export function taskToGoogleEvent(row: GoogleSyncedTask, timeZone?: string) {
 
   return {
     summary: row.title,
+    location: normalizeLocation(row.location),
     start: {
       dateTime: start,
       timeZone: calendarTimeZone,
@@ -428,6 +435,9 @@ export async function syncTaskToGoogleCalendar(row: GoogleSyncedTask, timeZone?:
   const accessToken = await getGoogleAccessToken(row.user_id)
   const eventBody = taskToGoogleEvent(row, timeZone)
   const existingEventId = row.google_event_id
+  const googleEventBody = !existingEventId && eventBody.location === null
+    ? (({ location: _location, ...body }) => body)(eventBody)
+    : eventBody
   const url = existingEventId
     ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(existingEventId)}`
     : 'https://www.googleapis.com/calendar/v3/calendars/primary/events'
@@ -438,7 +448,7 @@ export async function syncTaskToGoogleCalendar(row: GoogleSyncedTask, timeZone?:
       Authorization: `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(eventBody),
+    body: JSON.stringify(googleEventBody),
   })
 
   if (!response.ok) {
@@ -591,8 +601,9 @@ export async function syncGoogleCalendarEventsForDate(
   }
 
   const googleEvents = GoogleEventsListSchema.parse(await eventsResponse.json()).items
-  const healthyFlowEventIds = googleEvents
+  const healthyFlowEvents = googleEvents
     .filter((event) => event.extendedProperties?.private?.healthyflowTaskId)
+  const healthyFlowEventIds = healthyFlowEvents
     .map((event) => event.id)
 
   if (healthyFlowEventIds.length > 0) {
@@ -609,6 +620,21 @@ export async function syncGoogleCalendarEventsForDate(
 
     if (error) throw error
   }
+
+  await Promise.all(
+    healthyFlowEvents.map(async (event) => {
+      const taskId = event.extendedProperties?.private?.healthyflowTaskId
+      if (!taskId) return
+      const { error } = await supabase
+        .from('tasks')
+        .update({ location: normalizeLocation(event.location) })
+        .eq('id', taskId)
+        .eq('user_id', userId)
+        .eq('type', 'task')
+
+      if (error) throw error
+    })
+  )
 
   const rows = googleEvents
     .filter((event) => event.status !== 'cancelled')

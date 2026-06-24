@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays } from 'date-fns'
 import { 
   Plus, Clock, Zap, ArrowLeft, Sparkles, Brain,
-  ShoppingCart, Utensils, Dumbbell, CheckSquare, DollarSign, Flame
+  ShoppingCart, Utensils, Dumbbell, CheckSquare, DollarSign, Flame, MapPin
 } from 'lucide-react'
 import { taskService } from '../services/api'
 import AITextAnalyzer from '../components/AITextAnalyzer'
@@ -42,6 +42,7 @@ export default function AddItemPage() {
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('personal')
   const [startTime, setStartTime] = useState('')
+  const [location, setLocation] = useState('')
   const [duration, setDuration] = useState(30)
   const [scheduledDate, setScheduledDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [inputMode, setInputMode] = useState<'form' | 'ai' | 'voice'>('form')
@@ -94,6 +95,7 @@ export default function AddItemPage() {
       type: itemType,
       category,
       startTime: startTime || null,
+      location: itemType === 'task' ? location.trim() || null : null,
       duration,
       repeat: itemType === 'habit' ? 'daily' : 'none',
       scheduledDate,
@@ -303,6 +305,22 @@ export default function AddItemPage() {
              selectedProjectId={projectId}
              onProjectSelect={setProjectId}
            />
+
+          {itemType === 'task' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Location (Optional)</label>
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="input-field pl-10 holographic"
+                  placeholder="Add a place or address..."
+                />
+              </div>
+            </div>
+          )}
 
            {/* Type-specific fields */}
           {itemType === 'grocery' && (

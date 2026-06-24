@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { 
   Clock, Check, MoreVertical, Edit, Trash2, Zap, RotateCcw, Calendar,
   ShoppingCart, Utensils, Dumbbell, CheckSquare, Circle, Flame,
-  DollarSign, Target, Folder, RefreshCw, AlertTriangle
+  DollarSign, Target, Folder, RefreshCw, AlertTriangle, MapPin
 } from 'lucide-react'
 import { Task } from '../services/api'
 import { format, parseISO } from 'date-fns'
@@ -310,6 +310,13 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
             {task.duration && (
               <span className="shrink-0 text-xs text-gray-400">
                 {task.duration}min
+              </span>
+            )}
+
+            {task.type === 'task' && task.location && (
+              <span className="flex min-w-0 items-center space-x-1 text-xs text-gray-400">
+                <MapPin className="h-3 w-3 shrink-0" />
+                <span className="truncate">{task.location}</span>
               </span>
             )}
 

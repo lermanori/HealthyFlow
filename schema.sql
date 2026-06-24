@@ -13,6 +13,7 @@ CREATE TABLE tasks (
       type TEXT NOT NULL CHECK (type IN ('task', 'habit')),
       category TEXT NOT NULL,
       start_time TEXT,
+      location TEXT,
       duration INTEGER,
       repeat_type TEXT CHECK (repeat_type IN ('daily', 'weekly', 'none')),
       completed BOOLEAN DEFAULT FALSE,

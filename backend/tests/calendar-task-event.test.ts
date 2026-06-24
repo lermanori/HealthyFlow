@@ -13,6 +13,7 @@ const baseTask = {
   duration: 120,
   scheduled_date: '2026-06-24',
   google_event_id: null,
+  location: null,
 }
 
 describe('taskToGoogleEvent', () => {
@@ -44,5 +45,23 @@ describe('taskToGoogleEvent', () => {
       dateTime: '2026-06-25T01:00:00',
       timeZone: 'America/New_York',
     })
+  })
+
+  it('sends a task location to Google Calendar', () => {
+    const event = taskToGoogleEvent({
+      ...baseTask,
+      location: 'Conference Room B',
+    }, 'Europe/Berlin')
+
+    expect(event.location).toBe('Conference Room B')
+  })
+
+  it('sends null when a task location is cleared', () => {
+    const event = taskToGoogleEvent({
+      ...baseTask,
+      location: '   ',
+    }, 'Europe/Berlin')
+
+    expect(event.location).toBeNull()
   })
 })

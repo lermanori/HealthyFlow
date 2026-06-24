@@ -1,3 +1,9 @@
+### 2026-06-24 13:26 — `main`
+
+Shipped task location support across the full stack. Users can now assign, edit, and clear an optional location for tasks from the creation form, edit modal, and timeline dashboard card. These location updates are bidirectionally synchronized with Google Calendar events. Database schema changes have been pushed to remote Supabase, and the full backend and Playwright E2E test suites are green.
+
+---
+
 ### 2026-06-24 12:35 — `main`
 
 Added the admin-only Token Manager and first-class user roles. The Supabase schema now defaults users to `user`, marks `lermanori@gmail.com` as `admin`, stores editable AI billing settings, and exposes a role-gated admin dashboard for user balances, OpenAI cost, base app tokens, markup, and charged token totals. The token ledger was reset for a fresh start with the admin account seeded at 1000 app tokens, and the backend/frontend builds plus backend test suite are green.

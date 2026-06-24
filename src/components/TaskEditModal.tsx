@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Clock, Sparkles, Calendar } from 'lucide-react'
+import { X, Clock, Sparkles, Calendar, MapPin } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { Task } from '../services/api'
 
@@ -16,6 +16,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
     title: '',
     category: 'personal',
     startTime: '',
+    location: '',
     duration: 30,
     scheduledDate: format(new Date(), 'yyyy-MM-dd'), // Add scheduled date
   })
@@ -40,6 +41,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
         title: task.title,
         category: task.category,
         startTime: task.startTime || '',
+        location: task.type === 'task' ? task.location || '' : '',
         duration: task.duration || 30,
         scheduledDate: task.scheduledDate || format(new Date(), 'yyyy-MM-dd'), // Use task's date or default to today
       })
@@ -50,7 +52,11 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (task) {
-      onSave(task.id, formData, task.type === 'habit' ? editScope : undefined)
+      const updates = {
+        ...formData,
+        location: task.type === 'task' ? formData.location.trim() || null : undefined,
+      }
+      onSave(task.id, updates, task.type === 'habit' ? editScope : undefined)
       onClose()
     }
   }
@@ -144,6 +150,22 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                     ))}
                   </div>
                 </div>
+
+                {task?.type === 'task' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      <MapPin className="inline w-4 h-4 mr-2" />
+                      Location (Optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.location}
+                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                      className={`w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${isMobile ? 'text-base' : ''}`}
+                      placeholder="Add a place or address..."
+                    />
+                  </div>
+                )}
 
                 <div className={`grid ${isMobile ? 'grid-cols-1 gap-4' : 'grid-cols-2 gap-4'}`}>
                   <div>
