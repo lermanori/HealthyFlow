@@ -247,9 +247,10 @@ export const aiService = {
 
   parseTasks: async (
     text: string,
-    photo?: { mimeType: 'image/jpeg' | 'image/png' | 'image/webp'; data: string }
+    photo?: { mimeType: 'image/jpeg' | 'image/png' | 'image/webp'; data: string },
+    defaultScheduleDate?: string
   ): Promise<{ items: ParsedItem[] }> => {
-    const response = await api.post('/ai/parse-tasks', { text, photo })
+    const response = await api.post('/ai/parse-tasks', { text, photo, defaultScheduleDate })
     return response.data
   },
 

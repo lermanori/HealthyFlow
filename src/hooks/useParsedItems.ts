@@ -11,6 +11,7 @@ export function useParsedItems() {
   const analyzeText = useCallback(async (
     inputText: string,
     photo?: AnalyzerPhoto,
+    defaultScheduleDate?: string,
     onSuccess?: (items: TaskSuggestion[]) => void
   ) => {
     if (!inputText.trim() && !photo) {
@@ -20,7 +21,7 @@ export function useParsedItems() {
     setIsAnalyzing(true)
     try {
       toast.loading('Analyzing with AI...', { id: 'ai-analysis' })
-      const items = await parseTasks(inputText, photo)
+      const items = await parseTasks(inputText, photo, defaultScheduleDate)
       setSuggestions(items)
       setSelectedSuggestions(new Set(items.map(s => s.id)))
       toast.success('AI analysis complete! 🧠', { id: 'ai-analysis' })

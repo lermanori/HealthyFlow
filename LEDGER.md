@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-24 11:12 — `main`
+
+Refined the AI Task Analyzer into a focused prompt-first composer. The toolbar now holds upload, dictation, voice assistant, default schedule date, and the compact analyze action, with clearer borders and modal settings for voice/date configuration. The selected default schedule date is now sent through parse-tasks so unspecific tasks land on the intended date, and the analyzer overlay now covers the full viewport via a body-level portal. Build is green and the UI is ready for deployment.
+
+---
+
 ### 2026-06-24 10:42 — `main`
 
 Captured the project operating instructions in `AGENTS.md` so future agent sessions have the same architecture rules, AI harness constraints, issue-tracker workflow, and commit process available in-repo. Preserved the June 23 handoff note under `.scratch/` as a historical launch-readiness snapshot and next-session checklist. This gives the project a clearer trail from sprint state to current implementation work.

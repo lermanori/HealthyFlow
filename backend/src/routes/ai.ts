@@ -66,6 +66,7 @@ const ParsedItems = z.object({ items: z.array(ParsedItem).max(20) })
 const PARSED_ITEMS_JSON_SCHEMA = z.toJSONSchema(ParsedItems)
 const ParseTasksRequest = z.object({
   text: z.string().max(2000).optional(),
+  defaultScheduleDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   photo: z.object({
     mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
     data: z.string().min(1),
@@ -85,7 +86,7 @@ router.post('/parse-tasks', authenticateToken, async (req: AuthRequest, res) => 
     return res.status(400).json({ error: 'Invalid analyzer input' })
   }
 
-  const { text, photo } = parsedBody.data
+  const { text, photo, defaultScheduleDate } = parsedBody.data
   const trimmedText = text?.trim() ?? ''
 
   if (!trimmedText && !photo) {
@@ -97,6 +98,7 @@ router.post('/parse-tasks', authenticateToken, async (req: AuthRequest, res) => 
   }
 
   const today = new Date().toISOString().split('T')[0]
+  const defaultDate = defaultScheduleDate ?? today
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
   const userContent = photo
     ? [
@@ -124,6 +126,7 @@ Field rules:
 - duration: estimated minutes (positive integer)
 - startTime: "HH:MM" 24h or null if flexible
 - scheduledDate: "YYYY-MM-DD"; for Habits use today's date (${today})
+- If the user does not specify a date, schedule Tasks for the selected default date (${defaultDate})
 - "tomorrow" -> ${tomorrow}, "tonight"/"evening" -> today, "this weekend" -> next Saturday
 - If a photo contains a list, calendar, sticky notes, handwritten plan, or screenshot, extract each actionable item.
 - Do not invent personal details that are not present in the text or photo.`,
