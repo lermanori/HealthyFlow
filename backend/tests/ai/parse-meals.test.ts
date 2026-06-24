@@ -110,6 +110,38 @@ describe('POST /api/ai/parse-meals — happy path', () => {
     ])
     expect(observedBody.response_format.type).toBe('json_schema')
   })
+
+  // Regression: OpenAI strict structured-output mode rejects (400) any object
+  // whose `properties` aren't all listed in `required`. The meal macros must be
+  // nullable-but-required, not optional. The nock mock can't catch this, so we
+  // assert it directly against the schema the route actually sends.
+  it('sends a json_schema where every object property is required (OpenAI strict mode)', async () => {
+    let observedBody: any
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, function (_uri, body) {
+        observedBody = body
+        return validOpenAIResponse
+      })
+
+    await request(app)
+      .post('/api/ai/parse-meals')
+      .set('Authorization', authHeader())
+      .send({ text: 'yogurt' })
+
+    const offenders: string[] = []
+    const walk = (node: any) => {
+      if (!node || typeof node !== 'object') return
+      if (node.type === 'object' && node.properties) {
+        const props = Object.keys(node.properties)
+        const required: string[] = node.required ?? []
+        for (const p of props) if (!required.includes(p)) offenders.push(p)
+      }
+      for (const v of Object.values(node)) walk(v)
+    }
+    walk(observedBody.response_format.json_schema.schema)
+    expect(offenders).toEqual([])
+  })
 })
 
 describe('POST /api/ai/parse-meals — failure paths', () => {

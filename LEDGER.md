@@ -1,3 +1,9 @@
+### 2026-06-24 17:05 — `main`
+
+Fixed a 400 from OpenAI on the new parse-meals endpoint. The meal macros/quantity were declared `.nullable().optional()`, but OpenAI strict structured-output mode requires every property to appear in the schema's `required` list — optional fields are rejected. Changed them to nullable-but-required (model returns null when unknown), matching the parse-tasks pattern. The nock-based tests had masked this since they never validate the outgoing schema against OpenAI's rules, so added a regression test that walks the actual json_schema sent to OpenAI and asserts every object property is required. Backend suite now 151 green.
+
+---
+
 ### 2026-06-24 16:35 — `main`
 
 Committed pre-existing working-tree WIP that had been parked during the calorie-intake epic: a Week View redesign and mobile-density polish. `WeekViewPage.tsx` is largely rewritten with per-item-type theming (task/habit/grocery/meal/workout), inline completion via a mutation, and week navigation; `TaskCard.tsx`, `SmartReminders.tsx`, and `index.css` carry supporting layout/density tweaks, and the week-view e2e spec was updated to match. Unrelated to the epic — verified the frontend build is green before committing.

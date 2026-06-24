@@ -221,10 +221,13 @@ Field rules:
 const ParsedMeal = z.object({
   name: z.string().min(1),
   calories: z.number().int().nonnegative(),
-  protein: z.number().nonnegative().nullable().optional(),
-  carbs: z.number().nonnegative().nullable().optional(),
-  fat: z.number().nonnegative().nullable().optional(),
-  quantity: z.string().nullable().optional(),
+  // nullable but NOT optional: OpenAI strict structured-output mode requires
+  // every property in `required`, so optional fields trigger a 400. The model
+  // returns null when a macro/quantity is unknown.
+  protein: z.number().nonnegative().nullable(),
+  carbs: z.number().nonnegative().nullable(),
+  fat: z.number().nonnegative().nullable(),
+  quantity: z.string().nullable(),
 })
 const ParsedMeals = z.object({ meals: z.array(ParsedMeal).max(20) })
 const PARSED_MEALS_JSON_SCHEMA = z.toJSONSchema(ParsedMeals)
