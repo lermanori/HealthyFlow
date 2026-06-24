@@ -647,6 +647,67 @@ export const db = {
     if (error) throw error
   },
 
+  // Calorie entries
+  async getCalorieEntriesByDay(userId: string, date: string) {
+    const { data, error } = await supabase
+      .from('calorie_entries')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('date', date)
+      .order('created_at', { ascending: true })
+    if (error) throw error
+    return data
+  },
+
+  async createCalorieEntry(entryData: {
+    id: string
+    user_id: string
+    date: string
+    name: string
+    calories: number
+    protein?: number | null
+    carbs?: number | null
+    fat?: number | null
+    quantity?: string | null
+  }) {
+    const { data, error } = await supabase
+      .from('calorie_entries')
+      .insert(entryData)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async getCalorieEntryById(entryId: string) {
+    const { data, error } = await supabase
+      .from('calorie_entries')
+      .select('*')
+      .eq('id', entryId)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async updateCalorieEntry(entryId: string, updates: Record<string, unknown>) {
+    const { data, error } = await supabase
+      .from('calorie_entries')
+      .update(updates)
+      .eq('id', entryId)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async deleteCalorieEntry(entryId: string) {
+    const { error } = await supabase
+      .from('calorie_entries')
+      .delete()
+      .eq('id', entryId)
+    if (error) throw error
+  },
+
   // Settings — single JSONB column, upsert keeps it to one row per user
   async getUserSettings(userId: string): Promise<Record<string, unknown>> {
     const { data, error } = await supabase

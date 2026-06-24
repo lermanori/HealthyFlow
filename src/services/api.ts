@@ -476,6 +476,51 @@ export const settingsService = {
   },
 }
 
+export interface CalorieEntry {
+  id: string
+  userId: string
+  date: string
+  name: string
+  calories: number
+  protein: number | null
+  carbs: number | null
+  fat: number | null
+  quantity: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type CalorieEntryInput = {
+  date: string
+  name: string
+  calories: number
+  protein?: number | null
+  carbs?: number | null
+  fat?: number | null
+  quantity?: string | null
+}
+
+export const caloriesService = {
+  list: async (date: string): Promise<CalorieEntry[]> => {
+    const response = await api.get('/calories', { params: { date } })
+    return response.data
+  },
+
+  create: async (entry: CalorieEntryInput): Promise<CalorieEntry> => {
+    const response = await api.post('/calories', entry)
+    return response.data
+  },
+
+  update: async (id: string, patch: Partial<CalorieEntryInput>): Promise<CalorieEntry> => {
+    const response = await api.patch(`/calories/${id}`, patch)
+    return response.data
+  },
+
+  remove: async (id: string): Promise<void> => {
+    await api.delete(`/calories/${id}`)
+  },
+}
+
 export const tokenManagerService = {
   getOverview: async (): Promise<TokenManagerOverview> => {
     const response = await api.get('/admin/token-manager/overview')

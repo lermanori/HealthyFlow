@@ -45,6 +45,17 @@ The per-day materialisation of a habit. The user sees one row per day for a dail
 
 The closed set of category values the UI offers when creating items: `health`, `work`, `personal`, `fitness`, `grocery`, `nutrition`. AI-generated items must pick from this set; other values get rejected at the parser boundary.
 
+### Calorie tracking
+
+**Calorie entry**:
+A manually logged food item for a given day: `name`, `calories`, optional macros (protein/carbs/fat in grams), an optional `quantity` (e.g. "2 eggs"), and a `date`. Its own concern, not an `Item`/`Task`/`Habit` — lives in the `calorie_entries` table, never written into `tasks`. Managed on the dedicated `/calories` page.
+_Avoid_: "food log item", "meal entry" (an Item type already named `meal` exists and is unrelated)
+
+**Macros**:
+Shorthand for protein, carbs, and fat (all in grams) on a calorie entry. All three are optional — manual entry only requires `name` and `calories` so logging stays fast.
+
+The `/calories` page and its nav entry are gated on the `calorieIntake` user setting (see #47); when off, neither the route nor the nav item appears.
+
 ### AI surfaces
 
 **parse-tasks**:

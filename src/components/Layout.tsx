@@ -1,20 +1,22 @@
 import { ReactNode, useEffect, useState, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { 
-  Home, 
-  Plus, 
-  Calendar, 
-  Settings, 
+import {
+  Home,
+  Plus,
+  Calendar,
+  Settings,
   LogOut,
   Brain,
   Sparkles,
   Menu,
   X,
-  Coins
+  Coins,
+  Utensils
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import PWAInstallPrompt from './PWAInstallPrompt'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useSettings } from '../hooks/useSettings'
 
 interface LayoutProps {
   children: ReactNode
@@ -56,10 +58,13 @@ export default function Layout({ children }: LayoutProps) {
     }
   }, [isMobileMenuOpen])
 
+  const { settings } = useSettings()
+
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
     { name: 'Add Item', href: '/add', icon: Plus },
     { name: 'Week View', href: '/week', icon: Calendar },
+    ...(settings?.calorieIntake ? [{ name: 'Calories', href: '/calories', icon: Utensils }] : []),
     { name: 'Settings', href: '/settings', icon: Settings },
     ...(user?.role === 'admin' ? [{ name: 'Token Manager', href: '/token-manager', icon: Coins }] : []),
   ]

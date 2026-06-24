@@ -1,3 +1,9 @@
+### 2026-06-24 15:05 — `issue-48-calorie-entries`
+
+Built the calorie log as its own concern, separate from tasks. Added a `calorie_entries` table (indexed on user_id+date), thin Zod-validated CRUD routes (`GET/POST /api/calories`, `PATCH`/`DELETE /:id`) built test-first with 14 new jest cases covering validation, ownership (404/403), and macro-optional behavior, plus a `caloriesService` + `useCalorieEntries` React Query hook and a new `/calories` page with inline add/edit/delete and daily calorie/macro totals. The route and nav item are gated on the `calorieIntake` setting from #47 — both stay hidden until the user flips the toggle. Backend suite (145 tests) and the frontend build are green.
+
+---
+
 ### 2026-06-24 14:10 — `issue-47-persisted-settings`
 
 Made user settings persist server-side instead of living only in local React state. Added a single-row-per-user `user_settings` table with one JSONB column, thin Zod-validated GET/PATCH routes, a `settingsService` + `useSettings` React Query hook with optimistic updates, and wired the Settings page's toggles through it. Added the new Calorie Intake feature toggle (default off) as the future gate for the calorie module; Calendar Sync was left untouched since it has its own backend flow. Backend tests (131) and the frontend build are green.

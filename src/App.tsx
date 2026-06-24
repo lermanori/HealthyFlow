@@ -6,13 +6,16 @@ import AddItemPage from './pages/AddItemPage'
 import WeekViewPage from './pages/WeekViewPage'
 import SettingsPage from './pages/SettingsPage'
 import TokenManagerPage from './pages/TokenManagerPage'
+import CaloriesPage from './pages/CaloriesPage'
 import LoginPage from './pages/LoginPage'
 import LoadingSpinner from './components/LoadingSpinner'
 import OfflineNotification from './components/OfflineNotification'
 import { useEffect } from 'react'
+import { useSettings } from './hooks/useSettings'
 
 function App() {
   const { user, loading } = useAuth()
+  const { settings } = useSettings()
 
   // Handle app visibility changes
   useEffect(() => {
@@ -51,6 +54,7 @@ function App() {
           <Route path="/week" element={<WeekViewPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/token-manager" element={user.role === 'admin' ? <TokenManagerPage /> : <Navigate to="/" replace />} />
+          <Route path="/calories" element={settings?.calorieIntake ? <CaloriesPage /> : <Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
