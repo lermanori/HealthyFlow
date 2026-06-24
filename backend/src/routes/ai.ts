@@ -10,6 +10,8 @@ const QUERY_TASKS_MODEL = 'gpt-3.5-turbo'
 const QUERY_TASKS_MAX_TOKENS = 500
 const PARSE_TASKS_MODEL = 'gpt-4o-mini'
 const PARSE_TASKS_MAX_TOKENS = 1000
+const PARSE_MEALS_MODEL = 'gpt-4o-mini'
+const PARSE_MEALS_MAX_TOKENS = 1000
 
 const router = express.Router()
 
@@ -205,6 +207,117 @@ Field rules:
   const settlement = await Credits.settleReserved(userId, reservedTokens, result.usage ?? ZERO_USAGE, {
     endpoint: 'parse-tasks',
     model: PARSE_TASKS_MODEL,
+  })
+  if (!settlement.ok) {
+    return res.status(402).json({ error: 'Insufficient AI tokens to settle usage', code: settlement.code })
+  }
+  res.json(result.value)
+})
+
+// AI-powered meal parser: free-form text and/or photo -> validated { meals: ParsedMeal[] }.
+// Parallel pipeline to parse-tasks above — food/macro-shaped, not Item-shaped. See
+// CONTEXT.md (Calorie entry / Macros) for the contract. Does not write to the DB;
+// the frontend writes confirmed meals as calorie entries via the #48 calories CRUD.
+const ParsedMeal = z.object({
+  name: z.string().min(1),
+  calories: z.number().int().nonnegative(),
+  protein: z.number().nonnegative().nullable().optional(),
+  carbs: z.number().nonnegative().nullable().optional(),
+  fat: z.number().nonnegative().nullable().optional(),
+  quantity: z.string().nullable().optional(),
+})
+const ParsedMeals = z.object({ meals: z.array(ParsedMeal).max(20) })
+const PARSED_MEALS_JSON_SCHEMA = z.toJSONSchema(ParsedMeals)
+const ParseMealsRequest = z.object({
+  text: z.string().max(2000).optional(),
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  photo: z.object({
+    mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+    data: z.string().min(1),
+  }).optional(),
+})
+
+router.post('/parse-meals', authenticateToken, async (req: AuthRequest, res) => {
+  const userId = req.user.userId
+  const parsedBody = ParseMealsRequest.safeParse(req.body)
+
+  if (!parsedBody.success) {
+    return res.status(400).json({ error: 'Invalid analyzer input' })
+  }
+
+  const { text, photo } = parsedBody.data
+  const trimmedText = text?.trim() ?? ''
+
+  if (!trimmedText && !photo) {
+    return res.status(400).json({ error: 'Text input or photo is required' })
+  }
+
+  if (photo && base64Size(photo.data) > MAX_PHOTO_BYTES) {
+    return res.status(400).json({ error: 'Photo must be 5MB or smaller' })
+  }
+
+  const userContent = photo
+    ? [
+        {
+          type: 'text' as const,
+          text: `User text: ${trimmedText || '(none)'}
+
+If a photo is provided, inspect it for visible food items or a nutrition label. If a nutrition label is present, read its calories and macros directly. Return only meals that are reasonably supported by the text or image.`,
+        },
+        {
+          type: 'image_url' as const,
+          image_url: { url: `data:${photo.mimeType};base64,${photo.data}` },
+        },
+      ]
+    : trimmedText
+  const systemPrompt = `Estimate nutrition for the foods described by the user input.
+
+Return a list of meals, each with:
+- name: the food or drink name
+- calories: estimated calories (nonnegative integer)
+- protein, carbs, fat: estimated grams (nonnegative numbers), or null if unknown
+- quantity: a short description of the amount (e.g. "2 eggs"), or null if not specified
+
+Rules:
+- Estimate calories and macros as accurately as possible for each distinct food item mentioned.
+- Macros may be null if you cannot reasonably estimate them.
+- Do not invent foods that are not present in the text or photo.
+- If a nutrition label is visible in the photo, read its values directly instead of estimating.`
+  let reservedTokens = 0
+
+  try {
+    reservedTokens = await Credits.estimateReserve({
+      model: PARSE_MEALS_MODEL,
+      systemPrompt,
+      userPrompt: userContent,
+      maxOutputTokens: PARSE_MEALS_MAX_TOKENS,
+    })
+    const ok = await Credits.reserve(userId, reservedTokens)
+    if (!ok) {
+      return res.status(402).json({ error: 'Insufficient AI tokens', code: 'insufficient_credits' })
+    }
+  } catch (error) {
+    return unpricedModelResponse(res, error)
+  }
+
+  const result = await Openai.callStructured({
+    model: PARSE_MEALS_MODEL,
+    systemPrompt,
+    userPrompt: userContent,
+    temperature: 0.2,
+    maxTokens: PARSE_MEALS_MAX_TOKENS,
+    schemaName: 'parsed_meals',
+    jsonSchema: PARSED_MEALS_JSON_SCHEMA,
+    parser: (v) => ParsedMeals.parse(v),
+  })
+
+  if (!result.ok) {
+    await Credits.refundReserve(userId, reservedTokens, 'refund_failed_call')
+    return res.status(500).json({ error: 'Could not parse — try again' })
+  }
+  const settlement = await Credits.settleReserved(userId, reservedTokens, result.usage ?? ZERO_USAGE, {
+    endpoint: 'parse-meals',
+    model: PARSE_MEALS_MODEL,
   })
   if (!settlement.ok) {
     return res.status(402).json({ error: 'Insufficient AI tokens to settle usage', code: settlement.code })

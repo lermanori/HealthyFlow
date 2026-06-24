@@ -1,3 +1,9 @@
+### 2026-06-24 16:20 — `issue-49-ai-meal-entry`
+
+Added AI-assisted meal entry as a parallel pipeline to parse-tasks, built test-first. `POST /api/ai/parse-meals` takes free text and/or a photo (5MB guard, same multimodal vision path as parse-tasks) and returns nutrition-estimated meals via a Zod schema (`name`, `calories`, optional macros, optional `quantity`); it reuses `Openai.callStructured` and the existing `Credits.estimateReserve/reserve/settle/refundReserve` flow unchanged, billed under the `parse-meals` endpoint, with no silent fallback on AI failure. 5 new jest cases cover the happy path, photo multimodal forwarding, the no-input 400, the upstream-failure refund, and the settle-with-correct-endpoint case — backend suite is 150 tests green. On the frontend, added `aiService.parseMeals` + a `ParsedMeal` type, and a new `MealAnalyzer` component (text + photo input, review cards with calories/macros, confirm writes each accepted meal via the #48 `useCalorieEntries` create mutation) reachable from an "Add with AI" button on `/calories`. Frontend build is green.
+
+---
+
 ### 2026-06-24 15:05 — `issue-48-calorie-entries`
 
 Built the calorie log as its own concern, separate from tasks. Added a `calorie_entries` table (indexed on user_id+date), thin Zod-validated CRUD routes (`GET/POST /api/calories`, `PATCH`/`DELETE /:id`) built test-first with 14 new jest cases covering validation, ownership (404/403), and macro-optional behavior, plus a `caloriesService` + `useCalorieEntries` React Query hook and a new `/calories` page with inline add/edit/delete and daily calorie/macro totals. The route and nav item are gated on the `calorieIntake` setting from #47 — both stay hidden until the user flips the toggle. Backend suite (145 tests) and the frontend build are green.

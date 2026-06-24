@@ -329,6 +329,24 @@ export const aiService = {
     const response = await api.post('/ai/query-tasks', { question })
     return response.data
   },
+
+  parseMeals: async (
+    text: string,
+    photo?: { mimeType: 'image/jpeg' | 'image/png' | 'image/webp'; data: string },
+    date?: string
+  ): Promise<{ meals: ParsedMeal[] }> => {
+    const response = await api.post('/ai/parse-meals', { text, photo, date })
+    return response.data
+  },
+}
+
+export interface ParsedMeal {
+  name: string
+  calories: number
+  protein: number | null
+  carbs: number | null
+  fat: number | null
+  quantity: string | null
 }
 
 export interface ParsedItem {

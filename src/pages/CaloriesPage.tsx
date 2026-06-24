@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Utensils, Plus, Trash2, Pencil, X, Check } from 'lucide-react'
+import { AnimatePresence } from 'framer-motion'
+import { Utensils, Plus, Trash2, Pencil, X, Check, Sparkles } from 'lucide-react'
 import { useCalorieEntries } from '../hooks/useCalorieEntries'
 import { CalorieEntry, CalorieEntryInput } from '../services/api'
+import MealAnalyzer from '../components/MealAnalyzer'
 
 const todayStr = () => new Date().toISOString().slice(0, 10)
 
@@ -46,6 +48,7 @@ export default function CaloriesPage() {
   const [addForm, setAddForm] = useState<FormState>(emptyForm)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<FormState>(emptyForm)
+  const [showAiAnalyzer, setShowAiAnalyzer] = useState(false)
 
   const submitAdd = () => {
     if (!addForm.name.trim() || addForm.calories === '') return
@@ -74,13 +77,27 @@ export default function CaloriesPage() {
           </div>
           <h1 className="text-2xl font-bold text-gray-100 neon-text">Calorie Log</h1>
         </div>
-        <input
-          type="date"
-          className="input-field w-auto"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            className="input-field w-auto"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+          <button
+            className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm"
+            onClick={() => setShowAiAnalyzer(true)}
+          >
+            <Sparkles className="w-4 h-4" /> Add with AI
+          </button>
+        </div>
       </div>
+
+      <AnimatePresence>
+        {showAiAnalyzer && (
+          <MealAnalyzer date={date} onClose={() => setShowAiAnalyzer(false)} />
+        )}
+      </AnimatePresence>
 
       <div className="card">
         <div className="flex items-center justify-between mb-4">
