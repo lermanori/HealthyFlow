@@ -205,7 +205,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       exit={{ opacity: 0, y: -20 }}
       whileHover={{ scale: 1.01 }}
       className={`group relative border transition-all duration-300 ${
-        compact ? 'overflow-hidden rounded-lg p-2.5' : 'rounded-xl p-4'
+        compact ? 'flex overflow-hidden rounded-lg p-2.5' : 'rounded-xl p-4'
       } ${
         task.completed 
           ? 'bg-gray-800/50 border-gray-600/50 opacity-75' 
@@ -213,11 +213,11 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       } ${isDragging ? 'z-10 rotate-1' : ''} ${className}`}
     >
       {/* Completion Checkbox */}
-      <div className={`flex min-h-0 items-start ${compact ? 'space-x-2' : 'space-x-3'}`}>
+      <div className={`flex min-h-0 min-w-0 ${compact ? 'w-full items-center gap-2' : 'items-start space-x-3'}`}>
         <button
           onClick={handleComplete}
           className={`flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
-            compact ? 'mt-0.5 h-4 w-4' : 'h-5 w-5'
+            compact ? '!h-4 !min-h-0 !w-4 !min-w-0 sm:!h-5 sm:!w-5' : 'h-5 w-5'
           } ${
             task.completed
               ? 'bg-gradient-to-r from-green-500 to-emerald-600 border-green-500 text-white'
@@ -229,7 +229,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
 
         <div className="min-w-0 flex-1">
           {/* Header with title and type */}
-          <div className="flex min-w-0 items-center justify-between">
+          <div className="flex min-w-0 items-center justify-between gap-2">
             <div className={`flex min-w-0 items-center ${compact ? 'space-x-1.5' : 'space-x-2'}`}>
               {!compact && (
                 <div className={`flex h-6 w-6 items-center justify-center rounded-lg ${getTypeColor(task.type)}`}>
@@ -247,7 +247,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
             <div className="relative flex-shrink-0">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className={`${compact ? 'p-0.5' : 'p-1'} rounded-lg opacity-0 group-hover:opacity-100 hover:bg-gray-700 transition-all duration-200`}
+                className={`${compact ? '!h-7 !min-h-0 !w-7 !min-w-0 p-0.5' : 'p-1'} rounded-lg opacity-0 group-hover:opacity-100 hover:bg-gray-700 transition-all duration-200`}
               >
                 <MoreVertical className="w-4 h-4 text-gray-400" />
               </button>
@@ -281,7 +281,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
           </div>
 
                      {/* Category, Project, and Time Info */}
-           <div className={`flex min-w-0 items-center overflow-hidden ${compact ? 'mt-1 gap-1.5 whitespace-nowrap' : 'mt-2 flex-wrap gap-2'}`}>
+           <div className={`flex min-w-0 items-center overflow-hidden ${compact ? 'mt-1.5 gap-1.5 whitespace-nowrap' : 'mt-2 flex-wrap gap-2'}`}>
              <span className={`shrink-0 rounded-full border text-xs ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} ${getCategoryColor(task.category)}`}>
                {task.category}
              </span>

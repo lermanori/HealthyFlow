@@ -51,6 +51,26 @@ function eventTimeRange(event: ExternalCalendarEvent): string {
   return end ? `${start} - ${end}` : start
 }
 
+function minutesFromTime(value: string): number | null {
+  const [hours, minutes] = value.split(':').map(Number)
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
+  return hours * 60 + minutes
+}
+
+function eventDurationMinutes(event: ExternalCalendarEvent): number | undefined {
+  if (event.allDay) return undefined
+
+  if (event.localStartTime && event.localEndTime) {
+    const start = minutesFromTime(event.localStartTime)
+    const end = minutesFromTime(event.localEndTime)
+    if (start === null || end === null) return undefined
+    return end > start ? end - start : end + 24 * 60 - start
+  }
+
+  if (!event.startAt || !event.endAt) return undefined
+  return Math.max(MIN_TIMED_TASK_MINUTES, Math.round((new Date(event.endAt).getTime() - new Date(event.startAt).getTime()) / 60000))
+}
+
 function timedBlockHeight(duration?: number): number {
   const minutes = Math.max(duration || MIN_TIMED_TASK_MINUTES, MIN_TIMED_TASK_MINUTES)
   return Math.max(MIN_TIMED_TASK_HEIGHT_PX, Math.round((minutes / 60) * HOUR_SLOT_HEIGHT_PX))
@@ -65,17 +85,17 @@ function CalendarEventBlock({
 }) {
   return (
     <div
-      className={`group relative rounded-xl border p-4 transition-all duration-300 ${
+      className={`group relative flex h-full min-w-0 items-center overflow-hidden rounded-lg border p-2.5 transition-all duration-300 ${
         event.completed
           ? 'bg-gray-800/50 border-gray-600/50 opacity-75'
           : 'card glass-effect hover:shadow-lg'
       }`}
     >
-      <div className="flex items-start space-x-3">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         <button
           type="button"
           onClick={() => onComplete(event.id, !event.completed)}
-          className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 ${
+          className={`flex !h-4 !min-h-0 !w-4 !min-w-0 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 sm:!h-5 sm:!w-5 ${
             event.completed
               ? 'bg-gradient-to-r from-green-500 to-emerald-600 border-green-500 text-white'
               : 'border-gray-600 hover:border-cyan-400 hover:bg-cyan-400/10'
@@ -85,31 +105,31 @@ function CalendarEventBlock({
           {event.completed && <Check className="h-3 w-3" />}
         </button>
 
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center space-x-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/20 text-emerald-300">
-                <CalendarDays className="h-4 w-4" />
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/20 text-emerald-300">
+                <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
-              <h3 className={`truncate font-medium ${
+              <h3 className={`truncate text-sm font-medium sm:text-base ${
                 event.completed ? 'line-through text-gray-500' : 'text-gray-100'
               }`}>
                 {event.title}
               </h3>
             </div>
 
-            <span className="shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300">
+            <span className="hidden shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300 sm:inline-flex">
               Calendar
             </span>
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
-            <span className="inline-flex items-center gap-1 text-gray-400">
-              <Clock className="h-3 w-3" />
-              {eventTimeRange(event)}
+          <div className="flex min-w-0 flex-col gap-1 text-xs text-gray-400 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+            <span className="inline-flex min-w-0 items-center gap-1 text-gray-400">
+              <Clock className="h-3 w-3 shrink-0" />
+              <span className="truncate">{eventTimeRange(event)}</span>
             </span>
             {event.location && (
-              <span className="inline-flex min-w-0 items-center gap-1 text-gray-400">
+              <span className="inline-flex min-w-0 max-w-full items-center gap-1 text-gray-400">
                 <MapPin className="h-3 w-3 shrink-0" />
                 <span className="truncate">{event.location}</span>
               </span>
@@ -154,7 +174,7 @@ export default function DayTimeline({
 
   const calendarBuckets: Record<string, ExternalCalendarEvent[]> = {}
   for (const slot of HOUR_SLOTS) calendarBuckets[slot] = []
-  const allDayEvents = calendarEvents.filter(event => event.allDay || !event.startAt)
+  const allDayEvents = calendarEvents.filter(event => event.allDay || (!event.startAt && !event.localStartTime))
   for (const event of calendarEvents) {
     const hour = eventHour(event)
     if (hour === null) continue
@@ -230,7 +250,7 @@ export default function DayTimeline({
                   <div
                     {...provided.droppableProps}
                     ref={provided.innerRef}
-                    className={`relative flex gap-2 overflow-visible px-2 py-2 rounded transition-colors ${
+                    className={`relative flex min-w-0 gap-1 overflow-visible rounded px-1 py-2 transition-colors sm:gap-2 sm:px-2 ${
                       snapshot.isDraggingOver
                         ? 'bg-blue-900/40 drop-zone'
                         : hasContent
@@ -240,18 +260,23 @@ export default function DayTimeline({
                     style={{ height: HOUR_SLOT_HEIGHT_PX }}
                   >
                     {/* Time label */}
-                    <span className={`text-xs w-12 flex-shrink-0 pt-2 ${hasContent || snapshot.isDraggingOver ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <span className={`w-10 flex-shrink-0 pt-2 text-xs sm:w-12 ${hasContent || snapshot.isDraggingOver ? 'text-gray-400' : 'text-gray-600'}`}>
                       {formatHour(slot)}
                     </span>
 
                     {/* Tasks in this slot */}
-                    <div className="relative z-10 flex-1 space-y-1 overflow-visible">
+                    <div className="relative z-10 min-w-0 flex-1 space-y-1 overflow-visible">
                       {slotCalendarEvents.map(event => (
-                        <CalendarEventBlock
+                        <div
                           key={event.id}
-                          event={event}
-                          onComplete={onCalendarEventComplete}
-                        />
+                          className="min-w-0"
+                          style={{ height: timedBlockHeight(eventDurationMinutes(event)) }}
+                        >
+                          <CalendarEventBlock
+                            event={event}
+                            onComplete={onCalendarEventComplete}
+                          />
+                        </div>
                       ))}
                       {slotTasks.map((task, index) => (
                         <Draggable key={task.id} draggableId={task.id} index={index}>
