@@ -2,8 +2,8 @@
  * Slice B (Enforcement) — issue #44.
  *
  * Behaviors tested:
- *   parse-tasks happy path  → reserve succeeds, OpenAI call settles credits with usage
- *   insufficient credits    → 402 before OpenAI is ever called
+ *   parse-tasks happy path  → reserves estimated AI tokens, OpenAI call settles actual usage
+ *   insufficient AI tokens  → 402 before OpenAI is ever called
  *   AI failure               → refund (grant) before returning the existing error response
  *   signup                   → seeds FREE_SIGNUP_CREDITS via Credits.grant
  *   balance endpoint          → returns Credits.getBalance for the authed user
@@ -26,11 +26,12 @@ jest.mock('../../src/supabase-client', () => ({
 jest.mock('../../src/credits', () => ({
   Credits: {
     reserve: jest.fn(),
-    settle: jest.fn(),
+    estimateReserve: jest.fn(),
+    settleReserved: jest.fn(),
+    refundReserve: jest.fn(),
     grant: jest.fn(),
     getBalance: jest.fn(),
   },
-  CREDITS_PER_ACTION: 1,
   FREE_SIGNUP_CREDITS: 50,
 }))
 
@@ -66,6 +67,8 @@ const validOpenAIResponse = {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockCredits.estimateReserve.mockReturnValue(10)
+  mockCredits.settleReserved.mockResolvedValue({ ok: true, chargeTokens: 6, adjustmentTokens: 4 })
 })
 
 afterEach(() => {
@@ -83,9 +86,14 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
       .send({ text: 'meditate daily' })
 
     expect(res.status).toBe(200)
-    expect(mockCredits.reserve).toHaveBeenCalledWith(USER_ID, 1)
-    expect(mockCredits.settle).toHaveBeenCalledWith(
+    expect(mockCredits.estimateReserve).toHaveBeenCalledWith(expect.objectContaining({
+      model: 'gpt-4o-mini',
+      maxOutputTokens: 1000,
+    }))
+    expect(mockCredits.reserve).toHaveBeenCalledWith(USER_ID, 10)
+    expect(mockCredits.settleReserved).toHaveBeenCalledWith(
       USER_ID,
+      10,
       { promptTokens: 100, completionTokens: 20, totalTokens: 120 },
       { endpoint: 'parse-tasks', model: 'gpt-4o-mini' }
     )
@@ -102,12 +110,12 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
       .send({ text: 'meditate daily' })
 
     expect(res.status).toBe(402)
-    expect(res.body).toEqual({ error: 'Insufficient credits', code: 'insufficient_credits' })
+    expect(res.body).toEqual({ error: 'Insufficient AI tokens', code: 'insufficient_credits' })
     expect(scope.isDone()).toBe(false)
-    expect(mockCredits.settle).not.toHaveBeenCalled()
+    expect(mockCredits.settleReserved).not.toHaveBeenCalled()
   })
 
-  it('refunds via grant when OpenAI call fails, then returns the existing 500 error', async () => {
+  it('refunds the full reserve when OpenAI call fails, then returns the existing 500 error', async () => {
     mockCredits.reserve.mockResolvedValue(true)
     nock('https://api.openai.com').post('/v1/chat/completions').reply(500)
 
@@ -118,8 +126,8 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
 
     expect(res.status).toBe(500)
     expect(res.body).toEqual({ error: 'Could not parse — try again' })
-    expect(mockCredits.grant).toHaveBeenCalledWith(USER_ID, 1, 'refund_failed_call')
-    expect(mockCredits.settle).not.toHaveBeenCalled()
+    expect(mockCredits.refundReserve).toHaveBeenCalledWith(USER_ID, 10, 'refund_failed_call')
+    expect(mockCredits.settleReserved).not.toHaveBeenCalled()
   })
 
   it('settles with zeroed usage when OpenAI omits usage data', async () => {
@@ -133,9 +141,40 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
       .send({ text: 'meditate daily' })
 
     expect(res.status).toBe(200)
-    expect(mockCredits.settle).toHaveBeenCalledWith(
+    expect(mockCredits.settleReserved).toHaveBeenCalledWith(
       USER_ID,
+      10,
       { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      { endpoint: 'parse-tasks', model: 'gpt-4o-mini' }
+    )
+  })
+
+  it('estimates image parse before the call and settles with actual returned usage', async () => {
+    mockCredits.reserve.mockResolvedValue(true)
+    nock('https://api.openai.com').post('/v1/chat/completions').reply(200, validOpenAIResponse)
+
+    const res = await request(app)
+      .post('/api/ai/parse-tasks')
+      .set('Authorization', authHeader())
+      .send({
+        photo: {
+          mimeType: 'image/png',
+          data: Buffer.from('tiny image fixture').toString('base64'),
+        },
+      })
+
+    expect(res.status).toBe(200)
+    expect(mockCredits.estimateReserve).toHaveBeenCalledWith(expect.objectContaining({
+      model: 'gpt-4o-mini',
+      userPrompt: expect.arrayContaining([
+        expect.objectContaining({ type: 'image_url' }),
+      ]),
+      maxOutputTokens: 1000,
+    }))
+    expect(mockCredits.settleReserved).toHaveBeenCalledWith(
+      USER_ID,
+      10,
+      { promptTokens: 100, completionTokens: 20, totalTokens: 120 },
       { endpoint: 'parse-tasks', model: 'gpt-4o-mini' }
     )
   })
@@ -158,9 +197,14 @@ describe('POST /api/ai/query-tasks — credit enforcement', () => {
       .send({ question: 'What do I have today?' })
 
     expect(res.status).toBe(200)
-    expect(mockCredits.reserve).toHaveBeenCalledWith(USER_ID, 1)
-    expect(mockCredits.settle).toHaveBeenCalledWith(
+    expect(mockCredits.estimateReserve).toHaveBeenCalledWith(expect.objectContaining({
+      model: 'gpt-3.5-turbo',
+      maxOutputTokens: 500,
+    }))
+    expect(mockCredits.reserve).toHaveBeenCalledWith(USER_ID, 10)
+    expect(mockCredits.settleReserved).toHaveBeenCalledWith(
       USER_ID,
+      10,
       { promptTokens: 50, completionTokens: 10, totalTokens: 60 },
       { endpoint: 'query-tasks', model: 'gpt-3.5-turbo' }
     )
@@ -177,7 +221,7 @@ describe('POST /api/ai/query-tasks — credit enforcement', () => {
       .send({ question: 'What do I have today?' })
 
     expect(res.status).toBe(402)
-    expect(res.body).toEqual({ error: 'Insufficient credits', code: 'insufficient_credits' })
+    expect(res.body).toEqual({ error: 'Insufficient AI tokens', code: 'insufficient_credits' })
     expect(scope.isDone()).toBe(false)
   })
 
@@ -193,8 +237,8 @@ describe('POST /api/ai/query-tasks — credit enforcement', () => {
 
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ answer: 'AI service unavailable.' })
-    expect(mockCredits.grant).toHaveBeenCalledWith(USER_ID, 1, 'refund_failed_call')
-    expect(mockCredits.settle).not.toHaveBeenCalled()
+    expect(mockCredits.refundReserve).toHaveBeenCalledWith(USER_ID, 10, 'refund_failed_call')
+    expect(mockCredits.settleReserved).not.toHaveBeenCalled()
   })
 })
 

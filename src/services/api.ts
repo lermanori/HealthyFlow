@@ -21,7 +21,7 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Handle auth and credit errors
+// Handle auth and AI token errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -30,7 +30,7 @@ api.interceptors.response.use(
       window.location.reload()
     }
     if (error.response?.status === 402) {
-      toast.error('Out of AI credits')
+      toast.error('Out of AI tokens')
     }
     return Promise.reject(error)
   }

@@ -1,3 +1,9 @@
+### 2026-06-24 12:09 — `main`
+
+Converted AI billing from a flat per-action credit into usage-based AI Tokens. The backend now estimates a pre-call reserve, prices actual OpenAI prompt/completion usage by model, applies the 25% or 5-token minimum markup, and refunds or settles the reserve after each call. The UI now labels the balance as AI Tokens, and the test suite covers billing math, reserve/refund/settlement behavior, image estimation, and insufficient-token handling.
+
+---
+
 ### 2026-06-24 11:33 — `issue-43-ai-credits`
 
 New users now start with **0** AI credits (was 50); balances are filled by manual top-up. Backend suite green (102/102), build clean.

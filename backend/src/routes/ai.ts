@@ -3,11 +3,23 @@ import { z } from 'zod'
 import { db } from '../supabase-client'
 import { Openai, TokenUsage } from '../openai'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
-import { Credits, CREDITS_PER_ACTION } from '../credits'
+import { Credits, UnpricedModelError } from '../credits'
 
 const ZERO_USAGE: TokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
+const QUERY_TASKS_MODEL = 'gpt-3.5-turbo'
+const QUERY_TASKS_MAX_TOKENS = 500
+const PARSE_TASKS_MODEL = 'gpt-4o-mini'
+const PARSE_TASKS_MAX_TOKENS = 1000
 
 const router = express.Router()
+
+function unpricedModelResponse(res: express.Response, error: unknown) {
+  if (error instanceof UnpricedModelError) {
+    return res.status(500).json({ error: 'AI model pricing is not configured', code: 'unpriced_model' })
+  }
+  console.error('AI billing estimate failed:', error)
+  return res.status(500).json({ error: 'AI billing failed', code: 'billing_error' })
+}
 
 // Query tasks for AI
 router.get('/tasks', authenticateToken, async (req: AuthRequest, res) => {
@@ -35,28 +47,45 @@ router.post('/query-tasks', authenticateToken, async (req: AuthRequest, res) => 
       })
     }
 
-    const ok = await Credits.reserve(userId, CREDITS_PER_ACTION)
-    if (!ok) {
-      return res.status(402).json({ error: 'Insufficient credits', code: 'insufficient_credits' })
+    const systemPrompt =
+      "You are a productivity assistant. Answer questions about the user's tasks based on the provided data."
+    const userPrompt = `Tasks: ${JSON.stringify(tasks)}\nQuestion: ${question}`
+    let reservedTokens = 0
+
+    try {
+      reservedTokens = Credits.estimateReserve({
+        model: QUERY_TASKS_MODEL,
+        systemPrompt,
+        userPrompt,
+        maxOutputTokens: QUERY_TASKS_MAX_TOKENS,
+      })
+      const ok = await Credits.reserve(userId, reservedTokens)
+      if (!ok) {
+        return res.status(402).json({ error: 'Insufficient AI tokens', code: 'insufficient_credits' })
+      }
+    } catch (error) {
+      return unpricedModelResponse(res, error)
     }
 
     const result = await Openai.callText({
-      model: 'gpt-3.5-turbo',
-      systemPrompt:
-        "You are a productivity assistant. Answer questions about the user's tasks based on the provided data.",
-      userPrompt: `Tasks: ${JSON.stringify(tasks)}\nQuestion: ${question}`,
+      model: QUERY_TASKS_MODEL,
+      systemPrompt,
+      userPrompt,
       temperature: 0.5,
-      maxTokens: 500,
+      maxTokens: QUERY_TASKS_MAX_TOKENS,
     })
 
     if (!result.ok) {
-      await Credits.grant(userId, CREDITS_PER_ACTION, 'refund_failed_call')
+      await Credits.refundReserve(userId, reservedTokens, 'refund_failed_call')
       return res.json({ answer: 'AI service unavailable.' })
     }
-    await Credits.settle(userId, result.usage ?? ZERO_USAGE, {
+    const settlement = await Credits.settleReserved(userId, reservedTokens, result.usage ?? ZERO_USAGE, {
       endpoint: 'query-tasks',
-      model: 'gpt-3.5-turbo',
+      model: QUERY_TASKS_MODEL,
     })
+    if (!settlement.ok) {
+      return res.status(402).json({ error: 'Insufficient AI tokens to settle usage', code: settlement.code })
+    }
     res.json({ answer: result.value || 'No answer generated.' })
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
@@ -111,11 +140,6 @@ router.post('/parse-tasks', authenticateToken, async (req: AuthRequest, res) => 
     return res.status(400).json({ error: 'Photo must be 5MB or smaller' })
   }
 
-  const ok = await Credits.reserve(userId, CREDITS_PER_ACTION)
-  if (!ok) {
-    return res.status(402).json({ error: 'Insufficient credits', code: 'insufficient_credits' })
-  }
-
   const today = new Date().toISOString().split('T')[0]
   const defaultDate = defaultScheduleDate ?? today
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -133,10 +157,7 @@ If a photo is provided, inspect it for visible text, handwritten notes, calendar
         },
       ]
     : trimmedText
-
-  const result = await Openai.callStructured({
-    model: 'gpt-4o-mini',
-    systemPrompt: `Convert user input into a list of HealthyFlow Items.
+  const systemPrompt = `Convert user input into a list of HealthyFlow Items.
 
 Each Item is either a Task (one-shot, repeat: "none") or a Habit (recurring, repeat: "daily" or "weekly").
 
@@ -148,22 +169,46 @@ Field rules:
 - If the user does not specify a date, schedule Tasks for the selected default date (${defaultDate})
 - "tomorrow" -> ${tomorrow}, "tonight"/"evening" -> today, "this weekend" -> next Saturday
 - If a photo contains a list, calendar, sticky notes, handwritten plan, or screenshot, extract each actionable item.
-- Do not invent personal details that are not present in the text or photo.`,
+- Do not invent personal details that are not present in the text or photo.`
+  let reservedTokens = 0
+
+  try {
+    reservedTokens = Credits.estimateReserve({
+      model: PARSE_TASKS_MODEL,
+      systemPrompt,
+      userPrompt: userContent,
+      maxOutputTokens: PARSE_TASKS_MAX_TOKENS,
+    })
+    const ok = await Credits.reserve(userId, reservedTokens)
+    if (!ok) {
+      return res.status(402).json({ error: 'Insufficient AI tokens', code: 'insufficient_credits' })
+    }
+  } catch (error) {
+    return unpricedModelResponse(res, error)
+  }
+
+  const result = await Openai.callStructured({
+    model: PARSE_TASKS_MODEL,
+    systemPrompt,
     userPrompt: userContent,
     temperature: 0.2,
+    maxTokens: PARSE_TASKS_MAX_TOKENS,
     schemaName: 'parsed_items',
     jsonSchema: PARSED_ITEMS_JSON_SCHEMA,
     parser: (v) => ParsedItems.parse(v),
   })
 
   if (!result.ok) {
-    await Credits.grant(userId, CREDITS_PER_ACTION, 'refund_failed_call')
+    await Credits.refundReserve(userId, reservedTokens, 'refund_failed_call')
     return res.status(500).json({ error: 'Could not parse — try again' })
   }
-  await Credits.settle(userId, result.usage ?? ZERO_USAGE, {
+  const settlement = await Credits.settleReserved(userId, reservedTokens, result.usage ?? ZERO_USAGE, {
     endpoint: 'parse-tasks',
-    model: 'gpt-4o-mini',
+    model: PARSE_TASKS_MODEL,
   })
+  if (!settlement.ok) {
+    return res.status(402).json({ error: 'Insufficient AI tokens to settle usage', code: settlement.code })
+  }
   res.json(result.value)
 })
 

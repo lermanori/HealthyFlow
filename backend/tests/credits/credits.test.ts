@@ -3,7 +3,7 @@
  *
  * Behaviors tested:
  *   reserve  → true when RPC returns a balance, false when RPC returns null (insufficient)
- *   settle   → writes a usage-log row with token counts + negative credits_delta
+ *   settle   → adjusts the reserve and writes actual token billing details
  *   grant    → adds credits via db helper and writes a positive-delta usage-log row
  *   getBalance → returns the db value, 0 when none
  */
@@ -22,7 +22,12 @@ jest.mock('../../src/supabase-client', () => ({
 
 const mockDb = db as jest.Mocked<typeof db>
 
-import { Credits } from '../../src/credits'
+import {
+  calculateAiTokenCharge,
+  Credits,
+  estimateReserveTokens,
+  UnpricedModelError,
+} from '../../src/credits'
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -48,15 +53,19 @@ describe('Credits.reserve', () => {
 })
 
 describe('Credits.settle', () => {
-  it('logs the actual token usage with a negative credits_delta', async () => {
+  it('refunds over-reserved AI tokens and logs the actual charge', async () => {
+    mockDb.grantCredits.mockResolvedValue(10)
     mockDb.insertUsageLog.mockResolvedValue(undefined)
 
-    await Credits.settle(
+    const result = await Credits.settleReserved(
       'user-1',
+      10,
       { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
       { endpoint: '/api/ai/parse-tasks', model: 'gpt-4o-mini' }
     )
 
+    expect(result).toEqual({ ok: true, chargeTokens: 6, adjustmentTokens: 4 })
+    expect(mockDb.grantCredits).toHaveBeenCalledWith('user-1', 4)
     expect(mockDb.insertUsageLog).toHaveBeenCalledWith(
       expect.objectContaining({
         user_id: 'user-1',
@@ -65,9 +74,74 @@ describe('Credits.settle', () => {
         prompt_tokens: 100,
         completion_tokens: 50,
         total_tokens: 150,
-        credits_delta: -Credits.CREDITS_PER_ACTION,
+        credits_delta: -6,
+        reserved_tokens: 10,
+        base_tokens: 1,
+        markup_tokens: 5,
+        estimated: false,
       })
     )
+  })
+
+  it('attempts to reserve extra AI tokens when actual usage exceeds the reserve', async () => {
+    mockDb.reserveCredits.mockResolvedValue(0)
+    mockDb.insertUsageLog.mockResolvedValue(undefined)
+
+    const result = await Credits.settleReserved(
+      'user-1',
+      5,
+      { promptTokens: 1_000_000, completionTokens: 1_000_000, totalTokens: 2_000_000 },
+      { endpoint: '/api/ai/query-tasks', model: 'gpt-3.5-turbo' }
+    )
+
+    expect(result.ok).toBe(true)
+    expect(mockDb.reserveCredits).toHaveBeenCalledWith('user-1', 2495)
+    expect(mockDb.insertUsageLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        credits_delta: -2500,
+        reserved_tokens: 5,
+      })
+    )
+  })
+})
+
+describe('billing math', () => {
+  it('charges tiny calls with at least the 5-token markup', () => {
+    expect(calculateAiTokenCharge('gpt-4o-mini', {
+      promptTokens: 100,
+      completionTokens: 50,
+    })).toEqual({
+      baseTokens: 1,
+      markupTokens: 5,
+      totalTokens: 6,
+    })
+  })
+
+  it('uses 25% markup for larger calls', () => {
+    expect(calculateAiTokenCharge('gpt-3.5-turbo', {
+      promptTokens: 1_000_000,
+      completionTokens: 1_000_000,
+    })).toEqual({
+      baseTokens: 2000,
+      markupTokens: 500,
+      totalTokens: 2500,
+    })
+  })
+
+  it('rounds final charges up', () => {
+    expect(calculateAiTokenCharge('gpt-4o-mini', {
+      promptTokens: 1,
+      completionTokens: 1,
+    }).totalTokens).toBe(6)
+  })
+
+  it('throws before reservation for unpriced models', () => {
+    expect(() => estimateReserveTokens({
+      model: 'unknown-model',
+      systemPrompt: 'sys',
+      userPrompt: 'hello',
+      maxOutputTokens: 100,
+    })).toThrow(UnpricedModelError)
   })
 })
 

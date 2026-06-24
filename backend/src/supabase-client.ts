@@ -697,6 +697,10 @@ export const db = {
     credits_delta: number
     reason?: string
     request_id?: string
+    reserved_tokens?: number
+    base_tokens?: number
+    markup_tokens?: number
+    estimated?: boolean
   }) {
     const { error } = await supabase.from('ai_usage_log').insert(row)
     if (error) throw error

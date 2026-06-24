@@ -203,16 +203,16 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* AI Credits */}
+      {/* AI Tokens */}
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
           <Sparkles className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-gray-100">AI Credits</h2>
+          <h2 className="text-lg font-semibold text-gray-100">AI Tokens</h2>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-300">Available Credits</span>
+            <span className="text-sm text-gray-300">Available AI Tokens</span>
             <span className="text-2xl font-bold text-cyan-400">
               {creditsLoading ? '...' : balance}
             </span>
@@ -226,7 +226,7 @@ export default function SettingsPage() {
           </div>
 
           <p className="text-xs text-gray-400">
-            Credits are used for AI-powered features like task parsing and smart suggestions. Top-ups coming soon.
+            AI Tokens are used for AI-powered features like task parsing and smart suggestions. 1000 tokens equals $1 of app balance.
           </p>
         </div>
       </div>

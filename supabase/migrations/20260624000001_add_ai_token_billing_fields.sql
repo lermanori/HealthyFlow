@@ -1,0 +1,5 @@
+ALTER TABLE ai_usage_log
+  ADD COLUMN IF NOT EXISTS reserved_tokens INT,
+  ADD COLUMN IF NOT EXISTS base_tokens INT,
+  ADD COLUMN IF NOT EXISTS markup_tokens INT,
+  ADD COLUMN IF NOT EXISTS estimated BOOLEAN;

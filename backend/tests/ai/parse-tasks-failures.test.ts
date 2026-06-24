@@ -4,16 +4,17 @@ import jwt from 'jsonwebtoken'
 import { app } from '../../src/index'
 
 // ponytail: this suite predates credit enforcement — stub Credits so the
-// route's reserve/grant calls don't hit real Supabase. Enforcement itself
+// route's reserve/refund calls don't hit real Supabase. Enforcement itself
 // is covered by tests/credits/enforcement.test.ts.
 jest.mock('../../src/credits', () => ({
   Credits: {
     reserve: jest.fn().mockResolvedValue(true),
-    settle: jest.fn().mockResolvedValue(undefined),
+    estimateReserve: jest.fn().mockReturnValue(10),
+    settleReserved: jest.fn().mockResolvedValue({ ok: true, chargeTokens: 6, adjustmentTokens: 4 }),
+    refundReserve: jest.fn().mockResolvedValue(undefined),
     grant: jest.fn().mockResolvedValue(undefined),
     getBalance: jest.fn(),
   },
-  CREDITS_PER_ACTION: 1,
   FREE_SIGNUP_CREDITS: 50,
 }))
 
