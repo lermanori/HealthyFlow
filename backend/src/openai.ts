@@ -15,10 +15,14 @@ export type OpenAIResult<T> =
 type CallOpts = {
   model: string
   systemPrompt: string
-  userPrompt: string
+  userPrompt: string | OpenAIUserContent[]
   temperature?: number
   maxTokens?: number
 }
+
+type OpenAIUserContent =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
 
 async function rawCall(
   opts: CallOpts & { responseFormat?: any }

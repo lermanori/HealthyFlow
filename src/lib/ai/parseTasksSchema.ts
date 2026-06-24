@@ -9,6 +9,13 @@ export interface TaskSuggestion {
   scheduledDate: string
 }
 
+export interface AnalyzerPhoto {
+  fileName: string
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp'
+  data: string
+  previewUrl: string
+}
+
 export interface AITextAnalyzerProps {
   onClose?: () => void
   scheduledDate?: string

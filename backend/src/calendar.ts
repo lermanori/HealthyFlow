@@ -355,46 +355,8 @@ function dateBounds(date: string): { timeMin: string; timeMax: string } {
   return { timeMin: start.toISOString(), timeMax: end.toISOString() }
 }
 
-function getCalendarTimeZone(): string {
-  return process.env.GOOGLE_CALENDAR_TIME_ZONE || 'Asia/Jerusalem'
-}
-
-function getCalendarOffset(): string {
-  return process.env.GOOGLE_CALENDAR_UTC_OFFSET || '+02:00'
-}
-
-function offsetForLocalDateTime(dateTime: string, timeZone: string): string {
-  const [datePart, timePart] = dateTime.split('T')
-  const [year, month, day] = datePart.split('-').map(Number)
-  const [hour, minute] = timePart.split(':').map(Number)
-  const utcGuess = new Date(Date.UTC(year, month - 1, day, hour, minute, 0))
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  })
-  const parts = Object.fromEntries(formatter.formatToParts(utcGuess).map(part => [part.type, part.value]))
-  const zonedAsUtc = Date.UTC(
-    Number(parts.year),
-    Number(parts.month) - 1,
-    Number(parts.day),
-    Number(parts.hour),
-    Number(parts.minute),
-    Number(parts.second)
-  )
-  const offsetMinutes = Math.round((zonedAsUtc - utcGuess.getTime()) / 60000)
-  const sign = offsetMinutes >= 0 ? '+' : '-'
-  const abs = Math.abs(offsetMinutes)
-  return `${sign}${String(Math.floor(abs / 60)).padStart(2, '0')}:${String(abs % 60).padStart(2, '0')}`
-}
-
-function withOffset(dateTime: string): string {
-  return `${dateTime}${getCalendarOffset()}`
+function getCalendarTimeZone(timeZone?: string): string {
+  return timeZone || process.env.GOOGLE_CALENDAR_TIME_ZONE || 'UTC'
 }
 
 function isTimedTask(row: GoogleSyncedTask): boolean {
@@ -406,33 +368,37 @@ function taskEventTimes(row: GoogleSyncedTask): { start: string; end: string } {
     throw new Error('Task is missing schedule fields')
   }
 
-  const [year, month, day] = row.scheduled_date.split('-').map(Number)
   const [hours, minutes] = row.start_time.split(':').map(Number)
-  const start = new Date(Date.UTC(year, month - 1, day, hours || 0, minutes || 0, 0, 0))
+  const durationMinutes = row.duration || 30
+  const startMinutes = (hours || 0) * 60 + (minutes || 0)
+  const endMinutes = startMinutes + durationMinutes
+  const endDate = new Date(`${row.scheduled_date}T00:00:00.000Z`)
+  endDate.setUTCDate(endDate.getUTCDate() + Math.floor(endMinutes / (24 * 60)))
 
-  const end = new Date(start)
-  end.setUTCMinutes(end.getUTCMinutes() + (row.duration || 30))
-
-  const localDateTime = (date: Date) =>
-    `${date.toISOString().slice(0, 10)}T${String(date.getUTCHours()).padStart(2, '0')}:${String(date.getUTCMinutes()).padStart(2, '0')}:00`
+  const localDateTime = (date: string, totalMinutes: number) => {
+    const minutesInDay = ((totalMinutes % (24 * 60)) + (24 * 60)) % (24 * 60)
+    return `${date}T${String(Math.floor(minutesInDay / 60)).padStart(2, '0')}:${String(minutesInDay % 60).padStart(2, '0')}:00`
+  }
 
   return {
-    start: withOffset(localDateTime(start)),
-    end: withOffset(localDateTime(end)),
+    start: localDateTime(row.scheduled_date, startMinutes),
+    end: localDateTime(endDate.toISOString().slice(0, 10), endMinutes),
   }
 }
 
-function taskToGoogleEvent(row: GoogleSyncedTask) {
+export function taskToGoogleEvent(row: GoogleSyncedTask, timeZone?: string) {
   const { start, end } = taskEventTimes(row)
-  const timeZone = getCalendarTimeZone()
+  const calendarTimeZone = getCalendarTimeZone(timeZone)
 
   return {
     summary: row.title,
     start: {
       dateTime: start,
+      timeZone: calendarTimeZone,
     },
     end: {
       dateTime: end,
+      timeZone: calendarTimeZone,
     },
     extendedProperties: {
       private: {
@@ -443,7 +409,7 @@ function taskToGoogleEvent(row: GoogleSyncedTask) {
   }
 }
 
-export async function syncTaskToGoogleCalendar(row: GoogleSyncedTask): Promise<{
+export async function syncTaskToGoogleCalendar(row: GoogleSyncedTask, timeZone?: string): Promise<{
   googleEventId: string | null
   synced: boolean
   status: 'synced' | 'skipped' | 'failed'
@@ -460,7 +426,7 @@ export async function syncTaskToGoogleCalendar(row: GoogleSyncedTask): Promise<{
   }
 
   const accessToken = await getGoogleAccessToken(row.user_id)
-  const eventBody = taskToGoogleEvent(row)
+  const eventBody = taskToGoogleEvent(row, timeZone)
   const existingEventId = row.google_event_id
   const url = existingEventId
     ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(existingEventId)}`
@@ -477,7 +443,7 @@ export async function syncTaskToGoogleCalendar(row: GoogleSyncedTask): Promise<{
 
   if (!response.ok) {
     if (existingEventId && response.status === 404) {
-      return syncTaskToGoogleCalendar({ ...row, google_event_id: null })
+      return syncTaskToGoogleCalendar({ ...row, google_event_id: null }, timeZone)
     }
     const errorText = await response.text()
     throw new Error(`Google Calendar task sync failed: ${errorText}`)
@@ -491,7 +457,7 @@ export async function syncTaskToGoogleCalendar(row: GoogleSyncedTask): Promise<{
   }
 }
 
-export async function syncTimedTasksForDate(userId: string, date: string): Promise<{ synced: number }> {
+export async function syncTimedTasksForDate(userId: string, date: string, timeZone?: string): Promise<{ synced: number }> {
   const { data, error } = await supabase
     .from('tasks')
     .select('*')
@@ -506,7 +472,7 @@ export async function syncTimedTasksForDate(userId: string, date: string): Promi
   let synced = 0
   for (const task of data ?? []) {
     try {
-      const result = await syncTaskToGoogleCalendar(task)
+      const result = await syncTaskToGoogleCalendar(task, timeZone)
       const { error: updateError } = await supabase
         .from('tasks')
         .update({

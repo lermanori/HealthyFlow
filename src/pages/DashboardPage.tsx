@@ -17,6 +17,7 @@ import { formatRelativeDate } from '../utils/dateHelpers'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import AskAIModal from '../components/AskAIModal'
+import { createPortal } from 'react-dom'
 export default function DashboardPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -390,24 +391,27 @@ export default function DashboardPage() {
       </motion.div>
 
       {/* AI Text Analyzer Modal */}
-      <AnimatePresence>
-        {showAIAnalyzer && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-            onClick={() => setShowAIAnalyzer(false)}
-          >
-            <div onClick={(e) => e.stopPropagation()} className="w-full max-w-4xl">
-              <AITextAnalyzer 
-                onClose={() => setShowAIAnalyzer(false)}
-                scheduledDate={format(selectedDate, 'yyyy-MM-dd')}
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {createPortal(
+        <AnimatePresence>
+          {showAIAnalyzer && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed left-0 top-0 z-[9999] flex h-dvh w-dvw items-start justify-center overflow-y-auto bg-gray-950/80 px-2 py-3 backdrop-blur-sm sm:items-center sm:p-4"
+              onClick={() => setShowAIAnalyzer(false)}
+            >
+              <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-4xl items-stretch sm:block">
+                <AITextAnalyzer
+                  onClose={() => setShowAIAnalyzer(false)}
+                  scheduledDate={format(selectedDate, 'yyyy-MM-dd')}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* Ask AI Modal */}
       <AskAIModal isOpen={showAskAIModal} onClose={() => setShowAskAIModal(false)} />

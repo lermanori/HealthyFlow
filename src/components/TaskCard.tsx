@@ -15,9 +15,10 @@ interface TaskCardProps {
   onDelete: (task: Task) => void
   onUncomplete?: (id: string) => void
   isDragging?: boolean
+  className?: string
 }
 
-export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncomplete, isDragging }: TaskCardProps) {
+export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncomplete, isDragging, className = '' }: TaskCardProps) {
   const [showMenu, setShowMenu] = useState(false)
 
   const handleComplete = () => {
@@ -206,7 +207,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
         task.completed 
           ? 'bg-gray-800/50 border-gray-600/50 opacity-75' 
           : 'card glass-effect hover:shadow-lg'
-      } ${isDragging ? 'z-10 rotate-1' : ''}`}
+      } ${isDragging ? 'z-10 rotate-1' : ''} ${className}`}
     >
       {/* Completion Checkbox */}
       <div className="flex items-start space-x-3">

@@ -77,13 +77,38 @@ const ParsedItem = z.object({
 })
 const ParsedItems = z.object({ items: z.array(ParsedItem).max(20) })
 const PARSED_ITEMS_JSON_SCHEMA = z.toJSONSchema(ParsedItems)
+const ParseTasksRequest = z.object({
+  text: z.string().max(2000).optional(),
+  defaultScheduleDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  photo: z.object({
+    mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+    data: z.string().min(1),
+  }).optional(),
+})
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024
+
+function base64Size(data: string) {
+  const padding = data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0
+  return Math.floor((data.length * 3) / 4) - padding
+}
 
 router.post('/parse-tasks', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
-  const { text } = req.body
+  const parsedBody = ParseTasksRequest.safeParse(req.body)
 
-  if (!text || !text.trim()) {
-    return res.status(400).json({ error: 'Text input is required' })
+  if (!parsedBody.success) {
+    return res.status(400).json({ error: 'Invalid analyzer input' })
+  }
+
+  const { text, photo, defaultScheduleDate } = parsedBody.data
+  const trimmedText = text?.trim() ?? ''
+
+  if (!trimmedText && !photo) {
+    return res.status(400).json({ error: 'Text input or photo is required' })
+  }
+
+  if (photo && base64Size(photo.data) > MAX_PHOTO_BYTES) {
+    return res.status(400).json({ error: 'Photo must be 5MB or smaller' })
   }
 
   const ok = await Credits.reserve(userId, CREDITS_PER_ACTION)
@@ -92,7 +117,22 @@ router.post('/parse-tasks', authenticateToken, async (req: AuthRequest, res) => 
   }
 
   const today = new Date().toISOString().split('T')[0]
+  const defaultDate = defaultScheduleDate ?? today
   const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const userContent = photo
+    ? [
+        {
+          type: 'text' as const,
+          text: `User text: ${trimmedText || '(none)'}
+
+If a photo is provided, inspect it for visible text, handwritten notes, calendar entries, whiteboard plans, or objects that imply actionable HealthyFlow Items. Return only items that are reasonably supported by the text or image.`,
+        },
+        {
+          type: 'image_url' as const,
+          image_url: { url: `data:${photo.mimeType};base64,${photo.data}` },
+        },
+      ]
+    : trimmedText
 
   const result = await Openai.callStructured({
     model: 'gpt-4o-mini',
@@ -105,8 +145,11 @@ Field rules:
 - duration: estimated minutes (positive integer)
 - startTime: "HH:MM" 24h or null if flexible
 - scheduledDate: "YYYY-MM-DD"; for Habits use today's date (${today})
-- "tomorrow" -> ${tomorrow}, "tonight"/"evening" -> today, "this weekend" -> next Saturday`,
-    userPrompt: text,
+- If the user does not specify a date, schedule Tasks for the selected default date (${defaultDate})
+- "tomorrow" -> ${tomorrow}, "tonight"/"evening" -> today, "this weekend" -> next Saturday
+- If a photo contains a list, calendar, sticky notes, handwritten plan, or screenshot, extract each actionable item.
+- Do not invent personal details that are not present in the text or photo.`,
+    userPrompt: userContent,
     temperature: 0.2,
     schemaName: 'parsed_items',
     jsonSchema: PARSED_ITEMS_JSON_SCHEMA,

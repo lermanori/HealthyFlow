@@ -13,6 +13,12 @@ import {
 } from '../calendar'
 
 const router = express.Router()
+const ClientTimeZone = z.string().min(1).max(100).optional()
+
+function clientTimeZone(req: AuthRequest, bodyTimeZone?: string): string | undefined {
+  const headerTimeZone = req.header('x-client-time-zone')
+  return bodyTimeZone || (headerTimeZone && headerTimeZone.length <= 100 ? headerTimeZone : undefined)
+}
 
 router.get('/google/connect-url', authenticateToken, (req: AuthRequest, res) => {
   try {
@@ -87,13 +93,20 @@ router.patch('/google/events/:id/completion', authenticateToken, async (req: Aut
 })
 
 router.post('/google/sync-timed-tasks', authenticateToken, async (req: AuthRequest, res) => {
-  const parsed = z.object({ date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }).safeParse(req.body)
+  const parsed = z.object({
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    timeZone: ClientTimeZone,
+  }).safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: 'date must be YYYY-MM-DD' })
   }
 
   try {
-    res.json(await syncTimedTasksForDate(req.user.userId, parsed.data.date))
+    res.json(await syncTimedTasksForDate(
+      req.user.userId,
+      parsed.data.date,
+      clientTimeZone(req, parsed.data.timeZone)
+    ))
   } catch (error) {
     console.error('Google Calendar timed task sync error:', error)
     res.status(500).json({ error: 'Failed to sync timed tasks to Google Calendar' })

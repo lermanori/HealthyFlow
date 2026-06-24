@@ -31,6 +31,42 @@ Laid the foundation for per-user AI credits and token metering (issue #43, Slice
 
 ---
 
+### 2026-06-24 11:37 — `main`
+
+Fixed Google Calendar task sync to use the browser's local timezone instead of a hardcoded offset, so timed tasks keep their HealthyFlow wall-clock time when they appear in Google/Apple Calendar. Added regression coverage for local calendar event payloads, including events that cross midnight. Also kept the day timeline height behavior aligned with task duration while restoring the roomier card padding requested during mobile review.
+
+---
+
+### 2026-06-24 11:12 — `main`
+
+Refined the AI Task Analyzer into a focused prompt-first composer. The toolbar now holds upload, dictation, voice assistant, default schedule date, and the compact analyze action, with clearer borders and modal settings for voice/date configuration. The selected default schedule date is now sent through parse-tasks so unspecific tasks land on the intended date, and the analyzer overlay now covers the full viewport via a body-level portal. Build is green and the UI is ready for deployment.
+
+---
+
+### 2026-06-24 10:42 — `main`
+
+Captured the project operating instructions in `AGENTS.md` so future agent sessions have the same architecture rules, AI harness constraints, issue-tracker workflow, and commit process available in-repo. Preserved the June 23 handoff note under `.scratch/` as a historical launch-readiness snapshot and next-session checklist. This gives the project a clearer trail from sprint state to current implementation work.
+
+---
+
+### 2026-06-24 10:41 — `main`
+
+Fixed deletion for tasks that still reference Google Calendar events after the user disconnects Google Calendar. The task delete path now treats only the explicit "Google Calendar is not connected" cleanup failure as non-blocking, so HealthyFlow still removes the local task while preserving real Google API failures. Added regression coverage for a synced task with a stale external event id.
+
+---
+
+### 2026-06-24 10:41 — `main`
+
+Cleared React Query state whenever authentication changes. Login, signup, logout, and invalid stored-token recovery now wipe cached user-scoped data so a session switch cannot display another user's stale dashboard state. This keeps the auth boundary aligned with the client cache boundary without changing the API contract.
+
+---
+
+### 2026-06-24 10:41 — `main`
+
+Added photo input to the AI Task Analyzer so users can parse handwritten notes, screenshots, or calendar/list images into HealthyFlow Items alongside typed text. The backend now accepts bounded multimodal parse-tasks requests, forwards image content to OpenAI through the existing structured-output path, and has regression coverage for photo-only analysis. The analyzer modal was tightened for mobile, with compact TTS/voice controls and a fixed footer so the analyze action remains reachable.
+
+---
+
 ### 2026-06-23 20:12 — `main`
 
 Added scoped deletion for recurring habits. The dashboard now asks whether to remove only the selected habit day or the entire recurring habit, and the backend persists per-day skips with a `deleted_at` tombstone so virtual instances do not reappear after refresh. The delete route now handles virtual habit ids, materialized habit instances, whole-series deletes, Google Calendar cleanup, and regular task deletes with focused regression coverage.

@@ -18,6 +18,8 @@ interface DayTimelineProps {
 
 // ponytail: mirrors backend/src/utils/hourSlots.ts — 18 slots 6am–11pm
 const HOUR_SLOTS: string[] = Array.from({ length: 18 }, (_, i) => `${String(i + 6).padStart(2, '0')}:00`)
+const HOUR_SLOT_HEIGHT_PX = 48
+const MIN_TIMED_TASK_MINUTES = 30
 
 function formatHour(slot: string): string {
   const h = parseInt(slot, 10)
@@ -46,6 +48,11 @@ function eventTimeRange(event: ExternalCalendarEvent): string {
   const start = formatter.format(new Date(event.startAt))
   const end = event.endAt ? formatter.format(new Date(event.endAt)) : null
   return end ? `${start} - ${end}` : start
+}
+
+function timedBlockHeight(duration?: number): number {
+  const minutes = Math.max(duration || MIN_TIMED_TASK_MINUTES, MIN_TIMED_TASK_MINUTES)
+  return Math.round((minutes / 60) * HOUR_SLOT_HEIGHT_PX)
 }
 
 function CalendarEventBlock({
@@ -222,13 +229,14 @@ export default function DayTimeline({
                   <div
                     {...provided.droppableProps}
                     ref={provided.innerRef}
-                    className={`flex gap-2 min-h-10 px-2 py-1 rounded transition-colors ${
+                    className={`relative flex gap-2 overflow-visible px-2 py-2 rounded transition-colors ${
                       snapshot.isDraggingOver
                         ? 'bg-blue-900/40 drop-zone'
                         : hasContent
                         ? 'bg-gray-800/30'
                         : 'bg-transparent hover:bg-gray-800/10'
                     }`}
+                    style={{ height: HOUR_SLOT_HEIGHT_PX }}
                   >
                     {/* Time label */}
                     <span className={`text-xs w-12 flex-shrink-0 pt-2 ${hasContent || snapshot.isDraggingOver ? 'text-gray-400' : 'text-gray-600'}`}>
@@ -236,7 +244,7 @@ export default function DayTimeline({
                     </span>
 
                     {/* Tasks in this slot */}
-                    <div className="flex-1 space-y-1">
+                    <div className="relative z-10 flex-1 space-y-1 overflow-visible">
                       {slotCalendarEvents.map(event => (
                         <CalendarEventBlock
                           key={event.id}
@@ -251,6 +259,11 @@ export default function DayTimeline({
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
+                              className="min-h-0"
+                              style={{
+                                ...provided.draggableProps.style,
+                                height: timedBlockHeight(task.duration),
+                              }}
                             >
                               <TaskCard
                                 task={task}
@@ -259,6 +272,7 @@ export default function DayTimeline({
                                 onEdit={onEditTask}
                                 onDelete={onDeleteTask}
                                 isDragging={snapshot.isDragging || draggedTaskId === task.id}
+                                className="h-full p-5"
                               />
                             </div>
                           )}

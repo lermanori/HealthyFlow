@@ -127,6 +127,25 @@ describe('DELETE /api/tasks/:id — recurring habit scopes', () => {
     expect(mockDb.softDeleteTask).not.toHaveBeenCalled()
   })
 
+  it('deletes a synced normal task locally when Google Calendar is disconnected', async () => {
+    mockDb.getTaskById.mockResolvedValue({
+      id: 'task-1',
+      user_id: USER_ID,
+      type: 'task',
+      google_event_id: 'stale-google-event',
+    })
+    mockDeleteGoogleCalendarEvent.mockRejectedValue(new Error('Google Calendar is not connected'))
+    mockDb.deleteTask.mockResolvedValue(undefined)
+
+    const res = await request(app)
+      .delete('/api/tasks/task-1')
+      .set('Authorization', TOKEN)
+
+    expect(res.status).toBe(200)
+    expect(mockDeleteGoogleCalendarEvent).toHaveBeenCalledWith(USER_ID, 'stale-google-event')
+    expect(mockDb.deleteTask).toHaveBeenCalledWith('task-1')
+  })
+
   it('rejects deleting another user habit', async () => {
     mockDb.getTaskById.mockResolvedValue(habitTemplate({ user_id: OTHER_USER_ID }))
 

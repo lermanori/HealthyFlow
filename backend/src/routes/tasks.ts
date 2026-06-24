@@ -15,6 +15,11 @@ const DeleteBody = z.object({
   deleteScope: z.enum(['instance', 'habit']).optional(),
 })
 
+function clientTimeZone(req: AuthRequest): string | undefined {
+  const value = req.header('x-client-time-zone')
+  return value && value.length <= 100 ? value : undefined
+}
+
 // Shared PUT/materialize response shape (DB row → API task).
 function formatTaskResponse(row: any, opts: { isHabitInstance?: boolean } = {}) {
   return {
@@ -39,9 +44,9 @@ function formatTaskResponse(row: any, opts: { isHabitInstance?: boolean } = {}) 
   }
 }
 
-async function syncTaskRowToGoogle(row: any) {
+async function syncTaskRowToGoogle(row: any, timeZone?: string) {
   try {
-    const result = await syncTaskToGoogleCalendar(row)
+    const result = await syncTaskToGoogleCalendar(row, timeZone)
     return db.updateTask(row.id, {
       google_event_id: result.googleEventId,
       synced_to_google: result.synced,
@@ -69,8 +74,19 @@ async function deleteGoogleEventsForRows(userId: string, rows: any[]) {
   await Promise.all(
     rows
       .filter(row => row.google_event_id)
-      .map(row => deleteGoogleCalendarEvent(userId, row.google_event_id))
+      .map(row => deleteGoogleCalendarEventIfConnected(userId, row.google_event_id))
   )
+}
+
+async function deleteGoogleCalendarEventIfConnected(userId: string, googleEventId: string) {
+  try {
+    await deleteGoogleCalendarEvent(userId, googleEventId)
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Google Calendar is not connected') {
+      return
+    }
+    throw error
+  }
 }
 
 // Get tasks
@@ -173,7 +189,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
 
     let task = await db.createTask(taskData)
     if (task.type === 'task' && task.scheduled_date && task.start_time) {
-      task = await syncTaskRowToGoogle(task)
+      task = await syncTaskRowToGoogle(task, clientTimeZone(req))
     }
 
     res.json({
@@ -327,7 +343,7 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
     }
     let updatedTask = await db.updateTask(taskId, updateData)
     if (updatedTask.type === 'task') {
-      updatedTask = await syncTaskRowToGoogle(updatedTask)
+      updatedTask = await syncTaskRowToGoogle(updatedTask, clientTimeZone(req))
     }
     return res.json(formatTaskResponse(updatedTask, { isHabitInstance: false }))
   } catch (error) {
@@ -456,7 +472,7 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res) => {
         await db.deleteHabitSeries(parentHabitId, userId)
       } else if (task.original_habit_id) {
         if (task.google_event_id) {
-          await deleteGoogleCalendarEvent(userId, task.google_event_id)
+          await deleteGoogleCalendarEventIfConnected(userId, task.google_event_id)
         }
         await db.softDeleteTask(task.id)
       } else if (task.scheduled_date) {
@@ -468,7 +484,7 @@ router.delete('/:id', authenticateToken, async (req: AuthRequest, res) => {
     }
 
     if (task.google_event_id) {
-      await deleteGoogleCalendarEvent(userId, task.google_event_id)
+      await deleteGoogleCalendarEventIfConnected(userId, task.google_event_id)
     }
     await db.deleteTask(taskId)
     res.json({ success: true })
@@ -487,7 +503,7 @@ router.delete('/', authenticateToken, async (req: AuthRequest, res) => {
     await Promise.all(
       tasks
         .filter((task: any) => task.google_event_id)
-        .map((task: any) => deleteGoogleCalendarEvent(userId, task.google_event_id))
+        .map((task: any) => deleteGoogleCalendarEventIfConnected(userId, task.google_event_id))
     )
     await db.deleteTasksByUserId(userId, date as string)
     res.json({ success: true })

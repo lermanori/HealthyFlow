@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { parseTasks } from '../lib/ai/parseTasksApi'
-import type { TaskSuggestion } from '../lib/ai/parseTasksSchema'
+import type { AnalyzerPhoto, TaskSuggestion } from '../lib/ai/parseTasksSchema'
 
 export function useParsedItems() {
   const [suggestions, setSuggestions] = useState<TaskSuggestion[]>([])
@@ -10,16 +10,18 @@ export function useParsedItems() {
 
   const analyzeText = useCallback(async (
     inputText: string,
+    photo?: AnalyzerPhoto,
+    defaultScheduleDate?: string,
     onSuccess?: (items: TaskSuggestion[]) => void
   ) => {
-    if (!inputText.trim()) {
-      toast.error('Please enter some text to analyze')
+    if (!inputText.trim() && !photo) {
+      toast.error('Please enter text or upload a photo to analyze')
       return
     }
     setIsAnalyzing(true)
     try {
       toast.loading('Analyzing with AI...', { id: 'ai-analysis' })
-      const items = await parseTasks(inputText)
+      const items = await parseTasks(inputText, photo, defaultScheduleDate)
       setSuggestions(items)
       setSelectedSuggestions(new Set(items.map(s => s.id)))
       toast.success('AI analysis complete! 🧠', { id: 'ai-analysis' })

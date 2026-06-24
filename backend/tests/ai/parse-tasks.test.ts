@@ -118,4 +118,40 @@ describe('POST /api/ai/parse-tasks — happy path', () => {
     expect(observedAuthHeader).toBe(`Bearer ${process.env.OPENAI_API_KEY}`)
     expect(observedAuthHeader).not.toContain('rogue')
   })
+
+  it('accepts a photo-only request and forwards it as multimodal OpenAI content', async () => {
+    let observedBody: any
+
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, function (_uri, body) {
+        observedBody = body
+        return validOpenAIResponse
+      })
+
+    const res = await request(app)
+      .post('/api/ai/parse-tasks')
+      .set('Authorization', authHeader())
+      .send({
+        photo: {
+          mimeType: 'image/png',
+          data: Buffer.from('fake-image').toString('base64'),
+        },
+      })
+
+    expect(res.status).toBe(200)
+    expect(observedBody.messages[1].content).toEqual([
+      expect.objectContaining({
+        type: 'text',
+        text: expect.stringContaining('User text: (none)'),
+      }),
+      {
+        type: 'image_url',
+        image_url: {
+          url: `data:image/png;base64,${Buffer.from('fake-image').toString('base64')}`,
+        },
+      },
+    ])
+    expect(observedBody.response_format.type).toBe('json_schema')
+  })
 })

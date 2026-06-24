@@ -8,13 +8,15 @@ interface VoiceInputProps {
   placeholder?: string
   disabled?: boolean
   className?: string
+  compact?: boolean
 }
 
 export default function VoiceInput({
   onTranscriptChange,
   placeholder = "Speak to describe your tasks...",
   disabled = false,
-  className = ""
+  className = "",
+  compact = false
 }: VoiceInputProps) {
   const {
     isListening,
@@ -95,7 +97,7 @@ export default function VoiceInput({
             value={transcript || interimTranscript}
             onChange={(e) => onTranscriptChange(e.target.value)}
             placeholder={placeholder}
-            className="input-field min-h-32 resize-none holographic text-gray-100 placeholder-gray-400 pr-20"
+            className={`input-field resize-none holographic text-gray-100 placeholder-gray-400 pr-20 ${compact ? 'min-h-24' : 'min-h-32'}`}
             disabled={disabled || isListening}
           />
           
@@ -123,18 +125,18 @@ export default function VoiceInput({
         </div>
 
         {/* Voice Control Buttons */}
-        <div className="flex items-center justify-between mt-3">
-          <div className="flex items-center space-x-2">
+        <div className={`flex items-center justify-between mt-3 ${compact ? 'gap-2' : ''}`}>
+          <div className="flex min-w-0 items-center space-x-2">
             {isListening ? (
               <>
                 <motion.button
                   onClick={handleStopListening}
-                  className="btn-secondary flex items-center space-x-2"
+                  className={`btn-secondary flex items-center space-x-2 ${compact ? 'px-3 py-2 text-sm' : ''}`}
                   animate={{ scale: [1, 1.05, 1] }}
                   transition={{ duration: 1, repeat: Infinity }}
                 >
                   <Square className="w-4 h-4" />
-                  <span>Stop Listening</span>
+                  <span>{compact ? 'Stop' : 'Stop Listening'}</span>
                 </motion.button>
                 
                 <motion.div
@@ -143,17 +145,17 @@ export default function VoiceInput({
                   transition={{ duration: 1, repeat: Infinity }}
                 >
                   <div className="w-2 h-2 bg-cyan-400 rounded-full" />
-                  <span className="text-sm">Listening...</span>
+                  <span className="text-sm">{compact ? 'Listening' : 'Listening...'}</span>
                 </motion.div>
               </>
             ) : (
               <button
                 onClick={handleStartListening}
                 disabled={disabled}
-                className="btn-primary flex items-center space-x-2"
+                className={`btn-primary flex items-center space-x-2 ${compact ? 'px-3 py-2 text-sm' : ''}`}
               >
                 <Mic className="w-4 h-4" />
-                <span>Start Voice Input</span>
+                <span>{compact ? 'Start' : 'Start Voice Input'}</span>
               </button>
             )}
           </div>
