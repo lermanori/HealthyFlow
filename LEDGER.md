@@ -9,6 +9,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 ### 2026-06-24 10:41 — `main`
 
+Cleared React Query state whenever authentication changes. Login, signup, logout, and invalid stored-token recovery now wipe cached user-scoped data so a session switch cannot display another user's stale dashboard state. This keeps the auth boundary aligned with the client cache boundary without changing the API contract.
+
+---
+
+### 2026-06-24 10:41 — `main`
+
 Added photo input to the AI Task Analyzer so users can parse handwritten notes, screenshots, or calendar/list images into HealthyFlow Items alongside typed text. The backend now accepts bounded multimodal parse-tasks requests, forwards image content to OpenAI through the existing structured-output path, and has regression coverage for photo-only analysis. The analyzer modal was tightened for mobile, with compact TTS/voice controls and a fixed footer so the analyze action remains reachable.
 
 ---
