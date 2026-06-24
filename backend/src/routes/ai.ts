@@ -1,8 +1,11 @@
 import express from 'express'
 import { z } from 'zod'
 import { db } from '../supabase-client'
-import { Openai } from '../openai'
+import { Openai, TokenUsage } from '../openai'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
+import { Credits, CREDITS_PER_ACTION } from '../credits'
+
+const ZERO_USAGE: TokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
 
 const router = express.Router()
 
@@ -26,10 +29,15 @@ router.post('/query-tasks', authenticateToken, async (req: AuthRequest, res) => 
     const tasks = await db.getTasksByUserId(userId)
 
     if (!process.env.OPENAI_API_KEY) {
-      // Mock answer for development
+      // ponytail: mock dev branch makes no real AI call, so skip reserve/settle entirely
       return res.json({
         answer: `You asked: "${question}". You have ${tasks.length} tasks. (AI answer would go here.)`,
       })
+    }
+
+    const ok = await Credits.reserve(userId, CREDITS_PER_ACTION)
+    if (!ok) {
+      return res.status(402).json({ error: 'Insufficient credits', code: 'insufficient_credits' })
     }
 
     const result = await Openai.callText({
@@ -42,8 +50,13 @@ router.post('/query-tasks', authenticateToken, async (req: AuthRequest, res) => 
     })
 
     if (!result.ok) {
+      await Credits.grant(userId, CREDITS_PER_ACTION, 'refund_failed_call')
       return res.json({ answer: 'AI service unavailable.' })
     }
+    await Credits.settle(userId, result.usage ?? ZERO_USAGE, {
+      endpoint: 'query-tasks',
+      model: 'gpt-3.5-turbo',
+    })
     res.json({ answer: result.value || 'No answer generated.' })
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
@@ -66,10 +79,16 @@ const ParsedItems = z.object({ items: z.array(ParsedItem).max(20) })
 const PARSED_ITEMS_JSON_SCHEMA = z.toJSONSchema(ParsedItems)
 
 router.post('/parse-tasks', authenticateToken, async (req: AuthRequest, res) => {
+  const userId = req.user.userId
   const { text } = req.body
 
   if (!text || !text.trim()) {
     return res.status(400).json({ error: 'Text input is required' })
+  }
+
+  const ok = await Credits.reserve(userId, CREDITS_PER_ACTION)
+  if (!ok) {
+    return res.status(402).json({ error: 'Insufficient credits', code: 'insufficient_credits' })
   }
 
   const today = new Date().toISOString().split('T')[0]
@@ -95,8 +114,13 @@ Field rules:
   })
 
   if (!result.ok) {
+    await Credits.grant(userId, CREDITS_PER_ACTION, 'refund_failed_call')
     return res.status(500).json({ error: 'Could not parse — try again' })
   }
+  await Credits.settle(userId, result.usage ?? ZERO_USAGE, {
+    endpoint: 'parse-tasks',
+    model: 'gpt-4o-mini',
+  })
   res.json(result.value)
 })
 

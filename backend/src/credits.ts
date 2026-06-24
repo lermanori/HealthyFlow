@@ -2,6 +2,7 @@ import { db } from './supabase-client'
 import type { TokenUsage } from './openai'
 
 export const CREDITS_PER_ACTION = 1
+export const FREE_SIGNUP_CREDITS = 50
 
 // ponytail: flat per-action pricing for now. Token-based pricing is the
 // documented future switch — swap the constant charge below for:

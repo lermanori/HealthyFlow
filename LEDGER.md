@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-24 14:30 — `issue-43-ai-credits`
+
+Wired enforcement on top of Slice A's credits foundation (issue #44, Slice B). Both AI routes (`parse-tasks`, `query-tasks`) now reserve a credit before calling OpenAI, return 402 `insufficient_credits` if the reserve fails, refund via `Credits.grant` on AI failure, and settle real token usage (or zeroed counts when OpenAI omits the usage block) on success. Signup now seeds new users with `FREE_SIGNUP_CREDITS` (50), and a new thin `GET /api/credits/balance` endpoint exposes the current balance. Added `backend/tests/credits/enforcement.test.ts` covering all four behaviors, plus updated three pre-existing suites whose mocks didn't yet account for the new real `Credits` calls; full suite is green (18/18 suites, 102/102 tests) and the TypeScript build is clean.
+
+---
+
 ### 2026-06-24 00:00 — `issue-43-ai-credits`
 
 Laid the foundation for per-user AI credits and token metering (issue #43, Slice A). Added a migration creating `user_credits` and `ai_usage_log` tables plus atomic `reserve_credits`/`grant_credits` Postgres functions so balance checks and debits happen in one statement with no overspend race. Added a new `credits.ts` deep module (reserve/settle/grant/getBalance) backed by thin `supabase-client.ts` helpers, and threaded OpenAI's token `usage` block through `callText`/`callStructured` non-breakingly so future settlement has real token counts to log.

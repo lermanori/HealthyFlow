@@ -7,6 +7,8 @@ jest.mock('../../src/supabase-client', () => ({
   db: {
     getUserByEmail: jest.fn(),
     createUser: jest.fn(),
+    grantCredits: jest.fn(),
+    insertUsageLog: jest.fn(),
   },
 }))
 
@@ -14,6 +16,9 @@ const mockDb = db as jest.Mocked<typeof db>
 
 beforeEach(() => {
   jest.clearAllMocks()
+  // signup grants FREE_SIGNUP_CREDITS via Credits.grant → db.grantCredits + db.insertUsageLog
+  mockDb.grantCredits.mockResolvedValue(50)
+  mockDb.insertUsageLog.mockResolvedValue(undefined)
 })
 
 describe('POST /api/auth/signup', () => {
