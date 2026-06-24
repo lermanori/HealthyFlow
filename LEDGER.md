@@ -7,6 +7,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 <!-- entries -->
 
+### 2026-06-24 10:41 — `main`
+
+Added photo input to the AI Task Analyzer so users can parse handwritten notes, screenshots, or calendar/list images into HealthyFlow Items alongside typed text. The backend now accepts bounded multimodal parse-tasks requests, forwards image content to OpenAI through the existing structured-output path, and has regression coverage for photo-only analysis. The analyzer modal was tightened for mobile, with compact TTS/voice controls and a fixed footer so the analyze action remains reachable.
+
+---
+
 ### 2026-06-23 20:12 — `main`
 
 Added scoped deletion for recurring habits. The dashboard now asks whether to remove only the selected habit day or the entire recurring habit, and the backend persists per-day skips with a `deleted_at` tombstone so virtual instances do not reappear after refresh. The delete route now handles virtual habit ids, materialized habit instances, whole-series deletes, Google Calendar cleanup, and regular task deletes with focused regression coverage.

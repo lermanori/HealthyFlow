@@ -12,6 +12,7 @@ interface TTSSettingsProps {
   rate: number
   onRateChange: (rate: number) => void
   onTestVoice?: () => void
+  compact?: boolean
 }
 
 export default function TTSSettings({
@@ -23,7 +24,8 @@ export default function TTSSettings({
   onAutoSpeakChange,
   rate,
   onRateChange,
-  onTestVoice
+  onTestVoice,
+  compact = false
 }: TTSSettingsProps) {
   const { isSupported, availableVoices, getDefaultVoice } = useTTS()
   const [isExpanded, setIsExpanded] = useState(false)
@@ -59,9 +61,9 @@ export default function TTSSettings({
   }
 
   return (
-    <div className="tts-controls bg-gray-800/50 rounded-xl p-4 border border-cyan-500/30">
+    <div className={`tts-controls bg-gray-800/50 rounded-xl border border-cyan-500/30 ${compact ? 'p-3' : 'p-4'}`}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-3">
+      <div className={`flex items-center justify-between ${compact ? '' : 'mb-3'}`}>
         <div className="flex items-center space-x-2">
           <div className="w-6 h-6 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center">
             <Volume2 className="w-3 h-3 text-white" />
@@ -154,7 +156,7 @@ export default function TTSSettings({
       )}
 
       {/* Collapsed Info */}
-      {!isExpanded && ttsEnabled && (
+      {!compact && !isExpanded && ttsEnabled && (
         <div className="text-xs text-gray-400">
           {selectedVoice && (
             <p>Voice: {selectedVoice}</p>

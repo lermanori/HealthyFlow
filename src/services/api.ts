@@ -245,8 +245,11 @@ export const aiService = {
     return response.data
   },
 
-  parseTasks: async (text: string): Promise<{ items: ParsedItem[] }> => {
-    const response = await api.post('/ai/parse-tasks', { text })
+  parseTasks: async (
+    text: string,
+    photo?: { mimeType: 'image/jpeg' | 'image/png' | 'image/webp'; data: string }
+  ): Promise<{ items: ParsedItem[] }> => {
+    const response = await api.post('/ai/parse-tasks', { text, photo })
     return response.data
   },
 
