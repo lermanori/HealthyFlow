@@ -205,7 +205,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       exit={{ opacity: 0, y: -20 }}
       whileHover={{ scale: 1.01 }}
       className={`group relative border transition-all duration-300 ${
-        compact ? 'flex overflow-hidden rounded-lg p-2.5' : 'rounded-xl p-4'
+        compact ? `flex rounded-lg p-2.5 ${showMenu ? 'overflow-visible' : 'overflow-hidden'}` : 'rounded-xl p-4'
       } ${
         task.completed 
           ? 'bg-gray-800/50 border-gray-600/50 opacity-75' 
@@ -216,7 +216,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       <div className={`flex min-h-0 min-w-0 ${compact ? 'w-full items-center gap-2' : 'items-start space-x-3'}`}>
         <button
           onClick={handleComplete}
-          className={`flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+          className={`flex-shrink-0 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-300 ${
             compact ? '!h-4 !min-h-0 !w-4 !min-w-0 sm:!h-5 sm:!w-5' : 'h-5 w-5'
           } ${
             task.completed
@@ -247,20 +247,20 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
             <div className="relative flex-shrink-0">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className={`${compact ? '!h-7 !min-h-0 !w-7 !min-w-0 p-0.5' : 'p-1'} rounded-lg opacity-0 group-hover:opacity-100 hover:bg-gray-700 transition-all duration-200`}
+                className={`${compact ? '!h-7 !min-h-0 !w-7 !min-w-0 p-0.5' : 'p-1'} rounded-lg hover:bg-gray-700 cursor-pointer transition-all duration-200 ${showMenu ? 'opacity-100 bg-gray-700' : 'opacity-0 group-hover:opacity-100'}`}
               >
                 <MoreVertical className="w-4 h-4 text-gray-400" />
               </button>
 
               {/* Menu dropdown */}
               {showMenu && (
-                <div className="absolute right-0 top-8 bg-gray-800 border border-gray-700 rounded-lg shadow-xl z-20 min-w-32">
+                <div className="task-menu right-0 top-8 rounded-lg shadow-xl min-w-32">
                   <button
                     onClick={() => {
                       onEdit(task)
                       setShowMenu(false)
                     }}
-                    className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 rounded-t-lg"
+                    className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 cursor-pointer rounded-t-lg"
                   >
                     <Edit className="w-4 h-4" />
                     <span>Edit</span>
@@ -270,7 +270,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                       onDelete(task)
                       setShowMenu(false)
                     }}
-                    className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-gray-700 rounded-b-lg"
+                    className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-gray-700 cursor-pointer rounded-b-lg"
                   >
                     <Trash2 className="w-4 h-4" />
                     <span>Delete</span>

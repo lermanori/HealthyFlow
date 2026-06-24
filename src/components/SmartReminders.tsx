@@ -45,7 +45,7 @@ export default function SmartReminders() {
         const timeDiff = taskTime - currentTime
 
         // Upcoming task (15 minutes before) — only for today's tasks
-        if (timeDiff > 0 && timeDiff <= 15 && task.scheduledDate <= todayStr) {
+        if (timeDiff > 0 && timeDiff <= 15 && task.scheduledDate === todayStr) {
           newReminders.push({
             id: `upcoming-${task.id}`,
             taskTitle: task.title,

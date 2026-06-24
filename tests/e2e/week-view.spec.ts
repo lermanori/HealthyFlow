@@ -43,17 +43,23 @@ test('Week view golden path: tasks appear under their correct day columns', asyn
 
   // --- Navigate to Week View ---
   await page.goto('/week')
-  // Wait for the week grid to render (any day column)
-  await expect(page.locator(`[data-date="${todayStr}"]`)).toBeVisible({ timeout: 10_000 })
+  // Wait for the week rail to render (redesign: 7 selectable day buttons)
+  await expect(page.locator(`[data-rail-date="${todayStr}"]`)).toBeVisible({ timeout: 10_000 })
 
-  // --- Assert today's task is in today's column ---
-  const todayColumn = page.locator(`[data-date="${todayStr}"]`)
-  await expect(todayColumn.locator(`text=${todayTitle}`)).toBeVisible({ timeout: 10_000 })
+  // The redesign shows a single weekly agenda where each item row is tagged with
+  // its scheduled date via data-date (instead of one column per day).
+  // --- Assert today's task appears in a row dated today ---
+  await expect(
+    page.locator(`[data-date="${todayStr}"]`).filter({ hasText: todayTitle })
+  ).toBeVisible({ timeout: 10_000 })
 
-  // --- Assert other-day task is in its column, NOT today's ---
-  const otherColumn = page.locator(`[data-date="${otherDayStr}"]`)
-  await expect(otherColumn.locator(`text=${otherTitle}`)).toBeVisible({ timeout: 10_000 })
+  // --- Assert other-day task appears in a row dated that day ---
+  await expect(
+    page.locator(`[data-date="${otherDayStr}"]`).filter({ hasText: otherTitle })
+  ).toBeVisible({ timeout: 10_000 })
 
-  // Negative: other task must NOT appear in today's column
-  await expect(todayColumn.locator(`text=${otherTitle}`)).toHaveCount(0)
+  // Negative: today's task must NOT appear under the other day's date
+  await expect(
+    page.locator(`[data-date="${otherDayStr}"]`).filter({ hasText: todayTitle })
+  ).toHaveCount(0)
 })

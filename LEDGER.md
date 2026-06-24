@@ -1,3 +1,9 @@
+### 2026-06-24 16:35 — `main`
+
+Committed pre-existing working-tree WIP that had been parked during the calorie-intake epic: a Week View redesign and mobile-density polish. `WeekViewPage.tsx` is largely rewritten with per-item-type theming (task/habit/grocery/meal/workout), inline completion via a mutation, and week navigation; `TaskCard.tsx`, `SmartReminders.tsx`, and `index.css` carry supporting layout/density tweaks, and the week-view e2e spec was updated to match. Unrelated to the epic — verified the frontend build is green before committing.
+
+---
+
 ### 2026-06-24 16:20 — `issue-49-ai-meal-entry`
 
 Added AI-assisted meal entry as a parallel pipeline to parse-tasks, built test-first. `POST /api/ai/parse-meals` takes free text and/or a photo (5MB guard, same multimodal vision path as parse-tasks) and returns nutrition-estimated meals via a Zod schema (`name`, `calories`, optional macros, optional `quantity`); it reuses `Openai.callStructured` and the existing `Credits.estimateReserve/reserve/settle/refundReserve` flow unchanged, billed under the `parse-meals` endpoint, with no silent fallback on AI failure. 5 new jest cases cover the happy path, photo multimodal forwarding, the no-input 400, the upstream-failure refund, and the settle-with-correct-endpoint case — backend suite is 150 tests green. On the frontend, added `aiService.parseMeals` + a `ParsedMeal` type, and a new `MealAnalyzer` component (text + photo input, review cards with calories/macros, confirm writes each accepted meal via the #48 `useCalorieEntries` create mutation) reachable from an "Add with AI" button on `/calories`. Frontend build is green.

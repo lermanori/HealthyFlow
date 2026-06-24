@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -70,9 +72,14 @@
   }
 
   /* Mobile touch improvements */
-  button, [role="button"] {
+  button, [role="button"], a {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+  }
+
+  button:disabled, [role="button"]:disabled, a:disabled {
+    cursor: not-allowed;
   }
 
   /* Improve touch targets on mobile */
@@ -527,5 +534,11 @@
   /* Better Android PWA navigation */
   .fixed.bottom-0 {
     padding-bottom: max(env(safe-area-inset-bottom), 16px) !important;
+  }
+}
+/* Week view: stack the two-column body on narrow screens */
+@media (max-width: 860px) {
+  .week-grid {
+    grid-template-columns: 1fr !important;
   }
 }
