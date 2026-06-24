@@ -1,3 +1,9 @@
+### 2026-06-24 19:44 — `main`
+
+Improved AI meal label parsing after a Quest cookie photo mixed up carbs and protein on a Hebrew nutrition label. The parse-meals prompt now explicitly prefers per-serving/package columns over per-100g columns, teaches Hebrew nutrient and column labels, and guards against confusing `פחמימות` carbs with `חלבונים` protein. Added a focused regression test that asserts those label-reading instructions are sent for photo-based meal parsing.
+
+---
+
 ### 2026-06-24 17:20 — `main`
 
 Extended the calorie module into a clearer health-tracking surface. Calorie entries now support optional times, are visually grouped by time, and display labeled macro chips so calories, protein, carbs, and fat are readable at a glance. AI meal entry now reuses the same dictation hook as AI task analysis, and a new kg-only weight tracker adds one-entry-per-day logging, latest-vs-previous delta, and a recent-entry trend graph inside `/calories`.

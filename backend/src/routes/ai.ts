@@ -231,6 +231,12 @@ const ParsedMeal = z.object({
 })
 const ParsedMeals = z.object({ meals: z.array(ParsedMeal).max(20) })
 const PARSED_MEALS_JSON_SCHEMA = z.toJSONSchema(ParsedMeals)
+const NUTRITION_LABEL_READING_RULES = `Nutrition-label reading rules:
+- If a nutrition label is visible, transcribe and use the label values directly instead of estimating.
+- Prefer the per-serving / per-package column over the per-100g column. Use per-100g only when no serving/package values are visible.
+- Hebrew label mapping: "אנרגיה" or "קלוריות" = calories; "חלבונים" = protein; "פחמימות" or "סך הפחמימות" = carbs; "שומנים" or "סך השומנים" = fat.
+- Hebrew column mapping: "ביחידה" / "באריזה" / "במנה" / "בחטיף" means per serving/package/item; "ב-100 גרם" means per 100g.
+- Do not confuse "פחמימות" (carbs) with "חלבונים" (protein). If the per-serving label says "סך הפחמימות 22" and "חלבונים 16", return carbs=22 and protein=16.`
 const ParseMealsRequest = z.object({
   text: z.string().max(2000).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -265,7 +271,11 @@ router.post('/parse-meals', authenticateToken, async (req: AuthRequest, res) => 
           type: 'text' as const,
           text: `User text: ${trimmedText || '(none)'}
 
-If a photo is provided, inspect it for visible food items or a nutrition label. If a nutrition label is present, read its calories and macros directly. Return only meals that are reasonably supported by the text or image.`,
+If a photo is provided, inspect it for visible food items or a nutrition label. If a nutrition label is present, read its calories and macros directly.
+
+${NUTRITION_LABEL_READING_RULES}
+
+Return only meals that are reasonably supported by the text or image.`,
         },
         {
           type: 'image_url' as const,
@@ -285,7 +295,8 @@ Rules:
 - Estimate calories and macros as accurately as possible for each distinct food item mentioned.
 - Macros may be null if you cannot reasonably estimate them.
 - Do not invent foods that are not present in the text or photo.
-- If a nutrition label is visible in the photo, read its values directly instead of estimating.`
+- If a nutrition label is visible in the photo, follow these rules:
+${NUTRITION_LABEL_READING_RULES}`
   let reservedTokens = 0
 
   try {

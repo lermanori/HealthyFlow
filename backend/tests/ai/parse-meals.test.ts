@@ -111,6 +111,37 @@ describe('POST /api/ai/parse-meals — happy path', () => {
     expect(observedBody.response_format.type).toBe('json_schema')
   })
 
+  it('instructs label-photo parsing to prefer serving values and map Hebrew nutrient rows', async () => {
+    let observedBody: any
+
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, function (_uri, body) {
+        observedBody = body
+        return validOpenAIResponse
+      })
+
+    await request(app)
+      .post('/api/ai/parse-meals')
+      .set('Authorization', authHeader())
+      .send({
+        photo: {
+          mimeType: 'image/jpeg',
+          data: Buffer.from('fake-hebrew-label').toString('base64'),
+        },
+      })
+
+    const allText = observedBody.messages.map((message: any) =>
+      typeof message.content === 'string'
+        ? message.content
+        : message.content.map((part: any) => part.text ?? '').join('\n')
+    ).join('\n')
+    expect(allText).toContain('Prefer the per-serving / per-package column')
+    expect(allText).toContain('"חלבונים" = protein')
+    expect(allText).toContain('"פחמימות"')
+    expect(allText).toContain('return carbs=22 and protein=16')
+  })
+
   // Regression: OpenAI strict structured-output mode rejects (400) any object
   // whose `properties` aren't all listed in `required`. The meal macros must be
   // nullable-but-required, not optional. The nock mock can't catch this, so we
