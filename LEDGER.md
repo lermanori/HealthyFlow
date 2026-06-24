@@ -9,6 +9,12 @@ Auto-updated on every commit. Newest entries appear first.
 
 ### 2026-06-24 10:41 — `main`
 
+Fixed deletion for tasks that still reference Google Calendar events after the user disconnects Google Calendar. The task delete path now treats only the explicit "Google Calendar is not connected" cleanup failure as non-blocking, so HealthyFlow still removes the local task while preserving real Google API failures. Added regression coverage for a synced task with a stale external event id.
+
+---
+
+### 2026-06-24 10:41 — `main`
+
 Cleared React Query state whenever authentication changes. Login, signup, logout, and invalid stored-token recovery now wipe cached user-scoped data so a session switch cannot display another user's stale dashboard state. This keeps the auth boundary aligned with the client cache boundary without changing the API contract.
 
 ---
