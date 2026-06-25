@@ -323,13 +323,10 @@ ${NUTRITION_LABEL_READING_RULES}`
     await Credits.refundReserve(userId, reservedTokens, 'refund_failed_call')
     return res.status(500).json({ error: 'Could not parse — try again' })
   }
-  const settlement = await Credits.settleReserved(userId, reservedTokens, result.usage ?? ZERO_USAGE, {
+  await Credits.settleReserved(userId, reservedTokens, result.usage ?? ZERO_USAGE, {
     endpoint: 'parse-meals',
     model: PARSE_MEALS_MODEL,
   })
-  if (!settlement.ok) {
-    return res.status(402).json({ error: 'Insufficient AI tokens to settle usage', code: settlement.code })
-  }
   res.json(result.value)
 })
 
