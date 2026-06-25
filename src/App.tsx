@@ -7,6 +7,7 @@ import WeekViewPage from './pages/WeekViewPage'
 import SettingsPage from './pages/SettingsPage'
 import TokenManagerPage from './pages/TokenManagerPage'
 import CaloriesPage from './pages/CaloriesPage'
+import AchievementsPage from './pages/AchievementsPage'
 import LoginPage from './pages/LoginPage'
 import LoadingSpinner from './components/LoadingSpinner'
 import OfflineNotification from './components/OfflineNotification'
@@ -55,6 +56,7 @@ function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/token-manager" element={user.role === 'admin' ? <TokenManagerPage /> : <Navigate to="/" replace />} />
           <Route path="/calories" element={settings?.calorieIntake ? <CaloriesPage /> : <Navigate to="/" replace />} />
+          <Route path="/achievements" element={settings?.achievementTracker ? <AchievementsPage /> : <Navigate to="/" replace />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

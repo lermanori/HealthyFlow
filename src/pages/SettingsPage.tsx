@@ -322,6 +322,13 @@ export default function SettingsPage() {
             onChange={(checked) => handleSettingChange('calorieIntake', checked)}
           />
 
+          <SettingToggle
+            label="Achievement Tracker"
+            description="Track personal bests and measurable progress over time"
+            checked={settings?.achievementTracker ?? false}
+            onChange={(checked) => handleSettingChange('achievementTracker', checked)}
+          />
+
           <div className="py-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">

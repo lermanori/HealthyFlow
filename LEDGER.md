@@ -1,3 +1,9 @@
+### 2026-06-25 11:07 — `codex/achievement-tracker`
+
+Implemented the Achievement Tracker from issue #50 as a standalone module, gated by a persisted setting like Calorie Intake. The backend now has Supabase tables, thin routes, and a service that summarizes latest values, personal bests, target progress, and latest-vs-previous trend from recorded entry dates. The frontend adds a mobile-friendly Achievements page with quick logging, editable targets/definitions, trend visualization, and touch-friendly history controls.
+
+---
+
 ### 2026-06-24 19:44 — `main`
 
 Improved AI meal label parsing after a Quest cookie photo mixed up carbs and protein on a Hebrew nutrition label. The parse-meals prompt now explicitly prefers per-serving/package columns over per-100g columns, teaches Hebrew nutrient and column labels, and guards against confusing `פחמימות` carbs with `חלבונים` protein. Added a focused regression test that asserts those label-reading instructions are sent for photo-based meal parsing.

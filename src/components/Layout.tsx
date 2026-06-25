@@ -11,7 +11,8 @@ import {
   Menu,
   X,
   Coins,
-  Utensils
+  Utensils,
+  Award
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import PWAInstallPrompt from './PWAInstallPrompt'
@@ -65,6 +66,7 @@ export default function Layout({ children }: LayoutProps) {
     { name: 'Add Item', href: '/add', icon: Plus },
     { name: 'Week View', href: '/week', icon: Calendar },
     ...(settings?.calorieIntake ? [{ name: 'Calories', href: '/calories', icon: Utensils }] : []),
+    ...(settings?.achievementTracker ? [{ name: 'Achievements', href: '/achievements', icon: Award }] : []),
     { name: 'Settings', href: '/settings', icon: Settings },
     ...(user?.role === 'admin' ? [{ name: 'Token Manager', href: '/token-manager', icon: Coins }] : []),
   ]

@@ -14,6 +14,7 @@ import { creditsRoutes } from './routes/credits'
 import { settingsRoutes } from './routes/settings'
 import { caloriesRoutes } from './routes/calories'
 import { weightRoutes } from './routes/weight'
+import { achievementRoutes } from './routes/achievements'
 import { initDatabase } from './db/database'
 import { db } from './supabase-client'
 
@@ -46,6 +47,7 @@ app.use('/api/credits', creditsRoutes)
 app.use('/api/settings', settingsRoutes)
 app.use('/api/calories', caloriesRoutes)
 app.use('/api/weight', weightRoutes)
+app.use('/api/achievements', achievementRoutes)
 
 // Test-mode reset route — 404 in production, mounted only when HF_TEST_MODE=1
 if (process.env.HF_TEST_MODE === '1') {

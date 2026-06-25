@@ -12,6 +12,7 @@ export const SettingsSchema = z.object({
   smartReminders: z.boolean().default(true),
   completionSounds: z.boolean().default(true),
   calorieIntake: z.boolean().default(false),
+  achievementTracker: z.boolean().default(false),
 })
 export type Settings = z.infer<typeof SettingsSchema>
 
@@ -25,6 +26,7 @@ const PatchBody = z.object({
   smartReminders: z.boolean(),
   completionSounds: z.boolean(),
   calorieIntake: z.boolean(),
+  achievementTracker: z.boolean(),
 }).partial().strict()
 
 const router = express.Router()

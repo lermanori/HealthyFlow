@@ -36,6 +36,7 @@ describe('settings API', () => {
       smartReminders: true,
       completionSounds: true,
       calorieIntake: false,
+      achievementTracker: false,
     })
   })
 
@@ -81,5 +82,25 @@ describe('settings API', () => {
       .set('Authorization', TOKEN)
 
     expect(res.body.calorieIntake).toBe(false)
+  })
+
+  it('defaults achievementTracker to false and allows enabling it', async () => {
+    mockDb.getUserSettings.mockResolvedValue({})
+    mockDb.upsertUserSettings.mockResolvedValue({ achievementTracker: true })
+
+    const getRes = await request(app)
+      .get('/api/settings')
+      .set('Authorization', TOKEN)
+
+    expect(getRes.body.achievementTracker).toBe(false)
+
+    const patchRes = await request(app)
+      .patch('/api/settings')
+      .set('Authorization', TOKEN)
+      .send({ achievementTracker: true })
+
+    expect(patchRes.status).toBe(200)
+    expect(mockDb.upsertUserSettings).toHaveBeenCalledWith(USER_ID, { achievementTracker: true })
+    expect(patchRes.body.achievementTracker).toBe(true)
   })
 })
