@@ -32,6 +32,7 @@ import {
   calculateAiTokenCharge,
   Credits,
   estimateReserveTokens,
+  loadModelPricing,
   UnpricedModelError,
 } from '../../src/credits'
 
@@ -114,6 +115,66 @@ describe('Credits.settle', () => {
         reserved_tokens: 5,
       })
     )
+  })
+
+  it('drains remaining balance (does NOT drop the result) when usage exceeds what the user can afford', async () => {
+    // Actual usage far exceeds the reserve; the extra reserve fails (insufficient).
+    mockDb.reserveCredits.mockResolvedValue(null)
+    mockDb.getCreditBalance.mockResolvedValue(3) // 3 app tokens left after the initial reserve
+    mockDb.setCreditBalance.mockResolvedValue(0)
+    mockDb.insertUsageLog.mockResolvedValue(undefined)
+
+    const result = await Credits.settleReserved(
+      'user-1',
+      5,
+      { promptTokens: 1_000_000, completionTokens: 1_000_000, totalTokens: 2_000_000 },
+      { endpoint: '/api/ai/query-tasks', model: 'gpt-3.5-turbo' }
+    )
+
+    // Still ok:true so the route returns the already-successful AI result.
+    expect(result.ok).toBe(true)
+    expect(mockDb.setCreditBalance).toHaveBeenCalledWith('user-1', 0)
+    // credits_delta reflects what was actually taken: reserve (5) + drained (3) = 8.
+    expect(mockDb.insertUsageLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        credits_delta: -8,
+        reserved_tokens: 5,
+        reason: 'settlement_underfunded',
+      })
+    )
+  })
+})
+
+describe('Credits.refundReserve', () => {
+  it('restores the held balance without a balance-affecting ledger row', async () => {
+    mockDb.grantCredits.mockResolvedValue(10)
+    mockDb.insertUsageLog.mockResolvedValue(undefined)
+
+    await Credits.refundReserve('user-1', 10, 'refund_failed_call')
+
+    // Balance restored...
+    expect(mockDb.grantCredits).toHaveBeenCalledWith('user-1', 10)
+    // ...but the audit row is 0-delta so SUM(credits_delta) stays equal to the
+    // real balance (the reserve was never logged as negative).
+    expect(mockDb.insertUsageLog).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: 'user-1', credits_delta: 0, reason: 'refund_failed_call' })
+    )
+  })
+})
+
+describe('loadModelPricing', () => {
+  it('returns defaults when no override env is set', () => {
+    expect(loadModelPricing(undefined)['gpt-4o-mini'].inputUsdPerMillion).toBe(0.15)
+  })
+
+  it('merges a valid JSON override over the defaults', () => {
+    const pricing = loadModelPricing('{"gpt-4o-mini":{"inputUsdPerMillion":0.3,"outputUsdPerMillion":1.2}}')
+    expect(pricing['gpt-4o-mini']).toEqual({ inputUsdPerMillion: 0.3, outputUsdPerMillion: 1.2 })
+    expect(pricing['gpt-3.5-turbo'].inputUsdPerMillion).toBe(0.50) // default still present
+  })
+
+  it('falls back to defaults on malformed JSON', () => {
+    expect(loadModelPricing('not json')['gpt-4o-mini'].inputUsdPerMillion).toBe(0.15)
   })
 })
 

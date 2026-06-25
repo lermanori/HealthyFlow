@@ -34,6 +34,12 @@ Added AI-assisted meal entry as a parallel pipeline to parse-tasks, built test-f
 
 ---
 
+### 2026-06-24 15:08 — `fix-credits-review`
+
+Hardened the token-billing feature after a post-merge review of Codex's usage-based billing + admin token-manager work. Fixed a ledger drift where failed-call refunds wrote a phantom positive row (balance now always reconstructable from `ai_usage_log`), and stopped settlement underfunds from discarding an already-paid AI result (drain to zero, still return it). Migrated the legacy admin routes off the shared `ADMIN_TOKEN`/query-param check onto identity-based `requireAdminRole`, biased the image-token reserve estimate high, and made model pricing overridable via `AI_MODEL_PRICING` without a code change. Backend suite green (22 suites / 131 tests), build clean.
+
+---
+
 ### 2026-06-24 15:05 — `issue-48-calorie-entries`
 
 Built the calorie log as its own concern, separate from tasks. Added a `calorie_entries` table (indexed on user_id+date), thin Zod-validated CRUD routes (`GET/POST /api/calories`, `PATCH`/`DELETE /:id`) built test-first with 14 new jest cases covering validation, ownership (404/403), and macro-optional behavior, plus a `caloriesService` + `useCalorieEntries` React Query hook and a new `/calories` page with inline add/edit/delete and daily calorie/macro totals. The route and nav item are gated on the `calorieIntake` setting from #47 — both stay hidden until the user flips the toggle. Backend suite (145 tests) and the frontend build are green.

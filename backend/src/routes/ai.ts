@@ -81,13 +81,10 @@ router.post('/query-tasks', authenticateToken, async (req: AuthRequest, res) => 
       await Credits.refundReserve(userId, reservedTokens, 'refund_failed_call')
       return res.json({ answer: 'AI service unavailable.' })
     }
-    const settlement = await Credits.settleReserved(userId, reservedTokens, result.usage ?? ZERO_USAGE, {
+    await Credits.settleReserved(userId, reservedTokens, result.usage ?? ZERO_USAGE, {
       endpoint: 'query-tasks',
       model: QUERY_TASKS_MODEL,
     })
-    if (!settlement.ok) {
-      return res.status(402).json({ error: 'Insufficient AI tokens to settle usage', code: settlement.code })
-    }
     res.json({ answer: result.value || 'No answer generated.' })
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
@@ -204,13 +201,10 @@ Field rules:
     await Credits.refundReserve(userId, reservedTokens, 'refund_failed_call')
     return res.status(500).json({ error: 'Could not parse — try again' })
   }
-  const settlement = await Credits.settleReserved(userId, reservedTokens, result.usage ?? ZERO_USAGE, {
+  await Credits.settleReserved(userId, reservedTokens, result.usage ?? ZERO_USAGE, {
     endpoint: 'parse-tasks',
     model: PARSE_TASKS_MODEL,
   })
-  if (!settlement.ok) {
-    return res.status(402).json({ error: 'Insufficient AI tokens to settle usage', code: settlement.code })
-  }
   res.json(result.value)
 })
 

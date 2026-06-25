@@ -5,7 +5,11 @@ export const APP_TOKENS_PER_USD = 1000
 export const MARKUP_RATE = 0.25
 export const MIN_MARKUP_TOKENS = 5
 export const MIN_RESERVE_TOKENS = 5
-export const ESTIMATED_IMAGE_TOKENS = 2000
+// ponytail: flat heuristic, biased HIGH on purpose. gpt-4o-mini bills images at
+// a large multiplier (a high-detail image can run ~25k tokens), so we over-reserve
+// here; settle refunds the unused estimate. Better to over-hold than to underfund
+// the call. Replace with a size/detail-aware estimate if image volume grows.
+export const ESTIMATED_IMAGE_TOKENS = 25000
 export const PROMPT_TOKEN_CHARS = 4
 
 export type SupportedAiModel = 'gpt-4o-mini' | 'gpt-3.5-turbo'
@@ -15,7 +19,7 @@ type ModelPricing = {
   outputUsdPerMillion: number
 }
 
-const MODEL_PRICING: Record<SupportedAiModel, ModelPricing> = {
+const DEFAULT_MODEL_PRICING: Record<string, ModelPricing> = {
   'gpt-4o-mini': {
     inputUsdPerMillion: 0.15,
     outputUsdPerMillion: 0.60,
@@ -25,6 +29,23 @@ const MODEL_PRICING: Record<SupportedAiModel, ModelPricing> = {
     outputUsdPerMillion: 1.50,
   },
 }
+
+// ponytail: prices default to the map above. Override without a code change by
+// setting AI_MODEL_PRICING (JSON: model -> {inputUsdPerMillion, outputUsdPerMillion}).
+// Moving pricing into a DB-admin table is the follow-up if non-engineers need to edit it.
+export function loadModelPricing(
+  raw = process.env.AI_MODEL_PRICING
+): Record<string, ModelPricing> {
+  if (!raw) return DEFAULT_MODEL_PRICING
+  try {
+    return { ...DEFAULT_MODEL_PRICING, ...JSON.parse(raw) }
+  } catch (e) {
+    console.error('Invalid AI_MODEL_PRICING env — falling back to default pricing:', e)
+    return DEFAULT_MODEL_PRICING
+  }
+}
+
+const MODEL_PRICING = loadModelPricing()
 
 export class UnpricedModelError extends Error {
   constructor(model: string) {
@@ -61,9 +82,9 @@ type EstimateReserveInput = {
   maxOutputTokens: number
 }
 
-type SettlementResult =
-  | { ok: true; chargeTokens: number; adjustmentTokens: number }
-  | { ok: false; chargeTokens: number; adjustmentTokens: number; code: 'insufficient_settlement' }
+// settle always completes: it either reconciles fully or drains the balance to
+// 0 (underfunded). It never fails the request — the AI result is already paid for.
+type SettlementResult = { ok: true; chargeTokens: number; adjustmentTokens: number }
 
 const DEFAULT_BILLING_SETTINGS: BillingSettings = {
   appTokensPerUsd: APP_TOKENS_PER_USD,
@@ -259,8 +280,13 @@ export const Credits = {
     return newBalance !== null
   },
 
+  // Reverses an unlogged reserve hold. reserve() moves the balance without
+  // writing a ledger row, so the refund must NOT write a balance-affecting row
+  // either — otherwise SUM(credits_delta) drifts from the real balance on every
+  // failed call. We write a 0-delta row purely as an audit trace of the attempt.
   async refundReserve(userId: string, amount: number, reason: string): Promise<void> {
-    await this.grant(userId, amount, reason)
+    await db.grantCredits(userId, amount)
+    await db.insertUsageLog({ user_id: userId, credits_delta: 0, reason })
   },
 
   // Adjusts the initial reserve to actual OpenAI usage, then writes one
@@ -280,6 +306,15 @@ export const Credits = {
     } else if (adjustmentTokens < 0) {
       const newBalance = await db.reserveCredits(userId, Math.abs(adjustmentTokens))
       if (newBalance === null) {
+        // Underfunded: the call already succeeded and OpenAI was already paid, so
+        // we must NOT drop the user's result. Take whatever balance remains (down
+        // to 0) and record the real usage. ponytail: we eat the small overage
+        // rather than carry a negative balance. credits_delta reflects what was
+        // actually charged (reserve + drained remainder) so the ledger stays
+        // consistent with the balance; base/markup/total record true usage.
+        const remaining = await db.getCreditBalance(userId)
+        if (remaining > 0) await db.setCreditBalance(userId, 0)
+        const billedTokens = reservedTokens + remaining
         await db.insertUsageLog({
           user_id: userId,
           endpoint: meta.endpoint,
@@ -287,19 +322,14 @@ export const Credits = {
           prompt_tokens: usage.promptTokens,
           completion_tokens: usage.completionTokens,
           total_tokens: usage.totalTokens,
-          credits_delta: -reservedTokens,
+          credits_delta: -billedTokens,
           reserved_tokens: reservedTokens,
           base_tokens: charge.baseTokens,
           markup_tokens: charge.markupTokens,
           estimated: false,
           reason: 'settlement_underfunded',
         })
-        return {
-          ok: false,
-          chargeTokens: charge.totalTokens,
-          adjustmentTokens,
-          code: 'insufficient_settlement',
-        }
+        return { ok: true, chargeTokens: billedTokens, adjustmentTokens }
       }
     }
 
