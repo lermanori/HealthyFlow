@@ -1,7 +1,20 @@
 import express from 'express'
 import { z } from 'zod'
 import { db } from '../supabase-client'
-import { Openai, TokenUsage } from '../openai'
+import {
+  AiParsedMeals,
+  defaultReview,
+  evaluateOcrEvidence,
+  NUTRITION_LABEL_OCR_JSON_SCHEMA,
+  NUTRITION_LABEL_OCR_PROMPT,
+  NUTRITION_LABEL_READING_RULES,
+  NutritionLabelOcr,
+  Openai,
+  PARSED_MEALS_JSON_SCHEMA,
+  TokenUsage,
+  normalizeParsedMeal,
+  nutritionLabelMealFromOcr,
+} from '../openai'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 import { Credits, UnpricedModelError } from '../credits'
 
@@ -12,6 +25,7 @@ const PARSE_TASKS_MODEL = 'gpt-4o-mini'
 const PARSE_TASKS_MAX_TOKENS = 1000
 const PARSE_MEALS_MODEL = 'gpt-4o-mini'
 const PARSE_MEALS_MAX_TOKENS = 1000
+const NUTRITION_LABEL_OCR_MAX_TOKENS = 1200
 
 const router = express.Router()
 
@@ -212,25 +226,6 @@ Field rules:
 // Parallel pipeline to parse-tasks above — food/macro-shaped, not Item-shaped. See
 // CONTEXT.md (Calorie entry / Macros) for the contract. Does not write to the DB;
 // the frontend writes confirmed meals as calorie entries via the #48 calories CRUD.
-const ParsedMeal = z.object({
-  name: z.string().min(1),
-  calories: z.number().int().nonnegative(),
-  // nullable but NOT optional: OpenAI strict structured-output mode requires
-  // every property in `required`, so optional fields trigger a 400. The model
-  // returns null when a macro/quantity is unknown.
-  protein: z.number().nonnegative().nullable(),
-  carbs: z.number().nonnegative().nullable(),
-  fat: z.number().nonnegative().nullable(),
-  quantity: z.string().nullable(),
-})
-const ParsedMeals = z.object({ meals: z.array(ParsedMeal).max(20) })
-const PARSED_MEALS_JSON_SCHEMA = z.toJSONSchema(ParsedMeals)
-const NUTRITION_LABEL_READING_RULES = `Nutrition-label reading rules:
-- If a nutrition label is visible, transcribe and use the label values directly instead of estimating.
-- Prefer the per-serving / per-package column over the per-100g column. Use per-100g only when no serving/package values are visible.
-- Hebrew label mapping: "אנרגיה" or "קלוריות" = calories; "חלבונים" = protein; "פחמימות" or "סך הפחמימות" = carbs; "שומנים" or "סך השומנים" = fat.
-- Hebrew column mapping: "ביחידה" / "באריזה" / "במנה" / "בחטיף" means per serving/package/item; "ב-100 גרם" means per 100g.
-- Do not confuse "פחמימות" (carbs) with "חלבונים" (protein). If the per-serving label says "סך הפחמימות 22" and "חלבונים 16", return carbs=22 and protein=16.`
 const ParseMealsRequest = z.object({
   text: z.string().max(2000).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
@@ -259,6 +254,18 @@ router.post('/parse-meals', authenticateToken, async (req: AuthRequest, res) => 
     return res.status(400).json({ error: 'Photo must be 5MB or smaller' })
   }
 
+  const photoContent = photo
+    ? [
+        {
+          type: 'text' as const,
+          text: NUTRITION_LABEL_OCR_PROMPT,
+        },
+        {
+          type: 'image_url' as const,
+          image_url: { url: `data:${photo.mimeType};base64,${photo.data}` },
+        },
+      ]
+    : null
   const userContent = photo
     ? [
         {
@@ -284,6 +291,7 @@ Return a list of meals, each with:
 - calories: estimated calories (nonnegative integer)
 - protein, carbs, fat: estimated grams (nonnegative numbers), or null if unknown
 - quantity: a short description of the amount (e.g. "2 eggs"), or null if not specified
+- labelEvidence: nullable nutrition-label evidence for this exact item. Use null when no nutrition label supports the meal. When a label is visible, include the label basis, basis text/header, visible product/claim text, package amount/unit if visible, numeric and label columns top-to-bottom, calories/macros, and sodium/calcium if visible.
 
 Rules:
 - Estimate calories and macros as accurately as possible for each distinct food item mentioned.
@@ -292,13 +300,14 @@ Rules:
 - If a nutrition label is visible in the photo, follow these rules:
 ${NUTRITION_LABEL_READING_RULES}`
   let reservedTokens = 0
+  let usage: TokenUsage = ZERO_USAGE
 
   try {
     reservedTokens = await Credits.estimateReserve({
       model: PARSE_MEALS_MODEL,
-      systemPrompt,
-      userPrompt: userContent,
-      maxOutputTokens: PARSE_MEALS_MAX_TOKENS,
+      systemPrompt: photo ? 'You are an OCR engine for nutrition labels. Return JSON only.' : systemPrompt,
+      userPrompt: photoContent ?? userContent,
+      maxOutputTokens: photo ? NUTRITION_LABEL_OCR_MAX_TOKENS : PARSE_MEALS_MAX_TOKENS,
     })
     const ok = await Credits.reserve(userId, reservedTokens)
     if (!ok) {
@@ -306,6 +315,35 @@ ${NUTRITION_LABEL_READING_RULES}`
     }
   } catch (error) {
     return unpricedModelResponse(res, error)
+  }
+
+  if (photoContent) {
+    const ocrResult = await Openai.callStructured({
+      model: PARSE_MEALS_MODEL,
+      systemPrompt: 'You are an OCR engine for nutrition labels. Return JSON only.',
+      userPrompt: photoContent,
+      temperature: 0,
+      maxTokens: NUTRITION_LABEL_OCR_MAX_TOKENS,
+      schemaName: 'nutrition_label_ocr',
+      jsonSchema: NUTRITION_LABEL_OCR_JSON_SCHEMA,
+      parser: (v) => NutritionLabelOcr.parse(v),
+    })
+
+    if (!ocrResult.ok) {
+      await Credits.refundReserve(userId, reservedTokens, 'refund_failed_call')
+      return res.status(500).json({ error: 'Could not parse — try again' })
+    }
+    usage = ocrResult.usage ?? ZERO_USAGE
+    const ocrMeal = nutritionLabelMealFromOcr(ocrResult.value, trimmedText || undefined)
+    const review = evaluateOcrEvidence(ocrResult.value)
+
+    if (ocrMeal) {
+      await Credits.settleReserved(userId, reservedTokens, usage, {
+        endpoint: 'parse-meals',
+        model: PARSE_MEALS_MODEL,
+      })
+      return res.json({ meals: [ocrMeal], review })
+    }
   }
 
   const result = await Openai.callStructured({
@@ -316,18 +354,23 @@ ${NUTRITION_LABEL_READING_RULES}`
     maxTokens: PARSE_MEALS_MAX_TOKENS,
     schemaName: 'parsed_meals',
     jsonSchema: PARSED_MEALS_JSON_SCHEMA,
-    parser: (v) => ParsedMeals.parse(v),
+    parser: (v) => AiParsedMeals.parse(v),
   })
 
   if (!result.ok) {
     await Credits.refundReserve(userId, reservedTokens, 'refund_failed_call')
     return res.status(500).json({ error: 'Could not parse — try again' })
   }
-  await Credits.settleReserved(userId, reservedTokens, result.usage ?? ZERO_USAGE, {
+  usage = {
+    promptTokens: usage.promptTokens + (result.usage?.promptTokens ?? 0),
+    completionTokens: usage.completionTokens + (result.usage?.completionTokens ?? 0),
+    totalTokens: usage.totalTokens + (result.usage?.totalTokens ?? 0),
+  }
+  await Credits.settleReserved(userId, reservedTokens, usage, {
     endpoint: 'parse-meals',
     model: PARSE_MEALS_MODEL,
   })
-  res.json(result.value)
+  res.json({ meals: result.value.meals.map(normalizeParsedMeal), review: defaultReview() })
 })
 
 export { router as aiRoutes }

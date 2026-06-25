@@ -1,3 +1,9 @@
+### 2026-06-25 15:50 — `main`
+
+Finished the OCR-first nutrition label parsing slice for issue #52. Meal photo parsing now reads Hebrew nutrition labels through a dedicated OCR evidence pass, separates product identity from nutrition claims, and computes package-level calories/macros deterministically before falling back to the general meal parser when OCR is not usable. The frontend now surfaces review warnings for uncertain label evidence and includes an admin-only OCR lab for retesting real labels before/after deployment.
+
+---
+
 ### 2026-06-25 11:07 — `codex/achievement-tracker`
 
 Implemented the Achievement Tracker from issue #50 as a standalone module, gated by a persisted setting like Calorie Intake. The backend now has Supabase tables, thin routes, and a service that summarizes latest values, personal bests, target progress, and latest-vs-previous trend from recorded entry dates. The frontend adds a mobile-friendly Achievements page with quick logging, editable targets/definitions, trend visualization, and touch-friendly history controls.

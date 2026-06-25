@@ -334,10 +334,18 @@ export const aiService = {
     text: string,
     photo?: { mimeType: 'image/jpeg' | 'image/png' | 'image/webp'; data: string },
     date?: string
-  ): Promise<{ meals: ParsedMeal[] }> => {
+  ): Promise<{ meals: ParsedMeal[]; review?: MealParseReview }> => {
     const response = await api.post('/ai/parse-meals', { text, photo, date })
     return response.data
   },
+}
+
+export interface MealParseReview {
+  confidence: 'high' | 'medium' | 'low'
+  score: number
+  needsReview: boolean
+  reasons: string[]
+  summary: string | null
 }
 
 export interface ParsedMeal {

@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Brain, X, Plus, Sparkles, Image as ImageIcon, CornerDownLeft, Mic, Square } from 'lucide-react'
+import { AlertTriangle, Brain, X, Plus, Sparkles, Image as ImageIcon, CornerDownLeft, Mic, Square } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { aiService, ParsedMeal, CalorieEntryInput } from '../../services/api'
+import { aiService, ParsedMeal, CalorieEntryInput, MealParseReview } from '../../services/api'
 import { useCalorieEntries } from '../../hooks/useCalorieEntries'
 import { useDictatedText } from '../../hooks/useDictatedText'
 
@@ -22,6 +22,7 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
   const [photo, setPhoto] = useState<Photo | undefined>()
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [suggestions, setSuggestions] = useState<ParsedMeal[]>([])
+  const [review, setReview] = useState<MealParseReview | undefined>()
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { createEntry } = useCalorieEntries(date)
@@ -66,14 +67,15 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
     setIsAnalyzing(true)
     try {
       toast.loading('Analyzing meal...', { id: 'meal-analysis' })
-      const { meals } = await aiService.parseMeals(
+      const { meals, review: parseReview } = await aiService.parseMeals(
         inputText,
         photo ? { mimeType: photo.mimeType, data: photo.data } : undefined,
         date
       )
       setSuggestions(meals)
+      setReview(parseReview?.needsReview ? parseReview : undefined)
       setSelected(new Set(meals.map((_, i) => i)))
-      toast.success('AI analysis complete!', { id: 'meal-analysis' })
+      toast.success(parseReview?.needsReview ? 'Check the label values before adding' : 'AI analysis complete!', { id: 'meal-analysis' })
     } catch (error) {
       console.error('Meal analysis error:', error)
       toast.error('Could not parse — try again', { id: 'meal-analysis' })
@@ -112,6 +114,7 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
     })
     toast.success(`Added ${toAdd.length} meal${toAdd.length > 1 ? 's' : ''} to your log`)
     setSuggestions([])
+    setReview(undefined)
     setSelected(new Set())
     setInputText('')
     clearTranscript()
@@ -220,6 +223,20 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
 
       {suggestions.length > 0 && (
         <div className="mt-4 space-y-3">
+          {review && (
+            <div className="rounded-lg border border-amber-400/40 bg-amber-500/10 p-3 text-sm text-amber-100">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0 text-amber-300" />
+                <div className="min-w-0">
+                  <p className="font-medium">Check label values</p>
+                  {review.summary && <p className="mt-1 text-amber-100/80">{review.summary}</p>}
+                  {review.reasons.length > 0 && (
+                    <p className="mt-1 text-amber-100/80">{review.reasons.join(', ')}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <h3 className="flex items-center space-x-2 text-base font-semibold text-gray-100">
               <Sparkles className="h-4 w-4 text-cyan-400" />

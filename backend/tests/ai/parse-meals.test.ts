@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken'
 import { app } from '../../src/index'
 import { Credits } from '../../src/credits'
 
-// ponytail: mirrors tests/ai/parse-tasks.test.ts — stub Credits so the route's
+// Mirrors tests/ai/parse-tasks.test.ts: stub Credits so the route's
 // reserve/settle calls don't hit real Supabase. Enforcement itself is covered
 // by tests/credits/enforcement.test.ts.
 jest.mock('../../src/credits', () => ({
@@ -37,6 +37,7 @@ const validOpenAIResponse = {
               carbs: 1,
               fat: 10,
               quantity: '2 eggs',
+              labelEvidence: null,
             },
             {
               name: 'Black coffee',
@@ -45,12 +46,49 @@ const validOpenAIResponse = {
               carbs: null,
               fat: null,
               quantity: null,
+              labelEvidence: null,
             },
           ],
         }),
       },
     },
   ],
+}
+const validOcrOpenAIResponse = {
+  choices: [
+    {
+      message: {
+        content: JSON.stringify({
+          brand: 'müller',
+          productName: 'משקה קפה',
+          claimText: 'חלב 0% שומן',
+          basisText: 'ב-100 מ״ל',
+          packageText: '350 מ״ל',
+          productText: 'משקה קפה חלב 0% שומן',
+          numericColumnTopToBottom: ['45', '0', '70', '4.2', '1', '1', '7.15', '175'],
+          labelColumnTopToBottom: ['אנרגיה (קלוריות)', 'שומנים', 'נתרן', 'סך הפחמימות', 'סוכרים', 'כפיות סוכר', 'חלבונים', 'סידן'],
+          pairedRows: [
+            { row: 1, rawNumber: '45', rawLabel: 'אנרגיה (קלוריות)', canonical: '45 קלוריות' },
+            { row: 2, rawNumber: '0', rawLabel: 'שומנים', canonical: '0 גרם' },
+            { row: 3, rawNumber: '70', rawLabel: 'נתרן', canonical: '70 מ״ג' },
+            { row: 4, rawNumber: '4.2', rawLabel: 'סך הפחמימות', canonical: '4.2 גרם' },
+            { row: 5, rawNumber: '1', rawLabel: 'סוכרים', canonical: '1 גרם' },
+            { row: 6, rawNumber: '1', rawLabel: 'כפיות סוכר', canonical: '1 כפית' },
+            { row: 7, rawNumber: '7.15', rawLabel: 'חלבונים', canonical: '7.15 גרם' },
+            { row: 8, rawNumber: '175', rawLabel: 'סידן', canonical: '175 מ״ג' },
+          ],
+          notes: '',
+        }),
+      },
+    },
+  ],
+}
+const highReview = {
+  confidence: 'high',
+  score: 100,
+  needsReview: false,
+  reasons: [],
+  summary: 'ב-100 מ״ל · 350 מ״ל · 45 cal · P 7.15g · C 4.2g · F 0g',
 }
 
 describe('POST /api/ai/parse-meals — happy path', () => {
@@ -75,6 +113,13 @@ describe('POST /api/ai/parse-meals — happy path', () => {
         { name: 'Eggs', calories: 140, protein: 12, carbs: 1, fat: 10, quantity: '2 eggs' },
         { name: 'Black coffee', calories: 2, protein: null, carbs: null, fat: null, quantity: null },
       ],
+      review: {
+        confidence: 'high',
+        score: 100,
+        needsReview: false,
+        reasons: [],
+        summary: null,
+      },
     })
   })
 
@@ -85,7 +130,7 @@ describe('POST /api/ai/parse-meals — happy path', () => {
       .post('/v1/chat/completions')
       .reply(200, function (_uri, body) {
         observedBody = body
-        return validOpenAIResponse
+        return validOcrOpenAIResponse
       })
 
     const res = await request(app)
@@ -99,6 +144,19 @@ describe('POST /api/ai/parse-meals — happy path', () => {
       })
 
     expect(res.status).toBe(200)
+    expect(res.body).toEqual({
+      meals: [
+        {
+          name: 'müller משקה קפה',
+          calories: 158,
+          protein: 25,
+          carbs: 14.7,
+          fat: 0,
+          quantity: '350 ml',
+        },
+      ],
+      review: highReview,
+    })
     expect(observedBody.messages[1].content).toEqual([
       expect.objectContaining({ type: 'text' }),
       {
@@ -111,14 +169,14 @@ describe('POST /api/ai/parse-meals — happy path', () => {
     expect(observedBody.response_format.type).toBe('json_schema')
   })
 
-  it('instructs label-photo parsing to prefer serving values and map Hebrew nutrient rows', async () => {
+  it('uses an OCR-only prompt before calculating nutrition for label photos', async () => {
     let observedBody: any
 
     nock('https://api.openai.com')
       .post('/v1/chat/completions')
       .reply(200, function (_uri, body) {
         observedBody = body
-        return validOpenAIResponse
+        return validOcrOpenAIResponse
       })
 
     await request(app)
@@ -136,10 +194,137 @@ describe('POST /api/ai/parse-meals — happy path', () => {
         ? message.content
         : message.content.map((part: any) => part.text ?? '').join('\n')
     ).join('\n')
-    expect(allText).toContain('Prefer the per-serving / per-package column')
-    expect(allText).toContain('"חלבונים" = protein')
-    expect(allText).toContain('"פחמימות"')
-    expect(allText).toContain('return carbs=22 and protein=16')
+    expect(allText).toContain('OCR ONLY')
+    expect(allText).toContain('Do not estimate nutrition and do not calculate totals')
+    expect(allText).toContain('brand/logo text')
+    expect(allText).toContain('Do not use nutrition claims like 0% שומן as the productName')
+    expect(allText).toContain('Extract the numeric column top-to-bottom')
+    expect(allText).toContain('Pair rows by index only')
+    expect(allText).toContain('חלבונים')
+    expect(allText).toContain('סידן')
+  })
+
+  it('asks OCR to extract basis, package amount, and product claims before table rows', async () => {
+    let observedBody: any
+
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, function (_uri, body) {
+        observedBody = body
+        return validOcrOpenAIResponse
+      })
+
+    await request(app)
+      .post('/api/ai/parse-meals')
+      .set('Authorization', authHeader())
+      .send({
+        photo: {
+          mimeType: 'image/jpeg',
+          data: Buffer.from('fake-muller-bottle-label').toString('base64'),
+        },
+      })
+
+    const allText = observedBody.messages.map((message: any) =>
+      typeof message.content === 'string'
+        ? message.content
+        : message.content.map((part: any) => part.text ?? '').join('\n')
+    ).join('\n')
+    expect(allText).toContain('nutrition table basis/header')
+    expect(allText).toContain('package/bottle amount')
+    expect(allText).toContain('claim text')
+    expect(allText).toContain('350 מ״ל')
+    expect(allText).toContain('0% שומן')
+  })
+
+  it('normalizes OCR-first per-100ml table rows into package totals before returning public meals', async () => {
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, validOcrOpenAIResponse)
+
+    const res = await request(app)
+      .post('/api/ai/parse-meals')
+      .set('Authorization', authHeader())
+      .send({
+        photo: {
+          mimeType: 'image/jpeg',
+          data: Buffer.from('fake-muller-bottle-label').toString('base64'),
+        },
+      })
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({
+      meals: [
+        {
+          name: 'müller משקה קפה',
+          calories: 158,
+          protein: 25,
+          carbs: 14.7,
+          fat: 0,
+          quantity: '350 ml',
+        },
+      ],
+      review: highReview,
+    })
+  })
+
+  it('returns review metadata when OCR evidence is missing required label data', async () => {
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                brand: 'müller',
+                productName: 'משקה קפה',
+                claimText: 'חלב 0% שומן',
+                basisText: 'ב-100 מ״ל',
+                packageText: '350 מ״ל',
+                productText: 'משקה קפה חלב 0% שומן',
+                numericColumnTopToBottom: ['45', '0'],
+                labelColumnTopToBottom: ['אנרגיה (קלוריות)', 'שומנים'],
+                pairedRows: [
+                  { row: 1, rawNumber: '45', rawLabel: 'אנרגיה (קלוריות)', canonical: '45 קלוריות' },
+                  { row: 2, rawNumber: '0', rawLabel: 'שומנים', canonical: '0 גרם' },
+                ],
+                notes: '',
+              }),
+            },
+          },
+        ],
+      })
+
+    const res = await request(app)
+      .post('/api/ai/parse-meals')
+      .set('Authorization', authHeader())
+      .send({
+        photo: {
+          mimeType: 'image/jpeg',
+          data: Buffer.from('partial-label').toString('base64'),
+        },
+      })
+
+    expect(res.status).toBe(200)
+    expect(res.body.review).toEqual(expect.objectContaining({
+      confidence: 'medium',
+      needsReview: true,
+      reasons: expect.arrayContaining(['Missing protein row', 'Missing carbs row']),
+    }))
+  })
+
+  it('keeps text-only estimated meals unchanged when no label evidence is present', async () => {
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, validOpenAIResponse)
+
+    const res = await request(app)
+      .post('/api/ai/parse-meals')
+      .set('Authorization', authHeader())
+      .send({ text: '2 eggs and a black coffee' })
+
+    expect(res.status).toBe(200)
+    expect(res.body.meals[0]).toEqual({ name: 'Eggs', calories: 140, protein: 12, carbs: 1, fat: 10, quantity: '2 eggs' })
+    expect(res.body.meals[0].labelEvidence).toBeUndefined()
   })
 
   // Regression: OpenAI strict structured-output mode rejects (400) any object
