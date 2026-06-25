@@ -17,7 +17,7 @@ import { useSettings } from './hooks/useSettings'
 
 function App() {
   const { user, loading } = useAuth()
-  const { settings } = useSettings()
+  const { settings } = useSettings(!!user)
 
   // Handle app visibility changes
   useEffect(() => {

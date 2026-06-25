@@ -1,3 +1,9 @@
+### 2026-06-25 15:59 — `main`
+
+Fixed a production login-page smoke-test blocker discovered while retesting issue #52 on mobile. Settings are now fetched only after a user is authenticated, and unauthenticated 401 responses no longer force a reload loop before login. This lets the deployed app reach the authenticated calorie/meal-entry flow normally for the post-deploy retest.
+
+---
+
 ### 2026-06-25 15:50 — `main`
 
 Finished the OCR-first nutrition label parsing slice for issue #52. Meal photo parsing now reads Hebrew nutrition labels through a dedicated OCR evidence pass, separates product identity from nutrition claims, and computes package-level calories/macros deterministically before falling back to the general meal parser when OCR is not usable. The frontend now surfaces review warnings for uncertain label evidence and includes an admin-only OCR lab for retesting real labels before/after deployment.

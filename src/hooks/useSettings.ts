@@ -3,12 +3,13 @@ import { settingsService, UserSettings } from '../services/api'
 
 const QUERY_KEY = ['settings']
 
-export function useSettings() {
+export function useSettings(enabled = true) {
   const queryClient = useQueryClient()
 
   const { data: settings, isLoading } = useQuery({
     queryKey: QUERY_KEY,
     queryFn: settingsService.getSettings,
+    enabled,
   })
 
   const mutation = useMutation({
