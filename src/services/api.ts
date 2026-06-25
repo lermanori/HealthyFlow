@@ -480,6 +480,7 @@ export interface UserSettings {
   smartReminders: boolean
   completionSounds: boolean
   calorieIntake: boolean
+  achievementTracker: boolean
 }
 
 export const settingsService = {
@@ -585,6 +586,102 @@ export const weightService = {
 
   remove: async (id: string): Promise<void> => {
     await api.delete(`/weight/${id}`)
+  },
+}
+
+export type AchievementMetricType = 'reps' | 'weight' | 'duration' | 'distance' | 'custom'
+export type AchievementBetterDirection = 'higher' | 'lower'
+
+export interface AchievementDefinition {
+  id: string
+  userId: string
+  name: string
+  category: string | null
+  metricType: AchievementMetricType
+  unit: string
+  betterDirection: AchievementBetterDirection
+  targetValue: number | null
+  archivedAt: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AchievementEntry {
+  id: string
+  achievementId: string
+  userId: string
+  date: string
+  value: number
+  supportingValue: number | null
+  supportingUnit: string | null
+  notes: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AchievementSummary {
+  definition: AchievementDefinition
+  entries: AchievementEntry[]
+  latest: AchievementEntry | null
+  previous: AchievementEntry | null
+  personalBest: AchievementEntry | null
+  trend: {
+    delta: number | null
+    direction: 'up' | 'down' | 'flat' | 'none'
+    isImprovement: boolean | null
+  }
+  targetProgress: number | null
+}
+
+export type AchievementDefinitionInput = {
+  name: string
+  category?: string | null
+  metricType: AchievementMetricType
+  unit: string
+  betterDirection: AchievementBetterDirection
+  targetValue?: number | null
+}
+
+export type AchievementEntryInput = {
+  date: string
+  value: number
+  supportingValue?: number | null
+  supportingUnit?: string | null
+  notes?: string | null
+}
+
+export const achievementService = {
+  list: async (options: { includeArchived?: boolean; entryLimit?: number } = {}): Promise<AchievementSummary[]> => {
+    const response = await api.get('/achievements', { params: options })
+    return response.data
+  },
+
+  create: async (definition: AchievementDefinitionInput): Promise<AchievementDefinition> => {
+    const response = await api.post('/achievements', definition)
+    return response.data
+  },
+
+  update: async (id: string, patch: Partial<AchievementDefinitionInput> & { archived?: boolean }): Promise<AchievementDefinition> => {
+    const response = await api.patch(`/achievements/${id}`, patch)
+    return response.data
+  },
+
+  remove: async (id: string): Promise<void> => {
+    await api.delete(`/achievements/${id}`)
+  },
+
+  addEntry: async (achievementId: string, entry: AchievementEntryInput): Promise<AchievementEntry> => {
+    const response = await api.post(`/achievements/${achievementId}/entries`, entry)
+    return response.data
+  },
+
+  updateEntry: async (entryId: string, patch: Partial<AchievementEntryInput>): Promise<AchievementEntry> => {
+    const response = await api.patch(`/achievements/entries/${entryId}`, patch)
+    return response.data
+  },
+
+  removeEntry: async (entryId: string): Promise<void> => {
+    await api.delete(`/achievements/entries/${entryId}`)
   },
 }
 
