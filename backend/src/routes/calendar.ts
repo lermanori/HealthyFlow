@@ -10,10 +10,16 @@ import {
   syncTimedTasksForDate,
   syncGoogleCalendarEventsForDate,
   updateExternalCalendarEventCompletion,
+  updateExternalCalendarEventSchedule,
 } from '../calendar'
 
 const router = express.Router()
 const ClientTimeZone = z.string().min(1).max(100).optional()
+const ScheduleUpdateBody = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  startTime: z.string().regex(/^\d{2}:\d{2}$/),
+  timeZone: ClientTimeZone,
+})
 
 function clientTimeZone(req: AuthRequest, bodyTimeZone?: string): string | undefined {
   const headerTimeZone = req.header('x-client-time-zone')
@@ -89,6 +95,28 @@ router.patch('/google/events/:id/completion', authenticateToken, async (req: Aut
   } catch (error) {
     console.error('Google Calendar event completion error:', error)
     res.status(500).json({ error: 'Failed to update calendar event completion' })
+  }
+})
+
+router.patch('/google/events/:id/schedule', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = ScheduleUpdateBody.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'date must be YYYY-MM-DD and startTime must be HH:MM' })
+  }
+
+  try {
+    res.json(await updateExternalCalendarEventSchedule(
+      req.user.userId,
+      req.params.id,
+      {
+        date: parsed.data.date,
+        startTime: parsed.data.startTime,
+        timeZone: clientTimeZone(req, parsed.data.timeZone),
+      }
+    ))
+  } catch (error) {
+    console.error('Google Calendar event schedule error:', error)
+    res.status(500).json({ error: 'Failed to update calendar event schedule' })
   }
 })
 

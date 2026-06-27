@@ -464,6 +464,17 @@ export const calendarService = {
     return response.data
   },
 
+  updateGoogleEventSchedule: async (
+    id: string,
+    update: { date: string; startTime: string }
+  ): Promise<ExternalCalendarEvent> => {
+    const response = await api.patch(`/calendar/google/events/${id}/schedule`, {
+      ...update,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    })
+    return response.data
+  },
+
   syncTimedTasks: async (date: string): Promise<{ synced: number }> => {
     const response = await api.post('/calendar/google/sync-timed-tasks', {
       date,

@@ -12,6 +12,7 @@ interface DayTimelineProps {
   onCompleteTask: (id: string) => void
   onUncompleteTask: (id: string) => void
   onCalendarEventComplete: (id: string, completed: boolean) => void
+  onCalendarEventSchedule: (id: string, startTime: string) => Promise<void> | void
   onEditTask: (task: Task) => void
   onDeleteTask: (task: Task) => void
 }
@@ -148,6 +149,7 @@ export default function DayTimeline({
   onCompleteTask,
   onUncompleteTask,
   onCalendarEventComplete,
+  onCalendarEventSchedule,
   onEditTask,
   onDeleteTask,
 }: DayTimelineProps) {
@@ -192,6 +194,14 @@ export default function DayTimeline({
 
     const { draggableId: taskId, destination } = result
     const zone = destination.droppableId // 'anytime' | 'HH:00'
+
+    if (taskId.startsWith('calendar:')) {
+      const eventId = taskId.slice('calendar:'.length)
+      const event = calendarEvents.find(e => e.id === eventId)
+      if (!event || event.allDay || zone === 'anytime') return
+      await onCalendarEventSchedule(eventId, zone)
+      return
+    }
 
     const task = tasks.find(t => t.id === taskId)
     if (!task) return
@@ -266,20 +276,29 @@ export default function DayTimeline({
 
                     {/* Tasks in this slot */}
                     <div className="relative z-10 min-w-0 flex-1 space-y-1 overflow-visible">
-                      {slotCalendarEvents.map(event => (
-                        <div
-                          key={event.id}
-                          className="min-w-0"
-                          style={{ height: timedBlockHeight(eventDurationMinutes(event)) }}
-                        >
-                          <CalendarEventBlock
-                            event={event}
-                            onComplete={onCalendarEventComplete}
-                          />
-                        </div>
+                      {slotCalendarEvents.map((event, index) => (
+                        <Draggable key={event.id} draggableId={`calendar:${event.id}`} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              {...provided.dragHandleProps}
+                              className={`min-w-0 ${snapshot.isDragging ? 'opacity-90' : ''}`}
+                              style={{
+                                ...provided.draggableProps.style,
+                                height: timedBlockHeight(eventDurationMinutes(event)),
+                              }}
+                            >
+                              <CalendarEventBlock
+                                event={event}
+                                onComplete={onCalendarEventComplete}
+                              />
+                            </div>
+                          )}
+                        </Draggable>
                       ))}
                       {slotTasks.map((task, index) => (
-                        <Draggable key={task.id} draggableId={task.id} index={index}>
+                        <Draggable key={task.id} draggableId={task.id} index={slotCalendarEvents.length + index}>
                           {(provided, snapshot) => (
                             <div
                               ref={provided.innerRef}

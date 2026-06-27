@@ -146,6 +146,26 @@ export default function DashboardPage() {
     },
   })
 
+  const updateCalendarEventScheduleMutation = useMutation({
+    mutationFn: ({ id, startTime }: { id: string; startTime: string }) =>
+      calendarService.updateGoogleEventSchedule(id, {
+        date: format(selectedDate, 'yyyy-MM-dd'),
+        startTime,
+      }),
+    onSuccess: (updatedEvent) => {
+      const date = format(selectedDate, 'yyyy-MM-dd')
+      queryClient.setQueryData(
+        ['google-calendar-events', date],
+        (events: ExternalCalendarEvent[] = []) =>
+          events.map(event => event.id === updatedEvent.id ? updatedEvent : event)
+      )
+      toast.success('Calendar event moved')
+    },
+    onError: () => {
+      toast.error('Failed to move calendar event')
+    },
+  })
+
   // ponytail: reorder mutation is now a no-op; DayTimeline calls taskService.reorderTasks directly
   // and passes back the reordered array for the optimistic cache update below.
 
@@ -174,6 +194,10 @@ export default function DashboardPage() {
 
   const handleCalendarEventComplete = (id: string, completed: boolean) => {
     updateCalendarEventCompletionMutation.mutate({ id, completed })
+  }
+
+  const handleCalendarEventSchedule = async (id: string, startTime: string) => {
+    await updateCalendarEventScheduleMutation.mutateAsync({ id, startTime })
   }
 
   // Optimistic local update only — persistence happens inside DayTimeline via reorderTasks
@@ -489,6 +513,7 @@ export default function DashboardPage() {
             onCompleteTask={handleCompleteTask}
             onUncompleteTask={handleUncompleteTask}
             onCalendarEventComplete={handleCalendarEventComplete}
+            onCalendarEventSchedule={handleCalendarEventSchedule}
             onEditTask={handleEditTask}
             onDeleteTask={handleDeleteTask}
           />

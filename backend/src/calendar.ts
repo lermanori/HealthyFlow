@@ -38,7 +38,16 @@ const GoogleCalendarEventSchema = z.object({
 const GoogleEventMutationResponseSchema = z.object({
   id: z.string(),
   etag: z.string().optional(),
+  summary: z.string().optional(),
+  description: z.string().optional(),
+  location: z.string().optional(),
+  start: GoogleEventDateSchema.optional(),
+  end: GoogleEventDateSchema.optional(),
+  status: z.string().optional(),
   htmlLink: z.string().optional(),
+  extendedProperties: z.object({
+    private: z.record(z.string(), z.string()).optional(),
+  }).optional(),
 })
 
 const GoogleEventsListSchema = z.object({
@@ -86,6 +95,12 @@ type GoogleSyncedTask = {
   scheduled_date: string | null
   location?: string | null
   google_event_id?: string | null
+}
+
+type ExternalCalendarScheduleUpdate = {
+  date: string
+  startTime: string
+  timeZone?: string
 }
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
@@ -392,6 +407,34 @@ function taskEventTimes(row: GoogleSyncedTask): { start: string; end: string } {
   }
 }
 
+function scheduledEventTimes(date: string, startTime: string, durationMinutes: number): { start: string; end: string } {
+  const [hours, minutes] = startTime.split(':').map(Number)
+  const startMinutes = (hours || 0) * 60 + (minutes || 0)
+  const endMinutes = startMinutes + Math.max(durationMinutes, 30)
+  const endDate = new Date(`${date}T00:00:00.000Z`)
+  endDate.setUTCDate(endDate.getUTCDate() + Math.floor(endMinutes / (24 * 60)))
+
+  const localDateTime = (localDate: string, totalMinutes: number) => {
+    const minutesInDay = ((totalMinutes % (24 * 60)) + (24 * 60)) % (24 * 60)
+    return `${localDate}T${String(Math.floor(minutesInDay / 60)).padStart(2, '0')}:${String(minutesInDay % 60).padStart(2, '0')}:00`
+  }
+
+  return {
+    start: localDateTime(date, startMinutes),
+    end: localDateTime(endDate.toISOString().slice(0, 10), endMinutes),
+  }
+}
+
+function externalEventDurationMinutes(row: any): number {
+  if (!row.start_at || !row.end_at) return 30
+  const duration = Math.round((new Date(row.end_at).getTime() - new Date(row.start_at).getTime()) / 60000)
+  return Number.isFinite(duration) && duration > 0 ? duration : 30
+}
+
+function googleEventDateValue(value: z.infer<typeof GoogleEventDateSchema> | undefined): string | null {
+  return value?.dateTime ?? value?.date ?? null
+}
+
 export function taskToGoogleEvent(row: GoogleSyncedTask, timeZone?: string) {
   const { start, end } = taskEventTimes(row)
   const calendarTimeZone = getCalendarTimeZone(timeZone)
@@ -563,6 +606,79 @@ export async function updateExternalCalendarEventCompletion(
     .update({
       completed,
       completed_at: completed ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId)
+    .eq('id', eventId)
+    .is('deleted_at', null)
+    .select('*')
+    .single()
+
+  if (error) throw error
+  return formatExternalEvent(data)
+}
+
+export async function updateExternalCalendarEventSchedule(
+  userId: string,
+  eventId: string,
+  update: ExternalCalendarScheduleUpdate
+): Promise<ExternalCalendarEvent> {
+  const { data: existing, error: existingError } = await supabase
+    .from('external_calendar_events')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('id', eventId)
+    .is('deleted_at', null)
+    .single()
+
+  if (existingError) throw existingError
+  if (existing.provider !== 'google') {
+    throw new Error('Only Google Calendar events can be rescheduled')
+  }
+
+  const { start, end } = scheduledEventTimes(
+    update.date,
+    update.startTime,
+    externalEventDurationMinutes(existing)
+  )
+  const timeZone = getCalendarTimeZone(update.timeZone)
+  const accessToken = await getGoogleAccessToken(userId)
+  const response = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(existing.provider_calendar_id)}/events/${encodeURIComponent(existing.provider_event_id)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        start: { dateTime: start, timeZone },
+        end: { dateTime: end, timeZone },
+      }),
+    }
+  )
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Google Calendar event schedule update failed: ${errorText}`)
+  }
+
+  const event = GoogleEventMutationResponseSchema.parse(await response.json())
+  const eventStart = googleEventDateValue(event.start)
+  const eventEnd = googleEventDateValue(event.end)
+  const { data, error } = await supabase
+    .from('external_calendar_events')
+    .update({
+      etag: event.etag ?? existing.etag ?? null,
+      title: event.summary || existing.title,
+      description: event.description ?? existing.description ?? null,
+      location: event.location ?? existing.location ?? null,
+      start_at: eventStart ? new Date(eventStart).toISOString() : null,
+      end_at: eventEnd ? new Date(eventEnd).toISOString() : null,
+      all_day: Boolean(event.start?.date),
+      status: event.status ?? existing.status ?? null,
+      html_link: event.htmlLink ?? existing.html_link ?? null,
+      raw: event,
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', userId)

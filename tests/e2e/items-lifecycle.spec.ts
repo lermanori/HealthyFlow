@@ -107,13 +107,16 @@ test('Task location: create, edit, and clear location on the card', async ({ pag
   await expect(titleHeading).toBeVisible()
   await expect(page.locator('text=Cafe Noga')).toBeVisible()
 
-  const taskCardOuter = titleHeading.locator('xpath=ancestor::div[contains(@class, "duration")]').first()
-  await taskCardOuter.hover()
-  await taskCardOuter.evaluate((el) => {
-    const buttons = el.querySelectorAll('div > button')
-    if (buttons.length >= 2) (buttons[1] as HTMLElement).click()
-  })
+  const openTaskMenuByVisibleText = async (text: string) => {
+    const taskCardOuter = page.locator(`text=${text}`).locator('xpath=ancestor::div[contains(@class, "duration")]').first()
+    await taskCardOuter.hover()
+    await taskCardOuter.evaluate((el) => {
+      const buttons = el.querySelectorAll('div > button')
+      if (buttons.length >= 2) (buttons[1] as HTMLElement).click()
+    })
+  }
 
+  await openTaskMenuByVisibleText('Cafe Noga')
   await page.locator('button', { hasText: 'Edit' }).first().click()
   const locationInput = page.locator('input[placeholder="Add a place or address..."]').first()
   await expect(locationInput).toBeVisible({ timeout: 5_000 })
@@ -123,11 +126,7 @@ test('Task location: create, edit, and clear location on the card', async ({ pag
   await expect(page.locator('text=Library Room 2')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('text=Cafe Noga')).not.toBeVisible()
 
-  await taskCardOuter.hover()
-  await taskCardOuter.evaluate((el) => {
-    const buttons = el.querySelectorAll('div > button')
-    if (buttons.length >= 2) (buttons[1] as HTMLElement).click()
-  })
+  await openTaskMenuByVisibleText('Library Room 2')
   await page.locator('button', { hasText: 'Edit' }).first().click()
   await page.locator('input[placeholder="Add a place or address..."]').first().fill('')
   await page.locator('button', { hasText: 'Save Changes' }).first().click()

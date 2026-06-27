@@ -1,3 +1,9 @@
+### 2026-06-27 18:37 — `issue-56-drag-google-calendar-events`
+
+Implemented issue #56 so imported Google Calendar events can participate in timeline drag scheduling. The frontend now exposes timed Google events as draggable blocks and calls a new server-keyed schedule update route; the backend patches Google Calendar, preserves event duration, and refreshes the local external event row from the provider response. Added a focused backend regression test plus a runnable Playwright verification script for checking the draggable calendar-event handle, and hardened a flaky location-card e2e selector that was blocking the full suite.
+
+---
+
 ### 2026-06-27 15:55 — `issue-58-pwa-mobile-layout-fit`
 
 Fixed the narrow PWA/mobile layout bug from issue #58. The authenticated shell now prevents page content from widening the viewport, reserves bottom space above the fixed mobile nav, and switches crowded phone-width bottom navigation to accessible icon-only controls. Week View also gets explicit shrink guards so its inline grids no longer force horizontal overflow on small screens.
