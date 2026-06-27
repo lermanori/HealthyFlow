@@ -63,3 +63,50 @@ test('Week view golden path: tasks appear under their correct day columns', asyn
     page.locator(`[data-date="${otherDayStr}"]`).filter({ hasText: todayTitle })
   ).toHaveCount(0)
 })
+
+test('Week view includes calendar-integrated events in their day', async ({ page }) => {
+  const reset = await page.request.post('http://localhost:3001/test/reset')
+  expect(reset.ok()).toBeTruthy()
+
+  const today = new Date()
+  const weekStart = startOfWeek(today, { weekStartsOn: 1 })
+  const eventDay = addDays(weekStart, 3)
+  const eventDayStr = format(eventDay, 'yyyy-MM-dd')
+  const eventTitle = `CalendarE2E-${Date.now()}`
+
+  await page.route('**/api/calendar/google/events**', async (route) => {
+    const url = new URL(route.request().url())
+    const date = url.searchParams.get('date')
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify(date === eventDayStr ? [{
+        id: 'external-week-event-1',
+        provider: 'google',
+        calendarId: 'primary',
+        externalEventId: 'google-event-1',
+        title: eventTitle,
+        description: null,
+        location: null,
+        startAt: `${eventDayStr}T10:00:00.000Z`,
+        endAt: `${eventDayStr}T11:00:00.000Z`,
+        localStartTime: '10:00',
+        localEndTime: '11:00',
+        allDay: false,
+        status: 'confirmed',
+        htmlLink: null,
+        completed: false,
+        completedAt: null,
+      }] : []),
+    })
+  })
+
+  await page.goto('/week')
+  await expect(page.locator(`[data-rail-date="${eventDayStr}"]`)).toBeVisible({ timeout: 10_000 })
+
+  await expect(
+    page.locator(`[data-date="${eventDayStr}"]`).filter({ hasText: eventTitle })
+  ).toBeVisible({ timeout: 10_000 })
+  await expect(
+    page.locator(`[data-date="${eventDayStr}"]`).filter({ hasText: 'Calendar' })
+  ).toBeVisible()
+})

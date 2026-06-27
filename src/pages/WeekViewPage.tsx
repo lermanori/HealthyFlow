@@ -5,7 +5,7 @@ import {
   Calendar, ChevronLeft, ChevronRight, Check, CheckSquare, RotateCcw,
   ShoppingCart, Utensils, Dumbbell, Clock, Infinity as InfinityIcon, Smile,
 } from 'lucide-react'
-import { taskService, Task } from '../services/api'
+import { calendarService, ExternalCalendarEvent, taskService, Task } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { getWeekDates } from '../utils/dateHelpers'
 import toast from 'react-hot-toast'
@@ -19,7 +19,7 @@ const A = {
 
 const GROTESK = "'Space Grotesk', sans-serif"
 
-type ItemType = 'task' | 'habit' | 'grocery' | 'meal' | 'workout'
+type ItemType = 'task' | 'habit' | 'grocery' | 'meal' | 'workout' | 'calendar'
 
 const TYPE: Record<ItemType, { label: string; text: string; bg: string; border: string; tint: string }> = {
   task:    { label: 'Task',    text: '#22d3ee', bg: 'rgba(6,182,212,.15)',  border: 'rgba(6,182,212,.3)',  tint: 'rgba(6,182,212,.07)' },
@@ -27,6 +27,7 @@ const TYPE: Record<ItemType, { label: string; text: string; bg: string; border: 
   grocery: { label: 'Grocery', text: '#34d399', bg: 'rgba(16,185,129,.15)', border: 'rgba(16,185,129,.3)', tint: 'rgba(16,185,129,.07)' },
   meal:    { label: 'Meal',    text: '#fb7185', bg: 'rgba(244,63,94,.15)',  border: 'rgba(244,63,94,.3)',  tint: 'rgba(244,63,94,.07)' },
   workout: { label: 'Workout', text: '#fbbf24', bg: 'rgba(245,158,11,.15)', border: 'rgba(245,158,11,.3)', tint: 'rgba(245,158,11,.07)' },
+  calendar:{ label: 'Calendar', text: '#38bdf8', bg: 'rgba(14,165,233,.15)', border: 'rgba(14,165,233,.3)', tint: 'rgba(14,165,233,.07)' },
 }
 
 const DOW = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
@@ -52,8 +53,21 @@ function TypeIcon({ type, size = 15 }: { type: ItemType; size?: number }) {
     case 'grocery': return <ShoppingCart {...p} />
     case 'meal':    return <Utensils {...p} />
     case 'workout': return <Dumbbell {...p} />
+    case 'calendar': return <Calendar {...p} />
     default:        return <CheckSquare {...p} />
   }
+}
+
+type WeekRow = {
+  id: string
+  source: 'task' | 'calendar'
+  title: string
+  type: ItemType
+  completed: boolean
+  hasTime: boolean
+  time?: string
+  off: number
+  date: string
 }
 
 export default function WeekViewPage() {
@@ -76,7 +90,17 @@ export default function WeekViewPage() {
       queryFn: () => taskService.getTasks(format(date, 'yyyy-MM-dd')),
     })),
   })
-  const isLoading = dayQueries.some((q) => q.isLoading)
+  const calendarQueries = useQueries({
+    queries: weekDates.map((date) => {
+      const dateKey = format(date, 'yyyy-MM-dd')
+      return {
+        queryKey: ['google-calendar-events', dateKey],
+        queryFn: () => calendarService.getGoogleEvents(dateKey),
+        retry: false,
+      }
+    }),
+  })
+  const isLoading = dayQueries.some((q) => q.isLoading) || calendarQueries.some((q) => q.isLoading)
 
   // --- Mutations (same contract as DashboardPage) ---
   const completeMutation = useMutation({
@@ -88,32 +112,55 @@ export default function WeekViewPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
     onError: () => toast.error('Failed to update item'),
   })
-  const toggle = (item: { id: string; completed: boolean }) => {
+  const calendarCompleteMutation = useMutation({
+    mutationFn: ({ id, completed }: { id: string; completed: boolean }) =>
+      calendarService.updateGoogleEventCompletion(id, completed),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['google-calendar-events'] }),
+    onError: () => toast.error('Failed to update calendar event'),
+  })
+  const toggle = (item: { id: string; completed: boolean; source?: 'task' | 'calendar' }) => {
+    if (item.source === 'calendar') {
+      calendarCompleteMutation.mutate({ id: item.id, completed: !item.completed })
+      return
+    }
     if (item.completed) uncompleteMutation.mutate(item.id)
     else completeMutation.mutate(item.id)
   }
 
   const dayItems: Task[][] = weekDates.map((_, i) => dayQueries[i].data ?? [])
+  const dayCalendarEvents: ExternalCalendarEvent[][] = weekDates.map((_, i) => calendarQueries[i].data ?? [])
 
   const model = useMemo(() => {
     // Flatten the week, tagging each item with its day offset + date
-    type Row = {
-      id: string; title: string; type: ItemType; completed: boolean
-      hasTime: boolean; time?: string; off: number; date: string
-    }
-    const rows: Row[] = []
+    const rows: WeekRow[] = []
     dayItems.forEach((items, off) => {
       const date = format(weekDates[off], 'yyyy-MM-dd')
       items.forEach((t) => {
         rows.push({
-          id: t.id, title: t.title, type: typeOf(t), completed: t.completed,
+          id: t.id, source: 'task', title: t.title, type: typeOf(t), completed: t.completed,
           hasTime: !!t.startTime, time: t.startTime, off, date,
         })
       })
     })
+    dayCalendarEvents.forEach((events, off) => {
+      const date = format(weekDates[off], 'yyyy-MM-dd')
+      events.forEach((event) => {
+        rows.push({
+          id: event.id,
+          source: 'calendar',
+          title: event.title,
+          type: 'calendar',
+          completed: event.completed,
+          hasTime: !event.allDay && !!event.localStartTime,
+          time: event.allDay ? undefined : event.localStartTime || undefined,
+          off,
+          date,
+        })
+      })
+    })
 
-    const sortKey = (r: Row) => r.off * 10000 + (r.time ? Number(r.time.replace(':', '')) : 9999)
-    const byDayTime = (a: Row, b: Row) => sortKey(a) - sortKey(b)
+    const sortKey = (r: WeekRow) => r.off * 10000 + (r.time ? Number(r.time.replace(':', '')) : 9999)
+    const byDayTime = (a: WeekRow, b: WeekRow) => sortKey(a) - sortKey(b)
 
     const todayOff = weekDates.findIndex((d) => isSameDay(d, today))
 
@@ -165,11 +212,11 @@ export default function WeekViewPage() {
     })
 
     // Weekly momentum by type
-    const types: ItemType[] = ['task', 'habit', 'workout', 'meal']
+    const types: ItemType[] = ['task', 'habit', 'calendar', 'workout', 'meal']
     const momentum = types.map((ty) => {
       const its = rows.filter((r) => r.type === ty)
       return {
-        label: ty === 'task' ? 'Tasks' : ty === 'habit' ? 'Habits' : ty === 'workout' ? 'Workouts' : 'Meals',
+        label: ty === 'task' ? 'Tasks' : ty === 'habit' ? 'Habits' : ty === 'calendar' ? 'Calendar' : ty === 'workout' ? 'Workouts' : 'Meals',
         color: TYPE[ty].text,
         value: `${its.filter((r) => r.completed).length}/${its.length}`,
       }
@@ -177,7 +224,7 @@ export default function WeekViewPage() {
 
     return { rows, perDay, todayOff, total, done, leftCount, weekPct, upNext, timed, untimed, habitRows, momentum }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dayItems, weekDates, selectedOff, showCompleted])
+  }, [dayItems, dayCalendarEvents, weekDates, selectedOff, showCompleted])
 
   if (isLoading) {
     return (

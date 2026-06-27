@@ -1,3 +1,9 @@
+### 2026-06-27 21:37 — `issue-53-week-view-calendar-events`
+
+Fixed issue #53 by making Week View include imported Google Calendar events alongside the existing task and habit rows. The page now runs the same per-day calendar queries as Dashboard, merges events into the weekly agenda with a Calendar type chip, and supports the existing calendar completion toggle path. Added a Playwright regression that stubs the calendar API and asserts a calendar-integrated event appears on the correct weekly date.
+
+---
+
 ### 2026-06-27 18:37 — `issue-56-drag-google-calendar-events`
 
 Implemented issue #56 so imported Google Calendar events can participate in timeline drag scheduling. The frontend now exposes timed Google events as draggable blocks and calls a new server-keyed schedule update route; the backend patches Google Calendar, preserves event duration, and refreshes the local external event row from the provider response. Added a focused backend regression test plus a runnable Playwright verification script for checking the draggable calendar-event handle, and hardened a flaky location-card e2e selector that was blocking the full suite.
