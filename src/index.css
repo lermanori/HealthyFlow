@@ -537,8 +537,31 @@
   }
 }
 /* Week view: stack the two-column body on narrow screens */
+.mobile-nav-label {
+  display: none;
+}
+
+@media (min-width: 475px) {
+  .mobile-nav-label {
+    display: block;
+  }
+}
+
+.week-grid,
+.week-grid > *,
+.week-rail {
+  min-width: 0;
+  max-width: 100%;
+}
+
 @media (max-width: 860px) {
   .week-grid {
     grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .week-rail {
+    gap: 0.375rem !important;
   }
 }

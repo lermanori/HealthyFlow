@@ -204,7 +204,7 @@ export default function WeekViewPage() {
   }
 
   return (
-    <div style={{ color: '#f3f4f6', display: 'flex', flexDirection: 'column', gap: 22 }}>
+    <div style={{ color: '#f3f4f6', display: 'flex', flexDirection: 'column', gap: 22, minWidth: 0, width: '100%' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
@@ -227,7 +227,7 @@ export default function WeekViewPage() {
       </div>
 
       {/* Week rail */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7,minmax(0,1fr))', gap: 9 }}>
+      <div className="week-rail" style={{ display: 'grid', gridTemplateColumns: 'repeat(7,minmax(0,1fr))', gap: 9, minWidth: 0 }}>
         {weekDates.map((d, off) => {
           const isToday = isSameDay(d, today)
           const isSel = off === selectedOff
@@ -260,9 +260,9 @@ export default function WeekViewPage() {
       </div>
 
       {/* Two-column body */}
-      <div className="week-grid" style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 20, alignItems: 'start' }}>
+      <div className="week-grid" style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 20, alignItems: 'start', minWidth: 0 }}>
         {/* Focus column: weekly agenda */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
           {/* Focus hero */}
           <div style={{ position: 'relative', overflow: 'hidden', padding: '20px 22px', borderRadius: 20, border: `1px solid ${A.border}`, background: `linear-gradient(135deg,${A.chip} 0%, rgba(17,24,39,.92) 70%)`, boxShadow: `0 0 30px ${A.glow}` }}>
             <div style={{ position: 'absolute', top: -40, right: -30, width: 160, height: 160, borderRadius: '50%', background: `radial-gradient(circle,${A.glow},transparent 70%)`, pointerEvents: 'none' }} />
@@ -377,7 +377,7 @@ export default function WeekViewPage() {
         </div>
 
         {/* Right column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
           {/* Habit consistency */}
           <div style={{ padding: '18px 18px 16px', borderRadius: 18, border: '1px solid rgba(55,65,81,.5)', background: 'linear-gradient(160deg,rgba(31,41,55,.7) 0%,rgba(17,24,39,.9) 100%)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 16 }}>

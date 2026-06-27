@@ -320,8 +320,11 @@ export default function Layout({ children }: LayoutProps) {
         <MobileNavigation />
 
         {/* Main Content */}
-        <main className={`flex-1 ${isMobile ? 'p-4' : 'p-6'}`} ref={contentRef}>
-          <div className={`${isMobile ? 'max-w-full' : 'max-w-6xl'} mx-auto`}>
+        <main
+          className={`min-w-0 flex-1 overflow-x-hidden ${isMobile ? 'p-4 pb-32' : 'p-6'}`}
+          ref={contentRef}
+        >
+          <div className={`min-w-0 ${isMobile ? 'max-w-full' : 'max-w-6xl'} mx-auto`}>
             {children}
           </div>
         </main>
@@ -331,7 +334,7 @@ export default function Layout({ children }: LayoutProps) {
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30">
           <div
-            className="grid gap-1 p-2"
+            className="grid gap-0.5 p-1.5 xs:gap-1 xs:p-2"
             style={{ gridTemplateColumns: `repeat(${navigation.length + 1}, minmax(0, 1fr))` }}
           >
             {navigation.map((item) => {
@@ -340,14 +343,15 @@ export default function Layout({ children }: LayoutProps) {
                 <Link
                   key={item.name}
                   to={item.href}
-                  className={`flex flex-col items-center space-y-1 p-3 rounded-xl transition-all duration-300 ${
+                  aria-label={item.name}
+                  className={`flex min-w-0 flex-col items-center space-y-1 rounded-xl p-2 transition-all duration-300 xs:p-3 ${
                     isActive
                       ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400'
                       : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
                   }`}
                 >
                   <item.icon className={`w-5 h-5 ${isActive ? 'text-cyan-400' : ''}`} />
-                  <span className="text-xs font-medium">{item.name}</span>
+                  <span className="mobile-nav-label max-w-full truncate text-[10px] font-medium leading-tight xs:text-xs">{item.name}</span>
                   {isActive && (
                     <div className="w-1 h-1 bg-cyan-400 rounded-full"></div>
                   )}
@@ -358,10 +362,11 @@ export default function Layout({ children }: LayoutProps) {
             {/* Logout Button in Bottom Nav */}
             <button
               onClick={logout}
-              className="flex flex-col items-center space-y-1 p-3 rounded-xl transition-all duration-300 text-gray-400 hover:text-gray-200 hover:bg-gray-800/50"
+              className="flex min-w-0 flex-col items-center space-y-1 rounded-xl p-2 text-gray-400 transition-all duration-300 hover:bg-gray-800/50 hover:text-gray-200 xs:p-3"
+              aria-label="Logout"
             >
               <LogOut className="w-5 h-5" />
-              <span className="text-xs font-medium">Logout</span>
+              <span className="mobile-nav-label max-w-full truncate text-[10px] font-medium leading-tight xs:text-xs">Logout</span>
             </button>
           </div>
           

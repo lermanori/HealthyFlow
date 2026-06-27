@@ -1,3 +1,9 @@
+### 2026-06-27 15:55 — `issue-58-pwa-mobile-layout-fit`
+
+Fixed the narrow PWA/mobile layout bug from issue #58. The authenticated shell now prevents page content from widening the viewport, reserves bottom space above the fixed mobile nav, and switches crowded phone-width bottom navigation to accessible icon-only controls. Week View also gets explicit shrink guards so its inline grids no longer force horizontal overflow on small screens.
+
+---
+
 ### 2026-06-25 15:59 — `main`
 
 Fixed a production login-page smoke-test blocker discovered while retesting issue #52 on mobile. Settings are now fetched only after a user is authenticated, and unauthenticated 401 responses no longer force a reload loop before login. This lets the deployed app reach the authenticated calorie/meal-entry flow normally for the post-deploy retest.
