@@ -37,6 +37,7 @@ describe('settings API', () => {
       completionSounds: true,
       calorieIntake: false,
       achievementTracker: false,
+      weekStartsOn: 1,
     })
   })
 
@@ -102,5 +103,25 @@ describe('settings API', () => {
     expect(patchRes.status).toBe(200)
     expect(mockDb.upsertUserSettings).toHaveBeenCalledWith(USER_ID, { achievementTracker: true })
     expect(patchRes.body.achievementTracker).toBe(true)
+  })
+
+  it('defaults weekStartsOn to Monday and allows Sunday start', async () => {
+    mockDb.getUserSettings.mockResolvedValue({})
+    mockDb.upsertUserSettings.mockResolvedValue({ weekStartsOn: 0 })
+
+    const getRes = await request(app)
+      .get('/api/settings')
+      .set('Authorization', TOKEN)
+
+    expect(getRes.body.weekStartsOn).toBe(1)
+
+    const patchRes = await request(app)
+      .patch('/api/settings')
+      .set('Authorization', TOKEN)
+      .send({ weekStartsOn: 0 })
+
+    expect(patchRes.status).toBe(200)
+    expect(mockDb.upsertUserSettings).toHaveBeenCalledWith(USER_ID, { weekStartsOn: 0 })
+    expect(patchRes.body.weekStartsOn).toBe(0)
   })
 })

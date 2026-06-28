@@ -1,3 +1,9 @@
+### 2026-06-28 14:21 — `issue-62-first-day-of-week`
+
+Added a persisted first-day-of-week preference for issue #62 with Monday as the default for existing users. Settings now exposes the preference, Week View uses it for weekly ranges, day rails, and habit labels, and regression coverage covers both Monday-start and Sunday-start weeks. The e2e auth setup was also made deterministic so stale authenticated browser state cannot derail the suite.
+
+---
+
 ### 2026-06-28 13:35 — `issue-60-calendar-delete-button`
 
 Fixed issue #60 as the timed-card menu interaction bug: the Delete button was visible but unclickable because the next schedule slot intercepted pointer events over the open menu. The open menu now raises its containing timeline slot above neighboring slots, and the timed-delete Playwright regression covers the exact click path from the schedule card menu. This keeps the existing task and Google deletion path intact while making the user-facing control reachable.

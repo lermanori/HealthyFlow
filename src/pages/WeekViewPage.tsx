@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, isSameDay, addDays } from 'date-fns'
 import {
@@ -7,7 +7,8 @@ import {
 } from 'lucide-react'
 import { calendarService, ExternalCalendarEvent, taskService, Task } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { getWeekDates } from '../utils/dateHelpers'
+import { getFullWeekdayLabels, getWeekDates, getWeekdayLabels, getWeekdayLetters } from '../utils/dateHelpers'
+import { useSettings } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
 
 // --- Accent (design: cyan) -------------------------------------------------
@@ -29,10 +30,6 @@ const TYPE: Record<ItemType, { label: string; text: string; bg: string; border: 
   workout: { label: 'Workout', text: '#fbbf24', bg: 'rgba(245,158,11,.15)', border: 'rgba(245,158,11,.3)', tint: 'rgba(245,158,11,.07)' },
   calendar:{ label: 'Calendar', text: '#38bdf8', bg: 'rgba(14,165,233,.15)', border: 'rgba(14,165,233,.3)', tint: 'rgba(14,165,233,.07)' },
 }
-
-const DOW = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
-const LETTER = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
-const FULLDOW = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 function typeOf(t: Task): ItemType {
   return (TYPE[t.type as ItemType] ? t.type : 'task') as ItemType
@@ -94,16 +91,26 @@ type WeekRow = {
 
 export default function WeekViewPage() {
   const queryClient = useQueryClient()
+  const { settings, isLoading: settingsLoading } = useSettings()
+  const weekStartsOn = settings?.weekStartsOn ?? 1
+  const dow = getWeekdayLabels(weekStartsOn)
+  const letters = getWeekdayLetters(weekStartsOn)
+  const fullDow = getFullWeekdayLabels(weekStartsOn)
   const today = new Date()
   const [weekOffset, setWeekOffset] = useState(0)
   const [selectedOff, setSelectedOff] = useState(() => {
-    const wd = getWeekDates(today).findIndex((d) => isSameDay(d, today))
+    const wd = getWeekDates(today, weekStartsOn).findIndex((d) => isSameDay(d, today))
     return wd >= 0 ? wd : 0
   })
   const [showCompleted, setShowCompleted] = useState(true)
 
   const refDate = addDays(today, weekOffset * 7)
-  const weekDates = getWeekDates(refDate)
+  const weekDates = getWeekDates(refDate, weekStartsOn)
+
+  useEffect(() => {
+    const wd = getWeekDates(new Date(), weekStartsOn).findIndex((d) => isSameDay(d, new Date()))
+    if (wd >= 0 && weekOffset === 0) setSelectedOff(wd)
+  }, [weekOffset, weekStartsOn])
 
   // 7 parallel day queries (mirrors the existing approach)
   const dayQueries = useQueries({
@@ -122,7 +129,7 @@ export default function WeekViewPage() {
       }
     }),
   })
-  const isLoading = dayQueries.some((q) => q.isLoading) || calendarQueries.some((q) => q.isLoading)
+  const isLoading = settingsLoading || dayQueries.some((q) => q.isLoading) || calendarQueries.some((q) => q.isLoading)
 
   // --- Mutations (same contract as DashboardPage) ---
   const completeMutation = useMutation({
@@ -290,7 +297,7 @@ export default function WeekViewPage() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <button onClick={() => setWeekOffset((w) => w - 1)} style={navBtn} aria-label="Previous week"><ChevronLeft width={17} height={17} /></button>
           <button
-            onClick={() => { setWeekOffset(0); const wd = getWeekDates(new Date()).findIndex((d) => isSameDay(d, new Date())); setSelectedOff(wd >= 0 ? wd : 0) }}
+            onClick={() => { setWeekOffset(0); const wd = getWeekDates(new Date(), weekStartsOn).findIndex((d) => isSameDay(d, new Date())); setSelectedOff(wd >= 0 ? wd : 0) }}
             style={{ height: 38, padding: '0 16px', borderRadius: 11, border: `1px solid ${A.border}`, background: A.chip, color: A.ring, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
           >Today</button>
           <button onClick={() => setWeekOffset((w) => w + 1)} style={navBtn} aria-label="Next week"><ChevronRight width={17} height={17} /></button>
@@ -316,7 +323,7 @@ export default function WeekViewPage() {
                 boxShadow: isSel ? `0 0 24px ${A.glow}` : 'none',
               }}
             >
-              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: isSel ? A.ring : '#9ca3af' }}>{DOW[off]}</span>
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: isSel ? A.ring : '#9ca3af' }}>{dow[off]}</span>
               <span style={{ fontFamily: GROTESK, fontSize: 22, fontWeight: 700, lineHeight: 1, color: isSel ? '#f9fafb' : (isToday ? A.ring : '#d1d5db'), textShadow: isSel ? `0 0 12px ${A.textGlow}` : 'none' }}>{format(d, 'd')}</span>
               <div style={{ position: 'relative', width: 30, height: 30 }}>
                 <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: `conic-gradient(${A.ring} ${pct}%, rgba(255,255,255,.08) ${pct}%)` }} />
@@ -367,7 +374,7 @@ export default function WeekViewPage() {
                   <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', color: TYPE[model.upNext.type].text }}>Up next</span>
                   <p data-testid="week-up-next-title" style={{ margin: '3px 0 0', fontSize: 17, fontWeight: 600, color: '#f9fafb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{model.upNext.title}</p>
                   <p style={{ margin: '3px 0 0', fontSize: 12, color: '#9ca3af' }}>
-                    {(model.upNext.off === model.todayOff ? 'Today' : DOW[model.upNext.off])}{model.upNext.hasTime ? ` · ${timeLabel(model.upNext.time)}` : ''}
+                    {(model.upNext.off === model.todayOff ? 'Today' : dow[model.upNext.off])}{model.upNext.hasTime ? ` · ${timeLabel(model.upNext.time)}` : ''}
                   </p>
                 </div>
                 <button onClick={() => toggle(model.upNext!)} style={{ flex: 'none', height: 38, padding: '0 16px', borderRadius: 11, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#0b1120', background: `linear-gradient(135deg,${A.c1},${A.c2})`, boxShadow: `0 0 16px ${A.glow}` }}>
@@ -413,7 +420,7 @@ export default function WeekViewPage() {
                 return (
                   <div key={item.id} data-date={item.date} style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
                     <div style={{ flex: 'none', width: 62, paddingTop: 11, textAlign: 'right' }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.6px', color: isToday ? A.ring : '#6b7280' }}>{isToday ? 'TODAY' : DOW[item.off]}</div>
+                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.6px', color: isToday ? A.ring : '#6b7280' }}>{isToday ? 'TODAY' : dow[item.off]}</div>
                       <span style={{ fontFamily: GROTESK, fontSize: 13, fontWeight: 600, color: item.completed ? '#4b5563' : (item.hasTime ? '#cbd5e1' : '#6b7280') }}>{tShort}</span>
                       {item.hasTime && <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>{ampm}</div>}
                     </div>
@@ -464,7 +471,7 @@ export default function WeekViewPage() {
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr repeat(7,22px) 34px', gap: 5, alignItems: 'center', marginBottom: 9, paddingLeft: 2 }}>
                   <span />
-                  {LETTER.map((l, i) => (
+                  {letters.map((l, i) => (
                     <span key={i} style={{ textAlign: 'center', fontSize: 9, fontWeight: 600, color: i === selectedOff ? A.ring : '#6b7280' }}>{l}</span>
                   ))}
                   <span style={{ textAlign: 'center', fontSize: 10 }}>🔥</span>
@@ -478,7 +485,7 @@ export default function WeekViewPage() {
                           key={i}
                           disabled={!c}
                           onClick={() => c && toggle(c)}
-                          title={`${h.name} · ${FULLDOW[i]}`}
+                          title={`${h.name} · ${fullDow[i]}`}
                           style={{
                             width: 22, height: 22, borderRadius: 7, cursor: c ? 'pointer' : 'default',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',

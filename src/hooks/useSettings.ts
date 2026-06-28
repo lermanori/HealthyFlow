@@ -32,7 +32,7 @@ export function useSettings(enabled = true) {
     },
   })
 
-  const updateSetting = (key: keyof UserSettings, value: boolean) => {
+  const updateSetting = <K extends keyof UserSettings>(key: K, value: UserSettings[K]) => {
     mutation.mutate({ [key]: value })
   }
 

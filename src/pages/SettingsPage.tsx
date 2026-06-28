@@ -79,6 +79,11 @@ export default function SettingsPage() {
     toast.success('Settings updated')
   }
 
+  const handleWeekStartChange = (value: UserSettings['weekStartsOn']) => {
+    updateSetting('weekStartsOn', value)
+    toast.success('Settings updated')
+  }
+
   const handleNotificationPermission = async () => {
     const granted = await requestPermission()
     if (granted) {
@@ -374,6 +379,35 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Preferences */}
+      <div className="card">
+        <div className="flex items-center space-x-3 mb-4">
+          <CalendarDays className="w-5 h-5 text-cyan-400" />
+          <h2 className="text-lg font-semibold text-gray-100">Preferences</h2>
+        </div>
+
+        <div className="flex flex-col gap-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-gray-200">First Day of Week</h3>
+            <p className="text-sm text-gray-400">Used by Week View and weekly date ranges</p>
+          </div>
+          <select
+            aria-label="First Day of Week"
+            value={settings?.weekStartsOn ?? 1}
+            onChange={(event) => handleWeekStartChange(Number(event.target.value) as UserSettings['weekStartsOn'])}
+            className="input-field w-full sm:w-44"
+          >
+            <option value={0}>Sunday</option>
+            <option value={1}>Monday</option>
+            <option value={2}>Tuesday</option>
+            <option value={3}>Wednesday</option>
+            <option value={4}>Thursday</option>
+            <option value={5}>Friday</option>
+            <option value={6}>Saturday</option>
+          </select>
         </div>
       </div>
 

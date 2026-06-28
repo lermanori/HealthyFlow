@@ -1,5 +1,28 @@
 import { test, expect } from './fixtures/ai-stubs'
 import { format, addDays, startOfWeek } from 'date-fns'
+import type { Page } from '@playwright/test'
+import fs from 'fs'
+
+function getAuthTokenFromStorageState() {
+  const storageState = JSON.parse(fs.readFileSync('tests/e2e/.auth/user.json', 'utf8'))
+  for (const origin of storageState.origins ?? []) {
+    const token = origin.localStorage?.find((entry: { name: string; value: string }) => entry.name === 'token')?.value
+    if (token) return token
+  }
+  throw new Error('Missing auth token in Playwright storage state')
+}
+
+async function setWeekStartsOn(page: Page, weekStartsOn: 0 | 1) {
+  const response = await page.request.patch('http://localhost:3001/api/settings', {
+    headers: { Authorization: `Bearer ${getAuthTokenFromStorageState()}` },
+    data: { weekStartsOn },
+  })
+  expect(response.ok()).toBeTruthy()
+}
+
+test.beforeEach(async ({ page }) => {
+  await setWeekStartsOn(page, 1)
+})
 
 test('Week view golden path: tasks appear under their correct day columns', async ({ page }) => {
   // Reset test user state via backend (React Router catch-all blocks GET /test/reset)
@@ -62,6 +85,26 @@ test('Week view golden path: tasks appear under their correct day columns', asyn
   await expect(
     page.locator(`[data-date="${otherDayStr}"]`).filter({ hasText: todayTitle })
   ).toHaveCount(0)
+})
+
+test('Week view follows configured first day of week', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-06-24T12:00:00'))
+
+  await setWeekStartsOn(page, 1)
+  await page.goto('/week')
+  await expect(page.locator('[data-rail-date="2026-06-22"]')).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('[data-rail-date="2026-06-28"]')).toBeVisible()
+  await expect(page.locator('[data-rail-date="2026-06-21"]')).toHaveCount(0)
+  await expect(page.getByText('Jun 22 – 28, 2026')).toBeVisible()
+
+  await setWeekStartsOn(page, 0)
+  await page.goto('/week')
+  await expect(page.locator('[data-rail-date="2026-06-21"]')).toBeVisible({ timeout: 10_000 })
+  await expect(page.locator('[data-rail-date="2026-06-27"]')).toBeVisible()
+  await expect(page.locator('[data-rail-date="2026-06-28"]')).toHaveCount(0)
+  await expect(page.getByText('Jun 21 – 27, 2026')).toBeVisible()
+
+  await setWeekStartsOn(page, 1)
 })
 
 test('Week view includes calendar-integrated events in their day', async ({ page }) => {

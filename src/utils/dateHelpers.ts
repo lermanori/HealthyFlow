@@ -1,5 +1,11 @@
 import { format, isToday, isTomorrow, isYesterday, startOfWeek, addDays } from 'date-fns'
 
+export type WeekStartsOn = 0 | 1 | 2 | 3 | 4 | 5 | 6
+
+const DAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+const FULL_DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
 export function formatRelativeDate(date: Date): string {
   if (isToday(date)) return 'Today'
   if (isTomorrow(date)) return 'Tomorrow'
@@ -7,9 +13,21 @@ export function formatRelativeDate(date: Date): string {
   return format(date, 'MMM d')
 }
 
-export function getWeekDates(date: Date = new Date()) {
-  const start = startOfWeek(date, { weekStartsOn: 1 }) // Monday
+export function getWeekDates(date: Date = new Date(), weekStartsOn: WeekStartsOn = 1) {
+  const start = startOfWeek(date, { weekStartsOn })
   return Array.from({ length: 7 }, (_, i) => addDays(start, i))
+}
+
+export function getWeekdayLabels(weekStartsOn: WeekStartsOn = 1) {
+  return Array.from({ length: 7 }, (_, i) => DAY_LABELS[(weekStartsOn + i) % 7])
+}
+
+export function getWeekdayLetters(weekStartsOn: WeekStartsOn = 1) {
+  return Array.from({ length: 7 }, (_, i) => DAY_LETTERS[(weekStartsOn + i) % 7])
+}
+
+export function getFullWeekdayLabels(weekStartsOn: WeekStartsOn = 1) {
+  return Array.from({ length: 7 }, (_, i) => FULL_DAY_LABELS[(weekStartsOn + i) % 7])
 }
 
 export function formatTimeRange(startTime: string, duration: number): string {
