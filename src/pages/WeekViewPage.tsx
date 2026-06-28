@@ -58,6 +58,16 @@ function isUpcoming(row: WeekRow, now: Date): boolean {
   return timeNumber(row.time) >= timeNumber(format(now, 'HH:mm'))
 }
 
+function dedupeWeekRows(rows: WeekRow[]): WeekRow[] {
+  const seenTaskIds = new Set<string>()
+  return rows.filter((row) => {
+    if (row.source !== 'task' || row.type === 'habit') return true
+    if (seenTaskIds.has(row.id)) return false
+    seenTaskIds.add(row.id)
+    return true
+  })
+}
+
 function TypeIcon({ type, size = 15 }: { type: ItemType; size?: number }) {
   const p = { width: size, height: size }
   switch (type) {
@@ -144,11 +154,11 @@ export default function WeekViewPage() {
 
   const model = useMemo(() => {
     // Flatten the week, tagging each item with its day offset + date
-    const rows: WeekRow[] = []
+    const rawRows: WeekRow[] = []
     dayItems.forEach((items, off) => {
       const date = format(weekDates[off], 'yyyy-MM-dd')
       items.forEach((t) => {
-        rows.push({
+        rawRows.push({
           id: t.id, source: 'task', title: t.title, type: typeOf(t), completed: t.completed,
           hasTime: !!t.startTime, time: t.startTime, off, date,
         })
@@ -157,7 +167,7 @@ export default function WeekViewPage() {
     dayCalendarEvents.forEach((events, off) => {
       const date = format(weekDates[off], 'yyyy-MM-dd')
       events.forEach((event) => {
-        rows.push({
+        rawRows.push({
           id: event.id,
           source: 'calendar',
           title: event.title,
@@ -170,6 +180,7 @@ export default function WeekViewPage() {
         })
       })
     })
+    const rows = dedupeWeekRows(rawRows)
 
     const sortKey = (r: WeekRow) => r.off * 10000 + (r.time ? Number(r.time.replace(':', '')) : 9999)
     const byDayTime = (a: WeekRow, b: WeekRow) => sortKey(a) - sortKey(b)

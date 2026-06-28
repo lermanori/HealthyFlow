@@ -1,3 +1,9 @@
+### 2026-06-28 13:06 — `issue-63-week-untimed-duplicates`
+
+Fixed issue #63 by making Week View collapse duplicate carried task rows that come back from multiple day queries. Dashboard still uses the per-day carry-forward behavior, but the weekly agenda now presents each non-habit task id once while preserving daily habit instances and calendar events. Added a Playwright regression with a frozen mid-week clock that previously reproduced one untimed task as five rows.
+
+---
+
 ### 2026-06-28 12:58 — `issue-61-week-up-next-past-events`
 
 Fixed issue #61 by making Week View's Up Next card ignore incomplete items whose date/time has already passed. The weekly agenda still shows historical rows for review, but the promoted next action now filters to today's remaining timed work, today's untimed/all-day work, or future days. Added a Playwright regression with a frozen browser clock and stubbed calendar events to prove past Tuesday and past-today events are not selected over a future-today event.

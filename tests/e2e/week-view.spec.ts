@@ -214,3 +214,27 @@ test('Week view Up Next ignores past events', async ({ page }) => {
   await expect(page.getByTestId('week-up-next-title')).not.toHaveText(pastTuesdayTitle)
   await expect(page.getByTestId('week-up-next-title')).not.toHaveText(pastTodayTitle)
 })
+
+test('Week view shows an untimed one-off task only once', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-06-24T12:00:00'))
+
+  const reset = await page.request.post('http://localhost:3001/test/reset')
+  expect(reset.ok()).toBeTruthy()
+
+  const todayStr = '2026-06-24'
+  const title = `Untimed Week Once ${Date.now()}`
+
+  await page.goto('/add')
+  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await page.locator('input[placeholder*="Enter"]').first().fill(title)
+  await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
+  await page.locator('input[type="date"]').fill(todayStr)
+  await page.locator('button[type="submit"]').click()
+  await expect(page).toHaveURL('/', { timeout: 10_000 })
+
+  await page.goto('/week')
+  await expect(page.locator(`[data-rail-date="${todayStr}"]`)).toBeVisible({ timeout: 10_000 })
+
+  await expect(page.locator('[data-date]').filter({ hasText: title })).toHaveCount(1)
+  await expect(page.locator(`[data-date="${todayStr}"]`).filter({ hasText: title })).toBeVisible()
+})
