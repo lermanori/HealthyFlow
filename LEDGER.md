@@ -1,3 +1,9 @@
+### 2026-06-28 12:27 — `issue-39-deepen-rollover-module`
+
+Finished the remaining rollover deepening from issue #39 against the newer ADR-0002 model. The old synthetic rollover identity premise was already gone, so this slice tightened the module boundary instead: dated task and habit rows now come from the DB facade, while carry-forward composition lives in `Rollover`. This also removes the circular dependency where `supabase-client.ts` imported `Rollover` while `rollover.ts` imported the Supabase client.
+
+---
+
 ### 2026-06-28 11:00 — `issue-38-collapse-openai-invocation-seam`
 
 Rescoped issue #38 around the seam that already existed in `openai.ts`, then moved the remaining single-call AI billing orchestration into that module. The parse-tasks and query-tasks routes now call billable OpenAI helpers instead of each hand-rolling reserve, call, refund, and settle behavior. Query-tasks also stops returning a fake fallback answer on OpenAI failure and now surfaces an explicit error contract like the parser route.

@@ -7,6 +7,7 @@ import { positionsFromIds } from '../utils/positionsFromIds'
 import { parseHabitInstanceId } from '../utils/parseHabitInstanceId'
 import { isPureDragUpdate } from '../utils/isPureDragUpdate'
 import { deleteGoogleCalendarEvent, syncTaskToGoogleCalendar } from '../calendar'
+import { Rollover } from '../rollover'
 
 const router = express.Router()
 
@@ -108,8 +109,10 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
     let tasks;
     
     if (date) {
-      // Use the enhanced function that handles recurring habits
-      tasks = await db.getTasksWithRecurringHabits(userId, date as string)
+      // Dated rows and habit instances come from the DB facade; carry-forward
+      // task rows stay behind Rollover so the rule lives in one module.
+      const datedRows = await db.getTasksWithRecurringHabits(userId, date as string)
+      tasks = await Rollover.addCarryForwardRows(userId, date as string, datedRows)
     } else {
       // If no date specified, get all tasks
       tasks = await db.getTasksByUserId(userId)

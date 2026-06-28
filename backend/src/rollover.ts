@@ -1,4 +1,5 @@
 import { supabase } from './supabase-client'
+import { sortTasksForTimeline } from './utils/sortTasksForTimeline'
 
 export const Rollover = {
   // Untimed-task carry-forward, the one rule (ADR-0002): an untimed task shows on
@@ -39,5 +40,10 @@ export const Rollover = {
     if (completedError) throw completedError
 
     return [...(incomplete || []), ...(completedToday || [])]
+  },
+
+  async addCarryForwardRows(userId: string, date: string, datedRows: any[]): Promise<any[]> {
+    const carryForwardRows = await this.listForDay(userId, date)
+    return sortTasksForTimeline([...datedRows, ...carryForwardRows])
   },
 }

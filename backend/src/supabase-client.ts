@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
-import { Rollover } from './rollover';
 import { sortTasksForTimeline } from './utils/sortTasksForTimeline';
 
 // Load .env from parent directory
@@ -356,7 +355,8 @@ export const db = {
     if (error) throw error;
   },
 
-  // Enhanced function to get tasks with recurring habits and virtual rollover tasks for a specific date
+  // Enhanced function to get dated tasks with recurring habit instances for a specific date.
+  // Carry-forward task rows live behind Rollover, outside this DB facade.
   async getTasksWithRecurringHabits(userId: string, date: string) {
     try {
       // Get regular tasks for the specific date (excluding daily habits and rolled-over tasks)
@@ -405,11 +405,6 @@ export const db = {
       // (synthesized below); the parent can never collide with either. This removes the
       // parent-vs-instance dedup ambiguity that previously dropped dragged per-day times.
 
-      // Carry-forward rows (real tasks with scheduled_date NULL or < date, plus those
-      // completed today) live behind Rollover. Disjoint from regularTasks (= date), so
-      // no task appears twice; task rows are not run through the habit dedup below.
-      const rolloverRows = await Rollover.listForDay(userId, date)
-
       // Build a set of habit ids that already have a real instance for this date
       const habitIdsWithInstance = new Set(
         existingInstances.map(inst => inst.original_habit_id)
@@ -443,7 +438,6 @@ export const db = {
         ...regularTasks,
         ...existingInstances,
         ...virtualHabitInstances,
-        ...rolloverRows,
       ]
 
       // Deduplicate habits: exactly one row per habit per day. Non-habit rows pass

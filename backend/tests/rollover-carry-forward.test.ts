@@ -151,6 +151,15 @@ describe('Rollover.listForDay — the one rule (ADR-0002)', () => {
     expect(rows.map(r => r.id)).toContain('c')
     expect(rows.find(r => r.id === 'c').scheduled_date).toBe(YESTERDAY)
   })
+
+  it('adds carry-forward rows to dated rows and returns timeline order', async () => {
+    mockRows = [{ ...base, id: 'carry', title: 'left from yesterday', scheduled_date: YESTERDAY }]
+    const rows = await Rollover.addCarryForwardRows(USER, TODAY, [
+      { ...base, id: 'dated', title: 'today at nine', scheduled_date: TODAY, start_time: '09:00' },
+    ])
+
+    expect(rows.map(r => r.id)).toEqual(['dated', 'carry'])
+  })
 })
 
 describe('PUT /tasks/:id — editing a carried task (P1)', () => {
