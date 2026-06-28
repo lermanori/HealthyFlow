@@ -20,6 +20,7 @@ interface DayTimelineProps {
 // ponytail: mirrors backend/src/utils/hourSlots.ts — 18 slots 6am–11pm
 const HOUR_SLOTS: string[] = Array.from({ length: 18 }, (_, i) => `${String(i + 6).padStart(2, '0')}:00`)
 const HOUR_SLOT_HEIGHT_PX = 72
+const COMPACT_EMPTY_SLOT_HEIGHT_PX = 28
 const MIN_TIMED_TASK_MINUTES = 30
 const MIN_TIMED_TASK_HEIGHT_PX = 52
 
@@ -75,6 +76,24 @@ function eventDurationMinutes(event: ExternalCalendarEvent): number | undefined 
 function timedBlockHeight(duration?: number): number {
   const minutes = Math.max(duration || MIN_TIMED_TASK_MINUTES, MIN_TIMED_TASK_MINUTES)
   return Math.max(MIN_TIMED_TASK_HEIGHT_PX, Math.round((minutes / 60) * HOUR_SLOT_HEIGHT_PX))
+}
+
+function compactableEmptySlots(slots: string[], hasContent: (slot: string) => boolean): Set<string> {
+  const compacted = new Set<string>()
+  let run: string[] = []
+
+  const flush = () => {
+    if (run.length >= 4) run.forEach(slot => compacted.add(slot))
+    run = []
+  }
+
+  for (const slot of slots) {
+    if (hasContent(slot)) flush()
+    else run.push(slot)
+  }
+  flush()
+
+  return compacted
 }
 
 function CalendarEventBlock({
@@ -183,6 +202,8 @@ export default function DayTimeline({
     const clampedHour = Math.min(23, Math.max(6, hour))
     calendarBuckets[`${String(clampedHour).padStart(2, '0')}:00`].push(event)
   }
+  const hasSlotContent = (slot: string) => slotBuckets[slot].length > 0 || calendarBuckets[slot].length > 0
+  const compactedEmptySlots = draggedTaskId ? new Set<string>() : compactableEmptySlots(HOUR_SLOTS, hasSlotContent)
 
   const handleDragStart = (start: any) => {
     setDraggedTaskId(start.draggableId)
@@ -253,6 +274,8 @@ export default function DayTimeline({
             const slotTasks = slotBuckets[slot]
             const slotCalendarEvents = calendarBuckets[slot]
             const hasContent = slotTasks.length > 0 || slotCalendarEvents.length > 0
+            const isCompacted = compactedEmptySlots.has(slot)
+            const slotHeight = isCompacted ? COMPACT_EMPTY_SLOT_HEIGHT_PX : HOUR_SLOT_HEIGHT_PX
 
             return (
               <Droppable droppableId={slot} key={slot}>
@@ -260,17 +283,22 @@ export default function DayTimeline({
                   <div
                     {...provided.droppableProps}
                     ref={provided.innerRef}
+                    data-testid="timeline-hour-slot"
+                    data-slot={slot}
+                    data-compacted={isCompacted ? 'true' : 'false'}
                     className={`timeline-slot relative flex min-w-0 gap-1 overflow-visible rounded px-1 py-2 transition-colors sm:gap-2 sm:px-2 ${
                       snapshot.isDraggingOver
                         ? 'bg-blue-900/40 drop-zone'
                         : hasContent
                         ? 'bg-gray-800/30'
+                        : isCompacted
+                        ? 'bg-transparent hover:bg-gray-800/5'
                         : 'bg-transparent hover:bg-gray-800/10'
                     }`}
-                    style={{ height: HOUR_SLOT_HEIGHT_PX }}
+                    style={{ height: slotHeight }}
                   >
                     {/* Time label */}
-                    <span className={`w-10 flex-shrink-0 pt-2 text-xs sm:w-12 ${hasContent || snapshot.isDraggingOver ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <span className={`w-10 flex-shrink-0 text-xs sm:w-12 ${isCompacted ? 'pt-0 text-[11px]' : 'pt-2'} ${hasContent || snapshot.isDraggingOver ? 'text-gray-400' : 'text-gray-600'}`}>
                       {formatHour(slot)}
                     </span>
 

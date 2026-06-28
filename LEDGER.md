@@ -1,3 +1,9 @@
+### 2026-06-28 14:25 — `issue-59-compact-empty-schedule-windows`
+
+Implemented issue #59 by compacting continuous empty schedule windows of four or more hour slots while leaving occupied slots at full task-card height. The timeline returns to full hourly drop targets as soon as a drag starts because compaction is disabled while a draggable item is active. Added a Playwright regression that anchors one timed task and verifies the surrounding empty windows collapse without hiding the scheduled item.
+
+---
+
 ### 2026-06-28 14:21 — `issue-62-first-day-of-week`
 
 Added a persisted first-day-of-week preference for issue #62 with Monday as the default for existing users. Settings now exposes the preference, Week View uses it for weekly ranges, day rails, and habit labels, and regression coverage covers both Monday-start and Sunday-start weeks. The e2e auth setup was also made deterministic so stale authenticated browser state cannot derail the suite.

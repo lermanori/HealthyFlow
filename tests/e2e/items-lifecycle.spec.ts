@@ -212,3 +212,29 @@ test('Delete timed task from schedule menu removes it from Dashboard', async ({ 
   expect(dialogAccepted).toBe(true)
   await expect(titleHeading).not.toBeVisible({ timeout: 10_000 })
 })
+
+test('Schedule compacts empty four-hour windows around timed tasks', async ({ page }) => {
+  await page.goto('/test/reset', { waitUntil: 'networkidle' })
+
+  await page.goto('/add')
+  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+
+  const taskTitle = `Compact Schedule Anchor ${Date.now()}`
+  await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
+  await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
+  await page.locator('input[type="time"]').fill('10:00')
+  await page.locator('button[type="submit"]').click()
+
+  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page.locator('h3', { hasText: taskTitle }).first()).toBeVisible()
+
+  const sixAm = page.locator('[data-slot="06:00"]')
+  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'true')
+  await expect(page.locator('[data-slot="09:00"]')).toHaveAttribute('data-compacted', 'true')
+  await expect(page.locator('[data-slot="10:00"]')).toHaveAttribute('data-compacted', 'false')
+  await expect(page.locator('[data-slot="11:00"]')).toHaveAttribute('data-compacted', 'true')
+
+  const compactHeight = await sixAm.evaluate((el) => Math.round(el.getBoundingClientRect().height))
+  const taskSlotHeight = await page.locator('[data-slot="10:00"]').evaluate((el) => Math.round(el.getBoundingClientRect().height))
+  expect(compactHeight).toBeLessThan(taskSlotHeight)
+})
