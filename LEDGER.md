@@ -1,3 +1,9 @@
+### 2026-06-28 15:32 — `issue-59-fix-compact-drag-ux`
+
+Reworked the compact schedule interaction after issue #59 made dragging feel worse. Timed cards now sit above compacted empty slots, compacted idle slots no longer intercept pointer events, and the timeline expands before drag measurement when a draggable card is hovered or grabbed. Added a regression that verifies the schedule compacts at rest and expands before/during the drag path.
+
+---
+
 ### 2026-06-28 14:25 — `issue-59-compact-empty-schedule-windows`
 
 Implemented issue #59 by compacting continuous empty schedule windows of four or more hour slots while leaving occupied slots at full task-card height. The timeline returns to full hourly drop targets as soon as a drag starts because compaction is disabled while a draggable item is active. Added a Playwright regression that anchors one timed task and verifies the surrounding empty windows collapse without hiding the scheduled item.

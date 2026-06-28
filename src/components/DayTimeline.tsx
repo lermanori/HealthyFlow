@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { MouseEvent, PointerEvent, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { CalendarDays, Check, Clock, MapPin } from 'lucide-react'
 import { ExternalCalendarEvent, Task } from '../services/api'
@@ -173,6 +174,7 @@ export default function DayTimeline({
   onDeleteTask,
 }: DayTimelineProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
+  const [isExpandedForDrag, setIsExpandedForDrag] = useState(false)
 
   // Split: scheduled tasks go into hour-slot buckets, untimed go into anytime
   const scheduled = tasks.filter(t => t.startTime)
@@ -203,7 +205,46 @@ export default function DayTimeline({
     calendarBuckets[`${String(clampedHour).padStart(2, '0')}:00`].push(event)
   }
   const hasSlotContent = (slot: string) => slotBuckets[slot].length > 0 || calendarBuckets[slot].length > 0
-  const compactedEmptySlots = draggedTaskId ? new Set<string>() : compactableEmptySlots(HOUR_SLOTS, hasSlotContent)
+  const compactedEmptySlots = isExpandedForDrag ? new Set<string>() : compactableEmptySlots(HOUR_SLOTS, hasSlotContent)
+
+  const handleBeforeCapture = () => {
+    // Expand before the drag library measures droppable dimensions; onDragStart is too late.
+    setIsExpandedForDrag(true)
+  }
+
+  const expandIfDragHandle = (target: EventTarget) => {
+    if ((target as Element).closest('[data-timeline-drag-handle="true"], [data-rfd-drag-handle-draggable-id]')) {
+      flushSync(() => setIsExpandedForDrag(true))
+    }
+  }
+
+  const handleMouseDownCapture = (event: MouseEvent<HTMLDivElement>) => {
+    expandIfDragHandle(event.target)
+  }
+
+  const handlePointerDownCapture = (event: PointerEvent<HTMLDivElement>) => {
+    expandIfDragHandle(event.target)
+  }
+
+  const handleReleaseCapture = () => {
+    if (!draggedTaskId) setIsExpandedForDrag(false)
+  }
+
+  const handlePointerUpCapture = () => {
+    handleReleaseCapture()
+  }
+
+  const handleMouseUpCapture = () => {
+    handleReleaseCapture()
+  }
+
+  const handleDragHandleMouseEnter = () => {
+    flushSync(() => setIsExpandedForDrag(true))
+  }
+
+  const handleDragHandleMouseLeave = (event: MouseEvent<HTMLDivElement>) => {
+    if (event.buttons === 0 && !draggedTaskId) setIsExpandedForDrag(false)
+  }
 
   const handleDragStart = (start: any) => {
     setDraggedTaskId(start.draggableId)
@@ -211,6 +252,7 @@ export default function DayTimeline({
 
   const handleDragEnd = async (result: DropResult) => {
     setDraggedTaskId(null)
+    setIsExpandedForDrag(false)
     if (!result.destination) return
 
     const { draggableId: taskId, destination } = result
@@ -266,7 +308,13 @@ export default function DayTimeline({
     <div className="space-y-4 md:space-y-6">
       <h2 className="text-xl font-semibold text-gray-100">Today's Schedule</h2>
 
-      <DragDropContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
+      <DragDropContext onBeforeCapture={handleBeforeCapture} onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
+        <div
+          onMouseDownCapture={handleMouseDownCapture}
+          onMouseUpCapture={handleMouseUpCapture}
+          onPointerDownCapture={handlePointerDownCapture}
+          onPointerUpCapture={handlePointerUpCapture}
+        >
         {/* Scheduled section — one droppable per hour slot */}
         <div className="space-y-1">
           <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">Scheduled</h3>
@@ -286,7 +334,7 @@ export default function DayTimeline({
                     data-testid="timeline-hour-slot"
                     data-slot={slot}
                     data-compacted={isCompacted ? 'true' : 'false'}
-                    className={`timeline-slot relative flex min-w-0 gap-1 overflow-visible rounded px-1 py-2 transition-colors sm:gap-2 sm:px-2 ${
+                    className={`timeline-slot relative flex min-w-0 gap-1 overflow-visible rounded px-1 py-2 transition-colors sm:gap-2 sm:px-2 ${hasContent ? 'z-20' : ''} ${isCompacted ? 'pointer-events-none' : ''} ${
                       snapshot.isDraggingOver
                         ? 'bg-blue-900/40 drop-zone'
                         : hasContent
@@ -311,6 +359,9 @@ export default function DayTimeline({
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
+                              data-timeline-drag-handle="true"
+                              onMouseEnter={handleDragHandleMouseEnter}
+                              onMouseLeave={handleDragHandleMouseLeave}
                               className={`min-w-0 ${snapshot.isDragging ? 'opacity-90' : ''}`}
                               style={{
                                 ...provided.draggableProps.style,
@@ -332,6 +383,9 @@ export default function DayTimeline({
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
+                              data-timeline-drag-handle="true"
+                              onMouseEnter={handleDragHandleMouseEnter}
+                              onMouseLeave={handleDragHandleMouseLeave}
                               className="min-h-0"
                               style={{
                                 ...provided.draggableProps.style,
@@ -398,6 +452,9 @@ export default function DayTimeline({
                         ref={provided.innerRef}
                         {...provided.draggableProps}
                         {...provided.dragHandleProps}
+                        data-timeline-drag-handle="true"
+                        onMouseEnter={handleDragHandleMouseEnter}
+                        onMouseLeave={handleDragHandleMouseLeave}
                       >
                         <TaskCard
                           task={task}
@@ -422,6 +479,7 @@ export default function DayTimeline({
               </div>
             )}
           </Droppable>
+        </div>
         </div>
       </DragDropContext>
 

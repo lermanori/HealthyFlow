@@ -234,7 +234,43 @@ test('Schedule compacts empty four-hour windows around timed tasks', async ({ pa
   await expect(page.locator('[data-slot="10:00"]')).toHaveAttribute('data-compacted', 'false')
   await expect(page.locator('[data-slot="11:00"]')).toHaveAttribute('data-compacted', 'true')
 
-  const compactHeight = await sixAm.evaluate((el) => Math.round(el.getBoundingClientRect().height))
-  const taskSlotHeight = await page.locator('[data-slot="10:00"]').evaluate((el) => Math.round(el.getBoundingClientRect().height))
-  expect(compactHeight).toBeLessThan(taskSlotHeight)
+  await expect.poll(async () => {
+    const compactHeight = await sixAm.evaluate((el) => Math.round(el.getBoundingClientRect().height))
+    const taskSlotHeight = await page.locator('[data-slot="10:00"]').evaluate((el) => Math.round(el.getBoundingClientRect().height))
+    return compactHeight < taskSlotHeight
+  }).toBe(true)
+})
+
+test('Schedule expands compacted windows during drag', async ({ page }) => {
+  await page.goto('/test/reset', { waitUntil: 'networkidle' })
+
+  await page.goto('/add')
+  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+
+  const taskTitle = `Drag Expanded Schedule ${Date.now()}`
+  await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
+  await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
+  await page.locator('input[type="time"]').fill('10:00')
+  await page.locator('button[type="submit"]').click()
+
+  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  const titleHeading = page.locator('h3', { hasText: taskTitle }).first()
+  await expect(titleHeading).toBeVisible()
+  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'true')
+
+  const dragHandle = page.locator('[data-timeline-drag-handle="true"]').filter({ hasText: taskTitle }).first()
+  await dragHandle.hover()
+  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'false')
+
+  const box = await dragHandle.boundingBox()
+  expect(box).toBeTruthy()
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2 + 80, { steps: 8 })
+
+  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'false')
+  await expect(page.locator('[data-slot="11:00"]')).toHaveAttribute('data-compacted', 'false')
+
+  await page.mouse.up()
+  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'true')
 })
