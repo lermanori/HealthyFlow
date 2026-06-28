@@ -176,3 +176,39 @@ test('Delete Task: removing task makes it disappear from Dashboard', async ({ pa
   // Wait for dialog to be handled and task to disappear
   await expect(titleHeading).not.toBeVisible({ timeout: 10_000 })
 })
+
+test('Delete timed task from schedule menu removes it from Dashboard', async ({ page }) => {
+  await page.goto('/test/reset', { waitUntil: 'networkidle' })
+
+  await page.goto('/add')
+  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+
+  const taskTitle = `Delete Timed Task ${Date.now()}`
+  await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
+  await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
+  await page.locator('input[type="time"]').fill('10:00')
+  await page.locator('button[type="submit"]').click()
+
+  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  const titleHeading = page.locator('h3', { hasText: taskTitle }).first()
+  await expect(titleHeading).toBeVisible()
+
+  let dialogAccepted = false
+  page.on('dialog', dialog => {
+    dialogAccepted = true
+    dialog.accept()
+  })
+
+  const taskCardOuter = titleHeading.locator('xpath=ancestor::div[contains(@class, "duration")]').first()
+  await taskCardOuter.hover()
+  await taskCardOuter.evaluate((el) => {
+    const buttons = el.querySelectorAll('div > button')
+    if (buttons.length >= 2) (buttons[1] as HTMLElement).click()
+  })
+
+  await expect(page.locator('button', { hasText: 'Delete' }).first()).toBeVisible({ timeout: 5_000 })
+  await page.locator('button', { hasText: 'Delete' }).first().click()
+
+  expect(dialogAccepted).toBe(true)
+  await expect(titleHeading).not.toBeVisible({ timeout: 10_000 })
+})

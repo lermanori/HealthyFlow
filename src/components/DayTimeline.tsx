@@ -260,7 +260,7 @@ export default function DayTimeline({
                   <div
                     {...provided.droppableProps}
                     ref={provided.innerRef}
-                    className={`relative flex min-w-0 gap-1 overflow-visible rounded px-1 py-2 transition-colors sm:gap-2 sm:px-2 ${
+                    className={`timeline-slot relative flex min-w-0 gap-1 overflow-visible rounded px-1 py-2 transition-colors sm:gap-2 sm:px-2 ${
                       snapshot.isDraggingOver
                         ? 'bg-blue-900/40 drop-zone'
                         : hasContent

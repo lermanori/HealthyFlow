@@ -1,3 +1,9 @@
+### 2026-06-28 13:35 — `issue-60-calendar-delete-button`
+
+Fixed issue #60 as the timed-card menu interaction bug: the Delete button was visible but unclickable because the next schedule slot intercepted pointer events over the open menu. The open menu now raises its containing timeline slot above neighboring slots, and the timed-delete Playwright regression covers the exact click path from the schedule card menu. This keeps the existing task and Google deletion path intact while making the user-facing control reachable.
+
+---
+
 ### 2026-06-28 13:06 — `issue-63-week-untimed-duplicates`
 
 Fixed issue #63 by making Week View collapse duplicate carried task rows that come back from multiple day queries. Dashboard still uses the per-day carry-forward behavior, but the weekly agenda now presents each non-habit task id once while preserving daily habit instances and calendar events. Added a Playwright regression with a frozen mid-week clock that previously reproduced one untimed task as five rows.

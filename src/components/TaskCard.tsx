@@ -210,7 +210,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
         task.completed 
           ? 'bg-gray-800/50 border-gray-600/50 opacity-75' 
           : 'card glass-effect hover:shadow-lg'
-      } ${isDragging ? 'z-10 rotate-1' : ''} ${className}`}
+      } ${showMenu ? 'z-[100]' : ''} ${isDragging ? 'z-10 rotate-1' : ''} ${className}`}
     >
       {/* Completion Checkbox */}
       <div className={`flex min-h-0 min-w-0 ${compact ? 'w-full items-center gap-2' : 'items-start space-x-3'}`}>
