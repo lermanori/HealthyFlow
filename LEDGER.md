@@ -1,3 +1,9 @@
+### 2026-06-28 12:58 — `issue-61-week-up-next-past-events`
+
+Fixed issue #61 by making Week View's Up Next card ignore incomplete items whose date/time has already passed. The weekly agenda still shows historical rows for review, but the promoted next action now filters to today's remaining timed work, today's untimed/all-day work, or future days. Added a Playwright regression with a frozen browser clock and stubbed calendar events to prove past Tuesday and past-today events are not selected over a future-today event.
+
+---
+
 ### 2026-06-28 12:27 — `issue-39-deepen-rollover-module`
 
 Finished the remaining rollover deepening from issue #39 against the newer ADR-0002 model. The old synthetic rollover identity premise was already gone, so this slice tightened the module boundary instead: dated task and habit rows now come from the DB facade, while carry-forward composition lives in `Rollover`. This also removes the circular dependency where `supabase-client.ts` imported `Rollover` while `rollover.ts` imported the Supabase client.

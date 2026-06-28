@@ -46,6 +46,18 @@ function timeLabel(hhmm?: string): string {
   return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
 }
 
+function timeNumber(hhmm: string): number {
+  return Number(hhmm.replace(':', ''))
+}
+
+function isUpcoming(row: WeekRow, now: Date): boolean {
+  const todayKey = format(now, 'yyyy-MM-dd')
+  if (row.date < todayKey) return false
+  if (row.date > todayKey) return true
+  if (!row.hasTime || !row.time) return true
+  return timeNumber(row.time) >= timeNumber(format(now, 'HH:mm'))
+}
+
 function TypeIcon({ type, size = 15 }: { type: ItemType; size?: number }) {
   const p = { width: size, height: size }
   switch (type) {
@@ -177,8 +189,9 @@ export default function WeekViewPage() {
     const leftCount = total - done
     const weekPct = total ? Math.round((done / total) * 100) : 0
 
-    // Up next: first incomplete timed item (then any incomplete) across the week
-    const incomplete = rows.filter((r) => !r.completed)
+    // Up next: first upcoming incomplete timed item (then today's/future untimed).
+    // Past days are reviewable in the agenda, but not promoted as upcoming work.
+    const incomplete = rows.filter((r) => !r.completed && isUpcoming(r, today))
     const upNext = incomplete.filter((r) => r.hasTime).sort(byDayTime)[0]
       || incomplete.slice().sort(byDayTime)[0]
       || null
@@ -341,7 +354,7 @@ export default function WeekViewPage() {
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', color: TYPE[model.upNext.type].text }}>Up next</span>
-                  <p style={{ margin: '3px 0 0', fontSize: 17, fontWeight: 600, color: '#f9fafb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{model.upNext.title}</p>
+                  <p data-testid="week-up-next-title" style={{ margin: '3px 0 0', fontSize: 17, fontWeight: 600, color: '#f9fafb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{model.upNext.title}</p>
                   <p style={{ margin: '3px 0 0', fontSize: 12, color: '#9ca3af' }}>
                     {(model.upNext.off === model.todayOff ? 'Today' : DOW[model.upNext.off])}{model.upNext.hasTime ? ` · ${timeLabel(model.upNext.time)}` : ''}
                   </p>

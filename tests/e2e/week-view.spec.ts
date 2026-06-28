@@ -110,3 +110,107 @@ test('Week view includes calendar-integrated events in their day', async ({ page
     page.locator(`[data-date="${eventDayStr}"]`).filter({ hasText: 'Calendar' })
   ).toBeVisible()
 })
+
+test('Week view Up Next ignores past events', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-06-24T12:00:00'))
+
+  const reset = await page.request.post('http://localhost:3001/test/reset')
+  expect(reset.ok()).toBeTruthy()
+
+  const pastTuesdayTitle = `Past Tuesday ${Date.now()}`
+  const pastTodayTitle = `Past Today ${Date.now()}`
+  const futureTodayTitle = `Future Today ${Date.now()}`
+  const futureThursdayTitle = `Future Thursday ${Date.now()}`
+
+  await page.route('**/api/calendar/google/events**', async (route) => {
+    const date = new URL(route.request().url()).searchParams.get('date')
+    const eventsByDate: Record<string, unknown[]> = {
+      '2026-06-23': [{
+        id: 'past-tuesday',
+        provider: 'google',
+        calendarId: 'primary',
+        externalEventId: 'past-tuesday',
+        title: pastTuesdayTitle,
+        description: null,
+        location: null,
+        startAt: '2026-06-23T10:00:00.000Z',
+        endAt: '2026-06-23T11:00:00.000Z',
+        localStartTime: '10:00',
+        localEndTime: '11:00',
+        allDay: false,
+        status: 'confirmed',
+        htmlLink: null,
+        completed: false,
+        completedAt: null,
+      }],
+      '2026-06-24': [
+        {
+          id: 'past-today',
+          provider: 'google',
+          calendarId: 'primary',
+          externalEventId: 'past-today',
+          title: pastTodayTitle,
+          description: null,
+          location: null,
+          startAt: '2026-06-24T09:00:00.000Z',
+          endAt: '2026-06-24T10:00:00.000Z',
+          localStartTime: '09:00',
+          localEndTime: '10:00',
+          allDay: false,
+          status: 'confirmed',
+          htmlLink: null,
+          completed: false,
+          completedAt: null,
+        },
+        {
+          id: 'future-today',
+          provider: 'google',
+          calendarId: 'primary',
+          externalEventId: 'future-today',
+          title: futureTodayTitle,
+          description: null,
+          location: null,
+          startAt: '2026-06-24T15:00:00.000Z',
+          endAt: '2026-06-24T16:00:00.000Z',
+          localStartTime: '15:00',
+          localEndTime: '16:00',
+          allDay: false,
+          status: 'confirmed',
+          htmlLink: null,
+          completed: false,
+          completedAt: null,
+        },
+      ],
+      '2026-06-25': [{
+        id: 'future-thursday',
+        provider: 'google',
+        calendarId: 'primary',
+        externalEventId: 'future-thursday',
+        title: futureThursdayTitle,
+        description: null,
+        location: null,
+        startAt: '2026-06-25T10:00:00.000Z',
+        endAt: '2026-06-25T11:00:00.000Z',
+        localStartTime: '10:00',
+        localEndTime: '11:00',
+        allDay: false,
+        status: 'confirmed',
+        htmlLink: null,
+        completed: false,
+        completedAt: null,
+      }],
+    }
+
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify(eventsByDate[date ?? ''] ?? []),
+    })
+  })
+
+  await page.goto('/week')
+  await expect(page.locator('[data-rail-date="2026-06-24"]')).toBeVisible({ timeout: 10_000 })
+
+  await expect(page.getByTestId('week-up-next-title')).toHaveText(futureTodayTitle)
+  await expect(page.getByTestId('week-up-next-title')).not.toHaveText(pastTuesdayTitle)
+  await expect(page.getByTestId('week-up-next-title')).not.toHaveText(pastTodayTitle)
+})
