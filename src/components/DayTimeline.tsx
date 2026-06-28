@@ -213,7 +213,12 @@ export default function DayTimeline({
   }
 
   const expandIfDragHandle = (target: EventTarget) => {
-    if ((target as Element).closest('[data-timeline-drag-handle="true"], [data-rfd-drag-handle-draggable-id]')) {
+    if (!(target instanceof Element)) return
+
+    const interactiveTarget = target.closest('button, input, textarea, select, a, [role="menu"], .task-menu')
+    if (interactiveTarget) return
+
+    if (target.closest('[data-timeline-drag-handle="true"], [data-rfd-drag-handle-draggable-id]')) {
       flushSync(() => setIsExpandedForDrag(true))
     }
   }
@@ -236,14 +241,6 @@ export default function DayTimeline({
 
   const handleMouseUpCapture = () => {
     handleReleaseCapture()
-  }
-
-  const handleDragHandleMouseEnter = () => {
-    flushSync(() => setIsExpandedForDrag(true))
-  }
-
-  const handleDragHandleMouseLeave = (event: MouseEvent<HTMLDivElement>) => {
-    if (event.buttons === 0 && !draggedTaskId) setIsExpandedForDrag(false)
   }
 
   const handleDragStart = (start: any) => {
@@ -360,8 +357,6 @@ export default function DayTimeline({
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
                               data-timeline-drag-handle="true"
-                              onMouseEnter={handleDragHandleMouseEnter}
-                              onMouseLeave={handleDragHandleMouseLeave}
                               className={`min-w-0 ${snapshot.isDragging ? 'opacity-90' : ''}`}
                               style={{
                                 ...provided.draggableProps.style,
@@ -384,8 +379,6 @@ export default function DayTimeline({
                               {...provided.draggableProps}
                               {...provided.dragHandleProps}
                               data-timeline-drag-handle="true"
-                              onMouseEnter={handleDragHandleMouseEnter}
-                              onMouseLeave={handleDragHandleMouseLeave}
                               className="min-h-0"
                               style={{
                                 ...provided.draggableProps.style,
@@ -453,8 +446,6 @@ export default function DayTimeline({
                         {...provided.draggableProps}
                         {...provided.dragHandleProps}
                         data-timeline-drag-handle="true"
-                        onMouseEnter={handleDragHandleMouseEnter}
-                        onMouseLeave={handleDragHandleMouseLeave}
                       >
                         <TaskCard
                           task={task}

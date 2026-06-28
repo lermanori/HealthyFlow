@@ -260,12 +260,14 @@ test('Schedule expands compacted windows during drag', async ({ page }) => {
 
   const dragHandle = page.locator('[data-timeline-drag-handle="true"]').filter({ hasText: taskTitle }).first()
   await dragHandle.hover()
-  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'false')
+  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'true')
 
   const box = await dragHandle.boundingBox()
   expect(box).toBeTruthy()
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
   await page.mouse.down()
+  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'false')
+
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2 + 80, { steps: 8 })
 
   await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'false')
