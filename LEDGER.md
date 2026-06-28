@@ -1,3 +1,9 @@
+### 2026-06-28 11:00 — `issue-38-collapse-openai-invocation-seam`
+
+Rescoped issue #38 around the seam that already existed in `openai.ts`, then moved the remaining single-call AI billing orchestration into that module. The parse-tasks and query-tasks routes now call billable OpenAI helpers instead of each hand-rolling reserve, call, refund, and settle behavior. Query-tasks also stops returning a fake fallback answer on OpenAI failure and now surfaces an explicit error contract like the parser route.
+
+---
+
 ### 2026-06-27 21:37 — `issue-53-week-view-calendar-events`
 
 Fixed issue #53 by making Week View include imported Google Calendar events alongside the existing task and habit rows. The page now runs the same per-day calendar queries as Dashboard, merges events into the weekly agenda with a Calendar type chip, and supports the existing calendar completion toggle path. Added a Playwright regression that stubs the calendar API and asserts a calendar-integrated event appears on the correct weekly date.

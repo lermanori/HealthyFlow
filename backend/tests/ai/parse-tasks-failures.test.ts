@@ -58,7 +58,7 @@ describe('POST /api/ai/parse-tasks — failure paths', () => {
       .send({ text: 'meditate daily' })
 
     expect(res.status).toBe(500)
-    expect(res.body).toEqual({ error: 'Could not parse — try again' })
+    expect(res.body).toEqual({ error: 'Could not parse — try again', code: 'ai_parse_failed' })
   })
 
   it('returns 500 and logs zod error when OpenAI response fails schema validation', async () => {
@@ -84,7 +84,7 @@ describe('POST /api/ai/parse-tasks — failure paths', () => {
       .send({ text: 'meditate daily' })
 
     expect(res.status).toBe(500)
-    expect(res.body).toEqual({ error: 'Could not parse — try again' })
+    expect(res.body).toEqual({ error: 'Could not parse — try again', code: 'ai_parse_failed' })
 
     const loggedZodError = errSpy.mock.calls.some((call) =>
       call.some((arg) => {

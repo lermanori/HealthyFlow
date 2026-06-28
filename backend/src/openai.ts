@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { Credits, UnpricedModelError } from './credits'
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 
@@ -14,12 +15,28 @@ export type OpenAIResult<T> =
   | { ok: true; value: T; usage?: TokenUsage }
   | { ok: false; code: OpenAIErrorCode; message: string }
 
+export type BillableOpenAIErrorCode =
+  | OpenAIErrorCode
+  | 'insufficient_credits'
+  | 'unpriced_model'
+  | 'billing_error'
+
+export type BillableOpenAIResult<T> =
+  | { ok: true; value: T; usage?: TokenUsage }
+  | { ok: false; code: BillableOpenAIErrorCode; message: string }
+
 type CallOpts = {
   model: string
   systemPrompt: string
   userPrompt: string | OpenAIUserContent[]
   temperature?: number
   maxTokens?: number
+}
+
+type BillableCallOpts = CallOpts & {
+  userId: string
+  endpoint: string
+  maxTokens: number
 }
 
 type OpenAIUserContent =
@@ -308,6 +325,46 @@ function hasZeroFatOcrClaim(ocr: NutritionLabelOcrValue) {
   return /0\s*%.*(שומן|fat)|(שומן|fat).{0,12}0\s*%/i.test(text)
 }
 
+const ZERO_USAGE: TokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
+
+async function callWithBilling<T>(
+  opts: BillableCallOpts,
+  call: () => Promise<OpenAIResult<T>>
+): Promise<BillableOpenAIResult<T>> {
+  let reservedTokens = 0
+
+  try {
+    reservedTokens = await Credits.estimateReserve({
+      model: opts.model,
+      systemPrompt: opts.systemPrompt,
+      userPrompt: opts.userPrompt,
+      maxOutputTokens: opts.maxTokens,
+    })
+    const ok = await Credits.reserve(opts.userId, reservedTokens)
+    if (!ok) {
+      return { ok: false, code: 'insufficient_credits', message: 'Insufficient AI tokens' }
+    }
+  } catch (error) {
+    if (error instanceof UnpricedModelError) {
+      return { ok: false, code: 'unpriced_model', message: 'AI model pricing is not configured' }
+    }
+    console.error('AI billing estimate failed:', error)
+    return { ok: false, code: 'billing_error', message: 'AI billing failed' }
+  }
+
+  const result = await call()
+  if (!result.ok) {
+    await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+    return result
+  }
+
+  await Credits.settleReserved(opts.userId, reservedTokens, result.usage ?? ZERO_USAGE, {
+    endpoint: opts.endpoint,
+    model: opts.model,
+  })
+  return result
+}
+
 function cleanProductNamePart(value: string | null) {
   if (!value) return null
   const trimmed = value.trim()
@@ -433,6 +490,10 @@ export const Openai = {
     return { ok: true, value: result.value.trim(), usage: result.usage }
   },
 
+  async callBillableText(opts: BillableCallOpts): Promise<BillableOpenAIResult<string>> {
+    return callWithBilling(opts, () => this.callText(opts))
+  },
+
   async callStructured<T>(
     opts: CallOpts & {
       schemaName: string
@@ -459,5 +520,15 @@ export const Openai = {
       console.error('OpenAI structured parse failed:', e)
       return { ok: false, code: 'invalid_response', message: 'Schema validation failed' }
     }
+  },
+
+  async callBillableStructured<T>(
+    opts: BillableCallOpts & {
+      schemaName: string
+      jsonSchema: any
+      parser: (v: unknown) => T
+    }
+  ): Promise<BillableOpenAIResult<T>> {
+    return callWithBilling(opts, () => this.callStructured(opts))
   },
 }

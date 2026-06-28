@@ -37,6 +37,23 @@ function unpricedModelResponse(res: express.Response, error: unknown) {
   return res.status(500).json({ error: 'AI billing failed', code: 'billing_error' })
 }
 
+function aiCallErrorResponse(
+  res: express.Response,
+  result: { code: string },
+  fallback: { error: string; code: string }
+) {
+  if (result.code === 'insufficient_credits') {
+    return res.status(402).json({ error: 'Insufficient AI tokens', code: 'insufficient_credits' })
+  }
+  if (result.code === 'unpriced_model') {
+    return res.status(500).json({ error: 'AI model pricing is not configured', code: 'unpriced_model' })
+  }
+  if (result.code === 'billing_error') {
+    return res.status(500).json({ error: 'AI billing failed', code: 'billing_error' })
+  }
+  return res.status(500).json(fallback)
+}
+
 // Query tasks for AI
 router.get('/tasks', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
@@ -66,24 +83,9 @@ router.post('/query-tasks', authenticateToken, async (req: AuthRequest, res) => 
     const systemPrompt =
       "You are a productivity assistant. Answer questions about the user's tasks based on the provided data."
     const userPrompt = `Tasks: ${JSON.stringify(tasks)}\nQuestion: ${question}`
-    let reservedTokens = 0
-
-    try {
-      reservedTokens = await Credits.estimateReserve({
-        model: QUERY_TASKS_MODEL,
-        systemPrompt,
-        userPrompt,
-        maxOutputTokens: QUERY_TASKS_MAX_TOKENS,
-      })
-      const ok = await Credits.reserve(userId, reservedTokens)
-      if (!ok) {
-        return res.status(402).json({ error: 'Insufficient AI tokens', code: 'insufficient_credits' })
-      }
-    } catch (error) {
-      return unpricedModelResponse(res, error)
-    }
-
-    const result = await Openai.callText({
+    const result = await Openai.callBillableText({
+      userId,
+      endpoint: 'query-tasks',
       model: QUERY_TASKS_MODEL,
       systemPrompt,
       userPrompt,
@@ -92,13 +94,11 @@ router.post('/query-tasks', authenticateToken, async (req: AuthRequest, res) => 
     })
 
     if (!result.ok) {
-      await Credits.refundReserve(userId, reservedTokens, 'refund_failed_call')
-      return res.json({ answer: 'AI service unavailable.' })
+      return aiCallErrorResponse(res, result, {
+        error: 'AI service unavailable',
+        code: 'ai_unavailable',
+      })
     }
-    await Credits.settleReserved(userId, reservedTokens, result.usage ?? ZERO_USAGE, {
-      endpoint: 'query-tasks',
-      model: QUERY_TASKS_MODEL,
-    })
     res.json({ answer: result.value || 'No answer generated.' })
   } catch (error) {
     res.status(500).json({ error: 'Database error' })
@@ -183,24 +183,10 @@ Field rules:
 - "tomorrow" -> ${tomorrow}, "tonight"/"evening" -> today, "this weekend" -> next Saturday
 - If a photo contains a list, calendar, sticky notes, handwritten plan, or screenshot, extract each actionable item.
 - Do not invent personal details that are not present in the text or photo.`
-  let reservedTokens = 0
 
-  try {
-    reservedTokens = await Credits.estimateReserve({
-      model: PARSE_TASKS_MODEL,
-      systemPrompt,
-      userPrompt: userContent,
-      maxOutputTokens: PARSE_TASKS_MAX_TOKENS,
-    })
-    const ok = await Credits.reserve(userId, reservedTokens)
-    if (!ok) {
-      return res.status(402).json({ error: 'Insufficient AI tokens', code: 'insufficient_credits' })
-    }
-  } catch (error) {
-    return unpricedModelResponse(res, error)
-  }
-
-  const result = await Openai.callStructured({
+  const result = await Openai.callBillableStructured({
+    userId,
+    endpoint: 'parse-tasks',
     model: PARSE_TASKS_MODEL,
     systemPrompt,
     userPrompt: userContent,
@@ -212,13 +198,11 @@ Field rules:
   })
 
   if (!result.ok) {
-    await Credits.refundReserve(userId, reservedTokens, 'refund_failed_call')
-    return res.status(500).json({ error: 'Could not parse — try again' })
+    return aiCallErrorResponse(res, result, {
+      error: 'Could not parse — try again',
+      code: 'ai_parse_failed',
+    })
   }
-  await Credits.settleReserved(userId, reservedTokens, result.usage ?? ZERO_USAGE, {
-    endpoint: 'parse-tasks',
-    model: PARSE_TASKS_MODEL,
-  })
   res.json(result.value)
 })
 

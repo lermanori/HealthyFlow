@@ -4,7 +4,7 @@
  * Behaviors tested:
  *   parse-tasks happy path  → reserves estimated AI tokens, OpenAI call settles actual usage
  *   insufficient AI tokens  → 402 before OpenAI is ever called
- *   AI failure               → refund (grant) before returning the existing error response
+ *   AI failure               → refund (grant) before returning an explicit error response
  *   signup                   → seeds FREE_SIGNUP_CREDITS via Credits.grant
  *   balance endpoint          → returns Credits.getBalance for the authed user
  */
@@ -125,7 +125,7 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
       .send({ text: 'meditate daily' })
 
     expect(res.status).toBe(500)
-    expect(res.body).toEqual({ error: 'Could not parse — try again' })
+    expect(res.body).toEqual({ error: 'Could not parse — try again', code: 'ai_parse_failed' })
     expect(mockCredits.refundReserve).toHaveBeenCalledWith(USER_ID, 10, 'refund_failed_call')
     expect(mockCredits.settleReserved).not.toHaveBeenCalled()
   })
@@ -225,7 +225,7 @@ describe('POST /api/ai/query-tasks — credit enforcement', () => {
     expect(scope.isDone()).toBe(false)
   })
 
-  it('refunds via grant when OpenAI call fails, keeping the existing fallback answer', async () => {
+  it('refunds via grant when OpenAI call fails, returning an explicit error', async () => {
     mockDb.getTasksByUserId.mockResolvedValue([])
     mockCredits.reserve.mockResolvedValue(true)
     nock('https://api.openai.com').post('/v1/chat/completions').reply(500)
@@ -235,8 +235,8 @@ describe('POST /api/ai/query-tasks — credit enforcement', () => {
       .set('Authorization', authHeader())
       .send({ question: 'What do I have today?' })
 
-    expect(res.status).toBe(200)
-    expect(res.body).toEqual({ answer: 'AI service unavailable.' })
+    expect(res.status).toBe(500)
+    expect(res.body).toEqual({ error: 'AI service unavailable', code: 'ai_unavailable' })
     expect(mockCredits.refundReserve).toHaveBeenCalledWith(USER_ID, 10, 'refund_failed_call')
     expect(mockCredits.settleReserved).not.toHaveBeenCalled()
   })
