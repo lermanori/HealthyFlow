@@ -25,6 +25,21 @@ const toClient = (row: any) => ({
   updatedAt: row.updated_at,
 })
 
+const toItemClient = (row: any) => ({
+  id: row.id,
+  userId: row.user_id,
+  name: row.name,
+  normalizedName: row.normalized_name,
+  calories: row.calories,
+  protein: row.protein ?? null,
+  carbs: row.carbs ?? null,
+  fat: row.fat ?? null,
+  usageCount: row.usage_count,
+  lastUsedAt: row.last_used_at,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+})
+
 const CreateBody = z.object({
   date: z.string().regex(DATE_RE),
   time: z.string().regex(TIME_RE).nullable().optional(),
@@ -47,6 +62,11 @@ const UpdateBody = z.object({
   quantity: z.string().nullable().optional(),
 })
 
+const ItemQuery = z.object({
+  sort: z.enum(['recent', 'most-used']).default('recent'),
+  limit: z.coerce.number().int().positive().max(50).default(10),
+})
+
 // GET /api/calories?date=YYYY-MM-DD
 router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   const date = req.query.date
@@ -57,6 +77,20 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const rows = await db.getCalorieEntriesByDay(req.user.userId, date)
     res.json(rows.map(toClient))
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' })
+  }
+})
+
+router.get('/items', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = ItemQuery.safeParse(req.query)
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues })
+
+  try {
+    const rows = parsed.data.sort === 'most-used'
+      ? await db.getMostUsedCalorieItems(req.user.userId, parsed.data.limit)
+      : await db.getRecentCalorieItems(req.user.userId, parsed.data.limit)
+    res.json(rows.map(toItemClient))
   } catch (err) {
     res.status(500).json({ error: 'Database error' })
   }

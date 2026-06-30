@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { Utensils, Plus, Trash2, Pencil, X, Check, Sparkles, Clock, Scale, TrendingDown, TrendingUp, Minus } from 'lucide-react'
 import { useCalorieEntries } from '../hooks/useCalorieEntries'
-import { CalorieEntry, CalorieEntryInput, WeightEntry } from '../services/api'
+import { CalorieEntry, CalorieEntryInput, CalorieItem, WeightEntry } from '../services/api'
 import { useWeightTracking } from '../hooks/useWeightTracking'
 import MealAnalyzer from '../components/MealAnalyzer'
+import { useCalorieItems } from '../hooks/useCalorieItems'
 
 const todayStr = () => new Date().toISOString().slice(0, 10)
 const currentTime = () => new Date().toTimeString().slice(0, 5)
@@ -43,6 +44,18 @@ function entryToForm(e: CalorieEntry): FormState {
     carbs: e.carbs != null ? String(e.carbs) : '',
     fat: e.fat != null ? String(e.fat) : '',
     quantity: e.quantity ?? '',
+  }
+}
+
+function itemToForm(item: CalorieItem, time = currentTime()): FormState {
+  return {
+    name: item.name,
+    time,
+    calories: String(item.calories),
+    protein: item.protein != null ? String(item.protein) : '',
+    carbs: item.carbs != null ? String(item.carbs) : '',
+    fat: item.fat != null ? String(item.fat) : '',
+    quantity: '',
   }
 }
 
@@ -106,6 +119,8 @@ function WeightSparkline({ entries }: { entries: WeightEntry[] }) {
 export default function CaloriesPage() {
   const [date, setDate] = useState(todayStr())
   const { entries, isLoading, totals, createEntry, updateEntry, deleteEntry } = useCalorieEntries(date)
+  const [quickInsertSort, setQuickInsertSort] = useState<'recent' | 'most-used'>('recent')
+  const { items: quickInsertItems, isLoading: isQuickInsertLoading } = useCalorieItems(quickInsertSort, 8)
   const {
     entry: weightEntry,
     trend: weightTrend,
@@ -134,6 +149,11 @@ export default function CaloriesPage() {
     createEntry(formToInput(date, addForm))
     setAddForm(emptyForm(currentTime()))
     setAdding(false)
+  }
+
+  const applyQuickInsert = (item: CalorieItem) => {
+    setAddForm(itemToForm(item))
+    setAdding(true)
   }
 
   const startEdit = (e: CalorieEntry) => {
@@ -211,6 +231,50 @@ export default function CaloriesPage() {
           <MealAnalyzer date={date} onClose={() => setShowAiAnalyzer(false)} />
         )}
       </AnimatePresence>
+
+      <div className="card">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-100">Quick Insert</h2>
+            <p className="text-xs text-gray-400">Server-backed recent and most-used items for this account.</p>
+          </div>
+          <div className="inline-flex rounded-lg border border-gray-700/80 bg-gray-950/20 p-1 text-xs">
+            <button
+              className={`rounded-md px-3 py-1.5 ${quickInsertSort === 'recent' ? 'bg-cyan-500/20 text-cyan-200' : 'text-gray-400'}`}
+              onClick={() => setQuickInsertSort('recent')}
+            >
+              Recent
+            </button>
+            <button
+              className={`rounded-md px-3 py-1.5 ${quickInsertSort === 'most-used' ? 'bg-cyan-500/20 text-cyan-200' : 'text-gray-400'}`}
+              onClick={() => setQuickInsertSort('most-used')}
+            >
+              Most Used
+            </button>
+          </div>
+        </div>
+
+        {isQuickInsertLoading ? (
+          <p className="text-sm text-gray-400">Loading...</p>
+        ) : quickInsertItems.length === 0 ? (
+          <p className="rounded-lg border border-dashed border-gray-700/80 bg-gray-950/20 px-4 py-5 text-sm text-gray-500">
+            No saved item history yet. Use the full entry form below and your recent items will appear here.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {quickInsertItems.map((item) => (
+              <button
+                key={item.id}
+                className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-left text-sm text-cyan-100 transition hover:border-cyan-400/40 hover:bg-cyan-500/15"
+                onClick={() => applyQuickInsert(item)}
+              >
+                <span className="font-medium">{item.name}</span>
+                <span className="ml-2 text-cyan-300/80">{item.calories} cal</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="card">
         <div className="mb-4 flex items-center justify-between gap-3">

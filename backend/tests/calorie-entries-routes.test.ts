@@ -10,6 +10,8 @@ jest.mock('../src/supabase-client', () => ({
     getCalorieEntryById: jest.fn(),
     updateCalorieEntry: jest.fn(),
     deleteCalorieEntry: jest.fn(),
+    getMostUsedCalorieItems: jest.fn(),
+    getRecentCalorieItems: jest.fn(),
   },
 }))
 
@@ -32,6 +34,24 @@ function row(overrides: Record<string, unknown> = {}) {
     fat: null,
     quantity: null,
     created_at: '2026-06-24T08:00:00.000Z',
+    updated_at: '2026-06-24T08:00:00.000Z',
+    ...overrides,
+  }
+}
+
+function calorieItemRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'item-1',
+    user_id: USER_ID,
+    name: 'Eggs',
+    normalized_name: 'eggs',
+    calories: 140,
+    protein: 12,
+    carbs: 1,
+    fat: 10,
+    usage_count: 5,
+    last_used_at: '2026-06-24T08:00:00.000Z',
+    created_at: '2026-06-20T08:00:00.000Z',
     updated_at: '2026-06-24T08:00:00.000Z',
     ...overrides,
   }
@@ -94,6 +114,49 @@ describe('calorie entries API', () => {
 
     expect(res.status).toBe(400)
     expect(mockDb.getCalorieEntriesByDay).not.toHaveBeenCalled()
+  })
+
+  it('lists recent calorie items for the authenticated user', async () => {
+    mockDb.getRecentCalorieItems.mockResolvedValue([calorieItemRow()])
+
+    const res = await request(app)
+      .get('/api/calories/items?sort=recent&limit=3')
+      .set('Authorization', TOKEN)
+
+    expect(res.status).toBe(200)
+    expect(mockDb.getRecentCalorieItems).toHaveBeenCalledWith(USER_ID, 3)
+    expect(res.body).toEqual([
+      expect.objectContaining({
+        id: 'item-1',
+        userId: USER_ID,
+        name: 'Eggs',
+        normalizedName: 'eggs',
+        usageCount: 5,
+        lastUsedAt: '2026-06-24T08:00:00.000Z',
+      }),
+    ])
+  })
+
+  it('lists most-used calorie items when requested', async () => {
+    mockDb.getMostUsedCalorieItems.mockResolvedValue([calorieItemRow({ usage_count: 8 })])
+
+    const res = await request(app)
+      .get('/api/calories/items?sort=most-used')
+      .set('Authorization', TOKEN)
+
+    expect(res.status).toBe(200)
+    expect(mockDb.getMostUsedCalorieItems).toHaveBeenCalledWith(USER_ID, 10)
+    expect(res.body[0].usageCount).toBe(8)
+  })
+
+  it('rejects invalid calorie item sort values', async () => {
+    const res = await request(app)
+      .get('/api/calories/items?sort=oldest')
+      .set('Authorization', TOKEN)
+
+    expect(res.status).toBe(400)
+    expect(mockDb.getRecentCalorieItems).not.toHaveBeenCalled()
+    expect(mockDb.getMostUsedCalorieItems).not.toHaveBeenCalled()
   })
 
   it('rejects creation with a missing name', async () => {
