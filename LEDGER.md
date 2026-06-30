@@ -1,3 +1,9 @@
+### 2026-06-28 16:25 — `issue-59-stop-hover-auto-expand`
+
+Stopped the compact schedule from auto-expanding just because the cursor starts over a task card. Dragging still expands the full set of hour drop targets before measurement, but clicks on task controls and menus are ignored so edit/delete flows stay stable. The Playwright coverage now proves hover stays compact, drag expands, and the existing task menu actions remain reachable.
+
+---
+
 ### 2026-06-28 15:32 — `issue-59-fix-compact-drag-ux`
 
 Reworked the compact schedule interaction after issue #59 made dragging feel worse. Timed cards now sit above compacted empty slots, compacted idle slots no longer intercept pointer events, and the timeline expands before drag measurement when a draggable card is hovered or grabbed. Added a regression that verifies the schedule compacts at rest and expands before/during the drag path.
