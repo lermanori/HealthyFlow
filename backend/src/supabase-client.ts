@@ -666,6 +666,15 @@ export const db = {
     fat?: number | null
     quantity?: string | null
   }) {
+    // Upsert calorie item and update usage
+    await this.upsertCalorieItem(entryData.user_id, entryData.name, {
+      calories: entryData.calories,
+      protein: entryData.protein ?? null,
+      carbs: entryData.carbs ?? null,
+      fat: entryData.fat ?? null,
+    })
+
+    // Insert the entry
     const { data, error } = await supabase
       .from('calorie_entries')
       .insert(entryData)
@@ -1064,6 +1073,105 @@ export const db = {
       .from('ai_usage_log')
       .select('id, user_id, endpoint, model, prompt_tokens, completion_tokens, total_tokens, credits_delta, reason, reserved_tokens, base_tokens, markup_tokens, estimated, balance_before, balance_after, created_at')
       .order('created_at', { ascending: false })
+      .limit(limit)
+    if (error) throw error
+    return data ?? []
+  },
+
+  // Calorie items (reusable, tracked by usage)
+  async upsertCalorieItem(userId: string, name: string, defaults: {
+    calories: number
+    protein?: number | null
+    carbs?: number | null
+    fat?: number | null
+  }) {
+    const normalizedName = name.trim().toLowerCase()
+    const now = new Date().toISOString()
+
+    const { data: existing, error: getError } = await supabase
+      .from('calorie_items')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('normalized_name', normalizedName)
+      .maybeSingle()
+
+    if (getError) throw getError
+
+    if (existing) {
+      // Increment usage and update last_used_at atomically via RPC
+      const { data, error } = await supabase
+        .rpc('upsert_calorie_item_usage', {
+          p_user_id: userId,
+          p_normalized_name: normalizedName,
+          p_now: now,
+        })
+        .single()
+      if (error) throw error
+      return data
+    } else {
+      // Create new item
+      const { data, error } = await supabase
+        .from('calorie_items')
+        .insert({
+          user_id: userId,
+          name,
+          normalized_name: normalizedName,
+          calories: defaults.calories,
+          protein: defaults.protein ?? null,
+          carbs: defaults.carbs ?? null,
+          fat: defaults.fat ?? null,
+          usage_count: 1,
+          last_used_at: now,
+          created_at: now,
+          updated_at: now,
+        })
+        .select()
+        .single()
+      if (error) throw error
+      return data
+    }
+  },
+
+  async incrementCalorieItemUsage(calorieItemId: string) {
+    const now = new Date().toISOString()
+    const { data, error } = await supabase
+      .rpc('increment_calorie_item_usage', {
+        p_calorie_item_id: calorieItemId,
+        p_now: now,
+      })
+    if (error) throw error
+    return data
+  },
+
+  async getCalorieItemByNormalizedName(userId: string, normalizedName: string) {
+    const { data, error } = await supabase
+      .from('calorie_items')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('normalized_name', normalizedName)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async getMostUsedCalorieItems(userId: string, limit: number = 10) {
+    const { data, error } = await supabase
+      .from('calorie_items')
+      .select('*')
+      .eq('user_id', userId)
+      .order('usage_count', { ascending: false })
+      .order('last_used_at', { ascending: false })
+      .limit(limit)
+    if (error) throw error
+    return data ?? []
+  },
+
+  async getRecentCalorieItems(userId: string, limit: number = 10) {
+    const { data, error } = await supabase
+      .from('calorie_items')
+      .select('*')
+      .eq('user_id', userId)
+      .order('last_used_at', { ascending: false })
       .limit(limit)
     if (error) throw error
     return data ?? []
