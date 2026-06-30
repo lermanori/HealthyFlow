@@ -1,4 +1,13 @@
 import { defineConfig, devices } from '@playwright/test'
+import dotenv from 'dotenv'
+
+dotenv.config()
+
+const backendEnv = {
+  HF_TEST_MODE: '1',
+  SUPABASE_URL: process.env.SUPABASE_URL ?? 'http://localhost',
+  SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'dummy',
+}
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -36,7 +45,7 @@ export default defineConfig({
       port: 3001,
       reuseExistingServer: true,
       timeout: 30_000,
-      env: { HF_TEST_MODE: '1' },
+      env: backendEnv,
     },
     {
       command: 'npx vite --port 5173',
