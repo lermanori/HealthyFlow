@@ -203,7 +203,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
         boxShadow: isDragging ? '0 20px 40px rgba(0,0,0,0.3)' : '0 4px 8px rgba(0,0,0,0.1)'
       }}
       exit={{ opacity: 0, y: -20 }}
-      whileHover={{ scale: 1.01 }}
+      whileHover={compact ? undefined : { scale: 1.01 }}
       className={`group relative border transition-all duration-300 ${
         compact ? `flex rounded-lg p-2.5 ${showMenu ? 'overflow-visible' : 'overflow-hidden'}` : 'rounded-xl p-4'
       } ${
