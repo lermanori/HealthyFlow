@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { Utensils, Plus, Trash2, Pencil, X, Check, Sparkles, Clock, Scale, TrendingDown, TrendingUp, Minus } from 'lucide-react'
 import { useCalorieEntries } from '../hooks/useCalorieEntries'
@@ -67,6 +67,10 @@ function formatDateLabel(value: string) {
   return new Date(`${value}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
 }
 
+function formatLastUsedLabel(value: string) {
+  return new Date(value).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
 function MacroStat({ label, value, accent = false }: { label: string; value: number | null; accent?: boolean }) {
   return (
     <div className={`rounded-lg border px-3 py-2 ${accent ? 'border-cyan-500/30 bg-cyan-500/10' : 'border-gray-700/70 bg-gray-950/25'}`}>
@@ -131,11 +135,15 @@ export default function CaloriesPage() {
   } = useWeightTracking(date)
   const [adding, setAdding] = useState(false)
   const [addForm, setAddForm] = useState<FormState>(() => emptyForm(currentTime()))
+  const [quickInsertQuery, setQuickInsertQuery] = useState('')
+  const [highlightedQuickInsertIndex, setHighlightedQuickInsertIndex] = useState(0)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<FormState>(() => emptyForm())
   const [showAiAnalyzer, setShowAiAnalyzer] = useState(false)
   const [weightDraft, setWeightDraft] = useState('')
   const [isEditingWeight, setIsEditingWeight] = useState(false)
+  const quickInsertSearchRef = useRef<HTMLInputElement | null>(null)
+  const quickInsertItemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const groupedEntries = entries.reduce<Record<string, CalorieEntry[]>>((groups, entry) => {
     const key = entry.time ?? 'no-time'
     groups[key] = groups[key] ?? []
@@ -143,6 +151,42 @@ export default function CaloriesPage() {
     return groups
   }, {})
   const timeGroups = Object.entries(groupedEntries)
+  const filteredQuickInsertItems = useMemo(() => {
+    const query = quickInsertQuery.trim().toLowerCase()
+    if (query === '') return quickInsertItems
+
+    return quickInsertItems.filter((item) => item.name.toLowerCase().includes(query))
+  }, [quickInsertItems, quickInsertQuery])
+
+  useEffect(() => {
+    if (!adding) return
+
+    setQuickInsertQuery('')
+    setHighlightedQuickInsertIndex(0)
+    const frame = window.requestAnimationFrame(() => quickInsertSearchRef.current?.focus())
+    return () => window.cancelAnimationFrame(frame)
+  }, [adding])
+
+  useEffect(() => {
+    if (!adding) return
+
+    const lastIndex = Math.max(filteredQuickInsertItems.length - 1, 0)
+    setHighlightedQuickInsertIndex((current) => Math.min(current, lastIndex))
+  }, [adding, filteredQuickInsertItems])
+
+  useEffect(() => {
+    if (!adding) return
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setAdding(false)
+        setAddForm(emptyForm(currentTime()))
+      }
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [adding])
 
   const submitAdd = () => {
     if (!addForm.name.trim() || addForm.calories === '') return
@@ -152,8 +196,75 @@ export default function CaloriesPage() {
   }
 
   const applyQuickInsert = (item: CalorieItem) => {
-    setAddForm(itemToForm(item))
+    setAddForm(itemToForm(item, addForm.time || currentTime()))
     setAdding(true)
+  }
+
+  const closeAddPanel = () => {
+    setAdding(false)
+    setAddForm(emptyForm(currentTime()))
+  }
+
+  const moveQuickInsertHighlight = (direction: 1 | -1) => {
+    if (filteredQuickInsertItems.length === 0) return
+
+    setHighlightedQuickInsertIndex((current) => {
+      const next = (current + direction + filteredQuickInsertItems.length) % filteredQuickInsertItems.length
+      window.requestAnimationFrame(() => quickInsertItemRefs.current[next]?.focus())
+      return next
+    })
+  }
+
+  const handleQuickInsertSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      moveQuickInsertHighlight(1)
+      return
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      moveQuickInsertHighlight(-1)
+      return
+    }
+
+    if (event.key === 'Enter' && filteredQuickInsertItems[highlightedQuickInsertIndex]) {
+      event.preventDefault()
+      applyQuickInsert(filteredQuickInsertItems[highlightedQuickInsertIndex])
+    }
+  }
+
+  const handleQuickInsertItemKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      moveQuickInsertHighlight(1)
+      return
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault()
+      moveQuickInsertHighlight(-1)
+      return
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault()
+      setHighlightedQuickInsertIndex(0)
+      window.requestAnimationFrame(() => quickInsertItemRefs.current[0]?.focus())
+      return
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault()
+      const lastIndex = filteredQuickInsertItems.length - 1
+      setHighlightedQuickInsertIndex(lastIndex)
+      window.requestAnimationFrame(() => quickInsertItemRefs.current[lastIndex]?.focus())
+      return
+    }
+
+    if (event.key === 'Tab' && event.shiftKey && index === 0) {
+      setHighlightedQuickInsertIndex(0)
+    }
   }
 
   const startEdit = (e: CalorieEntry) => {
@@ -231,50 +342,6 @@ export default function CaloriesPage() {
           <MealAnalyzer date={date} onClose={() => setShowAiAnalyzer(false)} />
         )}
       </AnimatePresence>
-
-      <div className="card">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-100">Quick Insert</h2>
-            <p className="text-xs text-gray-400">Server-backed recent and most-used items for this account.</p>
-          </div>
-          <div className="inline-flex rounded-lg border border-gray-700/80 bg-gray-950/20 p-1 text-xs">
-            <button
-              className={`rounded-md px-3 py-1.5 ${quickInsertSort === 'recent' ? 'bg-cyan-500/20 text-cyan-200' : 'text-gray-400'}`}
-              onClick={() => setQuickInsertSort('recent')}
-            >
-              Recent
-            </button>
-            <button
-              className={`rounded-md px-3 py-1.5 ${quickInsertSort === 'most-used' ? 'bg-cyan-500/20 text-cyan-200' : 'text-gray-400'}`}
-              onClick={() => setQuickInsertSort('most-used')}
-            >
-              Most Used
-            </button>
-          </div>
-        </div>
-
-        {isQuickInsertLoading ? (
-          <p className="text-sm text-gray-400">Loading...</p>
-        ) : quickInsertItems.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-gray-700/80 bg-gray-950/20 px-4 py-5 text-sm text-gray-500">
-            No saved item history yet. Use the full entry form below and your recent items will appear here.
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {quickInsertItems.map((item) => (
-              <button
-                key={item.id}
-                className="rounded-full border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-left text-sm text-cyan-100 transition hover:border-cyan-400/40 hover:bg-cyan-500/15"
-                onClick={() => applyQuickInsert(item)}
-              >
-                <span className="font-medium">{item.name}</span>
-                <span className="ml-2 text-cyan-300/80">{item.calories} cal</span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
 
       <div className="card">
         <div className="mb-4 flex items-center justify-between gap-3">
@@ -362,49 +429,6 @@ export default function CaloriesPage() {
           <p className="text-gray-400 text-sm">Loading...</p>
         ) : (
           <div className="space-y-3">
-            {adding && (
-              <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-3">
-                <div className="grid gap-3 md:grid-cols-[7rem_1.4fr_1.2fr]">
-                  <label className="space-y-1">
-                    <span className="text-xs text-gray-400">Time</span>
-                    <input type="time" className="input-field" value={addForm.time} onChange={(ev) => setAddForm({ ...addForm, time: ev.target.value })} />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs text-gray-400">Name</span>
-                    <input className="input-field" placeholder="Yogurt" value={addForm.name} onChange={(ev) => setAddForm({ ...addForm, name: ev.target.value })} />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs text-gray-400">Quantity</span>
-                    <input className="input-field" placeholder="e.g. 2 eggs" value={addForm.quantity} onChange={(ev) => setAddForm({ ...addForm, quantity: ev.target.value })} />
-                  </label>
-                </div>
-                <div className="mt-3 grid gap-3 sm:grid-cols-4">
-                  <label className="space-y-1">
-                    <span className="text-xs text-gray-400">Calories</span>
-                    <input type="number" className="input-field" placeholder="Cal" value={addForm.calories} onChange={(ev) => setAddForm({ ...addForm, calories: ev.target.value })} />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs text-gray-400">Protein</span>
-                    <input type="number" className="input-field" placeholder="g" value={addForm.protein} onChange={(ev) => setAddForm({ ...addForm, protein: ev.target.value })} />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs text-gray-400">Carbs</span>
-                    <input type="number" className="input-field" placeholder="g" value={addForm.carbs} onChange={(ev) => setAddForm({ ...addForm, carbs: ev.target.value })} />
-                  </label>
-                  <label className="space-y-1">
-                    <span className="text-xs text-gray-400">Fat</span>
-                    <input type="number" className="input-field" placeholder="g" value={addForm.fat} onChange={(ev) => setAddForm({ ...addForm, fat: ev.target.value })} />
-                  </label>
-                </div>
-                <div className="mt-3 flex justify-end">
-                  <div className="flex gap-2">
-                    <button onClick={submitAdd} className="text-cyan-400"><Check className="w-4 h-4" /></button>
-                    <button onClick={() => { setAdding(false); setAddForm(emptyForm(currentTime())) }} className="text-gray-400"><X className="w-4 h-4" /></button>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {timeGroups.map(([time, group]) => (
               <div key={time} className="overflow-hidden rounded-lg border border-gray-700/80 bg-gray-950/20">
                 <div className="flex items-center justify-between border-b border-gray-700/70 bg-gray-900/45 px-3 py-2">
@@ -508,6 +532,172 @@ export default function CaloriesPage() {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {adding && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <button
+              type="button"
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              aria-label="Close quick insert"
+              onClick={closeAddPanel}
+            />
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="calorie-quick-insert-title"
+              data-testid="calorie-quick-insert-dialog"
+              className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-cyan-500/20 bg-gray-900 shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b border-gray-800 px-5 py-4">
+                <div>
+                  <h2 id="calorie-quick-insert-title" className="text-lg font-semibold text-gray-100">Add Calorie Intake</h2>
+                  <p className="text-xs text-gray-400">Pick a recent item or fill the form manually.</p>
+                </div>
+                <button
+                  type="button"
+                  className="rounded-lg p-2 text-gray-400 transition hover:bg-gray-800 hover:text-gray-200"
+                  onClick={closeAddPanel}
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
+                <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-100">Quick Insert</h3>
+                      <p className="text-xs text-gray-400">Search within the current tab and use arrow keys plus Enter to pick an item.</p>
+                    </div>
+                    <div className="inline-flex rounded-lg border border-gray-700/80 bg-gray-950/30 p-1 text-xs">
+                      <button
+                        type="button"
+                        className={`rounded-md px-3 py-1.5 ${quickInsertSort === 'recent' ? 'bg-cyan-500/20 text-cyan-200' : 'text-gray-400'}`}
+                        onClick={() => setQuickInsertSort('recent')}
+                      >
+                        Recent
+                      </button>
+                      <button
+                        type="button"
+                        className={`rounded-md px-3 py-1.5 ${quickInsertSort === 'most-used' ? 'bg-cyan-500/20 text-cyan-200' : 'text-gray-400'}`}
+                        onClick={() => setQuickInsertSort('most-used')}
+                      >
+                        Most Used
+                      </button>
+                    </div>
+                  </div>
+
+                  <label className="mb-3 block space-y-1">
+                    <span className="text-xs text-gray-400">Search</span>
+                    <input
+                      ref={quickInsertSearchRef}
+                      data-testid="calorie-quick-insert-search"
+                      className="input-field"
+                      placeholder={`Filter ${quickInsertSort === 'recent' ? 'recent' : 'most-used'} items`}
+                      value={quickInsertQuery}
+                      onChange={(event) => {
+                        setQuickInsertQuery(event.target.value)
+                        setHighlightedQuickInsertIndex(0)
+                      }}
+                      onKeyDown={handleQuickInsertSearchKeyDown}
+                    />
+                  </label>
+
+                  {isQuickInsertLoading ? (
+                    <p className="text-sm text-gray-400">Loading...</p>
+                  ) : quickInsertItems.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-gray-700/80 bg-gray-950/20 px-4 py-5 text-sm text-gray-500">
+                      No saved item history yet. Use the form below and your recent items will appear here.
+                    </p>
+                  ) : filteredQuickInsertItems.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-gray-700/80 bg-gray-950/20 px-4 py-5 text-sm text-gray-500">
+                      No items match this filter in the current tab.
+                    </p>
+                  ) : (
+                    <div className="grid gap-2" data-testid="calorie-quick-insert-list">
+                      {filteredQuickInsertItems.map((item, index) => (
+                        <button
+                          key={item.id}
+                          ref={(node) => {
+                            quickInsertItemRefs.current[index] = node
+                          }}
+                          type="button"
+                          data-testid="calorie-quick-insert-item"
+                          className={`rounded-xl border px-3 py-3 text-left transition ${
+                            index === highlightedQuickInsertIndex
+                              ? 'border-cyan-400/60 bg-cyan-500/15 text-cyan-50'
+                              : 'border-cyan-500/20 bg-cyan-500/5 text-cyan-100 hover:border-cyan-400/40 hover:bg-cyan-500/10'
+                          }`}
+                          onClick={() => applyQuickInsert(item)}
+                          onFocus={() => setHighlightedQuickInsertIndex(index)}
+                          onKeyDown={(event) => handleQuickInsertItemKeyDown(event, index)}
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="font-medium">{item.name}</p>
+                              <p className="text-xs text-cyan-200/70">
+                                {quickInsertSort === 'most-used' ? `${item.usageCount} uses` : `Last used ${formatLastUsedLabel(item.lastUsedAt)}`}
+                              </p>
+                            </div>
+                            <span className="text-sm text-cyan-200/80">{item.calories} cal</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-3 rounded-xl border border-gray-800 bg-gray-950/40 p-4">
+                  <div className="grid gap-3 md:grid-cols-[7rem_1.4fr_1.2fr]">
+                    <label className="space-y-1">
+                      <span className="text-xs text-gray-400">Time</span>
+                      <input type="time" className="input-field" value={addForm.time} onChange={(ev) => setAddForm({ ...addForm, time: ev.target.value })} />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs text-gray-400">Name</span>
+                      <input className="input-field" placeholder="Yogurt" value={addForm.name} onChange={(ev) => setAddForm({ ...addForm, name: ev.target.value })} />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs text-gray-400">Quantity</span>
+                      <input className="input-field" placeholder="e.g. 2 eggs" value={addForm.quantity} onChange={(ev) => setAddForm({ ...addForm, quantity: ev.target.value })} />
+                    </label>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-4">
+                    <label className="space-y-1">
+                      <span className="text-xs text-gray-400">Calories</span>
+                      <input type="number" className="input-field" placeholder="Cal" value={addForm.calories} onChange={(ev) => setAddForm({ ...addForm, calories: ev.target.value })} />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs text-gray-400">Protein</span>
+                      <input type="number" className="input-field" placeholder="g" value={addForm.protein} onChange={(ev) => setAddForm({ ...addForm, protein: ev.target.value })} />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs text-gray-400">Carbs</span>
+                      <input type="number" className="input-field" placeholder="g" value={addForm.carbs} onChange={(ev) => setAddForm({ ...addForm, carbs: ev.target.value })} />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs text-gray-400">Fat</span>
+                      <input type="number" className="input-field" placeholder="g" value={addForm.fat} onChange={(ev) => setAddForm({ ...addForm, fat: ev.target.value })} />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-gray-800 px-5 py-4">
+                <button type="button" onClick={closeAddPanel} className="btn-secondary px-4 py-2 text-sm">
+                  Cancel
+                </button>
+                <button type="button" onClick={submitAdd} className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm">
+                  <Check className="h-4 w-4" />
+                  Save Entry
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
