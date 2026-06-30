@@ -4,13 +4,17 @@ import { caloriesService, CalorieEntry, CalorieEntryInput } from '../services/ap
 export function useCalorieEntries(date: string) {
   const queryClient = useQueryClient()
   const queryKey = ['calories', date]
+  const calorieItemsKey = ['calorie-items']
 
   const { data: entries, isLoading } = useQuery({
     queryKey,
     queryFn: () => caloriesService.list(date),
   })
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey })
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey })
+    queryClient.invalidateQueries({ queryKey: calorieItemsKey })
+  }
 
   const createMutation = useMutation({
     mutationFn: (entry: CalorieEntryInput) => caloriesService.create(entry),

@@ -541,6 +541,21 @@ export type CalorieEntryInput = {
   quantity?: string | null
 }
 
+export interface CalorieItem {
+  id: string
+  userId: string
+  name: string
+  normalizedName: string
+  calories: number
+  protein: number | null
+  carbs: number | null
+  fat: number | null
+  usageCount: number
+  lastUsedAt: string
+  createdAt: string
+  updatedAt: string
+}
+
 export const caloriesService = {
   list: async (date: string): Promise<CalorieEntry[]> => {
     const response = await api.get('/calories', { params: { date } })
@@ -559,6 +574,11 @@ export const caloriesService = {
 
   remove: async (id: string): Promise<void> => {
     await api.delete(`/calories/${id}`)
+  },
+
+  items: async (sort: 'recent' | 'most-used', limit = 8): Promise<CalorieItem[]> => {
+    const response = await api.get('/calories/items', { params: { sort, limit } })
+    return response.data
   },
 }
 
