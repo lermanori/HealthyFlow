@@ -216,6 +216,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       <div className={`flex min-h-0 min-w-0 ${compact ? 'w-full items-center gap-2' : 'items-start space-x-3'}`}>
         <button
           onClick={handleComplete}
+          aria-label={task.completed ? 'Uncheck task' : 'Check task'}
           className={`flex-shrink-0 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-300 ${
             compact ? '!h-4 !min-h-0 !w-4 !min-w-0 sm:!h-5 sm:!w-5' : 'h-5 w-5'
           } ${
