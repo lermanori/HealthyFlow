@@ -213,6 +213,44 @@ test('Delete timed task from schedule menu removes it from Dashboard', async ({ 
   await expect(titleHeading).not.toBeVisible({ timeout: 10_000 })
 })
 
+test('Scheduled timeline checkbox toggles reliably while the card is hovered', async ({ page }) => {
+  const reset = await page.request.post('http://localhost:3001/test/reset')
+  expect(reset.ok()).toBeTruthy()
+
+  await page.goto('/add')
+  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+
+  const taskTitle = `Hovered Timeline Toggle ${Date.now()}`
+  await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
+  await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
+  await page.locator('input[type="time"]').fill('10:00')
+  await page.locator('button[type="submit"]').click()
+
+  await expect(page).toHaveURL('/', { timeout: 10_000 })
+
+  const dragHandle = page.locator('[data-timeline-drag-handle="true"]').filter({ hasText: taskTitle }).first()
+  const checkbox = dragHandle.getByRole('button', { name: 'Check task' })
+  const title = dragHandle.getByRole('heading', { name: taskTitle })
+
+  const transformBeforeHover = await dragHandle.evaluate((el) => getComputedStyle(el).transform)
+  await dragHandle.hover()
+  await expect
+    .poll(() => dragHandle.evaluate((el) => getComputedStyle(el).transform))
+    .toBe(transformBeforeHover)
+
+  await checkbox.click()
+  await expect(title).toHaveClass(/line-through/, { timeout: 10_000 })
+
+  await dragHandle.hover()
+  await expect(dragHandle.getByRole('button', { name: 'Uncheck task' })).toBeVisible()
+  await dragHandle.getByRole('button', { name: 'Uncheck task' }).click()
+  await expect(title).not.toHaveClass(/line-through/, { timeout: 10_000 })
+
+  await dragHandle.hover()
+  await dragHandle.getByRole('button', { name: 'Check task' }).click()
+  await expect(title).toHaveClass(/line-through/, { timeout: 10_000 })
+})
+
 test('Schedule compacts empty four-hour windows around timed tasks', async ({ page }) => {
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
