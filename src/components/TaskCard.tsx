@@ -194,10 +194,10 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
 
   return (
     <motion.div
-      layout
+      layout={!isDragging}
       initial={{ opacity: 0, y: 20 }}
-      animate={{ 
-        opacity: 1, 
+      animate={{
+        opacity: 1,
         y: 0,
         scale: isDragging ? 1.02 : 1,
         boxShadow: isDragging ? '0 20px 40px rgba(0,0,0,0.3)' : '0 4px 8px rgba(0,0,0,0.1)'
