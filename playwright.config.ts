@@ -9,6 +9,8 @@ const backendEnv = {
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY ?? 'dummy',
 }
 
+const reuseExistingServer = process.env.HF_TEST_MODE !== '1'
+
 export default defineConfig({
   testDir: './tests/e2e',
   globalSetup: './tests/e2e/globalSetup.ts',
@@ -43,14 +45,14 @@ export default defineConfig({
     {
       command: 'npx tsx backend/src/index.ts',
       port: 3001,
-      reuseExistingServer: true,
+      reuseExistingServer,
       timeout: 30_000,
       env: backendEnv,
     },
     {
       command: 'npx vite --port 5173',
       port: 5173,
-      reuseExistingServer: true,
+      reuseExistingServer,
       timeout: 30_000,
     },
   ],
