@@ -24,6 +24,8 @@ const HOUR_SLOT_HEIGHT_PX = 72
 const COMPACT_EMPTY_SLOT_HEIGHT_PX = 28
 const MIN_TIMED_TASK_MINUTES = 30
 const MIN_TIMED_TASK_HEIGHT_PX = 52
+const SLOT_VERTICAL_PADDING_PX = 16
+const SLOT_CONTENT_GAP_PX = 4
 
 function formatHour(slot: string): string {
   const h = parseInt(slot, 10)
@@ -77,6 +79,22 @@ function eventDurationMinutes(event: ExternalCalendarEvent): number | undefined 
 function timedBlockHeight(duration?: number): number {
   const minutes = Math.max(duration || MIN_TIMED_TASK_MINUTES, MIN_TIMED_TASK_MINUTES)
   return Math.max(MIN_TIMED_TASK_HEIGHT_PX, Math.round((minutes / 60) * HOUR_SLOT_HEIGHT_PX))
+}
+
+function slotHeightForContent(tasks: Task[], events: ExternalCalendarEvent[], isCompacted: boolean): number {
+  if (isCompacted) return COMPACT_EMPTY_SLOT_HEIGHT_PX
+
+  const taskHeights = tasks.map(task => timedBlockHeight(task.duration))
+  const eventHeights = events.map(event => timedBlockHeight(eventDurationMinutes(event)))
+  const itemHeights = [...eventHeights, ...taskHeights]
+  if (itemHeights.length === 0) return HOUR_SLOT_HEIGHT_PX
+
+  const contentHeight =
+    SLOT_VERTICAL_PADDING_PX +
+    itemHeights.reduce((sum, height) => sum + height, 0) +
+    Math.max(0, itemHeights.length - 1) * SLOT_CONTENT_GAP_PX
+
+  return Math.max(HOUR_SLOT_HEIGHT_PX, contentHeight)
 }
 
 function compactableEmptySlots(slots: string[], hasContent: (slot: string) => boolean): Set<string> {
@@ -304,7 +322,7 @@ export default function DayTimeline({
             const slotCalendarEvents = calendarBuckets[slot]
             const hasContent = slotTasks.length > 0 || slotCalendarEvents.length > 0
             const isCompacted = compactedEmptySlots.has(slot)
-            const slotHeight = isCompacted ? COMPACT_EMPTY_SLOT_HEIGHT_PX : HOUR_SLOT_HEIGHT_PX
+            const slotHeight = slotHeightForContent(slotTasks, slotCalendarEvents, isCompacted)
 
             return (
               <Droppable droppableId={slot} key={slot}>

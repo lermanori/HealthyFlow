@@ -392,6 +392,46 @@ test('Schedule compacts empty four-hour windows around timed tasks', async ({ pa
   }).toBe(true)
 })
 
+test('Schedule expands occupied hours to fit multiple timed items', async ({ page }) => {
+  await page.goto('/test/reset', { waitUntil: 'networkidle' })
+
+  const firstTitle = `Same Hour First ${Date.now()}`
+  const secondTitle = `Same Hour Second ${Date.now()}`
+
+  for (const title of [firstTitle, secondTitle]) {
+    await page.goto('/add')
+    await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+    await page.locator('input[placeholder*="Enter"]').first().fill(title)
+    await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
+    await page.locator('input[type="time"]').fill('16:00')
+    await page.locator('button[type="submit"]').click()
+    await expect(page).toHaveURL('/', { timeout: 10_000 })
+  }
+
+  const fourPm = page.locator('[data-slot="16:00"]')
+  const fivePm = page.locator('[data-slot="17:00"]')
+  const firstCard = page.locator('[data-testid="timeline-draggable-task"]').filter({ hasText: firstTitle }).first()
+  const secondCard = page.locator('[data-testid="timeline-draggable-task"]').filter({ hasText: secondTitle }).first()
+
+  await expect(fourPm).toHaveAttribute('data-compacted', 'false')
+  await expect(firstCard).toBeVisible()
+  await expect(secondCard).toBeVisible()
+
+  const fourPmBox = await fourPm.boundingBox()
+  const fivePmBox = await fivePm.boundingBox()
+  const firstBox = await firstCard.boundingBox()
+  const secondBox = await secondCard.boundingBox()
+  expect(fourPmBox).toBeTruthy()
+  expect(fivePmBox).toBeTruthy()
+  expect(firstBox).toBeTruthy()
+  expect(secondBox).toBeTruthy()
+
+  expect(fourPmBox!.height).toBeGreaterThan(100)
+  expect(firstBox!.y).toBeGreaterThanOrEqual(fourPmBox!.y)
+  expect(secondBox!.y + secondBox!.height).toBeLessThanOrEqual(fourPmBox!.y + fourPmBox!.height + 1)
+  expect(fivePmBox!.y).toBeGreaterThanOrEqual(fourPmBox!.y + fourPmBox!.height - 1)
+})
+
 test('Drag start keeps the card attached to the pointer without shifting layout', async ({ page }) => {
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
