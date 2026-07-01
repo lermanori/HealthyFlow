@@ -1,3 +1,9 @@
+### 2026-07-01 14:15 — `main`
+
+Finished issue #94 by moving the calorie AI entry action into the Entries card beside the manual Add Entry button. The date control now stays focused on selecting the log day, while both entry creation paths live together where the user is working. The project board item was moved to Done after the build check passed.
+
+---
+
 ### 2026-07-01 14:02 — `main`
 
 Stabilized the timeline card drag path by moving drag handles onto a dedicated grip and removing the mid-gesture expansion behavior that made cards drift away from the pointer. Compact task cards and mobile calendar-event controls now have regression coverage for clipping, menu visibility, checkbox sizing, and click reliability. Calorie entry writes also now surface toast errors, and the missing `calorie_items` Supabase migration was added so manual and AI calorie entries can persist their reusable food history.

@@ -328,12 +328,6 @@ export default function CaloriesPage() {
             value={date}
             onChange={(e) => setDate(e.target.value)}
           />
-          <button
-            className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm"
-            onClick={() => setShowAiAnalyzer(true)}
-          >
-            <Sparkles className="w-4 h-4" /> Add with AI
-          </button>
         </div>
       </div>
 
@@ -418,11 +412,19 @@ export default function CaloriesPage() {
       </div>
 
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-gray-100">Entries</h2>
-          <button className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm" onClick={() => setAdding(true)}>
-            <Plus className="w-4 h-4" /> Add Entry
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm"
+              onClick={() => setShowAiAnalyzer(true)}
+            >
+              <Sparkles className="w-4 h-4" /> Add with AI
+            </button>
+            <button className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm" onClick={() => setAdding(true)}>
+              <Plus className="w-4 h-4" /> Add Entry
+            </button>
+          </div>
         </div>
 
         {isLoading ? (
