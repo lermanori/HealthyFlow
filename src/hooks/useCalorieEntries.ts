@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { caloriesService, CalorieEntry, CalorieEntryInput } from '../services/api'
 
 export function useCalorieEntries(date: string) {
@@ -19,17 +20,20 @@ export function useCalorieEntries(date: string) {
   const createMutation = useMutation({
     mutationFn: (entry: CalorieEntryInput) => caloriesService.create(entry),
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to save calorie entry'),
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<CalorieEntryInput> }) =>
       caloriesService.update(id, patch),
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to update calorie entry'),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => caloriesService.remove(id),
     onSuccess: invalidate,
+    onError: () => toast.error('Failed to delete calorie entry'),
   })
 
   const totals = (entries ?? []).reduce(

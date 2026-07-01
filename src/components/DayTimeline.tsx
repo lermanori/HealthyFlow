@@ -1,7 +1,7 @@
-import { MouseEvent, PointerEvent, useState } from 'react'
-import { flushSync } from 'react-dom'
+import { useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
-import { CalendarDays, Check, Clock, MapPin } from 'lucide-react'
+import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
+import { CalendarDays, Check, Clock, GripVertical, MapPin } from 'lucide-react'
 import { ExternalCalendarEvent, Task } from '../services/api'
 import TaskCard from './TaskCard'
 import { taskService } from '../services/api'
@@ -162,6 +162,30 @@ function CalendarEventBlock({
   )
 }
 
+function TaskDragGrip({
+  dragHandleProps,
+  compact = false,
+}: {
+  dragHandleProps: DraggableProvidedDragHandleProps | null
+  compact?: boolean
+}) {
+  return (
+    <div
+      {...dragHandleProps}
+      role="button"
+      tabIndex={0}
+      data-testid="timeline-task-drag-grip"
+      data-timeline-drag-handle="true"
+      aria-label="Drag task"
+      className={`flex shrink-0 cursor-grab touch-none select-none items-center justify-center rounded-md border border-gray-700/70 bg-gray-900/60 text-gray-500 transition-colors hover:border-cyan-500/50 hover:text-cyan-300 active:cursor-grabbing ${
+        compact ? 'h-full w-6 sm:w-5' : 'min-h-11 w-8 self-stretch sm:min-h-10 sm:w-7'
+      }`}
+    >
+      <GripVertical className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
+    </div>
+  )
+}
+
 export default function DayTimeline({
   tasks,
   calendarEvents = [],
@@ -174,7 +198,6 @@ export default function DayTimeline({
   onDeleteTask,
 }: DayTimelineProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
-  const [isExpandedForDrag, setIsExpandedForDrag] = useState(false)
 
   // Split: scheduled tasks go into hour-slot buckets, untimed go into anytime
   const scheduled = tasks.filter(t => t.startTime)
@@ -205,43 +228,10 @@ export default function DayTimeline({
     calendarBuckets[`${String(clampedHour).padStart(2, '0')}:00`].push(event)
   }
   const hasSlotContent = (slot: string) => slotBuckets[slot].length > 0 || calendarBuckets[slot].length > 0
-  const compactedEmptySlots = isExpandedForDrag ? new Set<string>() : compactableEmptySlots(HOUR_SLOTS, hasSlotContent)
-
-  const handleBeforeCapture = () => {
-    // Expand before the drag library measures droppable dimensions; onDragStart is too late.
-    setIsExpandedForDrag(true)
-  }
-
-  const expandIfDragHandle = (target: EventTarget) => {
-    if (!(target instanceof Element)) return
-
-    const interactiveTarget = target.closest('button, input, textarea, select, a, [role="menu"], .task-menu')
-    if (interactiveTarget) return
-
-    if (target.closest('[data-timeline-drag-handle="true"], [data-rfd-drag-handle-draggable-id]')) {
-      flushSync(() => setIsExpandedForDrag(true))
-    }
-  }
-
-  const handleMouseDownCapture = (event: MouseEvent<HTMLDivElement>) => {
-    expandIfDragHandle(event.target)
-  }
-
-  const handlePointerDownCapture = (event: PointerEvent<HTMLDivElement>) => {
-    expandIfDragHandle(event.target)
-  }
-
-  const handleReleaseCapture = () => {
-    if (!draggedTaskId) setIsExpandedForDrag(false)
-  }
-
-  const handlePointerUpCapture = () => {
-    handleReleaseCapture()
-  }
-
-  const handleMouseUpCapture = () => {
-    handleReleaseCapture()
-  }
+  // Compaction is static — it never changes during a drag. Expanding mid-lift reflows the
+  // timeline and desyncs the dragged clone from the pointer. @hello-pangea/dnd hit-detects by
+  // rect intersection, so a compacted 28px slot is still a valid drop target without expanding.
+  const compactedEmptySlots = compactableEmptySlots(HOUR_SLOTS, hasSlotContent)
 
   const handleDragStart = (start: any) => {
     setDraggedTaskId(start.draggableId)
@@ -249,7 +239,6 @@ export default function DayTimeline({
 
   const handleDragEnd = async (result: DropResult) => {
     setDraggedTaskId(null)
-    setIsExpandedForDrag(false)
     if (!result.destination) return
 
     const { draggableId: taskId, destination } = result
@@ -305,13 +294,8 @@ export default function DayTimeline({
     <div className="space-y-4 md:space-y-6">
       <h2 className="text-xl font-semibold text-gray-100">Today's Schedule</h2>
 
-      <DragDropContext onBeforeCapture={handleBeforeCapture} onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
-        <div
-          onMouseDownCapture={handleMouseDownCapture}
-          onMouseUpCapture={handleMouseUpCapture}
-          onPointerDownCapture={handlePointerDownCapture}
-          onPointerUpCapture={handlePointerUpCapture}
-        >
+      <DragDropContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
+        <div>
         {/* Scheduled section — one droppable per hour slot */}
         <div className="space-y-1">
           <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">Scheduled</h3>
@@ -377,14 +361,14 @@ export default function DayTimeline({
                             <div
                               ref={provided.innerRef}
                               {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              data-timeline-drag-handle="true"
-                              className="min-h-0"
+                              data-testid="timeline-draggable-task"
+                              className="flex min-h-0 min-w-0 gap-1.5"
                               style={{
                                 ...provided.draggableProps.style,
                                 height: timedBlockHeight(task.duration),
                               }}
                             >
+                              <TaskDragGrip dragHandleProps={provided.dragHandleProps} compact />
                               <TaskCard
                                 task={task}
                                 onComplete={onCompleteTask}
@@ -393,7 +377,7 @@ export default function DayTimeline({
                                 onDelete={onDeleteTask}
                                 isDragging={snapshot.isDragging || draggedTaskId === task.id}
                                 compact
-                                className="h-full"
+                                className="h-full min-w-0 flex-1"
                               />
                             </div>
                           )}
@@ -444,9 +428,10 @@ export default function DayTimeline({
                       <div
                         ref={provided.innerRef}
                         {...provided.draggableProps}
-                        {...provided.dragHandleProps}
-                        data-timeline-drag-handle="true"
+                        data-testid="timeline-draggable-task"
+                        className="flex min-w-0 gap-2"
                       >
+                        <TaskDragGrip dragHandleProps={provided.dragHandleProps} />
                         <TaskCard
                           task={task}
                           onComplete={onCompleteTask}
@@ -454,6 +439,7 @@ export default function DayTimeline({
                           onEdit={onEditTask}
                           onDelete={onDeleteTask}
                           isDragging={snapshot.isDragging || draggedTaskId === task.id}
+                          className="min-w-0 flex-1"
                         />
                       </div>
                     )}

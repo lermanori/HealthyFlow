@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
 import { test, expect } from './fixtures/ai-stubs'
 
 // Each test fully independent: reset, add task, perform action, assert persistence
@@ -228,27 +230,138 @@ test('Scheduled timeline checkbox toggles reliably while the card is hovered', a
 
   await expect(page).toHaveURL('/', { timeout: 10_000 })
 
-  const dragHandle = page.locator('[data-timeline-drag-handle="true"]').filter({ hasText: taskTitle }).first()
-  const checkbox = dragHandle.getByRole('button', { name: 'Check task' })
-  const title = dragHandle.getByRole('heading', { name: taskTitle })
+  const taskCard = page.locator('[data-testid="timeline-draggable-task"]').filter({ hasText: taskTitle }).first()
+  const checkbox = taskCard.getByRole('button', { name: 'Check task' })
+  const title = taskCard.getByRole('heading', { name: taskTitle })
 
-  const transformBeforeHover = await dragHandle.evaluate((el) => getComputedStyle(el).transform)
-  await dragHandle.hover()
+  const transformBeforeHover = await taskCard.evaluate((el) => getComputedStyle(el).transform)
+  await taskCard.hover()
   await expect
-    .poll(() => dragHandle.evaluate((el) => getComputedStyle(el).transform))
+    .poll(() => taskCard.evaluate((el) => getComputedStyle(el).transform))
     .toBe(transformBeforeHover)
 
   await checkbox.click()
   await expect(title).toHaveClass(/line-through/, { timeout: 10_000 })
 
-  await dragHandle.hover()
-  await expect(dragHandle.getByRole('button', { name: 'Uncheck task' })).toBeVisible()
-  await dragHandle.getByRole('button', { name: 'Uncheck task' }).click()
+  await taskCard.hover()
+  await expect(taskCard.getByRole('button', { name: 'Uncheck task' })).toBeVisible()
+  await taskCard.getByRole('button', { name: 'Uncheck task' }).click()
   await expect(title).not.toHaveClass(/line-through/, { timeout: 10_000 })
 
-  await dragHandle.hover()
-  await dragHandle.getByRole('button', { name: 'Check task' }).click()
+  await taskCard.hover()
+  await taskCard.getByRole('button', { name: 'Check task' }).click()
   await expect(title).toHaveClass(/line-through/, { timeout: 10_000 })
+})
+
+test('Dedicated drag grip keeps scheduled and Anytime card controls clickable', async ({ page }) => {
+  const reset = await page.request.post('http://localhost:3001/test/reset')
+  expect(reset.ok()).toBeTruthy()
+
+  const scheduledTitle = `Grip Scheduled ${Date.now()}`
+  await page.goto('/add')
+  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await page.locator('input[placeholder*="Enter"]').first().fill(scheduledTitle)
+  await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
+  await page.locator('input[type="time"]').fill('10:00')
+  await page.locator('button[type="submit"]').click()
+  await expect(page).toHaveURL('/', { timeout: 10_000 })
+
+  const anytimeTitle = `Grip Anytime ${Date.now()}`
+  await page.goto('/add')
+  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await page.locator('input[placeholder*="Enter"]').first().fill(anytimeTitle)
+  await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
+  await page.locator('button[type="submit"]').click()
+  await expect(page).toHaveURL('/', { timeout: 10_000 })
+
+  const scheduledCard = page.locator('[data-testid="timeline-draggable-task"]').filter({ hasText: scheduledTitle }).first()
+  const anytimeCard = page.locator('[data-testid="timeline-draggable-task"]').filter({ hasText: anytimeTitle }).first()
+  await expect(scheduledCard).toBeVisible()
+  await expect(anytimeCard).toBeVisible()
+
+  for (const card of [scheduledCard, anytimeCard]) {
+    const grip = card.getByTestId('timeline-task-drag-grip')
+    await expect(grip).toHaveAttribute('data-rfd-drag-handle-draggable-id', /.+/)
+    await expect(card).not.toHaveAttribute('data-rfd-drag-handle-draggable-id', /.+/)
+
+    await card.hover()
+    await card.getByRole('button', { name: 'Check task' }).click()
+    await expect(card.getByRole('button', { name: 'Uncheck task' })).toBeVisible({ timeout: 10_000 })
+
+    await card.hover()
+    await card.getByRole('button', { name: 'Uncheck task' }).click()
+    await expect(card.getByRole('button', { name: 'Check task' })).toBeVisible({ timeout: 10_000 })
+
+    await card.hover()
+    const menuButton = card.locator('button').last()
+    await menuButton.click()
+    await expect(page.locator('button', { hasText: 'Edit' }).first()).toBeVisible({ timeout: 5_000 })
+    await menuButton.click()
+
+    const box = await grip.boundingBox()
+    expect(box).toBeTruthy()
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box!.x + box!.width / 2 + 8, box!.y + box!.height / 2 + 8, { steps: 3 })
+    await page.mouse.up()
+  }
+})
+
+test('Compact timeline card does not clip content or overflow menu', async ({ page }) => {
+  const reset = await page.request.post('http://localhost:3001/test/reset')
+  expect(reset.ok()).toBeTruthy()
+
+  await page.goto('/add')
+  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+
+  const taskTitle = `Compact Clipping ${Date.now()}`
+  await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
+  await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
+  await page.locator('input[type="time"]').fill('10:00')
+  await page.locator('button[type="submit"]').click()
+
+  await expect(page).toHaveURL('/', { timeout: 10_000 })
+
+  const draggable = page.locator('[data-testid="timeline-draggable-task"]').filter({ hasText: taskTitle }).first()
+  const card = draggable.getByRole('heading', { name: taskTitle }).locator('xpath=ancestor::div[contains(@class, "rounded-lg") and contains(@class, "border")]').first()
+  const checkbox = card.getByRole('button', { name: 'Check task' })
+  const title = card.getByRole('heading', { name: taskTitle })
+  const category = card.getByText('personal')
+
+  await expect(card).toBeVisible()
+  await expect(card).toHaveCSS('overflow', 'visible')
+
+  const cardBox = await card.boundingBox()
+  expect(cardBox).toBeTruthy()
+  for (const locator of [checkbox, title, category]) {
+    await expect(locator).toBeVisible()
+    const box = await locator.boundingBox()
+    expect(box).toBeTruthy()
+    expect(box!.x).toBeGreaterThanOrEqual(cardBox!.x)
+    expect(box!.y).toBeGreaterThanOrEqual(cardBox!.y)
+    expect(box!.x + box!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width + 1)
+    expect(box!.y + box!.height).toBeLessThanOrEqual(cardBox!.y + cardBox!.height + 1)
+  }
+
+  await expect.poll(() => card.evaluate((el) => getComputedStyle(el).transform)).toBe('none')
+  const transformBeforeHover = await card.evaluate((el) => getComputedStyle(el).transform)
+  await card.hover()
+  await expect.poll(() => card.evaluate((el) => getComputedStyle(el).transform)).toBe(transformBeforeHover)
+
+  const menuButton = card.locator('button').last()
+  await menuButton.click()
+  const editButton = page.locator('button', { hasText: 'Edit' }).first()
+  const deleteButton = page.locator('button', { hasText: 'Delete' }).first()
+  await expect(editButton).toBeVisible({ timeout: 5_000 })
+  await expect(deleteButton).toBeVisible()
+
+  const menuBox = await page.locator('.task-menu').first().boundingBox()
+  expect(menuBox).toBeTruthy()
+  expect(menuBox!.width).toBeGreaterThan(0)
+  expect(menuBox!.height).toBeGreaterThan(0)
+
+  await editButton.click()
+  await expect(page.locator('input[placeholder*="task title"]')).toBeVisible({ timeout: 5_000 })
 })
 
 test('Schedule compacts empty four-hour windows around timed tasks', async ({ page }) => {
@@ -279,13 +392,13 @@ test('Schedule compacts empty four-hour windows around timed tasks', async ({ pa
   }).toBe(true)
 })
 
-test('Schedule expands compacted windows during drag', async ({ page }) => {
+test('Drag start keeps the card attached to the pointer without shifting layout', async ({ page }) => {
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
   await page.goto('/add')
   await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
 
-  const taskTitle = `Drag Expanded Schedule ${Date.now()}`
+  const taskTitle = `Drag Attached Schedule ${Date.now()}`
   await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
   await page.locator('input[type="time"]').fill('10:00')
@@ -296,21 +409,90 @@ test('Schedule expands compacted windows during drag', async ({ page }) => {
   await expect(titleHeading).toBeVisible()
   await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'true')
 
-  const dragHandle = page.locator('[data-timeline-drag-handle="true"]').filter({ hasText: taskTitle }).first()
-  await dragHandle.hover()
-  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'true')
+  const taskCard = page.locator('[data-testid="timeline-draggable-task"]').filter({ hasText: taskTitle }).first()
+  const dragHandle = taskCard.getByTestId('timeline-task-drag-grip')
+  await taskCard.hover()
 
   const box = await dragHandle.boundingBox()
   expect(box).toBeTruthy()
+  const cardTopBefore = (await taskCard.boundingBox())!.y
+
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
   await page.mouse.down()
-  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'false')
 
-  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2 + 80, { steps: 8 })
+  // Lifting must NOT expand the compacted windows — expanding here reflows the timeline
+  // and throws the dragged clone away from the pointer.
+  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'true')
 
-  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'false')
-  await expect(page.locator('[data-slot="11:00"]')).toHaveAttribute('data-compacted', 'false')
+  const dy = 60
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2 + dy, { steps: 6 })
+
+  // Still compacted mid-drag: no vertical layout shift above or below the dragged card.
+  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'true')
+  await expect(page.locator('[data-slot="11:00"]')).toHaveAttribute('data-compacted', 'true')
+
+  // The dragged card tracks the pointer: its top moves ~dy, not hundreds of px.
+  const cardTopDuring = (await taskCard.boundingBox())!.y
+  expect(Math.abs((cardTopDuring - cardTopBefore) - dy)).toBeLessThan(24)
 
   await page.mouse.up()
   await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'true')
+})
+
+test('Drag start avoids fragile capture hooks and drag-time expansion', async () => {
+  const source = await readFile(path.join(process.cwd(), 'src/components/DayTimeline.tsx'), 'utf8')
+
+  expect(source).not.toContain('flushSync')
+  expect(source).not.toContain('onMouseDownCapture')
+  expect(source).not.toContain('onPointerDownCapture')
+  expect(source).not.toContain('onBeforeCapture')
+  expect(source).not.toContain('isExpandedForDrag')
+})
+
+test('Mobile calendar event checkbox stays compact and clear of the title', async ({ page }) => {
+  const eventTitle = `Mobile Calendar ${Date.now()}`
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.route('**/api/calendar/google/events**', async (route) => {
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify([{
+        id: 'external-mobile-event-1',
+        provider: 'google',
+        calendarId: 'primary',
+        externalEventId: 'google-mobile-event-1',
+        title: eventTitle,
+        description: null,
+        location: null,
+        startAt: `${new Date().toISOString().slice(0, 10)}T10:00:00.000Z`,
+        endAt: `${new Date().toISOString().slice(0, 10)}T11:00:00.000Z`,
+        localStartTime: '10:00',
+        localEndTime: '11:00',
+        allDay: false,
+        status: 'confirmed',
+        htmlLink: null,
+        completed: false,
+        completedAt: null,
+      }]),
+    })
+  })
+
+  await page.goto('/')
+  const eventRow = page.locator('[data-slot="10:00"]').filter({ hasText: eventTitle }).first()
+  const checkbox = eventRow.getByRole('button', { name: 'Check calendar event', exact: true })
+  const title = eventRow.getByRole('heading', { name: eventTitle })
+  await expect(checkbox).toBeVisible({ timeout: 10_000 })
+  await expect(title).toBeVisible()
+
+  const checkboxBox = await checkbox.boundingBox()
+  const titleBox = await title.boundingBox()
+  expect(checkboxBox).toBeTruthy()
+  expect(titleBox).toBeTruthy()
+  expect(Math.round(checkboxBox!.width)).toBeLessThanOrEqual(20)
+  expect(Math.round(checkboxBox!.height)).toBeLessThanOrEqual(20)
+  expect(titleBox!.x).toBeGreaterThan(checkboxBox!.x + checkboxBox!.width)
+  expect(titleBox!.x - (checkboxBox!.x + checkboxBox!.width)).toBeGreaterThanOrEqual(4)
+
+  const source = await readFile(path.join(process.cwd(), 'src/components/DayTimeline.tsx'), 'utf8')
+  expect(source).toContain('!min-h-0 !w-4 !min-w-0')
 })

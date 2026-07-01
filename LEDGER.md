@@ -1,3 +1,9 @@
+### 2026-07-01 14:02 — `main`
+
+Stabilized the timeline card drag path by moving drag handles onto a dedicated grip and removing the mid-gesture expansion behavior that made cards drift away from the pointer. Compact task cards and mobile calendar-event controls now have regression coverage for clipping, menu visibility, checkbox sizing, and click reliability. Calorie entry writes also now surface toast errors, and the missing `calorie_items` Supabase migration was added so manual and AI calorie entries can persist their reusable food history.
+
+---
+
 ### 2026-06-28 16:25 — `issue-59-stop-hover-auto-expand`
 
 Stopped the compact schedule from auto-expanding just because the cursor starts over a task card. Dragging still expands the full set of hour drop targets before measurement, but clicks on task controls and menus are ignored so edit/delete flows stay stable. The Playwright coverage now proves hover stays compact, drag expands, and the existing task menu actions remain reachable.

@@ -202,11 +202,11 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
         scale: isDragging ? 1.02 : 1,
         boxShadow: isDragging ? '0 20px 40px rgba(0,0,0,0.3)' : '0 4px 8px rgba(0,0,0,0.1)'
       }}
-      exit={{ opacity: 0, y: -20 }}
-      whileHover={compact ? undefined : { scale: 1.01 }}
-      className={`group relative border transition-all duration-300 ${
-        compact ? `flex rounded-lg p-2.5 ${showMenu ? 'overflow-visible' : 'overflow-hidden'}` : 'rounded-xl p-4'
-      } ${
+	      exit={{ opacity: 0, y: -20 }}
+	      whileHover={compact ? undefined : { scale: 1.01 }}
+	      className={`group relative border transition-all duration-300 ${
+	        compact ? 'flex overflow-visible rounded-lg p-2' : 'rounded-xl p-4'
+	      } ${
         task.completed 
           ? 'bg-gray-800/50 border-gray-600/50 opacity-75' 
           : 'card glass-effect hover:shadow-lg'
@@ -237,7 +237,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                   {getItemIcon(task.type)}
                 </div>
               )}
-              <h3 className={`truncate font-medium ${compact ? 'text-sm leading-5' : ''} ${
+	              <h3 className={`truncate font-medium ${compact ? 'text-sm leading-4' : ''} ${
                 task.completed ? 'line-through text-gray-500' : 'text-gray-100'
               }`}>
                 {task.title}
@@ -282,14 +282,14 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
           </div>
 
                      {/* Category, Project, and Time Info */}
-           <div className={`flex min-w-0 items-center overflow-hidden ${compact ? 'mt-1.5 gap-1.5 whitespace-nowrap' : 'mt-2 flex-wrap gap-2'}`}>
-             <span className={`shrink-0 rounded-full border text-xs ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'} ${getCategoryColor(task.category)}`}>
+	           <div className={`flex min-w-0 items-center overflow-hidden ${compact ? 'mt-0.5 gap-1 whitespace-nowrap leading-4' : 'mt-2 flex-wrap gap-2'}`}>
+	             <span className={`shrink-0 rounded-full border text-xs ${compact ? 'px-1 py-0 leading-4' : 'px-2 py-1'} ${getCategoryColor(task.category)}`}>
                {task.category}
              </span>
              
              {task.project && (
                <span 
-                 className={`flex min-w-0 items-center space-x-1 rounded-full border text-xs ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}
+	                 className={`flex min-w-0 items-center space-x-1 rounded-full border text-xs ${compact ? 'px-1 py-0 leading-4' : 'px-2 py-1'}`}
                  style={{ 
                    borderColor: `${task.project.color}50`,
                    backgroundColor: `${task.project.color}20`,
