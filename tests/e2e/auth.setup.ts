@@ -15,7 +15,7 @@ setup('authenticate', async ({ page }) => {
   await page.locator('#password').fill(TEST_PASSWORD)
   await page.locator('button[type="submit"]').click()
 
-  // Wait for Dashboard to appear — the nav "Add Item" link is only visible when authenticated
+  // Wait for Today to appear — the nav "Add Item" link is only visible when authenticated
   // ponytail: 'Add Item' text only exists in Layout (authenticated shell), never on LoginPage
   await expect(page.locator('text=Add Item').first()).toBeVisible({ timeout: 10_000 })
 

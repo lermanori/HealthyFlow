@@ -5,7 +5,7 @@ test.describe('unauthenticated flows', () => {
   // ponytail: clear storageState so tests in this block start unauthenticated
   test.use({ storageState: { cookies: [], origins: [] } })
 
-  test('login with seeded credentials lands on Dashboard', async ({ page }) => {
+  test('login with seeded credentials lands on Today', async ({ page }) => {
     // unauthenticated root renders the Login page
     await page.goto('/')
 
@@ -13,7 +13,7 @@ test.describe('unauthenticated flows', () => {
     await page.locator('#password').fill(TEST_PASSWORD)
     await page.locator('button[type="submit"]').click()
 
-    // Dashboard shows a date heading (h1) once authenticated
+    // Today shows a date heading (h1) once authenticated
     await expect(page.locator('h1').first()).toBeVisible({ timeout: 10_000 })
   })
 
@@ -24,7 +24,7 @@ test.describe('unauthenticated flows', () => {
     await page.locator('#password').fill(TEST_PASSWORD)
     await page.locator('button[type="submit"]').click()
 
-    // Wait for Dashboard (authenticated state)
+    // Wait for Today (authenticated state)
     await expect(page.locator('h1').first()).toBeVisible({ timeout: 10_000 })
 
     // Click logout button (in header on desktop)
@@ -33,7 +33,7 @@ test.describe('unauthenticated flows', () => {
     // LoginPage should appear (email field is visible)
     await expect(page.locator('#email')).toBeVisible({ timeout: 10_000 })
 
-    // Navigate to / and assert still on LoginPage (not redirected back to Dashboard)
+    // Navigate to / and assert still on LoginPage (not redirected back to Today)
     await page.goto('/')
     await expect(page.locator('#email')).toBeVisible()
   })
@@ -44,17 +44,17 @@ test.describe('authenticated flows', () => {
   test.use({ storageState: 'tests/e2e/.auth/user.json' })
 
   test('session persists across page reload', async ({ page }) => {
-    // Navigate to Dashboard (should already be authenticated via storageState)
+    // Navigate to Today (should already be authenticated via storageState)
     await page.goto('/')
 
-    // Assert Dashboard is shown, not LoginPage
-    // Date heading only appears in authenticated Dashboard
+    // Assert Today is shown, not LoginPage
+    // Date heading only appears in authenticated Today
     await expect(page.locator('h1').first()).toBeVisible({ timeout: 10_000 })
 
     // Reload the page
     await page.reload()
 
-    // Dashboard should still be visible after reload
+    // Today should still be visible after reload
     await expect(page.locator('h1').first()).toBeVisible({ timeout: 10_000 })
   })
 })

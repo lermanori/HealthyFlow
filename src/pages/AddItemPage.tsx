@@ -196,7 +196,7 @@ export default function AddItemPage() {
           className="flex items-center space-x-2 text-gray-400 hover:text-gray-200 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
-          <span>Back to Dashboard</span>
+          <span>Back to Today</span>
         </button>
         
         <div className="flex space-x-2">

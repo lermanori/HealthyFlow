@@ -21,7 +21,7 @@ test('Habit golden path: completing today does NOT bleed into tomorrow', async (
 
   await page.locator('button[type="submit"]').click()
 
-  // Redirected to Dashboard — habit appears as exactly one row today
+  // Redirected to Today — habit appears as exactly one row today
   await expect(page).toHaveURL('/', { timeout: 10_000 })
   const habitHeadings = page.locator('h3', { hasText: habitTitle })
   await expect(habitHeadings).toHaveCount(1, { timeout: 10_000 })
@@ -40,7 +40,7 @@ test('Habit golden path: completing today does NOT bleed into tomorrow', async (
   // Navigate to tomorrow via the "Next day" arrow — real UI control
   await page.locator('button[aria-label="Next day"]').click()
 
-  // Wait for the dashboard to load tomorrow's data
+  // Wait for the Today to load tomorrow's data
   await expect(page.locator('h3', { hasText: habitTitle })).toBeVisible({ timeout: 10_000 })
 
   // Tomorrow: habit appears as exactly one row

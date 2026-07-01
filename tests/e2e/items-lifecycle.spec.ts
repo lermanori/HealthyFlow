@@ -18,7 +18,7 @@ test('Complete Task: marking complete persists across reload', async ({ page }) 
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
   await page.locator('button[type="submit"]').click()
 
-  // Redirected to dashboard, task visible
+  // Redirected to Today, task visible
   await expect(page).toHaveURL('/', { timeout: 10_000 })
   await expect(page.locator(`text=${taskTitle}`)).toBeVisible()
 
@@ -42,7 +42,7 @@ test('Complete Task: marking complete persists across reload', async ({ page }) 
   await expect(reloadedTitle).toHaveClass(/line-through/)
 })
 
-test('Edit Task: changing title updates Dashboard and persists', async ({ page }) => {
+test('Edit Task: changing title updates Today and persists', async ({ page }) => {
   // Reset test user's tasks
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
@@ -55,7 +55,7 @@ test('Edit Task: changing title updates Dashboard and persists', async ({ page }
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
   await page.locator('button[type="submit"]').click()
 
-  // Redirected to dashboard, task visible
+  // Redirected to Today, task visible
   await expect(page).toHaveURL('/', { timeout: 10_000 })
   const titleHeading = page.locator('h3', { hasText: originalTitle }).first()
   await expect(titleHeading).toBeVisible()
@@ -87,7 +87,7 @@ test('Edit Task: changing title updates Dashboard and persists', async ({ page }
   await expect(page.locator('button', { hasText: 'Save Changes' })).toBeVisible()
   await page.locator('button', { hasText: 'Save Changes' }).first().click()
 
-  // Modal closes, wait for API to update, dashboard shows new title
+  // Modal closes, wait for API to update, Today shows new title
   await expect(page.locator('h3', { hasText: 'Updated Edit Task Title' })).toBeVisible({ timeout: 10_000 })
   await expect(titleHeading).not.toBeVisible()
 })
@@ -136,7 +136,7 @@ test('Task location: create, edit, and clear location on the card', async ({ pag
   await expect(page.locator('text=Library Room 2')).not.toBeVisible({ timeout: 10_000 })
 })
 
-test('Delete Task: removing task makes it disappear from Dashboard', async ({ page }) => {
+test('Delete Task: removing task makes it disappear from Today', async ({ page }) => {
   // Reset test user's tasks
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
@@ -149,7 +149,7 @@ test('Delete Task: removing task makes it disappear from Dashboard', async ({ pa
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
   await page.locator('button[type="submit"]').click()
 
-  // Redirected to dashboard, task visible
+  // Redirected to Today, task visible
   await expect(page).toHaveURL('/', { timeout: 10_000 })
   const titleHeading = page.locator('h3', { hasText: taskTitle }).first()
   await expect(titleHeading).toBeVisible()
@@ -179,7 +179,7 @@ test('Delete Task: removing task makes it disappear from Dashboard', async ({ pa
   await expect(titleHeading).not.toBeVisible({ timeout: 10_000 })
 })
 
-test('Delete timed task from schedule menu removes it from Dashboard', async ({ page }) => {
+test('Delete timed task from schedule menu removes it from Today', async ({ page }) => {
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
   await page.goto('/add')

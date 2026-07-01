@@ -29,7 +29,7 @@ Six spec files, 12 golden-path tests:
 | `items-add.spec.ts` | Add task via UI | Task creation works end-to-end |
 | `items-add.spec.ts` | Category options closed set | Categories match CONTEXT.md definition |
 | `items-lifecycle.spec.ts` | Complete task persists | Completion state survives reload |
-| `items-lifecycle.spec.ts` | Edit task | Title edits appear on Dashboard |
+| `items-lifecycle.spec.ts` | Edit task | Title edits appear on Today |
 | `items-lifecycle.spec.ts` | Delete task | Deletion removes from UI |
 | `rollover.spec.ts` | Untimed rollover | Incomplete tasks carry forward to today |
 | `week-view.spec.ts` | Week view task placement | Tasks appear under correct day columns |

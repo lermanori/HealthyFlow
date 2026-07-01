@@ -63,7 +63,7 @@ export default function Layout({ children }: LayoutProps) {
   const { settings } = useSettings()
 
   const navigation = [
-    { name: 'Dashboard', href: '/', icon: Home },
+    { name: 'Today', href: '/', icon: Home },
     { name: 'Add Item', href: '/add', icon: Plus },
     { name: 'Week View', href: '/week', icon: Calendar },
     ...(settings?.calorieIntake ? [{ name: 'Calories', href: '/calories', icon: Utensils }] : []),

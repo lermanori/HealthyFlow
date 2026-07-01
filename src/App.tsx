@@ -1,7 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
-import DashboardPage from './pages/DashboardPage'
+import TodayPage from './pages/TodayPage'
 import AddItemPage from './pages/AddItemPage'
 import WeekViewPage from './pages/WeekViewPage'
 import SettingsPage from './pages/SettingsPage'
@@ -51,7 +51,7 @@ function App() {
       <OfflineNotification />
       <Layout>
         <Routes>
-          <Route path="/" element={<DashboardPage />} />
+          <Route path="/" element={<TodayPage />} />
           <Route path="/add" element={<AddItemPage />} />
           <Route path="/week" element={<WeekViewPage />} />
           <Route path="/settings" element={<SettingsPage />} />

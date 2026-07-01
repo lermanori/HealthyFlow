@@ -18,7 +18,7 @@ import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import AskAIModal from '../components/AskAIModal'
 import { createPortal } from 'react-dom'
-export default function DashboardPage() {
+export default function TodayPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
@@ -81,7 +81,7 @@ export default function DashboardPage() {
         queryClient.invalidateQueries({ queryKey: ['google-calendar-events', date] })
         queryClient.invalidateQueries({ queryKey: ['tasks', date] })
       } catch (error) {
-        console.error('Dashboard - Error syncing timed tasks to Google Calendar:', error)
+        console.error('Today - Error syncing timed tasks to Google Calendar:', error)
       }
     }
 

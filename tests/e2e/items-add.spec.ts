@@ -2,7 +2,7 @@ import { test, expect } from './fixtures/ai-stubs'
 
 // storageState is injected from playwright.config.ts (setup project)
 
-test('Adding a Task via the UI makes it appear on today\'s Dashboard', async ({ page }) => {
+test('Adding a Task via the UI makes it appear on today\'s Today', async ({ page }) => {
   await page.goto('/add')
   // Wait for form to be ready
   await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
@@ -16,7 +16,7 @@ test('Adding a Task via the UI makes it appear on today\'s Dashboard', async ({ 
   // Submit
   await page.locator('button[type="submit"]').click()
 
-  // Should redirect to Dashboard
+  // Should redirect to Today
   await expect(page).toHaveURL('/', { timeout: 10_000 })
 
   // Task appears by title

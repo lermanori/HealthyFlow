@@ -131,7 +131,7 @@ export default function WeekViewPage() {
   })
   const isLoading = settingsLoading || dayQueries.some((q) => q.isLoading) || calendarQueries.some((q) => q.isLoading)
 
-  // --- Mutations (same contract as DashboardPage) ---
+  // --- Mutations (same contract as TodayPage) ---
   const completeMutation = useMutation({
     mutationFn: taskService.completeTask,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),

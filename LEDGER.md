@@ -1,3 +1,9 @@
+### 2026-07-01 14:23 — `main`
+
+Finished issue #54 by renaming the date-based Dashboard surface to Today throughout the app and test language. The root route still opens the daily schedule, habits, rollover, and Anytime backlog, but the navigation and page component now match that purpose. The broader Home/Overview dashboard remains framed as future product work under the updated issue title.
+
+---
+
 ### 2026-07-01 14:15 — `main`
 
 Finished issue #94 by moving the calorie AI entry action into the Entries card beside the manual Add Entry button. The date control now stays focused on selecting the log day, while both entry creation paths live together where the user is working. The project board item was moved to Done after the build check passed.
