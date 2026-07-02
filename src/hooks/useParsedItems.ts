@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react'
 import toast from 'react-hot-toast'
 import { parseTasks } from '../lib/ai/parseTasksApi'
 import type { AnalyzerPhoto, TaskSuggestion } from '../lib/ai/parseTasksSchema'
+import { analytics } from '../lib/analytics'
 
 export function useParsedItems() {
   const [suggestions, setSuggestions] = useState<TaskSuggestion[]>([])
@@ -19,14 +20,17 @@ export function useParsedItems() {
       return
     }
     setIsAnalyzing(true)
+    const input = photo ? (inputText.trim() ? 'text+photo' : 'photo') : 'text'
     try {
       toast.loading('Analyzing with AI...', { id: 'ai-analysis' })
       const items = await parseTasks(inputText, photo, defaultScheduleDate)
+      analytics.capture('ai_parse_requested', { surface: 'tasks', input, succeeded: true, item_count: items.length })
       setSuggestions(items)
       setSelectedSuggestions(new Set(items.map(s => s.id)))
       toast.success('AI analysis complete! 🧠', { id: 'ai-analysis' })
       onSuccess?.(items)
     } catch (error) {
+      analytics.capture('ai_parse_requested', { surface: 'tasks', input, succeeded: false, item_count: null })
       console.error('AI Analysis error:', error)
       toast.error('Could not parse — try again', { id: 'ai-analysis' })
     } finally {

@@ -1,6 +1,8 @@
 /// <reference types="vite/client" />
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { analytics } from '../lib/analytics'
+import type { ItemSource, ItemType } from '../lib/analytics/types'
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 // const API_BASE_URL = 'https://healthyflow-production.up.railway.app/api'
 
@@ -306,9 +308,20 @@ export const taskService = {
     return response.data
   },
 
-  addTask: async (task: Omit<Task, 'id' | 'createdAt' | 'completed'>): Promise<Task> => {
+  addTask: async (
+    task: Omit<Task, 'id' | 'createdAt' | 'completed'>,
+    source: ItemSource = 'manual'
+  ): Promise<Task> => {
     const response = await api.post('/tasks', task)
-    return response.data
+    const created: Task = response.data
+    analytics.capture('item_created', {
+      item_type: created.type as ItemType,
+      category: created.category,
+      source,
+      has_start_time: Boolean(created.startTime),
+      repeat: created.repeat ?? 'none',
+    })
+    return created
   },
 
   updateTask: async (
@@ -322,7 +335,12 @@ export const taskService = {
 
   completeTask: async (id: string): Promise<Task> => {
     const response = await api.post(`/tasks/complete/${id}`)
-    return response.data
+    const completed: Task = response.data
+    analytics.capture('item_completed', {
+      item_type: completed.type as ItemType,
+      category: completed.category,
+    })
+    return completed
   },
 
   deleteTask: async (id: string, deleteScope?: DeleteScope): Promise<void> => {
@@ -582,6 +600,9 @@ export const calendarService = {
   },
 }
 
+// Fire credits_exhausted once per app session, not on every summary fetch.
+let creditsExhaustedReported = false
+
 export const creditsService = {
   getBalance: async (): Promise<{ balance: number }> => {
     const response = await api.get('/credits/balance')
@@ -590,13 +611,23 @@ export const creditsService = {
 
   getSummary: async (): Promise<CreditSummary> => {
     const response = await api.get('/credits/summary')
-    return response.data
+    const summary: CreditSummary = response.data
+    analytics.setUserProperties({
+      subscription_active: summary.subscription.active,
+      credit_balance_bucket: summary.balance <= 0 ? 'none' : summary.balance < 25 ? 'low' : 'ok',
+    })
+    if (summary.balance <= 0 && !creditsExhaustedReported) {
+      creditsExhaustedReported = true
+      analytics.capture('credits_exhausted')
+    }
+    return summary
   },
 }
 
 export const contactMessagesService = {
   create: async (input: { kind: 'subscribe' | 'topup'; message: string }): Promise<ContactMessage> => {
     const response = await api.post('/contact-messages', input)
+    analytics.capture('upgrade_request_sent', { kind: input.kind })
     return response.data
   },
 }
@@ -663,11 +694,15 @@ export const connectionsService = {
 export const onboardingService = {
   complete: async (): Promise<{ status: 'completed' }> => {
     const response = await api.post('/onboarding/complete')
+    analytics.capture('onboarding_completed')
+    analytics.setUserProperties({ onboarding_status: 'completed' })
     return response.data
   },
 
   skip: async (): Promise<{ status: 'skipped' }> => {
     const response = await api.post('/onboarding/skip')
+    analytics.capture('onboarding_skipped')
+    analytics.setUserProperties({ onboarding_status: 'skipped' })
     return response.data
   },
 }
@@ -719,8 +754,9 @@ export const caloriesService = {
     return response.data
   },
 
-  create: async (entry: CalorieEntryInput): Promise<CalorieEntry> => {
+  create: async (entry: CalorieEntryInput, source: ItemSource = 'manual'): Promise<CalorieEntry> => {
     const response = await api.post('/calories', entry)
+    analytics.capture('calorie_entry_logged', { source })
     return response.data
   },
 
@@ -773,6 +809,7 @@ export const weightService = {
 
   create: async (entry: WeightEntryInput): Promise<WeightEntry> => {
     const response = await api.post('/weight', entry)
+    analytics.capture('weight_logged')
     return response.data
   },
 
@@ -853,6 +890,7 @@ export const workoutsService = {
 
   create: async (session: WorkoutSessionInput): Promise<WorkoutSession> => {
     const response = await api.post('/workouts', session)
+    analytics.capture('workout_logged')
     return response.data
   },
 
@@ -968,6 +1006,7 @@ export const achievementService = {
 
   addEntry: async (achievementId: string, entry: AchievementEntryInput): Promise<AchievementEntry> => {
     const response = await api.post(`/achievements/${achievementId}/entries`, entry)
+    analytics.capture('achievement_recorded')
     return response.data
   },
 

@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import { aiService, ParsedMeal, CalorieEntryInput, MealParseReview } from '../../services/api'
 import { useCalorieEntries } from '../../hooks/useCalorieEntries'
 import { useDictatedText } from '../../hooks/useDictatedText'
+import { analytics } from '../../lib/analytics'
 
 const ACCEPTED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024
@@ -65,6 +66,7 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
       return
     }
     setIsAnalyzing(true)
+    const input = photo ? (inputText.trim() ? 'text+photo' : 'photo') : 'text'
     try {
       toast.loading('Analyzing meal...', { id: 'meal-analysis' })
       const { meals, review: parseReview } = await aiService.parseMeals(
@@ -72,11 +74,13 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
         photo ? { mimeType: photo.mimeType, data: photo.data } : undefined,
         date
       )
+      analytics.capture('ai_parse_requested', { surface: 'meals', input, succeeded: true, item_count: meals.length })
       setSuggestions(meals)
       setReview(parseReview?.needsReview ? parseReview : undefined)
       setSelected(new Set(meals.map((_, i) => i)))
       toast.success(parseReview?.needsReview ? 'Check the label values before adding' : 'AI analysis complete!', { id: 'meal-analysis' })
     } catch (error) {
+      analytics.capture('ai_parse_requested', { surface: 'meals', input, succeeded: false, item_count: null })
       console.error('Meal analysis error:', error)
       toast.error('Could not parse — try again', { id: 'meal-analysis' })
     } finally {
@@ -110,7 +114,7 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
         fat: meal.fat,
         quantity: meal.quantity,
       }
-      createEntry(entry)
+      createEntry(entry, 'ai_parse')
     })
     toast.success(`Added ${toAdd.length} meal${toAdd.length > 1 ? 's' : ''} to your log`)
     setSuggestions([])

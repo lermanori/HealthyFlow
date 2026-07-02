@@ -7,6 +7,7 @@ import { useCredits } from '../hooks/useCredits'
 import { useSettings } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
 import api, { ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, UserSettings } from '../services/api'
+import { analytics } from '../lib/analytics'
 
 function mcpEndpoint() {
   const apiBase = api.defaults.baseURL ?? 'http://localhost:3001/api'
@@ -22,6 +23,10 @@ export default function SettingsPage() {
   const [calendarLoading, setCalendarLoading] = useState(true)
   const [calendarActionLoading, setCalendarActionLoading] = useState(false)
   const [contactFlow, setContactFlow] = useState<'subscribe' | 'topup' | null>(null)
+  const openContactFlow = (kind: 'subscribe' | 'topup') => {
+    analytics.capture('upgrade_cta_clicked', { kind })
+    setContactFlow(kind)
+  }
   const [apiTokens, setApiTokens] = useState<ApiTokenRecord[]>([])
   const [newToken, setNewToken] = useState('')
   const [newTokenScopes, setNewTokenScopes] = useState<ApiTokenScope[]>([])
@@ -34,6 +39,7 @@ export default function SettingsPage() {
     const message = params.get('message')
 
     if (calendarResult === 'connected') {
+      analytics.capture('google_calendar_connected')
       toast.success('Google Calendar connected')
     }
 
@@ -314,10 +320,10 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                 Subscribe for {monthlyCredits} credits each month, or buy a quick top-up when you only need a little more.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button className="btn-primary px-4 py-2 text-sm" onClick={() => setContactFlow('subscribe')}>
+                <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('subscribe')}>
                   Subscribe
                 </button>
-                <button className="btn-secondary px-4 py-2 text-sm" onClick={() => setContactFlow('topup')}>
+                <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('topup')}>
                   Buy More
                 </button>
               </div>
@@ -372,10 +378,10 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                   <p className="mt-1 text-xs text-gray-400">Pick the plan when you want AI available without watching each action.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button className="btn-primary px-4 py-2 text-sm" onClick={() => setContactFlow('subscribe')}>
+                  <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('subscribe')}>
                     Subscribe
                   </button>
-                  <button className="btn-secondary px-4 py-2 text-sm" onClick={() => setContactFlow('topup')}>
+                  <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('topup')}>
                     Buy More
                   </button>
                 </div>

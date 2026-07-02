@@ -21,7 +21,7 @@ export function useAddItems(onSuccess?: () => void) {
           repeat: (task.type === 'habit' ? 'daily' : 'none') as 'daily' | 'none' | 'weekly',
           scheduledDate: task.type === 'habit' ? format(new Date(), 'yyyy-MM-dd') : task.scheduledDate,
         }
-        return taskService.addTask(taskData)
+        return taskService.addTask(taskData, 'ai_parse')
       })
       return Promise.all(promises)
     },

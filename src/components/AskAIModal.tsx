@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Sparkles, Loader2, Brain } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { taskService, aiService } from '../services/api'
+import { analytics } from '../lib/analytics'
 import { format } from 'date-fns'
 
 interface AskAIModalProps {
@@ -132,6 +133,8 @@ export default function AskAIModal({ isOpen, onClose }: AskAIModalProps) {
     setQuestion('')
     setLoading(true)
     setError('')
+
+    analytics.capture('ai_question_asked')
 
     try {
       // Always route through backend
