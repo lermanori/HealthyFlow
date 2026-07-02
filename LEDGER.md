@@ -1,3 +1,9 @@
+### 2026-07-02 21:15 — `main`
+
+Implemented the cross-module daily signal foundation for issue #118. HealthyFlow now has a read-only daily context capability with bounded lookback windows, deterministic V1 signals for schedule overload, habit risk, and missing calorie logs, an MCP daily-context resource, extension documentation, and backend regression coverage.
+
+---
+
 ### 2026-07-02 16:51 — `codex/ai-readonly-assistant`
 
 Fixed the AI control-plane review findings before merge: MCP writes now audit as MCP, assistant turns preserve multiple pending previews, nutrition lookup is bounded, bulk calorie writes clean up partial inserts, and failed tool loops settle real token usage. The Assistant UI, capability mappers, Anytime backlog positioning, rate-limit bookkeeping, and ADR 0003 were updated alongside focused regression coverage.

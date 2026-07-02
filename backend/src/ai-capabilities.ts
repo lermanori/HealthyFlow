@@ -12,6 +12,11 @@ import {
   WorkoutSessionCreateSchema,
   Workouts,
 } from './workouts'
+import {
+  buildDailyContext,
+  DailyContextInputSchema,
+  DailyContextSchema,
+} from './daily-context'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -604,6 +609,17 @@ export const AiCapabilities = {
         achievements: clampRows(achievements, 20),
         workoutSessions: clampRows(workoutSessions, 20),
       }
+    },
+  },
+  get_daily_context: {
+    name: 'get_daily_context',
+    description: 'Return an anchored daily context with bounded lookback windows and deterministic cross-module signals.',
+    risk: 'auto',
+    inputSchema: DailyContextInputSchema,
+    outputSchema: DailyContextSchema,
+    async execute(ctx, input) {
+      const parsed = input as z.infer<typeof DailyContextInputSchema>
+      return buildDailyContext(ctx.userId, parsed.date)
     },
   },
   list_tasks: {

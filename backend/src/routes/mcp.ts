@@ -85,6 +85,7 @@ function createServer(auth: { tokenId: string; userId: string; scopes: string[] 
   }
 
   server.registerResource('today', new ResourceTemplate('healthyflow://today/{date}', { list: undefined }), { mimeType: 'application/json' }, (uri, variables) => readResource(uri, variables, 'get_today'))
+  server.registerResource('daily-context', new ResourceTemplate('healthyflow://daily-context/{date}', { list: undefined }), { mimeType: 'application/json' }, (uri, variables) => readResource(uri, variables, 'get_daily_context'))
   server.registerResource('tasks', new ResourceTemplate('healthyflow://tasks/{date}', { list: undefined }), { mimeType: 'application/json' }, (uri, variables) => readResource(uri, variables, 'list_tasks'))
   server.registerResource('calories', new ResourceTemplate('healthyflow://calories/{date}', { list: undefined }), { mimeType: 'application/json' }, (uri, variables) => readResource(uri, variables, 'list_calorie_entries'))
   server.registerResource('achievements', 'healthyflow://achievements', { mimeType: 'application/json' }, (uri) => readResource(new URL(uri), {}, 'list_achievements'))
