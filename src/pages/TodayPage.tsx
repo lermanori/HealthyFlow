@@ -646,7 +646,7 @@ export default function TodayPage() {
           </div>
 
           {/* AI Recommendations */}
-          <AIRecommendationsBox />
+          <AIRecommendationsBox date={format(selectedDate, 'yyyy-MM-dd')} />
         </div>
       </div>
 

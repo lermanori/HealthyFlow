@@ -2,6 +2,7 @@ import express from 'express'
 import { z } from 'zod'
 import { db } from '../supabase-client'
 import { aiCapabilityTools, cancelPendingAiAction, executePendingAiAction } from '../ai-capabilities'
+import { buildDailyContext, DailyContextInputSchema } from '../daily-context'
 import {
   Openai,
   parseMealsWithAi,
@@ -89,6 +90,18 @@ Food logging:
 - If you prepare an add_calorie_entry or add_calorie_entries preview, mention the source/confidence briefly and ask the user to confirm. Do not claim the Calorie entry was logged until confirmation.
 
 Keep answers concise and grounded in tool results. If a tool result is empty, say that plainly.`
+
+router.get('/daily-context', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = DailyContextInputSchema.safeParse(req.query)
+  if (!parsed.success) return res.status(400).json({ error: 'date must be YYYY-MM-DD' })
+
+  try {
+    res.json(await buildDailyContext(req.user.userId, parsed.data.date))
+  } catch (error) {
+    console.error('Daily context error:', error)
+    res.status(500).json({ error: 'Failed to load daily context' })
+  }
+})
 
 router.post('/chat', authenticateToken, async (req: AuthRequest, res) => {
   const parsed = ChatRequest.safeParse(req.body)

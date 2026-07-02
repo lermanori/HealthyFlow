@@ -1,3 +1,9 @@
+### 2026-07-02 21:24 — `main`
+
+Connected issue #119's first proactive slice to the daily signal foundation. The Today AI Insights panel now reads the selected day's daily context, renders deterministic signal cards, and has route coverage for the new authenticated daily-context endpoint while keeping the surface movable for a future Home/brief view.
+
+---
+
 ### 2026-07-02 21:15 — `main`
 
 Implemented the cross-module daily signal foundation for issue #118. HealthyFlow now has a read-only daily context capability with bounded lookback windows, deterministic V1 signals for schedule overload, habit risk, and missing calorie logs, an MCP daily-context resource, extension documentation, and backend regression coverage.

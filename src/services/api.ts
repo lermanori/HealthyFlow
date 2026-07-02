@@ -152,6 +152,41 @@ export interface AIRecommendation {
   createdAt: string
 }
 
+export type DailySignalType = 'schedule_overload' | 'habit_risk' | 'missing_calorie_log'
+
+export interface DailySignal {
+  id: string
+  type: DailySignalType
+  severity: 'info' | 'low' | 'medium' | 'high'
+  confidence: 'low' | 'medium' | 'high'
+  summary: string
+  evidence: Record<string, unknown>
+  suggestedAction: {
+    type: string
+    label: string
+    targetId?: string | null
+  } | null
+}
+
+export interface DailyContext {
+  date: string
+  generatedAt: string
+  day: {
+    tasks: unknown[]
+    calorieEntries: unknown[]
+    weight: unknown | null
+    achievements: unknown[]
+    workoutSessions: unknown[]
+    calendarEvents: unknown[]
+  }
+  lookback: {
+    habitHistory: { windowDays: number; days: unknown[] }
+    calorieHistory: { windowDays: number; days: unknown[] }
+    workoutHistory: { windowDays: number; days: unknown[] }
+  }
+  signals: DailySignal[]
+}
+
 export interface AnalyticsData {
   dailyStats: Array<{
     date: string
@@ -368,6 +403,11 @@ export const aiService = {
   // ponytail: route not implemented server-side; return empty so UI shows graceful fallback, no 404
   getRecommendations: async (): Promise<AIRecommendation[]> => {
     return []
+  },
+
+  getDailyContext: async (date: string): Promise<DailyContext> => {
+    const response = await api.get('/ai/daily-context', { params: { date } })
+    return response.data
   },
 
   getPersonalizedTips: async (): Promise<string[]> => {
