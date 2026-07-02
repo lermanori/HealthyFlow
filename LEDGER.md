@@ -1,3 +1,9 @@
+### 2026-07-02 09:20 — `main`
+
+Captured the LLM data access research from issue #99 in an ADR so the AI control plane has a concrete transport direction. The recommendation keeps HealthyFlow's internal assistant on a shared capability layer while leaving room for an external MCP interface with explicit write safety. This gives the next AI-control-plane slice enough architecture to start without another research pass.
+
+---
+
 ### 2026-07-01 14:23 — `main`
 
 Finished issue #54 by renaming the date-based Dashboard surface to Today throughout the app and test language. The root route still opens the daily schedule, habits, rollover, and Anytime backlog, but the navigation and page component now match that purpose. The broader Home/Overview dashboard remains framed as future product work under the updated issue title.
