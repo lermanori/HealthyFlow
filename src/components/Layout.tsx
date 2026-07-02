@@ -330,6 +330,14 @@ export default function Layout({ children }: LayoutProps) {
         >
           <div className={`min-w-0 ${isMobile ? 'max-w-full' : 'max-w-6xl'} mx-auto`}>
             {children}
+            <footer className="mt-10 flex flex-wrap justify-center gap-4 text-xs text-gray-500">
+              <Link to="/privacy" className="transition-colors hover:text-cyan-400">
+                Privacy Policy
+              </Link>
+              <Link to="/terms" className="transition-colors hover:text-cyan-400">
+                Terms of Service
+              </Link>
+            </footer>
           </div>
         </main>
       </div>

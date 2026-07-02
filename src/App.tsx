@@ -12,6 +12,8 @@ import AchievementsPage from './pages/AchievementsPage'
 import WorkoutsPage from './pages/WorkoutsPage'
 import AssistantPage from './pages/AssistantPage'
 import LoginPage from './pages/LoginPage'
+import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
+import TermsOfServicePage from './pages/TermsOfServicePage'
 import LoadingSpinner from './components/LoadingSpinner'
 import OfflineNotification from './components/OfflineNotification'
 import { useEffect } from 'react'
@@ -45,7 +47,13 @@ function App() {
   }
 
   if (!user) {
-    return <LoginPage />
+    return (
+      <Routes>
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="*" element={<LoginPage />} />
+      </Routes>
+    )
   }
 
   return (
@@ -63,6 +71,8 @@ function App() {
           <Route path="/calories" element={settings?.calorieIntake ? <CaloriesPage /> : <Navigate to="/" replace />} />
           <Route path="/achievements" element={settings?.achievementTracker ? <AchievementsPage /> : <Navigate to="/" replace />} />
           <Route path="/workouts" element={<WorkoutsPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/terms" element={<TermsOfServicePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>
