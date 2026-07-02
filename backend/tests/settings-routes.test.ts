@@ -38,6 +38,7 @@ describe('settings API', () => {
       calorieIntake: false,
       achievementTracker: false,
       weekStartsOn: 1,
+      onboardingStatus: 'completed',
     })
   })
 

@@ -1,17 +1,38 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { format, addDays } from 'date-fns'
-import { 
-  Plus, Clock, Zap, ArrowLeft, Sparkles, Brain,
-  ShoppingCart, Utensils, Dumbbell, CheckSquare, DollarSign, Flame, MapPin
-} from 'lucide-react'
-import { taskService } from '../services/api'
-import AITextAnalyzer from '../components/AITextAnalyzer'
-import VoiceInput from '../components/VoiceInput'
-import ProjectSelector from '../components/ProjectSelector'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { addDays, format } from 'date-fns'
 import toast from 'react-hot-toast'
-import { motion } from 'framer-motion'
+import {
+  ArrowLeft,
+  Award,
+  Brain,
+  CalendarDays,
+  CheckSquare,
+  Clock,
+  Flame,
+  MapPin,
+  Mic,
+  Plus,
+  Scale,
+  Sparkles,
+  Target,
+  Utensils,
+  Zap,
+} from 'lucide-react'
+import {
+  achievementService,
+  AchievementSummary,
+  caloriesService,
+  taskService,
+  weightService,
+} from '../services/api'
+import AITextAnalyzer from '../components/AITextAnalyzer'
+import MealAnalyzer from '../components/MealAnalyzer'
+import ProjectSelector from '../components/ProjectSelector'
+import VoiceInput from '../components/VoiceInput'
+
+const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 
 const categories = [
   { value: 'health', label: 'Health', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
@@ -22,634 +43,498 @@ const categories = [
   { value: 'nutrition', label: 'Nutrition', color: 'bg-rose-500/20 text-rose-400 border-rose-500/30' },
 ]
 
-const allItemTypes = [
-  { value: 'task', label: 'Task', icon: CheckSquare, description: 'One-time tasks and reminders' },
-  { value: 'habit', label: 'Habit', icon: Zap, description: 'Daily recurring activities' },
-  { value: 'grocery', label: 'Grocery', icon: ShoppingCart, description: 'Shopping list items' },
-  { value: 'meal', label: 'Meal', icon: Utensils, description: 'Meals and nutrition tracking' },
-  { value: 'workout', label: 'Workout', icon: Dumbbell, description: 'Exercise and fitness activities' },
+const quickDates = [
+  { label: 'Today', value: todayStr() },
+  { label: 'Tomorrow', value: format(addDays(new Date(), 1), 'yyyy-MM-dd') },
+  { label: 'This Weekend', value: format(addDays(new Date(), 6 - new Date().getDay()), 'yyyy-MM-dd') },
+  { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
 ]
 
-// ponytail: remove unbuilt types from UI selector; full types stay in schema for v2.2
-const itemTypes = allItemTypes.filter(t => t.value === 'task' || t.value === 'habit')
+type DomainTab = 'today' | 'calories' | 'achievements'
+type TodayType = 'task' | 'habit'
+type CalorieMode = 'entry' | 'weight'
+
+const tabs: Array<{ id: DomainTab; label: string; icon: any }> = [
+  { id: 'today', label: 'Today', icon: CalendarDays },
+  { id: 'calories', label: 'Calories', icon: Utensils },
+  { id: 'achievements', label: 'Achievements', icon: Award },
+]
+
+function numericOrNull(value: string) {
+  if (value.trim() === '') return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
 
 export default function AddItemPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
-  
-  // Form state
-  const [itemType, setItemType] = useState<'task' | 'habit' | 'grocery' | 'meal' | 'workout'>('task')
+  const [activeTab, setActiveTab] = useState<DomainTab>('today')
+  const [showTaskAi, setShowTaskAi] = useState(false)
+  const [showMealAi, setShowMealAi] = useState(false)
+
+  const [todayType, setTodayType] = useState<TodayType>('task')
+  const [todayInputMode, setTodayInputMode] = useState<'form' | 'voice'>('form')
   const [title, setTitle] = useState('')
   const [category, setCategory] = useState('personal')
   const [startTime, setStartTime] = useState('')
   const [location, setLocation] = useState('')
-  const [duration, setDuration] = useState(30)
-  const [scheduledDate, setScheduledDate] = useState(format(new Date(), 'yyyy-MM-dd'))
-  const [inputMode, setInputMode] = useState<'form' | 'ai' | 'voice'>('form')
+  const [duration, setDuration] = useState('30')
+  const [scheduledDate, setScheduledDate] = useState(todayStr())
   const [projectId, setProjectId] = useState<string | undefined>()
-  
-  // Grocery-specific state
-  const [quantity, setQuantity] = useState('')
-  const [price, setPrice] = useState('')
-  const [groceryCategory, setGroceryCategory] = useState<'produce' | 'dairy' | 'meat' | 'pantry' | 'frozen' | 'other'>('other')
-  const [store] = useState('')
-  
-  // Meal-specific state
-  const [mealType, setMealType] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('breakfast')
+
+  const [calorieMode, setCalorieMode] = useState<CalorieMode>('entry')
+  const [calorieDate, setCalorieDate] = useState(todayStr())
+  const [calorieName, setCalorieName] = useState('')
+  const [calorieVoice, setCalorieVoice] = useState(false)
   const [calories, setCalories] = useState('')
   const [protein, setProtein] = useState('')
   const [carbs, setCarbs] = useState('')
   const [fat, setFat] = useState('')
-  const [ingredients, setIngredients] = useState<Array<{ name: string; amount: string }>>([{ name: '', amount: '' }])
-  const [instructions] = useState('')
-  
-  // Workout-specific state
-  const [workoutType, setWorkoutType] = useState<'strength' | 'cardio' | 'flexibility' | 'sports'>('strength')
-  const [intensity, setIntensity] = useState<'low' | 'medium' | 'high'>('medium')
-  const [exercises, setExercises] = useState<Array<{
-    name: string; sets?: number; reps?: number; weight?: number; duration?: number
-  }>>([{ name: '', sets: 3, reps: 10 }])
-  
-     const addItemMutation = useMutation({
-     mutationFn: taskService.addTask,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      toast.success(`${itemType.charAt(0).toUpperCase() + itemType.slice(1)} added successfully!`)
-      navigate('/')
-    },
-    onError: () => {
-      toast.error(`Failed to add ${itemType}`)
-    }
+  const [quantity, setQuantity] = useState('')
+  const [weightKg, setWeightKg] = useState('')
+
+  const [achievementId, setAchievementId] = useState('')
+  const [achievementDate, setAchievementDate] = useState(todayStr())
+  const [achievementValue, setAchievementValue] = useState('')
+  const [supportingValue, setSupportingValue] = useState('')
+  const [supportingUnit, setSupportingUnit] = useState('')
+  const [achievementNotes, setAchievementNotes] = useState('')
+
+  const achievementsQuery = useQuery({
+    queryKey: ['achievements'],
+    queryFn: () => achievementService.list({ entryLimit: 5 }),
+    enabled: activeTab === 'achievements',
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    
+  const selectedAchievement = useMemo(
+    () => achievementsQuery.data?.find((achievement) => achievement.definition.id === achievementId) ?? achievementsQuery.data?.[0] ?? null,
+    [achievementId, achievementsQuery.data]
+  )
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab === 'today' || tab === 'calories' || tab === 'achievements') {
+      setActiveTab(tab)
+    }
+  }, [searchParams])
+
+  const addTodayMutation = useMutation({
+    mutationFn: taskService.addTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      toast.success(`${todayType === 'habit' ? 'Habit' : 'Task'} added`)
+      navigate('/')
+    },
+    onError: () => toast.error(`Failed to add ${todayType}`),
+  })
+
+  const addCalorieMutation = useMutation({
+    mutationFn: caloriesService.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['calories'] })
+      queryClient.invalidateQueries({ queryKey: ['calorie-items'] })
+      toast.success('Calorie entry added')
+      navigate('/calories')
+    },
+    onError: () => toast.error('Failed to add calorie entry'),
+  })
+
+  const addWeightMutation = useMutation({
+    mutationFn: weightService.create,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['weight'] })
+      toast.success('Weight entry added')
+      navigate('/calories')
+    },
+    onError: () => toast.error('Failed to add weight entry'),
+  })
+
+  const addAchievementEntryMutation = useMutation({
+    mutationFn: ({ id, entry }: { id: string; entry: Parameters<typeof achievementService.addEntry>[1] }) =>
+      achievementService.addEntry(id, entry),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['achievements'] })
+      toast.success('Achievement entry added')
+      navigate('/achievements')
+    },
+    onError: () => toast.error('Failed to add achievement entry'),
+  })
+
+  const submitToday = (event: React.FormEvent) => {
+    event.preventDefault()
     if (!title.trim()) {
       toast.error('Please enter a title')
       return
     }
 
-    const baseData = {
+    addTodayMutation.mutate({
       title: title.trim(),
-      type: itemType,
+      type: todayType,
       category,
-      startTime: startTime || null,
-      location: itemType === 'task' ? location.trim() || null : null,
-      duration,
-      repeat: itemType === 'habit' ? 'daily' : 'none',
+      startTime: startTime || undefined,
+      location: todayType === 'task' ? location.trim() || null : null,
+      duration: Number(duration) || 30,
+      repeat: todayType === 'habit' ? 'daily' : 'none',
       scheduledDate,
-      projectId
+      projectId,
+    })
+  }
+
+  const submitCalories = (event: React.FormEvent) => {
+    event.preventDefault()
+
+    if (calorieMode === 'weight') {
+      const parsedWeight = numericOrNull(weightKg)
+      if (!parsedWeight || parsedWeight <= 0) {
+        toast.error('Please enter a valid weight')
+        return
+      }
+      addWeightMutation.mutate({ date: calorieDate, weightKg: parsedWeight })
+      return
     }
 
-    let taskData: any = baseData
-
-    // Add type-specific data
-    switch (itemType) {
-      case 'grocery':
-        taskData.groceryInfo = {
-          quantity: quantity || undefined,
-          price: price ? parseFloat(price) : undefined,
-          groceryCategory,
-          store: store || undefined,
-        }
-        break
-      
-      case 'meal':
-        taskData.mealInfo = {
-          mealType,
-          calories: calories ? parseInt(calories) : undefined,
-          protein: protein ? parseInt(protein) : undefined,
-          carbs: carbs ? parseInt(carbs) : undefined,
-          fat: fat ? parseInt(fat) : undefined,
-          ingredients: ingredients.filter(ing => ing.name.trim()),
-          instructions: instructions || undefined,
-        }
-        break
-      
-      case 'workout':
-        taskData.workoutInfo = {
-          workoutType,
-          intensity,
-          exercises: exercises.filter(ex => ex.name.trim()),
-        }
-        break
+    const parsedCalories = numericOrNull(calories)
+    if (!calorieName.trim() || parsedCalories == null || parsedCalories < 0) {
+      toast.error('Please enter a food name and calories')
+      return
     }
 
-    addItemMutation.mutate(taskData)
+    addCalorieMutation.mutate({
+      date: calorieDate,
+      name: calorieName.trim(),
+      calories: parsedCalories,
+      protein: numericOrNull(protein),
+      carbs: numericOrNull(carbs),
+      fat: numericOrNull(fat),
+      quantity: quantity.trim() || null,
+    })
   }
 
-  const handleVoiceTranscript = (transcript: string) => {
-    setTitle(transcript)
+  const submitAchievement = (event: React.FormEvent) => {
+    event.preventDefault()
+    const achievement = selectedAchievement as AchievementSummary | null
+    const value = numericOrNull(achievementValue)
+    const extraValue = numericOrNull(supportingValue)
+    const extraUnit = supportingUnit.trim()
+
+    if (!achievement || !value || value <= 0) {
+      toast.error('Please choose an achievement and enter a value')
+      return
+    }
+    if ((extraValue == null) !== (extraUnit === '')) {
+      toast.error('Supporting value and unit go together')
+      return
+    }
+
+    addAchievementEntryMutation.mutate({
+      id: achievement.definition.id,
+      entry: {
+        date: achievementDate,
+        value,
+        supportingValue: extraValue,
+        supportingUnit: extraUnit || null,
+        notes: achievementNotes.trim() || null,
+      },
+    })
   }
 
-  const addIngredient = () => {
-    setIngredients([...ingredients, { name: '', amount: '' }])
-  }
-
-  const updateIngredient = (index: number, field: 'name' | 'amount', value: string) => {
-    const updated = [...ingredients]
-    updated[index][field] = value
-    setIngredients(updated)
-  }
-
-  const removeIngredient = (index: number) => {
-    setIngredients(ingredients.filter((_, i) => i !== index))
-  }
-
-  const addExercise = () => {
-    setExercises([...exercises, { name: '', sets: 3, reps: 10 }])
-  }
-
-  const updateExercise = (index: number, field: string, value: any) => {
-    const updated = [...exercises]
-    updated[index] = { ...updated[index], [field]: value }
-    setExercises(updated)
-  }
-
-  const removeExercise = (index: number) => {
-    setExercises(exercises.filter((_, i) => i !== index))
-  }
-
-  const quickDates = [
-    { label: 'Today', value: format(new Date(), 'yyyy-MM-dd') },
-    { label: 'Tomorrow', value: format(addDays(new Date(), 1), 'yyyy-MM-dd') },
-    { label: 'This Weekend', value: format(addDays(new Date(), 6 - new Date().getDay()), 'yyyy-MM-dd') },
-    { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
-  ]
-
-  if (inputMode === 'ai') {
-    return (
-      <AITextAnalyzer
-        onClose={() => setInputMode('form')}
-        scheduledDate={scheduledDate}
-      />
-    )
+  if (showTaskAi) {
+    return <AITextAnalyzer onClose={() => setShowTaskAi(false)} scheduledDate={scheduledDate} />
   }
 
   return (
-    <div className="max-w-2xl mx-auto p-4 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center space-x-2 text-gray-400 hover:text-gray-200 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-          <span>Back to Today</span>
+    <div className="mx-auto max-w-4xl space-y-6 p-4 pb-28 md:pb-0">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button onClick={() => navigate('/')} className="inline-flex items-center gap-2 text-gray-400 transition-colors hover:text-gray-200">
+          <ArrowLeft className="h-5 w-5" />
+          Back to Today
         </button>
-        
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setInputMode('ai')}
-            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-cyan-500/20 to-blue-600/20 border border-cyan-500/30 rounded-xl text-cyan-400 hover:bg-cyan-500/30 transition-all duration-300"
-          >
-            <Brain className="w-4 h-4" />
-            <span>AI Assistant</span>
+        {activeTab === 'today' && (
+          <button onClick={() => setShowTaskAi(true)} className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm">
+            <Brain className="h-4 w-4" />
+            AI Assistant
           </button>
-        </div>
+        )}
+        {activeTab === 'calories' && calorieMode === 'entry' && (
+          <button onClick={() => setShowMealAi(true)} className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm">
+            <Sparkles className="h-4 w-4" />
+            Add with AI
+          </button>
+        )}
       </div>
 
+      {showMealAi && <MealAnalyzer date={calorieDate} onClose={() => setShowMealAi(false)} />}
+
       <div className="card">
-        <div className="flex items-center space-x-3 mb-6">
-          <div className="w-12 h-12 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center animate-float">
-            <Plus className="w-6 h-6 text-white" />
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600">
+            <Plus className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-100 neon-text">Add New Item</h1>
-            <p className="text-gray-300">Create tasks, habits, grocery items, meals, or workouts</p>
+            <h1 className="text-2xl font-bold text-gray-100 neon-text">Add Item</h1>
+            <p className="text-sm text-gray-400">Today, calories, and achievements</p>
           </div>
         </div>
 
-        {/* Item Type Selection */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-300 mb-3">Item Type</label>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-            {itemTypes.map((type) => {
-              const IconComponent = type.icon
-              return (
-                <button
-                  key={type.value}
-                  onClick={() => setItemType(type.value as any)}
-                  className={`p-3 rounded-xl border transition-all duration-300 ${
-                    itemType === type.value
-                      ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400'
-                      : 'border-gray-600 text-gray-400 hover:border-gray-500 hover:bg-gray-800/50'
-                  }`}
-                >
-                  <IconComponent className="w-5 h-5 mx-auto mb-1" />
-                  <div className="text-xs font-medium">{type.label}</div>
-                </button>
-              )
-            })}
-          </div>
+        <div className="mb-6 grid gap-2 sm:grid-cols-3" role="tablist" aria-label="Add item domains">
+          {tabs.map((tab) => {
+            const Icon = tab.icon
+            const active = activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveTab(tab.id)}
+                className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition ${
+                  active
+                    ? 'border-cyan-500/50 bg-cyan-500/20 text-cyan-200'
+                    : 'border-gray-700/80 bg-gray-950/20 text-gray-400 hover:border-gray-600 hover:text-gray-200'
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {tab.label}
+              </button>
+            )
+          })}
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Title Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              {itemType === 'grocery' ? 'Item Name' : 
-               itemType === 'meal' ? 'Meal Name' :
-               itemType === 'workout' ? 'Workout Name' : 'Title'}
-            </label>
-            <div className="relative">
-              {inputMode === 'voice' ? (
-                <VoiceInput
-                  onTranscriptChange={handleVoiceTranscript}
-                  placeholder={`Speak to add ${itemType}...`}
-                />
-              ) : (
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="input-field holographic"
-                  placeholder={`Enter ${itemType} name...`}
-                  required
-                />
-              )}
-              <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setInputMode(inputMode === 'voice' ? 'form' : 'voice')}
-                  className="text-gray-400 hover:text-cyan-400 transition-colors"
-                >
-                  <Sparkles className="w-4 h-4" />
-                </button>
-              </div>
+        {activeTab === 'today' && (
+          <form onSubmit={submitToday} className="space-y-6">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(['task', 'habit'] as TodayType[]).map((type) => {
+                const Icon = type === 'task' ? CheckSquare : Zap
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setTodayType(type)}
+                    className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition ${
+                      todayType === type ? 'border-cyan-500/50 bg-cyan-500/20 text-cyan-200' : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {type === 'task' ? 'Task' : 'Habit'}
+                  </button>
+                )
+              })}
             </div>
-          </div>
 
-          {/* Category */}
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
-            <div className="grid grid-cols-3 gap-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat.value}
-                  type="button"
-                  onClick={() => setCategory(cat.value)}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium border transition-all duration-300 ${
-                    category === cat.value ? cat.color : 'border-gray-600 text-gray-400 hover:border-gray-500'
-                  }`}
-                >
-                  {cat.label}
-                </button>
-              ))}
-            </div>
-                     </div>
-
-           {/* Project Selection */}
-           <ProjectSelector
-             selectedProjectId={projectId}
-             onProjectSelect={setProjectId}
-           />
-
-          {itemType === 'task' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Location (Optional)</label>
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-gray-300">Title</span>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 transform text-gray-400" />
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="input-field pl-10 holographic"
-                  placeholder="Add a place or address..."
-                />
-              </div>
-            </div>
-          )}
-
-           {/* Type-specific fields */}
-          {itemType === 'grocery' && (
-            <div className="space-y-4 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-xl">
-              <h3 className="text-lg font-medium text-emerald-400 flex items-center space-x-2">
-                <ShoppingCart className="w-5 h-5" />
-                <span>Grocery Details</span>
-              </h3>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Quantity</label>
-                  <input
-                    type="text"
-                    value={quantity}
-                    onChange={(e) => setQuantity(e.target.value)}
-                    className="input-field"
-                    placeholder="2 lbs, 1 dozen, etc."
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Price</label>
-                  <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={price}
-                      onChange={(e) => setPrice(e.target.value)}
-                      className="input-field pl-10"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Grocery Category</label>
-                <select
-                  value={groceryCategory}
-                  onChange={(e) => setGroceryCategory(e.target.value as any)}
-                  className="input-field"
-                >
-                  <option value="produce">Produce</option>
-                  <option value="dairy">Dairy</option>
-                  <option value="meat">Meat</option>
-                  <option value="pantry">Pantry</option>
-                  <option value="frozen">Frozen</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-            </div>
-          )}
-
-          {itemType === 'meal' && (
-            <div className="space-y-4 p-4 bg-rose-500/10 border border-rose-500/30 rounded-xl">
-              <h3 className="text-lg font-medium text-rose-400 flex items-center space-x-2">
-                <Utensils className="w-5 h-5" />
-                <span>Meal Details</span>
-              </h3>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Meal Type</label>
-                  <select
-                    value={mealType}
-                    onChange={(e) => setMealType(e.target.value as any)}
-                    className="input-field"
-                  >
-                    <option value="breakfast">Breakfast</option>
-                    <option value="lunch">Lunch</option>
-                    <option value="dinner">Dinner</option>
-                    <option value="snack">Snack</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Calories</label>
-                  <div className="relative">
-                    <Flame className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                    <input
-                      type="number"
-                      value={calories}
-                      onChange={(e) => setCalories(e.target.value)}
-                      className="input-field pl-10"
-                      placeholder="500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Protein (g)</label>
-                  <input
-                    type="number"
-                    value={protein}
-                    onChange={(e) => setProtein(e.target.value)}
-                    className="input-field"
-                    placeholder="25"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Carbs (g)</label>
-                  <input
-                    type="number"
-                    value={carbs}
-                    onChange={(e) => setCarbs(e.target.value)}
-                    className="input-field"
-                    placeholder="30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Fat (g)</label>
-                  <input
-                    type="number"
-                    value={fat}
-                    onChange={(e) => setFat(e.target.value)}
-                    className="input-field"
-                    placeholder="15"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Ingredients</label>
-                {ingredients.map((ingredient, index) => (
-                  <div key={index} className="flex space-x-2 mb-2">
-                    <input
-                      type="text"
-                      value={ingredient.name}
-                      onChange={(e) => updateIngredient(index, 'name', e.target.value)}
-                      className="input-field flex-1"
-                      placeholder="Ingredient name"
-                    />
-                    <input
-                      type="text"
-                      value={ingredient.amount}
-                      onChange={(e) => updateIngredient(index, 'amount', e.target.value)}
-                      className="input-field w-24"
-                      placeholder="Amount"
-                    />
-                    {ingredients.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeIngredient(index)}
-                        className="px-3 py-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
-                      >
-                        ×
-                      </button>
-                    )}
-                  </div>
-                ))}
+                {todayInputMode === 'voice' ? (
+                  <VoiceInput onTranscriptChange={setTitle} placeholder={`Speak to add ${todayType}...`} />
+                ) : (
+                  <input className="input-field holographic pr-10" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={`Enter ${todayType} name...`} required />
+                )}
                 <button
                   type="button"
-                  onClick={addIngredient}
-                  className="text-cyan-400 hover:text-cyan-300 text-sm"
+                  aria-label="Toggle voice input"
+                  onClick={() => setTodayInputMode(todayInputMode === 'voice' ? 'form' : 'voice')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400"
                 >
-                  + Add Ingredient
+                  <Mic className="h-4 w-4" />
                 </button>
               </div>
-            </div>
-          )}
+            </label>
 
-          {itemType === 'workout' && (
-            <div className="space-y-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-              <h3 className="text-lg font-medium text-amber-400 flex items-center space-x-2">
-                <Dumbbell className="w-5 h-5" />
-                <span>Workout Details</span>
-              </h3>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Workout Type</label>
-                  <select
-                    value={workoutType}
-                    onChange={(e) => setWorkoutType(e.target.value as any)}
-                    className="input-field"
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-300">Category</label>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {categories.map((cat) => (
+                  <button
+                    key={cat.value}
+                    type="button"
+                    onClick={() => setCategory(cat.value)}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${category === cat.value ? cat.color : 'border-gray-600 text-gray-400 hover:border-gray-500'}`}
                   >
-                    <option value="strength">Strength</option>
-                    <option value="cardio">Cardio</option>
-                    <option value="flexibility">Flexibility</option>
-                    <option value="sports">Sports</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">Intensity</label>
-                  <select
-                    value={intensity}
-                    onChange={(e) => setIntensity(e.target.value as any)}
-                    className="input-field"
-                  >
-                    <option value="low">Low</option>
-                    <option value="medium">Medium</option>
-                    <option value="high">High</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Exercises</label>
-                {exercises.map((exercise, index) => (
-                  <div key={index} className="space-y-2 mb-4 p-3 bg-gray-800/50 rounded-lg">
-                    <input
-                      type="text"
-                      value={exercise.name}
-                      onChange={(e) => updateExercise(index, 'name', e.target.value)}
-                      className="input-field w-full"
-                      placeholder="Exercise name"
-                    />
-                    <div className="grid grid-cols-3 gap-2">
-                      <input
-                        type="number"
-                        value={exercise.sets || ''}
-                        onChange={(e) => updateExercise(index, 'sets', parseInt(e.target.value))}
-                        className="input-field"
-                        placeholder="Sets"
-                      />
-                      <input
-                        type="number"
-                        value={exercise.reps || ''}
-                        onChange={(e) => updateExercise(index, 'reps', parseInt(e.target.value))}
-                        className="input-field"
-                        placeholder="Reps"
-                      />
-                      <input
-                        type="number"
-                        value={exercise.weight || ''}
-                        onChange={(e) => updateExercise(index, 'weight', parseFloat(e.target.value))}
-                        className="input-field"
-                        placeholder="Weight"
-                      />
-                    </div>
-                    {exercises.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeExercise(index)}
-                        className="text-red-400 hover:text-red-300 text-sm"
-                      >
-                        Remove Exercise
-                      </button>
-                    )}
-                  </div>
+                    {cat.label}
+                  </button>
                 ))}
-                <button
-                  type="button"
-                  onClick={addExercise}
-                  className="text-cyan-400 hover:text-cyan-300 text-sm"
-                >
-                  + Add Exercise
-                </button>
               </div>
             </div>
-          )}
 
-          {/* Scheduling (for all types except grocery) */}
-          {itemType !== 'grocery' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <ProjectSelector selectedProjectId={projectId} onProjectSelect={setProjectId} />
+
+            {todayType === 'task' && (
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-gray-300">Location</span>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input className="input-field pl-10 holographic" value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Add a place or address..." />
+                </div>
+              </label>
+            )}
+
+            <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Date</label>
-                <input
-                  type="date"
-                  value={scheduledDate}
-                  onChange={(e) => setScheduledDate(e.target.value)}
-                  className="input-field holographic"
-                />
-                <div className="flex space-x-2 mt-2">
+                <label className="mb-2 block text-sm font-medium text-gray-300">Date</label>
+                <input type="date" value={scheduledDate} onChange={(event) => setScheduledDate(event.target.value)} className="input-field holographic" />
+                <div className="mt-2 flex flex-wrap gap-2">
                   {quickDates.map((quick) => (
-                    <button
-                      key={quick.label}
-                      type="button"
-                      onClick={() => setScheduledDate(quick.value)}
-                      className="px-2 py-1 text-xs bg-gray-700 text-gray-300 rounded hover:bg-gray-600 transition-colors"
-                    >
+                    <button key={quick.label} type="button" onClick={() => setScheduledDate(quick.value)} className="rounded bg-gray-700 px-2 py-1 text-xs text-gray-300 transition hover:bg-gray-600">
                       {quick.label}
                     </button>
                   ))}
                 </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">Time (Optional)</label>
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-gray-300">Time</span>
                 <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    className="input-field pl-10 holographic"
-                  />
+                  <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className="input-field pl-10 holographic" />
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Duration (for tasks, habits, meals, workouts) */}
-          {itemType !== 'grocery' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
-                Duration (minutes)
               </label>
-              <input
-                type="number"
-                value={duration}
-                onChange={(e) => setDuration(parseInt(e.target.value))}
-                className="input-field holographic"
-                min="1"
-                placeholder="30"
-              />
             </div>
-          )}
 
-          {/* Submit Button */}
-          <motion.button
-            type="submit"
-            disabled={addItemMutation.isPending}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white py-3 px-6 rounded-xl font-medium hover:from-cyan-400 hover:to-blue-500 transition-all duration-300 shadow-lg shadow-cyan-500/25 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-          >
-            {addItemMutation.isPending ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-gray-300">Duration</span>
+              <input type="number" min="1" value={duration} onChange={(event) => setDuration(event.target.value)} className="input-field holographic" />
+            </label>
+
+            <button type="submit" disabled={addTodayMutation.isPending} className="btn-primary inline-flex w-full items-center justify-center gap-2 py-3">
+              <Plus className="h-5 w-5" />
+              Add {todayType === 'habit' ? 'Habit' : 'Task'}
+            </button>
+          </form>
+        )}
+
+        {activeTab === 'calories' && (
+          <form onSubmit={submitCalories} className="space-y-6">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(['entry', 'weight'] as CalorieMode[]).map((mode) => {
+                const Icon = mode === 'entry' ? Flame : Scale
+                return (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setCalorieMode(mode)}
+                    className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition ${
+                      calorieMode === mode ? 'border-cyan-500/50 bg-cyan-500/20 text-cyan-200' : 'border-gray-700 text-gray-400 hover:border-gray-600'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {mode === 'entry' ? 'Entry' : 'Weight'}
+                  </button>
+                )
+              })}
+            </div>
+
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-gray-300">Date</span>
+              <input type="date" className="input-field" value={calorieDate} onChange={(event) => setCalorieDate(event.target.value)} />
+            </label>
+
+            {calorieMode === 'entry' ? (
+              <>
+                <label className="block space-y-2">
+                  <span className="text-sm font-medium text-gray-300">Name</span>
+                  <div className="relative">
+                    {calorieVoice ? (
+                      <VoiceInput onTranscriptChange={setCalorieName} placeholder="Speak the food or meal..." />
+                    ) : (
+                      <input className="input-field pr-10" value={calorieName} onChange={(event) => setCalorieName(event.target.value)} placeholder="Greek yogurt" />
+                    )}
+                    <button type="button" aria-label="Toggle calorie voice input" onClick={() => setCalorieVoice(!calorieVoice)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-cyan-400">
+                      <Mic className="h-4 w-4" />
+                    </button>
+                  </div>
+                </label>
+                <label className="block space-y-2">
+                  <span className="text-sm font-medium text-gray-300">Quantity</span>
+                  <input className="input-field" value={quantity} onChange={(event) => setQuantity(event.target.value)} placeholder="2 eggs, one bowl..." />
+                </label>
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-300">Calories</span>
+                    <input type="number" min="0" className="input-field" value={calories} onChange={(event) => setCalories(event.target.value)} />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-300">Protein</span>
+                    <input type="number" min="0" className="input-field" value={protein} onChange={(event) => setProtein(event.target.value)} />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-300">Carbs</span>
+                    <input type="number" min="0" className="input-field" value={carbs} onChange={(event) => setCarbs(event.target.value)} />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-300">Fat</span>
+                    <input type="number" min="0" className="input-field" value={fat} onChange={(event) => setFat(event.target.value)} />
+                  </label>
+                </div>
+              </>
+            ) : (
+              <label className="block space-y-2">
+                <span className="text-sm font-medium text-gray-300">Weight in kg</span>
+                <input type="number" min="1" step="0.1" className="input-field" value={weightKg} onChange={(event) => setWeightKg(event.target.value)} placeholder="72.5" />
+              </label>
+            )}
+
+            <button type="submit" disabled={addCalorieMutation.isPending || addWeightMutation.isPending} className="btn-primary inline-flex w-full items-center justify-center gap-2 py-3">
+              <Plus className="h-5 w-5" />
+              Add {calorieMode === 'entry' ? 'Entry' : 'Weight'}
+            </button>
+          </form>
+        )}
+
+        {activeTab === 'achievements' && (
+          <form onSubmit={submitAchievement} className="space-y-6">
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-gray-300">Achievement</span>
+              <select className="input-field" value={achievementId || selectedAchievement?.definition.id || ''} onChange={(event) => setAchievementId(event.target.value)}>
+                {(achievementsQuery.data ?? []).map((achievement) => (
+                  <option key={achievement.definition.id} value={achievement.definition.id}>
+                    {achievement.definition.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {achievementsQuery.isLoading ? (
+              <p className="text-sm text-gray-400">Loading...</p>
+            ) : !selectedAchievement ? (
+              <div className="rounded-lg border border-dashed border-gray-700/80 bg-gray-950/20 p-4 text-sm text-gray-500">
+                Create an achievement on the Achievements page first.
+              </div>
             ) : (
               <>
-                <Plus className="w-5 h-5" />
-                <span>Add {itemType.charAt(0).toUpperCase() + itemType.slice(1)}</span>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-300">Date</span>
+                    <input type="date" className="input-field" value={achievementDate} onChange={(event) => setAchievementDate(event.target.value)} />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-300">Value ({selectedAchievement.definition.unit})</span>
+                    <input type="number" min="0" step="0.01" className="input-field" value={achievementValue} onChange={(event) => setAchievementValue(event.target.value)} />
+                  </label>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-300">Supporting Value</span>
+                    <input type="number" min="0" step="0.01" className="input-field" value={supportingValue} onChange={(event) => setSupportingValue(event.target.value)} />
+                  </label>
+                  <label className="space-y-2">
+                    <span className="text-sm font-medium text-gray-300">Supporting Unit</span>
+                    <input className="input-field" value={supportingUnit} onChange={(event) => setSupportingUnit(event.target.value)} placeholder="kg, min..." />
+                  </label>
+                </div>
+                <label className="block space-y-2">
+                  <span className="text-sm font-medium text-gray-300">Notes</span>
+                  <input className="input-field" value={achievementNotes} onChange={(event) => setAchievementNotes(event.target.value)} />
+                </label>
               </>
             )}
-          </motion.button>
-        </form>
+
+            <button type="submit" disabled={!selectedAchievement || addAchievementEntryMutation.isPending} className="btn-primary inline-flex w-full items-center justify-center gap-2 py-3">
+              <Target className="h-5 w-5" />
+              Add Achievement Entry
+            </button>
+          </form>
+        )}
       </div>
     </div>
   )

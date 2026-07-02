@@ -14,6 +14,7 @@ export const SettingsSchema = z.object({
   calorieIntake: z.boolean().default(false),
   achievementTracker: z.boolean().default(false),
   weekStartsOn: z.number().int().min(0).max(6).default(1),
+  onboardingStatus: z.enum(['active', 'completed', 'skipped']).default('completed'),
 })
 export type Settings = z.infer<typeof SettingsSchema>
 
@@ -29,6 +30,7 @@ const PatchBody = z.object({
   calorieIntake: z.boolean(),
   achievementTracker: z.boolean(),
   weekStartsOn: z.number().int().min(0).max(6),
+  onboardingStatus: z.enum(['active', 'completed', 'skipped']),
 }).partial().strict()
 
 const router = express.Router()

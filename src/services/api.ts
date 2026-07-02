@@ -30,7 +30,7 @@ api.interceptors.response.use(
       window.location.reload()
     }
     if (error.response?.status === 402) {
-      toast.error('Out of AI tokens')
+      toast.error('Out of AI credits. Open Settings to subscribe or buy more.')
     }
     return Promise.reject(error)
   }
@@ -178,7 +178,10 @@ export interface TokenManagerUser {
   role: 'admin' | 'user'
   created_at: string
   balance: number
+  subscription_balance: number
+  topup_balance: number
   balance_updated_at: string | null
+  subscription: CreditSubscriptionState | null
 }
 
 export interface TokenManagerTotals {
@@ -215,15 +218,58 @@ export interface TokenManagerActivity {
   createdAt: string
 }
 
+export interface ContactMessage {
+  id: string
+  userId: string
+  userEmail: string | null
+  userName: string | null
+  kind: 'subscribe' | 'topup'
+  message: string
+  status: 'pending' | 'handled'
+  handledAt: string | null
+  handledBy: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export interface TokenManagerOverview {
   users: TokenManagerUser[]
   settings: BillingSettings
+  subscriptionPricing: CreditSubscriptionPricing
   totals: {
     today: TokenManagerTotals
     thisWeek: TokenManagerTotals
     thisMonth: TokenManagerTotals
   }
   activity: TokenManagerActivity[]
+}
+
+export interface CreditSubscriptionPricing {
+  promoActive: boolean
+  phase: 'promo' | 'regular'
+  priceUsd: number
+  monthlyCredits: number
+  sellCreditsPerUsd: number
+  updatedAt?: string | null
+}
+
+export interface CreditSubscriptionState {
+  active: boolean
+  pricePhase: 'promo' | 'regular' | null
+  monthlyCredits: number
+  renewalDate: string | null
+  lastMonthlyGrantAt: string | null
+  updatedAt: string | null
+}
+
+export interface CreditSummary {
+  balance: number
+  subscriptionBalance: number
+  topupBalance: number
+  usedThisMonth: number
+  monthlyGrantUsed: number
+  pricing: CreditSubscriptionPricing
+  subscription: CreditSubscriptionState
 }
 
 // Auth Service
@@ -489,6 +535,18 @@ export const creditsService = {
     const response = await api.get('/credits/balance')
     return response.data
   },
+
+  getSummary: async (): Promise<CreditSummary> => {
+    const response = await api.get('/credits/summary')
+    return response.data
+  },
+}
+
+export const contactMessagesService = {
+  create: async (input: { kind: 'subscribe' | 'topup'; message: string }): Promise<ContactMessage> => {
+    const response = await api.post('/contact-messages', input)
+    return response.data
+  },
 }
 
 export interface UserSettings {
@@ -501,6 +559,7 @@ export interface UserSettings {
   calorieIntake: boolean
   achievementTracker: boolean
   weekStartsOn: 0 | 1 | 2 | 3 | 4 | 5 | 6
+  onboardingStatus: 'active' | 'completed' | 'skipped'
 }
 
 export const settingsService = {
@@ -511,6 +570,18 @@ export const settingsService = {
 
   updateSettings: async (partial: Partial<UserSettings>): Promise<UserSettings> => {
     const response = await api.patch('/settings', partial)
+    return response.data
+  },
+}
+
+export const onboardingService = {
+  complete: async (): Promise<{ status: 'completed' }> => {
+    const response = await api.post('/onboarding/complete')
+    return response.data
+  },
+
+  skip: async (): Promise<{ status: 'skipped' }> => {
+    const response = await api.post('/onboarding/skip')
     return response.data
   },
 }
@@ -629,6 +700,105 @@ export const weightService = {
   },
 }
 
+export interface WorkoutExercise {
+  id: string
+  sessionId: string
+  name: string
+  sets: number | null
+  reps: number | null
+  weightKg: number | null
+  durationMinutes: number | null
+  distanceKm: number | null
+  notes: string | null
+  position: number
+}
+
+export type WorkoutExerciseInput = {
+  name: string
+  sets?: number | null
+  reps?: number | null
+  weightKg?: number | null
+  durationMinutes?: number | null
+  distanceKm?: number | null
+  notes?: string | null
+  position?: number
+}
+
+export interface WorkoutSession {
+  id: string
+  userId: string
+  date: string
+  title: string | null
+  notes: string | null
+  exercises: WorkoutExercise[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type WorkoutSessionInput = {
+  date: string
+  title?: string | null
+  notes?: string | null
+  exercises: WorkoutExerciseInput[]
+}
+
+export type WorkoutSessionPatch = {
+  date?: string
+  title?: string | null
+  notes?: string | null
+}
+
+export interface WorkoutExerciseItem {
+  id: string
+  userId: string
+  name: string
+  normalizedName: string
+  usageCount: number
+  lastUsedAt: string
+  createdAt: string
+  updatedAt: string
+}
+
+export const workoutsService = {
+  list: async (date: string): Promise<WorkoutSession[]> => {
+    const response = await api.get('/workouts', { params: { date } })
+    return response.data
+  },
+
+  create: async (session: WorkoutSessionInput): Promise<WorkoutSession> => {
+    const response = await api.post('/workouts', session)
+    return response.data
+  },
+
+  update: async (id: string, patch: WorkoutSessionPatch): Promise<WorkoutSession> => {
+    const response = await api.patch(`/workouts/${id}`, patch)
+    return response.data
+  },
+
+  remove: async (id: string): Promise<void> => {
+    await api.delete(`/workouts/${id}`)
+  },
+
+  addExercise: async (sessionId: string, exercise: WorkoutExerciseInput): Promise<WorkoutExercise> => {
+    const response = await api.post(`/workouts/${sessionId}/exercises`, exercise)
+    return response.data
+  },
+
+  updateExercise: async (exerciseId: string, patch: Partial<WorkoutExerciseInput>): Promise<WorkoutExercise> => {
+    const response = await api.patch(`/workouts/exercises/${exerciseId}`, patch)
+    return response.data
+  },
+
+  removeExercise: async (exerciseId: string): Promise<void> => {
+    await api.delete(`/workouts/exercises/${exerciseId}`)
+  },
+
+  items: async (sort: 'recent' | 'most-used', limit = 8): Promise<WorkoutExerciseItem[]> => {
+    const response = await api.get('/workouts/exercises', { params: { sort, limit } })
+    return response.data
+  },
+}
+
 export type AchievementMetricType = 'reps' | 'weight' | 'duration' | 'distance' | 'custom'
 export type AchievementBetterDirection = 'higher' | 'lower'
 
@@ -731,6 +901,19 @@ export const tokenManagerService = {
     return response.data
   },
 
+  getContactMessages: async (status: 'pending' | 'handled' | 'all' = 'pending'): Promise<ContactMessage[]> => {
+    const response = await api.get('/admin/token-manager/contact-messages', { params: { status } })
+    return response.data
+  },
+
+  updateContactMessageStatus: async (
+    messageId: string,
+    status: 'pending' | 'handled'
+  ): Promise<ContactMessage> => {
+    const response = await api.patch(`/admin/token-manager/contact-messages/${messageId}`, { status })
+    return response.data
+  },
+
   setUserBalance: async (userId: string, balance: number): Promise<{ balance: number; delta: number }> => {
     const response = await api.patch(`/admin/token-manager/users/${userId}/balance`, { balance })
     return response.data
@@ -738,6 +921,27 @@ export const tokenManagerService = {
 
   updateSettings: async (settings: { markupRate: number; minMarkupTokens: number }): Promise<BillingSettings> => {
     const response = await api.patch('/admin/token-manager/settings', settings)
+    return response.data
+  },
+
+  updateSubscriptionPricing: async (settings: { promoActive: boolean }): Promise<CreditSubscriptionPricing> => {
+    const response = await api.patch('/admin/token-manager/subscription-pricing', settings)
+    return response.data
+  },
+
+  updateUserSubscription: async (
+    userId: string,
+    input: { active: boolean; grantMonthlyCredits: boolean }
+  ): Promise<{ subscription: CreditSubscriptionState; balance: number; pricing: CreditSubscriptionPricing }> => {
+    const response = await api.patch(`/admin/token-manager/users/${userId}/subscription`, input)
+    return response.data
+  },
+
+  grantTopUp: async (
+    userId: string,
+    input: { dollars: number }
+  ): Promise<{ balance: number; credits: number; dollars: number; pricing: CreditSubscriptionPricing }> => {
+    const response = await api.post(`/admin/token-manager/users/${userId}/top-up`, input)
     return response.data
   },
 }

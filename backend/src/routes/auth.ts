@@ -5,6 +5,7 @@ import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
 import { db } from '../supabase-client'
 import { Credits, FREE_SIGNUP_CREDITS } from '../credits'
+import { Onboarding } from '../onboarding'
 
 const router = express.Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
@@ -44,6 +45,7 @@ router.post('/signup', signupLimiter, async (req, res) => {
     const password_hash = await bcrypt.hash(password, 10)
     const user = await db.createUser({ email, name, password_hash })
     await Credits.grant(user.id, FREE_SIGNUP_CREDITS, 'signup_bonus')
+    await Onboarding.seedNewUser(user.id)
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' })
     return res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role ?? 'user' }, token })

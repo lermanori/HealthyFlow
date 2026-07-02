@@ -9,6 +9,7 @@ import TokenManagerPage from './pages/TokenManagerPage'
 import CaloriesPage from './pages/CaloriesPage'
 import MealParserLabPage from './pages/MealParserLabPage'
 import AchievementsPage from './pages/AchievementsPage'
+import WorkoutsPage from './pages/WorkoutsPage'
 import LoginPage from './pages/LoginPage'
 import LoadingSpinner from './components/LoadingSpinner'
 import OfflineNotification from './components/OfflineNotification'
@@ -59,6 +60,7 @@ function App() {
           <Route path="/meal-ocr-lab" element={user.role === 'admin' ? <MealParserLabPage /> : <Navigate to="/" replace />} />
           <Route path="/calories" element={settings?.calorieIntake ? <CaloriesPage /> : <Navigate to="/" replace />} />
           <Route path="/achievements" element={settings?.achievementTracker ? <AchievementsPage /> : <Navigate to="/" replace />} />
+          <Route path="/workouts" element={<WorkoutsPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

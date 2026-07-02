@@ -939,8 +939,98 @@ export const db = {
     return data.settings as Record<string, unknown>
   },
 
+  // Contact messages
+  async createContactMessage(row: {
+    user_id: string
+    kind: 'subscribe' | 'topup'
+    message: string
+  }) {
+    const { data, error } = await supabase
+      .from('contact_messages')
+      .insert(row)
+      .select('id, user_id, kind, message, status, handled_at, handled_by, created_at, updated_at')
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async getContactMessages(status: 'pending' | 'handled' | 'all' = 'pending') {
+    let query = supabase
+      .from('contact_messages')
+      .select('id, user_id, kind, message, status, handled_at, handled_by, created_at, updated_at')
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    if (status !== 'all') query = query.eq('status', status)
+
+    const { data: messages, error } = await query
+    if (error) throw error
+
+    const users = await this.getAllUsers()
+    const usersById = new Map(users.map(user => [user.id, user]))
+    return (messages ?? []).map(message => {
+      const user = usersById.get(message.user_id)
+      return {
+        id: message.id,
+        userId: message.user_id,
+        userEmail: user?.email ?? null,
+        userName: user?.name ?? null,
+        kind: message.kind,
+        message: message.message,
+        status: message.status,
+        handledAt: message.handled_at,
+        handledBy: message.handled_by,
+        createdAt: message.created_at,
+        updatedAt: message.updated_at,
+      }
+    })
+  },
+
+  async updateContactMessageStatus(
+    messageId: string,
+    status: 'pending' | 'handled',
+    handledBy: string | null
+  ) {
+    const { data, error } = await supabase
+      .from('contact_messages')
+      .update({
+        status,
+        handled_at: status === 'handled' ? new Date().toISOString() : null,
+        handled_by: status === 'handled' ? handledBy : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', messageId)
+      .select('id, user_id, kind, message, status, handled_at, handled_by, created_at, updated_at')
+      .single()
+    if (error) throw error
+
+    const user = await this.getUserById(data.user_id)
+    return {
+      id: data.id,
+      userId: data.user_id,
+      userEmail: user?.email ?? null,
+      userName: user?.name ?? null,
+      kind: data.kind,
+      message: data.message,
+      status: data.status,
+      handledAt: data.handled_at,
+      handledBy: data.handled_by,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+    }
+  },
+
   // ponytail: test-mode only — deletes all task rows for the given user
   async resetTestUser(userId: string) {
+    await supabase
+      .from('workout_sessions')
+      .delete()
+      .eq('user_id', userId)
+    await supabase
+      .from('workout_exercise_items')
+      .delete()
+      .eq('user_id', userId)
+
     const { error } = await supabase
       .from('tasks')
       .delete()
@@ -979,6 +1069,15 @@ export const db = {
     return data
   },
 
+  async grantSubscriptionCredits(userId: string, amount: number): Promise<number> {
+    const { data, error } = await supabase.rpc('grant_subscription_credits', {
+      p_user_id: userId,
+      p_amount: amount,
+    })
+    if (error) throw error
+    return data
+  },
+
   async insertUsageLog(row: {
     user_id: string
     endpoint?: string
@@ -1003,7 +1102,13 @@ export const db = {
   async setCreditBalance(userId: string, balance: number): Promise<number> {
     const { data, error } = await supabase
       .from('user_credits')
-      .upsert({ user_id: userId, balance, updated_at: new Date().toISOString() }, { onConflict: 'user_id' })
+      .upsert({
+        user_id: userId,
+        balance,
+        subscription_balance: 0,
+        topup_balance: balance,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
       .select('balance')
       .single()
     if (error) throw error
@@ -1014,12 +1119,19 @@ export const db = {
     const users = await this.getAllUsers()
     const { data: credits, error } = await supabase
       .from('user_credits')
-      .select('user_id, balance, updated_at')
+      .select('user_id, balance, subscription_balance, topup_balance, updated_at')
     if (error) throw error
 
+    const { data: subscriptions, error: subscriptionError } = await supabase
+      .from('user_credit_subscriptions')
+      .select('user_id, active, price_phase, monthly_credits, renewal_date, last_monthly_grant_at, updated_at')
+    if (subscriptionError) throw subscriptionError
+
     const balances = new Map((credits ?? []).map(row => [row.user_id, row]))
+    const subscriptionByUser = new Map((subscriptions ?? []).map(row => [row.user_id, row]))
     return users.map(user => {
       const credit = balances.get(user.id)
+      const subscription = subscriptionByUser.get(user.id)
       return {
         id: user.id,
         email: user.email,
@@ -1027,9 +1139,83 @@ export const db = {
         role: user.role ?? 'user',
         created_at: user.created_at,
         balance: credit?.balance ?? 0,
+        subscription_balance: credit?.subscription_balance ?? 0,
+        topup_balance: credit?.topup_balance ?? credit?.balance ?? 0,
         balance_updated_at: credit?.updated_at ?? null,
+        subscription: subscription ? {
+          active: subscription.active,
+          price_phase: subscription.price_phase,
+          monthly_credits: subscription.monthly_credits,
+          renewal_date: subscription.renewal_date,
+          last_monthly_grant_at: subscription.last_monthly_grant_at,
+          updated_at: subscription.updated_at,
+        } : null,
       }
     })
+  },
+
+  async getCreditBuckets(userId: string) {
+    const { data, error } = await supabase
+      .from('user_credits')
+      .select('balance, subscription_balance, topup_balance, updated_at')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async getCreditSubscriptionSettings() {
+    const { data, error } = await supabase
+      .from('credit_subscription_settings')
+      .select('promo_active, updated_at')
+      .eq('id', true)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async updateCreditSubscriptionSettings(settings: { promo_active: boolean }) {
+    const { data, error } = await supabase
+      .from('credit_subscription_settings')
+      .upsert({
+        id: true,
+        promo_active: settings.promo_active,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' })
+      .select('promo_active, updated_at')
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async getUserCreditSubscription(userId: string) {
+    const { data, error } = await supabase
+      .from('user_credit_subscriptions')
+      .select('user_id, active, price_phase, monthly_credits, renewal_date, last_monthly_grant_at, updated_at')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async upsertUserCreditSubscription(row: {
+    user_id: string
+    active: boolean
+    price_phase: 'promo' | 'regular'
+    monthly_credits: number
+    renewal_date: string | null
+    last_monthly_grant_at?: string | null
+  }) {
+    const { data, error } = await supabase
+      .from('user_credit_subscriptions')
+      .upsert({
+        ...row,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
+      .select('user_id, active, price_phase, monthly_credits, renewal_date, last_monthly_grant_at, updated_at')
+      .single()
+    if (error) throw error
+    return data
   },
 
   async getBillingSettings() {
@@ -1169,6 +1355,207 @@ export const db = {
   async getRecentCalorieItems(userId: string, limit: number = 10) {
     const { data, error } = await supabase
       .from('calorie_items')
+      .select('*')
+      .eq('user_id', userId)
+      .order('last_used_at', { ascending: false })
+      .limit(limit)
+    if (error) throw error
+    return data ?? []
+  },
+
+  // Workout Tracker
+  async getWorkoutSessionsByDay(userId: string, date: string) {
+    const { data, error } = await supabase
+      .from('workout_sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('date', date)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return data ?? []
+  },
+
+  async getWorkoutSessionById(sessionId: string) {
+    const { data, error } = await supabase
+      .from('workout_sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async createWorkoutSession(sessionData: {
+    id: string
+    user_id: string
+    date: string
+    title?: string | null
+    notes?: string | null
+  }) {
+    const { data, error } = await supabase
+      .from('workout_sessions')
+      .insert(sessionData)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async updateWorkoutSession(sessionId: string, updates: Record<string, unknown>) {
+    const { data, error } = await supabase
+      .from('workout_sessions')
+      .update(updates)
+      .eq('id', sessionId)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async deleteWorkoutSession(sessionId: string) {
+    const { error } = await supabase
+      .from('workout_sessions')
+      .delete()
+      .eq('id', sessionId)
+    if (error) throw error
+  },
+
+  async getWorkoutSessionExercises(sessionId: string) {
+    const { data, error } = await supabase
+      .from('workout_session_exercises')
+      .select('*')
+      .eq('session_id', sessionId)
+      .order('position', { ascending: true })
+    if (error) throw error
+    return data ?? []
+  },
+
+  async getWorkoutSessionExerciseById(exerciseId: string) {
+    const { data, error } = await supabase
+      .from('workout_session_exercises')
+      .select('*')
+      .eq('id', exerciseId)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async createWorkoutSessionExercise(exerciseData: {
+    id: string
+    session_id: string
+    name: string
+    sets?: number | null
+    reps?: number | null
+    weight_kg?: number | null
+    duration_minutes?: number | null
+    distance_km?: number | null
+    notes?: string | null
+    position: number
+  }) {
+    const { data, error } = await supabase
+      .from('workout_session_exercises')
+      .insert(exerciseData)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async createWorkoutSessionExercises(exercises: Array<{
+    id: string
+    session_id: string
+    name: string
+    sets?: number | null
+    reps?: number | null
+    weight_kg?: number | null
+    duration_minutes?: number | null
+    distance_km?: number | null
+    notes?: string | null
+    position: number
+  }>) {
+    const { data, error } = await supabase
+      .from('workout_session_exercises')
+      .insert(exercises)
+      .select()
+    if (error) throw error
+    return data ?? []
+  },
+
+  async updateWorkoutSessionExercise(exerciseId: string, updates: Record<string, unknown>) {
+    const { data, error } = await supabase
+      .from('workout_session_exercises')
+      .update(updates)
+      .eq('id', exerciseId)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async deleteWorkoutSessionExercise(exerciseId: string) {
+    const { error } = await supabase
+      .from('workout_session_exercises')
+      .delete()
+      .eq('id', exerciseId)
+    if (error) throw error
+  },
+
+  async upsertWorkoutExerciseItem(userId: string, name: string) {
+    const normalizedName = name.trim().toLowerCase()
+    const now = new Date().toISOString()
+
+    const { data: existing, error: getError } = await supabase
+      .from('workout_exercise_items')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('normalized_name', normalizedName)
+      .maybeSingle()
+    if (getError) throw getError
+
+    if (existing) {
+      const { data, error } = await supabase
+        .rpc('upsert_workout_exercise_item_usage', {
+          p_user_id: userId,
+          p_normalized_name: normalizedName,
+          p_now: now,
+        })
+        .single()
+      if (error) throw error
+      return data
+    }
+
+    const { data, error } = await supabase
+      .from('workout_exercise_items')
+      .insert({
+        user_id: userId,
+        name,
+        normalized_name: normalizedName,
+        usage_count: 1,
+        last_used_at: now,
+        created_at: now,
+        updated_at: now,
+      })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async getMostUsedWorkoutExerciseItems(userId: string, limit: number = 10) {
+    const { data, error } = await supabase
+      .from('workout_exercise_items')
+      .select('*')
+      .eq('user_id', userId)
+      .order('usage_count', { ascending: false })
+      .order('last_used_at', { ascending: false })
+      .limit(limit)
+    if (error) throw error
+    return data ?? []
+  },
+
+  async getRecentWorkoutExerciseItems(userId: string, limit: number = 10) {
+    const { data, error } = await supabase
+      .from('workout_exercise_items')
       .select('*')
       .eq('user_id', userId)
       .order('last_used_at', { ascending: false })

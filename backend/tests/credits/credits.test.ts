@@ -16,8 +16,14 @@ jest.mock('../../src/supabase-client', () => ({
     getCreditBalance: jest.fn(),
     getBillingSettings: jest.fn(),
     updateBillingSettings: jest.fn(),
+    getCreditSubscriptionSettings: jest.fn(),
+    updateCreditSubscriptionSettings: jest.fn(),
+    getCreditBuckets: jest.fn(),
+    getUserCreditSubscription: jest.fn(),
+    upsertUserCreditSubscription: jest.fn(),
     reserveCredits: jest.fn(),
     grantCredits: jest.fn(),
+    grantSubscriptionCredits: jest.fn(),
     insertUsageLog: jest.fn(),
     setCreditBalance: jest.fn(),
     getUsersWithCreditBalances: jest.fn(),
@@ -42,6 +48,10 @@ beforeEach(() => {
     app_tokens_per_usd: 1000,
     markup_rate: 0.25,
     min_markup_tokens: 5,
+    updated_at: null,
+  })
+  mockDb.getCreditSubscriptionSettings.mockResolvedValue({
+    promo_active: true,
     updated_at: null,
   })
 })
@@ -251,6 +261,77 @@ describe('Credits.grant', () => {
         reason: 'signup bonus',
       })
     )
+  })
+})
+
+describe('subscription pricing and grants', () => {
+  it('keeps cost metering at 1000 app tokens per dollar while promo sell rate is 500 credits per dollar', async () => {
+    mockDb.getCreditSubscriptionSettings.mockResolvedValue({ promo_active: true, updated_at: null })
+
+    const pricing = await Credits.getSubscriptionPricing()
+
+    expect(Credits.APP_TOKENS_PER_USD).toBe(1000)
+    expect(pricing).toEqual(expect.objectContaining({
+      promoActive: true,
+      phase: 'promo',
+      priceUsd: 1,
+      monthlyCredits: 500,
+      sellCreditsPerUsd: 500,
+    }))
+  })
+
+  it('uses regular sell rate of 250 credits per dollar when promo is off', async () => {
+    mockDb.getCreditSubscriptionSettings.mockResolvedValue({ promo_active: false, updated_at: null })
+
+    const pricing = await Credits.getSubscriptionPricing()
+
+    expect(pricing.phase).toBe('regular')
+    expect(pricing.priceUsd).toBe(2)
+    expect(pricing.sellCreditsPerUsd).toBe(250)
+  })
+
+  it('activates a subscription and grants exactly the monthly non-rollover bucket', async () => {
+    mockDb.getCreditBalance.mockResolvedValue(100)
+    mockDb.upsertUserCreditSubscription.mockResolvedValue({
+      user_id: 'user-1',
+      active: true,
+      price_phase: 'promo',
+      monthly_credits: 500,
+      renewal_date: '2026-08-01',
+      last_monthly_grant_at: '2026-07-01T00:00:00.000Z',
+      updated_at: '2026-07-01T00:00:00.000Z',
+    })
+    mockDb.grantSubscriptionCredits.mockResolvedValue(600)
+    mockDb.insertUsageLog.mockResolvedValue(undefined)
+
+    const result = await Credits.activateSubscription('user-1', { active: true, grantMonthlyCredits: true })
+
+    expect(mockDb.grantSubscriptionCredits).toHaveBeenCalledWith('user-1', 500)
+    expect(mockDb.insertUsageLog).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: 'user-1',
+      credits_delta: 500,
+      reason: 'subscription_monthly_grant_promo',
+      balance_before: 100,
+      balance_after: 600,
+    }))
+    expect(result.balance).toBe(600)
+  })
+
+  it('grants top-ups at the active sell rate and stacks them through grantCredits', async () => {
+    mockDb.getCreditBalance.mockResolvedValue(25)
+    mockDb.grantCredits.mockResolvedValue(1025)
+    mockDb.insertUsageLog.mockResolvedValue(undefined)
+
+    const result = await Credits.grantTopUp('user-1', 2)
+
+    expect(mockDb.grantCredits).toHaveBeenCalledWith('user-1', 1000)
+    expect(mockDb.insertUsageLog).toHaveBeenCalledWith(expect.objectContaining({
+      credits_delta: 1000,
+      reason: 'topup_promo_2_usd',
+      balance_before: 25,
+      balance_after: 1025,
+    }))
+    expect(result.credits).toBe(1000)
   })
 })
 

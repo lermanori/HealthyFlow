@@ -14,6 +14,7 @@ import jwt from 'jsonwebtoken'
 import { app } from '../../src/index'
 import { db } from '../../src/supabase-client'
 import { Credits, FREE_SIGNUP_CREDITS } from '../../src/credits'
+import { Onboarding } from '../../src/onboarding'
 
 jest.mock('../../src/supabase-client', () => ({
   db: {
@@ -35,8 +36,15 @@ jest.mock('../../src/credits', () => ({
   FREE_SIGNUP_CREDITS: 50,
 }))
 
+jest.mock('../../src/onboarding', () => ({
+  Onboarding: {
+    seedNewUser: jest.fn(),
+  },
+}))
+
 const mockDb = db as jest.Mocked<typeof db>
 const mockCredits = Credits as jest.Mocked<typeof Credits>
+const mockOnboarding = Onboarding as jest.Mocked<typeof Onboarding>
 
 const USER_ID = 'test-user-id'
 const authHeader = () => `Bearer ${jwt.sign({ userId: USER_ID }, process.env.JWT_SECRET!)}`
@@ -258,6 +266,7 @@ describe('POST /api/auth/signup — credit seeding', () => {
 
     expect(res.status).toBe(200)
     expect(mockCredits.grant).toHaveBeenCalledWith('new-user-id', FREE_SIGNUP_CREDITS, 'signup_bonus')
+    expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('new-user-id')
   })
 })
 

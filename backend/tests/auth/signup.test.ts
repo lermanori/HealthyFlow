@@ -1,6 +1,7 @@
 import request from 'supertest'
 import { app } from '../../src/index'
 import { db } from '../../src/supabase-client'
+import { Onboarding } from '../../src/onboarding'
 
 // ponytail: mock db so tests are hermetic — no real Supabase calls
 jest.mock('../../src/supabase-client', () => ({
@@ -12,7 +13,14 @@ jest.mock('../../src/supabase-client', () => ({
   },
 }))
 
+jest.mock('../../src/onboarding', () => ({
+  Onboarding: {
+    seedNewUser: jest.fn(),
+  },
+}))
+
 const mockDb = db as jest.Mocked<typeof db>
+const mockOnboarding = Onboarding as jest.Mocked<typeof Onboarding>
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -33,6 +41,7 @@ describe('POST /api/auth/signup', () => {
     expect(res.status).toBe(200)
     expect(res.body.token).toBeDefined()
     expect(res.body.user.email).toBe('new@example.com')
+    expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('user-1')
   })
 
   it('duplicate email → 409', async () => {

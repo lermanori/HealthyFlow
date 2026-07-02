@@ -12,4 +12,13 @@ router.get('/balance', authenticateToken, async (req: AuthRequest, res) => {
   res.json(BalanceResponse.parse({ balance }))
 })
 
+router.get('/summary', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    res.json(await Credits.getCreditSummary(req.user.userId))
+  } catch (error) {
+    console.error('Credit summary error:', error)
+    res.status(500).json({ error: 'Database error' })
+  }
+})
+
 export { router as creditsRoutes }

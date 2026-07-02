@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays } from 'date-fns'
-import { Plus, Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw } from 'lucide-react'
+import { Plus, Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, CheckCircle2, Award, Utensils } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
-import api, { calendarService, taskService, ExternalCalendarEvent, Task } from '../services/api'
+import api, { calendarService, onboardingService, taskService, ExternalCalendarEvent, Task } from '../services/api'
 import DayTimeline from '../components/DayTimeline'
 import HabitTrackerBar from '../components/HabitTrackerBar'
 import AIRecommendationsBox from '../components/AIRecommendationsBox'
@@ -18,6 +18,7 @@ import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import AskAIModal from '../components/AskAIModal'
 import { createPortal } from 'react-dom'
+import { useSettings } from '../hooks/useSettings'
 export default function TodayPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -29,6 +30,7 @@ export default function TodayPage() {
   const queryClient = useQueryClient()
   const { showNotification } = useNotifications()
   const location = useLocation()
+  const { settings } = useSettings()
 
   // Check for AI parameter in URL
   useEffect(() => {
@@ -184,6 +186,25 @@ export default function TodayPage() {
     },
   })
 
+  const completeOnboardingMutation = useMutation({
+    mutationFn: onboardingService.complete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      queryClient.invalidateQueries({ queryKey: ['achievements'] })
+      toast.success('Onboarding complete. Achievement unlocked!')
+    },
+    onError: () => toast.error('Failed to complete onboarding'),
+  })
+
+  const skipOnboardingMutation = useMutation({
+    mutationFn: onboardingService.skip,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      toast.success('Onboarding skipped')
+    },
+    onError: () => toast.error('Failed to skip onboarding'),
+  })
+
   const handleCompleteTask = (id: string) => {
     completeTaskMutation.mutate(id)
   }
@@ -298,6 +319,72 @@ export default function TodayPage() {
     <div className="space-y-4 md:space-y-6 pb-28 md:pb-0">
       {/* Smart Reminders */}
       <SmartReminders />
+
+      {settings?.onboardingStatus === 'active' && (
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-lg border border-cyan-500/30 bg-gray-900/80 p-4 shadow-xl shadow-cyan-500/10"
+        >
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-cyan-400" />
+                <h2 className="text-lg font-semibold text-gray-100">Start with HealthyFlow</h2>
+              </div>
+              <p className="mt-1 text-sm text-gray-400">
+                Try the core loop once: add something, log a meal, record a win, then ask AI about your day.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => completeOnboardingMutation.mutate()}
+                disabled={completeOnboardingMutation.isPending}
+                className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Finish
+              </button>
+              <button
+                type="button"
+                onClick={() => skipOnboardingMutation.mutate()}
+                disabled={skipOnboardingMutation.isPending}
+                className="btn-secondary px-4 py-2 text-sm"
+              >
+                Skip
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+            <Link to="/add?tab=today" className="rounded-lg border border-gray-700 bg-gray-950/30 p-3 transition hover:border-cyan-500/40 hover:bg-cyan-500/10">
+              <Plus className="mb-2 h-4 w-4 text-cyan-300" />
+              <p className="text-sm font-medium text-gray-100">Add a task</p>
+              <p className="mt-1 text-xs text-gray-500">Use the Today tab.</p>
+            </Link>
+            <Link to="/add?tab=calories" className="rounded-lg border border-gray-700 bg-gray-950/30 p-3 transition hover:border-cyan-500/40 hover:bg-cyan-500/10">
+              <Utensils className="mb-2 h-4 w-4 text-cyan-300" />
+              <p className="text-sm font-medium text-gray-100">Log calories</p>
+              <p className="mt-1 text-xs text-gray-500">Add one quick entry.</p>
+            </Link>
+            <Link to="/add?tab=achievements" className="rounded-lg border border-gray-700 bg-gray-950/30 p-3 transition hover:border-cyan-500/40 hover:bg-cyan-500/10">
+              <Award className="mb-2 h-4 w-4 text-cyan-300" />
+              <p className="text-sm font-medium text-gray-100">Record a win</p>
+              <p className="mt-1 text-xs text-gray-500">Save a measurable result.</p>
+            </Link>
+            <button
+              type="button"
+              onClick={() => setShowAskAIModal(true)}
+              className="rounded-lg border border-gray-700 bg-gray-950/30 p-3 text-left transition hover:border-cyan-500/40 hover:bg-cyan-500/10"
+            >
+              <Brain className="mb-2 h-4 w-4 text-cyan-300" />
+              <p className="text-sm font-medium text-gray-100">Ask AI</p>
+              <p className="mt-1 text-xs text-gray-500">Use the sample tasks.</p>
+            </button>
+          </div>
+        </motion.div>
+      )}
 
       {/* Confetti Animation */}
       <ConfettiAnimation 

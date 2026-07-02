@@ -5,6 +5,9 @@ export const APP_TOKENS_PER_USD = 1000
 export const MARKUP_RATE = 0.25
 export const MIN_MARKUP_TOKENS = 5
 export const MIN_RESERVE_TOKENS = 5
+export const SUBSCRIPTION_MONTHLY_CREDITS = 500
+export const PROMO_PRICE_USD = 1
+export const REGULAR_PRICE_USD = 2
 // ponytail: flat heuristic, biased HIGH on purpose. gpt-4o-mini bills images at
 // a large multiplier (a high-detail image can run ~25k tokens), so we over-reserve
 // here; settle refunds the unused estimate. Better to over-hold than to underfund
@@ -66,6 +69,17 @@ export type BillingSettings = {
   appTokensPerUsd: number
   markupRate: number
   minMarkupTokens: number
+  updatedAt?: string | null
+}
+
+export type SubscriptionPhase = 'promo' | 'regular'
+
+export type SubscriptionPricing = {
+  promoActive: boolean
+  phase: SubscriptionPhase
+  priceUsd: number
+  monthlyCredits: number
+  sellCreditsPerUsd: number
   updatedAt?: string | null
 }
 
@@ -175,6 +189,43 @@ function normalizeBillingSettings(row: any): BillingSettings {
   }
 }
 
+function normalizeSubscriptionPricing(row: any): SubscriptionPricing {
+  const promoActive = row?.promo_active ?? true
+  const priceUsd = promoActive ? PROMO_PRICE_USD : REGULAR_PRICE_USD
+  return {
+    promoActive,
+    phase: promoActive ? 'promo' : 'regular',
+    priceUsd,
+    monthlyCredits: SUBSCRIPTION_MONTHLY_CREDITS,
+    sellCreditsPerUsd: SUBSCRIPTION_MONTHLY_CREDITS / priceUsd,
+    updatedAt: row?.updated_at ?? null,
+  }
+}
+
+function nextRenewalDate(now = new Date()) {
+  const next = new Date(now)
+  next.setMonth(next.getMonth() + 1)
+  return next.toISOString().slice(0, 10)
+}
+
+function subscriptionToClient(row: any) {
+  return row ? {
+    active: Boolean(row.active),
+    pricePhase: row.price_phase as SubscriptionPhase,
+    monthlyCredits: Number(row.monthly_credits ?? SUBSCRIPTION_MONTHLY_CREDITS),
+    renewalDate: row.renewal_date ?? null,
+    lastMonthlyGrantAt: row.last_monthly_grant_at ?? null,
+    updatedAt: row.updated_at ?? null,
+  } : {
+    active: false,
+    pricePhase: null,
+    monthlyCredits: SUBSCRIPTION_MONTHLY_CREDITS,
+    renewalDate: null,
+    lastMonthlyGrantAt: null,
+    updatedAt: null,
+  }
+}
+
 function rangeStarts(now = new Date()) {
   const today = new Date(now)
   today.setHours(0, 0, 0, 0)
@@ -251,8 +302,21 @@ export const Credits = {
   MARKUP_RATE,
   MIN_MARKUP_TOKENS,
   MIN_RESERVE_TOKENS,
+  SUBSCRIPTION_MONTHLY_CREDITS,
+  PROMO_PRICE_USD,
+  REGULAR_PRICE_USD,
   async getBillingSettings(): Promise<BillingSettings> {
     return normalizeBillingSettings(await db.getBillingSettings())
+  },
+
+  async getSubscriptionPricing(): Promise<SubscriptionPricing> {
+    return normalizeSubscriptionPricing(await db.getCreditSubscriptionSettings())
+  },
+
+  async updateSubscriptionPricing(input: { promoActive: boolean }): Promise<SubscriptionPricing> {
+    return normalizeSubscriptionPricing(await db.updateCreditSubscriptionSettings({
+      promo_active: input.promoActive,
+    }))
   },
 
   async updateBillingSettings(input: { markupRate: number; minMarkupTokens: number }): Promise<BillingSettings> {
@@ -271,6 +335,31 @@ export const Credits = {
 
   async getBalance(userId: string): Promise<number> {
     return db.getCreditBalance(userId)
+  },
+
+  async getCreditSummary(userId: string) {
+    const [balance, buckets, subscription, pricing, monthLogs] = await Promise.all([
+      db.getCreditBalance(userId),
+      db.getCreditBuckets(userId),
+      db.getUserCreditSubscription(userId),
+      this.getSubscriptionPricing(),
+      db.getUsageLogsSince(rangeStarts().thisMonth),
+    ])
+    const usedThisMonth = monthLogs
+      .filter((log: any) => log.user_id === userId && Number(log.credits_delta ?? 0) < 0)
+      .reduce((sum: number, log: any) => sum + Math.abs(Number(log.credits_delta ?? 0)), 0)
+    const subscriptionBalance = Number(buckets?.subscription_balance ?? 0)
+    const monthlyCredits = Number(subscription?.monthly_credits ?? SUBSCRIPTION_MONTHLY_CREDITS)
+
+    return {
+      balance,
+      subscriptionBalance,
+      topupBalance: Number(buckets?.topup_balance ?? Math.max(balance - subscriptionBalance, 0)),
+      usedThisMonth,
+      monthlyGrantUsed: Math.max(0, monthlyCredits - subscriptionBalance),
+      pricing,
+      subscription: subscriptionToClient(subscription),
+    }
   },
 
   // Atomic — backed by the `reserve_credits` Postgres function (see migration).
@@ -360,6 +449,54 @@ export const Credits = {
     })
   },
 
+  async activateSubscription(userId: string, input: { active: boolean; grantMonthlyCredits: boolean }) {
+    const pricing = await this.getSubscriptionPricing()
+    const renewalDate = input.active ? nextRenewalDate() : null
+    const previousBalance = await db.getCreditBalance(userId)
+
+    const subscription = await db.upsertUserCreditSubscription({
+      user_id: userId,
+      active: input.active,
+      price_phase: pricing.phase,
+      monthly_credits: SUBSCRIPTION_MONTHLY_CREDITS,
+      renewal_date: renewalDate,
+      last_monthly_grant_at: input.active && input.grantMonthlyCredits ? new Date().toISOString() : null,
+    })
+
+    let balance = previousBalance
+    if (input.active && input.grantMonthlyCredits) {
+      balance = await db.grantSubscriptionCredits(userId, SUBSCRIPTION_MONTHLY_CREDITS)
+      await db.insertUsageLog({
+        user_id: userId,
+        credits_delta: balance - previousBalance,
+        reason: `subscription_monthly_grant_${pricing.phase}`,
+        balance_before: previousBalance,
+        balance_after: balance,
+      })
+    }
+
+    return {
+      subscription: subscriptionToClient(subscription),
+      balance,
+      pricing,
+    }
+  },
+
+  async grantTopUp(userId: string, dollars: number) {
+    const pricing = await this.getSubscriptionPricing()
+    const credits = Math.round(dollars * pricing.sellCreditsPerUsd)
+    const previousBalance = await db.getCreditBalance(userId)
+    const balance = await db.grantCredits(userId, credits)
+    await db.insertUsageLog({
+      user_id: userId,
+      credits_delta: credits,
+      reason: `topup_${pricing.phase}_${dollars}_usd`,
+      balance_before: previousBalance,
+      balance_after: balance,
+    })
+    return { balance, credits, dollars, pricing }
+  },
+
   async setBalance(userId: string, balance: number): Promise<{ balance: number; delta: number }> {
     const previousBalance = await db.getCreditBalance(userId)
     const newBalance = await db.setCreditBalance(userId, balance)
@@ -379,6 +516,7 @@ export const Credits = {
   async getTokenManagerOverview() {
     const users = await db.getUsersWithCreditBalances()
     const settings = await this.getBillingSettings()
+    const subscriptionPricing = await this.getSubscriptionPricing()
     const starts = rangeStarts()
     const [monthLogs, recentLogs] = await Promise.all([
       db.getUsageLogsSince(starts.thisMonth),
@@ -418,6 +556,7 @@ export const Credits = {
     return {
       users,
       settings,
+      subscriptionPricing,
       totals: {
         today: summarizeLogs(inRange(starts.today), settings),
         thisWeek: summarizeLogs(inRange(starts.thisWeek), settings),

@@ -13,7 +13,8 @@ import {
   Coins,
   Utensils,
   Microscope,
-  Award
+  Award,
+  Dumbbell
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import PWAInstallPrompt from './PWAInstallPrompt'
@@ -68,6 +69,7 @@ export default function Layout({ children }: LayoutProps) {
     { name: 'Week View', href: '/week', icon: Calendar },
     ...(settings?.calorieIntake ? [{ name: 'Calories', href: '/calories', icon: Utensils }] : []),
     ...(settings?.achievementTracker ? [{ name: 'Achievements', href: '/achievements', icon: Award }] : []),
+    { name: 'Workouts', href: '/workouts', icon: Dumbbell },
     { name: 'Settings', href: '/settings', icon: Settings },
     ...(user?.role === 'admin' ? [{ name: 'OCR Lab', href: '/meal-ocr-lab', icon: Microscope }] : []),
     ...(user?.role === 'admin' ? [{ name: 'Token Manager', href: '/token-manager', icon: Coins }] : []),

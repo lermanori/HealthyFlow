@@ -1,20 +1,22 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, CheckCircle2, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Unplug, Sparkles } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
+import { CalendarDays, CheckCircle2, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Unplug, Sparkles, Mail, Instagram, MessageCircle, Copy, X } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
 import { useCredits } from '../hooks/useCredits'
 import { useSettings } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
-import api, { calendarService, CalendarConnectionStatus, UserSettings } from '../services/api'
+import api, { calendarService, CalendarConnectionStatus, contactMessagesService, UserSettings } from '../services/api'
 
 export default function SettingsPage() {
   const { user } = useAuth()
   const { permission, requestPermission } = useNotifications()
-  const { balance, isLoading: creditsLoading } = useCredits()
+  const { balance, summary: creditSummary, isLoading: creditsLoading } = useCredits()
   const { settings, updateSetting } = useSettings()
   const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
   const [calendarLoading, setCalendarLoading] = useState(true)
   const [calendarActionLoading, setCalendarActionLoading] = useState(false)
+  const [contactFlow, setContactFlow] = useState<'subscribe' | 'topup' | null>(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -92,6 +94,29 @@ export default function SettingsPage() {
       toast.error('Notifications permission denied')
     }
   }
+
+  const contactSubject = contactFlow === 'topup' ? 'HealthyFlow credit top-up' : 'HealthyFlow monthly credits'
+  const contactBody = `Hi Ori, I want to ${contactFlow === 'topup' ? 'buy more HealthyFlow credits' : 'subscribe to HealthyFlow credits'} for ${user?.email ?? 'my account'}.`
+  const encodedSubject = encodeURIComponent(contactSubject)
+  const encodedBody = encodeURIComponent(contactBody)
+  const whatsappUrl = `https://wa.me/972523221702?text=${encodedBody}`
+  const smsUrl = `sms:+972523221702?&body=${encodedBody}`
+  const isOutOfCredits = !creditsLoading && balance <= 0
+  const isLowOnCredits = !creditsLoading && balance > 0 && balance < 25
+  const planPrice = creditSummary?.pricing.priceUsd ?? 1
+  const monthlyCredits = creditSummary?.pricing.monthlyCredits ?? 500
+
+  const contactMessageMutation = useMutation({
+    mutationFn: () => contactMessagesService.create({
+      kind: contactFlow ?? 'subscribe',
+      message: contactBody,
+    }),
+    onSuccess: () => {
+      toast.success('Message sent to admin')
+      setContactFlow(null)
+    },
+    onError: () => toast.error('Failed to send message'),
+  })
 
   // Clear all tasks
   const handleClearAllTasks = async () => {
@@ -204,16 +229,60 @@ export default function SettingsPage() {
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
           <Sparkles className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-gray-100">AI Tokens</h2>
+          <h2 className="text-lg font-semibold text-gray-100">AI Credits</h2>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-300">Available AI Tokens</span>
+            <span className="text-sm text-gray-300">Available credits</span>
             <span className="text-2xl font-bold text-cyan-400">
               {creditsLoading ? '...' : balance}
             </span>
           </div>
+
+          {(isOutOfCredits || isLowOnCredits) && (
+            <div className={`rounded-lg border p-4 ${
+              isOutOfCredits
+                ? 'border-rose-500/35 bg-rose-500/10'
+                : 'border-amber-500/35 bg-amber-500/10'
+            }`}>
+              <p className="font-semibold text-gray-100">
+                {isOutOfCredits ? 'You are out of AI credits' : 'You are running low on AI credits'}
+              </p>
+              <p className="mt-1 text-sm text-gray-300">
+                Subscribe for {monthlyCredits} credits each month, or buy a quick top-up when you only need a little more.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button className="btn-primary px-4 py-2 text-sm" onClick={() => setContactFlow('subscribe')}>
+                  Subscribe
+                </button>
+                <button className="btn-secondary px-4 py-2 text-sm" onClick={() => setContactFlow('topup')}>
+                  Buy More
+                </button>
+              </div>
+            </div>
+          )}
+
+          {creditSummary && (
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="rounded-lg border border-gray-700/70 bg-gray-950/25 p-3">
+                <p className="text-gray-400">Monthly plan</p>
+                <p className="mt-1 font-semibold text-gray-100">
+                  {creditSummary.subscription.active ? `${creditSummary.subscription.pricePhase} plan` : 'Inactive'}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Refresh {creditSummary.subscription.renewalDate ?? '-'}
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-700/70 bg-gray-950/25 p-3">
+                <p className="text-gray-400">Used this month</p>
+                <p className="mt-1 font-semibold text-gray-100">{creditSummary.usedThisMonth}</p>
+                <p className="mt-1 text-xs text-gray-500">
+                  {creditSummary.subscriptionBalance} monthly · {creditSummary.topupBalance} top-up credits left
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
             <div
@@ -222,11 +291,92 @@ export default function SettingsPage() {
             />
           </div>
 
-          <p className="text-xs text-gray-400">
-            AI Tokens are used for AI-powered features like task parsing and smart suggestions. 1000 tokens equals $1 of app balance.
-          </p>
+          <div className="rounded-lg border border-gray-700/70 bg-gray-950/25 p-3 text-sm text-gray-300">
+            <p>
+              Credits power AI actions like turning notes into tasks, reading a meal photo, or answering questions about your data.
+            </p>
+            <p className="mt-2 text-xs text-gray-400">
+              Most quick text analyses use about 5-15 credits. Longer notes or images can use more.
+            </p>
+          </div>
+
+          {creditSummary && (
+            <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/8 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="font-semibold text-cyan-100">
+                    ${planPrice} / month
+                  </p>
+                  <p className="text-sm text-gray-300">{monthlyCredits} credits / month, refreshed monthly with no rollover.</p>
+                  <p className="mt-1 text-xs text-gray-400">Pick the plan when you want AI available without watching each action.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button className="btn-primary px-4 py-2 text-sm" onClick={() => setContactFlow('subscribe')}>
+                    Subscribe
+                  </button>
+                  <button className="btn-secondary px-4 py-2 text-sm" onClick={() => setContactFlow('topup')}>
+                    Buy More
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {contactFlow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            aria-label="Close contact flow"
+            onClick={() => setContactFlow(null)}
+          />
+          <div className="relative z-10 w-full max-w-lg rounded-lg border border-cyan-500/25 bg-gray-900 p-5 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-100">
+                  {contactFlow === 'topup' ? 'Buy more credits' : 'Subscribe'}
+                </h2>
+                <p className="text-sm text-gray-400">
+                  Manual fulfillment for now. Reach out through any channel.
+                </p>
+              </div>
+              <button type="button" className="text-gray-400 hover:text-gray-200" onClick={() => setContactFlow(null)} aria-label="Close">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="grid gap-2">
+              <a className="btn-secondary inline-flex items-center gap-2 px-4 py-3" href={`mailto:lermanori@gmail.com?subject=${encodedSubject}&body=${encodedBody}`}>
+                <Mail className="h-4 w-4" />
+                Email
+              </a>
+              <a className="btn-secondary inline-flex items-center gap-2 px-4 py-3" href="https://instagram.com/lermanori" target="_blank" rel="noreferrer">
+                <Instagram className="h-4 w-4" />
+                Instagram DM
+              </a>
+              <button
+                type="button"
+                className="btn-secondary inline-flex items-center gap-2 px-4 py-3"
+                onClick={() => contactMessageMutation.mutate()}
+                disabled={contactMessageMutation.isPending}
+              >
+                {contactMessageMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                In-app message
+              </button>
+              <a className="btn-secondary inline-flex items-center gap-2 px-4 py-3" href={whatsappUrl} target="_blank" rel="noreferrer">
+                <MessageCircle className="h-4 w-4" />
+                WhatsApp
+              </a>
+              <a className="btn-secondary inline-flex items-center gap-2 px-4 py-3" href={smsUrl}>
+                <Smartphone className="h-4 w-4" />
+                SMS
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notifications */}
       <div className="card">

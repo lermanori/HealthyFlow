@@ -29,7 +29,7 @@ export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAna
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { speak } = useTTS()
-  const { refetch: refetchCredits } = useCredits()
+  const { balance, summary: creditSummary, refetch: refetchCredits } = useCredits()
   const { suggestions, selectedSuggestions, isAnalyzing, analyzeText, toggleSuggestion, updateTaskDate, reset } =
     useParsedItems()
   const {
@@ -163,6 +163,7 @@ export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAna
     { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
   ]
   const selectedQuickDate = quickDates.find(date => date.value === defaultScheduleDate)
+  const monthlyCredits = creditSummary?.pricing.monthlyCredits ?? 500
 
   const handleScheduleDateChange = (value: string) => {
     if (value === 'custom') {
@@ -223,6 +224,27 @@ export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAna
 
       {/* Scrollable Content */}
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-4 sm:space-y-5 sm:px-0 sm:pb-0">
+        <div className={`rounded-xl border px-4 py-3 text-sm ${
+          balance <= 0
+            ? 'border-rose-500/35 bg-rose-500/10 text-rose-100'
+            : balance < 25
+              ? 'border-amber-500/35 bg-amber-500/10 text-amber-100'
+              : 'border-cyan-500/25 bg-cyan-500/8 text-gray-300'
+        }`}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <p>
+              {balance <= 0
+                ? `You need credits to use AI. Subscribe for ${monthlyCredits} credits/month or buy more in Settings.`
+                : `You have ${balance} AI credits. Most quick task analyses use about 5-15 credits.`}
+            </p>
+            {balance < 25 && (
+              <a href="/settings" className="font-medium text-cyan-200 underline decoration-cyan-400/50 underline-offset-4 hover:text-cyan-100">
+                Open Settings
+              </a>
+            )}
+          </div>
+        </div>
+
         <div className="space-y-4">
           <div className="rounded-2xl border border-cyan-300/70 bg-gray-950/45 p-4 shadow-2xl shadow-cyan-500/20 ring-1 ring-cyan-400/20 sm:p-5">
             {photo && (

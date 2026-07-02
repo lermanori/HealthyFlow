@@ -1,5 +1,11 @@
 ### 2026-07-02 09:20 — `main`
 
+Finished the remaining Ready backlog work from issues #51, #98, #103, #104, and #106, then followed up by making the manual credit contact flow real inside Token Manager. The app now has workout tracking, domain-based Add Item tabs, monthly credit subscriptions with clearer credit messaging, post-signup onboarding with sample data, and an admin inbox for in-app subscription/top-up requests. Backend tests, frontend build, focused Playwright checks, and the required Supabase migrations were run before committing.
+
+---
+
+### 2026-07-02 09:20 — `main`
+
 Captured the LLM data access research from issue #99 in an ADR so the AI control plane has a concrete transport direction. The recommendation keeps HealthyFlow's internal assistant on a shared capability layer while leaving room for an external MCP interface with explicit write safety. This gives the next AI-control-plane slice enough architecture to start without another research pass.
 
 ---
