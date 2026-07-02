@@ -15,7 +15,13 @@ export const REGULAR_PRICE_USD = 2
 export const ESTIMATED_IMAGE_TOKENS = 25000
 export const PROMPT_TOKEN_CHARS = 4
 
-export type SupportedAiModel = 'gpt-4o-mini' | 'gpt-3.5-turbo'
+export type SupportedAiModel =
+  | 'gpt-5.5'
+  | 'gpt-5.4'
+  | 'gpt-5.4-mini'
+  | 'gpt-5-mini'
+  | 'gpt-4o-mini'
+  | 'gpt-3.5-turbo'
 
 type ModelPricing = {
   inputUsdPerMillion: number
@@ -23,6 +29,22 @@ type ModelPricing = {
 }
 
 const DEFAULT_MODEL_PRICING: Record<string, ModelPricing> = {
+  'gpt-5.5': {
+    inputUsdPerMillion: 5.00,
+    outputUsdPerMillion: 30.00,
+  },
+  'gpt-5.4': {
+    inputUsdPerMillion: 2.50,
+    outputUsdPerMillion: 15.00,
+  },
+  'gpt-5.4-mini': {
+    inputUsdPerMillion: 0.75,
+    outputUsdPerMillion: 4.50,
+  },
+  'gpt-5-mini': {
+    inputUsdPerMillion: 0.25,
+    outputUsdPerMillion: 2.00,
+  },
   'gpt-4o-mini': {
     inputUsdPerMillion: 0.15,
     outputUsdPerMillion: 0.60,

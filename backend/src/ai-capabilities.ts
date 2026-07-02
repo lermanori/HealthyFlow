@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
+import { ParsedMeal, ParseMealsReview, parseMealsWithAi } from './openai'
 import {
   AchievementEntryCreateSchema,
   Achievements,
@@ -63,6 +64,56 @@ const AddCalorieEntryInput = z.object({
   fat: z.number().nonnegative().nullable().optional(),
   quantity: z.string().trim().max(120).nullable().optional(),
   requestId: RequestId,
+})
+
+const AddCalorieEntriesInput = z.object({
+  entries: z.array(AddCalorieEntryInput.omit({ requestId: true })).min(1).max(20),
+  requestId: RequestId,
+})
+
+const SearchCalorieHistoryInput = z.object({
+  query: z.string().trim().min(1).max(200),
+  limit: z.number().int().min(1).max(20).default(8),
+})
+
+const LookupFoodNutritionInput = z.object({
+  query: z.string().trim().min(1).max(200),
+  locale: z.enum(['he-IL', 'en-US', 'auto']).default('auto'),
+  limit: z.number().int().min(1).max(10).default(5),
+})
+
+const ParseMealEntriesInput = z.object({
+  text: z.string().trim().min(1).max(2000),
+  date: z.string().regex(DATE_RE).optional(),
+})
+
+const NutritionCandidate = z.object({
+  name: z.string(),
+  quantity: z.string().nullable(),
+  calories: z.number().int().nonnegative(),
+  protein: z.number().nonnegative().nullable(),
+  carbs: z.number().nonnegative().nullable(),
+  fat: z.number().nonnegative().nullable(),
+  sourceType: z.enum(['open_food_facts', 'curated_web', 'estimate']),
+  sourceUrl: z.string().nullable(),
+  confidence: z.enum(['high', 'medium', 'low']),
+  notes: z.string().nullable(),
+})
+
+const CalorieHistoryMatch = z.object({
+  id: z.string(),
+  name: z.string(),
+  normalizedName: z.string(),
+  calories: z.number().int().nonnegative(),
+  protein: z.number().nonnegative().nullable(),
+  carbs: z.number().nonnegative().nullable(),
+  fat: z.number().nonnegative().nullable(),
+  usageCount: z.number().int().nonnegative(),
+  lastUsedAt: z.string().nullable(),
+  createdAt: z.string().nullable(),
+  updatedAt: z.string().nullable(),
+  matchType: z.enum(['exact', 'fuzzy']),
+  score: z.number().min(0).max(1),
 })
 
 const AddWeightEntryInput = z.object({
@@ -131,6 +182,20 @@ const calorieToClient = (row: any) => ({
   createdAt: row.created_at,
 })
 
+const calorieItemToClient = (row: any) => ({
+  id: row.id,
+  name: row.name,
+  normalizedName: row.normalized_name,
+  calories: row.calories,
+  protein: row.protein ?? null,
+  carbs: row.carbs ?? null,
+  fat: row.fat ?? null,
+  usageCount: row.usage_count ?? 0,
+  lastUsedAt: row.last_used_at ?? null,
+  createdAt: row.created_at ?? null,
+  updatedAt: row.updated_at ?? null,
+})
+
 const weightToClient = (row: any) => ({
   id: row.id,
   date: row.date,
@@ -144,6 +209,232 @@ function todayIso() {
 
 function clampRows<T>(rows: T[], limit: number) {
   return rows.slice(0, limit)
+}
+
+function normalizeFoodText(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFKC')
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const TOKEN_SYNONYMS: Record<string, string[]> = {
+  danone: ['דנונה'],
+  דנונה: ['danone'],
+  pro: ['פרו'],
+  פרו: ['pro'],
+  protein: ['חלבון'],
+  חלבון: ['protein'],
+  yogurt: ['יוגורט'],
+  yoghurt: ['יוגורט'],
+  יוגורט: ['yogurt', 'yoghurt'],
+}
+
+function foodTokens(value: string) {
+  const tokens = normalizeFoodText(value).split(' ').filter(Boolean)
+  const expanded = new Set(tokens)
+  for (const token of tokens) {
+    for (const synonym of TOKEN_SYNONYMS[token] ?? []) expanded.add(synonym)
+  }
+  return expanded
+}
+
+function calorieItemScore(query: string, row: any) {
+  const queryTokens = foodTokens(query)
+  const itemTokens = foodTokens(`${row.name ?? ''} ${row.normalized_name ?? ''}`)
+  if (queryTokens.size === 0 || itemTokens.size === 0) return 0
+  let overlap = 0
+  for (const token of itemTokens) {
+    if (queryTokens.has(token)) overlap += 1
+  }
+  return overlap / Math.max(itemTokens.size, 1)
+}
+
+function uniqueById(rows: any[]) {
+  const seen = new Set<string>()
+  return rows.filter((row) => {
+    if (!row?.id || seen.has(row.id)) return false
+    seen.add(row.id)
+    return true
+  })
+}
+
+async function searchCalorieHistory(userId: string, query: string, limit: number) {
+  const normalizedQuery = normalizeFoodText(query)
+  const exact = await db.getCalorieItemByNormalizedName(userId, normalizedQuery)
+  const [recent, mostUsed] = await Promise.all([
+    db.getRecentCalorieItems(userId, 100),
+    db.getMostUsedCalorieItems(userId, 100),
+  ])
+  const candidates = uniqueById([exact, ...recent, ...mostUsed].filter(Boolean))
+  const scored = candidates
+    .map((row) => {
+      const isExact = normalizeFoodText(row.normalized_name ?? row.name ?? '') === normalizedQuery
+      return {
+        ...calorieItemToClient(row),
+        matchType: isExact ? 'exact' as const : 'fuzzy' as const,
+        score: isExact ? 1 : calorieItemScore(query, row),
+      }
+    })
+    .filter((match) => match.matchType === 'exact' || match.score >= 0.34)
+    .sort((a, b) => b.score - a.score || b.usageCount - a.usageCount)
+
+  return clampRows(scored, limit)
+}
+
+function numberOrNull(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
+}
+
+function openFoodFactsCandidate(product: any): z.infer<typeof NutritionCandidate> | null {
+  const nutriments = product?.nutriments ?? {}
+  const calories = numberOrNull(nutriments['energy-kcal_serving'] ?? nutriments['energy-kcal'])
+  if (calories == null) return null
+  const quantity = typeof product.quantity === 'string' && product.quantity.trim() ? product.quantity.trim() : null
+  const code = typeof product.code === 'string' ? product.code : null
+  return {
+    name: String(product.product_name || product.product_name_he || product.generic_name || 'Food product'),
+    quantity,
+    calories: Math.round(calories),
+    protein: numberOrNull(nutriments.proteins_serving ?? nutriments.proteins),
+    carbs: numberOrNull(nutriments.carbohydrates_serving ?? nutriments.carbohydrates),
+    fat: numberOrNull(nutriments.fat_serving ?? nutriments.fat),
+    sourceType: 'open_food_facts',
+    sourceUrl: code ? `https://world.openfoodfacts.org/product/${code}` : null,
+    confidence: product.product_name ? 'medium' : 'low',
+    notes: 'Matched by Open Food Facts product search; verify serving size before confirming.',
+  }
+}
+
+function curatedDanoneProCandidate(query: string): z.infer<typeof NutritionCandidate> | null {
+  const tokens = foodTokens(query)
+  const isDanonePro = (tokens.has('דנונה') || tokens.has('danone')) && (tokens.has('פרו') || tokens.has('pro'))
+  const isProteinYogurt = (tokens.has('חלבון') || tokens.has('protein')) && (tokens.has('יוגורט') || tokens.has('yogurt') || tokens.has('yoghurt'))
+  if (!isDanonePro || !isProteinYogurt) return null
+  return {
+    name: 'דנונה PRO יוגורט חלבון 20 גרם',
+    quantity: '200g cup',
+    calories: 140,
+    protein: 20,
+    carbs: 7,
+    fat: 3,
+    sourceType: 'curated_web',
+    sourceUrl: 'https://www.fuder.co.il/foods/%D7%93%D7%A0%D7%95%D7%A0%D7%94-%D7%A4%D7%A8%D7%95-%D7%9C%D7%91%D7%9F-20-%D7%92%D7%A8%D7%9D-%D7%97%D7%9C%D7%91%D7%95%D7%9F-1-5/',
+    confidence: 'medium',
+    notes: 'Curated Israeli nutrition page for a 200g Danone PRO cup; user should confirm the exact flavor/package.',
+  }
+}
+
+function estimateProteinFoodCandidate(query: string): z.infer<typeof NutritionCandidate> | null {
+  const proteinMatch = normalizeFoodText(query).match(/(?:protein|חלבון)\s*(\d{1,2})|(\d{1,2})\s*(?:g|גרם)?\s*(?:protein|חלבון)/)
+  const protein = proteinMatch ? Number(proteinMatch[1] ?? proteinMatch[2]) : null
+  if (!protein) return null
+  return {
+    name: query,
+    quantity: null,
+    calories: Math.round(protein * 7),
+    protein,
+    carbs: null,
+    fat: null,
+    sourceType: 'estimate',
+    sourceUrl: null,
+    confidence: 'low',
+    notes: 'Low-confidence estimate from the stated protein amount because no product source matched.',
+  }
+}
+
+function hebrewNumberBefore(text: string, wordPattern: RegExp) {
+  const match = text.match(new RegExp(`(?:עם\\s*)?(\\d+(?:\\.\\d+)?)\\s*(?:${wordPattern.source})`))
+  if (match) return Number(match[1])
+  return wordPattern.test(text) ? 1 : 0
+}
+
+function halfCountAfter(text: string, wordPattern: RegExp) {
+  if (!wordPattern.test(text)) return 0
+  return /וחצי|חצי/.test(text) ? 1.5 : 1
+}
+
+function estimateVagueMealCandidates(query: string): Array<z.infer<typeof NutritionCandidate>> {
+  const text = normalizeFoodText(query)
+  const hasMealFood = /(שקשוקה|ביצים|ביצה|פיתה|טחינה|חביתה|סלט|אורז|עוף|טוסט|כריך|סנדוויץ|פסטה|יוגורט|קוטג|טונה)/.test(text)
+  if (!hasMealFood) return []
+
+  const candidates: Array<z.infer<typeof NutritionCandidate>> = []
+  const estimate = (
+    name: string,
+    quantity: string,
+    calories: number,
+    protein: number,
+    carbs: number,
+    fat: number
+  ) => candidates.push({
+    name,
+    quantity,
+    calories: Math.round(calories),
+    protein: Math.round(protein * 10) / 10,
+    carbs: Math.round(carbs * 10) / 10,
+    fat: Math.round(fat * 10) / 10,
+    sourceType: 'estimate',
+    sourceUrl: null,
+    confidence: 'low',
+    notes: 'Low-confidence estimate for one part of a vague or composite meal. Confirm or edit the preview before saving.',
+  })
+
+  if (/שקשוקה/.test(text)) {
+    estimate('בסיס שקשוקה', 'sauce/base estimate', 150, 4, 12, 9)
+  }
+
+  const eggs = Math.max(hebrewNumberBefore(text, /ביצים|ביצה/), /ביצה/.test(text) && !/ביצים/.test(text) ? 1 : 0)
+  if (eggs > 0) {
+    estimate('ביצים', `${eggs} egg${eggs === 1 ? '' : 's'}`, eggs * 70, eggs * 6, eggs * 0.5, eggs * 5)
+  }
+
+  const pita = halfCountAfter(text, /פיתה|פיתות/)
+  if (pita > 0) {
+    estimate('פיתה', `${pita} pita`, pita * 170, pita * 6, pita * 33, pita * 1)
+  }
+
+  if (/טחינה/.test(text)) {
+    estimate('טחינה', 'unspecified serving', 180, 5, 6, 16)
+  }
+
+  return candidates
+}
+
+async function lookupFoodNutrition(query: string, limit: number) {
+  const candidates: z.infer<typeof NutritionCandidate>[] = []
+
+  try {
+    const url = new URL('https://world.openfoodfacts.org/cgi/search.pl')
+    url.searchParams.set('search_terms', query)
+    url.searchParams.set('search_simple', '1')
+    url.searchParams.set('action', 'process')
+    url.searchParams.set('json', '1')
+    url.searchParams.set('page_size', String(Math.min(limit, 10)))
+    const res = await fetch(url, { headers: { 'User-Agent': 'HealthyFlow/1.0 nutrition lookup' } })
+    if (res.ok) {
+      const body = await res.json() as any
+      for (const product of body.products ?? []) {
+        const candidate = openFoodFactsCandidate(product)
+        if (candidate) candidates.push(candidate)
+      }
+    }
+  } catch (error) {
+    console.warn('Open Food Facts lookup failed:', error)
+  }
+
+  const curated = curatedDanoneProCandidate(query)
+  if (curated) candidates.push(curated)
+  if (candidates.length === 0) {
+    const proteinEstimate = estimateProteinFoodCandidate(query)
+    if (proteinEstimate) candidates.push(proteinEstimate)
+    else candidates.push(...estimateVagueMealCandidates(query))
+  }
+
+  return clampRows(candidates, limit)
 }
 
 async function tasksForDay(userId: string, date: string, limit: number) {
@@ -241,6 +532,19 @@ function taskPreview(action: string, row: any, extra: Record<string, unknown> = 
   }
 }
 
+function previewTaskRow(input: z.infer<typeof AddTaskInput>, type: 'task' | 'habit') {
+  return taskToClient({
+    ...taskRow(input, 'preview-user', type),
+    completed: false,
+    original_habit_id: null,
+    created_at: null,
+  })
+}
+
+function addPreview(action: string, value: unknown) {
+  return { action, willCreate: value }
+}
+
 export const AiCapabilities = {
   get_today: {
     name: 'get_today',
@@ -305,6 +609,69 @@ export const AiCapabilities = {
       return { date, entries: clampRows(rows.map(calorieToClient), parsed.limit) }
     },
   },
+  search_calorie_history: {
+    name: 'search_calorie_history',
+    description: 'Search the user-owned reusable Calorie entry history for exact and fuzzy food matches. Prefer exact history over online nutrition lookup.',
+    risk: 'auto',
+    inputSchema: SearchCalorieHistoryInput,
+    outputSchema: z.object({
+      query: z.string(),
+      matches: z.array(CalorieHistoryMatch),
+    }),
+    async execute(ctx, input) {
+      const parsed = input as z.infer<typeof SearchCalorieHistoryInput>
+      return {
+        query: parsed.query,
+        matches: await searchCalorieHistory(ctx.userId, parsed.query, parsed.limit),
+      }
+    },
+  },
+  lookup_food_nutrition: {
+    name: 'lookup_food_nutrition',
+    description: 'Look up nutrition candidates for a food query through backend-controlled online sources. Use only when user history is missing or weak; never treat low-confidence estimates as certain.',
+    risk: 'auto',
+    inputSchema: LookupFoodNutritionInput,
+    outputSchema: z.object({
+      query: z.string(),
+      locale: z.enum(['he-IL', 'en-US', 'auto']),
+      candidates: z.array(NutritionCandidate),
+      notes: z.string().nullable(),
+    }),
+    async execute(_ctx, input) {
+      const parsed = input as z.infer<typeof LookupFoodNutritionInput>
+      const candidates = await lookupFoodNutrition(parsed.query, parsed.limit)
+      return {
+        query: parsed.query,
+        locale: parsed.locale,
+        candidates,
+        notes: candidates.length === 0 ? 'No nutrition source matched this query.' : null,
+      }
+    },
+  },
+  parse_meal_entries: {
+    name: 'parse_meal_entries',
+    description: 'Use the same AI Meal Entry parser as the Calories page to split a vague or composite meal description into separate reusable Calorie entry candidates. Use this before add_calorie_entries for multi-food meals.',
+    risk: 'auto',
+    inputSchema: ParseMealEntriesInput,
+    outputSchema: z.object({
+      date: z.string().optional(),
+      meals: z.array(ParsedMeal),
+      review: ParseMealsReview,
+    }),
+    async execute(ctx, input) {
+      const parsed = input as z.infer<typeof ParseMealEntriesInput>
+      const result = await parseMealsWithAi({
+        userId: ctx.userId,
+        text: parsed.text,
+        endpoint: 'ai-chat-parse-meals',
+      })
+      if (!result.ok) throw new Error(result.message)
+      return {
+        date: parsed.date,
+        ...result.value,
+      }
+    },
+  },
   list_weight_summary: {
     name: 'list_weight_summary',
     description: 'Return recent Weight entries with latest, previous, and delta values.',
@@ -364,11 +731,14 @@ export const AiCapabilities = {
   },
   add_task: {
     name: 'add_task',
-    description: 'Add a one-shot Task. Auto-runs when the user plainly asks to add a Task.',
-    risk: 'auto',
+    description: 'Preview then add a one-shot Task. Internal chat must ask for confirmation before executing.',
+    risk: 'confirm',
     scope: 'hf:write:add',
     inputSchema: AddTaskInput,
     outputSchema: TaskOutput,
+    async preview(_ctx, input) {
+      return addPreview('add_task', { item: previewTaskRow(input, 'task') })
+    },
     async execute(ctx, input) {
       const writeCtx = ctx as WriteContext
       return withIdempotency(writeCtx, 'add_task', input.requestId, async () => {
@@ -381,11 +751,14 @@ export const AiCapabilities = {
   },
   add_habit: {
     name: 'add_habit',
-    description: 'Add a recurring Habit template. Auto-runs when the user plainly asks to add a Habit.',
-    risk: 'auto',
+    description: 'Preview then add a recurring Habit template. Internal chat must ask for confirmation before executing.',
+    risk: 'confirm',
     scope: 'hf:write:add',
     inputSchema: AddHabitInput,
     outputSchema: TaskOutput,
+    async preview(_ctx, input) {
+      return addPreview('add_habit', { item: previewTaskRow(input, 'habit') })
+    },
     async execute(ctx, input) {
       const writeCtx = ctx as WriteContext
       return withIdempotency(writeCtx, 'add_habit', input.requestId, async () => {
@@ -398,11 +771,25 @@ export const AiCapabilities = {
   },
   add_calorie_entry: {
     name: 'add_calorie_entry',
-    description: 'Add a Calorie entry. Auto-runs when the user plainly asks to log food or calories.',
-    risk: 'auto',
+    description: 'Preview then add a Calorie entry. Internal chat must ask for confirmation before executing.',
+    risk: 'confirm',
     scope: 'hf:write:add',
     inputSchema: AddCalorieEntryInput,
     outputSchema: z.object({ entry: z.unknown(), duplicated: z.boolean().optional() }),
+    async preview(_ctx, input) {
+      return addPreview('add_calorie_entry', {
+        entry: {
+          date: input.date ?? todayIso(),
+          time: input.time ?? null,
+          name: input.name,
+          calories: input.calories,
+          protein: input.protein ?? null,
+          carbs: input.carbs ?? null,
+          fat: input.fat ?? null,
+          quantity: input.quantity ?? null,
+        },
+      })
+    },
     async execute(ctx, input) {
       const writeCtx = ctx as WriteContext
       return withIdempotency(writeCtx, 'add_calorie_entry', input.requestId, async () => {
@@ -424,13 +811,66 @@ export const AiCapabilities = {
       })
     },
   },
+  add_calorie_entries: {
+    name: 'add_calorie_entries',
+    description: 'Preview then add multiple Calorie entries as one meal group. Use this for vague or composite meals so each food remains reusable in calorie history.',
+    risk: 'confirm',
+    scope: 'hf:write:add',
+    inputSchema: AddCalorieEntriesInput,
+    outputSchema: z.object({ entries: z.array(z.unknown()), duplicated: z.boolean().optional() }),
+    async preview(_ctx, input) {
+      return addPreview('add_calorie_entries', {
+        entries: input.entries.map((entry: z.infer<typeof AddCalorieEntryInput>) => ({
+          date: entry.date ?? todayIso(),
+          time: entry.time ?? null,
+          name: entry.name,
+          calories: entry.calories,
+          protein: entry.protein ?? null,
+          carbs: entry.carbs ?? null,
+          fat: entry.fat ?? null,
+          quantity: entry.quantity ?? null,
+        })),
+      })
+    },
+    async execute(ctx, input) {
+      const writeCtx = ctx as WriteContext
+      return withIdempotency(writeCtx, 'add_calorie_entries', input.requestId, async () => {
+        const rows = []
+        for (const entry of input.entries) {
+          rows.push(await db.createCalorieEntry({
+            id: uuidv4(),
+            user_id: ctx.userId,
+            date: entry.date ?? todayIso(),
+            time: entry.time ?? null,
+            name: entry.name,
+            calories: entry.calories,
+            protein: entry.protein ?? null,
+            carbs: entry.carbs ?? null,
+            fat: entry.fat ?? null,
+            quantity: entry.quantity ?? null,
+          }))
+        }
+        const result = { entries: rows.map(calorieToClient) }
+        await auditWrite(writeCtx, 'add_calorie_entries', input, result, rows.map((row) => row.id))
+        return result
+      })
+    },
+  },
   add_weight_entry: {
     name: 'add_weight_entry',
-    description: 'Add a Weight entry for a date. Auto-runs when the user plainly asks to log weight.',
-    risk: 'auto',
+    description: 'Preview then add a Weight entry for a date. Internal chat must ask for confirmation before executing.',
+    risk: 'confirm',
     scope: 'hf:write:add',
     inputSchema: AddWeightEntryInput,
     outputSchema: z.object({ entry: z.unknown(), duplicated: z.boolean().optional() }),
+    async preview(_ctx, input) {
+      return addPreview('add_weight_entry', {
+        entry: {
+          date: input.date ?? todayIso(),
+          weightKg: input.weightKg,
+        },
+      })
+    },
     async execute(ctx, input) {
       const writeCtx = ctx as WriteContext
       return withIdempotency(writeCtx, 'add_weight_entry', input.requestId, async () => {
@@ -448,11 +888,15 @@ export const AiCapabilities = {
   },
   add_achievement_entry: {
     name: 'add_achievement_entry',
-    description: 'Add an Achievement entry to an existing Achievement definition.',
-    risk: 'auto',
+    description: 'Preview then add an Achievement entry to an existing Achievement definition.',
+    risk: 'confirm',
     scope: 'hf:write:add',
     inputSchema: AddAchievementEntryInput,
     outputSchema: z.object({ entry: z.unknown(), duplicated: z.boolean().optional() }),
+    async preview(_ctx, input) {
+      const { requestId: _requestId, ...entry } = input
+      return addPreview('add_achievement_entry', { entry })
+    },
     async execute(ctx, input) {
       const writeCtx = ctx as WriteContext
       return withIdempotency(writeCtx, 'add_achievement_entry', input.requestId, async () => {
@@ -465,11 +909,15 @@ export const AiCapabilities = {
   },
   add_workout_session: {
     name: 'add_workout_session',
-    description: 'Add a Workout session with exercises.',
-    risk: 'auto',
+    description: 'Preview then add a Workout session with exercises.',
+    risk: 'confirm',
     scope: 'hf:write:add',
     inputSchema: AddWorkoutSessionInput,
     outputSchema: z.object({ session: z.unknown(), duplicated: z.boolean().optional() }),
+    async preview(_ctx, input) {
+      const { requestId: _requestId, ...session } = input
+      return addPreview('add_workout_session', { session })
+    },
     async execute(ctx, input) {
       const writeCtx = ctx as WriteContext
       return withIdempotency(writeCtx, 'add_workout_session', input.requestId, async () => {
@@ -571,6 +1019,7 @@ function pendingActionToClient(row: any) {
   return {
     id: row.id,
     capability: row.capability,
+    args: row.args,
     preview: row.preview,
     expiresAt: row.expires_at,
   }
@@ -590,6 +1039,7 @@ export function aiCapabilityTools(options: { mode?: 'internal' | 'mcp'; scopes?:
     risk: capability.risk,
     scope: capability.scope,
     inputSchema: capability.inputSchema,
+    outputSchema: capability.outputSchema,
     parameters: z.toJSONSchema(capability.inputSchema),
     execute: async (ctx: AiCapabilityContext, args: unknown) => {
       const parsed = capability.inputSchema.parse(args ?? {})
@@ -610,7 +1060,7 @@ export function aiCapabilityTools(options: { mode?: 'internal' | 'mcp'; scopes?:
   }))
 }
 
-export async function executePendingAiAction(userId: string, actionId: string) {
+export async function executePendingAiAction(userId: string, actionId: string, overrides?: unknown) {
   const action = await db.getAiPendingAction(actionId)
   if (!action || action.user_id !== userId) throw new Error('Pending action not found')
   if (action.executed_at || action.canceled_at || new Date(action.expires_at).getTime() <= Date.now()) {
@@ -618,10 +1068,13 @@ export async function executePendingAiAction(userId: string, actionId: string) {
   }
   const capability = AiCapabilities[action.capability as AiCapabilityName] as AiCapabilityDefinition | undefined
   if (!capability || capability.risk !== 'confirm') throw new Error('Invalid pending action')
-  const parsed = capability.inputSchema.parse(action.args)
+  const editedArgs = overrides && typeof overrides === 'object' && !Array.isArray(overrides)
+    ? { ...(action.args as Record<string, unknown>), ...(overrides as Record<string, unknown>) }
+    : action.args
+  const parsed = capability.inputSchema.parse(editedArgs)
   const result = await capability.execute({ userId, caller: action.caller ?? 'internal' } as WriteContext, parsed)
   await db.markAiPendingActionExecuted(actionId)
-  return { result, action: pendingActionToClient(action) }
+  return { result, action: pendingActionToClient({ ...action, args: parsed }) }
 }
 
 export async function cancelPendingAiAction(userId: string, actionId: string) {

@@ -32,6 +32,7 @@ function checkRate(tokenId: string, isWrite: boolean) {
 
 function jsonContent(value: unknown) {
   return {
+    structuredContent: value as Record<string, unknown>,
     content: [{ type: 'text' as const, text: JSON.stringify(value, null, 2) }],
   }
 }
@@ -42,16 +43,18 @@ function createServer(auth: { tokenId: string; userId: string; scopes: string[] 
 
   for (const tool of tools) {
     const isWrite = Boolean(tool.scope)
+    const annotations = {
+      readOnlyHint: !isWrite,
+      openWorldHint: false,
+      destructiveHint: tool.name === 'delete_item',
+    }
     server.registerTool(
       tool.name,
       {
         description: tool.description,
         inputSchema: tool.inputSchema,
-        annotations: tool.name === 'delete_item'
-          ? { destructiveHint: true }
-          : isWrite
-            ? { destructiveHint: false }
-            : undefined,
+        outputSchema: tool.outputSchema,
+        annotations,
       },
       async (args) => {
         if (!checkRate(auth.tokenId, isWrite)) {

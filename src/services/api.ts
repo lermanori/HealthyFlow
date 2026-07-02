@@ -376,13 +376,13 @@ export const aiService = {
     return response.data
   },
 
-  chat: async (messages: AssistantChatMessage[]): Promise<AssistantChatResponse> => {
-    const response = await api.post('/ai/chat', { messages })
+  chat: async (messages: AssistantChatMessage[], model?: AssistantChatModel): Promise<AssistantChatResponse> => {
+    const response = await api.post('/ai/chat', { messages, model })
     return response.data
   },
 
-  confirmChatAction: async (actionId: string): Promise<AssistantConfirmResponse> => {
-    const response = await api.post('/ai/chat/confirm', { actionId })
+  confirmChatAction: async (actionId: string, args?: Record<string, unknown>): Promise<AssistantConfirmResponse> => {
+    const response = await api.post('/ai/chat/confirm', { actionId, args })
     return response.data
   },
 
@@ -406,6 +406,13 @@ export interface AssistantChatMessage {
   content: string
 }
 
+export type AssistantChatModel =
+  | 'gpt-4o-mini'
+  | 'gpt-5-mini'
+  | 'gpt-5.4-mini'
+  | 'gpt-5.4'
+  | 'gpt-5.5'
+
 export interface AssistantToolEvent {
   name: string
   args: unknown
@@ -421,6 +428,7 @@ export interface AssistantChatResponse {
 export interface AssistantPendingAction {
   id: string
   capability: string
+  args: Record<string, unknown>
   preview: unknown
   expiresAt: string
 }

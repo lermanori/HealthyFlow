@@ -3,6 +3,30 @@ import { Credits, UnpricedModelError } from './credits'
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
 
+function usesCompletionTokenLimit(model: string) {
+  return model.startsWith('gpt-5') || model.startsWith('o')
+}
+
+function supportsCustomTemperature(model: string) {
+  return !usesCompletionTokenLimit(model)
+}
+
+function applyGenerationParams(
+  body: Record<string, unknown>,
+  opts: { model: string; temperature?: number; maxTokens?: number }
+) {
+  if (supportsCustomTemperature(opts.model)) {
+    body.temperature = opts.temperature ?? 0.2
+  }
+
+  if (!opts.maxTokens) return
+  if (usesCompletionTokenLimit(opts.model)) {
+    body.max_completion_tokens = opts.maxTokens
+  } else {
+    body.max_tokens = opts.maxTokens
+  }
+}
+
 export type OpenAIErrorCode = 'no_key' | 'upstream' | 'invalid_response'
 
 export type TokenUsage = {
@@ -172,6 +196,74 @@ Then read the nutrition table:
 5. This Israeli dairy label commonly has these 8 rows: אנרגיה, שומנים, נתרן, סך הפחמימות, סוכרים, כפיות סוכר, חלבונים, סידן. Use this only to avoid skipping visible rows, not to invent invisible numbers.
 
 Return OCR evidence only.`
+
+const PARSE_MEALS_MODEL = 'gpt-4o-mini'
+const PARSE_MEALS_MAX_TOKENS = 1000
+const NUTRITION_LABEL_OCR_MAX_TOKENS = 1200
+
+export type ParseMealsPhoto = {
+  mimeType: 'image/jpeg' | 'image/png' | 'image/webp'
+  data: string
+}
+
+export type ParseMealsValue = {
+  meals: ParsedMealValue[]
+  review: ParseMealsReviewValue
+}
+
+function parseMealsSystemPrompt() {
+  return `Estimate nutrition for the foods described by the user input.
+
+Return a list of meals, each with:
+- name: the food or drink name
+- calories: estimated calories (nonnegative integer)
+- protein, carbs, fat: estimated grams (nonnegative numbers), or null if unknown
+- quantity: a short description of the amount (e.g. "2 eggs"), or null if not specified
+- labelEvidence: nullable nutrition-label evidence for this exact item. Use null when no nutrition label supports the meal. When a label is visible, include the label basis, basis text/header, visible product/claim text, package amount/unit if visible, numeric and label columns top-to-bottom, calories/macros, and sodium/calcium if visible.
+
+Rules:
+- Estimate calories and macros as accurately as possible for each distinct food item mentioned.
+- Macros may be null if you cannot reasonably estimate them.
+- Do not invent foods that are not present in the text or photo.
+- If a nutrition label is visible in the photo, follow these rules:
+${NUTRITION_LABEL_READING_RULES}`
+}
+
+function parseMealsUserContent(trimmedText: string, photo?: ParseMealsPhoto) {
+  return photo
+    ? [
+        {
+          type: 'text' as const,
+          text: `User text: ${trimmedText || '(none)'}
+
+If a photo is provided, inspect it for visible food items or a nutrition label. If a nutrition label is present, read its calories and macros directly.
+
+${NUTRITION_LABEL_READING_RULES}
+
+Return only meals that are reasonably supported by the text or image.`,
+        },
+        {
+          type: 'image_url' as const,
+          image_url: { url: `data:${photo.mimeType};base64,${photo.data}` },
+        },
+      ]
+    : trimmedText
+}
+
+function parseMealsPhotoContent(photo?: ParseMealsPhoto) {
+  return photo
+    ? [
+        {
+          type: 'text' as const,
+          text: NUTRITION_LABEL_OCR_PROMPT,
+        },
+        {
+          type: 'image_url' as const,
+          image_url: { url: `data:${photo.mimeType};base64,${photo.data}` },
+        },
+      ]
+    : null
+}
 
 const HEBREW_NUTRIENT_MAP: Array<[RegExp, keyof Pick<ParsedMealValue, 'calories' | 'protein' | 'carbs' | 'fat'>]> = [
   [/(אנרגיה|קלוריות)/, 'calories'],
@@ -473,9 +565,8 @@ async function rawCall(
       { role: 'system', content: opts.systemPrompt },
       { role: 'user', content: opts.userPrompt },
     ],
-    temperature: opts.temperature ?? 0.2,
   }
-  if (opts.maxTokens) body.max_tokens = opts.maxTokens
+  applyGenerationParams(body, opts)
   if (opts.responseFormat) body.response_format = opts.responseFormat
 
   try {
@@ -488,7 +579,8 @@ async function rawCall(
       body: JSON.stringify(body),
     })
     if (!res.ok) {
-      console.error('OpenAI upstream error:', res.status, res.statusText)
+      const body = await res.text().catch(() => '')
+      console.error('OpenAI upstream error:', res.status, res.statusText, body)
       return { ok: false, code: 'upstream', message: `Upstream ${res.status}` }
     }
     const data = (await res.json()) as any
@@ -520,6 +612,15 @@ function addUsage(a: TokenUsage, b?: TokenUsage): TokenUsage {
   }
 }
 
+function toolFallbackMessage(toolEvents: OpenAIToolEvent[]) {
+  if (toolEvents.length === 0) return null
+  const pending = toolEvents
+    .map((event) => (event.result as any)?.pendingAction)
+    .find(Boolean)
+  if (pending) return 'I prepared that change. Review the preview, then Confirm or Cancel.'
+  return 'I found the requested HealthyFlow data.'
+}
+
 async function rawToolCall(
   opts: Pick<ToolCallOpts, 'model' | 'temperature' | 'maxTokens'> & {
     messages: any[]
@@ -531,7 +632,7 @@ async function rawToolCall(
     return { ok: false, code: 'no_key', message: 'Missing OPENAI_API_KEY' }
   }
 
-  const body = {
+  const body: Record<string, unknown> = {
     model: opts.model,
     messages: opts.messages,
     tools: opts.tools.map((tool) => ({
@@ -543,9 +644,8 @@ async function rawToolCall(
       },
     })),
     tool_choice: 'auto',
-    temperature: opts.temperature ?? 0.2,
-    max_tokens: opts.maxTokens,
   }
+  applyGenerationParams(body, opts)
 
   try {
     const res = await fetch(OPENAI_URL, {
@@ -557,7 +657,8 @@ async function rawToolCall(
       body: JSON.stringify(body),
     })
     if (!res.ok) {
-      console.error('OpenAI upstream error:', res.status, res.statusText)
+      const body = await res.text().catch(() => '')
+      console.error('OpenAI upstream error:', res.status, res.statusText, body)
       return { ok: false, code: 'upstream', message: `Upstream ${res.status}` }
     }
     const data = (await res.json()) as any
@@ -683,8 +784,16 @@ export const Openai = {
       if (toolCalls.length === 0) {
         const content = typeof message.content === 'string' ? message.content.trim() : ''
         if (!content) {
-          await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
-          return { ok: false, code: 'invalid_response', message: 'Missing assistant content' }
+          const fallback = toolFallbackMessage(toolEvents)
+          if (!fallback) {
+            await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+            return { ok: false, code: 'invalid_response', message: 'Missing assistant content' }
+          }
+          await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+            endpoint: opts.endpoint,
+            model: opts.model,
+          })
+          return { ok: true, value: { message: fallback, toolEvents }, usage }
         }
         await Credits.settleReserved(opts.userId, reservedTokens, usage, {
           endpoint: opts.endpoint,
@@ -728,4 +837,96 @@ export const Openai = {
     await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
     return { ok: false, code: 'invalid_response', message: 'Tool loop did not produce a final answer' }
   },
+}
+
+export async function parseMealsWithAi(opts: {
+  userId: string
+  text?: string
+  photo?: ParseMealsPhoto
+  endpoint?: string
+}): Promise<BillableOpenAIResult<ParseMealsValue>> {
+  const trimmedText = opts.text?.trim() ?? ''
+  const photoContent = parseMealsPhotoContent(opts.photo)
+  const userContent = parseMealsUserContent(trimmedText, opts.photo)
+  const systemPrompt = parseMealsSystemPrompt()
+  let reservedTokens = 0
+  let usage: TokenUsage = ZERO_USAGE
+
+  try {
+    reservedTokens = await Credits.estimateReserve({
+      model: PARSE_MEALS_MODEL,
+      systemPrompt: opts.photo ? 'You are an OCR engine for nutrition labels. Return JSON only.' : systemPrompt,
+      userPrompt: photoContent ?? userContent,
+      maxOutputTokens: opts.photo ? NUTRITION_LABEL_OCR_MAX_TOKENS : PARSE_MEALS_MAX_TOKENS,
+    })
+    const ok = await Credits.reserve(opts.userId, reservedTokens)
+    if (!ok) {
+      return { ok: false, code: 'insufficient_credits', message: 'Insufficient AI tokens' }
+    }
+  } catch (error) {
+    if (error instanceof UnpricedModelError) {
+      return { ok: false, code: 'unpriced_model', message: 'AI model pricing is not configured' }
+    }
+    console.error('AI billing estimate failed:', error)
+    return { ok: false, code: 'billing_error', message: 'AI billing failed' }
+  }
+
+  if (photoContent) {
+    const ocrResult = await Openai.callStructured({
+      model: PARSE_MEALS_MODEL,
+      systemPrompt: 'You are an OCR engine for nutrition labels. Return JSON only.',
+      userPrompt: photoContent,
+      temperature: 0,
+      maxTokens: NUTRITION_LABEL_OCR_MAX_TOKENS,
+      schemaName: 'nutrition_label_ocr',
+      jsonSchema: NUTRITION_LABEL_OCR_JSON_SCHEMA,
+      parser: (v) => NutritionLabelOcr.parse(v),
+    })
+
+    if (!ocrResult.ok) {
+      await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+      return ocrResult
+    }
+    usage = ocrResult.usage ?? ZERO_USAGE
+    const ocrMeal = nutritionLabelMealFromOcr(ocrResult.value, trimmedText || undefined)
+    const review = evaluateOcrEvidence(ocrResult.value)
+
+    if (ocrMeal) {
+      await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+        endpoint: opts.endpoint ?? 'parse-meals',
+        model: PARSE_MEALS_MODEL,
+      })
+      return { ok: true, value: { meals: [ocrMeal], review }, usage }
+    }
+  }
+
+  const result = await Openai.callStructured({
+    model: PARSE_MEALS_MODEL,
+    systemPrompt,
+    userPrompt: userContent,
+    temperature: 0.2,
+    maxTokens: PARSE_MEALS_MAX_TOKENS,
+    schemaName: 'parsed_meals',
+    jsonSchema: PARSED_MEALS_JSON_SCHEMA,
+    parser: (v) => AiParsedMeals.parse(v),
+  })
+
+  if (!result.ok) {
+    await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+    return result
+  }
+
+  usage = addUsage(usage, result.usage)
+  await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+    endpoint: opts.endpoint ?? 'parse-meals',
+    model: PARSE_MEALS_MODEL,
+  })
+  return {
+    ok: true,
+    value: {
+      meals: result.value.meals.map(normalizeParsedMeal),
+      review: defaultReview(),
+    },
+    usage,
+  }
 }
