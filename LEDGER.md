@@ -1,3 +1,33 @@
+### 2026-07-02 16:51 — `codex/ai-readonly-assistant`
+
+Fixed the AI control-plane review findings before merge: MCP writes now audit as MCP, assistant turns preserve multiple pending previews, nutrition lookup is bounded, bulk calorie writes clean up partial inserts, and failed tool loops settle real token usage. The Assistant UI, capability mappers, Anytime backlog positioning, rate-limit bookkeeping, and ADR 0003 were updated alongside focused regression coverage.
+
+---
+
+### 2026-07-02 16:00 — `codex/ai-readonly-assistant`
+
+Added Privacy Policy and Terms of Service pages, reachable at `/privacy` and `/terms` even while logged out, with footer links from the login screen and the main app layout.
+
+---
+
+### 2026-07-02 15:55 — `codex/ai-readonly-assistant`
+
+Instrumented the app with PostHog product analytics: auth (identify/signup/login/logout), item creation and completion, AI parse flows (tasks and meals), credit balance and exhaustion, onboarding, and upgrade CTAs all now emit events. The static marketing landing page got a matching pageview snippet, and the tracking plan is documented under `docs/analytics/`.
+
+---
+
+### 2026-07-02 15:50 — `codex/ai-readonly-assistant`
+
+Extended the AI assistant with per-request model selection and confirmation args passed through to write actions, updated the ChatGPT app MCP submission metadata, and expanded write-capability test coverage to match.
+
+---
+
+### 2026-07-02 10:46 — `codex/ai-readonly-assistant`
+
+Implemented the AI control-plane stack from #107-#112 in one branch: the shared capability layer now supports read tools, add-type writes, confirm-class writes, audit logging, idempotency, Settings-issued MCP tokens, and a Streamable HTTP MCP surface. The in-app Assistant can answer with tool-grounded data, auto-run add-type writes, and render Confirm/Cancel cards for update/complete/delete actions. Settings now has a Connections panel for scoped PAT issuance/revocation, while MCP clients use the same capability registry with scope-gated read/write tools.
+
+---
+
 ### 2026-07-02 10:09 — `main`
 
 Built a marketing landing page (`public/landing.html`) that mirrors the app's own design language rather than inventing a separate brand — same dark navy/cyan gradient palette, Space Grotesk type, and glass cards. Product screenshots are real captures from the demo account (seeded with realistic tasks, habits, a workout session, calorie entries, and weight logs) rather than mockups, covering Today, AI Add Item, Week View, Calories, and Workouts. Verified desktop and mobile full-page renders section by section before committing; no app code changed.

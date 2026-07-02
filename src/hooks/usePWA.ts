@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { analytics } from '../lib/analytics'
 
 interface PWAState {
   isInstallable: boolean
@@ -52,11 +53,8 @@ export function usePWA() {
         canInstall: false,
         deferredPrompt: null
       }))
-      
-      // Track installation if analytics is available
-      if ('gtag' in window) {
-        (window as any).gtag('event', 'pwa_installed')
-      }
+
+      analytics.capture('pwa_installed')
     }
 
     // Check for display mode changes

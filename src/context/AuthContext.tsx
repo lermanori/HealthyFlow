@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { authService } from '../services/api'
+import { analytics } from '../lib/analytics'
 import toast from 'react-hot-toast'
 
 interface User {
@@ -20,6 +21,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+const DEMO_EMAIL = 'demo@healthyflow.com'
+
+function identifyUser(userData: User) {
+  analytics.identify(userData.id, {
+    email: userData.email,
+    name: userData.name,
+    role: userData.role,
+    is_demo: userData.email === DEMO_EMAIL,
+  })
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -31,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Verify token and get user info
       authService.verifyToken()
         .then(userData => {
+          identifyUser(userData)
           setUser(userData)
         })
         .catch(() => {
@@ -50,6 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { user: userData, token } = await authService.login(email, password)
       queryClient.clear()
       localStorage.setItem('token', token)
+      identifyUser(userData)
+      analytics.capture('logged_in', { is_demo: userData.email === DEMO_EMAIL })
       setUser(userData)
       toast.success('Welcome back!')
     } catch (error) {
@@ -63,6 +78,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { user: userData, token } = await authService.signup(email, password, name)
       queryClient.clear()
       localStorage.setItem('token', token)
+      analytics.identify(userData.id, {
+        email: userData.email,
+        name: userData.name,
+        role: userData.role,
+        is_demo: userData.email === DEMO_EMAIL,
+        onboarding_status: 'active',
+      }, { signed_up_at: new Date().toISOString() })
+      analytics.capture('signed_up', { method: 'password' })
       setUser(userData)
       toast.success('Account created! Welcome to HealthyFlow.')
     } catch (error: any) {
@@ -75,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     localStorage.removeItem('token')
     queryClient.clear()
+    analytics.reset()
     setUser(null)
     toast.success('Logged out successfully')
   }

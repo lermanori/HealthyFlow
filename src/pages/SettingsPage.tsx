@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { CalendarDays, CheckCircle2, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Unplug, Sparkles, Mail, Instagram, MessageCircle, Copy, X } from 'lucide-react'
+import { CalendarDays, CheckCircle2, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Unplug, Sparkles, Mail, Instagram, MessageCircle, Copy, X, KeyRound, Trash2 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
 import { useCredits } from '../hooks/useCredits'
 import { useSettings } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
-import api, { calendarService, CalendarConnectionStatus, contactMessagesService, UserSettings } from '../services/api'
+import api, { ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, UserSettings } from '../services/api'
+import { analytics } from '../lib/analytics'
+
+function mcpEndpoint() {
+  const apiBase = api.defaults.baseURL ?? 'http://localhost:3001/api'
+  return apiBase.replace(/\/api\/?$/, '/mcp')
+}
 
 export default function SettingsPage() {
   const { user } = useAuth()
@@ -17,6 +23,15 @@ export default function SettingsPage() {
   const [calendarLoading, setCalendarLoading] = useState(true)
   const [calendarActionLoading, setCalendarActionLoading] = useState(false)
   const [contactFlow, setContactFlow] = useState<'subscribe' | 'topup' | null>(null)
+  const openContactFlow = (kind: 'subscribe' | 'topup') => {
+    analytics.capture('upgrade_cta_clicked', { kind })
+    setContactFlow(kind)
+  }
+  const [apiTokens, setApiTokens] = useState<ApiTokenRecord[]>([])
+  const [newToken, setNewToken] = useState('')
+  const [newTokenScopes, setNewTokenScopes] = useState<ApiTokenScope[]>([])
+  const [tokenName, setTokenName] = useState('MCP connection')
+  const [selectedScopes, setSelectedScopes] = useState<ApiTokenScope[]>(['hf:read'])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -24,6 +39,7 @@ export default function SettingsPage() {
     const message = params.get('message')
 
     if (calendarResult === 'connected') {
+      analytics.capture('google_calendar_connected')
       toast.success('Google Calendar connected')
     }
 
@@ -38,6 +54,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadCalendarStatus()
+    loadApiTokens()
   }, [])
 
   const loadCalendarStatus = async () => {
@@ -76,6 +93,45 @@ export default function SettingsPage() {
     }
   }
 
+  const loadApiTokens = async () => {
+    try {
+      setApiTokens(await connectionsService.listTokens())
+    } catch (e) {
+      toast.error('Failed to load connections')
+    }
+  }
+
+  const createTokenMutation = useMutation({
+    mutationFn: () => connectionsService.createToken({ name: tokenName, scopes: selectedScopes }),
+    onSuccess: async (created) => {
+      setNewToken(created.token)
+      setNewTokenScopes(created.record.scopes)
+      setTokenName('MCP connection')
+      setSelectedScopes(['hf:read'])
+      await loadApiTokens()
+      toast.success('Token created')
+    },
+    onError: () => toast.error('Failed to create token'),
+  })
+
+  const revokeTokenMutation = useMutation({
+    mutationFn: (tokenId: string) => connectionsService.revokeToken(tokenId),
+    onSuccess: async () => {
+      await loadApiTokens()
+      toast.success('Token revoked')
+    },
+    onError: () => toast.error('Failed to revoke token'),
+  })
+
+  const toggleScope = (scope: ApiTokenScope) => {
+    setSelectedScopes((current) => {
+      if (scope === 'hf:read') return current.includes(scope) ? current : [...current, scope]
+      return current.includes(scope)
+        ? current.filter((value) => value !== scope)
+        : [...current, scope]
+    })
+  }
+
   const handleSettingChange = (key: keyof UserSettings, value: boolean) => {
     updateSetting(key, value)
     toast.success('Settings updated')
@@ -105,6 +161,17 @@ export default function SettingsPage() {
   const isLowOnCredits = !creditsLoading && balance > 0 && balance < 25
   const planPrice = creditSummary?.pricing.priceUsd ?? 1
   const monthlyCredits = creditSummary?.pricing.monthlyCredits ?? 500
+  const connectionPrompt = newToken
+    ? `Connect HealthyFlow as an MCP server.
+
+Transport: Streamable HTTP
+URL: ${mcpEndpoint()}
+Authorization: Bearer ${newToken}
+
+This token is scoped for: ${newTokenScopes.join(', ')}
+
+After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calorie entries, Weight entries, Achievements, and Workout sessions. If write scopes are present, you may create or update HealthyFlow data only when I explicitly ask. Ask for confirmation before destructive actions.`
+    : ''
 
   const contactMessageMutation = useMutation({
     mutationFn: () => contactMessagesService.create({
@@ -253,10 +320,10 @@ export default function SettingsPage() {
                 Subscribe for {monthlyCredits} credits each month, or buy a quick top-up when you only need a little more.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <button className="btn-primary px-4 py-2 text-sm" onClick={() => setContactFlow('subscribe')}>
+                <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('subscribe')}>
                   Subscribe
                 </button>
-                <button className="btn-secondary px-4 py-2 text-sm" onClick={() => setContactFlow('topup')}>
+                <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('topup')}>
                   Buy More
                 </button>
               </div>
@@ -311,10 +378,10 @@ export default function SettingsPage() {
                   <p className="mt-1 text-xs text-gray-400">Pick the plan when you want AI available without watching each action.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button className="btn-primary px-4 py-2 text-sm" onClick={() => setContactFlow('subscribe')}>
+                  <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('subscribe')}>
                     Subscribe
                   </button>
-                  <button className="btn-secondary px-4 py-2 text-sm" onClick={() => setContactFlow('topup')}>
+                  <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('topup')}>
                     Buy More
                   </button>
                 </div>
@@ -529,6 +596,88 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="mb-4 flex items-center space-x-3">
+          <KeyRound className="h-5 w-5 text-cyan-400" />
+          <h2 className="text-lg font-semibold text-gray-100">Connections</h2>
+        </div>
+
+        {newToken && (
+          <div className="mb-4 rounded-lg border border-amber-500/35 bg-amber-500/10 p-3">
+            <p className="text-sm font-medium text-amber-100">Copy this token now</p>
+            <div className="mt-2 flex gap-2">
+              <input className="input-field min-w-0 flex-1 font-mono text-xs" value={newToken} readOnly />
+              <button
+                className="btn-secondary px-3"
+                onClick={() => {
+                  navigator.clipboard.writeText(newToken)
+                  toast.success('Token copied')
+                }}
+              >
+                <Copy className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-3">
+              <p className="text-sm font-medium text-amber-100">Connection prompt</p>
+              <textarea className="input-field mt-2 min-h-[150px] font-mono text-xs" value={connectionPrompt} readOnly />
+              <button
+                className="btn-secondary mt-2 inline-flex items-center gap-2 px-3 py-2 text-sm"
+                onClick={() => {
+                  navigator.clipboard.writeText(connectionPrompt)
+                  toast.success('Connection prompt copied')
+                }}
+              >
+                <Copy className="h-4 w-4" />
+                Copy prompt
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="space-y-3 rounded-lg border border-gray-700/70 bg-gray-950/25 p-3">
+          <input className="input-field" value={tokenName} onChange={(event) => setTokenName(event.target.value)} />
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(['hf:read', 'hf:write:add', 'hf:write:update', 'hf:write:complete', 'hf:write:delete'] as ApiTokenScope[]).map((scope) => (
+              <label key={scope} className="flex items-center gap-2 rounded-md border border-gray-800 px-3 py-2 text-sm text-gray-200">
+                <input type="checkbox" checked={selectedScopes.includes(scope)} onChange={() => toggleScope(scope)} />
+                {scope}
+              </label>
+            ))}
+          </div>
+          <button
+            className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
+            disabled={createTokenMutation.isPending || selectedScopes.length === 0}
+            onClick={() => createTokenMutation.mutate()}
+          >
+            {createTokenMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+            Generate token
+          </button>
+        </div>
+
+        <div className="mt-4 divide-y divide-gray-800">
+          {apiTokens.map((token) => (
+            <div key={token.id} className="flex items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-gray-100">{token.name}</p>
+                <p className="text-xs text-gray-400">{token.scopes.join(', ')}</p>
+                <p className="text-xs text-gray-500">
+                  Last used {token.lastUsedAt ?? '-'} {token.revokedAt ? ` · revoked ${token.revokedAt}` : ''}
+                </p>
+              </div>
+              {!token.revokedAt && (
+                <button
+                  className="rounded-lg border border-red-500/30 p-2 text-red-300 hover:bg-red-500/10"
+                  onClick={() => revokeTokenMutation.mutate(token.id)}
+                  aria-label="Revoke token"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 

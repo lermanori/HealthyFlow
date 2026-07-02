@@ -1,40 +1,31 @@
 import express from 'express'
 import { z } from 'zod'
 import { db } from '../supabase-client'
+import { aiCapabilityTools, cancelPendingAiAction, executePendingAiAction } from '../ai-capabilities'
 import {
-  AiParsedMeals,
-  defaultReview,
-  evaluateOcrEvidence,
-  NUTRITION_LABEL_OCR_JSON_SCHEMA,
-  NUTRITION_LABEL_OCR_PROMPT,
-  NUTRITION_LABEL_READING_RULES,
-  NutritionLabelOcr,
   Openai,
-  PARSED_MEALS_JSON_SCHEMA,
-  TokenUsage,
-  normalizeParsedMeal,
-  nutritionLabelMealFromOcr,
+  parseMealsWithAi,
 } from '../openai'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
-import { Credits, UnpricedModelError } from '../credits'
 
-const ZERO_USAGE: TokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
 const QUERY_TASKS_MODEL = 'gpt-3.5-turbo'
 const QUERY_TASKS_MAX_TOKENS = 500
 const PARSE_TASKS_MODEL = 'gpt-4o-mini'
 const PARSE_TASKS_MAX_TOKENS = 1000
-const PARSE_MEALS_MODEL = 'gpt-4o-mini'
-const PARSE_MEALS_MAX_TOKENS = 1000
-const NUTRITION_LABEL_OCR_MAX_TOKENS = 1200
+const CHAT_MODEL = 'gpt-4o-mini'
+const ChatModel = z.enum(['gpt-4o-mini', 'gpt-5-mini', 'gpt-5.4-mini', 'gpt-5.4', 'gpt-5.5'])
+const CHAT_MAX_TOKENS = 700
+const CHAT_RATE_LIMIT_WINDOW_MS = 60_000
+const CHAT_RATE_LIMIT_MAX = 12
 
 const router = express.Router()
+const chatRateLimit = new Map<string, { count: number; resetAt: number }>()
 
-function unpricedModelResponse(res: express.Response, error: unknown) {
-  if (error instanceof UnpricedModelError) {
-    return res.status(500).json({ error: 'AI model pricing is not configured', code: 'unpriced_model' })
+function sweepExpiredChatRateLimits(now: number) {
+  if (chatRateLimit.size <= 500) return
+  for (const [key, value] of chatRateLimit.entries()) {
+    if (value.resetAt <= now) chatRateLimit.delete(key)
   }
-  console.error('AI billing estimate failed:', error)
-  return res.status(500).json({ error: 'AI billing failed', code: 'billing_error' })
 }
 
 function aiCallErrorResponse(
@@ -53,6 +44,117 @@ function aiCallErrorResponse(
   }
   return res.status(500).json(fallback)
 }
+
+function checkChatRateLimit(userId: string) {
+  const now = Date.now()
+  sweepExpiredChatRateLimits(now)
+  const current = chatRateLimit.get(userId)
+  if (!current || current.resetAt <= now) {
+    chatRateLimit.set(userId, { count: 1, resetAt: now + CHAT_RATE_LIMIT_WINDOW_MS })
+    return true
+  }
+  if (current.count >= CHAT_RATE_LIMIT_MAX) return false
+  current.count += 1
+  return true
+}
+
+const ChatMessage = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string().trim().min(1).max(4000),
+})
+
+const ChatRequest = z.object({
+  messages: z.array(ChatMessage).min(1).max(30),
+  model: ChatModel.default(CHAT_MODEL),
+})
+
+const CHAT_SYSTEM_PROMPT = `You are the internal HealthyFlow assistant.
+
+Answer questions using the provided HealthyFlow tools. Use the app vocabulary exactly: Item, Task, Habit, Habit instance, Calorie entry, Weight entry, Achievement, Workout session.
+
+You can read data and you can use write tools when the user plainly asks for a change.
+
+Write safety:
+- Every write tool returns a preview and requires the user to Confirm or Cancel in the UI before the change is executed. This includes add/log/create tools, update_item, complete_task, and delete_item.
+- Never say a write is complete until the user has confirmed it.
+
+Food logging:
+- When the user says they ate or drank something, treat it as a Calorie entry candidate.
+- First call search_calorie_history for the food name, and call list_calorie_entries for today if duplicates or daily context could matter.
+- For vague or composite meals with multiple foods, use parse_meal_entries. It is the same parser as the Calories page "AI Meal Entry" flow.
+- Use lookup_food_nutrition for single branded foods or nutrition-source lookup when user history is missing or weak.
+- Prefer sources in this order: exact user history, fuzzy user history, structured nutrition source, curated web source, low-confidence estimate.
+- If parse_meal_entries returns multiple meals, prefer add_calorie_entries so each food is saved as its own reusable Calorie entry under the same meal time.
+- If parse_meal_entries or lookup_food_nutrition returns a low-confidence estimate, you may still prepare an add_calorie_entries or add_calorie_entry preview when the user asks to log/insert it, but say it is an estimate and invite edits.
+- If you prepare an add_calorie_entry or add_calorie_entries preview, mention the source/confidence briefly and ask the user to confirm. Do not claim the Calorie entry was logged until confirmation.
+
+Keep answers concise and grounded in tool results. If a tool result is empty, say that plainly.`
+
+router.post('/chat', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = ChatRequest.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid chat input' })
+
+  const userId = req.user.userId
+  if (!checkChatRateLimit(userId)) {
+    return res.status(429).json({ error: 'Too many assistant messages, please try again shortly.', code: 'rate_limited' })
+  }
+
+  const tools = aiCapabilityTools().map((tool) => ({
+    ...tool,
+    execute: (args: unknown) => tool.execute({ userId }, args),
+  }))
+
+  const result = await Openai.callBillableTools({
+    userId,
+    endpoint: 'ai-chat',
+    model: parsed.data.model,
+    systemPrompt: CHAT_SYSTEM_PROMPT,
+    messages: parsed.data.messages,
+    tools,
+    temperature: 0.2,
+    maxTokens: CHAT_MAX_TOKENS,
+  })
+
+  if (!result.ok) {
+    return aiCallErrorResponse(res, result, {
+      error: result.message || 'Assistant unavailable',
+      code: result.code === 'tool_error' ? 'tool_error' : 'ai_chat_failed',
+    })
+  }
+
+  const pendingActions = result.value.toolEvents
+    .map((event) => (event.result as any)?.pendingAction)
+    .filter(Boolean)
+
+  res.json({ ...result.value, pendingActions })
+})
+
+const ConfirmBody = z.object({
+  actionId: z.string().uuid(),
+  args: z.record(z.string(), z.unknown()).optional(),
+})
+
+router.post('/chat/confirm', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = ConfirmBody.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid pending action id' })
+
+  try {
+    res.json(await executePendingAiAction(req.user.userId, parsed.data.actionId, parsed.data.args))
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Could not confirm action' })
+  }
+})
+
+router.post('/chat/cancel', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = ConfirmBody.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid pending action id' })
+
+  try {
+    res.json(await cancelPendingAiAction(req.user.userId, parsed.data.actionId))
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Could not cancel action' })
+  }
+})
 
 // Query tasks for AI
 router.get('/tasks', authenticateToken, async (req: AuthRequest, res) => {
@@ -238,123 +340,14 @@ router.post('/parse-meals', authenticateToken, async (req: AuthRequest, res) => 
     return res.status(400).json({ error: 'Photo must be 5MB or smaller' })
   }
 
-  const photoContent = photo
-    ? [
-        {
-          type: 'text' as const,
-          text: NUTRITION_LABEL_OCR_PROMPT,
-        },
-        {
-          type: 'image_url' as const,
-          image_url: { url: `data:${photo.mimeType};base64,${photo.data}` },
-        },
-      ]
-    : null
-  const userContent = photo
-    ? [
-        {
-          type: 'text' as const,
-          text: `User text: ${trimmedText || '(none)'}
-
-If a photo is provided, inspect it for visible food items or a nutrition label. If a nutrition label is present, read its calories and macros directly.
-
-${NUTRITION_LABEL_READING_RULES}
-
-Return only meals that are reasonably supported by the text or image.`,
-        },
-        {
-          type: 'image_url' as const,
-          image_url: { url: `data:${photo.mimeType};base64,${photo.data}` },
-        },
-      ]
-    : trimmedText
-  const systemPrompt = `Estimate nutrition for the foods described by the user input.
-
-Return a list of meals, each with:
-- name: the food or drink name
-- calories: estimated calories (nonnegative integer)
-- protein, carbs, fat: estimated grams (nonnegative numbers), or null if unknown
-- quantity: a short description of the amount (e.g. "2 eggs"), or null if not specified
-- labelEvidence: nullable nutrition-label evidence for this exact item. Use null when no nutrition label supports the meal. When a label is visible, include the label basis, basis text/header, visible product/claim text, package amount/unit if visible, numeric and label columns top-to-bottom, calories/macros, and sodium/calcium if visible.
-
-Rules:
-- Estimate calories and macros as accurately as possible for each distinct food item mentioned.
-- Macros may be null if you cannot reasonably estimate them.
-- Do not invent foods that are not present in the text or photo.
-- If a nutrition label is visible in the photo, follow these rules:
-${NUTRITION_LABEL_READING_RULES}`
-  let reservedTokens = 0
-  let usage: TokenUsage = ZERO_USAGE
-
-  try {
-    reservedTokens = await Credits.estimateReserve({
-      model: PARSE_MEALS_MODEL,
-      systemPrompt: photo ? 'You are an OCR engine for nutrition labels. Return JSON only.' : systemPrompt,
-      userPrompt: photoContent ?? userContent,
-      maxOutputTokens: photo ? NUTRITION_LABEL_OCR_MAX_TOKENS : PARSE_MEALS_MAX_TOKENS,
-    })
-    const ok = await Credits.reserve(userId, reservedTokens)
-    if (!ok) {
-      return res.status(402).json({ error: 'Insufficient AI tokens', code: 'insufficient_credits' })
-    }
-  } catch (error) {
-    return unpricedModelResponse(res, error)
-  }
-
-  if (photoContent) {
-    const ocrResult = await Openai.callStructured({
-      model: PARSE_MEALS_MODEL,
-      systemPrompt: 'You are an OCR engine for nutrition labels. Return JSON only.',
-      userPrompt: photoContent,
-      temperature: 0,
-      maxTokens: NUTRITION_LABEL_OCR_MAX_TOKENS,
-      schemaName: 'nutrition_label_ocr',
-      jsonSchema: NUTRITION_LABEL_OCR_JSON_SCHEMA,
-      parser: (v) => NutritionLabelOcr.parse(v),
-    })
-
-    if (!ocrResult.ok) {
-      await Credits.refundReserve(userId, reservedTokens, 'refund_failed_call')
-      return res.status(500).json({ error: 'Could not parse — try again' })
-    }
-    usage = ocrResult.usage ?? ZERO_USAGE
-    const ocrMeal = nutritionLabelMealFromOcr(ocrResult.value, trimmedText || undefined)
-    const review = evaluateOcrEvidence(ocrResult.value)
-
-    if (ocrMeal) {
-      await Credits.settleReserved(userId, reservedTokens, usage, {
-        endpoint: 'parse-meals',
-        model: PARSE_MEALS_MODEL,
-      })
-      return res.json({ meals: [ocrMeal], review })
-    }
-  }
-
-  const result = await Openai.callStructured({
-    model: PARSE_MEALS_MODEL,
-    systemPrompt,
-    userPrompt: userContent,
-    temperature: 0.2,
-    maxTokens: PARSE_MEALS_MAX_TOKENS,
-    schemaName: 'parsed_meals',
-    jsonSchema: PARSED_MEALS_JSON_SCHEMA,
-    parser: (v) => AiParsedMeals.parse(v),
-  })
-
+  const result = await parseMealsWithAi({ userId, text: trimmedText, photo })
   if (!result.ok) {
-    await Credits.refundReserve(userId, reservedTokens, 'refund_failed_call')
-    return res.status(500).json({ error: 'Could not parse — try again' })
+    return aiCallErrorResponse(res, result, {
+      error: 'Could not parse — try again',
+      code: 'ai_parse_failed',
+    })
   }
-  usage = {
-    promptTokens: usage.promptTokens + (result.usage?.promptTokens ?? 0),
-    completionTokens: usage.completionTokens + (result.usage?.completionTokens ?? 0),
-    totalTokens: usage.totalTokens + (result.usage?.totalTokens ?? 0),
-  }
-  await Credits.settleReserved(userId, reservedTokens, usage, {
-    endpoint: 'parse-meals',
-    model: PARSE_MEALS_MODEL,
-  })
-  res.json({ meals: result.value.meals.map(normalizeParsedMeal), review: defaultReview() })
+  res.json(result.value)
 })
 
 export { router as aiRoutes }

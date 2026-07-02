@@ -5,7 +5,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
 import App from './App.tsx'
 import { AuthProvider } from './context/AuthContext.tsx'
+import { analytics } from './lib/analytics'
+import PageViewTracker from './lib/analytics/PageViewTracker'
 import './index.css'
+
+analytics.init()
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,6 +24,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <PageViewTracker />
         <AuthProvider>
           <App />
           <Toaster 

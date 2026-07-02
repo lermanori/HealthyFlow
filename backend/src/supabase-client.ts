@@ -1563,4 +1563,163 @@ export const db = {
     if (error) throw error
     return data ?? []
   },
+
+  // AI control plane
+  async createAiAuditLog(row: {
+    user_id: string
+    caller: 'internal' | 'mcp'
+    tool: string
+    args_summary?: unknown
+    target_ids?: unknown[]
+    result?: unknown
+    model?: string | null
+    request_id?: string | null
+  }) {
+    const { data, error } = await supabase
+      .from('ai_audit_log')
+      .insert({
+        ...row,
+        args_summary: row.args_summary ?? {},
+        target_ids: row.target_ids ?? [],
+        result: row.result ?? {},
+      })
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async getAiIdempotency(userId: string, requestId: string, tool: string) {
+    const { data, error } = await supabase
+      .from('ai_idempotency')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('request_id', requestId)
+      .eq('tool', tool)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async createAiIdempotency(row: {
+    user_id: string
+    request_id: string
+    tool: string
+    result: unknown
+  }) {
+    const { data, error } = await supabase
+      .from('ai_idempotency')
+      .insert(row)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async createAiPendingAction(row: {
+    user_id: string
+    capability: string
+    args: unknown
+    preview: unknown
+    caller: 'internal' | 'mcp'
+    expires_at: string
+  }) {
+    const { data, error } = await supabase
+      .from('ai_pending_actions')
+      .insert(row)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async getAiPendingAction(actionId: string) {
+    const { data, error } = await supabase
+      .from('ai_pending_actions')
+      .select('*')
+      .eq('id', actionId)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async markAiPendingActionExecuted(actionId: string) {
+    const { data, error } = await supabase
+      .from('ai_pending_actions')
+      .update({ executed_at: new Date().toISOString() })
+      .eq('id', actionId)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async cancelAiPendingAction(actionId: string, userId: string) {
+    const { data, error } = await supabase
+      .from('ai_pending_actions')
+      .update({ canceled_at: new Date().toISOString() })
+      .eq('id', actionId)
+      .eq('user_id', userId)
+      .select()
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async createApiToken(row: {
+    id: string
+    user_id: string
+    name: string
+    token_hash: string
+    scopes: string[]
+    audience: string
+  }) {
+    const { data, error } = await supabase
+      .from('api_tokens')
+      .insert(row)
+      .select('id, user_id, name, scopes, audience, created_at, last_used_at, revoked_at')
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async listApiTokens(userId: string) {
+    const { data, error } = await supabase
+      .from('api_tokens')
+      .select('id, user_id, name, scopes, audience, created_at, last_used_at, revoked_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return data ?? []
+  },
+
+  async getApiTokenByHash(tokenHash: string) {
+    const { data, error } = await supabase
+      .from('api_tokens')
+      .select('*')
+      .eq('token_hash', tokenHash)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async touchApiToken(tokenId: string) {
+    const { error } = await supabase
+      .from('api_tokens')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('id', tokenId)
+    if (error) throw error
+  },
+
+  async revokeApiToken(userId: string, tokenId: string) {
+    const { data, error } = await supabase
+      .from('api_tokens')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('id', tokenId)
+      .eq('user_id', userId)
+      .select('id, user_id, name, scopes, audience, created_at, last_used_at, revoked_at')
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
 };

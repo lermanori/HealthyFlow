@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Brain, Mail, Lock, User, Sparkles, Zap } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -278,6 +279,16 @@ export default function LoginPage() {
               </div>
             </motion.div>
           )}
+
+          <div className="mt-6 flex items-center justify-center gap-4 text-xs text-gray-500">
+            <Link to="/privacy" className="transition-colors hover:text-cyan-400">
+              Privacy Policy
+            </Link>
+            <span aria-hidden="true">|</span>
+            <Link to="/terms" className="transition-colors hover:text-cyan-400">
+              Terms of Service
+            </Link>
+          </div>
         </div>
       </motion.div>
     </div>

@@ -1,0 +1,260 @@
+{
+  "$schema": "https://developers.openai.com/apps-sdk/schemas/chatgpt-app-submission.v1.json",
+  "schema_version": 1,
+  "app_info": {
+    "display_name": "HealthyFlow",
+    "subtitle": "Plan habits and tasks",
+    "description": "HealthyFlow helps people plan their day, track habits, and manage personal health and productivity goals through ChatGPT. Users can review scheduled Tasks and Habit instances, inspect calorie, weight, achievement, and workout progress, and add or update private HealthyFlow records with explicit user approval.",
+    "category": "PRODUCTIVITY"
+  },
+  "tools": {
+    "get_today": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Returns a bounded private overview of the user's HealthyFlow data for today without changing records.",
+        "open_world_justification": "Does not publish content or change public internet state or third-party systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
+      }
+    },
+    "list_tasks": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists bounded private Tasks and Habit instances for a date without creating or updating records.",
+        "open_world_justification": "Only reads HealthyFlow data and does not interact with public or external systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
+      }
+    },
+    "list_calorie_entries": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists bounded private Calorie entries for a date without modifying the calorie log.",
+        "open_world_justification": "Only reads HealthyFlow data and does not publish or send information externally.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
+      }
+    },
+    "list_weight_summary": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Returns recent private Weight entries and derived summary values without changing records.",
+        "open_world_justification": "Only reads HealthyFlow data and does not affect public internet state or third-party systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
+      }
+    },
+    "list_achievements": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists active private Achievement definitions and recent entries without modifying progress.",
+        "open_world_justification": "Only reads HealthyFlow data and does not publish or send information externally.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
+      }
+    },
+    "list_workout_sessions": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists bounded private Workout sessions for a date without changing workout records.",
+        "open_world_justification": "Only reads HealthyFlow data and does not affect public internet state or third-party systems.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible actions."
+      }
+    },
+    "add_task": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates a private one-shot Task in the user's HealthyFlow account after client-side approval.",
+        "open_world_justification": "Writes only to the user's private HealthyFlow data and cannot publish to public or third-party systems.",
+        "destructive_justification": "Creates a new private record and does not delete, overwrite, or revoke access."
+      }
+    },
+    "add_habit": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates a private recurring Habit template in the user's HealthyFlow account after client-side approval.",
+        "open_world_justification": "Writes only to the user's private HealthyFlow data and cannot publish to public or third-party systems.",
+        "destructive_justification": "Creates a new private record and does not delete, overwrite, or revoke access."
+      }
+    },
+    "add_calorie_entry": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates a private Calorie entry in the user's HealthyFlow log after client-side approval.",
+        "open_world_justification": "Writes only to the user's private HealthyFlow data and cannot publish to public or third-party systems.",
+        "destructive_justification": "Creates a new private record and does not delete, overwrite, or revoke access."
+      }
+    },
+    "add_weight_entry": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates a private Weight entry for the user's HealthyFlow account after client-side approval.",
+        "open_world_justification": "Writes only to the user's private HealthyFlow data and cannot publish to public or third-party systems.",
+        "destructive_justification": "Creates a new private record and does not delete, overwrite, or revoke access."
+      }
+    },
+    "add_achievement_entry": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates a private entry under an existing HealthyFlow Achievement after client-side approval.",
+        "open_world_justification": "Writes only to the user's private HealthyFlow data and cannot publish to public or third-party systems.",
+        "destructive_justification": "Creates a new private progress entry and does not delete, overwrite, or revoke access."
+      }
+    },
+    "add_workout_session": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Creates a private Workout session with exercises in the user's HealthyFlow account after client-side approval.",
+        "open_world_justification": "Writes only to the user's private HealthyFlow data and cannot publish to public or third-party systems.",
+        "destructive_justification": "Creates a new private workout record and does not delete, overwrite, or revoke access."
+      }
+    },
+    "update_item": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Updates private Task or Habit instance fields in the user's HealthyFlow account after client-side approval.",
+        "open_world_justification": "Changes only private HealthyFlow records and does not publish content or affect third-party systems.",
+        "destructive_justification": "Updates bounded item fields and does not delete records or revoke access."
+      }
+    },
+    "complete_task": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Marks a private Task or Habit instance complete in the user's HealthyFlow account after client-side approval.",
+        "open_world_justification": "Changes only private HealthyFlow completion state and does not publish content or affect third-party systems.",
+        "destructive_justification": "Marks completion state and does not delete records or revoke access."
+      }
+    },
+    "delete_item": {
+      "annotations": {
+        "readOnlyHint": false,
+        "openWorldHint": false,
+        "destructiveHint": true
+      },
+      "justifications": {
+        "read_only_justification": "Deletes or soft-deletes a private Task or Habit scope in the user's HealthyFlow account after client-side approval.",
+        "open_world_justification": "Changes only private HealthyFlow records and does not publish content or affect third-party systems.",
+        "destructive_justification": "Can delete a Task or Habit series, so users should explicitly approve the selected item and delete scope."
+      }
+    }
+  },
+  "test_cases": [
+    {
+      "description": "Review today's private plan across tasks, habits, calories, achievements, and workouts.",
+      "user_prompt": "Show me my HealthyFlow overview for today and point out what still needs attention.",
+      "file_attachment_urls": null,
+      "tools_triggered": "get_today",
+      "expected_output": "Returns a concise summary of today's HealthyFlow records and highlights incomplete or missing areas without changing data.",
+      "expected_output_url": null
+    },
+    {
+      "description": "List the user's scheduled Tasks and Habit instances for a specific date.",
+      "user_prompt": "What tasks and habits do I have scheduled for 2026-07-03?",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_tasks",
+      "expected_output": "Returns bounded Tasks and Habit instances for the requested date, including timing and completion state when available.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Add a new private Task after user approval.",
+      "user_prompt": "Add a task for tomorrow to email Sarah at 10:00 for 30 minutes.",
+      "file_attachment_urls": null,
+      "tools_triggered": "add_task",
+      "expected_output": "Asks for approval before creating the private Task, then confirms the saved title, date, time, and duration.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Record health tracking data in the private calorie and weight logs.",
+      "user_prompt": "Log 2 eggs for breakfast as 140 calories with 12g protein, and record my weight as 78.4 kg today.",
+      "file_attachment_urls": null,
+      "tools_triggered": "add_calorie_entry, add_weight_entry",
+      "expected_output": "Asks for approval before writing each private health record, then confirms the created calorie and weight entries.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Update and complete private planning items with approval.",
+      "user_prompt": "Move my run to 18:30, then mark it complete.",
+      "file_attachment_urls": null,
+      "tools_triggered": "list_tasks, update_item, complete_task",
+      "expected_output": "Finds the relevant item, asks for approval before changing it, and confirms the updated time and completed state.",
+      "expected_output_url": null
+    }
+  ],
+  "negative_test_cases": [
+    {
+      "description": "Do not trigger for unrelated public web research.",
+      "user_prompt": "Find the latest productivity app market share statistics online.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because HealthyFlow tools do not browse the web or provide market research.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger for third-party calendar management.",
+      "user_prompt": "Cancel my Google Calendar meeting with Alex tomorrow.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not be invoked because the MCP tools only manage private HealthyFlow records, not external calendar events.",
+      "expected_output_url": null
+    },
+    {
+      "description": "Do not trigger destructive changes without a specific HealthyFlow item and approval.",
+      "user_prompt": "Delete everything I have saved.",
+      "file_attachment_urls": null,
+      "tools_triggered": null,
+      "expected_output": "The app should not perform broad deletion and should ask the user to choose a specific supported HealthyFlow item and approve the action.",
+      "expected_output_url": null
+    }
+  ]
+}
