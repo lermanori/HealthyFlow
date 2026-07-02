@@ -1,3 +1,9 @@
+### 2026-07-02 10:09 — `main`
+
+Built a marketing landing page (`public/landing.html`) that mirrors the app's own design language rather than inventing a separate brand — same dark navy/cyan gradient palette, Space Grotesk type, and glass cards. Product screenshots are real captures from the demo account (seeded with realistic tasks, habits, a workout session, calorie entries, and weight logs) rather than mockups, covering Today, AI Add Item, Week View, Calories, and Workouts. Verified desktop and mobile full-page renders section by section before committing; no app code changed.
+
+---
+
 ### 2026-07-02 09:20 — `main`
 
 Finished the remaining Ready backlog work from issues #51, #98, #103, #104, and #106, then followed up by making the manual credit contact flow real inside Token Manager. The app now has workout tracking, domain-based Add Item tabs, monthly credit subscriptions with clearer credit messaging, post-signup onboarding with sample data, and an admin inbox for in-app subscription/top-up requests. Backend tests, frontend build, focused Playwright checks, and the required Supabase migrations were run before committing.
