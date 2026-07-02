@@ -161,11 +161,16 @@ const taskToClient = (row: any) => ({
   completed: Boolean(row.completed),
   scheduledDate: row.scheduled_date,
   startTime: row.start_time ? String(row.start_time).slice(0, 5) : null,
+  location: row.location ?? null,
   duration: row.duration,
   repeat: row.repeat_type,
   position: row.position ?? null,
   isHabitInstance: Boolean(row.is_habit_instance),
   originalHabitId: row.original_habit_id ?? null,
+  rolledOverFromTaskId: row.rolled_over_from_task_id,
+  originalCreatedAt: row.original_created_at,
+  googleEventId: row.google_event_id ?? null,
+  syncedToGoogle: Boolean(row.synced_to_google),
   createdAt: row.created_at,
 })
 
@@ -180,6 +185,7 @@ const calorieToClient = (row: any) => ({
   fat: row.fat ?? null,
   quantity: row.quantity ?? null,
   createdAt: row.created_at,
+  updatedAt: row.updated_at,
 })
 
 const calorieItemToClient = (row: any) => ({
@@ -201,6 +207,7 @@ const weightToClient = (row: any) => ({
   date: row.date,
   weightKg: Number(row.weight_kg),
   createdAt: row.created_at,
+  updatedAt: row.updated_at,
 })
 
 function todayIso() {
@@ -414,7 +421,11 @@ async function lookupFoodNutrition(query: string, limit: number) {
     url.searchParams.set('action', 'process')
     url.searchParams.set('json', '1')
     url.searchParams.set('page_size', String(Math.min(limit, 10)))
-    const res = await fetch(url, { headers: { 'User-Agent': 'HealthyFlow/1.0 nutrition lookup' } })
+    const res = await fetch(url, {
+      // Explicit ADR-0003 exception: one allowlisted nutrition source, bounded by timeout.
+      signal: AbortSignal.timeout(5000),
+      headers: { 'User-Agent': 'HealthyFlow/1.0 nutrition lookup' },
+    })
     if (res.ok) {
       const body = await res.json() as any
       for (const product of body.products ?? []) {
@@ -445,7 +456,7 @@ async function tasksForDay(userId: string, date: string, limit: number) {
 
 export type AiCapabilityRisk = 'auto' | 'confirm'
 export type AiCaller = 'internal' | 'mcp'
-export type AiCapabilityContext = { userId: string }
+export type AiCapabilityContext = { userId: string; caller?: AiCaller; model?: string | null }
 
 export type AiCapabilityDefinition<
   TInput extends z.ZodTypeAny = z.ZodTypeAny,
@@ -461,10 +472,8 @@ export type AiCapabilityDefinition<
   preview?: (ctx: AiCapabilityContext, input: any) => Promise<unknown>
 }
 
-type WriteContext = AiCapabilityContext & { caller?: AiCaller; model?: string | null }
-
 async function withIdempotency<T>(
-  ctx: WriteContext,
+  ctx: AiCapabilityContext,
   tool: string,
   requestId: string | undefined,
   execute: () => Promise<T>
@@ -486,7 +495,7 @@ async function withIdempotency<T>(
   return result
 }
 
-async function auditWrite(ctx: WriteContext, tool: string, args: unknown, result: unknown, targetIds: unknown[] = []) {
+async function auditWrite(ctx: AiCapabilityContext, tool: string, args: unknown, result: unknown, targetIds: unknown[] = []) {
   await db.createAiAuditLog({
     user_id: ctx.userId,
     caller: ctx.caller ?? 'internal',
@@ -499,9 +508,12 @@ async function auditWrite(ctx: WriteContext, tool: string, args: unknown, result
   })
 }
 
-function taskRow(input: z.infer<typeof AddTaskInput>, userId: string, type: 'task' | 'habit') {
+async function taskRow(input: z.infer<typeof AddTaskInput>, userId: string, type: 'task' | 'habit') {
   const scheduledDate = type === 'task'
-    ? input.scheduledDate ?? (input.startTime ? todayIso() : todayIso())
+    ? (input.scheduledDate ?? todayIso())
+    : null
+  const position = type === 'task' && !input.startTime && scheduledDate
+    ? await db.getNextPosition(userId, scheduledDate)
     : null
   return {
     id: uuidv4(),
@@ -513,7 +525,23 @@ function taskRow(input: z.infer<typeof AddTaskInput>, userId: string, type: 'tas
     duration: input.duration,
     repeat_type: type === 'habit' ? (input as z.infer<typeof AddHabitInput>).repeat : 'none',
     scheduled_date: scheduledDate,
-    position: type === 'task' && !input.startTime ? null : null,
+    position,
+  }
+}
+
+function previewTaskDbRow(input: z.infer<typeof AddTaskInput>, type: 'task' | 'habit') {
+  const scheduledDate = type === 'task' ? (input.scheduledDate ?? todayIso()) : null
+  return {
+    id: uuidv4(),
+    user_id: 'preview-user',
+    title: input.title,
+    type,
+    category: input.category,
+    start_time: input.startTime ?? null,
+    duration: input.duration,
+    repeat_type: type === 'habit' ? (input as z.infer<typeof AddHabitInput>).repeat : 'none',
+    scheduled_date: scheduledDate,
+    position: null,
   }
 }
 
@@ -534,7 +562,7 @@ function taskPreview(action: string, row: any, extra: Record<string, unknown> = 
 
 function previewTaskRow(input: z.infer<typeof AddTaskInput>, type: 'task' | 'habit') {
   return taskToClient({
-    ...taskRow(input, 'preview-user', type),
+    ...previewTaskDbRow(input, type),
     completed: false,
     original_habit_id: null,
     created_at: null,
@@ -740,11 +768,10 @@ export const AiCapabilities = {
       return addPreview('add_task', { item: previewTaskRow(input, 'task') })
     },
     async execute(ctx, input) {
-      const writeCtx = ctx as WriteContext
-      return withIdempotency(writeCtx, 'add_task', input.requestId, async () => {
-        const row = await db.createTask(taskRow(input, ctx.userId, 'task'))
+      return withIdempotency(ctx, 'add_task', input.requestId, async () => {
+        const row = await db.createTask(await taskRow(input, ctx.userId, 'task'))
         const result = { item: taskToClient(row) }
-        await auditWrite(writeCtx, 'add_task', input, result, [row.id])
+        await auditWrite(ctx, 'add_task', input, result, [row.id])
         return result
       })
     },
@@ -760,11 +787,10 @@ export const AiCapabilities = {
       return addPreview('add_habit', { item: previewTaskRow(input, 'habit') })
     },
     async execute(ctx, input) {
-      const writeCtx = ctx as WriteContext
-      return withIdempotency(writeCtx, 'add_habit', input.requestId, async () => {
-        const row = await db.createTask(taskRow(input, ctx.userId, 'habit'))
+      return withIdempotency(ctx, 'add_habit', input.requestId, async () => {
+        const row = await db.createTask(await taskRow(input, ctx.userId, 'habit'))
         const result = { item: taskToClient(row) }
-        await auditWrite(writeCtx, 'add_habit', input, result, [row.id])
+        await auditWrite(ctx, 'add_habit', input, result, [row.id])
         return result
       })
     },
@@ -791,8 +817,7 @@ export const AiCapabilities = {
       })
     },
     async execute(ctx, input) {
-      const writeCtx = ctx as WriteContext
-      return withIdempotency(writeCtx, 'add_calorie_entry', input.requestId, async () => {
+      return withIdempotency(ctx, 'add_calorie_entry', input.requestId, async () => {
         const row = await db.createCalorieEntry({
           id: uuidv4(),
           user_id: ctx.userId,
@@ -806,7 +831,7 @@ export const AiCapabilities = {
           quantity: input.quantity ?? null,
         })
         const result = { entry: calorieToClient(row) }
-        await auditWrite(writeCtx, 'add_calorie_entry', input, result, [row.id])
+        await auditWrite(ctx, 'add_calorie_entry', input, result, [row.id])
         return result
       })
     },
@@ -833,25 +858,29 @@ export const AiCapabilities = {
       })
     },
     async execute(ctx, input) {
-      const writeCtx = ctx as WriteContext
-      return withIdempotency(writeCtx, 'add_calorie_entries', input.requestId, async () => {
+      return withIdempotency(ctx, 'add_calorie_entries', input.requestId, async () => {
         const rows = []
-        for (const entry of input.entries) {
-          rows.push(await db.createCalorieEntry({
-            id: uuidv4(),
-            user_id: ctx.userId,
-            date: entry.date ?? todayIso(),
-            time: entry.time ?? null,
-            name: entry.name,
-            calories: entry.calories,
-            protein: entry.protein ?? null,
-            carbs: entry.carbs ?? null,
-            fat: entry.fat ?? null,
-            quantity: entry.quantity ?? null,
-          }))
+        try {
+          for (const entry of input.entries) {
+            rows.push(await db.createCalorieEntry({
+              id: uuidv4(),
+              user_id: ctx.userId,
+              date: entry.date ?? todayIso(),
+              time: entry.time ?? null,
+              name: entry.name,
+              calories: entry.calories,
+              protein: entry.protein ?? null,
+              carbs: entry.carbs ?? null,
+              fat: entry.fat ?? null,
+              quantity: entry.quantity ?? null,
+            }))
+          }
+        } catch (error) {
+          await Promise.allSettled(rows.map((row) => db.deleteCalorieEntry(row.id)))
+          throw error
         }
         const result = { entries: rows.map(calorieToClient) }
-        await auditWrite(writeCtx, 'add_calorie_entries', input, result, rows.map((row) => row.id))
+        await auditWrite(ctx, 'add_calorie_entries', input, result, rows.map((row) => row.id))
         return result
       })
     },
@@ -872,8 +901,7 @@ export const AiCapabilities = {
       })
     },
     async execute(ctx, input) {
-      const writeCtx = ctx as WriteContext
-      return withIdempotency(writeCtx, 'add_weight_entry', input.requestId, async () => {
+      return withIdempotency(ctx, 'add_weight_entry', input.requestId, async () => {
         const row = await db.createWeightEntry({
           id: uuidv4(),
           user_id: ctx.userId,
@@ -881,7 +909,7 @@ export const AiCapabilities = {
           weight_kg: input.weightKg,
         })
         const result = { entry: weightToClient(row) }
-        await auditWrite(writeCtx, 'add_weight_entry', input, result, [row.id])
+        await auditWrite(ctx, 'add_weight_entry', input, result, [row.id])
         return result
       })
     },
@@ -898,11 +926,10 @@ export const AiCapabilities = {
       return addPreview('add_achievement_entry', { entry })
     },
     async execute(ctx, input) {
-      const writeCtx = ctx as WriteContext
-      return withIdempotency(writeCtx, 'add_achievement_entry', input.requestId, async () => {
+      return withIdempotency(ctx, 'add_achievement_entry', input.requestId, async () => {
         const { achievementId, requestId: _requestId, ...entry } = input
         const result = { entry: await Achievements.createEntry(ctx.userId, achievementId, entry) }
-        await auditWrite(writeCtx, 'add_achievement_entry', input, result, [result.entry.id])
+        await auditWrite(ctx, 'add_achievement_entry', input, result, [result.entry.id])
         return result
       })
     },
@@ -919,11 +946,10 @@ export const AiCapabilities = {
       return addPreview('add_workout_session', { session })
     },
     async execute(ctx, input) {
-      const writeCtx = ctx as WriteContext
-      return withIdempotency(writeCtx, 'add_workout_session', input.requestId, async () => {
+      return withIdempotency(ctx, 'add_workout_session', input.requestId, async () => {
         const { requestId: _requestId, ...sessionInput } = input
         const result = { session: await Workouts.createSession(ctx.userId, sessionInput) }
-        await auditWrite(writeCtx, 'add_workout_session', input, result, [result.session.id])
+        await auditWrite(ctx, 'add_workout_session', input, result, [result.session.id])
         return result
       })
     },
@@ -940,8 +966,7 @@ export const AiCapabilities = {
       return taskPreview('update_item', task, { updates: input })
     },
     async execute(ctx, input) {
-      const writeCtx = ctx as WriteContext
-      return withIdempotency(writeCtx, 'update_item', input.requestId, async () => {
+      return withIdempotency(ctx, 'update_item', input.requestId, async () => {
         const { task } = await getOwnedTask(ctx.userId, input.itemId)
         const updates: Record<string, unknown> = {}
         if (input.title !== undefined) updates.title = input.title
@@ -952,7 +977,7 @@ export const AiCapabilities = {
         if (input.position !== undefined) updates.position = input.position
         const row = await db.updateTask(task.id, updates)
         const result = { item: taskToClient(row) }
-        await auditWrite(writeCtx, 'update_item', input, result, [row.id])
+        await auditWrite(ctx, 'update_item', input, result, [row.id])
         return result
       })
     },
@@ -969,14 +994,13 @@ export const AiCapabilities = {
       return taskPreview('complete_task', task)
     },
     async execute(ctx, input) {
-      const writeCtx = ctx as WriteContext
-      return withIdempotency(writeCtx, 'complete_task', input.requestId, async () => {
+      return withIdempotency(ctx, 'complete_task', input.requestId, async () => {
         const { task, parsedVirtual } = await getOwnedTask(ctx.userId, input.itemId)
         const row = parsedVirtual
           ? await db.createHabitInstance(parsedVirtual.originalHabitId, parsedVirtual.date, ctx.userId, { completed: true })
           : await db.updateTask(task.id, { completed: true, completed_at: new Date().toISOString() })
         const result = { item: taskToClient(row) }
-        await auditWrite(writeCtx, 'complete_task', input, result, [row.id])
+        await auditWrite(ctx, 'complete_task', input, result, [row.id])
         return result
       })
     },
@@ -993,8 +1017,7 @@ export const AiCapabilities = {
       return taskPreview('delete_item', task, { deleteScope: input.deleteScope })
     },
     async execute(ctx, input) {
-      const writeCtx = ctx as WriteContext
-      return withIdempotency(writeCtx, 'delete_item', input.requestId, async () => {
+      return withIdempotency(ctx, 'delete_item', input.requestId, async () => {
         const { task, parsedVirtual } = await getOwnedTask(ctx.userId, input.itemId)
         if (parsedVirtual) {
           await db.softDeleteHabitInstance(parsedVirtual.originalHabitId, parsedVirtual.date, ctx.userId)
@@ -1006,7 +1029,7 @@ export const AiCapabilities = {
           await db.deleteTask(task.id)
         }
         const result = { deleted: true, itemId: input.itemId }
-        await auditWrite(writeCtx, 'delete_item', input, result, [input.itemId])
+        await auditWrite(ctx, 'delete_item', input, result, [input.itemId])
         return result
       })
     },
@@ -1072,7 +1095,7 @@ export async function executePendingAiAction(userId: string, actionId: string, o
     ? { ...(action.args as Record<string, unknown>), ...(overrides as Record<string, unknown>) }
     : action.args
   const parsed = capability.inputSchema.parse(editedArgs)
-  const result = await capability.execute({ userId, caller: action.caller ?? 'internal' } as WriteContext, parsed)
+  const result = await capability.execute({ userId, caller: action.caller ?? 'internal' }, parsed)
   await db.markAiPendingActionExecuted(actionId)
   return { result, action: pendingActionToClient({ ...action, args: parsed }) }
 }

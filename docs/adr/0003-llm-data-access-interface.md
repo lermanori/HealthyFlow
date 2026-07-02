@@ -260,6 +260,18 @@ Negative (accepted):
 - MCP resource/tool design must remain conservative because exposed tool
   descriptions and outputs become part of model context.
 
+## Amendment — 2026-07-02
+
+The internal assistant requires confirmation for all write capabilities,
+including low-risk add/log/create operations. This is a deliberate stricter
+choice than the §4 allowance that adds may auto-run: a uniform preview,
+confirm, then execute flow is simpler to reason about, test, and audit.
+
+`lookup_food_nutrition` is an explicit exception to the "no arbitrary URL
+fetching" out-of-scope rule. It may call the single allowlisted Open Food Facts
+search endpoint from the backend with a bounded timeout; failures must degrade
+inside the nutrition lookup result rather than block an assistant turn.
+
 ## Implementation Checklist for #100
 
 - Add `backend/src/ai-capabilities.ts` with Zod schemas and typed results.

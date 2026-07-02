@@ -1,3 +1,9 @@
+### 2026-07-02 16:51 — `codex/ai-readonly-assistant`
+
+Fixed the AI control-plane review findings before merge: MCP writes now audit as MCP, assistant turns preserve multiple pending previews, nutrition lookup is bounded, bulk calorie writes clean up partial inserts, and failed tool loops settle real token usage. The Assistant UI, capability mappers, Anytime backlog positioning, rate-limit bookkeeping, and ADR 0003 were updated alongside focused regression coverage.
+
+---
+
 ### 2026-07-02 16:00 — `codex/ai-readonly-assistant`
 
 Added Privacy Policy and Terms of Service pages, reachable at `/privacy` and `/terms` even while logged out, with footer links from the login screen and the main app layout.

@@ -6,7 +6,7 @@ import { aiService, AssistantChatMessage, AssistantChatModel, AssistantPendingAc
 type ConversationMessage = AssistantChatMessage & {
   id: string
   toolEvents?: AssistantToolEvent[]
-  pendingAction?: AssistantPendingAction | null
+  pendingActions?: AssistantPendingAction[]
   error?: boolean
 }
 
@@ -521,7 +521,7 @@ export default function AssistantPage() {
           role: 'assistant',
           content: response.message,
           toolEvents: response.toolEvents,
-          pendingAction: response.pendingAction,
+          pendingActions: response.pendingActions,
         },
       ])
     } catch (error: any) {
@@ -552,8 +552,12 @@ export default function AssistantPage() {
       await aiService.confirmChatAction(actionId, args)
       toast.success('Action confirmed')
       setMessages((current) => current.map((message) =>
-        message.pendingAction?.id === actionId
-          ? { ...message, pendingAction: null, content: `${message.content}\n\nConfirmed.` }
+        message.pendingActions?.some((action) => action.id === actionId)
+          ? {
+              ...message,
+              pendingActions: message.pendingActions.filter((action) => action.id !== actionId),
+              content: `${message.content}\n\nConfirmed.`,
+            }
           : message
       ))
     } catch (error: any) {
@@ -566,8 +570,12 @@ export default function AssistantPage() {
       await aiService.cancelChatAction(actionId)
       toast.success('Action canceled')
       setMessages((current) => current.map((message) =>
-        message.pendingAction?.id === actionId
-          ? { ...message, pendingAction: null, content: `${message.content}\n\nCanceled.` }
+        message.pendingActions?.some((action) => action.id === actionId)
+          ? {
+              ...message,
+              pendingActions: message.pendingActions.filter((action) => action.id !== actionId),
+              content: `${message.content}\n\nCanceled.`,
+            }
           : message
       ))
     } catch (error: any) {
@@ -641,9 +649,9 @@ export default function AssistantPage() {
                 {message.toolEvents && message.toolEvents.length > 0 && (
                   <AssistantReasoningStages events={message.toolEvents} />
                 )}
-                {message.pendingAction && (
-                  <PendingActionCard action={message.pendingAction} onConfirm={confirmAction} onCancel={cancelAction} />
-                )}
+                {message.pendingActions?.map((action) => (
+                  <PendingActionCard key={action.id} action={action} onConfirm={confirmAction} onCancel={cancelAction} />
+                ))}
               </div>
               {message.role === 'user' && (
                 <div className="mt-1 flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-gray-800 text-gray-200">

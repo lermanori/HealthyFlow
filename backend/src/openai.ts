@@ -618,7 +618,7 @@ function toolFallbackMessage(toolEvents: OpenAIToolEvent[]) {
     .map((event) => (event.result as any)?.pendingAction)
     .find(Boolean)
   if (pending) return 'I prepared that change. Review the preview, then Confirm or Cancel.'
-  return 'I found the requested HealthyFlow data.'
+  return 'I ran the requested lookup. See the details above.'
 }
 
 async function rawToolCall(
@@ -774,7 +774,10 @@ export const Openai = {
       })
 
       if (!result.ok) {
-        await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+        await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+          endpoint: opts.endpoint,
+          model: opts.model,
+        })
         return result
       }
       usage = addUsage(usage, result.usage)
@@ -786,7 +789,10 @@ export const Openai = {
         if (!content) {
           const fallback = toolFallbackMessage(toolEvents)
           if (!fallback) {
-            await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+            await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+              endpoint: opts.endpoint,
+              model: opts.model,
+            })
             return { ok: false, code: 'invalid_response', message: 'Missing assistant content' }
           }
           await Credits.settleReserved(opts.userId, reservedTokens, usage, {
@@ -812,7 +818,10 @@ export const Openai = {
         const name = toolCall.function?.name
         const tool = opts.tools.find((candidate) => candidate.name === name)
         if (!tool) {
-          await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+          await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+            endpoint: opts.endpoint,
+            model: opts.model,
+          })
           return { ok: false, code: 'tool_error', message: `Unknown tool: ${name}` }
         }
 
@@ -828,13 +837,19 @@ export const Openai = {
           })
         } catch (error) {
           const message = error instanceof Error ? error.message : 'Tool execution failed'
-          await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+          await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+            endpoint: opts.endpoint,
+            model: opts.model,
+          })
           return { ok: false, code: 'tool_error', message }
         }
       }
     }
 
-    await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+    await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+      endpoint: opts.endpoint,
+      model: opts.model,
+    })
     return { ok: false, code: 'invalid_response', message: 'Tool loop did not produce a final answer' }
   },
 }

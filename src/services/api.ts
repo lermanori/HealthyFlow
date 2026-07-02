@@ -440,7 +440,7 @@ export interface AssistantToolEvent {
 export interface AssistantChatResponse {
   message: string
   toolEvents: AssistantToolEvent[]
-  pendingAction: AssistantPendingAction | null
+  pendingActions: AssistantPendingAction[]
 }
 
 export interface AssistantPendingAction {

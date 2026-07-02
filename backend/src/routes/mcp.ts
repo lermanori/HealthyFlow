@@ -11,6 +11,13 @@ const WINDOW_MS = 60_000
 const READ_LIMIT = 60
 const WRITE_LIMIT = 15
 
+function sweepExpiredTokenRateLimits(now: number) {
+  if (tokenRateLimit.size <= 500) return
+  for (const [key, value] of tokenRateLimit.entries()) {
+    if (value.resetAt <= now) tokenRateLimit.delete(key)
+  }
+}
+
 function bearerToken(req: express.Request) {
   const header = req.header('authorization') ?? ''
   return header.toLowerCase().startsWith('bearer ') ? header.slice(7).trim() : null
@@ -18,6 +25,7 @@ function bearerToken(req: express.Request) {
 
 function checkRate(tokenId: string, isWrite: boolean) {
   const now = Date.now()
+  sweepExpiredTokenRateLimits(now)
   const current = tokenRateLimit.get(tokenId)
   if (!current || current.resetAt <= now) {
     tokenRateLimit.set(tokenId, { count: 1, writeCount: isWrite ? 1 : 0, resetAt: now + WINDOW_MS })
@@ -60,7 +68,7 @@ function createServer(auth: { tokenId: string; userId: string; scopes: string[] 
         if (!checkRate(auth.tokenId, isWrite)) {
           throw new Error('Rate limit exceeded')
         }
-        return jsonContent(await tool.execute({ userId: auth.userId }, args))
+        return jsonContent(await tool.execute({ userId: auth.userId, caller: 'mcp' }, args))
       }
     )
   }

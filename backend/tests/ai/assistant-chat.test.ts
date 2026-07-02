@@ -221,6 +221,29 @@ describe('nutrition lookup capabilities', () => {
     }))
   })
 
+  it('bounds Open Food Facts lookup with an abort signal', async () => {
+    const originalFetch = global.fetch
+    const fetchMock = jest.fn(async (_url: unknown, init?: RequestInit) => {
+      expect(init?.signal).toBeInstanceOf(AbortSignal)
+      return {
+        ok: true,
+        json: async () => ({ products: [] }),
+      } as Response
+    })
+    global.fetch = fetchMock as typeof fetch
+
+    try {
+      await AiCapabilities.lookup_food_nutrition.execute(
+        { userId: 'user-1' },
+        { query: 'unmatched food', locale: 'en-US', limit: 5 }
+      )
+    } finally {
+      global.fetch = originalFetch
+    }
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
   it('returns an explicit low-confidence estimate when no online source matches', async () => {
     nock('https://world.openfoodfacts.org')
       .get('/cgi/search.pl')
@@ -389,7 +412,7 @@ describe('POST /api/ai/chat', () => {
       .send({ messages: [{ role: 'user', content: 'Log lunch as 300 calories.' }] })
 
     expect(res.status).toBe(200)
-    expect(res.body.pendingAction).toEqual(expect.objectContaining({
+    expect(res.body.pendingActions).toEqual([expect.objectContaining({
       id: '11111111-1111-4111-8111-111111111111',
       capability: 'add_calorie_entry',
       preview: {
@@ -402,7 +425,7 @@ describe('POST /api/ai/chat', () => {
           }),
         },
       },
-    }))
+    })])
     expect(db.createAiPendingAction).toHaveBeenCalledWith(expect.objectContaining({
       user_id: 'chat-user-add-preview',
       capability: 'add_calorie_entry',
@@ -462,7 +485,7 @@ describe('POST /api/ai/chat', () => {
       'lookup_food_nutrition',
       'add_calorie_entry',
     ])
-    expect(res.body.pendingAction).toEqual(expect.objectContaining({
+    expect(res.body.pendingActions).toEqual([expect.objectContaining({
       capability: 'add_calorie_entry',
       preview: {
         action: 'add_calorie_entry',
@@ -474,7 +497,7 @@ describe('POST /api/ai/chat', () => {
           }),
         },
       },
-    }))
+    })])
   })
 
   it('prepares a confirmable preview for vague composite meal inserts', async () => {
@@ -553,7 +576,7 @@ describe('POST /api/ai/chat', () => {
       'parse_meal_entries',
       'add_calorie_entries',
     ])
-    expect(res.body.pendingAction).toEqual(expect.objectContaining({
+    expect(res.body.pendingActions).toEqual([expect.objectContaining({
       capability: 'add_calorie_entries',
       preview: {
         action: 'add_calorie_entries',
@@ -566,7 +589,7 @@ describe('POST /api/ai/chat', () => {
           ]),
         },
       },
-    }))
+    })])
   })
 
   it('can mention a same-day duplicate before preparing another calorie preview', async () => {
@@ -620,9 +643,9 @@ describe('POST /api/ai/chat', () => {
 
     expect(res.status).toBe(200)
     expect(res.body.message).toContain('already have a matching Calorie entry today')
-    expect(res.body.pendingAction).toEqual(expect.objectContaining({
+    expect(res.body.pendingActions).toEqual([expect.objectContaining({
       capability: 'add_calorie_entry',
-    }))
+    })])
   })
 
   it('falls back to a preview message when a write tool succeeds but the final answer is empty', async () => {
@@ -647,9 +670,51 @@ describe('POST /api/ai/chat', () => {
 
     expect(res.status).toBe(200)
     expect(res.body.message).toBe('I prepared that change. Review the preview, then Confirm or Cancel.')
-    expect(res.body.pendingAction).toEqual(expect.objectContaining({
+    expect(res.body.pendingActions).toEqual([expect.objectContaining({
       capability: 'add_calorie_entry',
-    }))
+    })])
+  })
+
+  it('returns every pending preview from a multi-write tool turn', async () => {
+    const { db } = await import('../../src/supabase-client')
+    ;(db.createAiPendingAction as jest.Mock)
+      .mockResolvedValueOnce({
+        id: '11111111-1111-4111-8111-111111111111',
+        capability: 'add_calorie_entry',
+        args: { requestId: 'coffee', name: 'Coffee', calories: 10 },
+        preview: { action: 'add_calorie_entry' },
+        expires_at: '2026-07-02T10:10:00.000Z',
+      })
+      .mockResolvedValueOnce({
+        id: '22222222-2222-4222-8222-222222222222',
+        capability: 'add_weight_entry',
+        args: { requestId: 'weight', date: '2026-07-02', weightKg: 82 },
+        preview: { action: 'add_weight_entry' },
+        expires_at: '2026-07-02T10:10:00.000Z',
+      })
+
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, multiToolCallResponse([
+        { name: 'add_calorie_entry', args: { requestId: 'coffee', name: 'Coffee', calories: 10 } },
+        { name: 'add_weight_entry', args: { requestId: 'weight', date: '2026-07-02', weightKg: 82 } },
+      ]))
+      .post('/v1/chat/completions')
+      .reply(200, {
+        choices: [{ message: { content: 'I prepared both changes. Confirm the ones you want.' } }],
+        usage: { prompt_tokens: 120, completion_tokens: 12, total_tokens: 132 },
+      })
+
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-two-previews'))
+      .send({ messages: [{ role: 'user', content: 'Log coffee and my weight.' }] })
+
+    expect(res.status).toBe(200)
+    expect(res.body.pendingActions).toEqual([
+      expect.objectContaining({ id: '11111111-1111-4111-8111-111111111111', capability: 'add_calorie_entry' }),
+      expect.objectContaining({ id: '22222222-2222-4222-8222-222222222222', capability: 'add_weight_entry' }),
+    ])
   })
 
   it('surfaces capability failures as explicit errors', async () => {
@@ -667,6 +732,31 @@ describe('POST /api/ai/chat', () => {
 
     expect(res.status).toBe(500)
     expect(res.body).toEqual({ error: 'database unavailable', code: 'tool_error' })
+  })
+
+  it('settles accumulated usage when a later tool loop fails', async () => {
+    const { Credits } = await import('../../src/credits')
+
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, toolCallResponse('list_tasks', { date: '2026-07-02' }))
+      .post('/v1/chat/completions')
+      .reply(200, toolCallResponse('missing_tool', {}))
+
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-billing-failure'))
+      .send({ messages: [{ role: 'user', content: "What's on my plate today?" }] })
+
+    expect(res.status).toBe(500)
+    expect(res.body).toEqual({ error: 'Unknown tool: missing_tool', code: 'tool_error' })
+    expect(Credits.settleReserved).toHaveBeenCalledWith(
+      'chat-user-billing-failure',
+      10,
+      { promptTokens: 200, completionTokens: 40, totalTokens: 240 },
+      { endpoint: 'ai-chat', model: 'gpt-4o-mini' }
+    )
+    expect(Credits.refundReserve).not.toHaveBeenCalled()
   })
 
   it('rate limits per user', async () => {

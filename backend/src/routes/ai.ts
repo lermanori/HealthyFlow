@@ -21,6 +21,13 @@ const CHAT_RATE_LIMIT_MAX = 12
 const router = express.Router()
 const chatRateLimit = new Map<string, { count: number; resetAt: number }>()
 
+function sweepExpiredChatRateLimits(now: number) {
+  if (chatRateLimit.size <= 500) return
+  for (const [key, value] of chatRateLimit.entries()) {
+    if (value.resetAt <= now) chatRateLimit.delete(key)
+  }
+}
+
 function aiCallErrorResponse(
   res: express.Response,
   result: { code: string },
@@ -40,6 +47,7 @@ function aiCallErrorResponse(
 
 function checkChatRateLimit(userId: string) {
   const now = Date.now()
+  sweepExpiredChatRateLimits(now)
   const current = chatRateLimit.get(userId)
   if (!current || current.resetAt <= now) {
     chatRateLimit.set(userId, { count: 1, resetAt: now + CHAT_RATE_LIMIT_WINDOW_MS })
@@ -114,11 +122,11 @@ router.post('/chat', authenticateToken, async (req: AuthRequest, res) => {
     })
   }
 
-  const pendingAction = result.value.toolEvents
+  const pendingActions = result.value.toolEvents
     .map((event) => (event.result as any)?.pendingAction)
-    .find(Boolean) ?? null
+    .filter(Boolean)
 
-  res.json({ ...result.value, pendingAction })
+  res.json({ ...result.value, pendingActions })
 })
 
 const ConfirmBody = z.object({
