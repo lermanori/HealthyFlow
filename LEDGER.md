@@ -1,3 +1,9 @@
+### 2026-07-02 10:46 — `codex/ai-readonly-assistant`
+
+Implemented the AI control-plane stack from #107-#112 in one branch: the shared capability layer now supports read tools, add-type writes, confirm-class writes, audit logging, idempotency, Settings-issued MCP tokens, and a Streamable HTTP MCP surface. The in-app Assistant can answer with tool-grounded data, auto-run add-type writes, and render Confirm/Cancel cards for update/complete/delete actions. Settings now has a Connections panel for scoped PAT issuance/revocation, while MCP clients use the same capability registry with scope-gated read/write tools.
+
+---
+
 ### 2026-07-02 10:09 — `main`
 
 Built a marketing landing page (`public/landing.html`) that mirrors the app's own design language rather than inventing a separate brand — same dark navy/cyan gradient palette, Space Grotesk type, and glass cards. Product screenshots are real captures from the demo account (seeded with realistic tasks, habits, a workout session, calorie entries, and weight logs) rather than mockups, covering Today, AI Add Item, Week View, Calories, and Workouts. Verified desktop and mobile full-page renders section by section before committing; no app code changed.

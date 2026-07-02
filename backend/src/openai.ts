@@ -17,6 +17,7 @@ export type OpenAIResult<T> =
 
 export type BillableOpenAIErrorCode =
   | OpenAIErrorCode
+  | 'tool_error'
   | 'insufficient_credits'
   | 'unpriced_model'
   | 'billing_error'
@@ -37,6 +38,34 @@ type BillableCallOpts = CallOpts & {
   userId: string
   endpoint: string
   maxTokens: number
+}
+
+export type OpenAIToolChatMessage = {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export type OpenAIToolEvent = {
+  name: string
+  args: unknown
+  result: unknown
+}
+
+type ToolCallOpts = {
+  userId: string
+  endpoint: string
+  model: string
+  systemPrompt: string
+  messages: OpenAIToolChatMessage[]
+  tools: Array<{
+    name: string
+    description: string
+    parameters: any
+    execute: (args: unknown) => Promise<unknown>
+  }>
+  temperature?: number
+  maxTokens: number
+  maxIterations?: number
 }
 
 type OpenAIUserContent =
@@ -483,6 +512,75 @@ async function rawCall(
   }
 }
 
+function addUsage(a: TokenUsage, b?: TokenUsage): TokenUsage {
+  return {
+    promptTokens: a.promptTokens + (b?.promptTokens ?? 0),
+    completionTokens: a.completionTokens + (b?.completionTokens ?? 0),
+    totalTokens: a.totalTokens + (b?.totalTokens ?? 0),
+  }
+}
+
+async function rawToolCall(
+  opts: Pick<ToolCallOpts, 'model' | 'temperature' | 'maxTokens'> & {
+    messages: any[]
+    tools: ToolCallOpts['tools']
+  }
+): Promise<OpenAIResult<any>> {
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) {
+    return { ok: false, code: 'no_key', message: 'Missing OPENAI_API_KEY' }
+  }
+
+  const body = {
+    model: opts.model,
+    messages: opts.messages,
+    tools: opts.tools.map((tool) => ({
+      type: 'function',
+      function: {
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters,
+      },
+    })),
+    tool_choice: 'auto',
+    temperature: opts.temperature ?? 0.2,
+    max_tokens: opts.maxTokens,
+  }
+
+  try {
+    const res = await fetch(OPENAI_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      console.error('OpenAI upstream error:', res.status, res.statusText)
+      return { ok: false, code: 'upstream', message: `Upstream ${res.status}` }
+    }
+    const data = (await res.json()) as any
+    const message = data.choices?.[0]?.message
+    if (!message) {
+      console.error('OpenAI tool response missing message:', data)
+      return { ok: false, code: 'invalid_response', message: 'Missing message' }
+    }
+    const rawUsage = data.usage
+    const usage: TokenUsage | undefined = rawUsage
+      ? {
+          promptTokens: rawUsage.prompt_tokens,
+          completionTokens: rawUsage.completion_tokens,
+          totalTokens: rawUsage.total_tokens,
+        }
+      : undefined
+    return { ok: true, value: message, usage }
+  } catch (e) {
+    console.error('OpenAI tool call threw:', e)
+    return { ok: false, code: 'upstream', message: 'Network error' }
+  }
+}
+
 export const Openai = {
   async callText(opts: CallOpts): Promise<OpenAIResult<string>> {
     const result = await rawCall(opts)
@@ -530,5 +628,104 @@ export const Openai = {
     }
   ): Promise<BillableOpenAIResult<T>> {
     return callWithBilling(opts, () => this.callStructured(opts))
+  },
+
+  async callBillableTools(
+    opts: ToolCallOpts
+  ): Promise<BillableOpenAIResult<{ message: string; toolEvents: OpenAIToolEvent[] }>> {
+    const maxIterations = opts.maxIterations ?? 4
+    const userPrompt = opts.messages.map((message) => `${message.role}: ${message.content}`).join('\n')
+    let reservedTokens = 0
+
+    try {
+      reservedTokens = await Credits.estimateReserve({
+        model: opts.model,
+        systemPrompt: opts.systemPrompt,
+        userPrompt,
+        maxOutputTokens: opts.maxTokens * maxIterations,
+      })
+      const ok = await Credits.reserve(opts.userId, reservedTokens)
+      if (!ok) {
+        return { ok: false, code: 'insufficient_credits', message: 'Insufficient AI tokens' }
+      }
+    } catch (error) {
+      if (error instanceof UnpricedModelError) {
+        return { ok: false, code: 'unpriced_model', message: 'AI model pricing is not configured' }
+      }
+      console.error('AI billing estimate failed:', error)
+      return { ok: false, code: 'billing_error', message: 'AI billing failed' }
+    }
+
+    let usage: TokenUsage = ZERO_USAGE
+    const toolEvents: OpenAIToolEvent[] = []
+    const messages: any[] = [
+      { role: 'system', content: opts.systemPrompt },
+      ...opts.messages.map((message) => ({ role: message.role, content: message.content })),
+    ]
+
+    for (let iteration = 0; iteration < maxIterations; iteration += 1) {
+      const result = await rawToolCall({
+        model: opts.model,
+        temperature: opts.temperature,
+        maxTokens: opts.maxTokens,
+        messages,
+        tools: opts.tools,
+      })
+
+      if (!result.ok) {
+        await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+        return result
+      }
+      usage = addUsage(usage, result.usage)
+
+      const message = result.value
+      const toolCalls = message.tool_calls ?? []
+      if (toolCalls.length === 0) {
+        const content = typeof message.content === 'string' ? message.content.trim() : ''
+        if (!content) {
+          await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+          return { ok: false, code: 'invalid_response', message: 'Missing assistant content' }
+        }
+        await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+          endpoint: opts.endpoint,
+          model: opts.model,
+        })
+        return { ok: true, value: { message: content, toolEvents }, usage }
+      }
+
+      messages.push({
+        role: 'assistant',
+        content: message.content ?? null,
+        tool_calls: toolCalls,
+      })
+
+      for (const toolCall of toolCalls) {
+        const name = toolCall.function?.name
+        const tool = opts.tools.find((candidate) => candidate.name === name)
+        if (!tool) {
+          await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+          return { ok: false, code: 'tool_error', message: `Unknown tool: ${name}` }
+        }
+
+        let args: unknown
+        try {
+          args = JSON.parse(toolCall.function?.arguments || '{}')
+          const value = await tool.execute(args)
+          toolEvents.push({ name, args, result: value })
+          messages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: JSON.stringify({ ok: true, value }),
+          })
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Tool execution failed'
+          await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+          return { ok: false, code: 'tool_error', message }
+        }
+      }
+    }
+
+    await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+    return { ok: false, code: 'invalid_response', message: 'Tool loop did not produce a final answer' }
   },
 }

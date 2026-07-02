@@ -1,6 +1,7 @@
 import express from 'express'
 import { z } from 'zod'
 import { db } from '../supabase-client'
+import { aiCapabilityTools, cancelPendingAiAction, executePendingAiAction } from '../ai-capabilities'
 import {
   AiParsedMeals,
   defaultReview,
@@ -26,8 +27,13 @@ const PARSE_TASKS_MAX_TOKENS = 1000
 const PARSE_MEALS_MODEL = 'gpt-4o-mini'
 const PARSE_MEALS_MAX_TOKENS = 1000
 const NUTRITION_LABEL_OCR_MAX_TOKENS = 1200
+const CHAT_MODEL = 'gpt-4o-mini'
+const CHAT_MAX_TOKENS = 700
+const CHAT_RATE_LIMIT_WINDOW_MS = 60_000
+const CHAT_RATE_LIMIT_MAX = 12
 
 const router = express.Router()
+const chatRateLimit = new Map<string, { count: number; resetAt: number }>()
 
 function unpricedModelResponse(res: express.Response, error: unknown) {
   if (error instanceof UnpricedModelError) {
@@ -53,6 +59,105 @@ function aiCallErrorResponse(
   }
   return res.status(500).json(fallback)
 }
+
+function checkChatRateLimit(userId: string) {
+  const now = Date.now()
+  const current = chatRateLimit.get(userId)
+  if (!current || current.resetAt <= now) {
+    chatRateLimit.set(userId, { count: 1, resetAt: now + CHAT_RATE_LIMIT_WINDOW_MS })
+    return true
+  }
+  if (current.count >= CHAT_RATE_LIMIT_MAX) return false
+  current.count += 1
+  return true
+}
+
+const ChatMessage = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string().trim().min(1).max(4000),
+})
+
+const ChatRequest = z.object({
+  messages: z.array(ChatMessage).min(1).max(30),
+})
+
+const CHAT_SYSTEM_PROMPT = `You are the internal HealthyFlow assistant.
+
+Answer questions using the provided HealthyFlow tools. Use the app vocabulary exactly: Item, Task, Habit, Habit instance, Calorie entry, Weight entry, Achievement, Workout session.
+
+You can read data and you can use write tools when the user plainly asks for a change.
+
+Write safety:
+- Add-type tools may run directly when the user asks to add/log/create something.
+- update_item, complete_task, and delete_item return a preview and require the user to Confirm or Cancel in the UI before the change is executed.
+- Never say a confirm-class action is complete until the user has confirmed it.
+
+Keep answers concise and grounded in tool results. If a tool result is empty, say that plainly.`
+
+router.post('/chat', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = ChatRequest.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid chat input' })
+
+  const userId = req.user.userId
+  if (!checkChatRateLimit(userId)) {
+    return res.status(429).json({ error: 'Too many assistant messages, please try again shortly.', code: 'rate_limited' })
+  }
+
+  const tools = aiCapabilityTools().map((tool) => ({
+    ...tool,
+    execute: (args: unknown) => tool.execute({ userId }, args),
+  }))
+
+  const result = await Openai.callBillableTools({
+    userId,
+    endpoint: 'ai-chat',
+    model: CHAT_MODEL,
+    systemPrompt: CHAT_SYSTEM_PROMPT,
+    messages: parsed.data.messages,
+    tools,
+    temperature: 0.2,
+    maxTokens: CHAT_MAX_TOKENS,
+  })
+
+  if (!result.ok) {
+    return aiCallErrorResponse(res, result, {
+      error: result.message || 'Assistant unavailable',
+      code: result.code === 'tool_error' ? 'tool_error' : 'ai_chat_failed',
+    })
+  }
+
+  const pendingAction = result.value.toolEvents
+    .map((event) => (event.result as any)?.pendingAction)
+    .find(Boolean) ?? null
+
+  res.json({ ...result.value, pendingAction })
+})
+
+const ConfirmBody = z.object({
+  actionId: z.string().uuid(),
+})
+
+router.post('/chat/confirm', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = ConfirmBody.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid pending action id' })
+
+  try {
+    res.json(await executePendingAiAction(req.user.userId, parsed.data.actionId))
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Could not confirm action' })
+  }
+})
+
+router.post('/chat/cancel', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = ConfirmBody.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid pending action id' })
+
+  try {
+    res.json(await cancelPendingAiAction(req.user.userId, parsed.data.actionId))
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : 'Could not cancel action' })
+  }
+})
 
 // Query tasks for AI
 router.get('/tasks', authenticateToken, async (req: AuthRequest, res) => {

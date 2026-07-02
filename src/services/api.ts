@@ -376,6 +376,21 @@ export const aiService = {
     return response.data
   },
 
+  chat: async (messages: AssistantChatMessage[]): Promise<AssistantChatResponse> => {
+    const response = await api.post('/ai/chat', { messages })
+    return response.data
+  },
+
+  confirmChatAction: async (actionId: string): Promise<AssistantConfirmResponse> => {
+    const response = await api.post('/ai/chat/confirm', { actionId })
+    return response.data
+  },
+
+  cancelChatAction: async (actionId: string): Promise<AssistantPendingAction> => {
+    const response = await api.post('/ai/chat/cancel', { actionId })
+    return response.data
+  },
+
   parseMeals: async (
     text: string,
     photo?: { mimeType: 'image/jpeg' | 'image/png' | 'image/webp'; data: string },
@@ -384,6 +399,35 @@ export const aiService = {
     const response = await api.post('/ai/parse-meals', { text, photo, date })
     return response.data
   },
+}
+
+export interface AssistantChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AssistantToolEvent {
+  name: string
+  args: unknown
+  result: unknown
+}
+
+export interface AssistantChatResponse {
+  message: string
+  toolEvents: AssistantToolEvent[]
+  pendingAction: AssistantPendingAction | null
+}
+
+export interface AssistantPendingAction {
+  id: string
+  capability: string
+  preview: unknown
+  expiresAt: string
+}
+
+export interface AssistantConfirmResponse {
+  result: unknown
+  action: AssistantPendingAction
 }
 
 export interface MealParseReview {
@@ -570,6 +614,40 @@ export const settingsService = {
 
   updateSettings: async (partial: Partial<UserSettings>): Promise<UserSettings> => {
     const response = await api.patch('/settings', partial)
+    return response.data
+  },
+}
+
+export type ApiTokenScope = 'hf:read' | 'hf:write:add' | 'hf:write:update' | 'hf:write:complete' | 'hf:write:delete'
+
+export interface ApiTokenRecord {
+  id: string
+  name: string
+  scopes: ApiTokenScope[]
+  audience: 'mcp'
+  createdAt: string
+  lastUsedAt: string | null
+  revokedAt: string | null
+}
+
+export interface CreatedApiToken {
+  token: string
+  record: ApiTokenRecord
+}
+
+export const connectionsService = {
+  listTokens: async (): Promise<ApiTokenRecord[]> => {
+    const response = await api.get('/settings/connections/tokens')
+    return response.data
+  },
+
+  createToken: async (input: { name: string; scopes: ApiTokenScope[] }): Promise<CreatedApiToken> => {
+    const response = await api.post('/settings/connections/tokens', { ...input, audience: 'mcp' })
+    return response.data
+  },
+
+  revokeToken: async (tokenId: string): Promise<ApiTokenRecord> => {
+    const response = await api.delete(`/settings/connections/tokens/${tokenId}`)
     return response.data
   },
 }
