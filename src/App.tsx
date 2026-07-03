@@ -70,7 +70,7 @@ function App() {
           <Route path="/meal-ocr-lab" element={user.role === 'admin' ? <MealParserLabPage /> : <Navigate to="/" replace />} />
           <Route path="/calories" element={settings?.calorieIntake ? <CaloriesPage /> : <Navigate to="/" replace />} />
           <Route path="/achievements" element={settings?.achievementTracker ? <AchievementsPage /> : <Navigate to="/" replace />} />
-          <Route path="/workouts" element={<WorkoutsPage />} />
+          <Route path="/workouts" element={settings?.workoutTracker ?? true ? <WorkoutsPage /> : <Navigate to="/" replace />} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

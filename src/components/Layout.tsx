@@ -71,7 +71,7 @@ export default function Layout({ children }: LayoutProps) {
     { name: 'Assistant', href: '/assistant', icon: MessageCircle },
     ...(settings?.calorieIntake ? [{ name: 'Calories', href: '/calories', icon: Utensils }] : []),
     ...(settings?.achievementTracker ? [{ name: 'Achievements', href: '/achievements', icon: Award }] : []),
-    { name: 'Workouts', href: '/workouts', icon: Dumbbell },
+    ...(settings?.workoutTracker ?? true ? [{ name: 'Workouts', href: '/workouts', icon: Dumbbell }] : []),
     { name: 'Settings', href: '/settings', icon: Settings },
     ...(user?.role === 'admin' ? [{ name: 'OCR Lab', href: '/meal-ocr-lab', icon: Microscope }] : []),
     ...(user?.role === 'admin' ? [{ name: 'Token Manager', href: '/token-manager', icon: Coins }] : []),

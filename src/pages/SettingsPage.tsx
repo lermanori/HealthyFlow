@@ -551,6 +551,13 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
             onChange={(checked) => handleSettingChange('achievementTracker', checked)}
           />
 
+          <SettingToggle
+            label="Workout Tracker"
+            description="Log workout sessions and reusable exercises"
+            checked={settings?.workoutTracker ?? true}
+            onChange={(checked) => handleSettingChange('workoutTracker', checked)}
+          />
+
           <div className="py-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">

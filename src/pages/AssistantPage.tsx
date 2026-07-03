@@ -1,5 +1,5 @@
-import { FormEvent, useMemo, useRef, useState } from 'react'
-import { Bot, ChevronDown, Dumbbell, Flame, Pencil, Scale, Send, Target, Trash2, UserRound, Wrench } from 'lucide-react'
+import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { Bot, ChevronDown, Dumbbell, Flame, MessageSquare, Pencil, Plus, Scale, Send, Target, Trash2, UserRound, Wrench } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { aiService, AssistantChatMessage, AssistantChatModel, AssistantPendingAction, AssistantToolEvent } from '../services/api'
 
@@ -9,6 +9,18 @@ type ConversationMessage = AssistantChatMessage & {
   pendingActions?: AssistantPendingAction[]
   error?: boolean
 }
+
+type StoredConversation = {
+  id: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  model: AssistantChatModel
+  messages: ConversationMessage[]
+}
+
+const ASSISTANT_CONVERSATIONS_KEY = 'healthyflow-assistant-conversations-v1'
+const MAX_STORED_CONVERSATIONS = 20
 
 const starterPrompts = [
   "What's on my plate today?",
@@ -23,6 +35,41 @@ const assistantModels: Array<{ value: AssistantChatModel; label: string }> = [
   { value: 'gpt-5.4', label: 'GPT-5.4' },
   { value: 'gpt-5.5', label: 'GPT-5.5' },
 ]
+
+function readStoredConversations(): StoredConversation[] {
+  try {
+    const raw = localStorage.getItem(ASSISTANT_CONVERSATIONS_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((conversation): conversation is StoredConversation => (
+      conversation &&
+      typeof conversation.id === 'string' &&
+      typeof conversation.title === 'string' &&
+      typeof conversation.createdAt === 'string' &&
+      typeof conversation.updatedAt === 'string' &&
+      Array.isArray(conversation.messages)
+    ))
+  } catch {
+    return []
+  }
+}
+
+function writeStoredConversations(conversations: StoredConversation[]) {
+  localStorage.setItem(ASSISTANT_CONVERSATIONS_KEY, JSON.stringify(conversations.slice(0, MAX_STORED_CONVERSATIONS)))
+}
+
+function titleFromMessages(messages: ConversationMessage[]) {
+  const firstUserMessage = messages.find((message) => message.role === 'user')?.content.trim()
+  if (!firstUserMessage) return 'New chat'
+  return firstUserMessage.length > 48 ? `${firstUserMessage.slice(0, 45)}...` : firstUserMessage
+}
+
+function formatConversationTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
 
 function compactToolName(name: string) {
   return name.replace(/_/g, ' ')
@@ -484,11 +531,38 @@ function PendingActionCard({
 }
 
 export default function AssistantPage() {
-  const [messages, setMessages] = useState<ConversationMessage[]>([])
+  const [conversations, setConversations] = useState<StoredConversation[]>(() => readStoredConversations())
+  const [activeConversationId, setActiveConversationId] = useState(() => readStoredConversations()[0]?.id ?? crypto.randomUUID())
+  const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) ?? null
+  const [messages, setMessages] = useState<ConversationMessage[]>(() => activeConversation?.messages ?? [])
   const [draft, setDraft] = useState('')
   const [isSending, setIsSending] = useState(false)
-  const [model, setModel] = useState<AssistantChatModel>('gpt-4o-mini')
+  const [model, setModel] = useState<AssistantChatModel>(() => activeConversation?.model ?? 'gpt-4o-mini')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    writeStoredConversations(conversations)
+  }, [conversations])
+
+  useEffect(() => {
+    if (messages.length === 0) return
+    setConversations((current) => {
+      const existing = current.find((conversation) => conversation.id === activeConversationId)
+      const now = new Date().toISOString()
+      const nextConversation: StoredConversation = {
+        id: activeConversationId,
+        title: titleFromMessages(messages),
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+        model,
+        messages,
+      }
+      return [
+        nextConversation,
+        ...current.filter((conversation) => conversation.id !== activeConversationId),
+      ].slice(0, MAX_STORED_CONVERSATIONS)
+    })
+  }, [activeConversationId, messages, model])
 
   const apiMessages = useMemo(
     () => messages
@@ -547,6 +621,22 @@ export default function AssistantPage() {
     sendMessage(draft)
   }
 
+  const startNewChat = () => {
+    setActiveConversationId(crypto.randomUUID())
+    setMessages([])
+    setDraft('')
+    setModel('gpt-4o-mini')
+    inputRef.current?.focus()
+  }
+
+  const openConversation = (conversation: StoredConversation) => {
+    if (isSending) return
+    setActiveConversationId(conversation.id)
+    setMessages(conversation.messages)
+    setModel(conversation.model)
+    setDraft('')
+  }
+
   const confirmAction = async (actionId: string, args?: Record<string, unknown>) => {
     try {
       await aiService.confirmChatAction(actionId, args)
@@ -584,15 +674,75 @@ export default function AssistantPage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-7rem)] w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-gray-800 bg-gray-950/70">
+    <div className="mx-auto flex h-[calc(100vh-7rem)] w-full max-w-6xl gap-4 overflow-hidden">
+      <aside className="hidden w-72 flex-none flex-col overflow-hidden rounded-lg border border-gray-800 bg-gray-950/70 md:flex">
+        <div className="border-b border-gray-800 p-3">
+          <button
+            type="button"
+            onClick={startNewChat}
+            disabled={isSending}
+            className="btn-primary flex w-full items-center justify-center gap-2 rounded-lg disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Plus className="h-4 w-4" />
+            New Chat
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-2">
+          {conversations.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-gray-800 p-4 text-sm text-gray-500">
+              Your saved chats will appear here.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {conversations.map((conversation) => (
+                <button
+                  key={conversation.id}
+                  type="button"
+                  onClick={() => openConversation(conversation)}
+                  disabled={isSending}
+                  className={`w-full rounded-lg border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                    conversation.id === activeConversationId
+                      ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-100'
+                      : 'border-gray-800 bg-gray-900/70 text-gray-300 hover:border-cyan-500/40 hover:text-cyan-100'
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <MessageSquare className="mt-0.5 h-4 w-4 flex-none" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{conversation.title}</p>
+                      <p className="mt-1 text-xs text-gray-500">
+                        {formatConversationTime(conversation.updatedAt)} · {conversation.messages.length} messages
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-800 bg-gray-950/70">
       <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-300">
             <Bot className="h-5 w-5" />
           </div>
-          <h1 className="text-lg font-semibold text-gray-100">Assistant</h1>
+          <div>
+            <h1 className="text-lg font-semibold text-gray-100">Assistant</h1>
+            <p className="text-xs text-gray-500 md:hidden">{conversations.length} saved chats</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={startNewChat}
+            disabled={isSending}
+            className="flex h-9 w-9 items-center justify-center rounded-md border border-gray-800 bg-gray-900 text-gray-200 transition-colors hover:border-cyan-500/50 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-60 md:hidden"
+            aria-label="New Chat"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
           <select
             value={model}
             onChange={(event) => setModel(event.target.value as AssistantChatModel)}
@@ -609,6 +759,29 @@ export default function AssistantPage() {
           {isSending && <span className="text-sm text-cyan-300">Thinking</span>}
         </div>
       </div>
+
+      {conversations.length > 0 && (
+        <div className="border-b border-gray-800 p-3 md:hidden">
+          <label className="grid gap-1 text-xs font-medium text-gray-500">
+            <span>Chat history</span>
+            <select
+              value={activeConversationId}
+              onChange={(event) => {
+                const conversation = conversations.find((item) => item.id === event.target.value)
+                if (conversation) openConversation(conversation)
+              }}
+              disabled={isSending}
+              className="rounded-md border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-100 outline-none transition-colors focus:border-cyan-500 disabled:opacity-60"
+            >
+              {conversations.map((conversation) => (
+                <option key={conversation.id} value={conversation.id}>
+                  {conversation.title}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      )}
 
       <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5">
         {messages.length === 0 ? (
@@ -681,6 +854,7 @@ export default function AssistantPage() {
           <Send className="h-5 w-5" />
         </button>
       </form>
+      </div>
     </div>
   )
 }

@@ -14,6 +14,7 @@ export const SettingsSchema = z.object({
   completionSounds: z.boolean().default(true),
   calorieIntake: z.boolean().default(false),
   achievementTracker: z.boolean().default(false),
+  workoutTracker: z.boolean().default(true),
   weekStartsOn: z.number().int().min(0).max(6).default(1),
   onboardingStatus: z.enum(['active', 'completed', 'skipped']).default('completed'),
 })
@@ -30,6 +31,7 @@ const PatchBody = z.object({
   completionSounds: z.boolean(),
   calorieIntake: z.boolean(),
   achievementTracker: z.boolean(),
+  workoutTracker: z.boolean(),
   weekStartsOn: z.number().int().min(0).max(6),
   onboardingStatus: z.enum(['active', 'completed', 'skipped']),
 }).partial().strict()

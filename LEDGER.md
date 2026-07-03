@@ -1,3 +1,9 @@
+### 2026-07-03 13:01 — `main`
+
+Finished and prepared the #114, #116, and #122 batch for deployment. Assistant chats now persist locally with history and a New Chat flow, the public demo video asset is available at `public/demo.mp4`, and the workout tracker joins the existing module-toggle settings with route and navigation gating. Frontend build, backend build, and the full backend test suite passed before shipping.
+
+---
+
 ### 2026-07-02 21:24 — `main`
 
 Connected issue #119's first proactive slice to the daily signal foundation. The Today AI Insights panel now reads the selected day's daily context, renders deterministic signal cards, and has route coverage for the new authenticated daily-context endpoint while keeping the surface movable for a future Home/brief view.

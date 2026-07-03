@@ -681,6 +681,7 @@ export interface UserSettings {
   completionSounds: boolean
   calorieIntake: boolean
   achievementTracker: boolean
+  workoutTracker: boolean
   weekStartsOn: 0 | 1 | 2 | 3 | 4 | 5 | 6
   onboardingStatus: 'active' | 'completed' | 'skipped'
 }
