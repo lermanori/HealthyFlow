@@ -1,3 +1,9 @@
+### 2026-07-03 16:58 — `fix/assistant-preview-language`
+
+Fixed the assistant UX bugs from #128 and #129. Approved action previews now stay in the chat as completed or canceled records with result details instead of disappearing, failed confirmations leave the preview visible with an inline error, and the assistant system prompt now explicitly follows the latest user message language for answers and action text. Focused assistant route tests plus frontend and backend builds passed before commit.
+
+---
+
 ### 2026-07-03 14:48 — `codex/mobile-nav-more`
 
 Reworked issue #57 from a crowded mobile bottom bar into a Today-first navigation model. Mobile now keeps only Today, Add, and Ask in the dock, while enabled modules appear as live status cards on Today, and the PWA safe-area handling no longer creates the dead black top band on iOS. A production frontend build passed before commit.

@@ -371,6 +371,26 @@ describe('POST /api/ai/chat', () => {
     expect(observedBody).not.toHaveProperty('temperature')
   })
 
+  it('instructs the assistant to answer in the latest user message language', async () => {
+    let observedBody: any
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions', (body: any) => {
+        observedBody = body
+        return true
+      })
+      .reply(200, finalAnswerResponse)
+
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-language'))
+      .send({ messages: [{ role: 'user', content: 'מה אכלתי היום?' }] })
+
+    expect(res.status).toBe(200)
+    const systemMessage = observedBody.messages.find((message: any) => message.role === 'system')
+    expect(systemMessage.content).toContain("Answer in the same language as the user's latest message")
+    expect(systemMessage.content).toContain('Tool/action preview text, confirmation requests, and result summaries')
+  })
+
   it('rejects unsupported assistant models before calling OpenAI', async () => {
     const res = await request(app)
       .post('/api/ai/chat')
