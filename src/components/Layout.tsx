@@ -77,6 +77,15 @@ export default function Layout({ children }: LayoutProps) {
     ...(user?.role === 'admin' ? [{ name: 'Token Manager', href: '/token-manager', icon: Coins }] : []),
   ]
 
+  const primaryMobileNavigation = navigation.filter((item) => (
+    item.href === '/' || item.href === '/add' || item.href === '/assistant'
+  ))
+  const mobileNavLabel = (name: string) => {
+    if (name === 'Add Item') return 'Add'
+    if (name === 'Assistant') return 'Ask'
+    return name
+  }
+
   const MobileNavigation = () => (
     <AnimatePresence>
       {isMobileMenuOpen && (
@@ -206,7 +215,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Mobile Header */}
       {isMobile && (
-        <header className="relative z-10 glass-effect border-b border-gray-700/50 lg:hidden">
+        <header className="pwa-mobile-header relative z-10 border-b border-gray-700/50 lg:hidden">
           <div className="flex items-center justify-between p-4">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
@@ -345,11 +354,8 @@ export default function Layout({ children }: LayoutProps) {
       {/* Mobile Bottom Navigation */}
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30">
-          <div
-            className="grid gap-0.5 p-1.5 xs:gap-1 xs:p-2"
-            style={{ gridTemplateColumns: `repeat(${navigation.length + 1}, minmax(0, 1fr))` }}
-          >
-            {navigation.map((item) => {
+          <div className="grid grid-cols-3 gap-1 p-2">
+            {primaryMobileNavigation.map((item) => {
               const isActive = location.pathname === item.href
               return (
                 <Link
@@ -363,23 +369,15 @@ export default function Layout({ children }: LayoutProps) {
                   }`}
                 >
                   <item.icon className={`w-5 h-5 ${isActive ? 'text-cyan-400' : ''}`} />
-                  <span className="mobile-nav-label max-w-full truncate text-[10px] font-medium leading-tight xs:text-xs">{item.name}</span>
+                  <span className="mobile-nav-label max-w-full truncate text-[10px] font-medium leading-tight xs:text-xs">
+                    {mobileNavLabel(item.name)}
+                  </span>
                   {isActive && (
                     <div className="w-1 h-1 bg-cyan-400 rounded-full"></div>
                   )}
                 </Link>
               )
             })}
-            
-            {/* Logout Button in Bottom Nav */}
-            <button
-              onClick={logout}
-              className="flex min-w-0 flex-col items-center space-y-1 rounded-xl p-2 text-gray-400 transition-all duration-300 hover:bg-gray-800/50 hover:text-gray-200 xs:p-3"
-              aria-label="Logout"
-            >
-              <LogOut className="w-5 h-5" />
-              <span className="mobile-nav-label max-w-full truncate text-[10px] font-medium leading-tight xs:text-xs">Logout</span>
-            </button>
           </div>
           
           {/* Safe area padding for devices with home indicator */}

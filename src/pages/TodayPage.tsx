@@ -1,9 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays } from 'date-fns'
-import { Plus, Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, CheckCircle2, Award, Utensils } from 'lucide-react'
+import { Plus, Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, CheckCircle2, Award, Utensils, Dumbbell } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
-import api, { calendarService, onboardingService, taskService, ExternalCalendarEvent, Task } from '../services/api'
+import api, {
+  achievementService,
+  calendarService,
+  caloriesService,
+  onboardingService,
+  taskService,
+  workoutsService,
+  ExternalCalendarEvent,
+  Task,
+  type AchievementSummary,
+  type CalorieEntry,
+  type WorkoutSession,
+} from '../services/api'
 import DayTimeline from '../components/DayTimeline'
 import HabitTrackerBar from '../components/HabitTrackerBar'
 import AIRecommendationsBox from '../components/AIRecommendationsBox'
@@ -19,6 +31,59 @@ import { motion, AnimatePresence } from 'framer-motion'
 import AskAIModal from '../components/AskAIModal'
 import { createPortal } from 'react-dom'
 import { useSettings } from '../hooks/useSettings'
+
+type TodayModuleCard = {
+  title: string
+  href: string
+  icon: typeof Calendar
+  status: string
+  detail: string
+  accent: 'cyan' | 'green' | 'purple' | 'amber'
+}
+
+function ModuleStatusCards({ modules }: { modules: TodayModuleCard[] }) {
+  if (modules.length === 0) return null
+
+  const accentClasses: Record<TodayModuleCard['accent'], string> = {
+    cyan: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-200',
+    green: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
+    purple: 'border-purple-500/30 bg-purple-500/10 text-purple-200',
+    amber: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
+  }
+
+  return (
+    <section className="md:hidden">
+      <div className="mb-3 flex items-end justify-between">
+        <h2 className="text-lg font-semibold text-gray-100">Your modules</h2>
+        <span className="text-xs font-medium text-cyan-300">Live status</span>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {modules.map((module) => {
+          const Icon = module.icon
+          return (
+            <Link
+              key={module.href}
+              to={module.href}
+              className={`min-h-[112px] rounded-xl border p-3 transition hover:scale-[1.01] hover:shadow-lg ${accentClasses[module.accent]}`}
+            >
+              <div className="mb-3 flex items-start justify-between gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-950/35">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <span className="rounded-full bg-gray-950/35 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide">
+                  {module.status}
+                </span>
+              </div>
+              <h3 className="text-sm font-semibold text-gray-100">{module.title}</h3>
+              <p className="mt-1 line-clamp-2 text-xs leading-snug text-gray-300">{module.detail}</p>
+            </Link>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 export default function TodayPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [editingTask, setEditingTask] = useState<Task | null>(null)
@@ -31,6 +96,10 @@ export default function TodayPage() {
   const { showNotification } = useNotifications()
   const location = useLocation()
   const { settings } = useSettings()
+  const selectedDateKey = format(selectedDate, 'yyyy-MM-dd')
+  const calorieModuleEnabled = settings?.calorieIntake ?? false
+  const achievementModuleEnabled = settings?.achievementTracker ?? false
+  const workoutModuleEnabled = settings?.workoutTracker ?? true
 
   // Check for AI parameter in URL
   useEffect(() => {
@@ -56,14 +125,32 @@ export default function TodayPage() {
   const hasVibration = 'navigator' in window && 'vibrate' in navigator
 
   const { data: tasksData = [], isLoading } = useQuery({
-    queryKey: ['tasks', format(selectedDate, 'yyyy-MM-dd')],
-    queryFn: () => taskService.getTasks(format(selectedDate, 'yyyy-MM-dd')),
+    queryKey: ['tasks', selectedDateKey],
+    queryFn: () => taskService.getTasks(selectedDateKey),
   })
 
   const { data: calendarEvents = [] } = useQuery({
-    queryKey: ['google-calendar-events', format(selectedDate, 'yyyy-MM-dd')],
-    queryFn: () => calendarService.getGoogleEvents(format(selectedDate, 'yyyy-MM-dd')),
+    queryKey: ['google-calendar-events', selectedDateKey],
+    queryFn: () => calendarService.getGoogleEvents(selectedDateKey),
     retry: false,
+  })
+
+  const { data: calorieEntries = [] } = useQuery<CalorieEntry[]>({
+    queryKey: ['calories', selectedDateKey],
+    queryFn: () => caloriesService.list(selectedDateKey),
+    enabled: calorieModuleEnabled,
+  })
+
+  const { data: workoutSessions = [] } = useQuery<WorkoutSession[]>({
+    queryKey: ['workouts', selectedDateKey],
+    queryFn: () => workoutsService.list(selectedDateKey),
+    enabled: workoutModuleEnabled,
+  })
+
+  const { data: achievementSummaries = [] } = useQuery<AchievementSummary[]>({
+    queryKey: ['achievements', 'module-card'],
+    queryFn: () => achievementService.list({ includeArchived: false, entryLimit: 5 }),
+    enabled: achievementModuleEnabled,
   })
 
   useEffect(() => {
@@ -281,6 +368,47 @@ export default function TodayPage() {
     return acc
   }, {} as Record<string, { total: number; completed: number }>)
 
+  const moduleCards: TodayModuleCard[] = [
+    ...(calorieModuleEnabled ? [{
+      title: 'Calories',
+      href: '/calories',
+      icon: Utensils,
+      status: calorieEntries.length > 0 ? `${calorieEntries.length} logged` : 'needs log',
+      detail: calorieEntries.length > 0
+        ? `${calorieEntries.reduce((sum, entry) => sum + entry.calories, 0)} calories logged today.`
+        : 'No calorie entries for this day yet.',
+      accent: calorieEntries.length > 0 ? 'green' as const : 'cyan' as const,
+    }] : []),
+    ...(workoutModuleEnabled ? [{
+      title: 'Workout',
+      href: '/workouts',
+      icon: Dumbbell,
+      status: workoutSessions.length > 0 ? `${workoutSessions.length} done` : 'ready',
+      detail: workoutSessions.length > 0
+        ? workoutSessions.map((session) => session.title || 'Workout session').slice(0, 2).join(', ')
+        : 'No workout logged today.',
+      accent: workoutSessions.length > 0 ? 'green' as const : 'purple' as const,
+    }] : []),
+    ...(achievementModuleEnabled ? [{
+      title: 'Achievements',
+      href: '/achievements',
+      icon: Award,
+      status: `${achievementSummaries.length} active`,
+      detail: achievementSummaries.length > 0
+        ? achievementSummaries.slice(0, 2).map((summary) => summary.definition.name).join(', ')
+        : 'Track measurable wins and personal bests.',
+      accent: 'amber' as const,
+    }] : []),
+    {
+      title: 'Week View',
+      href: '/week',
+      icon: Calendar,
+      status: 'week',
+      detail: 'Scan the week and move work across days.',
+      accent: 'cyan' as const,
+    },
+  ]
+
   // Clear current date's tasks
   const handleClearCurrentDate = async () => {
     const dateStr = format(selectedDate, 'yyyy-MM-dd')
@@ -491,15 +619,19 @@ export default function TodayPage() {
             <span>{isMobile ? 'Add' : 'Add Task'}</span>
           </Link>
           
-          <Link
-            to="/week"
-            className={`btn-secondary flex items-center space-x-2 ${isMobile ? 'text-sm py-2 px-3' : ''}`}
-          >
-            <Calendar className="w-4 h-4" />
-            <span>{isMobile ? 'Week' : 'Week View'}</span>
-          </Link>
+          {!isMobile && (
+            <Link
+              to="/week"
+              className="btn-secondary flex items-center space-x-2"
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Week View</span>
+            </Link>
+          )}
         </div>
       </motion.div>
+
+      <ModuleStatusCards modules={moduleCards} />
 
       {/* AI Text Analyzer Modal */}
       {createPortal(

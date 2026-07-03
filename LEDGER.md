@@ -1,3 +1,9 @@
+### 2026-07-03 14:48 — `codex/mobile-nav-more`
+
+Reworked issue #57 from a crowded mobile bottom bar into a Today-first navigation model. Mobile now keeps only Today, Add, and Ask in the dock, while enabled modules appear as live status cards on Today, and the PWA safe-area handling no longer creates the dead black top band on iOS. A production frontend build passed before commit.
+
+---
+
 ### 2026-07-03 13:01 — `main`
 
 Finished and prepared the #114, #116, and #122 batch for deployment. Assistant chats now persist locally with history and a New Chat flow, the public demo video asset is available at `public/demo.mp4`, and the workout tracker joins the existing module-toggle settings with route and navigation gating. Frontend build, backend build, and the full backend test suite passed before shipping.

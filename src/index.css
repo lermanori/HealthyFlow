@@ -13,11 +13,7 @@
     @apply bg-gray-900 text-gray-100 font-sans;
     font-feature-settings: "rlig" 1, "calt" 1;
     background: #101828;
-    min-height: 100vh;
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
+    min-height: 100dvh;
     box-sizing: border-box;
     /* Mobile optimizations */
     -webkit-font-smoothing: antialiased;
@@ -377,23 +373,15 @@
   .no-print {
     display: none !important;
   }
-  
-  body {
-    background: white !important;
-    color: black !important;
-  }
+}
+
+.pwa-mobile-header {
+  padding-top: env(safe-area-inset-top);
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.94) 55%, rgba(8, 47, 73, 0.92) 100%);
 }
 
 /* PWA Standalone mode optimizations */
 @media (display-mode: standalone) {
-  /* Enhanced safe area support for PWA */
-  body {
-    padding-top: max(env(safe-area-inset-top), 20px);
-    padding-bottom: max(env(safe-area-inset-bottom), 20px);
-    padding-left: max(env(safe-area-inset-left), 0px);
-    padding-right: max(env(safe-area-inset-right), 0px);
-  }
-
   /* Adjust card backgrounds for better PWA appearance */
   .card {
     background: linear-gradient(135deg, rgba(31, 41, 55, 0.95) 0%, rgba(17, 24, 39, 0.98) 100%) !important;
@@ -505,11 +493,6 @@
 
 /* iOS PWA specific optimizations */
 @media (display-mode: standalone) and (-webkit-touch-callout: none) {
-  /* iOS specific safe area handling */
-  body {
-    padding-top: max(env(safe-area-inset-top), 44px);
-  }
-  
   /* Better touch targets for iOS PWA */
   button, [role="button"], a {
     min-height: 48px !important;
@@ -542,13 +525,7 @@
 }
 /* Week view: stack the two-column body on narrow screens */
 .mobile-nav-label {
-  display: none;
-}
-
-@media (min-width: 475px) {
-  .mobile-nav-label {
-    display: block;
-  }
+  display: block;
 }
 
 .week-grid,
