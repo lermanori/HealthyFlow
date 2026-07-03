@@ -3,10 +3,17 @@ import { Bot, ChevronDown, Dumbbell, Flame, MessageSquare, Pencil, Plus, Scale, 
 import toast from 'react-hot-toast'
 import { aiService, AssistantChatMessage, AssistantChatModel, AssistantPendingAction, AssistantToolEvent } from '../services/api'
 
+type ConversationPendingAction = AssistantPendingAction & {
+  status?: 'pending' | 'confirmed' | 'canceled'
+  result?: unknown
+  error?: string
+  completedAt?: string
+}
+
 type ConversationMessage = AssistantChatMessage & {
   id: string
   toolEvents?: AssistantToolEvent[]
-  pendingActions?: AssistantPendingAction[]
+  pendingActions?: ConversationPendingAction[]
   error?: boolean
 }
 
@@ -359,7 +366,7 @@ function PendingActionCard({
   onConfirm,
   onCancel,
 }: {
-  action: AssistantPendingAction
+  action: ConversationPendingAction
   onConfirm: (actionId: string, args?: Record<string, unknown>) => void
   onCancel: (actionId: string) => void
 }) {
@@ -387,6 +394,16 @@ function PendingActionCard({
     }
   }
 
+  const status = action.status ?? 'pending'
+  const isPending = status === 'pending'
+  const statusLabel = action.error
+    ? action.error
+    : status === 'confirmed'
+      ? `Completed: ${summarizeResult(action.result)}`
+      : status === 'canceled'
+        ? 'Canceled'
+        : 'Waiting for confirmation'
+
   const commonTaskFields = (
     <>
       <TextField label="Title" value={draft.title} onChange={(value) => setField('title', value)} />
@@ -397,20 +414,58 @@ function PendingActionCard({
   )
 
   return (
-    <div className="mt-3 rounded-lg border border-amber-500/40 bg-gray-950 p-4 shadow-lg shadow-black/20">
+    <div className={`mt-3 rounded-lg border bg-gray-950 p-4 shadow-lg shadow-black/20 ${
+      action.error
+        ? 'border-red-500/50'
+        : status === 'confirmed'
+          ? 'border-emerald-500/50'
+          : status === 'canceled'
+            ? 'border-gray-700'
+            : 'border-amber-500/40'
+    }`}>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm font-semibold text-amber-100">
-          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-500/15 text-amber-200">
+        <div className={`flex items-center gap-2 text-sm font-semibold ${
+          action.error
+            ? 'text-red-100'
+            : status === 'confirmed'
+              ? 'text-emerald-100'
+              : status === 'canceled'
+                ? 'text-gray-300'
+                : 'text-amber-100'
+        }`}>
+          <span className={`flex h-8 w-8 items-center justify-center rounded-md ${
+            action.error
+              ? 'bg-red-500/15 text-red-200'
+              : status === 'confirmed'
+                ? 'bg-emerald-500/15 text-emerald-200'
+                : status === 'canceled'
+                  ? 'bg-gray-800 text-gray-300'
+                  : 'bg-amber-500/15 text-amber-200'
+          }`}>
             {iconForCapability(action.capability)}
           </span>
           {labelForCapability(action.capability)}
         </div>
-        <button className="rounded-md border border-gray-700 px-2 py-1 text-xs text-gray-300 hover:border-cyan-500 hover:text-cyan-200" onClick={() => setIsEditing((value) => !value)}>
-          {isEditing ? 'Preview' : 'Edit'}
-        </button>
+        {isPending && (
+          <button className="rounded-md border border-gray-700 px-2 py-1 text-xs text-gray-300 hover:border-cyan-500 hover:text-cyan-200" onClick={() => setIsEditing((value) => !value)}>
+            {isEditing ? 'Preview' : 'Edit'}
+          </button>
+        )}
       </div>
 
-      {isEditing ? (
+      <div className={`mb-3 rounded-md border px-3 py-2 text-xs ${
+        action.error
+          ? 'border-red-500/30 bg-red-950/30 text-red-100'
+          : status === 'confirmed'
+            ? 'border-emerald-500/30 bg-emerald-950/30 text-emerald-100'
+            : status === 'canceled'
+              ? 'border-gray-700 bg-gray-900 text-gray-300'
+              : 'border-amber-500/30 bg-amber-950/20 text-amber-100'
+      }`}>
+        {statusLabel}
+      </div>
+
+      {isEditing && isPending ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {action.capability === 'add_task' && (
             <>
@@ -514,18 +569,20 @@ function PendingActionCard({
         </div>
       ) : (
         <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-gray-800 bg-gray-950 p-3 text-xs text-gray-200">
-          {JSON.stringify(buildEditedArgs(action, draft), null, 2)}
+          {JSON.stringify(status === 'confirmed' ? { args: action.args, result: action.result } : buildEditedArgs(action, draft), null, 2)}
         </pre>
       )}
 
-      <div className="mt-4 flex gap-2">
-        <button className="btn-primary px-3 py-2 text-sm" onClick={confirm}>
-          Confirm
-        </button>
-        <button className="btn-secondary px-3 py-2 text-sm" onClick={() => onCancel(action.id)}>
-          Cancel
-        </button>
-      </div>
+      {isPending && (
+        <div className="mt-4 flex gap-2">
+          <button className="btn-primary px-3 py-2 text-sm" onClick={confirm}>
+            {action.error ? 'Try Again' : 'Confirm'}
+          </button>
+          <button className="btn-secondary px-3 py-2 text-sm" onClick={() => onCancel(action.id)}>
+            Cancel
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -639,32 +696,58 @@ export default function AssistantPage() {
 
   const confirmAction = async (actionId: string, args?: Record<string, unknown>) => {
     try {
-      await aiService.confirmChatAction(actionId, args)
+      const response = await aiService.confirmChatAction(actionId, args)
       toast.success('Action confirmed')
       setMessages((current) => current.map((message) =>
         message.pendingActions?.some((action) => action.id === actionId)
           ? {
               ...message,
-              pendingActions: message.pendingActions.filter((action) => action.id !== actionId),
-              content: `${message.content}\n\nConfirmed.`,
+              pendingActions: message.pendingActions.map((action) =>
+                action.id === actionId
+                  ? {
+                      ...response.action,
+                      status: 'confirmed',
+                      result: response.result,
+                      completedAt: new Date().toISOString(),
+                    }
+                  : action
+              ),
             }
           : message
       ))
     } catch (error: any) {
-      toast.error(error.response?.data?.error ?? 'Could not confirm action')
+      const message = error.response?.data?.error ?? 'Could not confirm action'
+      toast.error(message)
+      setMessages((current) => current.map((item) =>
+        item.pendingActions?.some((action) => action.id === actionId)
+          ? {
+              ...item,
+              pendingActions: item.pendingActions.map((action) =>
+                action.id === actionId ? { ...action, error: message } : action
+              ),
+            }
+          : item
+      ))
     }
   }
 
   const cancelAction = async (actionId: string) => {
     try {
-      await aiService.cancelChatAction(actionId)
+      const canceled = await aiService.cancelChatAction(actionId)
       toast.success('Action canceled')
       setMessages((current) => current.map((message) =>
         message.pendingActions?.some((action) => action.id === actionId)
           ? {
               ...message,
-              pendingActions: message.pendingActions.filter((action) => action.id !== actionId),
-              content: `${message.content}\n\nCanceled.`,
+              pendingActions: message.pendingActions.map((action) =>
+                action.id === actionId
+                  ? {
+                      ...canceled,
+                      status: 'canceled',
+                      completedAt: new Date().toISOString(),
+                    }
+                  : action
+              ),
             }
           : message
       ))

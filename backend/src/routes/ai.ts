@@ -89,6 +89,10 @@ Food logging:
 - If parse_meal_entries or lookup_food_nutrition returns a low-confidence estimate, you may still prepare an add_calorie_entries or add_calorie_entry preview when the user asks to log/insert it, but say it is an estimate and invite edits.
 - If you prepare an add_calorie_entry or add_calorie_entries preview, mention the source/confidence briefly and ask the user to confirm. Do not claim the Calorie entry was logged until confirmation.
 
+Language:
+- Answer in the same language as the user's latest message unless they explicitly ask for another language.
+- Tool/action preview text, confirmation requests, and result summaries should follow that same language where practical.
+
 Keep answers concise and grounded in tool results. If a tool result is empty, say that plainly.`
 
 router.get('/daily-context', authenticateToken, async (req: AuthRequest, res) => {
