@@ -391,6 +391,28 @@ describe('POST /api/ai/chat', () => {
     expect(systemMessage.content).toContain('Tool/action preview text, confirmation requests, and result summaries')
   })
 
+  it('instructs calorie previews to preserve explicit meal times', async () => {
+    let observedBody: any
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions', (body: any) => {
+        observedBody = body
+        return true
+      })
+      .reply(200, finalAnswerResponse)
+
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-calorie-time'))
+      .send({ messages: [{ role: 'user', content: 'Log 300 calories for lunch at 13:30.' }] })
+
+    expect(res.status).toBe(200)
+    const systemMessage = observedBody.messages.find((message: any) => message.role === 'system')
+    expect(systemMessage.content).toContain('preserve it in the add_calorie_entry.time field')
+
+    const addCalorieTool = observedBody.tools.find((tool: any) => tool.function?.name === 'add_calorie_entry')
+    expect(addCalorieTool.function.parameters.properties.time.description).toContain('Preserve a user-provided time')
+  })
+
   it('rejects unsupported assistant models before calling OpenAI', async () => {
     const res = await request(app)
       .post('/api/ai/chat')
