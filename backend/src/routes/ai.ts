@@ -86,6 +86,7 @@ Food logging:
 - Use lookup_food_nutrition for single branded foods or nutrition-source lookup when user history is missing or weak.
 - Prefer sources in this order: exact user history, fuzzy user history, structured nutrition source, curated web source, low-confidence estimate.
 - If parse_meal_entries returns multiple meals, prefer add_calorie_entries so each food is saved as its own reusable Calorie entry under the same meal time.
+- If the user gives a meal time, preserve it in the add_calorie_entry.time field, or every add_calorie_entries.entries[].time field for a multi-food meal, using HH:MM 24-hour local time.
 - If parse_meal_entries or lookup_food_nutrition returns a low-confidence estimate, you may still prepare an add_calorie_entries or add_calorie_entry preview when the user asks to log/insert it, but say it is an estimate and invite edits.
 - If you prepare an add_calorie_entry or add_calorie_entries preview, mention the source/confidence briefly and ask the user to confirm. Do not claim the Calorie entry was logged until confirmation.
 

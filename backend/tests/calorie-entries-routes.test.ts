@@ -242,6 +242,20 @@ describe('calorie entries API', () => {
     expect(res.body.calories).toBe(200)
   })
 
+  it('can clear an entry time when editing', async () => {
+    mockDb.getCalorieEntryById.mockResolvedValue(row())
+    mockDb.updateCalorieEntry.mockResolvedValue(row({ time: null }))
+
+    const res = await request(app)
+      .patch('/api/calories/entry-1')
+      .set('Authorization', TOKEN)
+      .send({ time: null })
+
+    expect(res.status).toBe(200)
+    expect(mockDb.updateCalorieEntry).toHaveBeenCalledWith('entry-1', expect.objectContaining({ time: null }))
+    expect(res.body.time).toBeNull()
+  })
+
   it('returns 404 patching a missing entry', async () => {
     mockDb.getCalorieEntryById.mockResolvedValue(null)
 

@@ -1,3 +1,9 @@
+### 2026-07-04 13:33 — `fix/calorie-time-preview-editor`
+
+Fixed the calorie time bugs from #130 and #131. Assistant calorie previews now carry explicit guidance and tool-schema descriptions to preserve user-provided meal times, while the Calorie Log editor labels the entry name as `Title` and exposes explicit edit-time/save/cancel controls. Focused assistant and calorie-entry route tests passed alongside frontend and backend builds.
+
+---
+
 ### 2026-07-03 16:58 — `fix/assistant-preview-language`
 
 Fixed the assistant UX bugs from #128 and #129. Approved action previews now stay in the chat as completed or canceled records with result details instead of disappearing, failed confirmations leave the preview visible with an inline error, and the assistant system prompt now explicitly follows the latest user message language for answers and action text. Focused assistant route tests plus frontend and backend builds passed before commit.

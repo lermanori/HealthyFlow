@@ -447,11 +447,11 @@ export default function CaloriesPage() {
                         <div className="grid gap-3 md:grid-cols-[7rem_1.4fr_1.2fr]">
                           <label className="space-y-1">
                             <span className="text-xs text-gray-400">Time</span>
-                            <input type="time" className="input-field" value={editForm.time} onChange={(ev) => setEditForm({ ...editForm, time: ev.target.value })} />
+                            <input type="time" className="input-field" aria-label="Edit calorie entry time" value={editForm.time} onChange={(ev) => setEditForm({ ...editForm, time: ev.target.value })} />
                           </label>
                           <label className="space-y-1">
-                            <span className="text-xs text-gray-400">Name</span>
-                            <input className="input-field" value={editForm.name} onChange={(ev) => setEditForm({ ...editForm, name: ev.target.value })} />
+                            <span className="text-xs text-gray-400">Title</span>
+                            <input className="input-field" aria-label="Edit calorie entry title" value={editForm.name} onChange={(ev) => setEditForm({ ...editForm, name: ev.target.value })} />
                           </label>
                           <label className="space-y-1">
                             <span className="text-xs text-gray-400">Quantity</span>
@@ -478,8 +478,8 @@ export default function CaloriesPage() {
                         </div>
                         <div className="flex justify-end">
                           <div className="flex gap-2">
-                            <button onClick={submitEdit} className="text-cyan-400"><Check className="w-4 h-4" /></button>
-                            <button onClick={() => setEditingId(null)} className="text-gray-400"><X className="w-4 h-4" /></button>
+                            <button type="button" onClick={submitEdit} className="text-cyan-400" aria-label="Save calorie entry edit"><Check className="w-4 h-4" /></button>
+                            <button type="button" onClick={() => setEditingId(null)} className="text-gray-400" aria-label="Cancel calorie entry edit"><X className="w-4 h-4" /></button>
                           </div>
                         </div>
                       </div>

@@ -60,8 +60,8 @@ const AddHabitInput = z.object({
 })
 
 const AddCalorieEntryInput = z.object({
-  date: z.string().regex(DATE_RE).optional(),
-  time: z.string().regex(TIME_RE).nullable().optional(),
+  date: z.string().regex(DATE_RE).optional().describe('Entry date as YYYY-MM-DD. Preserve a user-provided date when they mention one.'),
+  time: z.string().regex(TIME_RE).nullable().optional().describe('Meal or entry time as HH:MM in 24-hour local time. Preserve a user-provided time when they mention one.'),
   name: z.string().trim().min(1).max(200),
   calories: z.number().int().nonnegative(),
   protein: z.number().nonnegative().nullable().optional(),
