@@ -502,9 +502,11 @@ describe('POST /api/ai/chat', () => {
 
     expect(systemPrompt).toContain('Client time zone: Asia/Jerusalem')
     expect(systemPrompt).toContain('Current local date: 2026-07-05')
+    expect(systemPrompt).toContain('Current local time: 15:00')
     expect(systemPrompt).toContain('Yesterday: 2026-07-04')
     expect(systemPrompt).toContain('Tomorrow: 2026-07-06')
     expect(systemPrompt).toContain('Resolve relative dates and times')
+    expect(systemPrompt).toContain('If the user says now or right now, use the current local time')
   })
 
   it('rejects unsupported assistant models before calling OpenAI', async () => {

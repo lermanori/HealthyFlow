@@ -136,9 +136,21 @@ function formatLocalDate(date: Date, timeZone: string) {
   return `${byType.year}-${byType.month}-${byType.day}`
 }
 
+function formatLocalTime(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${byType.hour}:${byType.minute}`
+}
+
 export function buildChatSystemPrompt(timeZoneHeader?: string, now = new Date()) {
   const timeZone = normalizeTimeZone(timeZoneHeader)
   const today = formatLocalDate(now, timeZone)
+  const currentTime = formatLocalTime(now, timeZone)
   const yesterday = formatLocalDate(new Date(now.getTime() - ONE_DAY_MS), timeZone)
   const tomorrow = formatLocalDate(new Date(now.getTime() + ONE_DAY_MS), timeZone)
 
@@ -147,10 +159,11 @@ export function buildChatSystemPrompt(timeZoneHeader?: string, now = new Date())
 Date context:
 - Client time zone: ${timeZone}
 - Current local date: ${today}
+- Current local time: ${currentTime}
 - Yesterday: ${yesterday}
 - Tomorrow: ${tomorrow}
 
-Resolve relative dates and times such as today, yesterday, tomorrow, this morning, tonight, and last night from this date context when choosing tool arguments. Do not use model training-date assumptions.`
+Resolve relative dates and times such as today, yesterday, tomorrow, now, right now, this morning, tonight, and last night from this date and time context when choosing tool arguments. If the user says now or right now, use the current local time. Do not use model training-date assumptions.`
 }
 
 function attachmentMessageContent(content: string, attachment?: z.infer<typeof ChatAttachment>) {

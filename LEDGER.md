@@ -1,3 +1,9 @@
+### 2026-07-05 20:09 — `fix/assistant-current-time`
+
+Fixed the remaining Assistant time-context gap after the date-context fix. Assistant chat prompts now include the user's current local `HH:MM` time alongside timezone, today, yesterday, and tomorrow, and explicitly tell the model to use that value for "now" or "right now" tool arguments. Focused assistant route tests and the backend build passed before commit.
+
+---
+
 ### 2026-07-05 19:15 — `fix/pwa-cache-refresh`
 
 Fixed the assistant composer icon rendering bug after reproducing it in a mobile browser viewport. The shared button padding was collapsing the inner lucide SVGs to zero width, so the composer icon buttons now remove inherited padding and mark the SVGs as non-shrinking fixed-size icons. A production frontend build passed, and Playwright verification showed all three composer icons rendering at 20x20 before commit.
