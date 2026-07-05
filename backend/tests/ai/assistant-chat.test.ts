@@ -3,6 +3,7 @@ import nock from 'nock'
 import jwt from 'jsonwebtoken'
 import { z } from 'zod'
 import { AiCapabilities } from '../../src/ai-capabilities'
+import { buildChatSystemPrompt } from '../../src/routes/ai'
 import { app } from '../../src/index'
 
 jest.mock('../../src/credits', () => ({
@@ -494,6 +495,16 @@ describe('POST /api/ai/chat', () => {
 
     const addCalorieTool = observedBody.tools.find((tool: any) => tool.function?.name === 'add_calorie_entry')
     expect(addCalorieTool.function.parameters.properties.time.description).toContain('Preserve a user-provided time')
+  })
+
+  it('grounds relative dates in the current client date context', async () => {
+    const systemPrompt = buildChatSystemPrompt('Asia/Jerusalem', new Date('2026-07-05T12:00:00.000Z'))
+
+    expect(systemPrompt).toContain('Client time zone: Asia/Jerusalem')
+    expect(systemPrompt).toContain('Current local date: 2026-07-05')
+    expect(systemPrompt).toContain('Yesterday: 2026-07-04')
+    expect(systemPrompt).toContain('Tomorrow: 2026-07-06')
+    expect(systemPrompt).toContain('Resolve relative dates and times')
   })
 
   it('rejects unsupported assistant models before calling OpenAI', async () => {
