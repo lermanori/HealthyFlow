@@ -1,3 +1,9 @@
+### 2026-07-05 16:22 — `feat/assistant-multimodal-input`
+
+Implemented the first Assistant multimodal input slice from #117. The Assistant composer now supports dictation, one transient image attachment, or one bounded text/Markdown attachment per message, while saved conversations retain only lightweight attachment metadata. The backend validates attachment payloads and passes image/text content into the existing server-keyed OpenAI tool loop without changing write-confirmation behavior; focused assistant tests and frontend/backend builds passed before commit.
+
+---
+
 ### 2026-07-04 13:33 — `fix/calorie-time-preview-editor`
 
 Fixed the calorie time bugs from #130 and #131. Assistant calorie previews now carry explicit guidance and tool-schema descriptions to preserve user-provided meal times, while the Calorie Log editor labels the entry name as `Title` and exposes explicit edit-time/save/cancel controls. Focused assistant and calorie-entry route tests passed alongside frontend and backend builds.

@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
-import { Bot, ChevronDown, Dumbbell, Flame, MessageSquare, Pencil, Plus, Scale, Send, Target, Trash2, UserRound, Wrench } from 'lucide-react'
+import { Bot, ChevronDown, Dumbbell, Flame, Image as ImageIcon, Mic, MessageSquare, Paperclip, Pencil, Plus, Scale, Send, Target, Trash2, UserRound, Wrench, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { aiService, AssistantChatMessage, AssistantChatModel, AssistantPendingAction, AssistantToolEvent } from '../services/api'
+import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantPendingAction, AssistantToolEvent } from '../services/api'
+import { useDictatedText } from '../hooks/useDictatedText'
 
 type ConversationPendingAction = AssistantPendingAction & {
   status?: 'pending' | 'confirmed' | 'canceled'
@@ -12,6 +13,7 @@ type ConversationPendingAction = AssistantPendingAction & {
 
 type ConversationMessage = AssistantChatMessage & {
   id: string
+  attachment?: AssistantChatAttachmentMetadata
   toolEvents?: AssistantToolEvent[]
   pendingActions?: ConversationPendingAction[]
   error?: boolean
@@ -28,6 +30,15 @@ type StoredConversation = {
 
 const ASSISTANT_CONVERSATIONS_KEY = 'healthyflow-assistant-conversations-v1'
 const MAX_STORED_CONVERSATIONS = 20
+const MAX_IMAGE_ATTACHMENT_BYTES = 4 * 1024 * 1024
+const MAX_TEXT_ATTACHMENT_BYTES = 64 * 1024
+const MAX_TEXT_ATTACHMENT_CHARS = 12_000
+const IMAGE_ATTACHMENT_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
+const TEXT_ATTACHMENT_TYPES = ['text/plain', 'text/markdown'] as const
+
+type ComposerAttachment =
+  | (Extract<AssistantChatAttachment, { kind: 'image' }> & { previewUrl: string })
+  | Extract<AssistantChatAttachment, { kind: 'text' }>
 
 const starterPrompts = [
   "What's on my plate today?",
@@ -76,6 +87,63 @@ function formatConversationTime(value: string) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return ''
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+}
+
+function attachmentMetadata(attachment: ComposerAttachment): AssistantChatAttachmentMetadata {
+  return {
+    kind: attachment.kind,
+    name: attachment.name,
+    mimeType: attachment.mimeType,
+  }
+}
+
+function attachmentFromFile(file: File): Promise<ComposerAttachment> {
+  if (IMAGE_ATTACHMENT_TYPES.includes(file.type as (typeof IMAGE_ATTACHMENT_TYPES)[number])) {
+    if (file.size > MAX_IMAGE_ATTACHMENT_BYTES) throw new Error('Image attachment must be 4MB or smaller')
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const dataUrl = String(reader.result ?? '')
+        const data = dataUrl.split(',')[1]
+        if (!data) {
+          reject(new Error('Could not read image attachment'))
+          return
+        }
+        resolve({
+          kind: 'image',
+          name: file.name,
+          mimeType: file.type as Extract<AssistantChatAttachment, { kind: 'image' }>['mimeType'],
+          data,
+          previewUrl: dataUrl,
+        })
+      }
+      reader.onerror = () => reject(new Error('Could not read image attachment'))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const extension = file.name.toLowerCase().split('.').pop()
+  const mimeType = file.type === 'text/markdown' || extension === 'md' || extension === 'markdown'
+    ? 'text/markdown'
+    : file.type === 'text/plain' || extension === 'txt'
+      ? 'text/plain'
+      : null
+  if (!mimeType || !TEXT_ATTACHMENT_TYPES.includes(mimeType as (typeof TEXT_ATTACHMENT_TYPES)[number])) {
+    throw new Error('Attach a JPG, PNG, WebP, TXT, or MD file')
+  }
+  if (file.size > MAX_TEXT_ATTACHMENT_BYTES) throw new Error('Text attachment must be 64KB or smaller')
+
+  return file.text().then((text) => {
+    const trimmed = text.trim()
+    if (!trimmed) throw new Error('Text attachment is empty')
+    if (trimmed.length > MAX_TEXT_ATTACHMENT_CHARS) throw new Error('Text attachment is too long')
+    return {
+      kind: 'text',
+      name: file.name,
+      mimeType: mimeType as Extract<AssistantChatAttachment, { kind: 'text' }>['mimeType'],
+      text: trimmed,
+    }
+  })
 }
 
 function compactToolName(name: string) {
@@ -595,7 +663,15 @@ export default function AssistantPage() {
   const [draft, setDraft] = useState('')
   const [isSending, setIsSending] = useState(false)
   const [model, setModel] = useState<AssistantChatModel>(() => activeConversation?.model ?? 'gpt-4o-mini')
+  const [attachment, setAttachment] = useState<ComposerAttachment | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const {
+    isListening,
+    isDictationSupported,
+    dictationError,
+    toggleDictation,
+  } = useDictatedText({ text: draft, setText: setDraft, disabled: isSending })
 
   useEffect(() => {
     writeStoredConversations(conversations)
@@ -628,23 +704,36 @@ export default function AssistantPage() {
     [messages]
   )
 
-  const sendMessage = async (content: string) => {
+  const sendMessage = async (content: string, messageAttachment: ComposerAttachment | null = attachment) => {
     const trimmed = content.trim()
-    if (!trimmed || isSending) return
+    if ((!trimmed && !messageAttachment) || isSending) return
+    const userContent = trimmed || `Review the attached ${messageAttachment?.kind === 'image' ? 'image' : 'file'}.`
 
     const userMessage: ConversationMessage = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: trimmed,
+      content: userContent,
+      attachment: messageAttachment ? attachmentMetadata(messageAttachment) : undefined,
     }
-    const nextMessages = [...apiMessages, { role: 'user' as const, content: trimmed }]
+    const nextMessages = [...apiMessages, { role: 'user' as const, content: userContent }]
 
     setMessages((current) => [...current, userMessage])
     setDraft('')
+    setAttachment(null)
     setIsSending(true)
 
     try {
-      const response = await aiService.chat(nextMessages, model)
+      const requestAttachment = messageAttachment
+        ? messageAttachment.kind === 'image'
+          ? {
+              kind: 'image' as const,
+              name: messageAttachment.name,
+              mimeType: messageAttachment.mimeType,
+              data: messageAttachment.data,
+            }
+          : messageAttachment
+        : undefined
+      const response = await aiService.chat(nextMessages, model, requestAttachment)
       setMessages((current) => [
         ...current,
         {
@@ -678,10 +767,22 @@ export default function AssistantPage() {
     sendMessage(draft)
   }
 
+  const handleAttachmentChange = async (file: File | undefined) => {
+    if (!file) return
+    try {
+      setAttachment(await attachmentFromFile(file))
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not attach file')
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   const startNewChat = () => {
     setActiveConversationId(crypto.randomUUID())
     setMessages([])
     setDraft('')
+    setAttachment(null)
     setModel('gpt-4o-mini')
     inputRef.current?.focus()
   }
@@ -692,6 +793,7 @@ export default function AssistantPage() {
     setMessages(conversation.messages)
     setModel(conversation.model)
     setDraft('')
+    setAttachment(null)
   }
 
   const confirmAction = async (actionId: string, args?: Record<string, unknown>) => {
@@ -901,6 +1003,14 @@ export default function AssistantPage() {
                   }`}
                 >
                   {message.content}
+                  {message.attachment && (
+                    <div className={`mt-2 inline-flex max-w-full items-center gap-2 rounded-md px-2 py-1 text-xs ${
+                      message.role === 'user' ? 'bg-gray-950/15 text-gray-900' : 'bg-gray-950 text-gray-300'
+                    }`}>
+                      {message.attachment.kind === 'image' ? <ImageIcon className="h-3.5 w-3.5 flex-none" /> : <Paperclip className="h-3.5 w-3.5 flex-none" />}
+                      <span className="truncate">{message.attachment.name}</span>
+                    </div>
+                  )}
                 </div>
                 {message.toolEvents && message.toolEvents.length > 0 && (
                   <AssistantReasoningStages events={message.toolEvents} />
@@ -919,23 +1029,76 @@ export default function AssistantPage() {
         )}
       </div>
 
-      <form onSubmit={submit} className="flex gap-2 border-t border-gray-800 p-3">
-        <input
-          ref={inputRef}
-          className="input-field min-w-0 flex-1"
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Ask about today, calories, achievements, or workouts"
-          disabled={isSending}
-        />
-        <button
-          type="submit"
-          disabled={isSending || !draft.trim()}
-          className="btn-primary flex h-11 w-11 flex-none items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
-          aria-label="Send"
-        >
-          <Send className="h-5 w-5" />
-        </button>
+      <form onSubmit={submit} className="border-t border-gray-800 p-3">
+        {attachment && (
+          <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2">
+            <div className="flex min-w-0 items-center gap-3">
+              {attachment.kind === 'image' ? (
+                <img src={attachment.previewUrl} alt="" className="h-10 w-10 flex-none rounded-md border border-gray-700 object-cover" />
+              ) : (
+                <span className="flex h-10 w-10 flex-none items-center justify-center rounded-md border border-gray-700 bg-gray-900 text-gray-300">
+                  <Paperclip className="h-4 w-4" />
+                </span>
+              )}
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-gray-100">{attachment.name}</p>
+                <p className="text-xs text-gray-500">{attachment.mimeType}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAttachment(null)}
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-md border border-gray-700 text-gray-400 hover:border-red-500/60 hover:text-red-300"
+              aria-label="Remove attachment"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        {dictationError && <p className="mb-2 text-xs text-red-300">{dictationError}</p>}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSending}
+            className="btn-secondary flex h-11 w-11 flex-none items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label={attachment ? 'Replace attachment' : 'Attach file'}
+          >
+            <Paperclip className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={toggleDictation}
+            disabled={isSending || !isDictationSupported}
+            className={`btn-secondary flex h-11 w-11 flex-none items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50 ${isListening ? 'border-cyan-500 text-cyan-200' : ''}`}
+            aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
+          >
+            <Mic className="h-5 w-5" />
+          </button>
+          <input
+            ref={inputRef}
+            className="input-field min-w-0 flex-1"
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Ask about today, calories, achievements, or workouts"
+            disabled={isSending}
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            accept="image/jpeg,image/png,image/webp,text/plain,text/markdown,.txt,.md"
+            onChange={(event) => void handleAttachmentChange(event.target.files?.[0])}
+          />
+          <button
+            type="submit"
+            disabled={isSending || (!draft.trim() && !attachment)}
+            className="btn-primary flex h-11 w-11 flex-none items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
+            aria-label="Send"
+          >
+            <Send className="h-5 w-5" />
+          </button>
+        </div>
       </form>
       </div>
     </div>

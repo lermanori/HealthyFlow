@@ -345,6 +345,89 @@ describe('POST /api/ai/chat', () => {
     ])
   })
 
+  it('sends image attachments as OpenAI image content on the latest user message', async () => {
+    let observedBody: any
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions', (body: any) => {
+        observedBody = body
+        return true
+      })
+      .reply(200, finalAnswerResponse)
+
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-image-attachment'))
+      .send({
+        messages: [{ role: 'user', content: 'What is in this image?' }],
+        attachment: {
+          kind: 'image',
+          name: 'note.png',
+          mimeType: 'image/png',
+          data: Buffer.from('fake-image').toString('base64'),
+        },
+      })
+
+    expect(res.status).toBe(200)
+    const latestUser = observedBody.messages.findLast((message: any) => message.role === 'user')
+    expect(latestUser.content).toEqual([
+      expect.objectContaining({
+        type: 'text',
+        text: expect.stringContaining('Attachment: note.png (image/png)'),
+      }),
+      {
+        type: 'image_url',
+        image_url: { url: `data:image/png;base64,${Buffer.from('fake-image').toString('base64')}` },
+      },
+    ])
+  })
+
+  it('includes text attachments in the latest user message without using image content', async () => {
+    let observedBody: any
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions', (body: any) => {
+        observedBody = body
+        return true
+      })
+      .reply(200, finalAnswerResponse)
+
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-text-attachment'))
+      .send({
+        messages: [{ role: 'user', content: 'Summarize this.' }],
+        attachment: {
+          kind: 'text',
+          name: 'notes.md',
+          mimeType: 'text/markdown',
+          text: '# Plan\n\nDrink water and stretch.',
+        },
+      })
+
+    expect(res.status).toBe(200)
+    const latestUser = observedBody.messages.findLast((message: any) => message.role === 'user')
+    expect(latestUser.content).toContain('Attached text file: notes.md (text/markdown)')
+    expect(latestUser.content).toContain('Drink water and stretch.')
+  })
+
+  it('rejects oversized image attachments before calling OpenAI', async () => {
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-big-image'))
+      .send({
+        messages: [{ role: 'user', content: 'What is this?' }],
+        attachment: {
+          kind: 'image',
+          name: 'large.png',
+          mimeType: 'image/png',
+          data: Buffer.alloc(4 * 1024 * 1024 + 1).toString('base64'),
+        },
+      })
+
+    expect(res.status).toBe(400)
+    expect(res.body.error).toBe('Image attachment must be 4MB or smaller')
+    expect(nock.pendingMocks()).toEqual([])
+  })
+
   it('uses the selected assistant model when provided', async () => {
     let observedBody: any
     nock('https://api.openai.com')

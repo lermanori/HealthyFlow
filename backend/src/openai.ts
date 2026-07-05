@@ -66,7 +66,7 @@ type BillableCallOpts = CallOpts & {
 
 export type OpenAIToolChatMessage = {
   role: 'user' | 'assistant'
-  content: string
+  content: string | OpenAIUserContent[]
 }
 
 export type OpenAIToolEvent = {
@@ -95,6 +95,18 @@ type ToolCallOpts = {
 type OpenAIUserContent =
   | { type: 'text'; text: string }
   | { type: 'image_url'; image_url: { url: string } }
+
+function toolMessagePromptEstimate(messages: OpenAIToolChatMessage[]) {
+  return messages.flatMap((message) => {
+    if (typeof message.content === 'string') {
+      return [{ type: 'text', text: `${message.role}: ${message.content}` }]
+    }
+    return [
+      { type: 'text', text: `${message.role}:` },
+      ...message.content,
+    ]
+  })
+}
 
 export const ParsedMeal = z.object({
   name: z.string().min(1),
@@ -735,7 +747,7 @@ export const Openai = {
     opts: ToolCallOpts
   ): Promise<BillableOpenAIResult<{ message: string; toolEvents: OpenAIToolEvent[] }>> {
     const maxIterations = opts.maxIterations ?? 4
-    const userPrompt = opts.messages.map((message) => `${message.role}: ${message.content}`).join('\n')
+    const userPrompt = toolMessagePromptEstimate(opts.messages)
     let reservedTokens = 0
 
     try {
