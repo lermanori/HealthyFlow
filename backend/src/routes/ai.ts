@@ -18,6 +18,8 @@ const ChatModel = z.enum(['gpt-4o-mini', 'gpt-5-mini', 'gpt-5.4-mini', 'gpt-5.4'
 const CHAT_MAX_TOKENS = 700
 const CHAT_RATE_LIMIT_WINDOW_MS = 60_000
 const CHAT_RATE_LIMIT_MAX = 12
+const MAX_CHAT_IMAGE_BYTES = 4 * 1024 * 1024
+const MAX_CHAT_TEXT_ATTACHMENT_CHARS = 12_000
 
 const router = express.Router()
 const chatRateLimit = new Map<string, { count: number; resetAt: number }>()
@@ -64,9 +66,25 @@ const ChatMessage = z.object({
   content: z.string().trim().min(1).max(4000),
 })
 
+const ChatAttachment = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('image'),
+    name: z.string().trim().min(1).max(160),
+    mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+    data: z.string().min(1),
+  }),
+  z.object({
+    kind: z.literal('text'),
+    name: z.string().trim().min(1).max(160),
+    mimeType: z.enum(['text/plain', 'text/markdown']),
+    text: z.string().trim().min(1).max(MAX_CHAT_TEXT_ATTACHMENT_CHARS),
+  }),
+])
+
 const ChatRequest = z.object({
   messages: z.array(ChatMessage).min(1).max(30),
   model: ChatModel.default(CHAT_MODEL),
+  attachment: ChatAttachment.optional(),
 })
 
 const CHAT_SYSTEM_PROMPT = `You are the internal HealthyFlow assistant.
@@ -96,6 +114,31 @@ Language:
 
 Keep answers concise and grounded in tool results. If a tool result is empty, say that plainly.`
 
+function attachmentMessageContent(content: string, attachment?: z.infer<typeof ChatAttachment>) {
+  if (!attachment) return content
+
+  if (attachment.kind === 'image') {
+    return [
+      {
+        type: 'text' as const,
+        text: `${content}
+
+Attachment: ${attachment.name} (${attachment.mimeType}). Inspect the attached image only as needed for the user's request. Do not claim the image was saved.`,
+      },
+      {
+        type: 'image_url' as const,
+        image_url: { url: `data:${attachment.mimeType};base64,${attachment.data}` },
+      },
+    ]
+  }
+
+  return `${content}
+
+Attached text file: ${attachment.name} (${attachment.mimeType})
+
+${attachment.text}`
+}
+
 router.get('/daily-context', authenticateToken, async (req: AuthRequest, res) => {
   const parsed = DailyContextInputSchema.safeParse(req.query)
   if (!parsed.success) return res.status(400).json({ error: 'date must be YYYY-MM-DD' })
@@ -112,6 +155,14 @@ router.post('/chat', authenticateToken, async (req: AuthRequest, res) => {
   const parsed = ChatRequest.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: 'Invalid chat input' })
 
+  const latestMessage = parsed.data.messages[parsed.data.messages.length - 1]
+  if (parsed.data.attachment && latestMessage.role !== 'user') {
+    return res.status(400).json({ error: 'Attachment must belong to the latest user message' })
+  }
+  if (parsed.data.attachment?.kind === 'image' && base64Size(parsed.data.attachment.data) > MAX_CHAT_IMAGE_BYTES) {
+    return res.status(400).json({ error: 'Image attachment must be 4MB or smaller' })
+  }
+
   const userId = req.user.userId
   if (!checkChatRateLimit(userId)) {
     return res.status(429).json({ error: 'Too many assistant messages, please try again shortly.', code: 'rate_limited' })
@@ -121,13 +172,19 @@ router.post('/chat', authenticateToken, async (req: AuthRequest, res) => {
     ...tool,
     execute: (args: unknown) => tool.execute({ userId }, args),
   }))
+  const messages = parsed.data.messages.map((message, index) => ({
+    role: message.role,
+    content: index === parsed.data.messages.length - 1
+      ? attachmentMessageContent(message.content, parsed.data.attachment)
+      : message.content,
+  }))
 
   const result = await Openai.callBillableTools({
     userId,
     endpoint: 'ai-chat',
     model: parsed.data.model,
     systemPrompt: CHAT_SYSTEM_PROMPT,
-    messages: parsed.data.messages,
+    messages,
     tools,
     temperature: 0.2,
     maxTokens: CHAT_MAX_TOKENS,

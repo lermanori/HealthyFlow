@@ -434,8 +434,12 @@ export const aiService = {
     return response.data
   },
 
-  chat: async (messages: AssistantChatMessage[], model?: AssistantChatModel): Promise<AssistantChatResponse> => {
-    const response = await api.post('/ai/chat', { messages, model })
+  chat: async (
+    messages: AssistantChatMessage[],
+    model?: AssistantChatModel,
+    attachment?: AssistantChatAttachment
+  ): Promise<AssistantChatResponse> => {
+    const response = await api.post('/ai/chat', { messages, model, attachment })
     return response.data
   },
 
@@ -462,6 +466,26 @@ export const aiService = {
 export interface AssistantChatMessage {
   role: 'user' | 'assistant'
   content: string
+}
+
+export type AssistantChatAttachment =
+  | {
+      kind: 'image'
+      name: string
+      mimeType: 'image/jpeg' | 'image/png' | 'image/webp'
+      data: string
+    }
+  | {
+      kind: 'text'
+      name: string
+      mimeType: 'text/plain' | 'text/markdown'
+      text: string
+    }
+
+export interface AssistantChatAttachmentMetadata {
+  kind: 'image' | 'text'
+  name: string
+  mimeType: string
 }
 
 export type AssistantChatModel =
