@@ -1,3 +1,9 @@
+### 2026-07-05 19:08 — `fix/pwa-cache-refresh`
+
+Added a PWA cache-refresh follow-up for the assistant date/icon fix. The service worker cache version now advances to `healthyflow-v4`, and installed clients reload once when the new worker takes control so mobile PWAs do not keep serving stale UI bundles. A production frontend build passed before commit.
+
+---
+
 ### 2026-07-05 17:16 — `fix/assistant-date-icons`
 
 Fixed the assistant date-context regression from #120 and the missing composer icons seen on mobile. Assistant chat prompts now include the client time zone plus explicit today/yesterday/tomorrow dates before tool selection, and the attachment, dictation, and send icons have direct colors so they render reliably in the PWA UI. Focused assistant route tests and both production builds passed before commit.

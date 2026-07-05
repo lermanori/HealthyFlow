@@ -46,6 +46,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 const isViteDevServer = location.port === '5173'
 
 if ('serviceWorker' in navigator && !isViteDevServer) {
+  let refreshingForServiceWorker = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshingForServiceWorker) return
+    refreshingForServiceWorker = true
+    window.location.reload()
+  })
+
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')

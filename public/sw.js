@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'healthyflow-v3'
+const CACHE_VERSION = 'healthyflow-v4'
 const APP_SHELL_CACHE = `${CACHE_VERSION}-app-shell`
 const ASSET_CACHE = `${CACHE_VERSION}-assets`
 
