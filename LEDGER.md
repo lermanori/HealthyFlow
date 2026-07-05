@@ -1,3 +1,9 @@
+### 2026-07-05 19:15 — `fix/pwa-cache-refresh`
+
+Fixed the assistant composer icon rendering bug after reproducing it in a mobile browser viewport. The shared button padding was collapsing the inner lucide SVGs to zero width, so the composer icon buttons now remove inherited padding and mark the SVGs as non-shrinking fixed-size icons. A production frontend build passed, and Playwright verification showed all three composer icons rendering at 20x20 before commit.
+
+---
+
 ### 2026-07-05 19:08 — `fix/pwa-cache-refresh`
 
 Added a PWA cache-refresh follow-up for the assistant date/icon fix. The service worker cache version now advances to `healthyflow-v4`, and installed clients reload once when the new worker takes control so mobile PWAs do not keep serving stale UI bundles. A production frontend build passed before commit.

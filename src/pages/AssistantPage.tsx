@@ -1061,19 +1061,19 @@ export default function AssistantPage() {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isSending}
-            className="btn-secondary flex h-11 w-11 flex-none items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-secondary flex h-11 w-11 flex-none items-center justify-center rounded-lg !p-0 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={attachment ? 'Replace attachment' : 'Attach file'}
           >
-            <Paperclip className="h-5 w-5 text-gray-100" />
+            <Paperclip size={20} className="flex-none text-gray-100" />
           </button>
           <button
             type="button"
             onClick={toggleDictation}
             disabled={isSending || !isDictationSupported}
-            className={`btn-secondary flex h-11 w-11 flex-none items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50 ${isListening ? 'border-cyan-500 text-cyan-200' : ''}`}
+            className={`btn-secondary flex h-11 w-11 flex-none items-center justify-center rounded-lg !p-0 disabled:cursor-not-allowed disabled:opacity-50 ${isListening ? 'border-cyan-500 text-cyan-200' : ''}`}
             aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
           >
-            <Mic className={`h-5 w-5 ${isListening ? 'text-cyan-200' : 'text-gray-100'}`} />
+            <Mic size={20} className={`flex-none ${isListening ? 'text-cyan-200' : 'text-gray-100'}`} />
           </button>
           <input
             ref={inputRef}
@@ -1093,10 +1093,10 @@ export default function AssistantPage() {
           <button
             type="submit"
             disabled={isSending || (!draft.trim() && !attachment)}
-            className="btn-primary flex h-11 w-11 flex-none items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
+            className="btn-primary flex h-11 w-11 flex-none items-center justify-center rounded-lg !p-0 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Send"
           >
-            <Send className="h-5 w-5 text-white" />
+            <Send size={20} className="flex-none text-white" />
           </button>
         </div>
       </form>
