@@ -20,6 +20,7 @@ const CHAT_RATE_LIMIT_WINDOW_MS = 60_000
 const CHAT_RATE_LIMIT_MAX = 12
 const MAX_CHAT_IMAGE_BYTES = 4 * 1024 * 1024
 const MAX_CHAT_TEXT_ATTACHMENT_CHARS = 12_000
+const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
 const router = express.Router()
 const chatRateLimit = new Map<string, { count: number; resetAt: number }>()
@@ -114,6 +115,44 @@ Language:
 
 Keep answers concise and grounded in tool results. If a tool result is empty, say that plainly.`
 
+function normalizeTimeZone(timeZone?: string) {
+  if (!timeZone) return 'UTC'
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone }).format(new Date())
+    return timeZone
+  } catch {
+    return 'UTC'
+  }
+}
+
+function formatLocalDate(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date)
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${byType.year}-${byType.month}-${byType.day}`
+}
+
+export function buildChatSystemPrompt(timeZoneHeader?: string, now = new Date()) {
+  const timeZone = normalizeTimeZone(timeZoneHeader)
+  const today = formatLocalDate(now, timeZone)
+  const yesterday = formatLocalDate(new Date(now.getTime() - ONE_DAY_MS), timeZone)
+  const tomorrow = formatLocalDate(new Date(now.getTime() + ONE_DAY_MS), timeZone)
+
+  return `${CHAT_SYSTEM_PROMPT}
+
+Date context:
+- Client time zone: ${timeZone}
+- Current local date: ${today}
+- Yesterday: ${yesterday}
+- Tomorrow: ${tomorrow}
+
+Resolve relative dates and times such as today, yesterday, tomorrow, this morning, tonight, and last night from this date context when choosing tool arguments. Do not use model training-date assumptions.`
+}
+
 function attachmentMessageContent(content: string, attachment?: z.infer<typeof ChatAttachment>) {
   if (!attachment) return content
 
@@ -183,7 +222,7 @@ router.post('/chat', authenticateToken, async (req: AuthRequest, res) => {
     userId,
     endpoint: 'ai-chat',
     model: parsed.data.model,
-    systemPrompt: CHAT_SYSTEM_PROMPT,
+    systemPrompt: buildChatSystemPrompt(req.header('x-client-time-zone')),
     messages,
     tools,
     temperature: 0.2,

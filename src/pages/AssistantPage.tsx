@@ -1064,7 +1064,7 @@ export default function AssistantPage() {
             className="btn-secondary flex h-11 w-11 flex-none items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={attachment ? 'Replace attachment' : 'Attach file'}
           >
-            <Paperclip className="h-5 w-5" />
+            <Paperclip className="h-5 w-5 text-gray-100" />
           </button>
           <button
             type="button"
@@ -1073,7 +1073,7 @@ export default function AssistantPage() {
             className={`btn-secondary flex h-11 w-11 flex-none items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50 ${isListening ? 'border-cyan-500 text-cyan-200' : ''}`}
             aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
           >
-            <Mic className="h-5 w-5" />
+            <Mic className={`h-5 w-5 ${isListening ? 'text-cyan-200' : 'text-gray-100'}`} />
           </button>
           <input
             ref={inputRef}
@@ -1096,7 +1096,7 @@ export default function AssistantPage() {
             className="btn-primary flex h-11 w-11 flex-none items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
             aria-label="Send"
           >
-            <Send className="h-5 w-5" />
+            <Send className="h-5 w-5 text-white" />
           </button>
         </div>
       </form>
