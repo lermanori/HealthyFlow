@@ -1,3 +1,9 @@
+### 2026-07-05 18:30 — `main`
+
+Named the product thesis after a packaging brainstorm: the day is the unit — tasks, food, training, weight, and habits are lenses on the same day, and rollover connects days. Committed the packaging design spec (story, audience, keep/promote/merge/hide/cut list, brain-dump-first onboarding) and rewrote MARKETING.md as a v2 plan targeting the first 10 paying customers, with competitor research and a P0–P2 fix list (sell-rate split in credits.ts and trial credits are the top blockers). Docs only — no code changed.
+
+---
+
 ### 2026-07-05 17:16 — `fix/assistant-date-icons`
 
 Fixed the assistant date-context regression from #120 and the missing composer icons seen on mobile. Assistant chat prompts now include the client time zone plus explicit today/yesterday/tomorrow dates before tool selection, and the attachment, dictation, and send icons have direct colors so they render reliably in the PWA UI. Focused assistant route tests and both production builds passed before commit.
