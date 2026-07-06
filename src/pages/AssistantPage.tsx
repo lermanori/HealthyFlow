@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Bot, ChevronDown, Dumbbell, Flame, Image as ImageIcon, Mic, MessageSquare, Paperclip, Pencil, Plus, Scale, Send, Target, Trash2, UserRound, Wrench, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantPendingAction, AssistantToolEvent } from '../services/api'
@@ -1098,6 +1099,11 @@ export default function AssistantPage() {
           >
             <Send size={20} className="flex-none text-white" />
           </button>
+        </div>
+        <div className="mt-2 text-right">
+          <Link to="/add" className="text-xs text-gray-500 hover:text-gray-300">
+            Add manually
+          </Link>
         </div>
       </form>
       </div>

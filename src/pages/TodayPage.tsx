@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays, startOfWeek, isSameDay, isBefore } from 'date-fns'
-import { Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, CheckCircle2, Clock } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, CheckCircle2, Clock, Plus } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import api, {
   calendarService,
@@ -526,6 +526,13 @@ export default function TodayPage() {
             >
               <Sparkles className="w-4 h-4" />
               <span>Talk</span>
+            </Link>
+            <Link
+              to="/add"
+              className={`btn-secondary flex items-center space-x-2 ${isMobile ? 'text-sm py-2 px-3' : ''}`}
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add</span>
             </Link>
           </div>
         </div>
