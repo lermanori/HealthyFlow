@@ -1,3 +1,9 @@
+### 2026-07-06 — `main`
+
+Restored the day-is-the-unit packaging spec and marketing plan v2 (orphaned when the branch line was reset past commit 714cc5e), then extended the spec with verdicts from a clickable wireframe prototype of the whole redesigned flow (`public/prototype-redesign.html`). Prototyping killed the close-day ritual (automatic rollover is the differentiator), merged Add and Ask into one "Talk to your day" surface (sharpens #124), and settled the Today header as week ribbon + now/next with no body metrics. Next step: plan the real `/today-v2` implementation.
+
+---
+
 ### 2026-07-05 20:09 — `fix/assistant-current-time`
 
 Fixed the remaining Assistant time-context gap after the date-context fix. Assistant chat prompts now include the user's current local `HH:MM` time alongside timezone, today, yesterday, and tomorrow, and explicitly tell the model to use that value for "now" or "right now" tool arguments. Focused assistant route tests and the backend build passed before commit.
