@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
-import { CalendarDays, Check, Clock, GripVertical, MapPin } from 'lucide-react'
-import { ExternalCalendarEvent, Task } from '../services/api'
+import { CalendarDays, Check, Clock, Flame, GripVertical, MapPin } from 'lucide-react'
+import { ExternalCalendarEvent, Task, CalorieEntry } from '../services/api'
 import TaskCard from './TaskCard'
 import { taskService } from '../services/api'
 
 interface DayTimelineProps {
   tasks: Task[]
   calendarEvents?: ExternalCalendarEvent[]
+  calorieEntries?: CalorieEntry[]
   onTasksReorder: (tasks: Task[]) => void
   onCompleteTask: (id: string) => void
   onUncompleteTask: (id: string) => void
@@ -16,6 +17,20 @@ interface DayTimelineProps {
   onCalendarEventSchedule: (id: string, startTime: string) => Promise<void> | void
   onEditTask: (task: Task) => void
   onDeleteTask: (task: Task) => void
+}
+
+// ponytail: age badge for the anytime shelf — how stale is this untimed item.
+// Effective date is the item's scheduledDate (rolled-over items keep an older one).
+function ageBadge(scheduledDate: string): string | null {
+  if (!scheduledDate) return null
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const d = new Date(`${scheduledDate}T00:00:00`)
+  const days = Math.round((today.getTime() - d.getTime()) / 86400000)
+  if (days <= 0) return null
+  if (days < 7) return `${days} day${days === 1 ? '' : 's'}`
+  const weeks = Math.round(days / 7)
+  return `${weeks} wk${weeks === 1 ? '' : 's'}`
 }
 
 // ponytail: mirrors backend/src/utils/hourSlots.ts — 18 slots 6am–11pm
@@ -81,12 +96,13 @@ function timedBlockHeight(duration?: number): number {
   return Math.max(MIN_TIMED_TASK_HEIGHT_PX, Math.round((minutes / 60) * HOUR_SLOT_HEIGHT_PX))
 }
 
-function slotHeightForContent(tasks: Task[], events: ExternalCalendarEvent[], isCompacted: boolean): number {
+function slotHeightForContent(tasks: Task[], events: ExternalCalendarEvent[], calories: CalorieEntry[], isCompacted: boolean): number {
   if (isCompacted) return COMPACT_EMPTY_SLOT_HEIGHT_PX
 
   const taskHeights = tasks.map(task => timedBlockHeight(task.duration))
   const eventHeights = events.map(event => timedBlockHeight(eventDurationMinutes(event)))
-  const itemHeights = [...eventHeights, ...taskHeights]
+  const calorieHeights = calories.map(() => MIN_TIMED_TASK_HEIGHT_PX)
+  const itemHeights = [...eventHeights, ...taskHeights, ...calorieHeights]
   if (itemHeights.length === 0) return HOUR_SLOT_HEIGHT_PX
 
   const contentHeight =
@@ -180,6 +196,30 @@ function CalendarEventBlock({
   )
 }
 
+// ponytail: read-only body row (calorie entry). Second accent hue (rose) so body
+// facts read as distinct from plan rows. Not draggable, not completable.
+function CalorieEntryBlock({ entry }: { entry: CalorieEntry }) {
+  return (
+    <div className="group relative flex min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5">
+      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/20 text-rose-300">
+        <Flame className="h-3.5 w-3.5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <h3 className="truncate text-sm font-medium text-rose-100">{entry.name}</h3>
+        <div className="flex items-center gap-2 text-xs text-rose-300/80">
+          {entry.time && (
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {entry.time}
+            </span>
+          )}
+          <span>{entry.calories} cal</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function TaskDragGrip({
   dragHandleProps,
   compact = false,
@@ -207,6 +247,7 @@ function TaskDragGrip({
 export default function DayTimeline({
   tasks,
   calendarEvents = [],
+  calorieEntries = [],
   onTasksReorder,
   onCompleteTask,
   onUncompleteTask,
@@ -245,7 +286,17 @@ export default function DayTimeline({
     const clampedHour = Math.min(23, Math.max(6, hour))
     calendarBuckets[`${String(clampedHour).padStart(2, '0')}:00`].push(event)
   }
-  const hasSlotContent = (slot: string) => slotBuckets[slot].length > 0 || calendarBuckets[slot].length > 0
+  // Read-only calorie rows bucket by their logged hour. Entries without a time are dropped
+  // (nowhere to place them on a clock); degrade gracefully rather than inventing a slot.
+  const calorieBuckets: Record<string, CalorieEntry[]> = {}
+  for (const slot of HOUR_SLOTS) calorieBuckets[slot] = []
+  for (const entry of calorieEntries) {
+    if (!entry.time) continue
+    const hour = Math.min(23, Math.max(6, parseInt(entry.time, 10)))
+    calorieBuckets[`${String(hour).padStart(2, '0')}:00`].push(entry)
+  }
+
+  const hasSlotContent = (slot: string) => slotBuckets[slot].length > 0 || calendarBuckets[slot].length > 0 || calorieBuckets[slot].length > 0
   // Compaction is static — it never changes during a drag. Expanding mid-lift reflows the
   // timeline and desyncs the dragged clone from the pointer. @hello-pangea/dnd hit-detects by
   // rect intersection, so a compacted 28px slot is still a valid drop target without expanding.
@@ -320,9 +371,10 @@ export default function DayTimeline({
           {HOUR_SLOTS.map(slot => {
             const slotTasks = slotBuckets[slot]
             const slotCalendarEvents = calendarBuckets[slot]
-            const hasContent = slotTasks.length > 0 || slotCalendarEvents.length > 0
+            const slotCalories = calorieBuckets[slot]
+            const hasContent = slotTasks.length > 0 || slotCalendarEvents.length > 0 || slotCalories.length > 0
             const isCompacted = compactedEmptySlots.has(slot)
-            const slotHeight = slotHeightForContent(slotTasks, slotCalendarEvents, isCompacted)
+            const slotHeight = slotHeightForContent(slotTasks, slotCalendarEvents, slotCalories, isCompacted)
 
             return (
               <Droppable droppableId={slot} key={slot}>
@@ -401,6 +453,9 @@ export default function DayTimeline({
                           )}
                         </Draggable>
                       ))}
+                      {slotCalories.map(entry => (
+                        <CalorieEntryBlock key={entry.id} entry={entry} />
+                      ))}
                       {provided.placeholder}
                       {snapshot.isDraggingOver && slotTasks.length === 0 && (
                         <div className="text-xs text-blue-400 py-1 px-1">Drop to schedule at {formatHour(slot)}</div>
@@ -450,15 +505,22 @@ export default function DayTimeline({
                         className="flex min-w-0 gap-2"
                       >
                         <TaskDragGrip dragHandleProps={provided.dragHandleProps} />
-                        <TaskCard
-                          task={task}
-                          onComplete={onCompleteTask}
-                          onUncomplete={onUncompleteTask}
-                          onEdit={onEditTask}
-                          onDelete={onDeleteTask}
-                          isDragging={snapshot.isDragging || draggedTaskId === task.id}
-                          className="min-w-0 flex-1"
-                        />
+                        <div className="relative min-w-0 flex-1">
+                          <TaskCard
+                            task={task}
+                            onComplete={onCompleteTask}
+                            onUncomplete={onUncompleteTask}
+                            onEdit={onEditTask}
+                            onDelete={onDeleteTask}
+                            isDragging={snapshot.isDragging || draggedTaskId === task.id}
+                            className="min-w-0"
+                          />
+                          {ageBadge(task.scheduledDate) && (
+                            <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                              {ageBadge(task.scheduledDate)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     )}
                   </Draggable>

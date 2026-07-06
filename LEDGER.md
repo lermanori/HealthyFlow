@@ -1,3 +1,9 @@
+### 2026-07-06 — `feat/redesign-v2`
+
+Shipped slice 1 of the redesign: TodayPage is now day-first. Replaced the stats/progress header (task counts, HabitTrackerBar sidebar, mobile module cards) with a 7-day week ribbon (past days show a ✓ when fully done, today/future show load dots) and a now/next card that appears only when viewing today. DayTimeline now renders calorie entries inline as read-only rose-accent body rows at their logged hour, and the Anytime shelf shows age badges ("2 days", "3 wks") on stale untimed items — replacing the per-card rollover banner. Drag-materialization (ADR-0001), virtual habit instances, and query-time rollover (ADR-0002) are untouched. Deferred: workout/weight timeline rows (no time field on those records — no new endpoints per scope) and flipping the calorie gate to on-by-default (#47, its own work item). Build (tsc + vite) passes.
+
+---
+
 ### 2026-07-06 — `main`
 
 Restored the day-is-the-unit packaging spec and marketing plan v2 (orphaned when the branch line was reset past commit 714cc5e), then extended the spec with verdicts from a clickable wireframe prototype of the whole redesigned flow (`public/prototype-redesign.html`). Prototyping killed the close-day ritual (automatic rollover is the differentiator), merged Add and Ask into one "Talk to your day" surface (sharpens #124), and settled the Today header as week ribbon + now/next with no body metrics. Next step: plan the real `/today-v2` implementation.
