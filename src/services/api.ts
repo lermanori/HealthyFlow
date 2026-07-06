@@ -429,11 +429,6 @@ export const aiService = {
     return response.data
   },
 
-  queryTasks: async (question: string): Promise<{ answer: string }> => {
-    const response = await api.post('/ai/query-tasks', { question })
-    return response.data
-  },
-
   chat: async (
     messages: AssistantChatMessage[],
     model?: AssistantChatModel,

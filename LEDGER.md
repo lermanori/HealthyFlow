@@ -1,5 +1,11 @@
 ### 2026-07-06 — `feat/redesign-v2`
 
+Shipped slice 2 of the redesign: Add and Ask are now one surface. The Assistant is repurposed as "Talk to your day" — route `/talk` renders the existing AssistantPage (retitled, composer placeholder "Add anything, or ask anything…"), with `/assistant` and `/add` redirecting to it. Backend behavior is unchanged; this is a re-centering, not a rebuild. Navigation collapsed to two destinations — Today and Talk (Talk is the primary/center dock action, grid is now 2-col) — across the mobile dock and desktop sidebar. TodayPage's Ask entry points (AskAIModal) now navigate to /talk; AskAIModal and its now-dead `aiService.queryTasks` client method were deleted. AddItemPage.tsx is kept (still deep-linked from the TodayPage shelf via `/add?tab=`) but is no longer a nav destination. Conflict noted: those shelf `/add?tab=` links now redirect to /talk and lose the tab param — left as-is per scope (don't touch TodayPage beyond the Ask button). Build (tsc + vite) passes.
+
+---
+
+### 2026-07-06 — `feat/redesign-v2`
+
 Shipped slice 1 of the redesign: TodayPage is now day-first. Replaced the stats/progress header (task counts, HabitTrackerBar sidebar, mobile module cards) with a 7-day week ribbon (past days show a ✓ when fully done, today/future show load dots) and a now/next card that appears only when viewing today. DayTimeline now renders calorie entries inline as read-only rose-accent body rows at their logged hour, and the Anytime shelf shows age badges ("2 days", "3 wks") on stale untimed items — replacing the per-card rollover banner. Drag-materialization (ADR-0001), virtual habit instances, and query-time rollover (ADR-0002) are untouched. Deferred: workout/weight timeline rows (no time field on those records — no new endpoints per scope) and flipping the calorie gate to on-by-default (#47, its own work item). Build (tsc + vite) passes.
 
 ---

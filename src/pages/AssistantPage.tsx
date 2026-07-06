@@ -914,7 +914,7 @@ export default function AssistantPage() {
             <Bot className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-gray-100">Assistant</h1>
+            <h1 className="text-lg font-semibold text-gray-100">Talk to your day</h1>
             <p className="text-xs text-gray-500 md:hidden">{conversations.length} saved chats</p>
           </div>
         </div>
@@ -1080,7 +1080,7 @@ export default function AssistantPage() {
             className="input-field min-w-0 flex-1"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="Ask about today, calories, achievements, or workouts"
+            placeholder="Add anything, or ask anything…"
             disabled={isSending}
           />
           <input

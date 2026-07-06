@@ -23,7 +23,6 @@ import { useNotifications } from '../hooks/useNotifications'
 import { formatRelativeDate } from '../utils/dateHelpers'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
-import AskAIModal from '../components/AskAIModal'
 import { createPortal } from 'react-dom'
 import { useSettings } from '../hooks/useSettings'
 
@@ -127,7 +126,6 @@ export default function TodayPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
   const [showAIAnalyzer, setShowAIAnalyzer] = useState(false)
-  const [showAskAIModal, setShowAskAIModal] = useState(false)
   const [habitDeleteCandidate, setHabitDeleteCandidate] = useState<Task | null>(null)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const queryClient = useQueryClient()
@@ -489,15 +487,14 @@ export default function TodayPage() {
               <p className="text-sm font-medium text-gray-100">Record a win</p>
               <p className="mt-1 text-xs text-gray-500">Save a measurable result.</p>
             </Link>
-            <button
-              type="button"
-              onClick={() => setShowAskAIModal(true)}
+            <Link
+              to="/talk"
               className="rounded-lg border border-gray-700 bg-gray-950/30 p-3 text-left transition hover:border-cyan-500/40 hover:bg-cyan-500/10"
             >
               <Brain className="mb-2 h-4 w-4 text-cyan-300" />
-              <p className="text-sm font-medium text-gray-100">Ask AI</p>
-              <p className="mt-1 text-xs text-gray-500">Use the sample tasks.</p>
-            </button>
+              <p className="text-sm font-medium text-gray-100">Talk to your day</p>
+              <p className="mt-1 text-xs text-gray-500">Add or ask, one place.</p>
+            </Link>
           </div>
         </motion.div>
       )}
@@ -554,21 +551,12 @@ export default function TodayPage() {
               <span>{isMobile ? 'AI' : 'AI Analyzer'}</span>
               <Sparkles className="w-4 h-4 animate-neon-flicker" />
             </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowAskAIModal(true)}
-              className={`btn-secondary flex items-center space-x-2 ${isMobile ? 'text-sm py-2 px-3' : ''}`}
-            >
-              <Sparkles className="w-4 h-4 text-cyan-400" />
-              <span>{isMobile ? 'Ask' : 'Ask AI'}</span>
-            </motion.button>
             <Link
-              to="/add"
+              to="/talk"
               className={`btn-primary flex items-center space-x-2 ${isMobile ? 'text-sm py-2 px-3' : ''}`}
             >
-              <Plus className="w-4 h-4" />
-              <span>{isMobile ? 'Add' : 'Add Task'}</span>
+              <Sparkles className="w-4 h-4" />
+              <span>Talk</span>
             </Link>
           </div>
         </div>
@@ -601,9 +589,6 @@ export default function TodayPage() {
         </AnimatePresence>,
         document.body
       )}
-
-      {/* Ask AI Modal */}
-      <AskAIModal isOpen={showAskAIModal} onClose={() => setShowAskAIModal(false)} />
 
       <AnimatePresence>
         {habitDeleteCandidate && (

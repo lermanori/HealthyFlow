@@ -2,7 +2,6 @@ import { ReactNode, useEffect, useState, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   Home,
-  Plus,
   Calendar,
   Settings,
   LogOut,
@@ -66,9 +65,8 @@ export default function Layout({ children }: LayoutProps) {
 
   const navigation = [
     { name: 'Today', href: '/', icon: Home },
-    { name: 'Add Item', href: '/add', icon: Plus },
+    { name: 'Talk', href: '/talk', icon: MessageCircle },
     { name: 'Week View', href: '/week', icon: Calendar },
-    { name: 'Assistant', href: '/assistant', icon: MessageCircle },
     ...(settings?.calorieIntake ? [{ name: 'Calories', href: '/calories', icon: Utensils }] : []),
     ...(settings?.achievementTracker ? [{ name: 'Achievements', href: '/achievements', icon: Award }] : []),
     ...(settings?.workoutTracker ?? true ? [{ name: 'Workouts', href: '/workouts', icon: Dumbbell }] : []),
@@ -78,13 +76,8 @@ export default function Layout({ children }: LayoutProps) {
   ]
 
   const primaryMobileNavigation = navigation.filter((item) => (
-    item.href === '/' || item.href === '/add' || item.href === '/assistant'
+    item.href === '/' || item.href === '/talk'
   ))
-  const mobileNavLabel = (name: string) => {
-    if (name === 'Add Item') return 'Add'
-    if (name === 'Assistant') return 'Ask'
-    return name
-  }
 
   const MobileNavigation = () => (
     <AnimatePresence>
@@ -354,25 +347,28 @@ export default function Layout({ children }: LayoutProps) {
       {/* Mobile Bottom Navigation */}
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30">
-          <div className="grid grid-cols-3 gap-1 p-2">
+          <div className="grid grid-cols-2 gap-2 p-2">
             {primaryMobileNavigation.map((item) => {
               const isActive = location.pathname === item.href
+              const isPrimary = item.href === '/talk'
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   aria-label={item.name}
                   className={`flex min-w-0 flex-col items-center space-y-1 rounded-xl p-2 transition-all duration-300 xs:p-3 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+                    isPrimary
+                      ? `bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 ${isActive ? 'ring-2 ring-cyan-300/60' : ''}`
+                      : isActive
+                        ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
                   }`}
                 >
-                  <item.icon className={`w-5 h-5 ${isActive ? 'text-cyan-400' : ''}`} />
+                  <item.icon className={`w-5 h-5 ${isActive && !isPrimary ? 'text-cyan-400' : ''}`} />
                   <span className="mobile-nav-label max-w-full truncate text-[10px] font-medium leading-tight xs:text-xs">
-                    {mobileNavLabel(item.name)}
+                    {item.name}
                   </span>
-                  {isActive && (
+                  {isActive && !isPrimary && (
                     <div className="w-1 h-1 bg-cyan-400 rounded-full"></div>
                   )}
                 </Link>
