@@ -40,6 +40,7 @@ describe('settings API', () => {
       workoutTracker: true,
       weekStartsOn: 1,
       onboardingStatus: 'completed',
+      theme: 'midnight',
     })
   })
 

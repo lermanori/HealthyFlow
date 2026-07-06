@@ -56,11 +56,11 @@ function WeekRibbon({
             className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2 transition-all ${
               isSelected
                 ? 'border-cyan-500/60 bg-cyan-500/15 text-cyan-200 shadow-lg shadow-cyan-500/10'
-                : 'border-gray-700/60 bg-gray-900/40 text-gray-400 hover:border-cyan-500/30 hover:text-gray-200'
+                : 'border-line/60 bg-page/40 text-ink-muted hover:border-cyan-500/30 hover:text-ink-soft'
             }`}
           >
             <span className="text-[10px] font-medium uppercase tracking-wide">{format(day, 'EEEEE')}</span>
-            <span className={`text-sm font-semibold ${isSelected ? 'text-cyan-100' : 'text-gray-200'}`}>{format(day, 'd')}</span>
+            <span className={`text-sm font-semibold ${isSelected ? 'text-cyan-100' : 'text-ink-soft'}`}>{format(day, 'd')}</span>
             <span className="flex h-2 items-center gap-0.5">
               {allDone ? (
                 <CheckCircle2 className="h-3 w-3 text-emerald-400" />
@@ -92,7 +92,7 @@ function NowNextCard({ tasks }: { tasks: Task[] }) {
 
   if (!current && !next) {
     return (
-      <div className="rounded-xl border border-gray-700/60 bg-gray-900/40 p-4 text-sm text-gray-400">
+      <div className="rounded-xl border border-line/60 bg-page/40 p-4 text-sm text-ink-muted">
         Nothing timed right now. Add a time to something below, or enjoy the open space.
       </div>
     )
@@ -101,19 +101,19 @@ function NowNextCard({ tasks }: { tasks: Task[] }) {
   const Row = ({ label, task, accent }: { label: string; task: Task; accent: string }) => (
     <div className="flex min-w-0 items-center gap-3">
       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${accent}`}>{label}</span>
-      <span className="flex shrink-0 items-center gap-1 text-xs text-gray-400">
+      <span className="flex shrink-0 items-center gap-1 text-xs text-ink-muted">
         <Clock className="h-3 w-3" />
         {task.startTime}
       </span>
-      <span className="truncate text-sm font-medium text-gray-100">{task.title}</span>
+      <span className="truncate text-sm font-medium text-ink">{task.title}</span>
     </div>
   )
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-cyan-500/30 bg-gray-900/50 p-4">
+    <div className="flex flex-col gap-3 rounded-xl border border-cyan-500/30 bg-page/50 p-4">
       {current && <Row label="Now" task={current} accent="bg-cyan-500/20 text-cyan-300" />}
       {next && (
-        <div className={current ? 'border-t border-gray-800 pt-3' : ''}>
+        <div className={current ? 'border-t border-card pt-3' : ''}>
           <Row label="Next" task={next} accent="bg-purple-500/20 text-purple-300" />
         </div>
       )}
@@ -438,13 +438,13 @@ export default function TodayPage() {
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-lg border border-cyan-500/30 bg-gray-900/80 p-4 shadow-xl shadow-cyan-500/10"
+          className="rounded-lg border border-cyan-500/30 bg-page/80 p-4 shadow-xl shadow-cyan-500/10"
         >
           <div className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-cyan-400" />
-            <h2 className="text-lg font-semibold text-gray-100">Tell me about your day</h2>
+            <h2 className="text-lg font-semibold text-ink">Tell me about your day</h2>
           </div>
-          <p className="mt-1 text-sm text-gray-400">
+          <p className="mt-1 text-sm text-ink-muted">
             One brain-dump — work, food, gym, anything — and I'll turn it into your schedule.
           </p>
 
@@ -461,7 +461,7 @@ export default function TodayPage() {
             type="button"
             onClick={() => skipOnboardingMutation.mutate()}
             disabled={skipOnboardingMutation.isPending}
-            className="mt-3 block text-xs text-gray-500 transition-colors hover:text-gray-300"
+            className="mt-3 block text-xs text-gray-500 transition-colors hover:text-ink-soft"
           >
             I'll do it later
           </button>
@@ -484,17 +484,17 @@ export default function TodayPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={handlePreviousDay}
-              className="p-2 rounded-xl hover:bg-gray-800/50 transition-all text-gray-400 hover:text-cyan-400"
+              className="p-2 rounded-xl hover:bg-card/50 transition-all text-ink-muted hover:text-cyan-400"
               aria-label="Previous day"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-100 neon-text">
+            <h1 className="text-2xl md:text-3xl font-bold text-ink neon-text">
               {formatRelativeDate(selectedDate)}
             </h1>
             <button
               onClick={handleNextDay}
-              className="p-2 rounded-xl hover:bg-gray-800/50 transition-all text-gray-400 hover:text-cyan-400"
+              className="p-2 rounded-xl hover:bg-card/50 transition-all text-ink-muted hover:text-cyan-400"
               aria-label="Next day"
             >
               <ChevronRight className="w-5 h-5" />
@@ -551,7 +551,7 @@ export default function TodayPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed left-0 top-0 z-[9999] flex h-dvh w-dvw items-start justify-center overflow-y-auto bg-gray-950/80 px-2 py-3 backdrop-blur-sm sm:items-center sm:p-4"
+              className="fixed left-0 top-0 z-[9999] flex h-dvh w-dvw items-start justify-center overflow-y-auto bg-sunken/80 px-2 py-3 backdrop-blur-sm sm:items-center sm:p-4"
               onClick={() => setShowAIAnalyzer(false)}
             >
               <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-4xl items-stretch sm:block">
@@ -583,15 +583,15 @@ export default function TodayPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.96, y: 16 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md rounded-xl border border-gray-700 bg-gray-900 p-5 shadow-2xl"
+              className="w-full max-w-md rounded-xl border border-line bg-page p-5 shadow-2xl"
             >
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-red-500/30 bg-red-500/15 text-red-300">
                   <Trash2 className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-lg font-semibold text-gray-100">Delete habit</h3>
-                  <p className="mt-1 text-sm text-gray-400">
+                  <h3 className="text-lg font-semibold text-ink">Delete habit</h3>
+                  <p className="mt-1 text-sm text-ink-muted">
                     Choose what to remove for "{habitDeleteCandidate.title}".
                   </p>
                 </div>
@@ -601,7 +601,7 @@ export default function TodayPage() {
                 <button
                   type="button"
                   onClick={() => confirmHabitDelete('instance')}
-                  className="flex items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-sm font-medium text-gray-100 transition-colors hover:bg-gray-700"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-line bg-card px-4 py-3 text-sm font-medium text-ink transition-colors hover:bg-gray-700"
                 >
                   <Calendar className="h-4 w-4" />
                   This day
@@ -619,7 +619,7 @@ export default function TodayPage() {
               <button
                 type="button"
                 onClick={() => setHabitDeleteCandidate(null)}
-                className="mt-3 w-full rounded-lg px-4 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-200"
+                className="mt-3 w-full rounded-lg px-4 py-2 text-sm text-ink-muted transition-colors hover:bg-card hover:text-ink-soft"
               >
                 Cancel
               </button>

@@ -98,11 +98,11 @@ export default function Layout({ children }: LayoutProps) {
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 left-0 h-full w-80 max-w-[85vw] bg-gray-900/95 backdrop-blur-xl border-r border-gray-700/50 z-50 lg:hidden"
+            className="fixed top-0 left-0 h-full w-80 max-w-[85vw] bg-page/95 backdrop-blur-xl border-r border-line/50 z-50 lg:hidden"
           >
             <div className="flex flex-col h-full">
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
+              <div className="flex items-center justify-between p-6 border-b border-line/50">
                 <div className="flex items-center space-x-3">
                   <div className="relative">
                     <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl animate-float">
@@ -111,14 +111,14 @@ export default function Layout({ children }: LayoutProps) {
                     <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-cyan-400 animate-neon-flicker" />
                   </div>
                   <div>
-                    <h1 className="text-xl font-bold text-gray-100 neon-text">HealthyFlow</h1>
+                    <h1 className="text-xl font-bold text-ink neon-text">HealthyFlow</h1>
                     <p className="text-xs text-cyan-400">AI-Powered Planner</p>
                   </div>
                 </div>
                 
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 rounded-lg hover:bg-gray-800/50 transition-colors text-gray-400 hover:text-gray-200"
+                  className="p-2 rounded-lg hover:bg-card/50 transition-colors text-ink-muted hover:text-ink-soft"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -136,11 +136,11 @@ export default function Layout({ children }: LayoutProps) {
                           className={`flex items-center space-x-3 px-4 py-4 rounded-xl transition-all duration-300 group ${
                             isActive
                               ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/20'
-                              : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-200 hover:border-gray-600/50 border border-transparent'
+                              : 'text-ink-muted hover:bg-card/50 hover:text-ink-soft hover:border-line-strong/50 border border-transparent'
                           }`}
                         >
                           <item.icon className={`w-6 h-6 transition-all duration-300 ${
-                            isActive ? 'text-cyan-400' : 'group-hover:text-gray-200'
+                            isActive ? 'text-cyan-400' : 'group-hover:text-ink-soft'
                           }`} />
                           <span className="font-medium text-lg">{item.name}</span>
                           {isActive && (
@@ -159,14 +159,14 @@ export default function Layout({ children }: LayoutProps) {
                     <span className="text-sm font-medium text-purple-400">Talk</span>
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-ink-muted">
                     Ready to analyze your tasks and provide intelligent suggestions
                   </p>
                 </div>
               </nav>
 
               {/* User Info & Logout */}
-              <div className="p-6 border-t border-gray-700/50">
+              <div className="p-6 border-t border-line/50">
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full flex items-center justify-center">
                     <span className="text-white font-semibold text-sm">
@@ -174,14 +174,14 @@ export default function Layout({ children }: LayoutProps) {
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-200">{user?.name}</p>
-                    <p className="text-xs text-gray-400">{user?.email}</p>
+                    <p className="text-sm font-medium text-ink-soft">{user?.name}</p>
+                    <p className="text-xs text-ink-muted">{user?.email}</p>
                   </div>
                 </div>
                 
                 <button
                   onClick={logout}
-                  className="flex items-center space-x-2 w-full text-gray-400 hover:text-gray-200 transition-colors p-3 rounded-lg hover:bg-gray-800/50"
+                  className="flex items-center space-x-2 w-full text-ink-muted hover:text-ink-soft transition-colors p-3 rounded-lg hover:bg-card/50"
                 >
                   <LogOut className="w-5 h-5" />
                   <span className="font-medium">Logout</span>
@@ -195,7 +195,7 @@ export default function Layout({ children }: LayoutProps) {
   )
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-page">
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />
       
@@ -208,11 +208,11 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Mobile Header */}
       {isMobile && (
-        <header className="pwa-mobile-header relative z-10 border-b border-gray-700/50 lg:hidden">
+        <header className="pwa-mobile-header relative z-10 border-b border-line/50 lg:hidden">
           <div className="flex items-center justify-between p-4">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className="p-2 rounded-lg hover:bg-gray-800/50 transition-colors text-gray-400 hover:text-gray-200"
+              className="p-2 rounded-lg hover:bg-card/50 transition-colors text-ink-muted hover:text-ink-soft"
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -224,7 +224,7 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
                 <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-cyan-400 animate-neon-flicker" />
               </div>
-              <h1 className="text-lg font-bold text-gray-100 neon-text">HealthyFlow</h1>
+              <h1 className="text-lg font-bold text-ink neon-text">HealthyFlow</h1>
             </div>
             
             {/* Mobile User Menu Button */}
@@ -242,7 +242,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Desktop Header */}
       {!isMobile && (
-        <header className="relative z-10 glass-effect border-b border-gray-700/50">
+        <header className="relative z-10 glass-effect border-b border-line/50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center space-x-3">
@@ -253,19 +253,19 @@ export default function Layout({ children }: LayoutProps) {
                   <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-cyan-400 animate-neon-flicker" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-100 neon-text">HealthyFlow</h1>
+                  <h1 className="text-xl font-bold text-ink neon-text">HealthyFlow</h1>
                   <p className="text-xs text-cyan-400">AI-Powered Future Planner</p>
                 </div>
               </div>
               
               <div className="flex items-center space-x-4">
                 <div className="text-right">
-                  <span className="text-sm text-gray-300">Welcome back,</span>
+                  <span className="text-sm text-ink-soft">Welcome back,</span>
                   <p className="text-sm font-medium text-cyan-400">{user?.name}</p>
                 </div>
                 <button
                   onClick={logout}
-                  className="flex items-center space-x-2 text-gray-400 hover:text-gray-200 transition-colors p-2 rounded-lg hover:bg-gray-800/50"
+                  className="flex items-center space-x-2 text-ink-muted hover:text-ink-soft transition-colors p-2 rounded-lg hover:bg-card/50"
                 >
                   <LogOut className="w-4 h-4" />
                   <span className="text-sm">Logout</span>
@@ -279,7 +279,7 @@ export default function Layout({ children }: LayoutProps) {
       <div className="flex relative z-10">
         {/* Desktop Sidebar */}
         {!isMobile && (
-          <nav className="w-64 glass-effect min-h-screen border-r border-gray-700/50">
+          <nav className="w-64 glass-effect min-h-screen border-r border-line/50">
             <div className="p-4">
               <ul className="space-y-2">
                 {navigation.map((item) => {
@@ -291,11 +291,11 @@ export default function Layout({ children }: LayoutProps) {
                         className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 group ${
                           isActive
                             ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/20'
-                            : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-200 hover:border-gray-600/50 border border-transparent'
+                            : 'text-ink-muted hover:bg-card/50 hover:text-ink-soft hover:border-line-strong/50 border border-transparent'
                         }`}
                       >
                         <item.icon className={`w-5 h-5 transition-all duration-300 ${
-                          isActive ? 'text-cyan-400' : 'group-hover:text-gray-200'
+                          isActive ? 'text-cyan-400' : 'group-hover:text-ink-soft'
                         }`} />
                         <span className="font-medium">{item.name}</span>
                         {isActive && (
@@ -314,7 +314,7 @@ export default function Layout({ children }: LayoutProps) {
                   <span className="text-sm font-medium text-purple-400">Talk</span>
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                 </div>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-ink-muted">
                   Ready to analyze your tasks and provide intelligent suggestions
                 </p>
               </div>
@@ -346,7 +346,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Mobile Bottom Navigation */}
       {isMobile && (
-        <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30">
+        <div className="fixed bottom-0 left-0 right-0 bg-page/95 backdrop-blur-xl border-t border-line/50 z-30">
           <div className="grid grid-cols-2 gap-2 p-2">
             {primaryMobileNavigation.map((item) => {
               const isActive = location.pathname === item.href
@@ -361,7 +361,7 @@ export default function Layout({ children }: LayoutProps) {
                       ? `bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 ${isActive ? 'ring-2 ring-cyan-300/60' : ''}`
                       : isActive
                         ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400'
-                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+                        : 'text-ink-muted hover:text-ink-soft hover:bg-card/50'
                   }`}
                 >
                   <item.icon className={`w-5 h-5 ${isActive && !isPrimary ? 'text-cyan-400' : ''}`} />

@@ -239,7 +239,7 @@ function iconForCapability(capability: string) {
 }
 
 function inputClass() {
-  return 'h-10 rounded-md border border-gray-700 bg-gray-950 px-3 text-sm text-gray-100 outline-none transition-colors focus:border-cyan-500'
+  return 'h-10 rounded-md border border-line bg-sunken px-3 text-sm text-ink outline-none transition-colors focus:border-cyan-500'
 }
 
 function TextField({
@@ -254,7 +254,7 @@ function TextField({
   type?: string
 }) {
   return (
-    <label className="grid gap-1 text-xs font-medium text-gray-400">
+    <label className="grid gap-1 text-xs font-medium text-ink-muted">
       <span>{label}</span>
       <input className={inputClass()} type={type} value={fieldValue(value)} onChange={(event) => onChange(event.target.value)} />
     </label>
@@ -273,7 +273,7 @@ function SelectField({
   onChange: (value: string) => void
 }) {
   return (
-    <label className="grid gap-1 text-xs font-medium text-gray-400">
+    <label className="grid gap-1 text-xs font-medium text-ink-muted">
       <span>{label}</span>
       <select className={inputClass()} value={fieldValue(value)} onChange={(event) => onChange(event.target.value)}>
         {options.map((option) => (
@@ -297,42 +297,42 @@ function AssistantReasoningStages({ events }: { events: AssistantToolEvent[] }) 
       <button
         type="button"
         onClick={() => setIsOpen((value) => !value)}
-        className="inline-flex items-center gap-2 rounded-md border border-gray-800 bg-gray-950 px-2.5 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
+        className="inline-flex items-center gap-2 rounded-md border border-card bg-sunken px-2.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
         aria-expanded={isOpen}
       >
         <Wrench className="h-3.5 w-3.5" />
         Reasoning stages
-        <span className="rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-300">{events.length}</span>
+        <span className="rounded bg-card px-1.5 py-0.5 text-[10px] text-ink-soft">{events.length}</span>
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="mt-2 space-y-2 rounded-lg border border-gray-800 bg-gray-950/80 p-3">
+        <div className="mt-2 space-y-2 rounded-lg border border-card bg-sunken/80 p-3">
           {events.map((event, index) => (
-            <div key={`${event.name}-${index}`} className="rounded-md border border-gray-800 bg-gray-900/60 p-3">
+            <div key={`${event.name}-${index}`} className="rounded-md border border-card bg-page/60 p-3">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md bg-cyan-500/10 text-[11px] font-semibold text-cyan-200">
                   {index + 1}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-100">{compactToolName(event.name)}</span>
+                    <span className="text-xs font-semibold text-ink">{compactToolName(event.name)}</span>
                     {summarizeArgs(event.args) && (
                       <span className="truncate text-xs text-gray-500">{summarizeArgs(event.args)}</span>
                     )}
                   </div>
-                  <p className="mt-1 text-xs leading-5 text-gray-300">{summarizeResult(event.result)}</p>
+                  <p className="mt-1 text-xs leading-5 text-ink-soft">{summarizeResult(event.result)}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setExpandedEvent((value) => (value === index ? null : index))}
-                  className="flex-none rounded border border-gray-800 px-2 py-1 text-[11px] text-gray-500 transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
+                  className="flex-none rounded border border-card px-2 py-1 text-[11px] text-gray-500 transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
                 >
                   {expandedEvent === index ? 'Hide' : 'Details'}
                 </button>
               </div>
               {expandedEvent === index && (
-                <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-gray-800 bg-gray-950 p-3 text-[11px] leading-5 text-gray-300">
+                <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-[11px] leading-5 text-ink-soft">
                   {JSON.stringify(event, null, 2)}
                 </pre>
               )}
@@ -483,13 +483,13 @@ function PendingActionCard({
   )
 
   return (
-    <div className={`mt-3 rounded-lg border bg-gray-950 p-4 shadow-lg shadow-black/20 ${
+    <div className={`mt-3 rounded-lg border bg-sunken p-4 shadow-lg shadow-black/20 ${
       action.error
         ? 'border-red-500/50'
         : status === 'confirmed'
           ? 'border-emerald-500/50'
           : status === 'canceled'
-            ? 'border-gray-700'
+            ? 'border-line'
             : 'border-amber-500/40'
     }`}>
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -499,7 +499,7 @@ function PendingActionCard({
             : status === 'confirmed'
               ? 'text-emerald-100'
               : status === 'canceled'
-                ? 'text-gray-300'
+                ? 'text-ink-soft'
                 : 'text-amber-100'
         }`}>
           <span className={`flex h-8 w-8 items-center justify-center rounded-md ${
@@ -508,7 +508,7 @@ function PendingActionCard({
               : status === 'confirmed'
                 ? 'bg-emerald-500/15 text-emerald-200'
                 : status === 'canceled'
-                  ? 'bg-gray-800 text-gray-300'
+                  ? 'bg-card text-ink-soft'
                   : 'bg-amber-500/15 text-amber-200'
           }`}>
             {iconForCapability(action.capability)}
@@ -516,7 +516,7 @@ function PendingActionCard({
           {labelForCapability(action.capability)}
         </div>
         {isPending && (
-          <button className="rounded-md border border-gray-700 px-2 py-1 text-xs text-gray-300 hover:border-cyan-500 hover:text-cyan-200" onClick={() => setIsEditing((value) => !value)}>
+          <button className="rounded-md border border-line px-2 py-1 text-xs text-ink-soft hover:border-cyan-500 hover:text-cyan-200" onClick={() => setIsEditing((value) => !value)}>
             {isEditing ? 'Preview' : 'Edit'}
           </button>
         )}
@@ -528,7 +528,7 @@ function PendingActionCard({
           : status === 'confirmed'
             ? 'border-emerald-500/30 bg-emerald-950/30 text-emerald-100'
             : status === 'canceled'
-              ? 'border-gray-700 bg-gray-900 text-gray-300'
+              ? 'border-line bg-page text-ink-soft'
               : 'border-amber-500/30 bg-amber-950/20 text-amber-100'
       }`}>
         {statusLabel}
@@ -563,17 +563,17 @@ function PendingActionCard({
           {action.capability === 'add_calorie_entries' && (
             <div className="space-y-3 sm:col-span-2">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-gray-100">Meal items</p>
-                <span className="text-xs text-gray-400">{arrayValue(draft.entries).length} entries</span>
+                <p className="text-sm font-semibold text-ink">Meal items</p>
+                <span className="text-xs text-ink-muted">{arrayValue(draft.entries).length} entries</span>
               </div>
               {arrayValue(draft.entries).map((entry, index) => (
-                <div key={index} className="rounded-lg border border-gray-800 bg-gray-900/50 p-3">
+                <div key={index} className="rounded-lg border border-card bg-page/50 p-3">
                   <div className="mb-3 flex items-center gap-2">
                     <span className="flex h-6 w-6 items-center justify-center rounded-md bg-cyan-500/15 text-xs font-semibold text-cyan-200">
                       {index + 1}
                     </span>
                     <input
-                      className="min-w-0 flex-1 bg-transparent text-sm font-medium text-gray-100 outline-none"
+                      className="min-w-0 flex-1 bg-transparent text-sm font-medium text-ink outline-none"
                       value={fieldValue(entry.name)}
                       onChange={(event) => setEntryField(index, 'name', event.target.value)}
                       aria-label={`Meal item ${index + 1} name`}
@@ -612,9 +612,9 @@ function PendingActionCard({
               <TextField label="Date" value={draft.date} type="date" onChange={(value) => setField('date', value)} />
               <TextField label="Title" value={draft.title} onChange={(value) => setField('title', value)} />
               <TextField label="Notes" value={draft.notes} onChange={(value) => setField('notes', value)} />
-              <label className="grid gap-1 text-xs font-medium text-gray-400 sm:col-span-2">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted sm:col-span-2">
                 <span>Exercises JSON</span>
-                <textarea className="min-h-28 rounded-md border border-gray-700 bg-gray-950 px-3 py-2 font-mono text-sm text-gray-100 outline-none transition-colors focus:border-cyan-500" value={fieldValue(draft.exercises)} onChange={(event) => setField('exercises', event.target.value)} />
+                <textarea className="min-h-28 rounded-md border border-line bg-sunken px-3 py-2 font-mono text-sm text-ink outline-none transition-colors focus:border-cyan-500" value={fieldValue(draft.exercises)} onChange={(event) => setField('exercises', event.target.value)} />
               </label>
             </>
           )}
@@ -631,13 +631,13 @@ function PendingActionCard({
             <SelectField label="Delete scope" value={draft.deleteScope ?? 'instance'} options={['instance', 'habit']} onChange={(value) => setField('deleteScope', value)} />
           )}
           {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'add_weight_entry', 'add_achievement_entry', 'add_workout_session', 'update_item', 'delete_item'].includes(action.capability) && (
-            <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-gray-800 bg-gray-950 p-3 text-xs text-gray-200 sm:col-span-2">
+            <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-xs text-ink-soft sm:col-span-2">
               {JSON.stringify(action.preview, null, 2)}
             </pre>
           )}
         </div>
       ) : (
-        <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-gray-800 bg-gray-950 p-3 text-xs text-gray-200">
+        <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-xs text-ink-soft">
           {JSON.stringify(status === 'confirmed' ? { args: action.args, result: action.result } : buildEditedArgs(action, draft), null, 2)}
         </pre>
       )}
@@ -861,8 +861,8 @@ export default function AssistantPage() {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-7rem)] w-full max-w-6xl gap-4 overflow-hidden">
-      <aside className="hidden w-72 flex-none flex-col overflow-hidden rounded-lg border border-gray-800 bg-gray-950/70 md:flex">
-        <div className="border-b border-gray-800 p-3">
+      <aside className="hidden w-72 flex-none flex-col overflow-hidden rounded-lg border border-card bg-sunken/70 md:flex">
+        <div className="border-b border-card p-3">
           <button
             type="button"
             onClick={startNewChat}
@@ -875,7 +875,7 @@ export default function AssistantPage() {
         </div>
         <div className="flex-1 overflow-y-auto p-2">
           {conversations.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-800 p-4 text-sm text-gray-500">
+            <div className="rounded-lg border border-dashed border-card p-4 text-sm text-gray-500">
               Your saved chats will appear here.
             </div>
           ) : (
@@ -889,7 +889,7 @@ export default function AssistantPage() {
                   className={`w-full rounded-lg border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                     conversation.id === activeConversationId
                       ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-100'
-                      : 'border-gray-800 bg-gray-900/70 text-gray-300 hover:border-cyan-500/40 hover:text-cyan-100'
+                      : 'border-card bg-page/70 text-ink-soft hover:border-cyan-500/40 hover:text-cyan-100'
                   }`}
                 >
                   <div className="flex items-start gap-2">
@@ -908,14 +908,14 @@ export default function AssistantPage() {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-800 bg-gray-950/70">
-      <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-card bg-sunken/70">
+      <div className="flex items-center justify-between border-b border-card px-4 py-3">
         <div className="flex items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-300">
             <Bot className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-gray-100">Talk to your day</h1>
+            <h1 className="text-lg font-semibold text-ink">Talk to your day</h1>
             <p className="text-xs text-gray-500 md:hidden">{conversations.length} saved chats</p>
           </div>
         </div>
@@ -924,7 +924,7 @@ export default function AssistantPage() {
             type="button"
             onClick={startNewChat}
             disabled={isSending}
-            className="flex h-9 w-9 items-center justify-center rounded-md border border-gray-800 bg-gray-900 text-gray-200 transition-colors hover:border-cyan-500/50 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-60 md:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-md border border-card bg-page text-ink-soft transition-colors hover:border-cyan-500/50 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-60 md:hidden"
             aria-label="New Chat"
           >
             <Plus className="h-4 w-4" />
@@ -933,7 +933,7 @@ export default function AssistantPage() {
             value={model}
             onChange={(event) => setModel(event.target.value as AssistantChatModel)}
             disabled={isSending}
-            className="rounded-md border border-gray-800 bg-gray-900 px-2 py-1 text-sm text-gray-100 outline-none transition-colors focus:border-cyan-500 disabled:opacity-60"
+            className="rounded-md border border-card bg-page px-2 py-1 text-sm text-ink outline-none transition-colors focus:border-cyan-500 disabled:opacity-60"
             aria-label="Assistant model"
           >
             {assistantModels.map((option) => (
@@ -947,7 +947,7 @@ export default function AssistantPage() {
       </div>
 
       {conversations.length > 0 && (
-        <div className="border-b border-gray-800 p-3 md:hidden">
+        <div className="border-b border-card p-3 md:hidden">
           <label className="grid gap-1 text-xs font-medium text-gray-500">
             <span>Chat history</span>
             <select
@@ -957,7 +957,7 @@ export default function AssistantPage() {
                 if (conversation) openConversation(conversation)
               }}
               disabled={isSending}
-              className="rounded-md border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-100 outline-none transition-colors focus:border-cyan-500 disabled:opacity-60"
+              className="rounded-md border border-card bg-page px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-cyan-500 disabled:opacity-60"
             >
               {conversations.map((conversation) => (
                 <option key={conversation.id} value={conversation.id}>
@@ -976,7 +976,7 @@ export default function AssistantPage() {
               <button
                 key={prompt}
                 onClick={() => sendMessage(prompt)}
-                className="rounded-lg border border-gray-800 bg-gray-900/80 px-3 py-3 text-left text-sm text-gray-200 transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
+                className="rounded-lg border border-card bg-page/80 px-3 py-3 text-left text-sm text-ink-soft transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
               >
                 {prompt}
               </button>
@@ -1000,13 +1000,13 @@ export default function AssistantPage() {
                       ? 'bg-cyan-500 text-gray-950'
                       : message.error
                         ? 'border border-red-500/40 bg-red-950/40 text-red-100'
-                        : 'border border-gray-800 bg-gray-900 text-gray-100'
+                        : 'border border-card bg-page text-ink'
                   }`}
                 >
                   {message.content}
                   {message.attachment && (
                     <div className={`mt-2 inline-flex max-w-full items-center gap-2 rounded-md px-2 py-1 text-xs ${
-                      message.role === 'user' ? 'bg-gray-950/15 text-gray-900' : 'bg-gray-950 text-gray-300'
+                      message.role === 'user' ? 'bg-sunken/15 text-gray-900' : 'bg-sunken text-ink-soft'
                     }`}>
                       {message.attachment.kind === 'image' ? <ImageIcon className="h-3.5 w-3.5 flex-none" /> : <Paperclip className="h-3.5 w-3.5 flex-none" />}
                       <span className="truncate">{message.attachment.name}</span>
@@ -1021,7 +1021,7 @@ export default function AssistantPage() {
                 ))}
               </div>
               {message.role === 'user' && (
-                <div className="mt-1 flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-gray-800 text-gray-200">
+                <div className="mt-1 flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-card text-ink-soft">
                   <UserRound className="h-4 w-4" />
                 </div>
               )}
@@ -1030,26 +1030,26 @@ export default function AssistantPage() {
         )}
       </div>
 
-      <form onSubmit={submit} className="border-t border-gray-800 p-3">
+      <form onSubmit={submit} className="border-t border-card p-3">
         {attachment && (
-          <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2">
+          <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-card bg-sunken px-3 py-2">
             <div className="flex min-w-0 items-center gap-3">
               {attachment.kind === 'image' ? (
-                <img src={attachment.previewUrl} alt="" className="h-10 w-10 flex-none rounded-md border border-gray-700 object-cover" />
+                <img src={attachment.previewUrl} alt="" className="h-10 w-10 flex-none rounded-md border border-line object-cover" />
               ) : (
-                <span className="flex h-10 w-10 flex-none items-center justify-center rounded-md border border-gray-700 bg-gray-900 text-gray-300">
+                <span className="flex h-10 w-10 flex-none items-center justify-center rounded-md border border-line bg-page text-ink-soft">
                   <Paperclip className="h-4 w-4" />
                 </span>
               )}
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-gray-100">{attachment.name}</p>
+                <p className="truncate text-sm font-medium text-ink">{attachment.name}</p>
                 <p className="text-xs text-gray-500">{attachment.mimeType}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setAttachment(null)}
-              className="flex h-8 w-8 flex-none items-center justify-center rounded-md border border-gray-700 text-gray-400 hover:border-red-500/60 hover:text-red-300"
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-md border border-line text-ink-muted hover:border-red-500/60 hover:text-red-300"
               aria-label="Remove attachment"
             >
               <X className="h-4 w-4" />
@@ -1065,7 +1065,7 @@ export default function AssistantPage() {
             className="btn-secondary flex h-11 w-11 flex-none items-center justify-center rounded-lg !p-0 disabled:cursor-not-allowed disabled:opacity-50"
             aria-label={attachment ? 'Replace attachment' : 'Attach file'}
           >
-            <Paperclip size={20} className="flex-none text-gray-100" />
+            <Paperclip size={20} className="flex-none text-ink" />
           </button>
           <button
             type="button"
@@ -1074,7 +1074,7 @@ export default function AssistantPage() {
             className={`btn-secondary flex h-11 w-11 flex-none items-center justify-center rounded-lg !p-0 disabled:cursor-not-allowed disabled:opacity-50 ${isListening ? 'border-cyan-500 text-cyan-200' : ''}`}
             aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
           >
-            <Mic size={20} className={`flex-none ${isListening ? 'text-cyan-200' : 'text-gray-100'}`} />
+            <Mic size={20} className={`flex-none ${isListening ? 'text-cyan-200' : 'text-ink'}`} />
           </button>
           <input
             ref={inputRef}
@@ -1101,7 +1101,7 @@ export default function AssistantPage() {
           </button>
         </div>
         <div className="mt-2 text-right">
-          <Link to="/add" className="text-xs text-gray-500 hover:text-gray-300">
+          <Link to="/add" className="text-xs text-gray-500 hover:text-ink-soft">
             Add manually
           </Link>
         </div>

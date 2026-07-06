@@ -139,22 +139,22 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
             <Brain className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-100 neon-text">AI Meal Entry</h2>
-            <p className="text-sm text-gray-300">Describe a meal or snap a photo</p>
+            <h2 className="text-lg font-bold text-ink neon-text">AI Meal Entry</h2>
+            <p className="text-sm text-ink-soft">Describe a meal or snap a photo</p>
           </div>
         </div>
         {onClose && (
-          <button onClick={onClose} className="rounded-lg p-2 text-gray-400 hover:bg-gray-700 hover:text-gray-200">
+          <button onClick={onClose} className="rounded-lg p-2 text-ink-muted hover:bg-gray-700 hover:text-ink-soft">
             <X className="h-5 w-5" />
           </button>
         )}
       </div>
 
-      <div className="rounded-2xl border border-cyan-300/70 bg-gray-950/45 p-4 shadow-2xl shadow-cyan-500/20 ring-1 ring-cyan-400/20">
+      <div className="rounded-2xl border border-cyan-300/70 bg-sunken/45 p-4 shadow-2xl shadow-cyan-500/20 ring-1 ring-cyan-400/20">
         {photo && (
           <div className="mb-3 inline-flex max-w-full items-center gap-3 rounded-xl bg-gray-700/90 p-2 pr-3">
-            <img src={photo.previewUrl} alt="" className="h-12 w-12 rounded-lg border border-gray-600 object-cover" />
-            <span className="truncate text-sm text-gray-100">{photo.fileName}</span>
+            <img src={photo.previewUrl} alt="" className="h-12 w-12 rounded-lg border border-line-strong object-cover" />
+            <span className="truncate text-sm text-ink">{photo.fileName}</span>
             <button
               type="button"
               onClick={removePhoto}
@@ -170,7 +170,7 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           placeholder={`Describe what you ate...\n\nExamples:\n• '2 eggs, toast, black coffee'\n• 'Chicken salad with olive oil dressing'`}
-          className="min-h-[8rem] w-full resize-none bg-transparent text-base leading-7 text-gray-100 placeholder-gray-400 outline-none"
+          className="min-h-[8rem] w-full resize-none bg-transparent text-base leading-7 text-ink placeholder-ink-muted outline-none"
           disabled={isAnalyzing}
           maxLength={2000}
         />
@@ -179,7 +179,7 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={isAnalyzing}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/25 bg-gray-900/25 text-gray-200 transition-colors hover:bg-gray-700 disabled:opacity-50"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/25 bg-page/25 text-ink-soft transition-colors hover:bg-gray-700 disabled:opacity-50"
             aria-label={photo ? 'Replace photo' : 'Upload photo'}
           >
             <Plus className="h-6 w-6" />
@@ -192,7 +192,7 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
             className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
               isListening
                 ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
-                : 'border-cyan-500/25 bg-gray-900/25 text-gray-300 hover:bg-gray-700'
+                : 'border-cyan-500/25 bg-page/25 text-ink-soft hover:bg-gray-700'
             }`}
             aria-label={isListening ? 'Stop dictation' : 'Dictate'}
           >
@@ -242,11 +242,11 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
             </div>
           )}
           <div className="flex items-center justify-between">
-            <h3 className="flex items-center space-x-2 text-base font-semibold text-gray-100">
+            <h3 className="flex items-center space-x-2 text-base font-semibold text-ink">
               <Sparkles className="h-4 w-4 text-cyan-400" />
               <span>Suggested Meals</span>
             </h3>
-            <span className="text-sm text-gray-300">{selected.size} of {suggestions.length} selected</span>
+            <span className="text-sm text-ink-soft">{selected.size} of {suggestions.length} selected</span>
           </div>
           <div className="grid max-h-72 gap-3 overflow-y-auto">
             {suggestions.map((meal, i) => (
@@ -264,24 +264,24 @@ export default function MealAnalyzer({ date, onClose }: MealAnalyzerProps) {
                     {selected.has(i) && <div className="h-2 w-2 rounded-full bg-white" />}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h4 className="mb-1 font-medium text-gray-100">{meal.name}</h4>
-                    {meal.quantity && <p className="mb-2 text-xs text-gray-400">{meal.quantity}</p>}
+                    <h4 className="mb-1 font-medium text-ink">{meal.name}</h4>
+                    {meal.quantity && <p className="mb-2 text-xs text-ink-muted">{meal.quantity}</p>}
                     <div className="flex flex-wrap gap-2">
                       <span className="rounded-full border border-cyan-500/30 bg-cyan-500/20 px-2 py-1 text-xs text-cyan-300">
                         {meal.calories} cal
                       </span>
                       {meal.protein != null && (
-                        <span className="rounded-full border border-gray-500/30 bg-gray-500/20 px-2 py-1 text-xs text-gray-300">
+                        <span className="rounded-full border border-gray-500/30 bg-gray-500/20 px-2 py-1 text-xs text-ink-soft">
                           P {meal.protein}g
                         </span>
                       )}
                       {meal.carbs != null && (
-                        <span className="rounded-full border border-gray-500/30 bg-gray-500/20 px-2 py-1 text-xs text-gray-300">
+                        <span className="rounded-full border border-gray-500/30 bg-gray-500/20 px-2 py-1 text-xs text-ink-soft">
                           C {meal.carbs}g
                         </span>
                       )}
                       {meal.fat != null && (
-                        <span className="rounded-full border border-gray-500/30 bg-gray-500/20 px-2 py-1 text-xs text-gray-300">
+                        <span className="rounded-full border border-gray-500/30 bg-gray-500/20 px-2 py-1 text-xs text-ink-soft">
                           F {meal.fat}g
                         </span>
                       )}

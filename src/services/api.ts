@@ -703,6 +703,7 @@ export interface UserSettings {
   workoutTracker: boolean
   weekStartsOn: 0 | 1 | 2 | 3 | 4 | 5 | 6
   onboardingStatus: 'active' | 'completed' | 'skipped'
+  theme: 'midnight' | 'white'
 }
 
 export const settingsService = {

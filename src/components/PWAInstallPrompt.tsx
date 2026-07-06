@@ -111,11 +111,11 @@ export default function PWAInstallPrompt() {
   const IOSInstallInstructions = () => (
     <div className="space-y-4">
       <div className="flex items-center space-x-3">
-        <Apple className="w-6 h-6 text-gray-300" />
-        <h3 className="font-semibold text-gray-100">Install HealthyFlow on iOS</h3>
+        <Apple className="w-6 h-6 text-ink-soft" />
+        <h3 className="font-semibold text-ink">Install HealthyFlow on iOS</h3>
       </div>
       
-      <div className="space-y-3 text-sm text-gray-300">
+      <div className="space-y-3 text-sm text-ink-soft">
         <div className="flex items-start space-x-3">
           <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
             1
@@ -222,7 +222,7 @@ export default function PWAInstallPrompt() {
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="bg-gray-900 rounded-2xl p-6 max-w-sm w-full border border-gray-700"
+            className="bg-page rounded-2xl p-6 max-w-sm w-full border border-line"
             onClick={(e) => e.stopPropagation()}
           >
             <IOSInstallInstructions />
@@ -230,7 +230,7 @@ export default function PWAInstallPrompt() {
             <div className="flex justify-end space-x-3 mt-6">
               <button
                 onClick={handleDismiss}
-                className="px-4 py-2 text-gray-400 hover:text-gray-200 transition-colors"
+                className="px-4 py-2 text-ink-muted hover:text-ink-soft transition-colors"
               >
                 Maybe Later
               </button>

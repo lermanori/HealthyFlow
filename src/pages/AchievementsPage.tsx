@@ -123,7 +123,7 @@ function AchievementSparkline({ summary }: { summary: AchievementSummary }) {
   const entries = summary.entries
   if (entries.length < 2) {
     return (
-      <div className="flex h-32 items-center justify-center rounded-lg border border-gray-700/70 bg-gray-950/20 px-4 text-center text-sm text-gray-500">
+      <div className="flex h-32 items-center justify-center rounded-lg border border-line/70 bg-sunken/20 px-4 text-center text-sm text-gray-500">
         Add another entry to see your trend.
       </div>
     )
@@ -140,7 +140,7 @@ function AchievementSparkline({ summary }: { summary: AchievementSummary }) {
   }).join(' ')
 
   return (
-    <div className="rounded-lg border border-gray-700/70 bg-gray-950/20 p-3">
+    <div className="rounded-lg border border-line/70 bg-sunken/20 p-3">
       <svg viewBox="0 0 100 100" className="h-32 w-full overflow-visible" preserveAspectRatio="none" aria-hidden="true">
         <polyline points={points} fill="none" stroke="rgb(34, 211, 238)" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
         {entries.map((entry, index) => {
@@ -149,7 +149,7 @@ function AchievementSparkline({ summary }: { summary: AchievementSummary }) {
           return <circle key={entry.id} cx={x} cy={y} r="2.2" fill="rgb(34, 211, 238)" vectorEffect="non-scaling-stroke" />
         })}
       </svg>
-      <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+      <div className="mt-2 flex items-center justify-between text-xs text-ink-muted">
         <span>{formatDateLabel(entries[0].date)}</span>
         <span>{formatDateLabel(entries[entries.length - 1].date)}</span>
       </div>
@@ -159,13 +159,13 @@ function AchievementSparkline({ summary }: { summary: AchievementSummary }) {
 
 function StatTile({ icon: Icon, label, value, sub }: { icon: any; label: string; value: string; sub?: string }) {
   return (
-    <div className="min-w-0 rounded-lg border border-gray-700/80 bg-gray-950/20 p-3 sm:p-4">
+    <div className="min-w-0 rounded-lg border border-line/80 bg-sunken/20 p-3 sm:p-4">
       <div className="mb-2 flex items-center gap-2 text-xs uppercase text-gray-500">
         <Icon className="h-4 w-4 shrink-0 text-cyan-400" />
         <span>{label}</span>
       </div>
-      <p className="truncate text-xl font-bold text-gray-100 sm:text-2xl">{value}</p>
-      {sub && <p className="mt-1 truncate text-xs text-gray-400 sm:text-sm">{sub}</p>}
+      <p className="truncate text-xl font-bold text-ink sm:text-2xl">{value}</p>
+      {sub && <p className="mt-1 truncate text-xs text-ink-muted sm:text-sm">{sub}</p>}
     </div>
   )
 }
@@ -185,11 +185,11 @@ function AchievementPill({
       className={`min-w-[11rem] max-w-[14rem] shrink-0 rounded-lg border p-3 text-left transition-all ${
         active
           ? 'border-cyan-500/50 bg-cyan-500/12 shadow-lg shadow-cyan-500/10'
-          : 'border-gray-700/70 bg-gray-950/20 hover:border-gray-600'
+          : 'border-line/70 bg-sunken/20 hover:border-line-strong'
       }`}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-sm font-medium text-gray-100">{achievement.definition.name}</span>
+        <span className="truncate text-sm font-medium text-ink">{achievement.definition.name}</span>
         {active && <span className="h-2 w-2 shrink-0 rounded-full bg-cyan-400" />}
       </div>
       <p className="mt-1 text-lg font-bold text-cyan-200">
@@ -324,17 +324,17 @@ export default function AchievementsPage() {
             <Plus className="h-4 w-4 text-cyan-300" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-gray-100">New Achievement</h2>
-            <p className="text-xs text-gray-400">Create a metric once, then log results over time.</p>
+            <h2 className="text-lg font-semibold text-ink">New Achievement</h2>
+            <p className="text-xs text-ink-muted">Create a metric once, then log results over time.</p>
           </div>
         </div>
-        <ChevronDown className={`h-5 w-5 text-gray-400 transition-transform ${showCreate ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-5 w-5 text-ink-muted transition-transform ${showCreate ? 'rotate-180' : ''}`} />
       </button>
 
       {(showCreate || achievements.length === 0) && (
         <div className="mt-4 space-y-3">
           <label className="space-y-1">
-            <span className="text-xs text-gray-400">Name</span>
+            <span className="text-xs text-ink-muted">Name</span>
             <input
               className="input-field"
               placeholder="Pushups max reps"
@@ -343,7 +343,7 @@ export default function AchievementsPage() {
             />
           </label>
           <label className="space-y-1">
-            <span className="text-xs text-gray-400">Category</span>
+            <span className="text-xs text-ink-muted">Category</span>
             <input
               className="input-field"
               placeholder="Optional"
@@ -353,7 +353,7 @@ export default function AchievementsPage() {
           </label>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-xs text-gray-400">Metric</span>
+              <span className="text-xs text-ink-muted">Metric</span>
               <select
                 className="input-field"
                 value={definitionForm.metricType}
@@ -370,7 +370,7 @@ export default function AchievementsPage() {
               </select>
             </label>
             <label className="space-y-1">
-              <span className="text-xs text-gray-400">Unit</span>
+              <span className="text-xs text-ink-muted">Unit</span>
               <input
                 className="input-field"
                 placeholder="kg"
@@ -381,7 +381,7 @@ export default function AchievementsPage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1">
-              <span className="text-xs text-gray-400">Best</span>
+              <span className="text-xs text-ink-muted">Best</span>
               <select
                 className="input-field"
                 value={definitionForm.betterDirection}
@@ -392,7 +392,7 @@ export default function AchievementsPage() {
               </select>
             </label>
             <label className="space-y-1">
-              <span className="text-xs text-gray-400">Target</span>
+              <span className="text-xs text-ink-muted">Target</span>
               <input
                 type="number"
                 min="0"
@@ -421,8 +421,8 @@ export default function AchievementsPage() {
             <Award className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-gray-100 neon-text">Achievements</h1>
-            <p className="text-sm text-gray-400">Personal bests and progress over recorded dates.</p>
+            <h1 className="text-2xl font-bold text-ink neon-text">Achievements</h1>
+            <p className="text-sm text-ink-muted">Personal bests and progress over recorded dates.</p>
           </div>
         </div>
         <button
@@ -453,11 +453,11 @@ export default function AchievementsPage() {
 
       {isLoading ? (
         <div className="card">
-          <p className="text-sm text-gray-400">Loading...</p>
+          <p className="text-sm text-ink-muted">Loading...</p>
         </div>
       ) : !selected ? (
         <div className="card">
-          <div className="flex min-h-[12rem] items-center justify-center rounded-lg border border-gray-700/80 bg-gray-950/20 p-6 text-center text-sm text-gray-400">
+          <div className="flex min-h-[12rem] items-center justify-center rounded-lg border border-line/80 bg-sunken/20 p-6 text-center text-sm text-ink-muted">
             Create your first achievement to start tracking progress.
           </div>
         </div>
@@ -469,20 +469,20 @@ export default function AchievementsPage() {
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="truncate text-xl font-semibold text-gray-100">{selected.definition.name}</h2>
+                      <h2 className="truncate text-xl font-semibold text-ink">{selected.definition.name}</h2>
                       {selected.definition.category && (
                         <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-xs text-cyan-200">
                           {selected.definition.category}
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 text-sm text-gray-400">
+                    <p className="mt-1 text-sm text-ink-muted">
                       {selected.definition.metricType} · {selected.definition.unit} · {selected.definition.betterDirection} is better
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800/70 hover:text-cyan-300"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70 hover:text-cyan-300"
                       onClick={() => {
                         setEditDefinitionForm(summaryToDefinitionForm(selected))
                         setEditingDefinition((value) => !value)
@@ -492,14 +492,14 @@ export default function AchievementsPage() {
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button
-                      className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800/70 hover:text-cyan-300"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70 hover:text-cyan-300"
                       onClick={() => updateAchievement({ id: selected.definition.id, patch: { archived: true } })}
                       title="Archive"
                     >
                       <Archive className="h-4 w-4" />
                     </button>
                     <button
-                      className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-red-500/10 hover:text-red-400"
+                      className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-red-500/10 hover:text-red-400"
                       onClick={() => deleteAchievement(selected.definition.id)}
                       title="Delete"
                     >
@@ -512,7 +512,7 @@ export default function AchievementsPage() {
                   <div className="mb-4 rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-3">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="space-y-1">
-                        <span className="text-xs text-gray-400">Name</span>
+                        <span className="text-xs text-ink-muted">Name</span>
                         <input
                           className="input-field"
                           value={editDefinitionForm.name}
@@ -520,7 +520,7 @@ export default function AchievementsPage() {
                         />
                       </label>
                       <label className="space-y-1">
-                        <span className="text-xs text-gray-400">Category</span>
+                        <span className="text-xs text-ink-muted">Category</span>
                         <input
                           className="input-field"
                           placeholder="Optional"
@@ -529,7 +529,7 @@ export default function AchievementsPage() {
                         />
                       </label>
                       <label className="space-y-1">
-                        <span className="text-xs text-gray-400">Metric</span>
+                        <span className="text-xs text-ink-muted">Metric</span>
                         <select
                           className="input-field"
                           value={editDefinitionForm.metricType}
@@ -550,7 +550,7 @@ export default function AchievementsPage() {
                         </select>
                       </label>
                       <label className="space-y-1">
-                        <span className="text-xs text-gray-400">Unit</span>
+                        <span className="text-xs text-ink-muted">Unit</span>
                         <input
                           className="input-field"
                           value={editDefinitionForm.unit}
@@ -558,7 +558,7 @@ export default function AchievementsPage() {
                         />
                       </label>
                       <label className="space-y-1">
-                        <span className="text-xs text-gray-400">Best</span>
+                        <span className="text-xs text-ink-muted">Best</span>
                         <select
                           className="input-field"
                           value={editDefinitionForm.betterDirection}
@@ -569,7 +569,7 @@ export default function AchievementsPage() {
                         </select>
                       </label>
                       <label className="space-y-1">
-                        <span className="text-xs text-gray-400">Target</span>
+                        <span className="text-xs text-ink-muted">Target</span>
                         <input
                           type="number"
                           min="0"
@@ -590,7 +590,7 @@ export default function AchievementsPage() {
                         <Check className="h-4 w-4" />
                       </button>
                       <button
-                        className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800/70"
+                        className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70"
                         onClick={() => setEditingDefinition(false)}
                       >
                         <X className="h-4 w-4" />
@@ -628,7 +628,7 @@ export default function AchievementsPage() {
 
                 {selected.definition.targetValue && (
                   <div className="mt-4">
-                    <div className="h-2 rounded-full bg-gray-800">
+                    <div className="h-2 rounded-full bg-card">
                       <div
                         className="h-2 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500"
                         style={{ width: `${selected.targetProgress == null ? 0 : Math.round(selected.targetProgress)}%` }}
@@ -640,18 +640,18 @@ export default function AchievementsPage() {
 
               <div className="card">
                 <div className="mb-4 flex items-center justify-between gap-3">
-                  <h2 className="text-lg font-semibold text-gray-100">Trend</h2>
-                  <span className="text-xs text-gray-400">{selected.entries.length} entr{selected.entries.length === 1 ? 'y' : 'ies'}</span>
+                  <h2 className="text-lg font-semibold text-ink">Trend</h2>
+                  <span className="text-xs text-ink-muted">{selected.entries.length} entr{selected.entries.length === 1 ? 'y' : 'ies'}</span>
                 </div>
                 <AchievementSparkline summary={selected} />
               </div>
             </div>
 
             <div className="card lg:sticky lg:top-4 lg:self-start">
-              <h2 className="mb-4 text-lg font-semibold text-gray-100">Log Result</h2>
+              <h2 className="mb-4 text-lg font-semibold text-ink">Log Result</h2>
               <div className="space-y-3">
                 <label className="space-y-1">
-                  <span className="text-xs text-gray-400">Value</span>
+                  <span className="text-xs text-ink-muted">Value</span>
                   <div className="grid grid-cols-[1fr_auto] gap-2">
                     <input
                       type="number"
@@ -663,14 +663,14 @@ export default function AchievementsPage() {
                       value={entryForm.value}
                       onChange={(event) => setEntryForm({ ...entryForm, value: event.target.value })}
                     />
-                    <div className="flex min-w-[4rem] items-center justify-center rounded-lg border border-gray-700/80 bg-gray-950/20 px-3 text-sm font-medium text-cyan-200">
+                    <div className="flex min-w-[4rem] items-center justify-center rounded-lg border border-line/80 bg-sunken/20 px-3 text-sm font-medium text-cyan-200">
                       {selected.definition.unit}
                     </div>
                   </div>
                 </label>
 
                 <label className="space-y-1">
-                  <span className="text-xs text-gray-400">Date</span>
+                  <span className="text-xs text-ink-muted">Date</span>
                   <input
                     type="date"
                     className="input-field"
@@ -680,7 +680,7 @@ export default function AchievementsPage() {
                 </label>
 
                 <button
-                  className="flex w-full items-center justify-between rounded-lg border border-gray-700/80 bg-gray-950/20 px-3 py-3 text-sm text-gray-300"
+                  className="flex w-full items-center justify-between rounded-lg border border-line/80 bg-sunken/20 px-3 py-3 text-sm text-ink-soft"
                   onClick={() => setShowAdvancedLog((value) => !value)}
                 >
                   <span>Extra measurement and notes</span>
@@ -691,7 +691,7 @@ export default function AchievementsPage() {
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <label className="space-y-1">
-                        <span className="text-xs text-gray-400">Extra</span>
+                        <span className="text-xs text-ink-muted">Extra</span>
                         <input
                           type="number"
                           min="0"
@@ -704,7 +704,7 @@ export default function AchievementsPage() {
                         />
                       </label>
                       <label className="space-y-1">
-                        <span className="text-xs text-gray-400">Unit</span>
+                        <span className="text-xs text-ink-muted">Unit</span>
                         <input
                           className="input-field"
                           placeholder="reps"
@@ -714,7 +714,7 @@ export default function AchievementsPage() {
                       </label>
                     </div>
                     <label className="space-y-1">
-                      <span className="text-xs text-gray-400">Notes</span>
+                      <span className="text-xs text-ink-muted">Notes</span>
                       <input
                         className="input-field"
                         placeholder="Optional"
@@ -739,15 +739,15 @@ export default function AchievementsPage() {
 
           <div className="card">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-100">History</h2>
-              <span className="text-xs text-gray-400">Latest first</span>
+              <h2 className="text-lg font-semibold text-ink">History</h2>
+              <span className="text-xs text-ink-muted">Latest first</span>
             </div>
             {selected.entries.length === 0 ? (
-              <div className="rounded-lg border border-gray-700/80 bg-gray-950/20 p-4 text-sm text-gray-400">
+              <div className="rounded-lg border border-line/80 bg-sunken/20 p-4 text-sm text-ink-muted">
                 No entries yet.
               </div>
             ) : (
-              <div className="divide-y divide-gray-800/90 overflow-hidden rounded-lg border border-gray-700/80 bg-gray-950/20">
+              <div className="divide-y divide-card/90 overflow-hidden rounded-lg border border-line/80 bg-sunken/20">
                 {[...selected.entries].reverse().map((entry) => (
                   <div key={entry.id} className="p-3">
                     {editingEntryId === entry.id ? (
@@ -801,7 +801,7 @@ export default function AchievementsPage() {
                           </button>
                           <button
                             onClick={() => setEditingEntryId(null)}
-                            className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800/70"
+                            className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70"
                           >
                             <X className="h-4 w-4" />
                           </button>
@@ -810,14 +810,14 @@ export default function AchievementsPage() {
                     ) : (
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="truncate text-lg font-semibold text-gray-100">{formatEntryValue(entry, selected.definition.unit)}</p>
-                          <p className="truncate text-sm text-gray-400">
+                          <p className="truncate text-lg font-semibold text-ink">{formatEntryValue(entry, selected.definition.unit)}</p>
+                          <p className="truncate text-sm text-ink-muted">
                             {formatDateLabel(entry.date)}{entry.notes ? ` · ${entry.notes}` : ''}
                           </p>
                         </div>
                         <div className="flex shrink-0 items-center gap-1">
                           <button
-                            className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-gray-800/70 hover:text-cyan-300"
+                            className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70 hover:text-cyan-300"
                             onClick={() => {
                               setEditingEntryId(entry.id)
                               setEditEntryForm(entryToForm(entry))
@@ -826,7 +826,7 @@ export default function AchievementsPage() {
                             <Pencil className="h-4 w-4" />
                           </button>
                           <button
-                            className="flex h-10 w-10 items-center justify-center rounded-lg text-gray-400 hover:bg-red-500/10 hover:text-red-400"
+                            className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-red-500/10 hover:text-red-400"
                             onClick={() => deleteEntry(entry.id)}
                           >
                             <Trash2 className="h-4 w-4" />

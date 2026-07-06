@@ -142,7 +142,7 @@ function CalendarEventBlock({
     <div
       className={`group relative flex h-full min-w-0 items-center overflow-hidden rounded-lg border p-2.5 transition-all duration-300 ${
         event.completed
-          ? 'bg-gray-800/50 border-gray-600/50 opacity-75'
+          ? 'bg-card/50 border-line-strong/50 opacity-75'
           : 'card glass-effect hover:shadow-lg'
       }`}
     >
@@ -153,7 +153,7 @@ function CalendarEventBlock({
           className={`flex !h-4 !min-h-0 !w-4 !min-w-0 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 sm:!h-5 sm:!w-5 ${
             event.completed
               ? 'bg-gradient-to-r from-green-500 to-emerald-600 border-green-500 text-white'
-              : 'border-gray-600 hover:border-cyan-400 hover:bg-cyan-400/10'
+              : 'border-line-strong hover:border-cyan-400 hover:bg-cyan-400/10'
           }`}
           aria-label={event.completed ? 'Uncheck calendar event' : 'Check calendar event'}
         >
@@ -167,7 +167,7 @@ function CalendarEventBlock({
                 <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
               <h3 className={`truncate text-sm font-medium sm:text-base ${
-                event.completed ? 'line-through text-gray-500' : 'text-gray-100'
+                event.completed ? 'line-through text-gray-500' : 'text-ink'
               }`}>
                 {event.title}
               </h3>
@@ -178,13 +178,13 @@ function CalendarEventBlock({
             </span>
           </div>
 
-          <div className="flex min-w-0 flex-col gap-1 text-xs text-gray-400 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
-            <span className="inline-flex min-w-0 items-center gap-1 text-gray-400">
+          <div className="flex min-w-0 flex-col gap-1 text-xs text-ink-muted sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+            <span className="inline-flex min-w-0 items-center gap-1 text-ink-muted">
               <Clock className="h-3 w-3 shrink-0" />
               <span className="truncate">{eventTimeRange(event)}</span>
             </span>
             {event.location && (
-              <span className="inline-flex min-w-0 max-w-full items-center gap-1 text-gray-400">
+              <span className="inline-flex min-w-0 max-w-full items-center gap-1 text-ink-muted">
                 <MapPin className="h-3 w-3 shrink-0" />
                 <span className="truncate">{event.location}</span>
               </span>
@@ -235,7 +235,7 @@ function TaskDragGrip({
       data-testid="timeline-task-drag-grip"
       data-timeline-drag-handle="true"
       aria-label="Drag task"
-      className={`flex shrink-0 cursor-grab touch-none select-none items-center justify-center rounded-md border border-gray-700/70 bg-gray-900/60 text-gray-500 transition-colors hover:border-cyan-500/50 hover:text-cyan-300 active:cursor-grabbing ${
+      className={`flex shrink-0 cursor-grab touch-none select-none items-center justify-center rounded-md border border-line/70 bg-page/60 text-gray-500 transition-colors hover:border-cyan-500/50 hover:text-cyan-300 active:cursor-grabbing ${
         compact ? 'h-full w-6 sm:w-5' : 'min-h-11 w-8 self-stretch sm:min-h-10 sm:w-7'
       }`}
     >
@@ -361,13 +361,13 @@ export default function DayTimeline({
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <h2 className="text-xl font-semibold text-gray-100">Today's Schedule</h2>
+      <h2 className="text-xl font-semibold text-ink">Today's Schedule</h2>
 
       <DragDropContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
         <div>
         {/* Scheduled section — one droppable per hour slot */}
         <div className="space-y-1">
-          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider mb-2">Scheduled</h3>
+          <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wider mb-2">Scheduled</h3>
           {HOUR_SLOTS.map(slot => {
             const slotTasks = slotBuckets[slot]
             const slotCalendarEvents = calendarBuckets[slot]
@@ -389,15 +389,15 @@ export default function DayTimeline({
                       snapshot.isDraggingOver
                         ? 'bg-blue-900/40 drop-zone'
                         : hasContent
-                        ? 'bg-gray-800/30'
+                        ? 'bg-card/30'
                         : isCompacted
-                        ? 'bg-transparent hover:bg-gray-800/5'
-                        : 'bg-transparent hover:bg-gray-800/10'
+                        ? 'bg-transparent hover:bg-card/5'
+                        : 'bg-transparent hover:bg-card/10'
                     }`}
                     style={{ height: slotHeight }}
                   >
                     {/* Time label */}
-                    <span className={`w-10 flex-shrink-0 text-xs sm:w-12 ${isCompacted ? 'pt-0 text-[11px]' : 'pt-2'} ${hasContent || snapshot.isDraggingOver ? 'text-gray-400' : 'text-gray-600'}`}>
+                    <span className={`w-10 flex-shrink-0 text-xs sm:w-12 ${isCompacted ? 'pt-0 text-[11px]' : 'pt-2'} ${hasContent || snapshot.isDraggingOver ? 'text-ink-muted' : 'text-gray-600'}`}>
                       {formatHour(slot)}
                     </span>
 
@@ -470,8 +470,8 @@ export default function DayTimeline({
 
         {allDayEvents.length > 0 && (
           <div className="space-y-2">
-            <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Calendar</h3>
-            <div className="space-y-2 rounded-lg bg-gray-800/20 p-4">
+            <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wider">Calendar</h3>
+            <div className="space-y-2 rounded-lg bg-card/20 p-4">
               {allDayEvents.map(event => (
                 <CalendarEventBlock
                   key={event.id}
@@ -485,14 +485,14 @@ export default function DayTimeline({
 
         {/* Anytime section — single droppable for untimed backlog */}
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-gray-400 uppercase tracking-wider">Anytime</h3>
+          <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wider">Anytime</h3>
           <Droppable droppableId="anytime">
             {(provided, snapshot) => (
               <div
                 {...provided.droppableProps}
                 ref={provided.innerRef}
                 className={`space-y-3 min-h-24 p-4 rounded-lg transition-colors ${
-                  snapshot.isDraggingOver ? 'drop-zone' : 'bg-gray-800/20'
+                  snapshot.isDraggingOver ? 'drop-zone' : 'bg-card/20'
                 }`}
               >
                 {anytime.map((task, index) => (
@@ -528,9 +528,9 @@ export default function DayTimeline({
                 {provided.placeholder}
 
                 {anytime.length === 0 && (
-                  <div className="text-center py-8 text-gray-400">
-                    <p className="text-gray-300">No unscheduled tasks.</p>
-                    <p className="text-sm mt-1 text-gray-400">Add tasks without a time, or drag a scheduled task here to unschedule.</p>
+                  <div className="text-center py-8 text-ink-muted">
+                    <p className="text-ink-soft">No unscheduled tasks.</p>
+                    <p className="text-sm mt-1 text-ink-muted">Add tasks without a time, or drag a scheduled task here to unschedule.</p>
                   </div>
                 )}
               </div>
@@ -542,9 +542,9 @@ export default function DayTimeline({
 
       {/* Empty state when both sections are empty */}
       {tasks.length === 0 && calendarEvents.length === 0 && (
-        <div className="text-center py-12 text-gray-400">
-          <p className="text-gray-300">No tasks scheduled for today.</p>
-          <p className="text-sm mt-1 text-gray-400">Add some tasks to get started!</p>
+        <div className="text-center py-12 text-ink-muted">
+          <p className="text-ink-soft">No tasks scheduled for today.</p>
+          <p className="text-sm mt-1 text-ink-muted">Add some tasks to get started!</p>
         </div>
       )}
     </div>

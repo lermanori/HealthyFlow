@@ -45,7 +45,7 @@ export default function SuggestionCard({
         </div>
 
         <div className="flex-1 min-w-0">
-          <h4 className="font-medium text-gray-100 mb-2">{suggestion.title}</h4>
+          <h4 className="font-medium text-ink mb-2">{suggestion.title}</h4>
 
           <div className="flex flex-wrap gap-2 mb-3">
             <span className={`px-2 py-1 rounded-full text-xs border ${getCategoryColor(suggestion.category)}`}>
@@ -54,7 +54,7 @@ export default function SuggestionCard({
             <span className={`px-2 py-1 rounded-full text-xs border ${getPriorityColor(suggestion.priority)}`}>
               {suggestion.priority} priority
             </span>
-            <span className="px-2 py-1 rounded-full text-xs bg-gray-500/20 text-gray-400 border border-gray-500/30">
+            <span className="px-2 py-1 rounded-full text-xs bg-gray-500/20 text-ink-muted border border-gray-500/30">
               {suggestion.estimatedDuration}min
             </span>
             <span className="px-2 py-1 rounded-full text-xs bg-purple-500/20 text-purple-400 border border-purple-500/30">
@@ -73,7 +73,7 @@ export default function SuggestionCard({
           </div>
 
           <div className="mb-3">
-            <label className="text-xs text-gray-400 block mb-1">Schedule for:</label>
+            <label className="text-xs text-ink-muted block mb-1">Schedule for:</label>
             <div className="flex items-center space-x-2">
               <input
                 type="date"
@@ -97,7 +97,7 @@ export default function SuggestionCard({
                     className={`px-2 py-1 rounded text-xs transition-all ${
                       suggestion.scheduledDate === date.value
                         ? 'bg-cyan-500 text-white'
-                        : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        : 'bg-gray-700 text-ink-soft hover:bg-gray-600'
                     }`}
                   >
                     {date.label}

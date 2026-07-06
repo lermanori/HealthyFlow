@@ -57,7 +57,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       grocery: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
       nutrition: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
       workout: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-      default: 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+      default: 'bg-gray-500/20 text-ink-muted border-gray-500/30'
     }
     return colors[category as keyof typeof colors] || colors.default
   }
@@ -77,7 +77,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
     switch (task.type) {
       case 'grocery':
         return (
-          <div className="flex items-center space-x-2 text-xs text-gray-400 mt-1">
+          <div className="flex items-center space-x-2 text-xs text-ink-muted mt-1">
             {task.groceryInfo?.quantity && (
               <span className="flex items-center space-x-1">
                 <Target className="w-3 h-3" />
@@ -101,7 +101,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       case 'meal':
         return (
           <div className="space-y-1 mt-2">
-            <div className="flex items-center space-x-2 text-xs text-gray-400">
+            <div className="flex items-center space-x-2 text-xs text-ink-muted">
               {task.mealInfo?.mealType && (
                 <span className={`px-2 py-1 rounded-full text-xs ${getCategoryColor('nutrition')}`}>
                   {task.mealInfo.mealType}
@@ -126,7 +126,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       case 'workout':
         return (
           <div className="space-y-1 mt-2">
-            <div className="flex items-center space-x-2 text-xs text-gray-400">
+            <div className="flex items-center space-x-2 text-xs text-ink-muted">
               {task.workoutInfo?.workoutType && (
                 <span className={`px-2 py-1 rounded-full text-xs ${getCategoryColor('workout')}`}>
                   {task.workoutInfo.workoutType}
@@ -208,7 +208,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
 	        compact ? 'flex overflow-visible rounded-lg p-2' : 'rounded-xl p-4'
 	      } ${
         task.completed 
-          ? 'bg-gray-800/50 border-gray-600/50 opacity-75' 
+          ? 'bg-card/50 border-line-strong/50 opacity-75' 
           : 'card glass-effect hover:shadow-lg'
       } ${showMenu ? 'z-[100]' : ''} ${isDragging ? 'z-10 rotate-1' : ''} ${className}`}
     >
@@ -222,7 +222,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
           } ${
             task.completed
               ? 'bg-gradient-to-r from-green-500 to-emerald-600 border-green-500 text-white'
-              : 'border-gray-600 hover:border-cyan-400 hover:bg-cyan-400/10'
+              : 'border-line-strong hover:border-cyan-400 hover:bg-cyan-400/10'
           }`}
         >
           {task.completed && <Check className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />}
@@ -238,7 +238,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                 </div>
               )}
 	              <h3 className={`truncate font-medium ${compact ? 'text-sm leading-4' : ''} ${
-                task.completed ? 'line-through text-gray-500' : 'text-gray-100'
+                task.completed ? 'line-through text-gray-500' : 'text-ink'
               }`}>
                 {task.title}
               </h3>
@@ -250,7 +250,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                 onClick={() => setShowMenu(!showMenu)}
                 className={`${compact ? '!h-7 !min-h-0 !w-7 !min-w-0 p-0.5' : 'p-1'} rounded-lg hover:bg-gray-700 cursor-pointer transition-all duration-200 ${showMenu ? 'opacity-100 bg-gray-700' : 'opacity-0 group-hover:opacity-100'}`}
               >
-                <MoreVertical className="w-4 h-4 text-gray-400" />
+                <MoreVertical className="w-4 h-4 text-ink-muted" />
               </button>
 
               {/* Menu dropdown */}
@@ -261,7 +261,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                       onEdit(task)
                       setShowMenu(false)
                     }}
-                    className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-gray-300 hover:bg-gray-700 cursor-pointer rounded-t-lg"
+                    className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-ink-soft hover:bg-gray-700 cursor-pointer rounded-t-lg"
                   >
                     <Edit className="w-4 h-4" />
                     <span>Edit</span>
@@ -302,20 +302,20 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
              )}
             
             {task.startTime && (
-              <span className="flex shrink-0 items-center space-x-1 text-xs text-gray-400">
+              <span className="flex shrink-0 items-center space-x-1 text-xs text-ink-muted">
                 <Clock className="h-3 w-3" />
                 <span>{task.startTime}</span>
               </span>
             )}
             
             {task.duration && (
-              <span className="shrink-0 text-xs text-gray-400">
+              <span className="shrink-0 text-xs text-ink-muted">
                 {task.duration}min
               </span>
             )}
 
             {task.type === 'task' && task.location && (
-              <span className="flex min-w-0 items-center space-x-1 text-xs text-gray-400">
+              <span className="flex min-w-0 items-center space-x-1 text-xs text-ink-muted">
                 <MapPin className="h-3 w-3 shrink-0" />
                 <span className="truncate">{task.location}</span>
               </span>

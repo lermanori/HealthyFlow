@@ -7,6 +7,19 @@ export default {
   theme: {
     extend: {
       colors: {
+        // Semantic theme tokens (see :root / [data-theme='white'] in index.css).
+        // Short, collision-free keys so utilities read cleanly:
+        //   bg-page/card/raised/field, text-ink/ink-soft/ink-muted, border-line/line-strong
+        page: 'rgb(var(--surface-page) / <alpha-value>)',
+        card: 'rgb(var(--surface-card) / <alpha-value>)',
+        raised: 'rgb(var(--surface-raised) / <alpha-value>)',
+        sunken: 'rgb(var(--surface-sunken) / <alpha-value>)',
+        field: 'rgb(var(--surface-input) / <alpha-value>)',
+        ink: 'rgb(var(--text-primary) / <alpha-value>)',
+        'ink-soft': 'rgb(var(--text-secondary) / <alpha-value>)',
+        'ink-muted': 'rgb(var(--text-muted) / <alpha-value>)',
+        line: 'rgb(var(--border-default) / <alpha-value>)',
+        'line-strong': 'rgb(var(--border-strong) / <alpha-value>)',
         primary: {
           50: '#ecfeff',
           100: '#cffafe',

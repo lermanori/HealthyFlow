@@ -13,8 +13,8 @@ export default function HabitTrackerBar({ title, completed, total, color = 'bg-g
   return (
     <div className="space-y-3">
       <div className="flex justify-between items-center">
-        <h4 className="text-sm font-medium text-gray-200">{title}</h4>
-        <span className="text-sm text-gray-400">{completed}/{total}</span>
+        <h4 className="text-sm font-medium text-ink-soft">{title}</h4>
+        <span className="text-sm text-ink-muted">{completed}/{total}</span>
       </div>
       
       <div className="relative">
