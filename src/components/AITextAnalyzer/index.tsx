@@ -16,7 +16,7 @@ import { useDictatedText } from '../../hooks/useDictatedText'
 const ACCEPTED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024
 
-export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAnalyzerProps) {
+export default function AITextAnalyzer({ onClose, onConfirmed, enableTTS = false }: AITextAnalyzerProps) {
   const [inputText, setInputText] = useState('')
   const [photo, setPhoto] = useState<AnalyzerPhoto | undefined>()
   const [defaultScheduleDate, setDefaultScheduleDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -44,6 +44,7 @@ export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAna
     setInputText('')
     setPhoto(undefined)
     clearTranscript()
+    onConfirmed?.()
     onClose?.()
   })
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays, startOfWeek, isSameDay, isBefore } from 'date-fns'
-import { Plus, Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, CheckCircle2, Award, Utensils, Clock } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, CheckCircle2, Clock } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import api, {
   calendarService,
@@ -440,62 +440,31 @@ export default function TodayPage() {
           animate={{ opacity: 1, y: 0 }}
           className="rounded-lg border border-cyan-500/30 bg-gray-900/80 p-4 shadow-xl shadow-cyan-500/10"
         >
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-cyan-400" />
-                <h2 className="text-lg font-semibold text-gray-100">Start with HealthyFlow</h2>
-              </div>
-              <p className="mt-1 text-sm text-gray-400">
-                Try the core loop once: add something, log a meal, record a win, then ask AI about your day.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => completeOnboardingMutation.mutate()}
-                disabled={completeOnboardingMutation.isPending}
-                className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                Finish
-              </button>
-              <button
-                type="button"
-                onClick={() => skipOnboardingMutation.mutate()}
-                disabled={skipOnboardingMutation.isPending}
-                className="btn-secondary px-4 py-2 text-sm"
-              >
-                Skip
-              </button>
-            </div>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-cyan-400" />
+            <h2 className="text-lg font-semibold text-gray-100">Tell me about your day</h2>
           </div>
+          <p className="mt-1 text-sm text-gray-400">
+            One brain-dump — work, food, gym, anything — and I'll turn it into your schedule.
+          </p>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <Link to="/add?tab=today" className="rounded-lg border border-gray-700 bg-gray-950/30 p-3 transition hover:border-cyan-500/40 hover:bg-cyan-500/10">
-              <Plus className="mb-2 h-4 w-4 text-cyan-300" />
-              <p className="text-sm font-medium text-gray-100">Add a task</p>
-              <p className="mt-1 text-xs text-gray-500">Use the Today tab.</p>
-            </Link>
-            <Link to="/add?tab=calories" className="rounded-lg border border-gray-700 bg-gray-950/30 p-3 transition hover:border-cyan-500/40 hover:bg-cyan-500/10">
-              <Utensils className="mb-2 h-4 w-4 text-cyan-300" />
-              <p className="text-sm font-medium text-gray-100">Log calories</p>
-              <p className="mt-1 text-xs text-gray-500">Add one quick entry.</p>
-            </Link>
-            <Link to="/add?tab=achievements" className="rounded-lg border border-gray-700 bg-gray-950/30 p-3 transition hover:border-cyan-500/40 hover:bg-cyan-500/10">
-              <Award className="mb-2 h-4 w-4 text-cyan-300" />
-              <p className="text-sm font-medium text-gray-100">Record a win</p>
-              <p className="mt-1 text-xs text-gray-500">Save a measurable result.</p>
-            </Link>
-            <Link
-              to="/talk"
-              className="rounded-lg border border-gray-700 bg-gray-950/30 p-3 text-left transition hover:border-cyan-500/40 hover:bg-cyan-500/10"
-            >
-              <Brain className="mb-2 h-4 w-4 text-cyan-300" />
-              <p className="text-sm font-medium text-gray-100">Talk to your day</p>
-              <p className="mt-1 text-xs text-gray-500">Add or ask, one place.</p>
-            </Link>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowAIAnalyzer(true)}
+            className="btn-primary mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm"
+          >
+            <Brain className="h-4 w-4" />
+            Tell HealthyFlow about your day
+          </button>
+
+          <button
+            type="button"
+            onClick={() => skipOnboardingMutation.mutate()}
+            disabled={skipOnboardingMutation.isPending}
+            className="mt-3 block text-xs text-gray-500 transition-colors hover:text-gray-300"
+          >
+            I'll do it later
+          </button>
         </motion.div>
       )}
 
@@ -581,6 +550,9 @@ export default function TodayPage() {
               <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-4xl items-stretch sm:block">
                 <AITextAnalyzer
                   onClose={() => setShowAIAnalyzer(false)}
+                  onConfirmed={() => {
+                    if (settings?.onboardingStatus === 'active') completeOnboardingMutation.mutate()
+                  }}
                   scheduledDate={format(selectedDate, 'yyyy-MM-dd')}
                 />
               </div>

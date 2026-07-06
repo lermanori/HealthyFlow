@@ -1,5 +1,11 @@
 ### 2026-07-06 — `feat/redesign-v2`
 
+Shipped slice 3 of the redesign: first-run onboarding is now brain-dump-first. TodayPage's onboarding block is a single focused card — "Tell me about your day" — with one primary button that opens the existing AITextAnalyzer modal (no new parser; `AITextAnalyzer` gained an `onConfirmed` callback fired alongside its existing on-close-after-add path). Confirming a parse auto-completes onboarding via the existing `onboardingService.complete` mutation, keeping the `onboarding_completed`/`onboarding_skipped` analytics contract unchanged. Removed the old "core loop" checklist and its broken `/add?tab=` links (dead since slice 2 redirected `/add` to `/talk`). Kept a subtle "I'll do it later" skip link. Verified in the live preview that the credit-error surface (0 credits) still renders inside the modal with no silent fallback. Backend sample-task seeding (`backend/src/onboarding.ts` `seedNewUser`) is unchanged — out of scope per "no backend changes" — flagged as now-redundant given the brain-dump replaces the need for samples. Rewrote `tests/e2e/onboarding.spec.ts` to match the new copy/flow; it still requires real OpenAI credits/infra to execute (no AI stub in test mode), so it was updated for correctness but not run. Build (tsc + vite) passes.
+
+---
+
+### 2026-07-06 — `feat/redesign-v2`
+
 Shipped slice 2 of the redesign: Add and Ask are now one surface. The Assistant is repurposed as "Talk to your day" — route `/talk` renders the existing AssistantPage (retitled, composer placeholder "Add anything, or ask anything…"), with `/assistant` and `/add` redirecting to it. Backend behavior is unchanged; this is a re-centering, not a rebuild. Navigation collapsed to two destinations — Today and Talk (Talk is the primary/center dock action, grid is now 2-col) — across the mobile dock and desktop sidebar. TodayPage's Ask entry points (AskAIModal) now navigate to /talk; AskAIModal and its now-dead `aiService.queryTasks` client method were deleted. AddItemPage.tsx is kept (still deep-linked from the TodayPage shelf via `/add?tab=`) but is no longer a nav destination. Conflict noted: those shelf `/add?tab=` links now redirect to /talk and lose the tab param — left as-is per scope (don't touch TodayPage beyond the Ask button). Build (tsc + vite) passes.
 
 ---
