@@ -254,7 +254,7 @@ export default function AddItemPage() {
         {activeTab === 'today' && (
           <button onClick={() => setShowTaskAi(true)} className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm">
             <Brain className="h-4 w-4" />
-            AI Assistant
+            Talk
           </button>
         )}
         {activeTab === 'calories' && calorieMode === 'entry' && (

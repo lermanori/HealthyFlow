@@ -133,7 +133,7 @@ export default function TodayPage() {
   const location = useLocation()
   const { settings } = useSettings()
   const selectedDateKey = format(selectedDate, 'yyyy-MM-dd')
-  const calorieModuleEnabled = settings?.calorieIntake ?? false
+  const calorieModuleEnabled = settings?.calorieIntake ?? true
 
   // Check for AI parameter in URL
   useEffect(() => {

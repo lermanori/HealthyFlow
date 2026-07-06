@@ -156,7 +156,7 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="mt-8 p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
                   <div className="flex items-center space-x-2 mb-2">
                     <Brain className="w-4 h-4 text-purple-400" />
-                    <span className="text-sm font-medium text-purple-400">AI Assistant</span>
+                    <span className="text-sm font-medium text-purple-400">Talk</span>
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                   </div>
                   <p className="text-xs text-gray-400">
@@ -311,7 +311,7 @@ export default function Layout({ children }: LayoutProps) {
               <div className="mt-8 p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
                 <div className="flex items-center space-x-2 mb-2">
                   <Brain className="w-4 h-4 text-purple-400" />
-                  <span className="text-sm font-medium text-purple-400">AI Assistant</span>
+                  <span className="text-sm font-medium text-purple-400">Talk</span>
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                 </div>
                 <p className="text-xs text-gray-400">

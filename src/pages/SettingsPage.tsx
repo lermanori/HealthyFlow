@@ -540,7 +540,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           <SettingToggle
             label="Calorie Intake"
             description="Track calorie intake alongside your tasks and habits"
-            checked={settings?.calorieIntake ?? false}
+            checked={settings?.calorieIntake ?? true}
             onChange={(checked) => handleSettingChange('calorieIntake', checked)}
           />
 
