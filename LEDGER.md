@@ -1,3 +1,9 @@
+### 2026-07-08 00:00 — `fix/mobile-logout`
+
+Fixed the mobile "can't log out" bug. Root cause was a stacking-context trap: the slide-in drawer lives inside a `z-10` container, so its internal `z-50` was scoped below the `z-30` bottom nav bar, which painted over the drawer's Logout button. Hid the bottom nav while the drawer is open, made the drawer nav scrollable, and added safe-area padding to the footer. Verified on a mobile viewport; branched from main and merged back.
+
+---
+
 ### 2026-07-05 18:30 — `main`
 
 Named the product thesis after a packaging brainstorm: the day is the unit — tasks, food, training, weight, and habits are lenses on the same day, and rollover connects days. Committed the packaging design spec (story, audience, keep/promote/merge/hide/cut list, brain-dump-first onboarding) and rewrote MARKETING.md as a v2 plan targeting the first 10 paying customers, with competitor research and a P0–P2 fix list (sell-rate split in credits.ts and trial credits are the top blockers). Docs only — no code changed.
