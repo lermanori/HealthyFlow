@@ -330,12 +330,12 @@ export default function Layout({ children }: LayoutProps) {
         <main
           className={`min-w-0 flex-1 overflow-x-hidden ${
             isMobile
-              ? isTalkPage ? 'p-0' : 'p-4 pb-32'
+              ? isTalkPage ? 'h-[calc(100dvh-146.5px-env(safe-area-inset-bottom))] p-0' : 'p-4 pb-32'
               : 'p-6'
           }`}
           ref={contentRef}
         >
-          <div className={`min-w-0 ${isMobile ? 'max-w-full' : 'max-w-6xl'} mx-auto`}>
+          <div className={`min-w-0 ${isMobile ? `max-w-full ${isTalkPage ? 'h-full' : ''}` : 'max-w-6xl'} mx-auto`}>
             {children}
             {!(isMobile && isTalkPage) && (
               <footer className="mt-10 flex flex-wrap justify-center gap-4 text-xs text-gray-500">
@@ -363,7 +363,7 @@ export default function Layout({ children }: LayoutProps) {
                   key={item.name}
                   to={item.href}
                   aria-label={item.name}
-                  className={`flex min-w-0 flex-col items-center space-y-1 rounded-xl p-2 transition-all duration-300 xs:p-3 ${
+                  className={`mobile-dock-link flex min-w-0 flex-col items-center space-y-1 rounded-xl p-2 transition-all duration-300 xs:p-3 ${
                     isPrimary
                       ? `bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 ${isActive ? 'ring-2 ring-cyan-300/60' : ''}`
                       : isActive

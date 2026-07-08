@@ -591,6 +591,15 @@
     min-width: 48px !important;
   }
 
+  .mobile-dock-link {
+    min-height: 56px !important;
+  }
+
+  .assistant-composer button,
+  .assistant-composer select {
+    min-height: 44px !important;
+  }
+
   /* Improve iOS PWA scrolling */
   * {
     -webkit-overflow-scrolling: touch !important;

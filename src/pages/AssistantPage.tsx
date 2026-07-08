@@ -865,7 +865,7 @@ export default function AssistantPage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-146.5px)] w-full max-w-6xl gap-4 overflow-hidden md:h-[calc(100vh-7rem)]">
+    <div className="mx-auto flex h-full w-full max-w-6xl gap-4 overflow-hidden md:h-[calc(100vh-7rem)]">
       <aside className="hidden w-72 flex-none flex-col overflow-hidden rounded-lg border border-card bg-sunken/70 md:flex">
         <div className="border-b border-card p-3">
           <button
@@ -1022,7 +1022,7 @@ export default function AssistantPage() {
         )}
       </div>
 
-      <form onSubmit={submit} className="border-t border-card p-3">
+      <form onSubmit={submit} className="border-t border-card p-2.5 sm:p-3">
         {attachment && (
           <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-card bg-sunken px-3 py-2">
             <div className="flex min-w-0 items-center gap-3">
@@ -1049,10 +1049,10 @@ export default function AssistantPage() {
           </div>
         )}
         {dictationError && <p className="mb-2 text-xs text-red-300">{dictationError}</p>}
-        <div className="rounded-[1.75rem] border border-line-strong bg-raised/70 p-3 shadow-inner shadow-black/20 transition-colors focus-within:border-cyan-500/70 focus-within:bg-raised">
+        <div className="assistant-composer rounded-[1.5rem] border border-line-strong bg-raised/70 p-3 shadow-inner shadow-black/20 transition-colors focus-within:border-cyan-500/70 focus-within:bg-raised sm:rounded-[1.75rem]">
           <textarea
             ref={inputRef}
-            className="max-h-36 min-h-20 w-full resize-none bg-transparent px-1 py-1 text-base leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-16"
+            className="max-h-28 min-h-12 w-full resize-none bg-transparent px-1 py-1 text-base leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-60 sm:max-h-36 sm:min-h-16"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
@@ -1065,7 +1065,7 @@ export default function AssistantPage() {
             disabled={isSending}
             rows={1}
           />
-          <div className="mt-3 flex min-w-0 items-center gap-2">
+          <div className="mt-2 flex min-w-0 items-center gap-2 sm:mt-3">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}

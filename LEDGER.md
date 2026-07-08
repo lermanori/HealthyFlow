@@ -4,6 +4,12 @@ Diagnosed the Google Calendar sync failure against Railway production logs and c
 
 ---
 
+### 2026-07-08 16:07 — `feat/redesign-v2`
+
+Tightened the mobile PWA Talk bottom area after the production deploy showed the composer controls being clipped behind the dock. The Talk route now owns a full-height mobile content area above the bottom navigation, the composer is shorter on mobile so its controls remain visible, and the iOS standalone touch-target override no longer bloats the Talk dock/composer controls. Verified the assistant mobile regression and production build before committing.
+
+---
+
 ### 2026-07-08 15:11 — `feat/redesign-v2`
 
 Polished the mobile Talk experience after testing it against the redesign branch. The assistant composer now behaves like a modern chat input: multiline, rounded, model picker inside the composer, and no disappearing text on narrow screens. Also tightened the mobile Talk layout so it sits flush to the app frame and bottom nav, removed the dead Privacy/Terms footer block from that page, and fixed the assistant-confirmed Item cache path so Today sees new assistant-created Tasks without a manual refresh.
