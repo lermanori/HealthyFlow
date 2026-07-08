@@ -1,3 +1,9 @@
+### 2026-07-08 15:32 — `feat/redesign-v2`
+
+Diagnosed the Google Calendar sync failure against Railway production logs and confirmed the root cause was an invalid Google refresh token (`invalid_grant`), not the Hebrew timed task payload. Calendar sync now treats revoked Google credentials as a disconnected account, marks affected timed Tasks as skipped instead of failed, and stops the Today page from retrying until the user reconnects. Added focused regression coverage for both the Hebrew/off-hour sync payload and the revoked-token path; backend tests, backend typecheck, and the frontend production build pass.
+
+---
+
 ### 2026-07-08 15:11 — `feat/redesign-v2`
 
 Polished the mobile Talk experience after testing it against the redesign branch. The assistant composer now behaves like a modern chat input: multiline, rounded, model picker inside the composer, and no disappearing text on narrow screens. Also tightened the mobile Talk layout so it sits flush to the app frame and bottom nav, removed the dead Privacy/Terms footer block from that page, and fixed the assistant-confirmed Item cache path so Today sees new assistant-created Tasks without a manual refresh.

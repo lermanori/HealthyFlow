@@ -6,7 +6,7 @@ import { authenticateToken, AuthRequest } from '../middleware/auth'
 import { positionsFromIds } from '../utils/positionsFromIds'
 import { parseHabitInstanceId } from '../utils/parseHabitInstanceId'
 import { isPureDragUpdate } from '../utils/isPureDragUpdate'
-import { deleteGoogleCalendarEvent, syncTaskToGoogleCalendar } from '../calendar'
+import { deleteGoogleCalendarEvent, isGoogleCalendarNotConnectedError, syncTaskToGoogleCalendar } from '../calendar'
 import { Rollover } from '../rollover'
 
 const router = express.Router()
@@ -61,7 +61,7 @@ async function syncTaskRowToGoogle(row: any, timeZone?: string) {
       google_sync_status: result.status,
     })
   } catch (error) {
-    if (error instanceof Error && error.message === 'Google Calendar is not connected') {
+    if (isGoogleCalendarNotConnectedError(error)) {
       return db.updateTask(row.id, {
         google_event_id: null,
         synced_to_google: false,
@@ -90,7 +90,7 @@ async function deleteGoogleCalendarEventIfConnected(userId: string, googleEventI
   try {
     await deleteGoogleCalendarEvent(userId, googleEventId)
   } catch (error) {
-    if (error instanceof Error && error.message === 'Google Calendar is not connected') {
+    if (isGoogleCalendarNotConnectedError(error)) {
       return
     }
     throw error

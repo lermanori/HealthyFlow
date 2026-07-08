@@ -203,6 +203,7 @@ export default function TodayPage() {
         task.type === 'task' &&
         task.scheduledDate === date &&
         task.startTime &&
+        task.googleSyncStatus !== 'skipped' &&
         (!task.syncedToGoogle || task.googleSyncStatus === 'failed')
       )
       if (!hasTimedTasks) return
