@@ -4,6 +4,12 @@ Diagnosed the Google Calendar sync failure against Railway production logs and c
 
 ---
 
+### 2026-07-08 16:32 — `feat/redesign-v2`
+
+Removed the last mobile-only spacer that kept the Talk composer from feeling flush with the PWA bottom dock. The `Add manually` footer link now hides on mobile and the composer form no longer adds bottom padding there, while desktop keeps the manual-add link. The assistant mobile regression now checks that the link stays hidden and the composer shell lands close to the dock.
+
+---
+
 ### 2026-07-08 16:20 — `feat/redesign-v2`
 
 Refined the mobile Talk composer after the PWA still felt too tall. The composer now starts as a true one-line input with attach, mic, and send in the same compact row, while the model selector sits in a smaller secondary row so it no longer gets clipped by the bottom dock. Updated the assistant mobile regression to enforce the shorter shell height and verified the focused Playwright spec plus production build.

@@ -32,6 +32,7 @@ test('Mobile assistant composer wraps long text instead of hiding it off-screen'
   const composer = page.getByPlaceholder(/Add anything/)
   await expect(composer).toBeVisible()
   await expect(page.getByLabel('Assistant model')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Add manually' })).toBeHidden()
   const initialBox = await composer.boundingBox()
   const initialShell = await page.locator('form > div').filter({ has: composer }).boundingBox()
   expect(initialBox).toBeTruthy()
@@ -47,6 +48,7 @@ test('Mobile assistant composer wraps long text instead of hiding it off-screen'
   expect(box!.width).toBeGreaterThan(120)
   expect(box!.height).toBeLessThanOrEqual(48)
   expect(composerShell!.height).toBeGreaterThan(box!.height)
+  expect(Math.abs((composerShell!.y + composerShell!.height) - bottomNavBox!.y)).toBeLessThanOrEqual(12)
 })
 
 test('Confirmed assistant task appears on Today without a browser refresh', async ({ page }) => {
