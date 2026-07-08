@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { Bot, ChevronDown, Dumbbell, Flame, Image as ImageIcon, Mic, MessageSquare, Paperclip, Pencil, Plus, Scale, Send, Target, Trash2, UserRound, Wrench, X } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -657,6 +658,7 @@ function PendingActionCard({
 }
 
 export default function AssistantPage() {
+  const queryClient = useQueryClient()
   const [conversations, setConversations] = useState<StoredConversation[]>(() => readStoredConversations())
   const [activeConversationId, setActiveConversationId] = useState(() => readStoredConversations()[0]?.id ?? crypto.randomUUID())
   const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) ?? null
@@ -665,7 +667,7 @@ export default function AssistantPage() {
   const [isSending, setIsSending] = useState(false)
   const [model, setModel] = useState<AssistantChatModel>(() => activeConversation?.model ?? 'gpt-4o-mini')
   const [attachment, setAttachment] = useState<ComposerAttachment | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const {
     isListening,
@@ -800,6 +802,9 @@ export default function AssistantPage() {
   const confirmAction = async (actionId: string, args?: Record<string, unknown>) => {
     try {
       const response = await aiService.confirmChatAction(actionId, args)
+      if (['add_task', 'add_habit', 'update_item', 'delete_item'].includes(response.action.capability)) {
+        queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      }
       toast.success('Action confirmed')
       setMessages((current) => current.map((message) =>
         message.pendingActions?.some((action) => action.id === actionId)
@@ -860,7 +865,7 @@ export default function AssistantPage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-7rem)] w-full max-w-6xl gap-4 overflow-hidden">
+    <div className="mx-auto flex h-[calc(100dvh-146.5px)] w-full max-w-6xl gap-4 overflow-hidden md:h-[calc(100vh-7rem)]">
       <aside className="hidden w-72 flex-none flex-col overflow-hidden rounded-lg border border-card bg-sunken/70 md:flex">
         <div className="border-b border-card p-3">
           <button
@@ -929,19 +934,6 @@ export default function AssistantPage() {
           >
             <Plus className="h-4 w-4" />
           </button>
-          <select
-            value={model}
-            onChange={(event) => setModel(event.target.value as AssistantChatModel)}
-            disabled={isSending}
-            className="rounded-md border border-card bg-page px-2 py-1 text-sm text-ink outline-none transition-colors focus:border-cyan-500 disabled:opacity-60"
-            aria-label="Assistant model"
-          >
-            {assistantModels.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
           {isSending && <span className="text-sm text-cyan-300">Thinking</span>}
         </div>
       </div>
@@ -1057,33 +1049,64 @@ export default function AssistantPage() {
           </div>
         )}
         {dictationError && <p className="mb-2 text-xs text-red-300">{dictationError}</p>}
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isSending}
-            className="btn-secondary flex h-11 w-11 flex-none items-center justify-center rounded-lg !p-0 disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label={attachment ? 'Replace attachment' : 'Attach file'}
-          >
-            <Paperclip size={20} className="flex-none text-ink" />
-          </button>
-          <button
-            type="button"
-            onClick={toggleDictation}
-            disabled={isSending || !isDictationSupported}
-            className={`btn-secondary flex h-11 w-11 flex-none items-center justify-center rounded-lg !p-0 disabled:cursor-not-allowed disabled:opacity-50 ${isListening ? 'border-cyan-500 text-cyan-200' : ''}`}
-            aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
-          >
-            <Mic size={20} className={`flex-none ${isListening ? 'text-cyan-200' : 'text-ink'}`} />
-          </button>
-          <input
+        <div className="rounded-[1.75rem] border border-line-strong bg-raised/70 p-3 shadow-inner shadow-black/20 transition-colors focus-within:border-cyan-500/70 focus-within:bg-raised">
+          <textarea
             ref={inputRef}
-            className="input-field min-w-0 flex-1"
+            className="max-h-36 min-h-20 w-full resize-none bg-transparent px-1 py-1 text-base leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-16"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                sendMessage(draft)
+              }
+            }}
             placeholder="Add anything, or ask anything…"
             disabled={isSending}
+            rows={1}
           />
+          <div className="mt-3 flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSending}
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-sunken text-ink-soft transition-colors hover:bg-card hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={attachment ? 'Replace attachment' : 'Attach file'}
+            >
+              <Paperclip size={20} className="flex-none" />
+            </button>
+            <select
+              value={model}
+              onChange={(event) => setModel(event.target.value as AssistantChatModel)}
+              disabled={isSending}
+              className="h-11 min-w-0 max-w-[11rem] flex-1 rounded-full border border-transparent bg-sunken px-4 text-sm font-medium text-ink outline-none transition-colors hover:bg-card focus:border-cyan-500 disabled:opacity-60 sm:max-w-56 sm:text-base"
+              aria-label="Assistant model"
+            >
+              {assistantModels.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <div className="min-w-0 flex-1" />
+            <button
+              type="button"
+              onClick={toggleDictation}
+              disabled={isSending || !isDictationSupported}
+              className={`flex h-11 w-11 flex-none items-center justify-center rounded-full bg-sunken text-ink-soft transition-colors hover:bg-card hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 ${isListening ? 'bg-cyan-500/20 text-cyan-200' : ''}`}
+              aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
+            >
+              <Mic size={20} className="flex-none" />
+            </button>
+            <button
+              type="submit"
+              disabled={isSending || (!draft.trim() && !attachment)}
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20 transition-all hover:from-cyan-400 hover:to-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Send"
+            >
+              <Send size={20} className="flex-none" />
+            </button>
+          </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -1091,14 +1114,6 @@ export default function AssistantPage() {
             accept="image/jpeg,image/png,image/webp,text/plain,text/markdown,.txt,.md"
             onChange={(event) => void handleAttachmentChange(event.target.files?.[0])}
           />
-          <button
-            type="submit"
-            disabled={isSending || (!draft.trim() && !attachment)}
-            className="btn-primary flex h-11 w-11 flex-none items-center justify-center rounded-lg !p-0 disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Send"
-          >
-            <Send size={20} className="flex-none text-white" />
-          </button>
         </div>
         <div className="mt-2 text-right">
           <Link to="/add" className="text-xs text-gray-500 hover:text-ink-soft">

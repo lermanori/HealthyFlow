@@ -1,3 +1,9 @@
+### 2026-07-08 15:11 — `feat/redesign-v2`
+
+Polished the mobile Talk experience after testing it against the redesign branch. The assistant composer now behaves like a modern chat input: multiline, rounded, model picker inside the composer, and no disappearing text on narrow screens. Also tightened the mobile Talk layout so it sits flush to the app frame and bottom nav, removed the dead Privacy/Terms footer block from that page, and fixed the assistant-confirmed Item cache path so Today sees new assistant-created Tasks without a manual refresh.
+
+---
+
 ### 2026-07-08 00:10 — `feat/redesign-v2`
 
 Ported the mobile-logout fix onto the redesign branch (originally fixed on `main` as `fix/mobile-logout`). Same root cause: the slide-in drawer sits in a `z-10` container, so its `z-50` was scoped below the `z-30` bottom nav, which painted over the Logout button. Applied to this branch's semantic-token `Layout.tsx` — hid the bottom nav while the drawer is open, made the drawer nav scrollable, and added safe-area padding to the footer.
