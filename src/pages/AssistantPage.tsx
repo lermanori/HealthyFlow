@@ -1049,23 +1049,8 @@ export default function AssistantPage() {
           </div>
         )}
         {dictationError && <p className="mb-2 text-xs text-red-300">{dictationError}</p>}
-        <div className="assistant-composer rounded-[1.5rem] border border-line-strong bg-raised/70 p-3 shadow-inner shadow-black/20 transition-colors focus-within:border-cyan-500/70 focus-within:bg-raised sm:rounded-[1.75rem]">
-          <textarea
-            ref={inputRef}
-            className="max-h-28 min-h-12 w-full resize-none bg-transparent px-1 py-1 text-base leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-60 sm:max-h-36 sm:min-h-16"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey) {
-                event.preventDefault()
-                sendMessage(draft)
-              }
-            }}
-            placeholder="Add anything, or ask anything…"
-            disabled={isSending}
-            rows={1}
-          />
-          <div className="mt-2 flex min-w-0 items-center gap-2 sm:mt-3">
+        <div className="assistant-composer rounded-[1.5rem] border border-line-strong bg-raised/70 px-2.5 py-2 shadow-inner shadow-black/20 transition-colors focus-within:border-cyan-500/70 focus-within:bg-raised sm:rounded-[1.75rem] sm:p-3">
+          <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -1075,20 +1060,21 @@ export default function AssistantPage() {
             >
               <Paperclip size={20} className="flex-none" />
             </button>
-            <select
-              value={model}
-              onChange={(event) => setModel(event.target.value as AssistantChatModel)}
+            <textarea
+              ref={inputRef}
+              className="h-11 min-h-0 min-w-0 flex-1 resize-none bg-transparent px-1 py-2.5 text-base leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-60 sm:h-auto sm:max-h-36 sm:min-h-8 sm:py-1"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  sendMessage(draft)
+                }
+              }}
+              placeholder="Add anything..."
               disabled={isSending}
-              className="h-11 min-w-0 max-w-[11rem] flex-1 rounded-full border border-transparent bg-sunken px-4 text-sm font-medium text-ink outline-none transition-colors hover:bg-card focus:border-cyan-500 disabled:opacity-60 sm:max-w-56 sm:text-base"
-              aria-label="Assistant model"
-            >
-              {assistantModels.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <div className="min-w-0 flex-1" />
+              rows={1}
+            />
             <button
               type="button"
               onClick={toggleDictation}
@@ -1106,6 +1092,21 @@ export default function AssistantPage() {
             >
               <Send size={20} className="flex-none" />
             </button>
+          </div>
+          <div className="mt-1.5 flex min-w-0 items-center">
+            <select
+              value={model}
+              onChange={(event) => setModel(event.target.value as AssistantChatModel)}
+              disabled={isSending}
+              className="h-8 min-w-0 max-w-[9.5rem] rounded-full border border-transparent bg-sunken px-3 text-xs font-medium text-ink outline-none transition-colors hover:bg-card focus:border-cyan-500 disabled:opacity-60 sm:h-11 sm:max-w-56 sm:px-4 sm:text-base"
+              aria-label="Assistant model"
+            >
+              {assistantModels.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
           <input
             ref={fileInputRef}

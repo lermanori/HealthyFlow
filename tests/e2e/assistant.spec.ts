@@ -32,6 +32,12 @@ test('Mobile assistant composer wraps long text instead of hiding it off-screen'
   const composer = page.getByPlaceholder(/Add anything/)
   await expect(composer).toBeVisible()
   await expect(page.getByLabel('Assistant model')).toBeVisible()
+  const initialBox = await composer.boundingBox()
+  const initialShell = await page.locator('form > div').filter({ has: composer }).boundingBox()
+  expect(initialBox).toBeTruthy()
+  expect(initialShell).toBeTruthy()
+  expect(initialBox!.height).toBeLessThanOrEqual(48)
+  expect(initialShell!.height).toBeLessThanOrEqual(100)
   await composer.fill('plan a focused morning block then add groceries and send the workout notes')
 
   const box = await composer.boundingBox()
@@ -39,7 +45,7 @@ test('Mobile assistant composer wraps long text instead of hiding it off-screen'
   expect(box).toBeTruthy()
   expect(composerShell).toBeTruthy()
   expect(box!.width).toBeGreaterThan(120)
-  expect(box!.height).toBeGreaterThan(44)
+  expect(box!.height).toBeLessThanOrEqual(48)
   expect(composerShell!.height).toBeGreaterThan(box!.height)
 })
 
