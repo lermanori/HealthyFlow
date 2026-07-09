@@ -1,12 +1,146 @@
-### 2026-07-08 00:00 — `fix/mobile-logout`
+### 2026-07-09 19:11 — `feat/proactivity-rhythm-slice1`
 
-Fixed the mobile "can't log out" bug. Root cause was a stacking-context trap: the slide-in drawer lives inside a `z-10` container, so its internal `z-50` was scoped below the `z-30` bottom nav bar, which painted over the drawer's Logout button. Hid the bottom nav while the drawer is open, made the drawer nav scrollable, and added safe-area padding to the footer. Verified on a mobile viewport; branched from main and merged back.
+Finished the first proactivity rhythm pipe after the interrupted session. The backend scheduler and routes are already committed, and the frontend now handles JSON push payloads, re-verifies Web Push subscriptions on app open, exposes push/rhythm API helpers, sends test notifications from Settings, and deep-links notification taps into Assistant kickoff sessions. Frontend build, focused proactivity tests, and the full backend test suite passed before commit.
 
 ---
 
-### 2026-07-05 18:30 — `main`
+### 2026-07-09 18:00 — `feat/redesign-v2`
 
-Named the product thesis after a packaging brainstorm: the day is the unit — tasks, food, training, weight, and habits are lenses on the same day, and rollover connects days. Committed the packaging design spec (story, audience, keep/promote/merge/hide/cut list, brain-dump-first onboarding) and rewrote MARKETING.md as a v2 plan targeting the first 10 paying customers, with competitor research and a P0–P2 fix list (sell-rate split in credits.ts and trial credits are the top blockers). Docs only — no code changed.
+Redesigned the Today page header and week ribbon. Each day in the ribbon now shows a completed/total count and a colored progress fill bar (green when fully done, cyan otherwise) with a responsive stacked-on-mobile / row-on-desktop layout, replacing the old dots-and-checkmark treatment. The header gained a status subline (done / timed-left / untimed counts), a grouped desktop day-nav, and a dedicated mobile week-nav row; the JS-driven `isMobile` resize listener was dropped in favor of Tailwind breakpoints. The Talk assistant also now renders `complete_task`/`update_item` as TaskDraftCard previews and `delete_item` as a titled status pill instead of raw JSON dumps.
+
+---
+
+### 2026-07-09 16:20 — `feat/redesign-v2`
+
+Brainstormed issue #133 (proactivity, notifications, future planning) into an approved design spec. The vision crystallised as a "rhythm" of three planning touchpoints — morning planning, mid-day update, weekly planning — delivered as real iPhone web-push notifications (PWA, home-screen install) that deep-link into assistant kickoffs; static push text with AI running only on open, node-cron in the existing Railway backend, one new deep module `proactivity.ts`, and deterministic auto-tune suggestions in a later slice. Spec written to `docs/superpowers/specs/2026-07-09-proactivity-rhythm-design.md` with a 3-slice phasing plan; next step is the implementation plan.
+
+---
+
+### 2026-07-09 15:10 — `feat/redesign-v2`
+
+Fixed the Talk assistant crash where editing an existing card surfaced a raw Postgres `invalid input syntax for type uuid: "1"` error. Root cause: the model split the confirm flow across turns and, because tool results are not carried between turns, invented an item id like `"1"` that leaked straight into a uuid column. `getOwnedTask` now guards the id shape and throws a new `RecoverableToolError`, which the tool loop feeds back to the model so it re-lists and retries within the turn — while genuine infra failures still abort and surface as `tool_error`. The chat system prompt now tells the model that calling a write tool IS the confirmation step and that ids must come from a same-turn `get_today`/`list_tasks`. Verified live on mobile and with 284 passing backend tests including a new self-heal regression.
+
+---
+
+### 2026-07-09 12:49 — `feat/redesign-v2`
+
+Improved the Talk assistant failure path after investigating the mobile "Tool execution failed" screenshot. Backend tool errors now preserve useful Supabase/PostgREST-style object details and log the failing tool name, so the next production failure should expose the real cause instead of collapsing to a generic message. Added focused assistant-chat regression coverage and verified the backend test/build path before deployment.
+
+---
+
+### 2026-07-09 12:26 — `feat/redesign-v2`
+
+Cleaned up the mobile Today screen after reviewing the live PWA screenshot. The floating `Clear Today` bulk-delete button and its handler are gone, and the Today page no longer reserves the old oversized bottom spacer below AI Insights now that the clear button is removed. The production frontend build passes; lint is still blocked by the missing ESLint config issue in this repo.
+
+---
+
+### 2026-07-09 12:17 — `feat/redesign-v2`
+
+Replaced the Talk calorie confirmation JSON dump with a proper Calorie entry draft/result card. Pending calorie actions now use the same card for editing, confirmed calorie actions show a saved entry summary with calories, macros, date, time, and quantity, and confirmation invalidates calorie caches so Today/Calories refresh. Verified the Hebrew mobile confirm flow with a mocked calorie entry and confirmed no raw `args` JSON remains.
+
+---
+
+### 2026-07-09 11:25 — `feat/redesign-v2`
+
+Fixed the mobile Talk overflow introduced by the shared AI Task draft card. The pending-action wrapper and draft card now clamp to the message column, use smaller mobile padding, and shrink long date/time/select controls instead of bleeding under the composer. Verified the same mocked Hebrew task flow on a 390px mobile viewport and confirmed the production build passes.
+
+---
+
+### 2026-07-09 11:01 — `feat/redesign-v2`
+
+Unified the AI-created Task preview experience across AI Task Analyzer and Talk. A new shared Task draft card now blends the analyzer's compact visual preview with Talk's edit-and-confirm workflow, so generated Tasks and Habits can be edited in the same UI before saving from either surface. Mobile verification covered both the analyzer flow and a mocked Talk pending action, and the production build passes.
+
+---
+
+### 2026-07-08 15:32 — `feat/redesign-v2`
+
+Diagnosed the Google Calendar sync failure against Railway production logs and confirmed the root cause was an invalid Google refresh token (`invalid_grant`), not the Hebrew timed task payload. Calendar sync now treats revoked Google credentials as a disconnected account, marks affected timed Tasks as skipped instead of failed, and stops the Today page from retrying until the user reconnects. Added focused regression coverage for both the Hebrew/off-hour sync payload and the revoked-token path; backend tests, backend typecheck, and the frontend production build pass.
+
+---
+
+### 2026-07-08 16:32 — `feat/redesign-v2`
+
+Removed the last mobile-only spacer that kept the Talk composer from feeling flush with the PWA bottom dock. The `Add manually` footer link now hides on mobile and the composer form no longer adds bottom padding there, while desktop keeps the manual-add link. The assistant mobile regression now checks that the link stays hidden and the composer shell lands close to the dock.
+
+---
+
+### 2026-07-08 16:20 — `feat/redesign-v2`
+
+Refined the mobile Talk composer after the PWA still felt too tall. The composer now starts as a true one-line input with attach, mic, and send in the same compact row, while the model selector sits in a smaller secondary row so it no longer gets clipped by the bottom dock. Updated the assistant mobile regression to enforce the shorter shell height and verified the focused Playwright spec plus production build.
+
+---
+
+### 2026-07-08 16:07 — `feat/redesign-v2`
+
+Tightened the mobile PWA Talk bottom area after the production deploy showed the composer controls being clipped behind the dock. The Talk route now owns a full-height mobile content area above the bottom navigation, the composer is shorter on mobile so its controls remain visible, and the iOS standalone touch-target override no longer bloats the Talk dock/composer controls. Verified the assistant mobile regression and production build before committing.
+
+---
+
+### 2026-07-08 15:11 — `feat/redesign-v2`
+
+Polished the mobile Talk experience after testing it against the redesign branch. The assistant composer now behaves like a modern chat input: multiline, rounded, model picker inside the composer, and no disappearing text on narrow screens. Also tightened the mobile Talk layout so it sits flush to the app frame and bottom nav, removed the dead Privacy/Terms footer block from that page, and fixed the assistant-confirmed Item cache path so Today sees new assistant-created Tasks without a manual refresh.
+
+---
+
+### 2026-07-08 00:10 — `feat/redesign-v2`
+
+Ported the mobile-logout fix onto the redesign branch (originally fixed on `main` as `fix/mobile-logout`). Same root cause: the slide-in drawer sits in a `z-10` container, so its `z-50` was scoped below the `z-30` bottom nav, which painted over the Logout button. Applied to this branch's semantic-token `Layout.tsx` — hid the bottom nav while the drawer is open, made the drawer nav scrollable, and added safe-area padding to the footer.
+
+---
+
+### 2026-07-06 21:30 — `feat/redesign-v2`
+
+Shipped slice 6: a user-selectable theme system with two themes — **midnight** (default, pixel-identical to the legacy dark look) and a clean **white** theme. Introduced semantic CSS variables in `src/index.css` (`--surface-page/card/raised/input/sunken`, `--text-primary/secondary/muted`, `--border-default/strong`) defined as space-separated RGB channels so Tailwind's `rgb(var(--x) / <alpha-value>)` pattern preserves every existing alpha utility — midnight values equal the old hexes exactly, so the dark theme is untouched. `tailwind.config.js` maps them to short, collision-free utilities (`bg-page/card/raised/sunken/field`, `text-ink/ink-soft/ink-muted`, `border-line/line-strong`). Swept 27 component/page files, replacing every hardcoded dark surface/border/text class (`bg-gray-8/9/950`, `border-gray-6/7/8`, `text-gray-1/2/3/400`) with the semantic utilities; mid-tone control colors (toggle tracks, progress bars, chart bars — `bg-gray-500/600/700`) were left as-is per the accents-are-not-surfaces rule. Baked-in glow/gradient component classes (`.card`, `.task-card`, `.input-field`, `.neon-text`, PWA-standalone overrides) are neutralized for white via a single `[data-theme='white']` block rather than per-component edits. Theme source of truth is a new `theme` field on the settings Zod schema (`z.enum(['midnight','white']).default('midnight')`), mirrored to `localStorage` and applied to `<html data-theme>` — with an inline pre-render snippet in `index.html` so there's no flash-of-wrong-theme, and dynamic `theme-color` meta. Settings gained a segmented theme picker. Verified in the live preview (after clearing a stale service worker) that white renders cleanly and midnight is unchanged. Grep gate clean (0 `bg-gray-8/9`, `bg-slate-9` surface usages); frontend `tsc && vite build` green, backend `tsc --noEmit` green, settings-routes jest suite 9/9 (updated the default-shape assertion for the new field).
+
+---
+
+### 2026-07-06 20:00 — `feat/redesign-v2`
+
+Shipped slice 5: manual add is back as a real, secondary path alongside Talk. Founder feedback was that not everyone wants to type prose at an AI, and form-based add costs no credits — so `/add` now renders `AddItemPage` directly again instead of redirecting to `/talk` (`src/App.tsx`). AddItemPage itself needed no changes; it already supported `?tab=` params and its form flows were untouched by earlier slices. Wired two entry points: TodayPage header gained a compact secondary "+ Add" button next to the primary "Talk" button, and the Talk composer footer gained a small unobtrusive "Add manually" text link that doesn't compete visually with the send/attach/dictation controls. Dock stays exactly Today | Talk — no nav changes. Did not touch the Anytime shelf (no `/talk` reference found there to redirect). Build (`tsc && vite build`) passes.
+
+---
+
+### 2026-07-06 — `feat/redesign-v2`
+
+Shipped slice 4 (final) of the redesign, closing out the product-packaging spec's remaining work items. Calories flipped on by default: `backend/src/routes/settings.ts`'s Zod schema (single source of truth for the setting) now defaults `calorieIntake` to `true`, so any user who never touched the toggle gets it on while explicit opt-outs are preserved via the existing settings merge; frontend fallbacks (`TodayPage`, `SettingsPage`) updated to match. Removed the now-redundant sample-task seeding from `backend/src/onboarding.ts` `seedNewUser` — the brain-dump onboarding (slice 3) replaces the need for "Ask AI what to focus", "Log your first meal", "Record one small win"; kept the settings-seeding side effect intact. Week View got a light copy pass aligning it with day-first language ("Plan across days — your default view is Today") without touching its structure. Settings/nav cleanup: renamed the last user-facing "AI Assistant" labels (sidebar panel, AddItemPage button) to "Talk" for consistency with the slice-2 rename; module toggles (calories/achievements/workouts) all still map to live nav items, nothing orphaned. Verified in the live preview after clearing a stale service-worker cache that had been masking the changes. Backend typecheck + full jest suite (39/39 suites, 280 tests) green; frontend `tsc && vite build` passes.
+
+Shipped slice 3 of the redesign: first-run onboarding is now brain-dump-first. TodayPage's onboarding block is a single focused card — "Tell me about your day" — with one primary button that opens the existing AITextAnalyzer modal (no new parser; `AITextAnalyzer` gained an `onConfirmed` callback fired alongside its existing on-close-after-add path). Confirming a parse auto-completes onboarding via the existing `onboardingService.complete` mutation, keeping the `onboarding_completed`/`onboarding_skipped` analytics contract unchanged. Removed the old "core loop" checklist and its broken `/add?tab=` links (dead since slice 2 redirected `/add` to `/talk`). Kept a subtle "I'll do it later" skip link. Verified in the live preview that the credit-error surface (0 credits) still renders inside the modal with no silent fallback. Backend sample-task seeding (`backend/src/onboarding.ts` `seedNewUser`) is unchanged — out of scope per "no backend changes" — flagged as now-redundant given the brain-dump replaces the need for samples. Rewrote `tests/e2e/onboarding.spec.ts` to match the new copy/flow; it still requires real OpenAI credits/infra to execute (no AI stub in test mode), so it was updated for correctness but not run. Build (tsc + vite) passes.
+
+---
+
+### 2026-07-06 — `feat/redesign-v2`
+
+Shipped slice 2 of the redesign: Add and Ask are now one surface. The Assistant is repurposed as "Talk to your day" — route `/talk` renders the existing AssistantPage (retitled, composer placeholder "Add anything, or ask anything…"), with `/assistant` and `/add` redirecting to it. Backend behavior is unchanged; this is a re-centering, not a rebuild. Navigation collapsed to two destinations — Today and Talk (Talk is the primary/center dock action, grid is now 2-col) — across the mobile dock and desktop sidebar. TodayPage's Ask entry points (AskAIModal) now navigate to /talk; AskAIModal and its now-dead `aiService.queryTasks` client method were deleted. AddItemPage.tsx is kept (still deep-linked from the TodayPage shelf via `/add?tab=`) but is no longer a nav destination. Conflict noted: those shelf `/add?tab=` links now redirect to /talk and lose the tab param — left as-is per scope (don't touch TodayPage beyond the Ask button). Build (tsc + vite) passes.
+
+---
+
+### 2026-07-06 — `feat/redesign-v2`
+
+Shipped slice 1 of the redesign: TodayPage is now day-first. Replaced the stats/progress header (task counts, HabitTrackerBar sidebar, mobile module cards) with a 7-day week ribbon (past days show a ✓ when fully done, today/future show load dots) and a now/next card that appears only when viewing today. DayTimeline now renders calorie entries inline as read-only rose-accent body rows at their logged hour, and the Anytime shelf shows age badges ("2 days", "3 wks") on stale untimed items — replacing the per-card rollover banner. Drag-materialization (ADR-0001), virtual habit instances, and query-time rollover (ADR-0002) are untouched. Deferred: workout/weight timeline rows (no time field on those records — no new endpoints per scope) and flipping the calorie gate to on-by-default (#47, its own work item). Build (tsc + vite) passes.
+
+---
+
+### 2026-07-06 — `main`
+
+Restored the day-is-the-unit packaging spec and marketing plan v2 (orphaned when the branch line was reset past commit 714cc5e), then extended the spec with verdicts from a clickable wireframe prototype of the whole redesigned flow (`public/prototype-redesign.html`). Prototyping killed the close-day ritual (automatic rollover is the differentiator), merged Add and Ask into one "Talk to your day" surface (sharpens #124), and settled the Today header as week ribbon + now/next with no body metrics. Next step: plan the real `/today-v2` implementation.
+
+---
+
+### 2026-07-05 20:09 — `fix/assistant-current-time`
+
+Fixed the remaining Assistant time-context gap after the date-context fix. Assistant chat prompts now include the user's current local `HH:MM` time alongside timezone, today, yesterday, and tomorrow, and explicitly tell the model to use that value for "now" or "right now" tool arguments. Focused assistant route tests and the backend build passed before commit.
+
+---
+
+### 2026-07-05 19:15 — `fix/pwa-cache-refresh`
+
+Fixed the assistant composer icon rendering bug after reproducing it in a mobile browser viewport. The shared button padding was collapsing the inner lucide SVGs to zero width, so the composer icon buttons now remove inherited padding and mark the SVGs as non-shrinking fixed-size icons. A production frontend build passed, and Playwright verification showed all three composer icons rendering at 20x20 before commit.
+
+---
+
+### 2026-07-05 19:08 — `fix/pwa-cache-refresh`
+
+Added a PWA cache-refresh follow-up for the assistant date/icon fix. The service worker cache version now advances to `healthyflow-v4`, and installed clients reload once when the new worker takes control so mobile PWAs do not keep serving stale UI bundles. A production frontend build passed before commit.
 
 ---
 

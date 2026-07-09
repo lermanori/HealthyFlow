@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'healthyflow-v3'
+const CACHE_VERSION = 'healthyflow-v5'
 const APP_SHELL_CACHE = `${CACHE_VERSION}-app-shell`
 const ASSET_CACHE = `${CACHE_VERSION}-assets`
 
@@ -60,46 +60,38 @@ self.addEventListener('fetch', (event) => {
 })
 
 self.addEventListener('push', (event) => {
-  const options = {
-    body: event.data ? event.data.text() : 'New notification from HealthyFlow',
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-72x72.png',
-    data: {
-      url: '/',
-    },
-    actions: [
-      {
-        action: 'open',
-        title: 'Open App',
-        icon: '/icons/icon-96x96.png',
-      },
-      {
-        action: 'close',
-        title: 'Close',
-        icon: '/icons/icon-96x96.png',
-      },
-    ],
+  let payload = { title: 'HealthyFlow', body: 'New notification', url: '/' }
+  if (event.data) {
+    try {
+      payload = { ...payload, ...event.data.json() }
+    } catch (_e) {
+      payload.body = event.data.text()
+    }
   }
 
-  event.waitUntil(self.registration.showNotification('HealthyFlow', options))
+  const options = {
+    body: payload.body,
+    icon: '/icons/icon-192x192.png',
+    badge: '/icons/icon-72x72.png',
+    data: { url: payload.url },
+  }
+
+  event.waitUntil(self.registration.showNotification(payload.title, options))
 })
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-
-  if (event.action === 'close') return
-
   const targetUrl = event.notification.data?.url || '/'
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      const matchingClient = clientList.find((client) => client.url === self.registration.scope)
-      if (matchingClient && 'focus' in matchingClient) {
-        return matchingClient.focus()
+      for (const client of clientList) {
+        if ('focus' in client) {
+          if ('navigate' in client) client.navigate(targetUrl)
+          return client.focus()
+        }
       }
-
-      if (clients.openWindow) {
-        return clients.openWindow(targetUrl)
-      }
+      if (clients.openWindow) return clients.openWindow(targetUrl)
     })
   )
 })

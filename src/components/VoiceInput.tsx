@@ -81,7 +81,7 @@ export default function VoiceInput({
           <MicOff className="w-4 h-4 text-yellow-400" />
           <span className="text-sm text-yellow-400 font-medium">Voice Input Not Supported</span>
         </div>
-        <p className="text-xs text-gray-300 mt-1">
+        <p className="text-xs text-ink-soft mt-1">
           Speech recognition is not supported in your browser. Try using Chrome, Safari, or Edge.
         </p>
       </div>
@@ -97,7 +97,7 @@ export default function VoiceInput({
             value={transcript || interimTranscript}
             onChange={(e) => onTranscriptChange(e.target.value)}
             placeholder={placeholder}
-            className={`input-field resize-none holographic text-gray-100 placeholder-gray-400 pr-20 ${compact ? 'min-h-24' : 'min-h-32'}`}
+            className={`input-field resize-none holographic text-ink placeholder-ink-muted pr-20 ${compact ? 'min-h-24' : 'min-h-32'}`}
             disabled={disabled || isListening}
           />
           
@@ -110,14 +110,14 @@ export default function VoiceInput({
             )}
             
             {confidence > 0 && (
-              <div className={`text-xs px-2 py-1 rounded ${getConfidenceColor(confidence)} bg-gray-800/50`}>
+              <div className={`text-xs px-2 py-1 rounded ${getConfidenceColor(confidence)} bg-card/50`}>
                 {getConfidenceText(confidence)} ({Math.round(confidence * 100)}%)
               </div>
             )}
             
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className="p-1 rounded hover:bg-gray-700 transition-colors text-gray-400 hover:text-gray-200"
+              className="p-1 rounded hover:bg-gray-700 transition-colors text-ink-muted hover:text-ink-soft"
             >
               <Settings className="w-4 h-4" />
             </button>
@@ -181,16 +181,16 @@ export default function VoiceInput({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-gray-800/50 rounded-xl p-4 border border-cyan-500/30"
+            className="bg-card/50 rounded-xl p-4 border border-cyan-500/30"
           >
             <div className="space-y-3">
-              <h4 className="text-sm font-medium text-gray-200 flex items-center space-x-2">
+              <h4 className="text-sm font-medium text-ink-soft flex items-center space-x-2">
                 <Volume2 className="w-4 h-4" />
                 <span>Voice Input Settings</span>
               </h4>
               
               <div>
-                <label className="text-xs text-gray-400 block mb-2">Language</label>
+                <label className="text-xs text-ink-muted block mb-2">Language</label>
                 <select
                   value={selectedLanguage}
                   onChange={(e) => setSelectedLanguage(e.target.value)}
@@ -243,7 +243,7 @@ export default function VoiceInput({
                 </select>
               </div>
 
-              <div className="text-xs text-gray-400">
+              <div className="text-xs text-ink-muted">
                 <p>💡 <strong>Tips for better recognition:</strong></p>
                 <ul className="mt-1 space-y-1">
                   <li>• Speak clearly and at a normal pace</li>
@@ -268,7 +268,7 @@ export default function VoiceInput({
             <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
             <span className="text-xs text-cyan-400 font-medium">Listening...</span>
           </div>
-          <p className="text-sm text-gray-300 italic">
+          <p className="text-sm text-ink-soft italic">
             "{interimTranscript}"
           </p>
         </motion.div>

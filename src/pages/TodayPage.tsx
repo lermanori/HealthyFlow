@@ -1,23 +1,18 @@
 import { useState, useEffect } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format, addDays, subDays } from 'date-fns'
-import { Plus, Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, CheckCircle2, Award, Utensils, Dumbbell } from 'lucide-react'
+import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
+import { format, addDays, subDays, startOfWeek, isSameDay, isBefore } from 'date-fns'
+import { Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, Clock, Plus } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
-import api, {
-  achievementService,
+import {
   calendarService,
   caloriesService,
   onboardingService,
   taskService,
-  workoutsService,
   ExternalCalendarEvent,
   Task,
-  type AchievementSummary,
   type CalorieEntry,
-  type WorkoutSession,
 } from '../services/api'
 import DayTimeline from '../components/DayTimeline'
-import HabitTrackerBar from '../components/HabitTrackerBar'
 import AIRecommendationsBox from '../components/AIRecommendationsBox'
 import TaskEditModal from '../components/TaskEditModal'
 import ConfettiAnimation from '../components/ConfettiAnimation'
@@ -28,59 +23,150 @@ import { useNotifications } from '../hooks/useNotifications'
 import { formatRelativeDate } from '../utils/dateHelpers'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
-import AskAIModal from '../components/AskAIModal'
 import { createPortal } from 'react-dom'
 import { useSettings } from '../hooks/useSettings'
 
-type TodayModuleCard = {
-  title: string
-  href: string
-  icon: typeof Calendar
-  status: string
-  detail: string
-  accent: 'cyan' | 'green' | 'purple' | 'amber'
-}
-
-function ModuleStatusCards({ modules }: { modules: TodayModuleCard[] }) {
-  if (modules.length === 0) return null
-
-  const accentClasses: Record<TodayModuleCard['accent'], string> = {
-    cyan: 'border-cyan-500/30 bg-cyan-500/10 text-cyan-200',
-    green: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200',
-    purple: 'border-purple-500/30 bg-purple-500/10 text-purple-200',
-    amber: 'border-amber-500/30 bg-amber-500/10 text-amber-200',
-  }
+function WeekRibbon({
+  selectedDate,
+  onSelect,
+  loadByDay,
+}: {
+  selectedDate: Date
+  onSelect: (d: Date) => void
+  loadByDay: Record<string, { total: number; completed: number }>
+}) {
+  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 }) // Monday
+  const today = new Date()
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
   return (
-    <section className="md:hidden">
-      <div className="mb-3 flex items-end justify-between">
-        <h2 className="text-lg font-semibold text-gray-100">Your modules</h2>
-        <span className="text-xs font-medium text-cyan-300">Live status</span>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        {modules.map((module) => {
-          const Icon = module.icon
-          return (
-            <Link
-              key={module.href}
-              to={module.href}
-              className={`min-h-[112px] rounded-xl border p-3 transition hover:scale-[1.01] hover:shadow-lg ${accentClasses[module.accent]}`}
-            >
-              <div className="mb-3 flex items-start justify-between gap-2">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-950/35">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <span className="rounded-full bg-gray-950/35 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide">
-                  {module.status}
+    <div className="mt-2.5 grid grid-cols-7 gap-1.5 lg:mt-4 lg:gap-2">
+      {days.map((day) => {
+        const key = format(day, 'yyyy-MM-dd')
+        const load = loadByDay[key] ?? { total: 0, completed: 0 }
+        const isSelected = isSameDay(day, selectedDate)
+        const isFuture = isBefore(today, day) && !isSameDay(day, today)
+        const allDone = load.total > 0 && load.completed >= load.total
+        const pct = load.total > 0 ? Math.round((load.completed / load.total) * 100) : 0
+        const barColor = allDone ? '#4ade80' : '#22d3ee'
+
+        return (
+          <button
+            key={key}
+            type="button"
+            onClick={() => onSelect(day)}
+            className={`flex flex-col overflow-hidden rounded-xl border transition-all ${
+              isSelected
+                ? 'border-cyan-400/50 bg-cyan-500/[.12] shadow-lg shadow-cyan-500/10'
+                : 'border-line/50 bg-card/[.35] hover:border-cyan-500/30'
+            }`}
+          >
+            {/* content: stacked on mobile, row on desktop */}
+            <div className="flex flex-1 flex-col items-center gap-1 pt-2 lg:flex-row lg:justify-between lg:gap-2 lg:px-3 lg:pb-2 lg:pt-2.5">
+              <span className="flex flex-col items-center gap-1 lg:flex-row lg:items-baseline lg:gap-1.5">
+                <span
+                  className={`text-[10px] tracking-wide lg:uppercase lg:tracking-widest ${
+                    isSelected ? 'font-semibold text-cyan-300' : 'text-ink-muted'
+                  }`}
+                >
+                  <span className="lg:hidden">{format(day, 'EEEEE')}</span>
+                  <span className="hidden lg:inline">{format(day, 'EEE')}</span>
                 </span>
-              </div>
-              <h3 className="text-sm font-semibold text-gray-100">{module.title}</h3>
-              <p className="mt-1 line-clamp-2 text-xs leading-snug text-gray-300">{module.detail}</p>
-            </Link>
-          )
-        })}
+                <span
+                  className={`text-[15px] leading-none lg:text-lg ${
+                    isSelected
+                      ? 'font-bold text-cyan-100'
+                      : isFuture
+                        ? 'font-semibold text-ink-muted'
+                        : 'font-semibold text-ink-soft'
+                  }`}
+                  style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                >
+                  {format(day, 'd')}
+                </span>
+              </span>
+              <span
+                className={`text-[10px] font-semibold lg:text-[11px] ${
+                  allDone && !isSelected
+                    ? 'text-green-400'
+                    : isSelected
+                      ? 'text-cyan-200'
+                      : 'text-ink-muted'
+                }`}
+              >
+                {isFuture ? (
+                  <>
+                    <span className="lg:hidden">{load.total || '·'}</span>
+                    <span className="hidden lg:inline">
+                      {load.total ? `${load.total} tasks` : '—'}
+                    </span>
+                  </>
+                ) : (
+                  `${load.completed}/${load.total}`
+                )}
+              </span>
+            </div>
+            {/* fill bar */}
+            <span
+              className={`mt-1 block h-[3px] w-full lg:mt-0 ${
+                isSelected ? 'bg-cyan-400/15' : 'bg-[#1c2739]'
+              }`}
+            >
+              {!isFuture && load.total > 0 && (
+                <span
+                  className="block h-full"
+                  style={{ width: `${pct}%`, background: barColor }}
+                />
+              )}
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function NowNextCard({ tasks }: { tasks: Task[] }) {
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes()
+  const toMin = (t: string) => {
+    const [h, m] = t.split(':').map(Number)
+    return h * 60 + (m || 0)
+  }
+  const timed = tasks
+    .filter((t) => t.startTime && !t.completed)
+    .sort((a, b) => toMin(a.startTime!) - toMin(b.startTime!))
+
+  const current = [...timed].reverse().find((t) => toMin(t.startTime!) <= nowMinutes)
+  const next = timed.find((t) => toMin(t.startTime!) > nowMinutes)
+
+  if (!current && !next) {
+    return (
+      <div className="rounded-xl border border-line/60 bg-page/40 p-4 text-sm text-ink-muted">
+        Nothing timed right now. Add a time to something below, or enjoy the open space.
       </div>
-    </section>
+    )
+  }
+
+  const Row = ({ label, task, accent }: { label: string; task: Task; accent: string }) => (
+    <div className="flex min-w-0 items-center gap-3">
+      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${accent}`}>{label}</span>
+      <span className="flex shrink-0 items-center gap-1 text-xs text-ink-muted">
+        <Clock className="h-3 w-3" />
+        {task.startTime}
+      </span>
+      <span className="truncate text-sm font-medium text-ink">{task.title}</span>
+    </div>
+  )
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-cyan-500/30 bg-page/50 p-4">
+      {current && <Row label="Now" task={current} accent="bg-cyan-500/20 text-cyan-300" />}
+      {next && (
+        <div className={current ? 'border-t border-card pt-3' : ''}>
+          <Row label="Next" task={next} accent="bg-purple-500/20 text-purple-300" />
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -89,17 +175,13 @@ export default function TodayPage() {
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
   const [showAIAnalyzer, setShowAIAnalyzer] = useState(false)
-  const [showAskAIModal, setShowAskAIModal] = useState(false)
   const [habitDeleteCandidate, setHabitDeleteCandidate] = useState<Task | null>(null)
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const queryClient = useQueryClient()
   const { showNotification } = useNotifications()
   const location = useLocation()
   const { settings } = useSettings()
   const selectedDateKey = format(selectedDate, 'yyyy-MM-dd')
-  const calorieModuleEnabled = settings?.calorieIntake ?? false
-  const achievementModuleEnabled = settings?.achievementTracker ?? false
-  const workoutModuleEnabled = settings?.workoutTracker ?? true
+  const calorieModuleEnabled = settings?.calorieIntake ?? true
 
   // Check for AI parameter in URL
   useEffect(() => {
@@ -110,16 +192,6 @@ export default function TodayPage() {
       window.history.replaceState({}, document.title, window.location.pathname)
     }
   }, [location])
-
-  // Update isMobile state on window resize
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-    
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
 
   // Register for vibration feedback if available
   const hasVibration = 'navigator' in window && 'vibrate' in navigator
@@ -141,17 +213,39 @@ export default function TodayPage() {
     enabled: calorieModuleEnabled,
   })
 
-  const { data: workoutSessions = [] } = useQuery<WorkoutSession[]>({
-    queryKey: ['workouts', selectedDateKey],
-    queryFn: () => workoutsService.list(selectedDateKey),
-    enabled: workoutModuleEnabled,
+  // Week ribbon load dots: one cheap per-day query per weekday. The selected day is
+  // already cached above, so this adds at most 6 small requests and reuses the cache.
+  const weekDayKeys = Array.from({ length: 7 }, (_, i) =>
+    format(addDays(startOfWeek(selectedDate, { weekStartsOn: 1 }), i), 'yyyy-MM-dd')
+  )
+  const weekQueries = useQueries({
+    queries: weekDayKeys.map((dateKey) => ({
+      queryKey: ['tasks', dateKey],
+      queryFn: () => taskService.getTasks(dateKey),
+    })),
   })
+  const loadByDay = weekDayKeys.reduce((acc, key, i) => {
+    const items = (weekQueries[i]?.data ?? []) as Task[]
+    acc[key] = {
+      total: items.length,
+      completed: items.filter((t) => t.completed).length,
+    }
+    return acc
+  }, {} as Record<string, { total: number; completed: number }>)
 
-  const { data: achievementSummaries = [] } = useQuery<AchievementSummary[]>({
-    queryKey: ['achievements', 'module-card'],
-    queryFn: () => achievementService.list({ includeArchived: false, entryLimit: 5 }),
-    enabled: achievementModuleEnabled,
-  })
+  const doneCount = tasksData.filter((t) => t.completed).length
+  const timedLeft = tasksData.filter((t) => t.startTime && !t.completed).length
+  const untimedLeft = tasksData.filter((t) => !t.startTime && !t.completed).length
+  const headerSubline =
+    tasksData.length === 0
+      ? 'Nothing scheduled yet'
+      : [
+          `${doneCount} of ${tasksData.length} done`,
+          timedLeft ? `${timedLeft} timed left` : null,
+          untimedLeft ? `${untimedLeft} untimed` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
 
   useEffect(() => {
     const syncTimedTasks = async () => {
@@ -161,6 +255,7 @@ export default function TodayPage() {
         task.type === 'task' &&
         task.scheduledDate === date &&
         task.startTime &&
+        task.googleSyncStatus !== 'skipped' &&
         (!task.syncedToGoogle || task.googleSyncStatus === 'failed')
       )
       if (!hasTimedTasks) return
@@ -353,84 +448,6 @@ export default function TodayPage() {
     setSelectedDate(new Date())
   }
 
-  // Calculate habit statistics
-  const habits = tasksData.filter((task: Task) => task.type === 'habit')
-  const completedHabits = habits.filter((habit: Task) => habit.completed)
-  
-  const categories = tasksData.reduce((acc: Record<string, { total: number; completed: number }>, task: Task) => {
-    if (!acc[task.category]) {
-      acc[task.category] = { total: 0, completed: 0 }
-    }
-    acc[task.category].total++
-    if (task.completed) {
-      acc[task.category].completed++
-    }
-    return acc
-  }, {} as Record<string, { total: number; completed: number }>)
-
-  const moduleCards: TodayModuleCard[] = [
-    ...(calorieModuleEnabled ? [{
-      title: 'Calories',
-      href: '/calories',
-      icon: Utensils,
-      status: calorieEntries.length > 0 ? `${calorieEntries.length} logged` : 'needs log',
-      detail: calorieEntries.length > 0
-        ? `${calorieEntries.reduce((sum, entry) => sum + entry.calories, 0)} calories logged today.`
-        : 'No calorie entries for this day yet.',
-      accent: calorieEntries.length > 0 ? 'green' as const : 'cyan' as const,
-    }] : []),
-    ...(workoutModuleEnabled ? [{
-      title: 'Workout',
-      href: '/workouts',
-      icon: Dumbbell,
-      status: workoutSessions.length > 0 ? `${workoutSessions.length} done` : 'ready',
-      detail: workoutSessions.length > 0
-        ? workoutSessions.map((session) => session.title || 'Workout session').slice(0, 2).join(', ')
-        : 'No workout logged today.',
-      accent: workoutSessions.length > 0 ? 'green' as const : 'purple' as const,
-    }] : []),
-    ...(achievementModuleEnabled ? [{
-      title: 'Achievements',
-      href: '/achievements',
-      icon: Award,
-      status: `${achievementSummaries.length} active`,
-      detail: achievementSummaries.length > 0
-        ? achievementSummaries.slice(0, 2).map((summary) => summary.definition.name).join(', ')
-        : 'Track measurable wins and personal bests.',
-      accent: 'amber' as const,
-    }] : []),
-    {
-      title: 'Week View',
-      href: '/week',
-      icon: Calendar,
-      status: 'week',
-      detail: 'Scan the week and move work across days.',
-      accent: 'cyan' as const,
-    },
-  ]
-
-  // Clear current date's tasks
-  const handleClearCurrentDate = async () => {
-    const dateStr = format(selectedDate, 'yyyy-MM-dd')
-    const isToday = dateStr === format(new Date(), 'yyyy-MM-dd')
-    const dateLabel = isToday ? 'today' : formatRelativeDate(selectedDate).toLowerCase()
-    
-    if (confirm(`Are you sure you want to delete all tasks for ${dateLabel}? This cannot be undone.`)) {
-      try {
-        await api.delete('/tasks', { params: { date: dateStr } })
-        queryClient.invalidateQueries({ queryKey: ['tasks'] })
-        toast.success(`All tasks for ${dateLabel} deleted`)
-        
-        // Vibrate on clear if supported
-        if (hasVibration) {
-          navigator.vibrate([100, 50, 100, 50, 100])
-        }
-      } catch (e) {
-        toast.error(`Failed to delete ${dateLabel}'s tasks`)
-      }
-    }
-  }
-
   // Carry-forward is now query-time (ADR-0002): incomplete untimed tasks with
   // scheduled_date NULL or < the viewed day surface automatically on GET. No
   // client-side rollover trigger needed.
@@ -444,7 +461,7 @@ export default function TodayPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-28 md:pb-0">
+    <div className="space-y-4 pb-4 md:space-y-6 md:pb-0">
       {/* Smart Reminders */}
       <SmartReminders />
 
@@ -452,65 +469,33 @@ export default function TodayPage() {
         <motion.div
           initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-lg border border-cyan-500/30 bg-gray-900/80 p-4 shadow-xl shadow-cyan-500/10"
+          className="rounded-lg border border-cyan-500/30 bg-page/80 p-4 shadow-xl shadow-cyan-500/10"
         >
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-cyan-400" />
-                <h2 className="text-lg font-semibold text-gray-100">Start with HealthyFlow</h2>
-              </div>
-              <p className="mt-1 text-sm text-gray-400">
-                Try the core loop once: add something, log a meal, record a win, then ask AI about your day.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => completeOnboardingMutation.mutate()}
-                disabled={completeOnboardingMutation.isPending}
-                className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
-              >
-                <CheckCircle2 className="h-4 w-4" />
-                Finish
-              </button>
-              <button
-                type="button"
-                onClick={() => skipOnboardingMutation.mutate()}
-                disabled={skipOnboardingMutation.isPending}
-                className="btn-secondary px-4 py-2 text-sm"
-              >
-                Skip
-              </button>
-            </div>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-cyan-400" />
+            <h2 className="text-lg font-semibold text-ink">Tell me about your day</h2>
           </div>
+          <p className="mt-1 text-sm text-ink-muted">
+            One brain-dump — work, food, gym, anything — and I'll turn it into your schedule.
+          </p>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <Link to="/add?tab=today" className="rounded-lg border border-gray-700 bg-gray-950/30 p-3 transition hover:border-cyan-500/40 hover:bg-cyan-500/10">
-              <Plus className="mb-2 h-4 w-4 text-cyan-300" />
-              <p className="text-sm font-medium text-gray-100">Add a task</p>
-              <p className="mt-1 text-xs text-gray-500">Use the Today tab.</p>
-            </Link>
-            <Link to="/add?tab=calories" className="rounded-lg border border-gray-700 bg-gray-950/30 p-3 transition hover:border-cyan-500/40 hover:bg-cyan-500/10">
-              <Utensils className="mb-2 h-4 w-4 text-cyan-300" />
-              <p className="text-sm font-medium text-gray-100">Log calories</p>
-              <p className="mt-1 text-xs text-gray-500">Add one quick entry.</p>
-            </Link>
-            <Link to="/add?tab=achievements" className="rounded-lg border border-gray-700 bg-gray-950/30 p-3 transition hover:border-cyan-500/40 hover:bg-cyan-500/10">
-              <Award className="mb-2 h-4 w-4 text-cyan-300" />
-              <p className="text-sm font-medium text-gray-100">Record a win</p>
-              <p className="mt-1 text-xs text-gray-500">Save a measurable result.</p>
-            </Link>
-            <button
-              type="button"
-              onClick={() => setShowAskAIModal(true)}
-              className="rounded-lg border border-gray-700 bg-gray-950/30 p-3 text-left transition hover:border-cyan-500/40 hover:bg-cyan-500/10"
-            >
-              <Brain className="mb-2 h-4 w-4 text-cyan-300" />
-              <p className="text-sm font-medium text-gray-100">Ask AI</p>
-              <p className="mt-1 text-xs text-gray-500">Use the sample tasks.</p>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setShowAIAnalyzer(true)}
+            className="btn-primary mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm"
+          >
+            <Brain className="h-4 w-4" />
+            Tell HealthyFlow about your day
+          </button>
+
+          <button
+            type="button"
+            onClick={() => skipOnboardingMutation.mutate()}
+            disabled={skipOnboardingMutation.isPending}
+            className="mt-3 block text-xs text-gray-500 transition-colors hover:text-ink-soft"
+          >
+            I'll do it later
+          </button>
         </motion.div>
       )}
 
@@ -520,118 +505,104 @@ export default function TodayPage() {
         onComplete={() => setShowConfetti(false)} 
       />
 
-      {/* Header with Date Navigation */}
+      {/* Day-first header: title row + week ribbon */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col md:flex-row md:items-center md:justify-between space-y-3 md:space-y-0"
+        className="space-y-3"
       >
-        <div className="flex items-center space-x-4">
-          <div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={handlePreviousDay}
-                className="p-2 md:p-3 rounded-xl hover:bg-gray-800/50 transition-all duration-300 text-gray-400 hover:text-cyan-400 hover:shadow-lg hover:shadow-cyan-500/20"
-                aria-label="Previous day"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-              
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-100 neon-text">
-                {formatRelativeDate(selectedDate)}
-              </h1>
-              
-              <button
-                onClick={handleNextDay}
-                className="p-2 md:p-3 rounded-xl hover:bg-gray-800/50 transition-all duration-300 text-gray-400 hover:text-cyan-400 hover:shadow-lg hover:shadow-cyan-500/20"
-                aria-label="Next day"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-            
-            <div className="flex items-center space-x-4 mt-2">
-              <p className="text-sm md:text-base text-gray-400">
-                {format(selectedDate, 'EEEE, MMMM d, yyyy')}
-              </p>
-              
-              {!format(selectedDate, 'yyyy-MM-dd').includes(format(new Date(), 'yyyy-MM-dd')) && (
+        {/* Title + actions */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-0.5">
+            <h1
+              className="text-[23px] font-bold leading-tight text-ink lg:text-[26px]"
+              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+            >
+              {formatRelativeDate(selectedDate)}
+            </h1>
+            <p className="text-xs text-ink-muted lg:text-[13px]">
+              <span>{format(selectedDate, 'EEEE, d MMMM')} ·{' '}</span>
+              {headerSubline}
+              {!isSameDay(selectedDate, new Date()) && (
                 <button
                   onClick={handleToday}
-                  className="text-xs md:text-sm text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
+                  className="ml-2 text-xs font-medium text-cyan-400 transition-colors hover:text-cyan-300"
                 >
-                  Go to Today
+                  Today
                 </button>
               )}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Day nav — desktop only (mobile version lives in the week-nav row) */}
+            <div className="hidden items-stretch overflow-hidden rounded-xl border border-line/60 bg-card/40 lg:flex">
+              <button
+                type="button"
+                onClick={handlePreviousDay}
+                aria-label="Previous day"
+                className="flex h-[38px] w-9 items-center justify-center border-r border-line/60 text-ink-muted transition-colors hover:text-cyan-400"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleNextDay}
+                aria-label="Next day"
+                className="flex h-[38px] w-9 items-center justify-center text-ink-muted transition-colors hover:text-cyan-400"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
             </div>
-            
-            <div className="flex items-center space-x-4 mt-2">
-              <span className="text-xs md:text-sm text-gray-500">
-                {tasksData.length} tasks • {tasksData.filter((t: Task) => t.completed).length} completed
-              </span>
-              <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-            </div>
+
+            <Link
+              to="/talk"
+              className="flex items-center gap-1.5 rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-950 shadow-lg shadow-cyan-400/20 transition-colors hover:bg-cyan-300"
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>Talk</span>
+            </Link>
+            <Link
+              to="/add"
+              aria-label="Add"
+              className="flex h-[38px] w-[38px] items-center justify-center gap-1.5 rounded-xl border border-line bg-card/50 text-ink-soft transition-colors hover:border-line-strong hover:text-ink lg:w-auto lg:px-3.5"
+            >
+              <Plus className="h-[17px] w-[17px]" />
+              <span className="hidden text-sm font-medium lg:inline">Add</span>
+            </Link>
           </div>
         </div>
-        
-        {/* Action Buttons - Responsive Layout */}
-        <div className={`flex ${isMobile ? 'flex-wrap gap-2' : 'items-center space-x-3'}`}>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowAIAnalyzer(true)}
-            className={`btn-primary flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 ${isMobile ? 'text-sm py-2 px-3' : ''}`}
-          >
-            <Brain className="w-4 h-4" />
-            <span>{isMobile ? 'AI' : 'AI Analyzer'}</span>
-            <Sparkles className="w-4 h-4 animate-neon-flicker" />
-          </motion.button>
 
-          {/* Ask AI Button */}
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => setShowAskAIModal(true)}
-            className={`btn-secondary flex items-center space-x-2 ${isMobile ? 'text-sm py-2 px-3' : ''}`}
-          >
-            <Sparkles className="w-4 h-4 text-cyan-400" />
-            <span>{isMobile ? 'Ask' : 'Ask AI'}</span>
-          </motion.button>
-
-          {/* Clear Current Date's Tasks Button - Hide on mobile to save space */}
-          {!isMobile && (
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={handleClearCurrentDate}
-              className="btn-secondary flex items-center space-x-2 text-red-400 border-red-400 hover:bg-red-500/10"
+        {/* Week-nav row — mobile only */}
+        <div className="mt-1 flex items-center justify-between lg:hidden">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+            This week
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handlePreviousDay}
+              aria-label="Previous day"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-line/60 bg-card/40 text-ink-muted transition-colors hover:text-cyan-400"
             >
-              <span>🗑️</span>
-              <span>Clear {formatRelativeDate(selectedDate)}</span>
-            </motion.button>
-          )}
-
-          <Link
-            to="/add"
-            className={`btn-primary flex items-center space-x-2 ${isMobile ? 'text-sm py-2 px-3' : ''}`}
-          >
-            <Plus className="w-4 h-4" />
-            <span>{isMobile ? 'Add' : 'Add Task'}</span>
-          </Link>
-          
-          {!isMobile && (
-            <Link
-              to="/week"
-              className="btn-secondary flex items-center space-x-2"
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleNextDay}
+              aria-label="Next day"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-line/60 bg-card/40 text-ink-muted transition-colors hover:text-cyan-400"
             >
-              <Calendar className="w-4 h-4" />
-              <span>Week View</span>
-            </Link>
-          )}
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
+
+        <WeekRibbon selectedDate={selectedDate} onSelect={setSelectedDate} loadByDay={loadByDay} />
       </motion.div>
 
-      <ModuleStatusCards modules={moduleCards} />
+      {/* Now/next — only when viewing today */}
+      {isSameDay(selectedDate, new Date()) && <NowNextCard tasks={tasksData} />}
 
       {/* AI Text Analyzer Modal */}
       {createPortal(
@@ -641,12 +612,15 @@ export default function TodayPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed left-0 top-0 z-[9999] flex h-dvh w-dvw items-start justify-center overflow-y-auto bg-gray-950/80 px-2 py-3 backdrop-blur-sm sm:items-center sm:p-4"
+              className="fixed left-0 top-0 z-[9999] flex h-dvh w-dvw items-start justify-center overflow-y-auto bg-sunken/80 px-2 py-3 backdrop-blur-sm sm:items-center sm:p-4"
               onClick={() => setShowAIAnalyzer(false)}
             >
               <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-4xl items-stretch sm:block">
                 <AITextAnalyzer
                   onClose={() => setShowAIAnalyzer(false)}
+                  onConfirmed={() => {
+                    if (settings?.onboardingStatus === 'active') completeOnboardingMutation.mutate()
+                  }}
                   scheduledDate={format(selectedDate, 'yyyy-MM-dd')}
                 />
               </div>
@@ -655,9 +629,6 @@ export default function TodayPage() {
         </AnimatePresence>,
         document.body
       )}
-
-      {/* Ask AI Modal */}
-      <AskAIModal isOpen={showAskAIModal} onClose={() => setShowAskAIModal(false)} />
 
       <AnimatePresence>
         {habitDeleteCandidate && (
@@ -673,15 +644,15 @@ export default function TodayPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.96, y: 16 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md rounded-xl border border-gray-700 bg-gray-900 p-5 shadow-2xl"
+              className="w-full max-w-md rounded-xl border border-line bg-page p-5 shadow-2xl"
             >
               <div className="flex items-start gap-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-red-500/30 bg-red-500/15 text-red-300">
                   <Trash2 className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-lg font-semibold text-gray-100">Delete habit</h3>
-                  <p className="mt-1 text-sm text-gray-400">
+                  <h3 className="text-lg font-semibold text-ink">Delete habit</h3>
+                  <p className="mt-1 text-sm text-ink-muted">
                     Choose what to remove for "{habitDeleteCandidate.title}".
                   </p>
                 </div>
@@ -691,7 +662,7 @@ export default function TodayPage() {
                 <button
                   type="button"
                   onClick={() => confirmHabitDelete('instance')}
-                  className="flex items-center justify-center gap-2 rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-sm font-medium text-gray-100 transition-colors hover:bg-gray-700"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-line bg-card px-4 py-3 text-sm font-medium text-ink transition-colors hover:bg-gray-700"
                 >
                   <Calendar className="h-4 w-4" />
                   This day
@@ -709,7 +680,7 @@ export default function TodayPage() {
               <button
                 type="button"
                 onClick={() => setHabitDeleteCandidate(null)}
-                className="mt-3 w-full rounded-lg px-4 py-2 text-sm text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-200"
+                className="mt-3 w-full rounded-lg px-4 py-2 text-sm text-ink-muted transition-colors hover:bg-card hover:text-ink-soft"
               >
                 Cancel
               </button>
@@ -728,6 +699,7 @@ export default function TodayPage() {
           <DayTimeline
             tasks={tasksData}
             calendarEvents={calendarEvents}
+            calorieEntries={calorieEntries}
             onTasksReorder={handleTasksReorder}
             onCompleteTask={handleCompleteTask}
             onUncompleteTask={handleUncompleteTask}
@@ -738,46 +710,8 @@ export default function TodayPage() {
           />
         </motion.div>
 
-        {/* Futuristic Sidebar - Responsive Layout */}
-        <div
-          className="space-y-4 md:space-y-6"
-        >
-          {/* Habit Tracker */}
-          <div className="card holographic">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-white" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-100">
-                {formatRelativeDate(selectedDate)} Progress
-              </h3>
-            </div>
-            <div className="space-y-4">
-              <HabitTrackerBar
-                title="Overall Progress"
-                completed={completedHabits.length}
-                total={habits.length}
-                color="bg-gradient-to-r from-cyan-500 to-blue-600"
-              />
-              
-              {Object.entries(categories).map(([category, stats]) => (
-                <HabitTrackerBar
-                  key={category}
-                  title={category.charAt(0).toUpperCase() + category.slice(1)}
-                  completed={stats.completed}
-                  total={stats.total}
-                  color={
-                    category === 'health' ? 'bg-gradient-to-r from-green-500 to-emerald-600' :
-                    category === 'work' ? 'bg-gradient-to-r from-blue-500 to-indigo-600' :
-                    category === 'fitness' ? 'bg-gradient-to-r from-orange-500 to-red-600' :
-                    'bg-gradient-to-r from-purple-500 to-pink-600'
-                  }
-                />
-              ))}
-            </div>
-          </div>
-
-          {/* AI Recommendations */}
+        {/* Sidebar */}
+        <div className="space-y-4 md:space-y-6">
           <AIRecommendationsBox date={format(selectedDate, 'yyyy-MM-dd')} />
         </div>
       </div>
@@ -790,20 +724,6 @@ export default function TodayPage() {
         onSave={handleSaveTask}
       />
       
-      {/* Mobile Clear Button - Fixed at bottom with increased bottom margin */}
-      {isMobile && (
-        <div className="fixed bottom-28 right-4 z-20">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleClearCurrentDate}
-            className="btn-secondary flex items-center space-x-2 text-red-400 border-red-400 hover:bg-red-500/10 shadow-lg"
-          >
-            <span>🗑️</span>
-            <span>Clear {formatRelativeDate(selectedDate)}</span>
-          </motion.button>
-        </div>
-      )}
     </div>
   )
 }

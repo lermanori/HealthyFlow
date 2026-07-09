@@ -55,7 +55,7 @@ export default function TTSSettings({
           <MicOff className="w-4 h-4 text-yellow-400" />
           <span className="text-sm text-yellow-400 font-medium">TTS Not Supported</span>
         </div>
-        <p className="text-xs text-gray-300 mt-1">
+        <p className="text-xs text-ink-soft mt-1">
           Text-to-speech is not supported in your browser. Try using Chrome, Safari, or Edge.
         </p>
       </div>
@@ -66,8 +66,8 @@ export default function TTSSettings({
     <div
       className={`tts-controls ${
         embedded
-          ? 'rounded-xl border border-cyan-500/25 bg-gray-900/25 px-1.5 py-1'
-          : `rounded-xl border border-cyan-500/30 bg-gray-800/50 ${compact ? 'p-3' : 'p-4'}`
+          ? 'rounded-xl border border-cyan-500/25 bg-page/25 px-1.5 py-1'
+          : `rounded-xl border border-cyan-500/30 bg-card/50 ${compact ? 'p-3' : 'p-4'}`
       }`}
     >
       {/* Header */}
@@ -76,7 +76,7 @@ export default function TTSSettings({
           <div className={`${embedded ? 'h-8 w-8 rounded-lg' : 'w-6 h-6 rounded-lg'} bg-gradient-to-r from-cyan-500 to-blue-600 flex items-center justify-center`}>
             <Volume2 className="w-3 h-3 text-white" />
           </div>
-          {!embedded && <h4 className="text-sm font-medium text-gray-200">Voice Assistant</h4>}
+          {!embedded && <h4 className="text-sm font-medium text-ink-soft">Voice Assistant</h4>}
         </div>
         
         <div className={`flex items-center ${embedded ? 'space-x-1.5' : 'space-x-2'}`}>
@@ -85,7 +85,7 @@ export default function TTSSettings({
             className={`${embedded ? 'flex h-8 w-8 items-center justify-center rounded-lg' : 'p-1 rounded'} hover:bg-gray-700 transition-colors`}
             aria-label="Open voice assistant settings"
           >
-            <Settings className="w-4 h-4 text-gray-400" />
+            <Settings className="w-4 h-4 text-ink-muted" />
           </button>
           
           <label className="relative inline-flex items-center cursor-pointer">
@@ -102,11 +102,11 @@ export default function TTSSettings({
 
       {isSettingsOpen && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-950/75 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-sunken/75 p-4 backdrop-blur-sm"
           onClick={() => setIsSettingsOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-cyan-500/30 bg-gray-900 p-5 shadow-2xl shadow-cyan-500/20"
+            className="w-full max-w-md rounded-2xl border border-cyan-500/30 bg-page p-5 shadow-2xl shadow-cyan-500/20"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between gap-3">
@@ -115,23 +115,23 @@ export default function TTSSettings({
                   <Volume2 className="h-4 w-4 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-gray-100">Voice Assistant</h3>
-                  <p className="text-xs text-gray-400">Configure spoken analysis feedback</p>
+                  <h3 className="text-base font-semibold text-ink">Voice Assistant</h3>
+                  <p className="text-xs text-ink-muted">Configure spoken analysis feedback</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsSettingsOpen(false)}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-100"
+                className="rounded-lg p-2 text-ink-muted transition-colors hover:bg-card hover:text-ink"
                 aria-label="Close voice assistant settings"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div className="mb-5 flex items-center justify-between rounded-xl border border-gray-700/70 bg-gray-800/60 p-3">
+            <div className="mb-5 flex items-center justify-between rounded-xl border border-line/70 bg-card/60 p-3">
               <div>
-                <h4 className="text-sm font-medium text-gray-100">Enable Voice Assistant</h4>
-                <p className="text-xs text-gray-400">Allow HealthyFlow to speak generated results.</p>
+                <h4 className="text-sm font-medium text-ink">Enable Voice Assistant</h4>
+                <p className="text-xs text-ink-muted">Allow HealthyFlow to speak generated results.</p>
               </div>
               <label className="relative inline-flex cursor-pointer items-center">
                 <input
@@ -146,7 +146,7 @@ export default function TTSSettings({
 
             <div className="space-y-4">
               <div>
-                <label className="mb-2 block text-xs text-gray-400">Voice</label>
+                <label className="mb-2 block text-xs text-ink-muted">Voice</label>
                 <select
                   value={selectedVoice}
                   onChange={(e) => onVoiceChange(e.target.value)}
@@ -161,7 +161,7 @@ export default function TTSSettings({
               </div>
 
               <div>
-                <label className="mb-2 block text-xs text-gray-400">
+                <label className="mb-2 block text-xs text-ink-muted">
                   Speech Rate: {rate}x
                 </label>
                 <input
@@ -180,14 +180,14 @@ export default function TTSSettings({
                 </div>
               </div>
 
-              <label className="flex items-center space-x-3 rounded-xl border border-gray-700/70 bg-gray-800/40 p-3">
+              <label className="flex items-center space-x-3 rounded-xl border border-line/70 bg-card/40 p-3">
                 <input
                   type="checkbox"
                   checked={autoSpeakResults}
                   onChange={(e) => onAutoSpeakChange(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-600 bg-gray-700 text-cyan-500 focus:ring-2 focus:ring-cyan-500"
+                  className="h-4 w-4 rounded border-line-strong bg-gray-700 text-cyan-500 focus:ring-2 focus:ring-cyan-500"
                 />
-                <span className="text-sm text-gray-300">Auto-speak analysis results</span>
+                <span className="text-sm text-ink-soft">Auto-speak analysis results</span>
               </label>
 
               <button
@@ -205,7 +205,7 @@ export default function TTSSettings({
 
       {/* Collapsed Info */}
       {!compact && ttsEnabled && (
-        <div className="text-xs text-gray-400">
+        <div className="text-xs text-ink-muted">
           {selectedVoice && (
             <p>Voice: {selectedVoice}</p>
           )}

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PROTOTYPE — HealthyFlow day-first redesign wireframe</title>
+<!--
+  PROTOTYPE — THROWAWAY. Not production code.
+  Question this answers: does the day-first redesign (brain-dump → today with week
+  ribbon / now+next / anytime shelf / timed timeline → close the day) feel right
+  as a whole flow? Spec: docs/superpowers/specs/2026-07-05-product-packaging-design.md
+  All state is in-memory. Delete this file once the flow verdict is captured.
+-->
+<style>
+  * { box-sizing: border-box; margin: 0; font-family: -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { background: #e9e7e0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px 8px; }
+  .proto-banner { font-size: 12px; letter-spacing: 2px; color: #993c1d; background: #faece7; border: 1px solid #f0997b; border-radius: 999px; padding: 4px 14px; margin-bottom: 14px; }
+  .phone { width: 340px; background: #fff; border: 1px solid #c9c7bd; border-radius: 28px; padding: 16px 14px 12px; min-height: 640px; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+  .statusbar { display: flex; justify-content: space-between; font-size: 12px; color: #888780; margin-bottom: 10px; }
+  .screen { display: none; flex: 1; flex-direction: column; }
+  .screen.active { display: flex; }
+  button { cursor: pointer; border: none; background: none; font-size: inherit; }
+  .chip { border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+  .plan { background: #eeedfe; color: #26215c; }
+  .body { background: #e1f5ee; color: #04342c; }
+  .muted { color: #b4b2a9; }
+  .row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; }
+  .row .t { width: 38px; font-size: 11px; color: #b4b2a9; flex-shrink: 0; }
+  .row .chip { flex: 1; }
+  .done .chip { text-decoration: line-through; opacity: 0.65; }
+  .tick { width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid #afa9ec; flex-shrink: 0; font-size: 12px; color: #fff; display: flex; align-items: center; justify-content: center; }
+  .done .tick { background: #1d9e75; border-color: #1d9e75; }
+  .ribbon { display: flex; gap: 3px; margin-bottom: 4px; }
+  .ribbon button { flex: 1; text-align: center; padding: 6px 0 4px; border-radius: 8px; font-size: 11px; color: #888780; }
+  .ribbon button.sel { background: #eeedfe; color: #26215c; font-weight: 600; }
+  .ribbon .dots { font-size: 10px; letter-spacing: 1px; color: #b4b2a9; height: 14px; }
+  .ribbon .sel .dots { color: #7f77dd; }
+  .ribbon .closed { color: #1d9e75; }
+  .card { border-radius: 12px; padding: 10px 12px; margin-bottom: 10px; }
+  .shelf { border: 1px solid #d3d1c7; border-radius: 12px; padding: 9px 12px; margin-bottom: 10px; }
+  .shelf-item { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px; color: #26215c; }
+  .age { font-size: 11px; color: #ba7517; background: #faeeda; border-radius: 999px; padding: 1px 7px; flex-shrink: 0; }
+  .sched { font-size: 11px; color: #534ab7; border: 1px solid #cecbf6; border-radius: 999px; padding: 2px 8px; flex-shrink: 0; }
+  .dock { margin-top: auto; padding-top: 10px; border-top: 1px solid #e2e0d8; display: flex; justify-content: space-around; align-items: center; }
+  .dock button { text-align: center; font-size: 11px; color: #888780; }
+  .dock .fab { width: 46px; height: 46px; border-radius: 50%; background: #534ab7; color: #eeedfe; font-size: 24px; line-height: 1; }
+  .overlay { position: absolute; inset: 0; background: rgba(30,30,28,0.45); display: none; align-items: flex-end; z-index: 5; }
+  .overlay.open { display: flex; }
+  .sheet { background: #fff; border-radius: 22px 22px 0 0; padding: 18px 16px 22px; width: 100%; max-height: 88%; overflow-y: auto; }
+  textarea, input[type=text] { width: 100%; border: 1px solid #d3d1c7; border-radius: 12px; padding: 10px 12px; font-size: 14px; resize: none; outline: none; color: #2c2c2a; }
+  .primary { background: #534ab7; color: #fff; border-radius: 999px; padding: 10px 20px; font-size: 14px; width: 100%; margin-top: 12px; }
+  .ghost { color: #534ab7; font-size: 13px; padding: 8px; width: 100%; }
+  h1 { font-size: 20px; color: #2c2c2a; font-weight: 600; }
+  .hint { font-size: 11px; color: #b4b2a9; text-align: center; margin: 4px 0 10px; }
+  .gap { border: 1.5px dashed #afa9ec; background: #fff; color: #534ab7; }
+  .bubble { border-radius: 14px; padding: 9px 12px; font-size: 13px; margin-bottom: 8px; max-width: 85%; }
+  .me { background: #f1efe8; color: #2c2c2a; margin-left: auto; }
+  .ai { background: #eeedfe; color: #26215c; }
+</style>
+</head>
+<body>
+<div class="proto-banner">PROTOTYPE · WIREFRAME · THROWAWAY</div>
+<div class="phone">
+  <div class="statusbar"><span id="clock">2:15 pm</span><span id="sb-date">wed · jul 8</span></div>
+
+  <div class="screen active" id="scr-onboarding">
+    <p class="hint" style="text-align:left; margin-top: 30px;">tomorrow — wednesday</p>
+    <h1 style="margin-bottom: 16px;">Tell me about your day</h1>
+    <textarea id="dump" rows="5">weigh in first thing, eggs and toast for breakfast, finish the report by noon, call the accountant, gym at 6, 10 min meditation before bed</textarea>
+    <button class="primary" onclick="parseDump()">Build my day</button>
+    <div id="parsed" style="margin-top:16px;"></div>
+  </div>
+
+  <div class="screen" id="scr-today">
+    <div class="ribbon" id="ribbon"></div>
+    <p class="hint">tap a day · dots = how full it is</p>
+    <div class="card plan" id="nownext"></div>
+    <div class="shelf" id="shelf"></div>
+    <div id="timeline" style="overflow-y:auto;"></div>
+    <div class="dock">
+      <button onclick="goToday()">☀<br>today</button>
+      <button class="fab" onclick="openSheet('talk')">+</button>
+      <span style="width:44px;"></span>
+    </div>
+  </div>
+
+  <div class="overlay" id="ov-talk">
+    <div class="sheet">
+      <h1 style="font-size:16px; margin-bottom:10px;">Talk to your day</h1>
+      <div id="chat"></div>
+      <input type="text" id="talkinput" placeholder="add anything, or ask anything…" />
+      <button class="primary" onclick="talk()">Send</button>
+      <button class="ghost" onclick="closeSheets()">close</button>
+    </div>
+  </div>
+</div>
+<p style="font-size:12px; color:#888780; margin-top:12px; max-width:360px; text-align:center;">
+  Flow: build the day → tick things off → send shelf items into gaps → + talks to the day: statements add, questions answer. Days end on their own; unfinished things just follow you.
+</p>
+
+<script>
+const DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
+const DATES = [6,7,8,9,10,11,12];
+const NOW_MIN = 14 * 60 + 15;
+let sel = 2;
+let uid = 100;
+
+const state = {
+  closed: [true, true, false, false, false, false, false],
+  timed: [
+    [ {id:1,time:'07:30',title:'weigh-in — 78.5 kg',kind:'body',done:true}, {id:2,time:'18:00',title:'gym — pull day',kind:'body',done:true}, {id:3,time:'10:00',title:'sprint planning',kind:'plan',done:true} ],
+    [ {id:4,time:'07:30',title:'weigh-in — 78.4 kg',kind:'body',done:true}, {id:5,time:'12:30',title:'salad + chicken · 540 kcal',kind:'body',done:true}, {id:6,time:'15:00',title:'client demo',kind:'plan',done:true} ],
+    [],
+    [ {id:7,time:'09:00',title:'dentist',kind:'plan',done:false}, {id:8,time:'18:00',title:'gym — legs',kind:'body',done:false} ],
+    [ {id:9,time:'19:00',title:'dinner with maya',kind:'plan',done:false} ],
+    [], []
+  ],
+  anytime: [
+    {id:20,title:'call the accountant',age:0,done:false},
+    {id:21,title:'book dentist follow-up',age:2,done:false},
+    {id:22,title:'renew passport',age:21,done:false}
+  ],
+  habits: [ {id:30,time:'22:00',title:'10 min meditation',kind:'plan',habit:true} ]
+};
+
+function parseDump() {
+  const lines = [
+    {time:'07:00', title:'weigh-in', kind:'body'},
+    {time:'08:00', title:'eggs + toast · ~320 kcal', kind:'body'},
+    {time:'09:30', title:'finish the report', kind:'plan'},
+    {time:null, title:'call the accountant', kind:'plan'},
+    {time:'18:00', title:'gym', kind:'body'},
+    {time:'22:00', title:'10 min meditation ↻', kind:'plan'}
+  ];
+  let html = '<p class="hint" style="text-align:left;">got it — here\'s wednesday</p>';
+  for (const l of lines) {
+    html += `<div class="chip ${l.kind}" style="margin-bottom:6px;"><span class="muted" style="font-size:11px;">${l.time ?? 'anytime'}</span> &nbsp;${l.title}</div>`;
+  }
+  html += '<button class="primary" onclick="startDay()">Looks right — start my day</button>';
+  document.getElementById('parsed').innerHTML = html;
+}
+
+function startDay() {
+  state.timed[2] = [
+    {id:40,time:'07:00',title:'weigh-in — 78.2 kg',kind:'body',done:true},
+    {id:41,time:'08:00',title:'eggs + toast · 320 kcal',kind:'body',done:true},
+    {id:42,time:'09:30',title:'finish the report',kind:'plan',done:false},
+    {id:43,time:'18:00',title:'gym — push day',kind:'body',done:false},
+    {id:44,time:'22:00',title:'10 min meditation ↻',kind:'plan',done:false,habit:true}
+  ];
+  document.getElementById('scr-onboarding').classList.remove('active');
+  document.getElementById('scr-today').classList.add('active');
+  render();
+}
+
+function mins(t) { const [h,m] = t.split(':').map(Number); return h*60+m; }
+
+function render() {
+  document.getElementById('sb-date').textContent = `${DAYS[sel]} · jul ${DATES[sel]}`;
+  let rb = '';
+  for (let i = 0; i < 7; i++) {
+    const n = state.timed[i].length;
+    const dots = state.closed[i] ? '<span class="closed">✓</span>' : (n ? '●'.repeat(Math.min(n,4)) : '&nbsp;');
+    rb += `<button class="${i===sel?'sel':''}" onclick="sel=${i};render()">${DAYS[i]}<br><span style="font-size:13px;">${DATES[i]}</span><br><span class="dots">${dots}</span></button>`;
+  }
+  document.getElementById('ribbon').innerHTML = rb;
+
+  const items = state.timed[sel].slice().sort((a,b)=>mins(a.time)-mins(b.time));
+  const nn = document.getElementById('nownext');
+  if (sel === 2 && !state.closed[2]) {
+    const cur = items.find(i => !i.done && mins(i.time) <= NOW_MIN);
+    const nxt = items.find(i => !i.done && mins(i.time) > NOW_MIN);
+    nn.style.display = 'block';
+    nn.innerHTML = `<p style="font-size:11px;color:#534ab7;">now</p><p style="font-size:16px;font-weight:600;">${cur ? cur.title : 'nothing on the clock'}</p><p style="font-size:12px;color:#534ab7;margin-top:4px;">${nxt ? 'next · ' + nxt.title + ' at ' + nxt.time + ' →' : 'nothing else timed today'}</p>`;
+  } else if (sel > 2) {
+    nn.style.display = 'block';
+    nn.innerHTML = `<p style="font-size:11px;color:#534ab7;">planning ahead</p><p style="font-size:14px;">brain-dump with "${DAYS[sel]}" in it and items land here</p>`;
+  } else { nn.style.display = 'none'; }
+
+  const shelf = document.getElementById('shelf');
+  const open = state.anytime.filter(a => !a.done);
+  if (sel >= 2 && !state.closed[sel] && open.length) {
+    shelf.style.display = 'block';
+    let sh = `<p style="font-size:11px;color:#5f5e5a;margin-bottom:6px;">anytime · ${open.length}</p>`;
+    for (const a of open) {
+      sh += `<div class="shelf-item"><button class="tick" onclick="tickAny(${a.id})"></button><span style="flex:1;">${a.title}</span>${a.age ? `<span class="age">${a.age >= 7 ? Math.round(a.age/7)+' wks' : a.age+' days'}</span>` : ''}<button class="sched" onclick="schedule(${a.id})">→ slot</button></div>`;
+    }
+    sh += '<p class="hint" style="text-align:left;margin:6px 0 0;">tick it, or send it to a free slot</p>';
+    shelf.innerHTML = sh;
+  } else { shelf.style.display = 'none'; }
+
+  let tl = '';
+  let gapShown = false;
+  for (const it of items) {
+    if (sel === 2 && !state.closed[2] && !gapShown && open.length && mins(it.time) > NOW_MIN + 60) {
+      tl += `<div class="row"><span class="t" style="color:#d85a30;">free</span><button class="chip gap" onclick="schedule(${open[0].id})">90 min free — "${open[0].title}" fits here +</button><span style="width:20px;"></span></div>`;
+      gapShown = true;
+    }
+    const nowMark = (sel===2 && !it.done && mins(it.time) <= NOW_MIN && items.find(x=>!x.done)===it) ? 'style="color:#d85a30;"' : '';
+    tl += `<div class="row ${it.done?'done':''}"><span class="t" ${nowMark}>${it.time}</span><div class="chip ${it.kind}">${it.title}</div><button class="tick" onclick="tick(${it.id})">${it.done?'✓':''}</button></div>`;
+  }
+  if (!items.length) tl = `<p class="hint" style="margin-top:30px;">nothing planned — hit + or brain-dump</p>`;
+  document.getElementById('timeline').innerHTML = tl;
+}
+
+function tick(id) { for (const d of state.timed) { const it = d.find(x=>x.id===id); if (it) it.done = !it.done; } render(); }
+function tickAny(id) { const a = state.anytime.find(x=>x.id===id); a.done = true; render(); }
+function schedule(id) {
+  const a = state.anytime.find(x=>x.id===id); a.done = true;
+  state.timed[sel].push({id:uid++, time:'15:30', title:a.title, kind:'plan', done:false});
+  render();
+}
+function goToday() { sel = 2; render(); }
+function openSheet(n) { document.getElementById('ov-'+n).classList.add('open'); document.getElementById('talkinput').focus(); }
+function closeSheets() { document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open')); }
+
+function talk() {
+  const v = document.getElementById('talkinput').value.trim() || "what's left today?";
+  document.getElementById('talkinput').value = '';
+  const isQuestion = /\?$|^(what|when|how|did|do|am|is|are|show|which|why)\b/i.test(v);
+  if (isQuestion) {
+    const left = state.timed[sel].filter(i=>!i.done).map(i=>i.title);
+    const any = state.anytime.filter(a=>!a.done).map(a=>a.title);
+    document.getElementById('chat').innerHTML =
+      `<div class="bubble me">${v}</div><div class="bubble ai">Left today: ${left.join(', ') || 'nothing — all done'}. On the shelf: ${any.join(', ') || 'clear'}. Biggest open item is the report — want me to protect 3–4pm for it?</div>`;
+    return;
+  }
+  const m = v.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+  const isBody = /kcal|shake|meal|run|gym|walk|weigh|ate|eat/i.test(v);
+  let reply;
+  if (m) {
+    let h = parseInt(m[1]); if (/pm/i.test(m[3]) && h < 12) h += 12;
+    const time = `${String(h).padStart(2,'0')}:${m[2]||'00'}`;
+    state.timed[sel].push({id:uid++, time, title:v.replace(m[0],'').trim().replace(/\s+at\s*$/,''), kind:isBody?'body':'plan', done:false});
+    reply = `Added to ${DAYS[sel]} at ${time}.`;
+  } else {
+    state.anytime.push({id:uid++, title:v, age:0, done:false});
+    reply = `On the shelf — no time needed. It'll follow you until it's done.`;
+  }
+  document.getElementById('chat').innerHTML = `<div class="bubble me">${v}</div><div class="bubble ai">${reply}</div>`;
+  render();
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && document.activeElement?.id === 'talkinput') talk(); });
+</script>
+</body>
+</html>

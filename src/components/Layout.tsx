@@ -2,7 +2,6 @@ import { ReactNode, useEffect, useState, useRef } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   Home,
-  Plus,
   Calendar,
   Settings,
   LogOut,
@@ -63,12 +62,12 @@ export default function Layout({ children }: LayoutProps) {
   }, [isMobileMenuOpen])
 
   const { settings } = useSettings()
+  const isTalkPage = location.pathname === '/talk'
 
   const navigation = [
     { name: 'Today', href: '/', icon: Home },
-    { name: 'Add Item', href: '/add', icon: Plus },
+    { name: 'Talk', href: '/talk', icon: MessageCircle },
     { name: 'Week View', href: '/week', icon: Calendar },
-    { name: 'Assistant', href: '/assistant', icon: MessageCircle },
     ...(settings?.calorieIntake ? [{ name: 'Calories', href: '/calories', icon: Utensils }] : []),
     ...(settings?.achievementTracker ? [{ name: 'Achievements', href: '/achievements', icon: Award }] : []),
     ...(settings?.workoutTracker ?? true ? [{ name: 'Workouts', href: '/workouts', icon: Dumbbell }] : []),
@@ -78,13 +77,8 @@ export default function Layout({ children }: LayoutProps) {
   ]
 
   const primaryMobileNavigation = navigation.filter((item) => (
-    item.href === '/' || item.href === '/add' || item.href === '/assistant'
+    item.href === '/' || item.href === '/talk'
   ))
-  const mobileNavLabel = (name: string) => {
-    if (name === 'Add Item') return 'Add'
-    if (name === 'Assistant') return 'Ask'
-    return name
-  }
 
   const MobileNavigation = () => (
     <AnimatePresence>
@@ -105,11 +99,11 @@ export default function Layout({ children }: LayoutProps) {
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-            className="fixed top-0 left-0 h-full w-80 max-w-[85vw] bg-gray-900/95 backdrop-blur-xl border-r border-gray-700/50 z-50 lg:hidden"
+            className="fixed top-0 left-0 h-full w-80 max-w-[85vw] bg-page/95 backdrop-blur-xl border-r border-line/50 z-50 lg:hidden"
           >
             <div className="flex flex-col h-full">
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-700/50">
+              <div className="flex items-center justify-between p-6 border-b border-line/50">
                 <div className="flex items-center space-x-3">
                   <div className="relative">
                     <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl animate-float">
@@ -118,14 +112,14 @@ export default function Layout({ children }: LayoutProps) {
                     <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-cyan-400 animate-neon-flicker" />
                   </div>
                   <div>
-                    <h1 className="text-xl font-bold text-gray-100 neon-text">HealthyFlow</h1>
+                    <h1 className="text-xl font-bold text-ink neon-text">HealthyFlow</h1>
                     <p className="text-xs text-cyan-400">AI-Powered Planner</p>
                   </div>
                 </div>
                 
                 <button
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="p-2 rounded-lg hover:bg-gray-800/50 transition-colors text-gray-400 hover:text-gray-200"
+                  className="p-2 rounded-lg hover:bg-card/50 transition-colors text-ink-muted hover:text-ink-soft"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -143,11 +137,11 @@ export default function Layout({ children }: LayoutProps) {
                           className={`flex items-center space-x-3 px-4 py-4 rounded-xl transition-all duration-300 group ${
                             isActive
                               ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/20'
-                              : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-200 hover:border-gray-600/50 border border-transparent'
+                              : 'text-ink-muted hover:bg-card/50 hover:text-ink-soft hover:border-line-strong/50 border border-transparent'
                           }`}
                         >
                           <item.icon className={`w-6 h-6 transition-all duration-300 ${
-                            isActive ? 'text-cyan-400' : 'group-hover:text-gray-200'
+                            isActive ? 'text-cyan-400' : 'group-hover:text-ink-soft'
                           }`} />
                           <span className="font-medium text-lg">{item.name}</span>
                           {isActive && (
@@ -163,17 +157,17 @@ export default function Layout({ children }: LayoutProps) {
                 <div className="mt-8 p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
                   <div className="flex items-center space-x-2 mb-2">
                     <Brain className="w-4 h-4 text-purple-400" />
-                    <span className="text-sm font-medium text-purple-400">AI Assistant</span>
+                    <span className="text-sm font-medium text-purple-400">Talk</span>
                     <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                   </div>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-ink-muted">
                     Ready to analyze your tasks and provide intelligent suggestions
                   </p>
                 </div>
               </nav>
 
               {/* User Info & Logout */}
-              <div className="shrink-0 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] border-t border-gray-700/50">
+              <div className="shrink-0 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] border-t border-line/50">
                 <div className="flex items-center space-x-3 mb-4">
                   <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full flex items-center justify-center">
                     <span className="text-white font-semibold text-sm">
@@ -181,14 +175,14 @@ export default function Layout({ children }: LayoutProps) {
                     </span>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-200">{user?.name}</p>
-                    <p className="text-xs text-gray-400">{user?.email}</p>
+                    <p className="text-sm font-medium text-ink-soft">{user?.name}</p>
+                    <p className="text-xs text-ink-muted">{user?.email}</p>
                   </div>
                 </div>
                 
                 <button
                   onClick={logout}
-                  className="flex items-center space-x-2 w-full text-gray-400 hover:text-gray-200 transition-colors p-3 rounded-lg hover:bg-gray-800/50"
+                  className="flex items-center space-x-2 w-full text-ink-muted hover:text-ink-soft transition-colors p-3 rounded-lg hover:bg-card/50"
                 >
                   <LogOut className="w-5 h-5" />
                   <span className="font-medium">Logout</span>
@@ -202,7 +196,7 @@ export default function Layout({ children }: LayoutProps) {
   )
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="min-h-screen bg-page">
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />
       
@@ -215,11 +209,11 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Mobile Header */}
       {isMobile && (
-        <header className="pwa-mobile-header relative z-10 border-b border-gray-700/50 lg:hidden">
-          <div className="flex items-center justify-between p-4">
+        <header className="pwa-mobile-header fixed left-0 right-0 top-0 z-30 border-b border-line/50 lg:hidden">
+          <div className="flex h-[calc(4.8125rem+env(safe-area-inset-top))] items-end justify-between p-4">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
-              className="p-2 rounded-lg hover:bg-gray-800/50 transition-colors text-gray-400 hover:text-gray-200"
+              className="p-2 rounded-lg hover:bg-card/50 transition-colors text-ink-muted hover:text-ink-soft"
             >
               <Menu className="w-6 h-6" />
             </button>
@@ -231,7 +225,7 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
                 <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-cyan-400 animate-neon-flicker" />
               </div>
-              <h1 className="text-lg font-bold text-gray-100 neon-text">HealthyFlow</h1>
+              <h1 className="text-lg font-bold text-ink neon-text">HealthyFlow</h1>
             </div>
             
             {/* Mobile User Menu Button */}
@@ -249,7 +243,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Desktop Header */}
       {!isMobile && (
-        <header className="relative z-10 glass-effect border-b border-gray-700/50">
+        <header className="relative z-10 glass-effect border-b border-line/50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center space-x-3">
@@ -260,19 +254,19 @@ export default function Layout({ children }: LayoutProps) {
                   <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-cyan-400 animate-neon-flicker" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-100 neon-text">HealthyFlow</h1>
+                  <h1 className="text-xl font-bold text-ink neon-text">HealthyFlow</h1>
                   <p className="text-xs text-cyan-400">AI-Powered Future Planner</p>
                 </div>
               </div>
               
               <div className="flex items-center space-x-4">
                 <div className="text-right">
-                  <span className="text-sm text-gray-300">Welcome back,</span>
+                  <span className="text-sm text-ink-soft">Welcome back,</span>
                   <p className="text-sm font-medium text-cyan-400">{user?.name}</p>
                 </div>
                 <button
                   onClick={logout}
-                  className="flex items-center space-x-2 text-gray-400 hover:text-gray-200 transition-colors p-2 rounded-lg hover:bg-gray-800/50"
+                  className="flex items-center space-x-2 text-ink-muted hover:text-ink-soft transition-colors p-2 rounded-lg hover:bg-card/50"
                 >
                   <LogOut className="w-4 h-4" />
                   <span className="text-sm">Logout</span>
@@ -286,7 +280,7 @@ export default function Layout({ children }: LayoutProps) {
       <div className="flex relative z-10">
         {/* Desktop Sidebar */}
         {!isMobile && (
-          <nav className="w-64 glass-effect min-h-screen border-r border-gray-700/50">
+          <nav className="w-64 glass-effect min-h-screen border-r border-line/50">
             <div className="p-4">
               <ul className="space-y-2">
                 {navigation.map((item) => {
@@ -298,11 +292,11 @@ export default function Layout({ children }: LayoutProps) {
                         className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 group ${
                           isActive
                             ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/20'
-                            : 'text-gray-400 hover:bg-gray-800/50 hover:text-gray-200 hover:border-gray-600/50 border border-transparent'
+                            : 'text-ink-muted hover:bg-card/50 hover:text-ink-soft hover:border-line-strong/50 border border-transparent'
                         }`}
                       >
                         <item.icon className={`w-5 h-5 transition-all duration-300 ${
-                          isActive ? 'text-cyan-400' : 'group-hover:text-gray-200'
+                          isActive ? 'text-cyan-400' : 'group-hover:text-ink-soft'
                         }`} />
                         <span className="font-medium">{item.name}</span>
                         {isActive && (
@@ -318,10 +312,10 @@ export default function Layout({ children }: LayoutProps) {
               <div className="mt-8 p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
                 <div className="flex items-center space-x-2 mb-2">
                   <Brain className="w-4 h-4 text-purple-400" />
-                  <span className="text-sm font-medium text-purple-400">AI Assistant</span>
+                  <span className="text-sm font-medium text-purple-400">Talk</span>
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                 </div>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-ink-muted">
                   Ready to analyze your tasks and provide intelligent suggestions
                 </p>
               </div>
@@ -334,45 +328,54 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* Main Content */}
         <main
-          className={`min-w-0 flex-1 overflow-x-hidden ${isMobile ? 'p-4 pb-32' : 'p-6'}`}
+          className={`min-w-0 flex-1 overflow-x-hidden ${
+            isMobile
+              ? isTalkPage ? 'mt-[calc(4.8125rem+env(safe-area-inset-top))] h-[calc(100dvh-4.8125rem-env(safe-area-inset-top))] p-0' : 'mt-[calc(4.8125rem+env(safe-area-inset-top))] p-4 pb-32'
+              : 'p-6'
+          }`}
           ref={contentRef}
         >
-          <div className={`min-w-0 ${isMobile ? 'max-w-full' : 'max-w-6xl'} mx-auto`}>
+          <div className={`min-w-0 ${isMobile ? `max-w-full ${isTalkPage ? 'h-full' : ''}` : 'max-w-6xl'} mx-auto`}>
             {children}
-            <footer className="mt-10 flex flex-wrap justify-center gap-4 text-xs text-gray-500">
-              <Link to="/privacy" className="transition-colors hover:text-cyan-400">
-                Privacy Policy
-              </Link>
-              <Link to="/terms" className="transition-colors hover:text-cyan-400">
-                Terms of Service
-              </Link>
-            </footer>
+            {!(isMobile && isTalkPage) && (
+              <footer className="mt-10 flex flex-wrap justify-center gap-4 text-xs text-gray-500">
+                <Link to="/privacy" className="transition-colors hover:text-cyan-400">
+                  Privacy Policy
+                </Link>
+                <Link to="/terms" className="transition-colors hover:text-cyan-400">
+                  Terms of Service
+                </Link>
+              </footer>
+            )}
           </div>
         </main>
       </div>
 
       {/* Mobile Bottom Navigation — hidden while the drawer is open so it doesn't cover the drawer's Logout button */}
       {isMobile && !isMobileMenuOpen && (
-        <div className="fixed bottom-0 left-0 right-0 bg-gray-900/95 backdrop-blur-xl border-t border-gray-700/50 z-30">
-          <div className="grid grid-cols-3 gap-1 p-2">
+        <div className="mobile-bottom-dock fixed bottom-0 left-0 right-0 z-30 border-t border-line/50 bg-page/95 backdrop-blur-xl">
+          <div className="grid grid-cols-2 gap-2 p-2">
             {primaryMobileNavigation.map((item) => {
               const isActive = location.pathname === item.href
+              const isPrimary = item.href === '/talk'
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   aria-label={item.name}
-                  className={`flex min-w-0 flex-col items-center space-y-1 rounded-xl p-2 transition-all duration-300 xs:p-3 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400'
-                      : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+                  className={`mobile-dock-link flex min-w-0 flex-col items-center space-y-1 rounded-xl p-2 transition-all duration-300 xs:p-3 ${
+                    isPrimary
+                      ? `bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 ${isActive ? 'ring-2 ring-cyan-300/60' : ''}`
+                      : isActive
+                        ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400'
+                        : 'text-ink-muted hover:text-ink-soft hover:bg-card/50'
                   }`}
                 >
-                  <item.icon className={`w-5 h-5 ${isActive ? 'text-cyan-400' : ''}`} />
+                  <item.icon className={`w-5 h-5 ${isActive && !isPrimary ? 'text-cyan-400' : ''}`} />
                   <span className="mobile-nav-label max-w-full truncate text-[10px] font-medium leading-tight xs:text-xs">
-                    {mobileNavLabel(item.name)}
+                    {item.name}
                   </span>
-                  {isActive && (
+                  {isActive && !isPrimary && (
                     <div className="w-1 h-1 bg-cyan-400 rounded-full"></div>
                   )}
                 </Link>
@@ -380,8 +383,6 @@ export default function Layout({ children }: LayoutProps) {
             })}
           </div>
           
-          {/* Safe area padding for devices with home indicator */}
-          <div className="h-safe-area-inset-bottom"></div>
         </div>
       )}
     </div>

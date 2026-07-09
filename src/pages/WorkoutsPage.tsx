@@ -89,7 +89,7 @@ function metricParts(exercise: Pick<WorkoutExercise, 'sets' | 'reps' | 'weightKg
 function MetricChip({ icon: Icon, label, value }: { icon: any; label: string; value: string | number | null }) {
   if (value == null || value === '') return null
   return (
-    <span className="inline-flex items-center gap-1 rounded-md border border-gray-700/80 bg-gray-950/35 px-2 py-1 text-xs text-gray-200">
+    <span className="inline-flex items-center gap-1 rounded-md border border-line/80 bg-sunken/35 px-2 py-1 text-xs text-ink-soft">
       <Icon className="h-3.5 w-3.5 text-cyan-400" />
       {value} {label}
     </span>
@@ -108,7 +108,7 @@ function ExerciseFields({
   return (
     <div className="space-y-3">
       <label className="space-y-1">
-        <span className="text-xs text-gray-400">Exercise</span>
+        <span className="text-xs text-ink-muted">Exercise</span>
         <input
           data-testid="workout-exercise-name"
           className="input-field"
@@ -119,28 +119,28 @@ function ExerciseFields({
       </label>
       <div className="grid gap-3 sm:grid-cols-5">
         <label className="space-y-1">
-          <span className="text-xs text-gray-400">Sets</span>
+          <span className="text-xs text-ink-muted">Sets</span>
           <input data-testid="workout-exercise-sets" type="number" min="0" step="1" className="input-field" value={form.sets} onChange={(event) => setForm({ ...form, sets: event.target.value })} />
         </label>
         <label className="space-y-1">
-          <span className="text-xs text-gray-400">Reps</span>
+          <span className="text-xs text-ink-muted">Reps</span>
           <input data-testid="workout-exercise-reps" type="number" min="0" step="1" className="input-field" value={form.reps} onChange={(event) => setForm({ ...form, reps: event.target.value })} />
         </label>
         <label className="space-y-1">
-          <span className="text-xs text-gray-400">Kg</span>
+          <span className="text-xs text-ink-muted">Kg</span>
           <input data-testid="workout-exercise-weight" type="number" min="0" step="0.5" className="input-field" value={form.weightKg} onChange={(event) => setForm({ ...form, weightKg: event.target.value })} />
         </label>
         <label className="space-y-1">
-          <span className="text-xs text-gray-400">Time</span>
+          <span className="text-xs text-ink-muted">Time</span>
           <input data-testid="workout-exercise-duration" type="number" min="0" step="1" className="input-field" value={form.durationMinutes} onChange={(event) => setForm({ ...form, durationMinutes: event.target.value })} />
         </label>
         <label className="space-y-1">
-          <span className="text-xs text-gray-400">Km</span>
+          <span className="text-xs text-ink-muted">Km</span>
           <input data-testid="workout-exercise-distance" type="number" min="0" step="0.1" className="input-field" value={form.distanceKm} onChange={(event) => setForm({ ...form, distanceKm: event.target.value })} />
         </label>
       </div>
       <label className="space-y-1">
-        <span className="text-xs text-gray-400">Notes</span>
+        <span className="text-xs text-ink-muted">Notes</span>
         <input data-testid="workout-exercise-notes" className="input-field" value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
       </label>
     </div>
@@ -233,14 +233,14 @@ export default function WorkoutsPage() {
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-r from-emerald-500 to-cyan-600">
             <Dumbbell className="h-4 w-4 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-100 neon-text">Workout Tracker</h1>
+          <h1 className="text-2xl font-bold text-ink neon-text">Workout Tracker</h1>
         </div>
         <input type="date" className="input-field w-auto" value={date} onChange={(event) => setDate(event.target.value)} />
       </div>
 
       <div className="card space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-gray-100">Log Session</h2>
+          <h2 className="text-lg font-semibold text-ink">Log Session</h2>
           <button type="button" className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm" onClick={submitSession}>
             <Check className="h-4 w-4" />
             Save Session
@@ -249,11 +249,11 @@ export default function WorkoutsPage() {
 
         <div className="grid gap-3 md:grid-cols-[1.2fr_1fr]">
           <label className="space-y-1">
-            <span className="text-xs text-gray-400">Title</span>
+            <span className="text-xs text-ink-muted">Title</span>
             <input data-testid="workout-session-title" className="input-field" placeholder="Push day, mobility, run..." value={title} onChange={(event) => setTitle(event.target.value)} />
           </label>
           <label className="space-y-1">
-            <span className="text-xs text-gray-400">Notes</span>
+            <span className="text-xs text-ink-muted">Notes</span>
             <input data-testid="workout-session-notes" className="input-field" value={notes} onChange={(event) => setNotes(event.target.value)} />
           </label>
         </div>
@@ -261,12 +261,12 @@ export default function WorkoutsPage() {
         <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
           <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h3 className="text-sm font-semibold text-gray-100">Quick Insert</h3>
-              <div className="inline-flex rounded-lg border border-gray-700/80 bg-gray-950/30 p-1 text-xs">
-                <button type="button" className={`rounded-md px-2 py-1.5 ${quickInsertSort === 'recent' ? 'bg-cyan-500/20 text-cyan-200' : 'text-gray-400'}`} onClick={() => setQuickInsertSort('recent')}>
+              <h3 className="text-sm font-semibold text-ink">Quick Insert</h3>
+              <div className="inline-flex rounded-lg border border-line/80 bg-sunken/30 p-1 text-xs">
+                <button type="button" className={`rounded-md px-2 py-1.5 ${quickInsertSort === 'recent' ? 'bg-cyan-500/20 text-cyan-200' : 'text-ink-muted'}`} onClick={() => setQuickInsertSort('recent')}>
                   Recent
                 </button>
-                <button type="button" className={`rounded-md px-2 py-1.5 ${quickInsertSort === 'most-used' ? 'bg-cyan-500/20 text-cyan-200' : 'text-gray-400'}`} onClick={() => setQuickInsertSort('most-used')}>
+                <button type="button" className={`rounded-md px-2 py-1.5 ${quickInsertSort === 'most-used' ? 'bg-cyan-500/20 text-cyan-200' : 'text-ink-muted'}`} onClick={() => setQuickInsertSort('most-used')}>
                   Most Used
                 </button>
               </div>
@@ -280,9 +280,9 @@ export default function WorkoutsPage() {
               onChange={(event) => setFilter(event.target.value)}
             />
             {isQuickInsertLoading ? (
-              <p className="text-sm text-gray-400">Loading...</p>
+              <p className="text-sm text-ink-muted">Loading...</p>
             ) : filteredItems.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-gray-700/80 bg-gray-950/20 p-3 text-sm text-gray-500">No exercise history yet.</p>
+              <p className="rounded-lg border border-dashed border-line/80 bg-sunken/20 p-3 text-sm text-gray-500">No exercise history yet.</p>
             ) : (
               <div className="space-y-2" data-testid="workout-quick-insert-list">
                 {filteredItems.map((item) => (
@@ -303,7 +303,7 @@ export default function WorkoutsPage() {
             )}
           </div>
 
-          <div className="space-y-3 rounded-lg border border-gray-800 bg-gray-950/40 p-4">
+          <div className="space-y-3 rounded-lg border border-card bg-sunken/40 p-4">
             <ExerciseFields form={exerciseForm} setForm={setExerciseForm} namePlaceholder="Squat, yoga flow, hill run..." />
             <div className="flex justify-end">
               <button type="button" className="btn-secondary inline-flex items-center gap-2 px-3 py-2 text-sm" onClick={addDraftExercise}>
@@ -316,14 +316,14 @@ export default function WorkoutsPage() {
 
         {draftExercises.length > 0 && (
           <div className="space-y-2">
-            <h3 className="text-sm font-semibold text-gray-100">Draft Exercises</h3>
+            <h3 className="text-sm font-semibold text-ink">Draft Exercises</h3>
             {draftExercises.map((exercise, index) => (
-              <div key={`${exercise.name}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-gray-700/80 bg-gray-950/20 px-3 py-2">
+              <div key={`${exercise.name}-${index}`} className="flex items-center justify-between gap-3 rounded-lg border border-line/80 bg-sunken/20 px-3 py-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-gray-100">{exercise.name}</p>
-                  <p className="truncate text-xs text-gray-400">{metricParts(exercise as WorkoutExercise).join(' · ') || 'No metrics'}</p>
+                  <p className="truncate text-sm font-medium text-ink">{exercise.name}</p>
+                  <p className="truncate text-xs text-ink-muted">{metricParts(exercise as WorkoutExercise).join(' · ') || 'No metrics'}</p>
                 </div>
-                <button type="button" className="text-gray-400 hover:text-red-400" onClick={() => setDraftExercises((current) => current.filter((_, i) => i !== index))} aria-label="Remove draft exercise">
+                <button type="button" className="text-ink-muted hover:text-red-400" onClick={() => setDraftExercises((current) => current.filter((_, i) => i !== index))} aria-label="Remove draft exercise">
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -335,45 +335,45 @@ export default function WorkoutsPage() {
       <div className="card">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-gray-100">History</h2>
-            <p className="text-xs text-gray-400">{formatDateLabel(date)}</p>
+            <h2 className="text-lg font-semibold text-ink">History</h2>
+            <p className="text-xs text-ink-muted">{formatDateLabel(date)}</p>
           </div>
-          <span className="text-sm text-gray-400">{sessions.length} session{sessions.length === 1 ? '' : 's'}</span>
+          <span className="text-sm text-ink-muted">{sessions.length} session{sessions.length === 1 ? '' : 's'}</span>
         </div>
 
         {isLoading ? (
-          <p className="text-sm text-gray-400">Loading...</p>
+          <p className="text-sm text-ink-muted">Loading...</p>
         ) : sessions.length === 0 ? (
           <p className="py-6 text-center text-sm text-gray-500">No workout sessions for this day yet.</p>
         ) : (
           <div className="space-y-4" data-testid="workout-history">
             {sessions.map((session) => (
-              <div key={session.id} className="rounded-lg border border-gray-700/80 bg-gray-950/20">
-                <div className="border-b border-gray-800 px-4 py-3">
+              <div key={session.id} className="rounded-lg border border-line/80 bg-sunken/20">
+                <div className="border-b border-card px-4 py-3">
                   {editingSessionId === session.id ? (
                     <div className="grid gap-3 md:grid-cols-[1fr_1fr_auto]">
                       <input className="input-field" value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} />
                       <input className="input-field" value={editingNotes} onChange={(event) => setEditingNotes(event.target.value)} />
                       <div className="flex items-center gap-2">
                         <button type="button" className="text-cyan-400" onClick={submitSessionEdit} aria-label="Save session changes"><Check className="h-4 w-4" /></button>
-                        <button type="button" className="text-gray-400" onClick={() => setEditingSessionId(null)} aria-label="Cancel session edit"><X className="h-4 w-4" /></button>
+                        <button type="button" className="text-ink-muted" onClick={() => setEditingSessionId(null)} aria-label="Cancel session edit"><X className="h-4 w-4" /></button>
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="truncate font-semibold text-gray-100">{session.title || 'Workout session'}</h3>
-                        {session.notes && <p className="mt-1 text-sm text-gray-400">{session.notes}</p>}
+                        <h3 className="truncate font-semibold text-ink">{session.title || 'Workout session'}</h3>
+                        {session.notes && <p className="mt-1 text-sm text-ink-muted">{session.notes}</p>}
                       </div>
                       <div className="flex shrink-0 gap-2">
-                        <button type="button" data-testid="edit-workout-session" className="text-gray-400 hover:text-cyan-400" onClick={() => startSessionEdit(session)} aria-label="Edit session"><Pencil className="h-4 w-4" /></button>
-                        <button type="button" data-testid="delete-workout-session" className="text-gray-400 hover:text-red-400" onClick={() => deleteSession(session.id)} aria-label="Delete session"><Trash2 className="h-4 w-4" /></button>
+                        <button type="button" data-testid="edit-workout-session" className="text-ink-muted hover:text-cyan-400" onClick={() => startSessionEdit(session)} aria-label="Edit session"><Pencil className="h-4 w-4" /></button>
+                        <button type="button" data-testid="delete-workout-session" className="text-ink-muted hover:text-red-400" onClick={() => deleteSession(session.id)} aria-label="Delete session"><Trash2 className="h-4 w-4" /></button>
                       </div>
                     </div>
                   )}
                 </div>
 
-                <div className="divide-y divide-gray-800">
+                <div className="divide-y divide-card">
                   {session.exercises.map((exercise) => (
                     <div key={exercise.id} className="px-4 py-3">
                       {editingExerciseId === exercise.id ? (
@@ -381,13 +381,13 @@ export default function WorkoutsPage() {
                           <ExerciseFields form={editingExerciseForm} setForm={setEditingExerciseForm} />
                           <div className="flex justify-end gap-2">
                             <button type="button" className="text-cyan-400" onClick={submitExerciseEdit} aria-label="Save exercise changes"><Check className="h-4 w-4" /></button>
-                            <button type="button" className="text-gray-400" onClick={() => setEditingExerciseId(null)} aria-label="Cancel exercise edit"><X className="h-4 w-4" /></button>
+                            <button type="button" className="text-ink-muted" onClick={() => setEditingExerciseId(null)} aria-label="Cancel exercise edit"><X className="h-4 w-4" /></button>
                           </div>
                         </div>
                       ) : (
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="font-medium text-gray-100">{exercise.name}</p>
+                            <p className="font-medium text-ink">{exercise.name}</p>
                             <div className="mt-2 flex flex-wrap gap-2">
                               <MetricChip icon={Dumbbell} label="sets" value={exercise.sets} />
                               <MetricChip icon={Dumbbell} label="reps" value={exercise.reps} />
@@ -396,11 +396,11 @@ export default function WorkoutsPage() {
                               <MetricChip icon={Ruler} label="km" value={exercise.distanceKm} />
                               {metricParts(exercise).length === 0 && <span className="text-xs text-gray-500">No metrics</span>}
                             </div>
-                            {exercise.notes && <p className="mt-2 text-sm text-gray-400">{exercise.notes}</p>}
+                            {exercise.notes && <p className="mt-2 text-sm text-ink-muted">{exercise.notes}</p>}
                           </div>
                           <div className="flex shrink-0 gap-2">
-                            <button type="button" data-testid="edit-workout-exercise" className="text-gray-400 hover:text-cyan-400" onClick={() => startExerciseEdit(exercise)} aria-label="Edit exercise"><Pencil className="h-4 w-4" /></button>
-                            <button type="button" data-testid="delete-workout-exercise" className="text-gray-400 hover:text-red-400" onClick={() => deleteExercise(exercise.id)} aria-label="Delete exercise"><Trash2 className="h-4 w-4" /></button>
+                            <button type="button" data-testid="edit-workout-exercise" className="text-ink-muted hover:text-cyan-400" onClick={() => startExerciseEdit(exercise)} aria-label="Edit exercise"><Pencil className="h-4 w-4" /></button>
+                            <button type="button" data-testid="delete-workout-exercise" className="text-ink-muted hover:text-red-400" onClick={() => deleteExercise(exercise.id)} aria-label="Delete exercise"><Trash2 className="h-4 w-4" /></button>
                           </div>
                         </div>
                       )}
@@ -409,7 +409,7 @@ export default function WorkoutsPage() {
                 </div>
 
                 {hasAnyMetric(exerciseForm) || exerciseForm.name ? (
-                  <div className="border-t border-gray-800 px-4 py-3">
+                  <div className="border-t border-card px-4 py-3">
                     <button type="button" className="btn-secondary inline-flex items-center gap-2 px-3 py-2 text-sm" onClick={() => addExerciseToSession(session.id)}>
                       <Plus className="h-4 w-4" />
                       Add Current Exercise

@@ -102,11 +102,11 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                 <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center animate-float">
                   <Sparkles className="w-4 h-4 text-white" />
                 </div>
-                <h2 className="text-lg font-semibold text-gray-100 neon-text">Edit Task</h2>
+                <h2 className="text-lg font-semibold text-ink neon-text">Edit Task</h2>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg hover:bg-gray-700 transition-colors text-gray-400 hover:text-gray-200"
+                className="p-2 rounded-lg hover:bg-gray-700 transition-colors text-ink-muted hover:text-ink-soft"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -117,21 +117,21 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
             <div className="flex-1 overflow-y-auto">
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-ink-soft mb-2">
                     Task Title
                   </label>
                   <input
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className={`w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${isMobile ? 'text-base' : ''}`}
+                    className={`w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${isMobile ? 'text-base' : ''}`}
                     placeholder="Enter task title..."
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-ink-soft mb-2">
                     Category
                   </label>
                   <div className={`grid ${isMobile ? 'grid-cols-2 gap-2' : 'grid-cols-4 gap-3'}`}>
@@ -142,7 +142,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                         onClick={() => setFormData({ ...formData, category: category.value })}
                         className={`p-3 rounded-lg border-2 transition-all ${formData.category === category.value 
                           ? `${category.color} border-current` 
-                          : 'border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300'
+                          : 'border-line-strong text-ink-muted hover:border-gray-500 hover:text-ink-soft'
                         } ${isMobile ? 'text-sm' : ''}`}
                       >
                         {category.label}
@@ -153,7 +153,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
 
                 {task?.type === 'task' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-ink-soft mb-2">
                       <MapPin className="inline w-4 h-4 mr-2" />
                       Location (Optional)
                     </label>
@@ -161,7 +161,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                       type="text"
                       value={formData.location}
                       onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                      className={`w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${isMobile ? 'text-base' : ''}`}
+                      className={`w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${isMobile ? 'text-base' : ''}`}
                       placeholder="Add a place or address..."
                     />
                   </div>
@@ -169,7 +169,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
 
                 <div className={`grid ${isMobile ? 'grid-cols-1 gap-4' : 'grid-cols-2 gap-4'}`}>
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-ink-soft mb-2">
                       <Clock className="inline w-4 h-4 mr-2" />
                       Start Time
                     </label>
@@ -177,12 +177,12 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                       type="time"
                       value={formData.startTime}
                       onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                      className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-ink-soft mb-2">
                       Duration (minutes)
                     </label>
                     <input
@@ -191,13 +191,13 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                       onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 30 })}
                       min="5"
                       max="480"
-                      className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-ink-soft mb-2">
                     <Calendar className="inline w-4 h-4 mr-2" />
                     Scheduled Date
                   </label>
@@ -206,7 +206,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                       type="date"
                       value={formData.scheduledDate}
                       onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
-                      className="w-full px-4 py-3 bg-gray-800/50 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
                     />
                     
                     {/* Quick date options */}
@@ -219,7 +219,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                           className={`px-3 py-2 text-xs rounded-lg border transition-colors ${
                             formData.scheduledDate === dateOption.value
                               ? 'border-cyan-500 text-cyan-400 bg-cyan-500/20'
-                              : 'border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300'
+                              : 'border-line-strong text-ink-muted hover:border-gray-500 hover:text-ink-soft'
                           }`}
                         >
                           {dateOption.label}
@@ -232,7 +232,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                 {/* Habit edit scope — only for recurring habits */}
                 {isHabit && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-ink-soft mb-2">
                       Apply changes to
                     </label>
                     <div className="grid grid-cols-2 gap-3">
@@ -242,7 +242,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                         className={`p-3 rounded-lg border-2 text-sm transition-all ${
                           editScope === 'instance'
                             ? 'border-cyan-500 text-cyan-400 bg-cyan-500/20'
-                            : 'border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300'
+                            : 'border-line-strong text-ink-muted hover:border-gray-500 hover:text-ink-soft'
                         }`}
                       >
                         This day only
@@ -253,7 +253,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                         className={`p-3 rounded-lg border-2 text-sm transition-all ${
                           editScope === 'habit'
                             ? 'border-cyan-500 text-cyan-400 bg-cyan-500/20'
-                            : 'border-gray-600 text-gray-400 hover:border-gray-500 hover:text-gray-300'
+                            : 'border-line-strong text-ink-muted hover:border-gray-500 hover:text-ink-soft'
                         }`}
                       >
                         The whole habit
@@ -268,12 +268,12 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                 )}
 
                 {/* Action Buttons - Part of scrollable content */}
-                <div className="pt-6 border-t border-gray-700/50">
+                <div className="pt-6 border-t border-line/50">
                   <div className="flex items-center justify-end space-x-3">
                     <button
                       type="button"
                       onClick={onClose}
-                      className={`px-4 py-2 rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-700/50 transition-colors ${isMobile ? 'flex-1' : ''}`}
+                      className={`px-4 py-2 rounded-lg border border-line-strong text-ink-soft hover:bg-gray-700/50 transition-colors ${isMobile ? 'flex-1' : ''}`}
                     >
                       Cancel
                     </button>

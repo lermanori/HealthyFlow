@@ -4,9 +4,10 @@ import { CalendarDays, CheckCircle2, Loader2, Settings, Bell, FolderSync as Sync
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
 import { useCredits } from '../hooks/useCredits'
-import { useSettings } from '../hooks/useSettings'
+import { useSettings, applyTheme } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
-import api, { ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, UserSettings } from '../services/api'
+import api, { ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, pushService, UserSettings } from '../services/api'
+import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
 
 function mcpEndpoint() {
@@ -142,12 +143,32 @@ export default function SettingsPage() {
     toast.success('Settings updated')
   }
 
+  const handleThemeChange = (theme: UserSettings['theme']) => {
+    applyTheme(theme) // apply instantly; persistence follows
+    updateSetting('theme', theme)
+    toast.success('Settings updated')
+  }
+
   const handleNotificationPermission = async () => {
     const granted = await requestPermission()
     if (granted) {
       toast.success('Notifications enabled!')
     } else {
       toast.error('Notifications permission denied')
+    }
+  }
+
+  const handleTestNotification = async () => {
+    const ok = await enablePush()
+    if (!ok) {
+      toast.error('Enable notifications first (install to Home Screen on iPhone).')
+      return
+    }
+    try {
+      await pushService.sendTest()
+      toast.success('Test notification sent — check your device.')
+    } catch {
+      toast.error('Could not send test notification.')
     }
   }
 
@@ -212,10 +233,10 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
   }) => (
     <div className="flex items-center justify-between py-4">
       <div className="flex-1">
-        <h3 className={`text-sm font-medium ${disabled ? 'text-gray-500' : 'text-gray-200'}`}>
+        <h3 className={`text-sm font-medium ${disabled ? 'text-gray-500' : 'text-ink-soft'}`}>
           {label}
         </h3>
-        <p className={`text-sm ${disabled ? 'text-gray-600' : 'text-gray-400'}`}>
+        <p className={`text-sm ${disabled ? 'text-gray-600' : 'text-ink-muted'}`}>
           {description}
         </p>
       </div>
@@ -240,12 +261,12 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
   )
 
   const CalendarSyncLed = ({ connected }: { connected: boolean }) => (
-    <div className="relative h-16 w-16 shrink-0 rounded-full bg-gradient-to-br from-gray-950 via-gray-800 to-gray-950 p-2 shadow-inner shadow-black/80 border border-gray-700">
+    <div className="relative h-16 w-16 shrink-0 rounded-full bg-gradient-to-br from-sunken via-card to-sunken p-2 shadow-inner shadow-black/80 border border-line">
       <div className={`absolute inset-1 rounded-full blur-md transition-opacity duration-500 ${connected ? 'bg-emerald-400/50 opacity-100' : 'bg-gray-700/20 opacity-40'}`} />
       <div className={`relative h-full w-full rounded-full border transition-all duration-500 ${
         connected
           ? 'border-emerald-200 bg-gradient-to-br from-emerald-200 via-emerald-500 to-green-800 shadow-[0_0_24px_rgba(52,211,153,0.75),inset_0_0_12px_rgba(255,255,255,0.45)]'
-          : 'border-gray-600 bg-gradient-to-br from-gray-500 via-gray-700 to-gray-950 shadow-[inset_0_0_12px_rgba(0,0,0,0.75)]'
+          : 'border-line-strong bg-gradient-to-br from-gray-500 via-gray-700 to-sunken shadow-[inset_0_0_12px_rgba(0,0,0,0.75)]'
       }`}>
         <div className="absolute left-3 top-2 h-4 w-6 rounded-full bg-white/30 blur-sm" />
         {connected && <div className="absolute inset-0 rounded-full animate-pulse bg-emerald-300/15" />}
@@ -260,19 +281,19 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center animate-float">
           <Settings className="w-4 h-4 text-white" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-100 neon-text">Settings</h1>
+        <h1 className="text-2xl font-bold text-ink neon-text">Settings</h1>
       </div>
 
       {/* Profile Section */}
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
           <User className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-gray-100">Profile</h2>
+          <h2 className="text-lg font-semibold text-ink">Profile</h2>
         </div>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">Name</label>
+            <label className="block text-sm font-medium text-ink-soft mb-1">Name</label>
             <input
               type="text"
               value={user?.name || ''}
@@ -281,7 +302,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">Email</label>
+            <label className="block text-sm font-medium text-ink-soft mb-1">Email</label>
             <input
               type="email"
               value={user?.email || ''}
@@ -296,12 +317,12 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
           <Sparkles className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-gray-100">AI Credits</h2>
+          <h2 className="text-lg font-semibold text-ink">AI Credits</h2>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-300">Available credits</span>
+            <span className="text-sm text-ink-soft">Available credits</span>
             <span className="text-2xl font-bold text-cyan-400">
               {creditsLoading ? '...' : balance}
             </span>
@@ -313,10 +334,10 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                 ? 'border-rose-500/35 bg-rose-500/10'
                 : 'border-amber-500/35 bg-amber-500/10'
             }`}>
-              <p className="font-semibold text-gray-100">
+              <p className="font-semibold text-ink">
                 {isOutOfCredits ? 'You are out of AI credits' : 'You are running low on AI credits'}
               </p>
-              <p className="mt-1 text-sm text-gray-300">
+              <p className="mt-1 text-sm text-ink-soft">
                 Subscribe for {monthlyCredits} credits each month, or buy a quick top-up when you only need a little more.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -332,18 +353,18 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
 
           {creditSummary && (
             <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-lg border border-gray-700/70 bg-gray-950/25 p-3">
-                <p className="text-gray-400">Monthly plan</p>
-                <p className="mt-1 font-semibold text-gray-100">
+              <div className="rounded-lg border border-line/70 bg-sunken/25 p-3">
+                <p className="text-ink-muted">Monthly plan</p>
+                <p className="mt-1 font-semibold text-ink">
                   {creditSummary.subscription.active ? `${creditSummary.subscription.pricePhase} plan` : 'Inactive'}
                 </p>
                 <p className="mt-1 text-xs text-gray-500">
                   Refresh {creditSummary.subscription.renewalDate ?? '-'}
                 </p>
               </div>
-              <div className="rounded-lg border border-gray-700/70 bg-gray-950/25 p-3">
-                <p className="text-gray-400">Used this month</p>
-                <p className="mt-1 font-semibold text-gray-100">{creditSummary.usedThisMonth}</p>
+              <div className="rounded-lg border border-line/70 bg-sunken/25 p-3">
+                <p className="text-ink-muted">Used this month</p>
+                <p className="mt-1 font-semibold text-ink">{creditSummary.usedThisMonth}</p>
                 <p className="mt-1 text-xs text-gray-500">
                   {creditSummary.subscriptionBalance} monthly · {creditSummary.topupBalance} top-up credits left
                 </p>
@@ -358,11 +379,11 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
             />
           </div>
 
-          <div className="rounded-lg border border-gray-700/70 bg-gray-950/25 p-3 text-sm text-gray-300">
+          <div className="rounded-lg border border-line/70 bg-sunken/25 p-3 text-sm text-ink-soft">
             <p>
               Credits power AI actions like turning notes into tasks, reading a meal photo, or answering questions about your data.
             </p>
-            <p className="mt-2 text-xs text-gray-400">
+            <p className="mt-2 text-xs text-ink-muted">
               Most quick text analyses use about 5-15 credits. Longer notes or images can use more.
             </p>
           </div>
@@ -374,8 +395,8 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                   <p className="font-semibold text-cyan-100">
                     ${planPrice} / month
                   </p>
-                  <p className="text-sm text-gray-300">{monthlyCredits} credits / month, refreshed monthly with no rollover.</p>
-                  <p className="mt-1 text-xs text-gray-400">Pick the plan when you want AI available without watching each action.</p>
+                  <p className="text-sm text-ink-soft">{monthlyCredits} credits / month, refreshed monthly with no rollover.</p>
+                  <p className="mt-1 text-xs text-ink-muted">Pick the plan when you want AI available without watching each action.</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('subscribe')}>
@@ -399,17 +420,17 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
             aria-label="Close contact flow"
             onClick={() => setContactFlow(null)}
           />
-          <div className="relative z-10 w-full max-w-lg rounded-lg border border-cyan-500/25 bg-gray-900 p-5 shadow-2xl">
+          <div className="relative z-10 w-full max-w-lg rounded-lg border border-cyan-500/25 bg-page p-5 shadow-2xl">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-gray-100">
+                <h2 className="text-lg font-semibold text-ink">
                   {contactFlow === 'topup' ? 'Buy more credits' : 'Subscribe'}
                 </h2>
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-ink-muted">
                   Manual fulfillment for now. Reach out through any channel.
                 </p>
               </div>
-              <button type="button" className="text-gray-400 hover:text-gray-200" onClick={() => setContactFlow(null)} aria-label="Close">
+              <button type="button" className="text-ink-muted hover:text-ink-soft" onClick={() => setContactFlow(null)} aria-label="Close">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -447,9 +468,18 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
 
       {/* Notifications */}
       <div className="card">
-        <div className="flex items-center space-x-3 mb-4">
-          <Bell className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-gray-100">Notifications</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <Bell className="w-5 h-5 text-cyan-400" />
+            <h2 className="text-lg font-semibold text-ink">Notifications</h2>
+          </div>
+          <button
+            type="button"
+            onClick={handleTestNotification}
+            className="btn-secondary text-sm"
+          >
+            Send test notification
+          </button>
         </div>
 
         {/* Browser Permission */}
@@ -459,7 +489,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
               <Smartphone className="w-5 h-5 text-blue-400" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-blue-300">Enable Browser Notifications</p>
-                <p className="text-sm text-gray-300">Allow HealthyFlow to send you reminders and updates</p>
+                <p className="text-sm text-ink-soft">Allow HealthyFlow to send you reminders and updates</p>
               </div>
               <button
                 onClick={handleNotificationPermission}
@@ -477,7 +507,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
               <Bell className="w-5 h-5 text-red-400" />
               <div>
                 <p className="text-sm font-medium text-red-300">Notifications Blocked</p>
-                <p className="text-sm text-gray-300">Please enable notifications in your browser settings to receive reminders</p>
+                <p className="text-sm text-ink-soft">Please enable notifications in your browser settings to receive reminders</p>
               </div>
             </div>
           </div>
@@ -519,7 +549,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
           <Sync className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-gray-100">Features</h2>
+          <h2 className="text-lg font-semibold text-ink">Features</h2>
         </div>
         
         <div className="divide-y divide-gray-700/50">
@@ -540,7 +570,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           <SettingToggle
             label="Calorie Intake"
             description="Track calorie intake alongside your tasks and habits"
-            checked={settings?.calorieIntake ?? false}
+            checked={settings?.calorieIntake ?? true}
             onChange={(checked) => handleSettingChange('calorieIntake', checked)}
           />
 
@@ -564,10 +594,10 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                 <CalendarSyncLed connected={Boolean(calendarStatus?.connected)} />
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-medium text-gray-200">Calendar Sync</h3>
+                    <h3 className="text-sm font-medium text-ink-soft">Calendar Sync</h3>
                     {calendarStatus?.connected && <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
                   </div>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-ink-muted">
                     {calendarStatus?.connected
                       ? `Connected to ${calendarStatus.accountEmail || 'Google Calendar'}`
                       : 'Connect Google Calendar to start syncing timed tasks'}
@@ -577,7 +607,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
 
               <div className="flex items-center gap-2 sm:justify-end">
                 {calendarLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
+                  <div className="flex items-center gap-2 text-sm text-ink-muted">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Checking
                   </div>
@@ -609,7 +639,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       <div className="card">
         <div className="mb-4 flex items-center space-x-3">
           <KeyRound className="h-5 w-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-gray-100">Connections</h2>
+          <h2 className="text-lg font-semibold text-ink">Connections</h2>
         </div>
 
         {newToken && (
@@ -644,11 +674,11 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           </div>
         )}
 
-        <div className="space-y-3 rounded-lg border border-gray-700/70 bg-gray-950/25 p-3">
+        <div className="space-y-3 rounded-lg border border-line/70 bg-sunken/25 p-3">
           <input className="input-field" value={tokenName} onChange={(event) => setTokenName(event.target.value)} />
           <div className="grid gap-2 sm:grid-cols-2">
             {(['hf:read', 'hf:write:add', 'hf:write:update', 'hf:write:complete', 'hf:write:delete'] as ApiTokenScope[]).map((scope) => (
-              <label key={scope} className="flex items-center gap-2 rounded-md border border-gray-800 px-3 py-2 text-sm text-gray-200">
+              <label key={scope} className="flex items-center gap-2 rounded-md border border-card px-3 py-2 text-sm text-ink-soft">
                 <input type="checkbox" checked={selectedScopes.includes(scope)} onChange={() => toggleScope(scope)} />
                 {scope}
               </label>
@@ -664,12 +694,12 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           </button>
         </div>
 
-        <div className="mt-4 divide-y divide-gray-800">
+        <div className="mt-4 divide-y divide-card">
           {apiTokens.map((token) => (
             <div key={token.id} className="flex items-center justify-between gap-3 py-3">
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-gray-100">{token.name}</p>
-                <p className="text-xs text-gray-400">{token.scopes.join(', ')}</p>
+                <p className="truncate text-sm font-medium text-ink">{token.name}</p>
+                <p className="text-xs text-ink-muted">{token.scopes.join(', ')}</p>
                 <p className="text-xs text-gray-500">
                   Last used {token.lastUsedAt ?? '-'} {token.revokedAt ? ` · revoked ${token.revokedAt}` : ''}
                 </p>
@@ -692,13 +722,35 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
           <CalendarDays className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-gray-100">Preferences</h2>
+          <h2 className="text-lg font-semibold text-ink">Preferences</h2>
         </div>
 
         <div className="flex flex-col gap-3 py-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-sm font-medium text-gray-200">First Day of Week</h3>
-            <p className="text-sm text-gray-400">Used by Week View and weekly date ranges</p>
+            <h3 className="text-sm font-medium text-ink-soft">Theme</h3>
+            <p className="text-sm text-ink-muted">Choose the app's look</p>
+          </div>
+          <div className="inline-flex rounded-lg border border-line-strong p-1">
+            {(['midnight', 'white'] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => handleThemeChange(t)}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md capitalize transition-colors ${
+                  (settings?.theme ?? 'midnight') === t
+                    ? 'bg-cyan-500 text-white'
+                    : 'text-ink-soft hover:text-ink'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-ink-soft">First Day of Week</h3>
+            <p className="text-sm text-ink-muted">Used by Week View and weekly date ranges</p>
           </div>
           <select
             aria-label="First Day of Week"
@@ -721,13 +773,13 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
           <Shield className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-gray-100">Privacy & Security</h2>
+          <h2 className="text-lg font-semibold text-ink">Privacy & Security</h2>
         </div>
         
         <div className="space-y-4">
-          <button className="w-full text-left p-3 rounded-lg border border-gray-600 hover:bg-gray-800/50 transition-colors">
-            <div className="font-medium text-gray-200">Export Data</div>
-            <div className="text-sm text-gray-400">Download all your data in JSON format</div>
+          <button className="w-full text-left p-3 rounded-lg border border-line-strong hover:bg-card/50 transition-colors">
+            <div className="font-medium text-ink-soft">Export Data</div>
+            <div className="text-sm text-ink-muted">Download all your data in JSON format</div>
           </button>
           
           <button 
@@ -735,10 +787,10 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
               localStorage.clear()
               toast.success('Cache cleared successfully')
             }}
-            className="w-full text-left p-3 rounded-lg border border-gray-600 hover:bg-gray-800/50 transition-colors"
+            className="w-full text-left p-3 rounded-lg border border-line-strong hover:bg-card/50 transition-colors"
           >
-            <div className="font-medium text-gray-200">Clear Cache</div>
-            <div className="text-sm text-gray-400">Clear all locally stored data including API keys</div>
+            <div className="font-medium text-ink-soft">Clear Cache</div>
+            <div className="text-sm text-ink-muted">Clear all locally stored data including API keys</div>
           </button>
           
           {/* Clear All Tasks Button */}

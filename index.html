@@ -6,6 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>HealthyFlow - Smart Daily Planner</title>
     
+    <!-- Apply saved theme before render to avoid flash-of-wrong-theme -->
+    <script>
+      (function () {
+        var t = localStorage.getItem('hf-theme');
+        if (t === 'white') {
+          document.documentElement.setAttribute('data-theme', 'white');
+        }
+      })();
+    </script>
+
     <!-- PWA Meta Tags -->
     <meta name="description" content="AI-powered daily planner with smart recommendations and voice features" />
     <meta name="theme-color" content="#101828" />

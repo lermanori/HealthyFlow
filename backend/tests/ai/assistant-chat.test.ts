@@ -36,6 +36,7 @@ jest.mock('../../src/supabase-client', () => ({
         created_at: '2026-07-02T08:00:00.000Z',
       },
     ]),
+    getTaskById: jest.fn(),
     getCalorieEntriesByDay: jest.fn().mockResolvedValue([]),
     getCalorieItemByNormalizedName: jest.fn().mockResolvedValue(null),
     getRecentCalorieItems: jest.fn().mockResolvedValue([]),
@@ -502,9 +503,11 @@ describe('POST /api/ai/chat', () => {
 
     expect(systemPrompt).toContain('Client time zone: Asia/Jerusalem')
     expect(systemPrompt).toContain('Current local date: 2026-07-05')
+    expect(systemPrompt).toContain('Current local time: 15:00')
     expect(systemPrompt).toContain('Yesterday: 2026-07-04')
     expect(systemPrompt).toContain('Tomorrow: 2026-07-06')
     expect(systemPrompt).toContain('Resolve relative dates and times')
+    expect(systemPrompt).toContain('If the user says now or right now, use the current local time')
   })
 
   it('rejects unsupported assistant models before calling OpenAI', async () => {
@@ -868,6 +871,62 @@ describe('POST /api/ai/chat', () => {
 
     expect(res.status).toBe(500)
     expect(res.body).toEqual({ error: 'database unavailable', code: 'tool_error' })
+  })
+
+  it('surfaces object-shaped tool failures instead of generic fallback text', async () => {
+    const { db } = await import('../../src/supabase-client')
+    ;(db.createAiPendingAction as jest.Mock).mockRejectedValueOnce({
+      code: 'PGRST205',
+      message: 'Could not find the table public.ai_pending_actions',
+      details: 'Searched for public.ai_pending_actions in schema cache',
+    })
+
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, toolCallResponse('add_task', {
+        title: 'Buy coffee',
+        category: 'personal',
+        duration: 15,
+      }))
+
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-object-error'))
+      .send({ messages: [{ role: 'user', content: 'Add buy coffee as a task.' }] })
+
+    expect(res.status).toBe(500)
+    expect(res.body).toEqual({
+      error: expect.stringContaining('Could not find the table public.ai_pending_actions'),
+      code: 'tool_error',
+    })
+    expect(res.body.error).toContain('PGRST205')
+    expect(res.body.error).not.toBe('Tool execution failed')
+  })
+
+  it('recovers from an invented item id instead of leaking a raw db error', async () => {
+    const { db } = await import('../../src/supabase-client')
+
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, toolCallResponse('complete_task', { itemId: '1' }))
+      .post('/v1/chat/completions')
+      .reply(200, finalAnswerResponse)
+
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-bad-id'))
+      .send({ messages: [{ role: 'user', content: 'mark coffee with sami as done' }] })
+
+    // The invented id never reached Postgres, so no raw 22P02 surfaced and the
+    // turn was not aborted — the model got a recoverable error and answered.
+    expect(res.status).toBe(200)
+    expect(res.body.message).toBe('You have Buy milk on your plate today.')
+    expect(db.getTaskById).not.toHaveBeenCalled()
+    const badEvent = res.body.toolEvents.find((event: any) => event.name === 'complete_task')
+    expect(badEvent.result).toEqual({
+      ok: false,
+      error: expect.stringContaining('No Item found with id "1"'),
+    })
   })
 
   it('settles accumulated usage when a later tool loop fails', async () => {

@@ -67,7 +67,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-page flex items-center justify-center p-4 relative overflow-hidden">
       {/* Futuristic background effects */}
       <div className="absolute inset-0">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl animate-pulse"></div>
@@ -112,26 +112,26 @@ export default function LoginPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-100 neon-text mb-2">
+              <h1 className="text-2xl md:text-3xl font-bold text-ink neon-text mb-2">
                 Welcome to HealthyFlow
               </h1>
               <p className="text-cyan-400 font-medium">AI-Powered Future Planner</p>
-              <p className="text-gray-400 text-sm mt-1">Neural networks ready to optimize your life</p>
+              <p className="text-ink-muted text-sm mt-1">Neural networks ready to optimize your life</p>
             </motion.div>
 
             {/* Mode toggle */}
-            <div className="flex mt-4 rounded-xl overflow-hidden border border-gray-700">
+            <div className="flex mt-4 rounded-xl overflow-hidden border border-line">
               <button
                 type="button"
                 onClick={() => switchMode('login')}
-                className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === 'login' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200'}`}
+                className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === 'login' ? 'bg-cyan-600 text-white' : 'bg-card text-ink-muted hover:text-ink-soft'}`}
               >
                 Sign in
               </button>
               <button
                 type="button"
                 onClick={() => switchMode('signup')}
-                className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === 'signup' ? 'bg-cyan-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-gray-200'}`}
+                className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === 'signup' ? 'bg-cyan-600 text-white' : 'bg-card text-ink-muted hover:text-ink-soft'}`}
               >
                 Create account
               </button>
@@ -141,11 +141,11 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {mode === 'signup' && (
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="name" className="block text-sm font-medium text-ink-soft mb-2">
                   Full Name
                 </label>
                 <div className="relative">
-                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <User className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-ink-muted" />
                   <input
                     id="name"
                     type="text"
@@ -161,11 +161,11 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="email" className="block text-sm font-medium text-ink-soft mb-2">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-ink-muted" />
                 <input
                   id="email"
                   type="email"
@@ -180,11 +180,11 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-ink-soft mb-2">
                 Password
               </label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-ink-muted" />
                 <input
                   id="password"
                   type="password"
@@ -200,11 +200,11 @@ export default function LoginPage() {
 
             {mode === 'signup' && (
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
+                <label htmlFor="confirmPassword" className="block text-sm font-medium text-ink-soft mb-2">
                   Confirm Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <Lock className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-ink-muted" />
                   <input
                     id="confirmPassword"
                     type="password"
@@ -251,13 +251,13 @@ export default function LoginPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.7 }}
-              className="mt-6 p-4 rounded-xl bg-gradient-to-r from-gray-800/50 to-gray-700/50 border border-gray-600/50"
+              className="mt-6 p-4 rounded-xl bg-gradient-to-r from-card/50 to-gray-700/50 border border-line-strong/50"
             >
               <div className="text-center">
-                <p className="text-sm text-gray-300 font-medium mb-2">
+                <p className="text-sm text-ink-soft font-medium mb-2">
                   🚀 Demo Access Credentials
                 </p>
-                <div className="space-y-1 text-xs text-gray-400">
+                <div className="space-y-1 text-xs text-ink-muted">
                   <p><strong className="text-cyan-400">Email:</strong> demo@healthyflow.com</p>
                   <p><strong className="text-cyan-400">Password:</strong> demo123</p>
                 </div>

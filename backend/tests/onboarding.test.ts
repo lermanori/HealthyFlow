@@ -27,9 +27,8 @@ beforeEach(() => {
 })
 
 describe('Onboarding', () => {
-  it('seeds new users with onboarding settings and sample tasks', async () => {
+  it('seeds new users with onboarding settings and no sample tasks', async () => {
     mockDb.upsertUserSettings.mockResolvedValue({})
-    mockDb.createTask.mockResolvedValue({})
 
     await Onboarding.seedNewUser('user-1')
 
@@ -38,14 +37,7 @@ describe('Onboarding', () => {
       achievementTracker: true,
       onboardingStatus: 'active',
     })
-    expect(mockDb.createTask).toHaveBeenCalledTimes(3)
-    expect(mockDb.createTask).toHaveBeenCalledWith(expect.objectContaining({
-      user_id: 'user-1',
-      title: 'Ask AI what to focus on today',
-      type: 'task',
-      category: 'work',
-      position: 0,
-    }))
+    expect(mockDb.createTask).not.toHaveBeenCalled()
   })
 
   it('completes onboarding by awarding an achievement and hiding the flow', async () => {

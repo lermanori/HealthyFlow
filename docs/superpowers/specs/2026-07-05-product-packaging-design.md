@@ -49,6 +49,15 @@ New user's first screen asks one thing: **"Tell me about your day tomorrow — w
 
 Pricing ($1/mo founding member, sell-rate split fix, manual fulfillment), the 10-customer outreach plan, and the P0/P1 fix list in `MARKETING.md` all stand. This design replaces the planned story-A/B test with one committed story and adds three product-shape work items (calories on by default; single AI surface; hide unwired item types).
 
+## Prototype verdicts (2026-07-06, from `public/prototype-redesign.html`)
+
+Wireframe prototype of the full flow surfaced four decisions:
+
+1. **Today screen header:** week ribbon (7 day chips: past = ✓, today = highlighted with load dots, future = load dots) + a now/next card. **No kcal/weight metrics in the header** — they presume a body goal and narrow the audience; totals live in the timeline rows and any future passive recap. The ribbon *is* the weekly view for the default flow; the full Week View page remains for deliberate planning only.
+2. **No close-day ritual.** Rejected after prototyping: a manual end-of-day ceremony contradicts "rolls itself forward" (that's Sunsama's model, not ours). Days end with the clock; rollover is automatic; shelf age badges tell the story. Any "yesterday recap" is a passive glance card, never a gate.
+3. **Add and Ask are one surface ("Talk to your day").** One composer: statements become items (timed → timeline, untimed → anytime shelf), questions get answers grounded in the day. Confirms and sharpens issue #124 — the dock is `today | talk`.
+4. **Untimed tasks = the anytime shelf.** One collapsible section under the now/next card holding day-scoped untimed, rolled-over, and someday items alike, differentiated only by an age badge ("2 days", "3 wks") — this *replaces* the rollover banner. Exits: tick in place, or drag/send to a timeline slot (drag-materialization per ADR-0001). Timeline holds only timed rows.
+
 ## Implementation notes (for the plan that follows)
 
 - Calorie gate: see issue #47 / the `calorieIntake` setting — flip default, keep opt-out.

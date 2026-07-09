@@ -111,6 +111,7 @@ const GOOGLE_SCOPES = [
   'email',
   'https://www.googleapis.com/auth/calendar.events',
 ]
+const GOOGLE_CALENDAR_NOT_CONNECTED = 'Google Calendar is not connected'
 
 function getRequiredEnv(name: string): string {
   const value = process.env[name]
@@ -164,6 +165,32 @@ function decryptToken(value: string): string {
     decipher.update(Buffer.from(encryptedText, 'base64url')),
     decipher.final(),
   ]).toString('utf8')
+}
+
+function isInvalidGrantResponse(errorText: string): boolean {
+  try {
+    const parsed = JSON.parse(errorText) as { error?: unknown }
+    return parsed.error === 'invalid_grant'
+  } catch {
+    return errorText.includes('invalid_grant')
+  }
+}
+
+async function markGoogleCalendarDisconnected(userId: string): Promise<void> {
+  const { error } = await supabase
+    .from('calendar_connections')
+    .update({
+      disconnected_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId)
+    .eq('provider', 'google')
+
+  if (error) throw error
+}
+
+export function isGoogleCalendarNotConnectedError(error: unknown): boolean {
+  return error instanceof Error && error.message === GOOGLE_CALENDAR_NOT_CONNECTED
 }
 
 function createState(userId: string): string {
@@ -287,6 +314,19 @@ export async function completeGoogleCalendarOAuth(code: string, state: string): 
     }, { onConflict: 'user_id,provider' })
 
   if (error) throw error
+
+  const { error: taskResetError } = await supabase
+    .from('tasks')
+    .update({
+      google_sync_status: 'pending',
+    })
+    .eq('user_id', userId)
+    .eq('type', 'task')
+    .eq('google_sync_status', 'skipped')
+    .is('deleted_at', null)
+    .not('start_time', 'is', null)
+
+  if (taskResetError) throw taskResetError
 }
 
 export async function getGoogleCalendarStatus(userId: string): Promise<CalendarConnectionStatus> {
@@ -318,7 +358,7 @@ async function getGoogleAccessToken(userId: string): Promise<string> {
 
   if (error) throw error
   if (!data || data.disconnected_at) {
-    throw new Error('Google Calendar is not connected')
+    throw new Error(GOOGLE_CALENDAR_NOT_CONNECTED)
   }
 
   const expiresAt = data.token_expiry ? new Date(data.token_expiry).getTime() : 0
@@ -342,6 +382,10 @@ async function getGoogleAccessToken(userId: string): Promise<string> {
 
   if (!tokenResponse.ok) {
     const errorText = await tokenResponse.text()
+    if (isInvalidGrantResponse(errorText)) {
+      await markGoogleCalendarDisconnected(userId)
+      throw new Error(GOOGLE_CALENDAR_NOT_CONNECTED)
+    }
     throw new Error(`Google token refresh failed: ${errorText}`)
   }
 
@@ -538,7 +582,15 @@ export async function syncTimedTasksForDate(userId: string, date: string, timeZo
       if (updateError) throw updateError
       if (result.synced) synced += 1
     } catch (error) {
-      if (error instanceof Error && error.message === 'Google Calendar is not connected') {
+      if (isGoogleCalendarNotConnectedError(error)) {
+        await supabase
+          .from('tasks')
+          .update({
+            google_event_id: null,
+            synced_to_google: false,
+            google_sync_status: 'skipped',
+          })
+          .eq('id', task.id)
         return { synced }
       }
 
@@ -802,16 +854,7 @@ export async function syncGoogleCalendarEventsForDate(
 }
 
 export async function disconnectGoogleCalendar(userId: string): Promise<void> {
-  const { error } = await supabase
-    .from('calendar_connections')
-    .update({
-      disconnected_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('user_id', userId)
-    .eq('provider', 'google')
-
-  if (error) throw error
+  await markGoogleCalendarDisconnected(userId)
 }
 
 export function getCalendarOAuthReturnUrl(status: 'connected' | 'error', message?: string): string {

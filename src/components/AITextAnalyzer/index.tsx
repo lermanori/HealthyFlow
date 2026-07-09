@@ -16,7 +16,7 @@ import { useDictatedText } from '../../hooks/useDictatedText'
 const ACCEPTED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
 const MAX_PHOTO_BYTES = 5 * 1024 * 1024
 
-export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAnalyzerProps) {
+export default function AITextAnalyzer({ onClose, onConfirmed, enableTTS = false }: AITextAnalyzerProps) {
   const [inputText, setInputText] = useState('')
   const [photo, setPhoto] = useState<AnalyzerPhoto | undefined>()
   const [defaultScheduleDate, setDefaultScheduleDate] = useState(format(new Date(), 'yyyy-MM-dd'))
@@ -30,7 +30,7 @@ export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAna
 
   const { speak } = useTTS()
   const { balance, summary: creditSummary, refetch: refetchCredits } = useCredits()
-  const { suggestions, selectedSuggestions, isAnalyzing, analyzeText, toggleSuggestion, updateTaskDate, reset } =
+  const { suggestions, selectedSuggestions, isAnalyzing, analyzeText, toggleSuggestion, updateSuggestion, reset } =
     useParsedItems()
   const {
     isListening,
@@ -44,6 +44,7 @@ export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAna
     setInputText('')
     setPhoto(undefined)
     clearTranscript()
+    onConfirmed?.()
     onClose?.()
   })
 
@@ -208,14 +209,14 @@ export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAna
             <Brain className="h-5 w-5 text-white sm:h-6 sm:w-6" />
           </div>
           <div className="min-w-0">
-            <h2 className="truncate text-lg font-bold text-gray-100 neon-text sm:text-xl">AI Task Analyzer</h2>
-            <p className="hidden text-sm text-gray-300 sm:block">Transform your thoughts into structured tasks</p>
+            <h2 className="truncate text-lg font-bold text-ink neon-text sm:text-xl">AI Task Analyzer</h2>
+            <p className="hidden text-sm text-ink-soft sm:block">Transform your thoughts into structured tasks</p>
           </div>
         </div>
         {onClose && (
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-700 transition-colors text-gray-400 hover:text-gray-200"
+            className="p-2 rounded-lg hover:bg-gray-700 transition-colors text-ink-muted hover:text-ink-soft"
           >
             <X className="w-5 h-5" />
           </button>
@@ -229,7 +230,7 @@ export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAna
             ? 'border-rose-500/35 bg-rose-500/10 text-rose-100'
             : balance < 25
               ? 'border-amber-500/35 bg-amber-500/10 text-amber-100'
-              : 'border-cyan-500/25 bg-cyan-500/8 text-gray-300'
+              : 'border-cyan-500/25 bg-cyan-500/8 text-ink-soft'
         }`}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p>
@@ -246,15 +247,15 @@ export default function AITextAnalyzer({ onClose, enableTTS = false }: AITextAna
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border border-cyan-300/70 bg-gray-950/45 p-4 shadow-2xl shadow-cyan-500/20 ring-1 ring-cyan-400/20 sm:p-5">
+          <div className="rounded-2xl border border-cyan-300/70 bg-sunken/45 p-4 shadow-2xl shadow-cyan-500/20 ring-1 ring-cyan-400/20 sm:p-5">
             {photo && (
               <div className="mb-3 inline-flex max-w-full items-center gap-3 rounded-xl bg-gray-700/90 p-2 pr-3">
                 <img
                   src={photo.previewUrl}
                   alt=""
-                  className="h-12 w-12 rounded-lg object-cover border border-gray-600"
+                  className="h-12 w-12 rounded-lg object-cover border border-line-strong"
                 />
-                <span className="truncate text-sm text-gray-100">{photo.fileName}</span>
+                <span className="truncate text-sm text-ink">{photo.fileName}</span>
                 <button
                   type="button"
                   onClick={removePhoto}
@@ -278,7 +279,7 @@ Examples:
 • 'Plan a productive work day with meetings and focused coding time'
 • 'I want to have a testosterone-boosting day with surf session and a date tonight'
 • 'Schedule gym sessions for this weekend and meal prep for Monday'`}
-              className="min-h-[18rem] w-full resize-none bg-transparent text-base leading-7 text-gray-100 placeholder-gray-400 outline-none sm:min-h-[20rem]"
+              className="min-h-[18rem] w-full resize-none bg-transparent text-base leading-7 text-ink placeholder-ink-muted outline-none sm:min-h-[20rem]"
               disabled={isAnalyzing}
               maxLength={500}
             />
@@ -288,7 +289,7 @@ Examples:
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isAnalyzing}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/25 bg-gray-900/25 text-gray-200 transition-colors hover:bg-gray-700 disabled:opacity-50"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/25 bg-page/25 text-ink-soft transition-colors hover:bg-gray-700 disabled:opacity-50"
                   aria-label={photo ? 'Replace photo' : 'Upload photo'}
                 >
                   <Plus className="w-6 h-6" />
@@ -302,7 +303,7 @@ Examples:
                 className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   isListening
                     ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
-                    : 'border-cyan-500/25 bg-gray-900/25 text-gray-300 hover:bg-gray-700'
+                    : 'border-cyan-500/25 bg-page/25 text-ink-soft hover:bg-gray-700'
                 }`}
                 aria-label={isListening ? 'Stop dictation' : 'Dictate'}
               >
@@ -321,13 +322,13 @@ Examples:
                 compact
                 embedded
               />
-              <label className="relative flex h-10 items-center gap-1.5 rounded-xl border border-cyan-500/25 bg-gray-900/25 px-3 text-gray-300 transition-colors hover:bg-gray-700">
+              <label className="relative flex h-10 items-center gap-1.5 rounded-xl border border-cyan-500/25 bg-page/25 px-3 text-ink-soft transition-colors hover:bg-gray-700">
                 <Calendar className="h-4 w-4 text-cyan-400" />
                 <span className="sr-only">Default Schedule Date</span>
                 <select
                   value={selectedQuickDate ? defaultScheduleDate : 'custom'}
                   onChange={(event) => handleScheduleDateChange(event.target.value)}
-                  className="cursor-pointer appearance-none bg-transparent pr-4 text-xs font-medium text-gray-300 outline-none"
+                  className="cursor-pointer appearance-none bg-transparent pr-4 text-xs font-medium text-ink-soft outline-none"
                   aria-label="Default schedule date"
                 >
                   {quickDates.map((date) => (
@@ -341,7 +342,7 @@ Examples:
               <div className="ml-auto flex items-center justify-end gap-2">
                 {isListening && <span className="text-xs text-cyan-300">Listening</span>}
                 {dictationError && <span className="max-w-32 truncate text-xs text-red-300">{dictationError}</span>}
-                <span className="text-xs text-gray-400">{inputText.length}/500</span>
+                <span className="text-xs text-ink-muted">{inputText.length}/500</span>
                 <Sparkles className="w-4 h-4 text-cyan-400 animate-neon-flicker" />
                 {renderAnalyzeButton()}
               </div>
@@ -367,12 +368,12 @@ Examples:
               className="space-y-4"
             >
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-100 flex items-center space-x-2">
+                <h3 className="text-lg font-semibold text-ink flex items-center space-x-2">
                   <Sparkles className="w-5 h-5 text-cyan-400" />
                   <span>AI Generated Tasks</span>
                 </h3>
                 <div className="flex items-center space-x-3">
-                  <span className="text-sm text-gray-300">
+                  <span className="text-sm text-ink-soft">
                     {selectedSuggestions.size} of {suggestions.length} selected
                   </span>
                   {ttsEnabled && <TTSActions suggestions={suggestions} onSpeakResults={handleSpeakResults} />}
@@ -386,7 +387,7 @@ Examples:
                     suggestion={suggestion}
                     isSelected={selectedSuggestions.has(suggestion.id)}
                     onToggle={() => toggleSuggestion(suggestion.id)}
-                    onUpdateDate={(date) => updateTaskDate(suggestion.id, date)}
+                    onUpdate={(patch) => updateSuggestion(suggestion.id, patch)}
                     quickDates={quickDates}
                     ttsEnabled={ttsEnabled}
                     onSpeakDetails={() => speakTaskDetails(suggestion)}
@@ -400,7 +401,7 @@ Examples:
 
       {suggestions.length > 0 && (
         <div
-          className="flex-shrink-0 border-t border-gray-700/50 bg-gray-900/95 p-3 backdrop-blur-xl sm:p-4"
+          className="flex-shrink-0 border-t border-line/50 bg-page/95 p-3 backdrop-blur-xl sm:p-4"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
         >
           <button
@@ -416,11 +417,11 @@ Examples:
 
       {isCustomDateOpen && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-950/75 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-sunken/75 p-4 backdrop-blur-sm"
           onClick={() => setIsCustomDateOpen(false)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl border border-cyan-500/30 bg-gray-900 p-5 shadow-2xl shadow-cyan-500/20"
+            className="w-full max-w-sm rounded-2xl border border-cyan-500/30 bg-page p-5 shadow-2xl shadow-cyan-500/20"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between gap-3">
@@ -429,13 +430,13 @@ Examples:
                   <Calendar className="h-4 w-4 text-cyan-400" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-gray-100">Default Schedule Date</h3>
-                  <p className="text-xs text-gray-400">Use when no date is mentioned.</p>
+                  <h3 className="text-base font-semibold text-ink">Default Schedule Date</h3>
+                  <p className="text-xs text-ink-muted">Use when no date is mentioned.</p>
                 </div>
               </div>
               <button
                 onClick={() => setIsCustomDateOpen(false)}
-                className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-100"
+                className="rounded-lg p-2 text-ink-muted transition-colors hover:bg-card hover:text-ink"
                 aria-label="Close custom date picker"
               >
                 <X className="h-4 w-4" />

@@ -96,6 +96,8 @@ You can read data and you can use write tools when the user plainly asks for a c
 
 Write safety:
 - Every write tool returns a preview and requires the user to Confirm or Cancel in the UI before the change is executed. This includes add/log/create tools, update_item, complete_task, and delete_item.
+- Calling the write tool IS how you ask for confirmation: it produces the preview card with Confirm/Cancel buttons. When the user plainly asks for a change, call the write tool in the same turn — do NOT ask "should I?" in text first and wait for a reply.
+- Item ids (for update_item, complete_task, delete_item) must come from a get_today or list_tasks result in the SAME turn. Never invent, guess, or reuse an id from earlier in the conversation — those tool results are not carried across turns. If you do not have the id, call list_tasks or get_today first, then call the write tool.
 - Never say a write is complete until the user has confirmed it.
 
 Food logging:
@@ -136,9 +138,21 @@ function formatLocalDate(date: Date, timeZone: string) {
   return `${byType.year}-${byType.month}-${byType.day}`
 }
 
+function formatLocalTime(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+  const byType = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${byType.hour}:${byType.minute}`
+}
+
 export function buildChatSystemPrompt(timeZoneHeader?: string, now = new Date()) {
   const timeZone = normalizeTimeZone(timeZoneHeader)
   const today = formatLocalDate(now, timeZone)
+  const currentTime = formatLocalTime(now, timeZone)
   const yesterday = formatLocalDate(new Date(now.getTime() - ONE_DAY_MS), timeZone)
   const tomorrow = formatLocalDate(new Date(now.getTime() + ONE_DAY_MS), timeZone)
 
@@ -147,10 +161,11 @@ export function buildChatSystemPrompt(timeZoneHeader?: string, now = new Date())
 Date context:
 - Client time zone: ${timeZone}
 - Current local date: ${today}
+- Current local time: ${currentTime}
 - Yesterday: ${yesterday}
 - Tomorrow: ${tomorrow}
 
-Resolve relative dates and times such as today, yesterday, tomorrow, this morning, tonight, and last night from this date context when choosing tool arguments. Do not use model training-date assumptions.`
+Resolve relative dates and times such as today, yesterday, tomorrow, now, right now, this morning, tonight, and last night from this date and time context when choosing tool arguments. If the user says now or right now, use the current local time. Do not use model training-date assumptions.`
 }
 
 function attachmentMessageContent(content: string, attachment?: z.infer<typeof ChatAttachment>) {

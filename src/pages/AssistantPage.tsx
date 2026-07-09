@@ -1,8 +1,14 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
+import { format, addDays } from 'date-fns'
 import { Bot, ChevronDown, Dumbbell, Flame, Image as ImageIcon, Mic, MessageSquare, Paperclip, Pencil, Plus, Scale, Send, Target, Trash2, UserRound, Wrench, X } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantPendingAction, AssistantToolEvent } from '../services/api'
+import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantPendingAction, AssistantToolEvent, pushService } from '../services/api'
 import { useDictatedText } from '../hooks/useDictatedText'
+import TaskDraftCard, { TaskDraftCardValue } from '../components/TaskDraftCard'
+import CalorieEntryDraftCard, { CalorieEntryDraftValue } from '../components/CalorieEntryDraftCard'
 
 type ConversationPendingAction = AssistantPendingAction & {
   status?: 'pending' | 'confirmed' | 'canceled'
@@ -238,7 +244,7 @@ function iconForCapability(capability: string) {
 }
 
 function inputClass() {
-  return 'h-10 rounded-md border border-gray-700 bg-gray-950 px-3 text-sm text-gray-100 outline-none transition-colors focus:border-cyan-500'
+  return 'h-10 rounded-md border border-line bg-sunken px-3 text-sm text-ink outline-none transition-colors focus:border-cyan-500'
 }
 
 function TextField({
@@ -253,7 +259,7 @@ function TextField({
   type?: string
 }) {
   return (
-    <label className="grid gap-1 text-xs font-medium text-gray-400">
+    <label className="grid gap-1 text-xs font-medium text-ink-muted">
       <span>{label}</span>
       <input className={inputClass()} type={type} value={fieldValue(value)} onChange={(event) => onChange(event.target.value)} />
     </label>
@@ -272,7 +278,7 @@ function SelectField({
   onChange: (value: string) => void
 }) {
   return (
-    <label className="grid gap-1 text-xs font-medium text-gray-400">
+    <label className="grid gap-1 text-xs font-medium text-ink-muted">
       <span>{label}</span>
       <select className={inputClass()} value={fieldValue(value)} onChange={(event) => onChange(event.target.value)}>
         {options.map((option) => (
@@ -296,42 +302,42 @@ function AssistantReasoningStages({ events }: { events: AssistantToolEvent[] }) 
       <button
         type="button"
         onClick={() => setIsOpen((value) => !value)}
-        className="inline-flex items-center gap-2 rounded-md border border-gray-800 bg-gray-950 px-2.5 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
+        className="inline-flex items-center gap-2 rounded-md border border-card bg-sunken px-2.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
         aria-expanded={isOpen}
       >
         <Wrench className="h-3.5 w-3.5" />
         Reasoning stages
-        <span className="rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-300">{events.length}</span>
+        <span className="rounded bg-card px-1.5 py-0.5 text-[10px] text-ink-soft">{events.length}</span>
         <ChevronDown className={`h-3.5 w-3.5 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </button>
 
       {isOpen && (
-        <div className="mt-2 space-y-2 rounded-lg border border-gray-800 bg-gray-950/80 p-3">
+        <div className="mt-2 space-y-2 rounded-lg border border-card bg-sunken/80 p-3">
           {events.map((event, index) => (
-            <div key={`${event.name}-${index}`} className="rounded-md border border-gray-800 bg-gray-900/60 p-3">
+            <div key={`${event.name}-${index}`} className="rounded-md border border-card bg-page/60 p-3">
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md bg-cyan-500/10 text-[11px] font-semibold text-cyan-200">
                   {index + 1}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-semibold text-gray-100">{compactToolName(event.name)}</span>
+                    <span className="text-xs font-semibold text-ink">{compactToolName(event.name)}</span>
                     {summarizeArgs(event.args) && (
                       <span className="truncate text-xs text-gray-500">{summarizeArgs(event.args)}</span>
                     )}
                   </div>
-                  <p className="mt-1 text-xs leading-5 text-gray-300">{summarizeResult(event.result)}</p>
+                  <p className="mt-1 text-xs leading-5 text-ink-soft">{summarizeResult(event.result)}</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setExpandedEvent((value) => (value === index ? null : index))}
-                  className="flex-none rounded border border-gray-800 px-2 py-1 text-[11px] text-gray-500 transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
+                  className="flex-none rounded border border-card px-2 py-1 text-[11px] text-gray-500 transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
                 >
                   {expandedEvent === index ? 'Hide' : 'Details'}
                 </button>
               </div>
               {expandedEvent === index && (
-                <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-gray-800 bg-gray-950 p-3 text-[11px] leading-5 text-gray-300">
+                <pre className="mt-3 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-[11px] leading-5 text-ink-soft">
                   {JSON.stringify(event, null, 2)}
                 </pre>
               )}
@@ -429,6 +435,107 @@ function buildEditedArgs(action: AssistantPendingAction, draft: Record<string, u
   }
 }
 
+function taskDraftValueFromPendingAction(action: AssistantPendingAction, draft: Record<string, unknown>): TaskDraftCardValue {
+  const isHabit = action.capability === 'add_habit'
+  return {
+    title: fieldValue(draft.title),
+    category: fieldValue(draft.category || 'personal'),
+    duration: fieldValue(draft.duration),
+    priority: typeof draft.priority === 'string' ? draft.priority : undefined,
+    type: isHabit ? 'habit' : 'task',
+    startTime: fieldValue(draft.startTime),
+    scheduledDate: fieldValue(draft.scheduledDate || format(new Date(), 'yyyy-MM-dd')),
+    repeat: isHabit ? fieldValue(draft.repeat || 'daily') : undefined,
+  }
+}
+
+function taskDraftValueFromRecord(value: Record<string, any>): TaskDraftCardValue {
+  return {
+    title: String(value.title ?? ''),
+    category: fieldValue(value.category || 'personal'),
+    duration: fieldValue(value.duration ?? ''),
+    type: value.type === 'habit' ? 'habit' : 'task',
+    startTime: optionalText(value.startTime) ?? null,
+    scheduledDate: optionalText(value.scheduledDate),
+    repeat: value.repeat ? fieldValue(value.repeat) : undefined,
+  }
+}
+
+// The Item a complete_task / update_item card should display: the resulting
+// Item once confirmed, otherwise the previewed Item.
+function taskItemFromAction(action: ConversationPendingAction): Record<string, any> | null {
+  const result = action.result as any
+  if ((action.status === 'confirmed' || action.status === 'canceled') && result?.item) return result.item
+  const preview = action.preview as any
+  if (preview?.item) return preview.item
+  return null
+}
+
+function deleteItemTitle(action: ConversationPendingAction): string | null {
+  const preview = action.preview as any
+  return preview?.item?.title ?? null
+}
+
+function taskDraftPatchToPendingDraft(patch: Partial<TaskDraftCardValue>) {
+  const next: Record<string, unknown> = {}
+  if (patch.title !== undefined) next.title = patch.title
+  if (patch.category !== undefined) next.category = patch.category
+  if (patch.duration !== undefined) next.duration = patch.duration
+  if (patch.startTime !== undefined) next.startTime = patch.startTime
+  if (patch.scheduledDate !== undefined) next.scheduledDate = patch.scheduledDate
+  if (patch.repeat !== undefined) next.repeat = patch.repeat
+  return next
+}
+
+function assistantQuickDates() {
+  return [
+    { label: 'Today', value: format(new Date(), 'yyyy-MM-dd') },
+    { label: 'Tomorrow', value: format(addDays(new Date(), 1), 'yyyy-MM-dd') },
+    { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
+  ]
+}
+
+function pendingStatusTone(action: ConversationPendingAction): 'pending' | 'confirmed' | 'canceled' | 'error' {
+  if (action.error) return 'error'
+  return action.status ?? 'pending'
+}
+
+function statusToneClasses(tone: 'pending' | 'confirmed' | 'canceled' | 'error') {
+  switch (tone) {
+    case 'confirmed': return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+    case 'canceled': return 'border-line bg-page/70 text-ink-soft'
+    case 'error': return 'border-red-500/35 bg-red-500/10 text-red-100'
+    default: return 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+  }
+}
+
+function calorieEntryFromRecord(value: Record<string, unknown>): CalorieEntryDraftValue {
+  return {
+    date: optionalText(value.date) ?? null,
+    time: optionalText(value.time) ?? null,
+    name: String(value.name ?? '').trim(),
+    calories: fieldValue(value.calories),
+    protein: value.protein == null ? null : fieldValue(value.protein),
+    carbs: value.carbs == null ? null : fieldValue(value.carbs),
+    fat: value.fat == null ? null : fieldValue(value.fat),
+    quantity: nullableText(value.quantity),
+  }
+}
+
+function calorieDraftsFromPendingAction(action: ConversationPendingAction, draft: Record<string, unknown>): CalorieEntryDraftValue[] {
+  const result = action.result as any
+  if ((action.status === 'confirmed' || action.status === 'canceled') && result) {
+    if (Array.isArray(result.entries)) return result.entries.map((entry: Record<string, unknown>) => calorieEntryFromRecord(entry))
+    if (result.entry && typeof result.entry === 'object') return [calorieEntryFromRecord(result.entry)]
+  }
+
+  if (action.capability === 'add_calorie_entries') {
+    return arrayValue(draft.entries).map(calorieEntryFromRecord)
+  }
+
+  return [calorieEntryFromRecord(draft)]
+}
+
 function PendingActionCard({
   action,
   onConfirm,
@@ -472,33 +579,24 @@ function PendingActionCard({
         ? 'Canceled'
         : 'Waiting for confirmation'
 
-  const commonTaskFields = (
-    <>
-      <TextField label="Title" value={draft.title} onChange={(value) => setField('title', value)} />
-      <SelectField label="Category" value={draft.category ?? 'personal'} options={categories} onChange={(value) => setField('category', value)} />
-      <TextField label="Duration" value={draft.duration} type="number" onChange={(value) => setField('duration', value)} />
-      <TextField label="Start time" value={draft.startTime} type="time" onChange={(value) => setField('startTime', value)} />
-    </>
-  )
-
   return (
-    <div className={`mt-3 rounded-lg border bg-gray-950 p-4 shadow-lg shadow-black/20 ${
+    <div className={`mt-3 box-border w-full max-w-full overflow-hidden rounded-lg border bg-sunken p-3 shadow-lg shadow-black/20 sm:p-4 ${
       action.error
         ? 'border-red-500/50'
         : status === 'confirmed'
           ? 'border-emerald-500/50'
           : status === 'canceled'
-            ? 'border-gray-700'
+            ? 'border-line'
             : 'border-amber-500/40'
     }`}>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className={`flex items-center gap-2 text-sm font-semibold ${
+      <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
+        <div className={`flex min-w-0 items-center gap-2 text-sm font-semibold ${
           action.error
             ? 'text-red-100'
             : status === 'confirmed'
               ? 'text-emerald-100'
               : status === 'canceled'
-                ? 'text-gray-300'
+                ? 'text-ink-soft'
                 : 'text-amber-100'
         }`}>
           <span className={`flex h-8 w-8 items-center justify-center rounded-md ${
@@ -507,88 +605,81 @@ function PendingActionCard({
               : status === 'confirmed'
                 ? 'bg-emerald-500/15 text-emerald-200'
                 : status === 'canceled'
-                  ? 'bg-gray-800 text-gray-300'
+                  ? 'bg-card text-ink-soft'
                   : 'bg-amber-500/15 text-amber-200'
           }`}>
             {iconForCapability(action.capability)}
           </span>
-          {labelForCapability(action.capability)}
+          <span className="min-w-0 truncate">{labelForCapability(action.capability)}</span>
         </div>
         {isPending && (
-          <button className="rounded-md border border-gray-700 px-2 py-1 text-xs text-gray-300 hover:border-cyan-500 hover:text-cyan-200" onClick={() => setIsEditing((value) => !value)}>
+          <button className="rounded-md border border-line px-2 py-1 text-xs text-ink-soft hover:border-cyan-500 hover:text-cyan-200" onClick={() => setIsEditing((value) => !value)}>
             {isEditing ? 'Preview' : 'Edit'}
           </button>
         )}
       </div>
 
-      <div className={`mb-3 rounded-md border px-3 py-2 text-xs ${
-        action.error
-          ? 'border-red-500/30 bg-red-950/30 text-red-100'
-          : status === 'confirmed'
-            ? 'border-emerald-500/30 bg-emerald-950/30 text-emerald-100'
-            : status === 'canceled'
-              ? 'border-gray-700 bg-gray-900 text-gray-300'
-              : 'border-amber-500/30 bg-amber-950/20 text-amber-100'
-      }`}>
-        {statusLabel}
-      </div>
+      {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'complete_task', 'update_item', 'delete_item'].includes(action.capability) && (
+        <div className={`mb-3 rounded-md border px-3 py-2 text-xs ${
+          action.error
+            ? 'border-red-500/30 bg-red-950/30 text-red-100'
+            : status === 'confirmed'
+              ? 'border-emerald-500/30 bg-emerald-950/30 text-emerald-100'
+              : status === 'canceled'
+                ? 'border-line bg-page text-ink-soft'
+                : 'border-amber-500/30 bg-amber-950/20 text-amber-100'
+        }`}>
+          {statusLabel}
+        </div>
+      )}
 
       {isEditing && isPending ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
           {action.capability === 'add_task' && (
-            <>
-              {commonTaskFields}
-              <TextField label="Scheduled date" value={draft.scheduledDate} type="date" onChange={(value) => setField('scheduledDate', value)} />
-            </>
+            <div className="min-w-0 sm:col-span-2">
+              <TaskDraftCard
+                value={taskDraftValueFromPendingAction(action, draft)}
+                editable
+                statusLabel={statusLabel}
+                statusTone={pendingStatusTone(action)}
+                quickDates={assistantQuickDates()}
+                onChange={(patch) => setDraft((current) => ({ ...current, ...taskDraftPatchToPendingDraft(patch) }))}
+              />
+            </div>
           )}
           {action.capability === 'add_habit' && (
-            <>
-              {commonTaskFields}
-              <SelectField label="Repeat" value={draft.repeat ?? 'daily'} options={['daily', 'weekly']} onChange={(value) => setField('repeat', value)} />
-            </>
+            <div className="min-w-0 sm:col-span-2">
+              <TaskDraftCard
+                value={taskDraftValueFromPendingAction(action, draft)}
+                editable
+                statusLabel={statusLabel}
+                statusTone={pendingStatusTone(action)}
+                onChange={(patch) => setDraft((current) => ({ ...current, ...taskDraftPatchToPendingDraft(patch) }))}
+              />
+            </div>
           )}
           {action.capability === 'add_calorie_entry' && (
-            <>
-              <TextField label="Name" value={draft.name} onChange={(value) => setField('name', value)} />
-              <TextField label="Calories" value={draft.calories} type="number" onChange={(value) => setField('calories', value)} />
-              <TextField label="Protein" value={draft.protein} type="number" onChange={(value) => setField('protein', value)} />
-              <TextField label="Carbs" value={draft.carbs} type="number" onChange={(value) => setField('carbs', value)} />
-              <TextField label="Fat" value={draft.fat} type="number" onChange={(value) => setField('fat', value)} />
-              <TextField label="Quantity" value={draft.quantity} onChange={(value) => setField('quantity', value)} />
-              <TextField label="Date" value={draft.date} type="date" onChange={(value) => setField('date', value)} />
-              <TextField label="Time" value={draft.time} type="time" onChange={(value) => setField('time', value)} />
-            </>
+            <div className="min-w-0 sm:col-span-2">
+              <CalorieEntryDraftCard
+                entries={calorieDraftsFromPendingAction(action, draft)}
+                editable
+                statusLabel={statusLabel}
+                statusTone={pendingStatusTone(action)}
+                onChange={(_index, patch) => setDraft((current) => ({ ...current, ...patch }))}
+              />
+            </div>
           )}
           {action.capability === 'add_calorie_entries' && (
-            <div className="space-y-3 sm:col-span-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-gray-100">Meal items</p>
-                <span className="text-xs text-gray-400">{arrayValue(draft.entries).length} entries</span>
-              </div>
-              {arrayValue(draft.entries).map((entry, index) => (
-                <div key={index} className="rounded-lg border border-gray-800 bg-gray-900/50 p-3">
-                  <div className="mb-3 flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-cyan-500/15 text-xs font-semibold text-cyan-200">
-                      {index + 1}
-                    </span>
-                    <input
-                      className="min-w-0 flex-1 bg-transparent text-sm font-medium text-gray-100 outline-none"
-                      value={fieldValue(entry.name)}
-                      onChange={(event) => setEntryField(index, 'name', event.target.value)}
-                      aria-label={`Meal item ${index + 1} name`}
-                    />
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-4">
-                    <TextField label="Calories" value={entry.calories} type="number" onChange={(value) => setEntryField(index, 'calories', value)} />
-                    <TextField label="Protein" value={entry.protein} type="number" onChange={(value) => setEntryField(index, 'protein', value)} />
-                    <TextField label="Carbs" value={entry.carbs} type="number" onChange={(value) => setEntryField(index, 'carbs', value)} />
-                    <TextField label="Fat" value={entry.fat} type="number" onChange={(value) => setEntryField(index, 'fat', value)} />
-                    <TextField label="Quantity" value={entry.quantity} onChange={(value) => setEntryField(index, 'quantity', value)} />
-                    <TextField label="Date" value={entry.date} type="date" onChange={(value) => setEntryField(index, 'date', value)} />
-                    <TextField label="Time" value={entry.time} type="time" onChange={(value) => setEntryField(index, 'time', value)} />
-                  </div>
-                </div>
-              ))}
+            <div className="min-w-0 sm:col-span-2">
+              <CalorieEntryDraftCard
+                entries={calorieDraftsFromPendingAction(action, draft)}
+                editable
+                statusLabel={statusLabel}
+                statusTone={pendingStatusTone(action)}
+                onChange={(index, patch) => {
+                  Object.entries(patch).forEach(([key, value]) => setEntryField(index, key, value))
+                }}
+              />
             </div>
           )}
           {action.capability === 'add_weight_entry' && (
@@ -611,9 +702,9 @@ function PendingActionCard({
               <TextField label="Date" value={draft.date} type="date" onChange={(value) => setField('date', value)} />
               <TextField label="Title" value={draft.title} onChange={(value) => setField('title', value)} />
               <TextField label="Notes" value={draft.notes} onChange={(value) => setField('notes', value)} />
-              <label className="grid gap-1 text-xs font-medium text-gray-400 sm:col-span-2">
+              <label className="grid gap-1 text-xs font-medium text-ink-muted sm:col-span-2">
                 <span>Exercises JSON</span>
-                <textarea className="min-h-28 rounded-md border border-gray-700 bg-gray-950 px-3 py-2 font-mono text-sm text-gray-100 outline-none transition-colors focus:border-cyan-500" value={fieldValue(draft.exercises)} onChange={(event) => setField('exercises', event.target.value)} />
+                <textarea className="min-h-28 rounded-md border border-line bg-sunken px-3 py-2 font-mono text-sm text-ink outline-none transition-colors focus:border-cyan-500" value={fieldValue(draft.exercises)} onChange={(event) => setField('exercises', event.target.value)} />
               </label>
             </>
           )}
@@ -626,19 +717,53 @@ function PendingActionCard({
               <TextField label="Scheduled date" value={draft.scheduledDate} type="date" onChange={(value) => setField('scheduledDate', value)} />
             </>
           )}
+          {action.capability === 'complete_task' && taskItemFromAction(action) && (
+            <div className="min-w-0 sm:col-span-2">
+              <TaskDraftCard
+                value={taskDraftValueFromRecord(taskItemFromAction(action)!)}
+                statusLabel={statusLabel}
+                statusTone={pendingStatusTone(action)}
+              />
+            </div>
+          )}
           {action.capability === 'delete_item' && (
             <SelectField label="Delete scope" value={draft.deleteScope ?? 'instance'} options={['instance', 'habit']} onChange={(value) => setField('deleteScope', value)} />
           )}
-          {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'add_weight_entry', 'add_achievement_entry', 'add_workout_session', 'update_item', 'delete_item'].includes(action.capability) && (
-            <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-gray-800 bg-gray-950 p-3 text-xs text-gray-200 sm:col-span-2">
+          {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'add_weight_entry', 'add_achievement_entry', 'add_workout_session', 'update_item', 'delete_item', 'complete_task'].includes(action.capability) && (
+            <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-xs text-ink-soft sm:col-span-2">
               {JSON.stringify(action.preview, null, 2)}
             </pre>
           )}
         </div>
       ) : (
-        <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-gray-800 bg-gray-950 p-3 text-xs text-gray-200">
-          {JSON.stringify(status === 'confirmed' ? { args: action.args, result: action.result } : buildEditedArgs(action, draft), null, 2)}
-        </pre>
+        ['add_task', 'add_habit'].includes(action.capability) ? (
+          <TaskDraftCard
+            value={taskDraftValueFromPendingAction(action, draft)}
+            statusLabel={statusLabel}
+            statusTone={pendingStatusTone(action)}
+          />
+        ) : ['add_calorie_entry', 'add_calorie_entries'].includes(action.capability) ? (
+          <CalorieEntryDraftCard
+            entries={calorieDraftsFromPendingAction(action, draft)}
+            statusLabel={statusLabel}
+            statusTone={pendingStatusTone(action)}
+          />
+        ) : ['complete_task', 'update_item'].includes(action.capability) && taskItemFromAction(action) ? (
+          <TaskDraftCard
+            value={taskDraftValueFromRecord(taskItemFromAction(action)!)}
+            statusLabel={statusLabel}
+            statusTone={pendingStatusTone(action)}
+          />
+        ) : action.capability === 'delete_item' ? (
+          <div className={`rounded-md border px-3 py-2 text-xs ${statusToneClasses(pendingStatusTone(action))}`}>
+            {statusLabel}
+            {deleteItemTitle(action) && <span className="ml-1 font-medium">{deleteItemTitle(action)}</span>}
+          </div>
+        ) : (
+          <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-xs text-ink-soft">
+            {JSON.stringify(status === 'confirmed' ? { args: action.args, result: action.result } : buildEditedArgs(action, draft), null, 2)}
+          </pre>
+        )
       )}
 
       {isPending && (
@@ -656,6 +781,7 @@ function PendingActionCard({
 }
 
 export default function AssistantPage() {
+  const queryClient = useQueryClient()
   const [conversations, setConversations] = useState<StoredConversation[]>(() => readStoredConversations())
   const [activeConversationId, setActiveConversationId] = useState(() => readStoredConversations()[0]?.id ?? crypto.randomUUID())
   const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) ?? null
@@ -664,7 +790,7 @@ export default function AssistantPage() {
   const [isSending, setIsSending] = useState(false)
   const [model, setModel] = useState<AssistantChatModel>(() => activeConversation?.model ?? 'gpt-4o-mini')
   const [attachment, setAttachment] = useState<ComposerAttachment | null>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const {
     isListening,
@@ -767,6 +893,30 @@ export default function AssistantPage() {
     sendMessage(draft)
   }
 
+  const [searchParams, setSearchParams] = useSearchParams()
+  const kickoffFiredRef = useRef(false)
+
+  useEffect(() => {
+    const kickoff = searchParams.get('kickoff')
+    if (!kickoff || kickoffFiredRef.current) return
+    if (!['morning', 'midday', 'weekly'].includes(kickoff)) return
+    kickoffFiredRef.current = true
+    // Clear the param so a refresh doesn't re-fire the kickoff.
+    const next = new URLSearchParams(searchParams)
+    next.delete('kickoff')
+    setSearchParams(next, { replace: true })
+
+    ;(async () => {
+      try {
+        const seed = await pushService.getKickoff(kickoff as 'morning' | 'midday' | 'weekly')
+        await sendMessage(seed)
+      } catch {
+        toast.error('Could not start your planning session.')
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleAttachmentChange = async (file: File | undefined) => {
     if (!file) return
     try {
@@ -799,6 +949,13 @@ export default function AssistantPage() {
   const confirmAction = async (actionId: string, args?: Record<string, unknown>) => {
     try {
       const response = await aiService.confirmChatAction(actionId, args)
+      if (['add_task', 'add_habit', 'update_item', 'delete_item'].includes(response.action.capability)) {
+        queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      }
+      if (['add_calorie_entry', 'add_calorie_entries'].includes(response.action.capability)) {
+        queryClient.invalidateQueries({ queryKey: ['calories'] })
+        queryClient.invalidateQueries({ queryKey: ['calorie-items'] })
+      }
       toast.success('Action confirmed')
       setMessages((current) => current.map((message) =>
         message.pendingActions?.some((action) => action.id === actionId)
@@ -859,9 +1016,9 @@ export default function AssistantPage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-7rem)] w-full max-w-6xl gap-4 overflow-hidden">
-      <aside className="hidden w-72 flex-none flex-col overflow-hidden rounded-lg border border-gray-800 bg-gray-950/70 md:flex">
-        <div className="border-b border-gray-800 p-3">
+    <div className="mx-auto flex h-full w-full max-w-6xl gap-4 overflow-hidden md:h-[calc(100vh-7rem)]">
+      <aside className="hidden w-72 flex-none flex-col overflow-hidden rounded-lg border border-card bg-sunken/70 md:flex">
+        <div className="border-b border-card p-3">
           <button
             type="button"
             onClick={startNewChat}
@@ -874,7 +1031,7 @@ export default function AssistantPage() {
         </div>
         <div className="flex-1 overflow-y-auto p-2">
           {conversations.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-gray-800 p-4 text-sm text-gray-500">
+            <div className="rounded-lg border border-dashed border-card p-4 text-sm text-gray-500">
               Your saved chats will appear here.
             </div>
           ) : (
@@ -888,7 +1045,7 @@ export default function AssistantPage() {
                   className={`w-full rounded-lg border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                     conversation.id === activeConversationId
                       ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-100'
-                      : 'border-gray-800 bg-gray-900/70 text-gray-300 hover:border-cyan-500/40 hover:text-cyan-100'
+                      : 'border-card bg-page/70 text-ink-soft hover:border-cyan-500/40 hover:text-cyan-100'
                   }`}
                 >
                   <div className="flex items-start gap-2">
@@ -907,15 +1064,34 @@ export default function AssistantPage() {
         </div>
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-gray-800 bg-gray-950/70">
-      <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
-        <div className="flex items-center gap-3">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-card bg-sunken/70">
+      <div className="flex items-center justify-between gap-3 border-b border-card px-3 py-2.5 md:px-4 md:py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-300">
             <Bot className="h-5 w-5" />
           </div>
-          <div>
-            <h1 className="text-lg font-semibold text-gray-100">Assistant</h1>
-            <p className="text-xs text-gray-500 md:hidden">{conversations.length} saved chats</p>
+          <div className="min-w-0 flex-1">
+            <h1 className="text-lg font-semibold text-ink">Talk to your day</h1>
+            {conversations.length > 0 ? (
+              <select
+                value={activeConversationId}
+                onChange={(event) => {
+                  const conversation = conversations.find((item) => item.id === event.target.value)
+                  if (conversation) openConversation(conversation)
+                }}
+                disabled={isSending}
+                className="mt-1 block w-full truncate rounded-md border border-card bg-page px-2 py-1 text-xs text-ink outline-none transition-colors focus:border-cyan-500 disabled:opacity-60 md:hidden"
+                aria-label="Chat history"
+              >
+                {conversations.map((conversation) => (
+                  <option key={conversation.id} value={conversation.id}>
+                    {conversation.title}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-xs text-gray-500 md:hidden">{conversations.length} saved chats</p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -923,59 +1099,23 @@ export default function AssistantPage() {
             type="button"
             onClick={startNewChat}
             disabled={isSending}
-            className="flex h-9 w-9 items-center justify-center rounded-md border border-gray-800 bg-gray-900 text-gray-200 transition-colors hover:border-cyan-500/50 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-60 md:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-md border border-card bg-page text-ink-soft transition-colors hover:border-cyan-500/50 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-60 md:hidden"
             aria-label="New Chat"
           >
             <Plus className="h-4 w-4" />
           </button>
-          <select
-            value={model}
-            onChange={(event) => setModel(event.target.value as AssistantChatModel)}
-            disabled={isSending}
-            className="rounded-md border border-gray-800 bg-gray-900 px-2 py-1 text-sm text-gray-100 outline-none transition-colors focus:border-cyan-500 disabled:opacity-60"
-            aria-label="Assistant model"
-          >
-            {assistantModels.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
           {isSending && <span className="text-sm text-cyan-300">Thinking</span>}
         </div>
       </div>
 
-      {conversations.length > 0 && (
-        <div className="border-b border-gray-800 p-3 md:hidden">
-          <label className="grid gap-1 text-xs font-medium text-gray-500">
-            <span>Chat history</span>
-            <select
-              value={activeConversationId}
-              onChange={(event) => {
-                const conversation = conversations.find((item) => item.id === event.target.value)
-                if (conversation) openConversation(conversation)
-              }}
-              disabled={isSending}
-              className="rounded-md border border-gray-800 bg-gray-900 px-3 py-2 text-sm text-gray-100 outline-none transition-colors focus:border-cyan-500 disabled:opacity-60"
-            >
-              {conversations.map((conversation) => (
-                <option key={conversation.id} value={conversation.id}>
-                  {conversation.title}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      )}
-
-      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5">
+      <div className="assistant-messages-scroll flex-1 space-y-4 overflow-y-auto px-4 pt-5 md:pb-5">
         {messages.length === 0 ? (
           <div className="grid gap-2 sm:grid-cols-3">
             {starterPrompts.map((prompt) => (
               <button
                 key={prompt}
                 onClick={() => sendMessage(prompt)}
-                className="rounded-lg border border-gray-800 bg-gray-900/80 px-3 py-3 text-left text-sm text-gray-200 transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
+                className="rounded-lg border border-card bg-page/80 px-3 py-3 text-left text-sm text-ink-soft transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
               >
                 {prompt}
               </button>
@@ -999,13 +1139,13 @@ export default function AssistantPage() {
                       ? 'bg-cyan-500 text-gray-950'
                       : message.error
                         ? 'border border-red-500/40 bg-red-950/40 text-red-100'
-                        : 'border border-gray-800 bg-gray-900 text-gray-100'
+                        : 'border border-card bg-page text-ink'
                   }`}
                 >
                   {message.content}
                   {message.attachment && (
                     <div className={`mt-2 inline-flex max-w-full items-center gap-2 rounded-md px-2 py-1 text-xs ${
-                      message.role === 'user' ? 'bg-gray-950/15 text-gray-900' : 'bg-gray-950 text-gray-300'
+                      message.role === 'user' ? 'bg-sunken/15 text-gray-900' : 'bg-sunken text-ink-soft'
                     }`}>
                       {message.attachment.kind === 'image' ? <ImageIcon className="h-3.5 w-3.5 flex-none" /> : <Paperclip className="h-3.5 w-3.5 flex-none" />}
                       <span className="truncate">{message.attachment.name}</span>
@@ -1020,7 +1160,7 @@ export default function AssistantPage() {
                 ))}
               </div>
               {message.role === 'user' && (
-                <div className="mt-1 flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-gray-800 text-gray-200">
+                <div className="mt-1 flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-card text-ink-soft">
                   <UserRound className="h-4 w-4" />
                 </div>
               )}
@@ -1029,26 +1169,26 @@ export default function AssistantPage() {
         )}
       </div>
 
-      <form onSubmit={submit} className="border-t border-gray-800 p-3">
+      <form onSubmit={submit} className="assistant-composer-form fixed left-0 right-0 z-20 border-t border-card bg-sunken/95 px-2.5 pt-2.5 backdrop-blur-xl md:static md:bg-transparent md:p-3 md:backdrop-blur-none">
         {attachment && (
-          <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-gray-800 bg-gray-950 px-3 py-2">
+          <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-card bg-sunken px-3 py-2">
             <div className="flex min-w-0 items-center gap-3">
               {attachment.kind === 'image' ? (
-                <img src={attachment.previewUrl} alt="" className="h-10 w-10 flex-none rounded-md border border-gray-700 object-cover" />
+                <img src={attachment.previewUrl} alt="" className="h-10 w-10 flex-none rounded-md border border-line object-cover" />
               ) : (
-                <span className="flex h-10 w-10 flex-none items-center justify-center rounded-md border border-gray-700 bg-gray-900 text-gray-300">
+                <span className="flex h-10 w-10 flex-none items-center justify-center rounded-md border border-line bg-page text-ink-soft">
                   <Paperclip className="h-4 w-4" />
                 </span>
               )}
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-gray-100">{attachment.name}</p>
+                <p className="truncate text-sm font-medium text-ink">{attachment.name}</p>
                 <p className="text-xs text-gray-500">{attachment.mimeType}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setAttachment(null)}
-              className="flex h-8 w-8 flex-none items-center justify-center rounded-md border border-gray-700 text-gray-400 hover:border-red-500/60 hover:text-red-300"
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-md border border-line text-ink-muted hover:border-red-500/60 hover:text-red-300"
               aria-label="Remove attachment"
             >
               <X className="h-4 w-4" />
@@ -1056,33 +1196,66 @@ export default function AssistantPage() {
           </div>
         )}
         {dictationError && <p className="mb-2 text-xs text-red-300">{dictationError}</p>}
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isSending}
-            className="btn-secondary flex h-11 w-11 flex-none items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label={attachment ? 'Replace attachment' : 'Attach file'}
-          >
-            <Paperclip className="h-5 w-5 text-gray-100" />
-          </button>
-          <button
-            type="button"
-            onClick={toggleDictation}
-            disabled={isSending || !isDictationSupported}
-            className={`btn-secondary flex h-11 w-11 flex-none items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50 ${isListening ? 'border-cyan-500 text-cyan-200' : ''}`}
-            aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
-          >
-            <Mic className={`h-5 w-5 ${isListening ? 'text-cyan-200' : 'text-gray-100'}`} />
-          </button>
-          <input
-            ref={inputRef}
-            className="input-field min-w-0 flex-1"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            placeholder="Ask about today, calories, achievements, or workouts"
-            disabled={isSending}
-          />
+        <div className="assistant-composer rounded-[1.5rem] border border-line-strong bg-raised/70 px-3 py-2.5 shadow-inner shadow-black/20 transition-colors focus-within:border-cyan-500/70 focus-within:bg-raised sm:rounded-[1.75rem] sm:p-3">
+          <div className="min-w-0">
+            <textarea
+              ref={inputRef}
+              className="max-h-28 min-h-8 w-full resize-none bg-transparent px-1 py-1 text-base leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-60 sm:max-h-36"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !event.shiftKey) {
+                  event.preventDefault()
+                  sendMessage(draft)
+                }
+              }}
+              placeholder="Add anything..."
+              disabled={isSending}
+              rows={1}
+            />
+          </div>
+          <div className="mt-2 flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSending}
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-sunken text-ink-soft transition-colors hover:bg-card hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={attachment ? 'Replace attachment' : 'Attach file'}
+            >
+              <Paperclip size={20} className="flex-none" />
+            </button>
+            <select
+              value={model}
+              onChange={(event) => setModel(event.target.value as AssistantChatModel)}
+              disabled={isSending}
+              className="h-8 min-w-0 max-w-[9.5rem] rounded-full border border-transparent bg-sunken px-3 text-xs font-medium text-ink outline-none transition-colors hover:bg-card focus:border-cyan-500 disabled:opacity-60 sm:h-11 sm:max-w-56 sm:px-4 sm:text-base"
+              aria-label="Assistant model"
+            >
+              {assistantModels.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <div className="min-w-0 flex-1" />
+            <button
+              type="button"
+              onClick={toggleDictation}
+              disabled={isSending || !isDictationSupported}
+              className={`flex h-11 w-11 flex-none items-center justify-center rounded-full bg-sunken text-ink-soft transition-colors hover:bg-card hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 ${isListening ? 'bg-cyan-500/20 text-cyan-200' : ''}`}
+              aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
+            >
+              <Mic size={20} className="flex-none" />
+            </button>
+            <button
+              type="submit"
+              disabled={isSending || (!draft.trim() && !attachment)}
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20 transition-all hover:from-cyan-400 hover:to-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label="Send"
+            >
+              <Send size={20} className="flex-none" />
+            </button>
+          </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -1090,14 +1263,11 @@ export default function AssistantPage() {
             accept="image/jpeg,image/png,image/webp,text/plain,text/markdown,.txt,.md"
             onChange={(event) => void handleAttachmentChange(event.target.files?.[0])}
           />
-          <button
-            type="submit"
-            disabled={isSending || (!draft.trim() && !attachment)}
-            className="btn-primary flex h-11 w-11 flex-none items-center justify-center rounded-lg disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Send"
-          >
-            <Send className="h-5 w-5 text-white" />
-          </button>
+        </div>
+        <div className="mt-2 hidden text-right sm:block">
+          <Link to="/add" className="text-xs text-gray-500 hover:text-ink-soft">
+            Add manually
+          </Link>
         </div>
       </form>
       </div>

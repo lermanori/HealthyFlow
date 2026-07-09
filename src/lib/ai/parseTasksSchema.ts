@@ -18,6 +18,7 @@ export interface AnalyzerPhoto {
 
 export interface AITextAnalyzerProps {
   onClose?: () => void
+  onConfirmed?: () => void
   scheduledDate?: string
   enableTTS?: boolean
 }

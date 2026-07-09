@@ -22,13 +22,13 @@ function confidenceStyles(confidence?: MealParseReview['confidence']) {
   if (confidence === 'high') return 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100'
   if (confidence === 'medium') return 'border-amber-400/40 bg-amber-500/10 text-amber-100'
   if (confidence === 'low') return 'border-red-400/40 bg-red-500/10 text-red-100'
-  return 'border-gray-700 bg-gray-950/30 text-gray-300'
+  return 'border-line bg-sunken/30 text-ink-soft'
 }
 
 function ReviewPanel({ review }: { review?: MealParseReview }) {
   if (!review) {
     return (
-      <div className="rounded-lg border border-gray-700 bg-gray-950/30 p-4 text-sm text-gray-400">
+      <div className="rounded-lg border border-line bg-sunken/30 p-4 text-sm text-ink-muted">
         No review metadata returned.
       </div>
     )
@@ -62,20 +62,20 @@ function ReviewPanel({ review }: { review?: MealParseReview }) {
 
 function MealCard({ meal }: { meal: ParsedMeal }) {
   return (
-    <div className="rounded-lg border border-gray-700/70 bg-gray-950/30 p-4">
+    <div className="rounded-lg border border-line/70 bg-sunken/30 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-semibold text-gray-100">{meal.name}</h3>
-          {meal.quantity && <p className="mt-1 text-sm text-gray-400">{meal.quantity}</p>}
+          <h3 className="font-semibold text-ink">{meal.name}</h3>
+          {meal.quantity && <p className="mt-1 text-sm text-ink-muted">{meal.quantity}</p>}
         </div>
         <span className="rounded-full border border-cyan-500/30 bg-cyan-500/15 px-3 py-1 text-sm font-semibold text-cyan-200">
           {meal.calories} cal
         </span>
       </div>
       <div className="mt-4 grid grid-cols-3 gap-2 text-sm">
-        <div className="rounded-md border border-gray-700/70 bg-gray-900/40 p-2 text-gray-300">P {meal.protein ?? '-'}g</div>
-        <div className="rounded-md border border-gray-700/70 bg-gray-900/40 p-2 text-gray-300">C {meal.carbs ?? '-'}g</div>
-        <div className="rounded-md border border-gray-700/70 bg-gray-900/40 p-2 text-gray-300">F {meal.fat ?? '-'}g</div>
+        <div className="rounded-md border border-line/70 bg-page/40 p-2 text-ink-soft">P {meal.protein ?? '-'}g</div>
+        <div className="rounded-md border border-line/70 bg-page/40 p-2 text-ink-soft">C {meal.carbs ?? '-'}g</div>
+        <div className="rounded-md border border-line/70 bg-page/40 p-2 text-ink-soft">F {meal.fat ?? '-'}g</div>
       </div>
     </div>
   )
@@ -130,8 +130,8 @@ export default function MealParserLabPage() {
     <div className="mx-auto max-w-5xl space-y-6 pb-28 md:pb-0">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-100 neon-text">Meal OCR Lab</h1>
-          <p className="mt-1 text-sm text-gray-400">Test photo-to-data extraction, confidence, and review scoring.</p>
+          <h1 className="text-2xl font-bold text-ink neon-text">Meal OCR Lab</h1>
+          <p className="mt-1 text-sm text-ink-muted">Test photo-to-data extraction, confidence, and review scoring.</p>
         </div>
         <button
           className="btn-primary inline-flex items-center gap-2"
@@ -151,15 +151,15 @@ export default function MealParserLabPage() {
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <section className="card space-y-4">
-          <div className="flex items-center gap-2 text-gray-100">
+          <div className="flex items-center gap-2 text-ink">
             <ImageIcon className="h-5 w-5 text-cyan-300" />
             <h2 className="font-semibold">Input</h2>
           </div>
           {photo ? (
             <>
-              <img src={photo.previewUrl} alt="" className="max-h-[32rem] w-full rounded-lg border border-gray-700 object-contain" />
+              <img src={photo.previewUrl} alt="" className="max-h-[32rem] w-full rounded-lg border border-line object-contain" />
               <div className="flex items-center justify-between gap-3">
-                <p className="min-w-0 truncate text-sm text-gray-300">{photo.fileName}</p>
+                <p className="min-w-0 truncate text-sm text-ink-soft">{photo.fileName}</p>
                 <button className="btn-secondary px-4 py-2 text-sm" onClick={parsePhoto} disabled={isParsing}>
                   {isParsing ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Parse'}
                 </button>
@@ -168,7 +168,7 @@ export default function MealParserLabPage() {
           ) : (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex min-h-[18rem] w-full flex-col items-center justify-center rounded-lg border border-dashed border-gray-600 bg-gray-950/30 text-gray-400 transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
+              className="flex min-h-[18rem] w-full flex-col items-center justify-center rounded-lg border border-dashed border-line-strong bg-sunken/30 text-ink-muted transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
             >
               <Upload className="mb-3 h-8 w-8" />
               <span className="text-sm">Upload a nutrition label photo</span>
@@ -180,24 +180,24 @@ export default function MealParserLabPage() {
           <ReviewPanel review={result?.review} />
 
           <div className="card space-y-3">
-            <h2 className="font-semibold text-gray-100">Extracted Meals</h2>
+            <h2 className="font-semibold text-ink">Extracted Meals</h2>
             {result ? (
               result.meals.length > 0 ? (
                 <div className="space-y-3">
                   {result.meals.map((meal, index) => <MealCard key={`${meal.name}-${index}`} meal={meal} />)}
                 </div>
               ) : (
-                <p className="text-sm text-gray-400">No meal suggestions returned.</p>
+                <p className="text-sm text-ink-muted">No meal suggestions returned.</p>
               )
             ) : (
-              <p className="text-sm text-gray-400">Parse a photo to see extracted data.</p>
+              <p className="text-sm text-ink-muted">Parse a photo to see extracted data.</p>
             )}
           </div>
 
           {result && (
             <div className="card">
-              <h2 className="mb-3 font-semibold text-gray-100">Raw Response</h2>
-              <pre className="max-h-96 overflow-auto rounded-lg border border-gray-700 bg-gray-950/60 p-3 text-xs text-gray-300">
+              <h2 className="mb-3 font-semibold text-ink">Raw Response</h2>
+              <pre className="max-h-96 overflow-auto rounded-lg border border-line bg-sunken/60 p-3 text-xs text-ink-soft">
                 {JSON.stringify(result, null, 2)}
               </pre>
             </div>

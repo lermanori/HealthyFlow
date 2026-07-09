@@ -129,7 +129,7 @@ export default function SmartReminders() {
                 onClick={() => handleDismiss(reminder.id)}
                 className="p-1 rounded-full hover:bg-gray-100 transition-colors"
               >
-                <X className="w-4 h-4 text-gray-400" />
+                <X className="w-4 h-4 text-ink-muted" />
               </button>
             </div>
           </motion.div>

@@ -75,6 +75,20 @@ export type OpenAIToolEvent = {
   result: unknown
 }
 
+/**
+ * A tool failure the model can recover from within the same turn (e.g. it
+ * referenced an Item that does not exist). The tool loop feeds these back to
+ * the model as a tool result so it can correct itself, instead of aborting the
+ * turn. Infrastructure/unexpected errors are NOT recoverable — they still abort
+ * and surface as an explicit `tool_error` (see AI harness rules in CLAUDE.md).
+ */
+export class RecoverableToolError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'RecoverableToolError'
+  }
+}
+
 type ToolCallOpts = {
   userId: string
   endpoint: string
@@ -633,6 +647,37 @@ function toolFallbackMessage(toolEvents: OpenAIToolEvent[]) {
   return 'I ran the requested lookup. See the details above.'
 }
 
+function safeJson(value: unknown) {
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return null
+  }
+}
+
+function compactErrorMessage(value: unknown) {
+  if (value instanceof Error) return value.message
+  if (typeof value === 'string') return value
+  if (!value || typeof value !== 'object') return null
+
+  const record = value as Record<string, unknown>
+  const parts = ['message', 'code', 'details', 'hint']
+    .map((key) => {
+      const part = record[key]
+      return typeof part === 'string' && part.trim() ? `${key}: ${part.trim()}` : null
+    })
+    .filter(Boolean)
+
+  if (parts.length > 0) return parts.join('; ')
+  return safeJson(value)
+}
+
+function toolExecutionErrorMessage(error: unknown) {
+  const message = compactErrorMessage(error)
+  if (!message) return 'Tool execution failed'
+  return message.length > 600 ? `${message.slice(0, 597)}...` : message
+}
+
 async function rawToolCall(
   opts: Pick<ToolCallOpts, 'model' | 'temperature' | 'maxTokens'> & {
     messages: any[]
@@ -848,7 +893,23 @@ export const Openai = {
             content: JSON.stringify({ ok: true, value }),
           })
         } catch (error) {
-          const message = error instanceof Error ? error.message : 'Tool execution failed'
+          const message = toolExecutionErrorMessage(error)
+          console.error('OpenAI tool execution failed:', {
+            tool: name,
+            message,
+            error,
+          })
+          if (error instanceof RecoverableToolError) {
+            // Let the model correct itself within the turn (e.g. re-list Items
+            // and retry with a real id) instead of aborting.
+            toolEvents.push({ name, args, result: { ok: false, error: message } })
+            messages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ ok: false, error: message }),
+            })
+            continue
+          }
           await Credits.settleReserved(opts.userId, reservedTokens, usage, {
             endpoint: opts.endpoint,
             model: opts.model,

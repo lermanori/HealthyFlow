@@ -53,7 +53,7 @@ export default function AIRecommendationsBox({ date }: AIRecommendationsBoxProps
       case 'low':
         return 'bg-cyan-500/15 border-cyan-500/30 text-cyan-300'
       default:
-        return 'bg-gray-500/20 border-gray-500/30 text-gray-300'
+        return 'bg-gray-500/20 border-gray-500/30 text-ink-soft'
     }
   }
 
@@ -65,7 +65,7 @@ export default function AIRecommendationsBox({ date }: AIRecommendationsBoxProps
             <Brain className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-100 neon-text">AI Insights</h3>
+            <h3 className="text-lg font-semibold text-ink neon-text">AI Insights</h3>
             <p className="text-xs text-cyan-400">Analyzing your patterns...</p>
           </div>
         </div>
@@ -84,12 +84,12 @@ export default function AIRecommendationsBox({ date }: AIRecommendationsBoxProps
             <Brain className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-100 neon-text">AI Insights</h3>
+            <h3 className="text-lg font-semibold text-ink neon-text">AI Insights</h3>
             <p className="text-xs text-cyan-400">Daily signals unavailable</p>
           </div>
         </div>
-        <div className="mt-4 p-4 rounded-xl bg-gray-800/30 border border-gray-700/50">
-          <p className="text-gray-400 text-sm text-center">
+        <div className="mt-4 p-4 rounded-xl bg-card/30 border border-line/50">
+          <p className="text-ink-muted text-sm text-center">
             Could not load today's signals.
           </p>
         </div>
@@ -105,12 +105,12 @@ export default function AIRecommendationsBox({ date }: AIRecommendationsBoxProps
             <Brain className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h3 className="text-lg font-semibold text-gray-100 neon-text">AI Insights</h3>
+            <h3 className="text-lg font-semibold text-ink neon-text">AI Insights</h3>
             <p className="text-xs text-cyan-400">Daily signals ready</p>
           </div>
         </div>
-        <div className="mt-4 p-4 rounded-xl bg-gray-800/30 border border-gray-700/50">
-          <p className="text-gray-400 text-sm text-center">
+        <div className="mt-4 p-4 rounded-xl bg-card/30 border border-line/50">
+          <p className="text-ink-muted text-sm text-center">
             No urgent signals for this day.
           </p>
         </div>
@@ -125,7 +125,7 @@ export default function AIRecommendationsBox({ date }: AIRecommendationsBoxProps
           <Brain className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-gray-100 neon-text">AI Insights</h3>
+          <h3 className="text-lg font-semibold text-ink neon-text">AI Insights</h3>
           <p className="text-xs text-cyan-400">Daily signals</p>
         </div>
         <Sparkles className="w-4 h-4 text-cyan-400 animate-neon-flicker ml-auto" />

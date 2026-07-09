@@ -291,7 +291,7 @@ export default function WeekViewPage() {
           </div>
           <div>
             <h1 style={{ margin: 0, fontFamily: GROTESK, fontSize: 28, fontWeight: 700, letterSpacing: '-.5px', color: '#f9fafb', textShadow: `0 0 12px ${A.textGlow}` }}>My Week</h1>
-            <p style={{ margin: '3px 0 0', fontSize: 13, color: '#9ca3af' }}>{weekLabel}</p>
+            <p style={{ margin: '3px 0 0', fontSize: 13, color: '#9ca3af' }}>Plan across days — your default view is Today · {weekLabel}</p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

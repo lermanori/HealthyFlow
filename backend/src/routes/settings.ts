@@ -12,11 +12,12 @@ export const SettingsSchema = z.object({
   aiSuggestions: z.boolean().default(true),
   smartReminders: z.boolean().default(true),
   completionSounds: z.boolean().default(true),
-  calorieIntake: z.boolean().default(false),
+  calorieIntake: z.boolean().default(true),
   achievementTracker: z.boolean().default(false),
   workoutTracker: z.boolean().default(true),
   weekStartsOn: z.number().int().min(0).max(6).default(1),
   onboardingStatus: z.enum(['active', 'completed', 'skipped']).default('completed'),
+  theme: z.enum(['midnight', 'white']).default('midnight'),
 })
 export type Settings = z.infer<typeof SettingsSchema>
 
@@ -34,6 +35,7 @@ const PatchBody = z.object({
   workoutTracker: z.boolean(),
   weekStartsOn: z.number().int().min(0).max(6),
   onboardingStatus: z.enum(['active', 'completed', 'skipped']),
+  theme: z.enum(['midnight', 'white']),
 }).partial().strict()
 
 const router = express.Router()

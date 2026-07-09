@@ -64,7 +64,8 @@ function App() {
           <Route path="/" element={<TodayPage />} />
           <Route path="/add" element={<AddItemPage />} />
           <Route path="/week" element={<WeekViewPage />} />
-          <Route path="/assistant" element={<AssistantPage />} />
+          <Route path="/talk" element={<AssistantPage />} />
+          <Route path="/assistant" element={<Navigate to="/talk" replace />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/token-manager" element={user.role === 'admin' ? <TokenManagerPage /> : <Navigate to="/" replace />} />
           <Route path="/meal-ocr-lab" element={user.role === 'admin' ? <MealParserLabPage /> : <Navigate to="/" replace />} />

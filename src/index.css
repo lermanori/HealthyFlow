@@ -4,15 +4,48 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Theme tokens: :root = midnight (default, pixel-identical to legacy dark).
+   [data-theme='white'] overrides for the clean light theme. */
+/* Tokens are space-separated RGB channels so Tailwind's rgb(var(--x) / <alpha>)
+   pattern preserves alpha utilities (bg-card/50 etc.) — keeps midnight identical. */
+:root {
+  --surface-page: 16 24 40;    /* #101828 */
+  --surface-card: 31 41 55;    /* gray-800 #1f2937 */
+  --surface-raised: 31 41 55;  /* gray-800 #1f2937 */
+  --surface-input: 31 41 55;   /* gray-800 */
+  --surface-sunken: 3 7 18;    /* gray-950 #030712 */
+  --text-primary: 243 244 246; /* gray-100 #f3f4f6 */
+  --text-secondary: 229 231 235;/* gray-200 #e5e7eb */
+  --text-muted: 156 163 175;   /* gray-400 #9ca3af */
+  --border-default: 55 65 81;  /* gray-700 #374151 */
+  --border-strong: 75 85 99;   /* gray-600 #4b5563 */
+  --mobile-dock-content-height: 4.5rem;
+  --mobile-dock-height: calc(var(--mobile-dock-content-height) + env(safe-area-inset-bottom));
+}
+
+[data-theme='white'] {
+  --surface-page: 248 250 252;  /* slate-50 #f8fafc */
+  --surface-card: 255 255 255;  /* #ffffff */
+  --surface-raised: 241 245 249; /* slate-100 #f1f5f9 */
+  --surface-input: 255 255 255;
+  --surface-sunken: 241 245 249; /* slate-100 */
+  --text-primary: 15 23 42;     /* slate-900 #0f172a */
+  --text-secondary: 51 65 85;   /* slate-700 #334155 */
+  --text-muted: 100 116 139;    /* slate-500 #64748b */
+  --border-default: 226 232 240;/* slate-200 #e2e8f0 */
+  --border-strong: 203 213 225; /* slate-300 #cbd5e1 */
+}
+
 @layer base {
   * {
-    @apply border-gray-700;
+    border-color: rgb(var(--border-default));
   }
-  
+
   body, #root, .App {
-    @apply bg-gray-900 text-gray-100 font-sans;
+    @apply font-sans;
+    color: rgb(var(--text-primary));
     font-feature-settings: "rlig" 1, "calt" 1;
-    background: #101828;
+    background: rgb(var(--surface-page));
     min-height: 100dvh;
     box-sizing: border-box;
     /* Mobile optimizations */
@@ -39,11 +72,11 @@
 
   /* Ensure all text has proper contrast */
   h1, h2, h3, h4, h5, h6 {
-    @apply text-gray-100;
+    color: rgb(var(--text-primary));
   }
 
   p, span, div {
-    @apply text-gray-200;
+    color: rgb(var(--text-secondary));
   }
 
   /* Futuristic scrollbar */
@@ -189,6 +222,67 @@
   }
 }
 
+/* White theme: repaint baked-in dark surfaces + neutralize glow/shadows.
+   Component classes carry their own gradients/glow for midnight; overriding
+   here keeps midnight pixel-identical while making white legible. */
+[data-theme='white'] {
+  .card {
+    background: rgb(var(--surface-card)) !important;
+    border-color: rgb(var(--border-default)) !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08) !important;
+    backdrop-filter: none !important;
+  }
+  .card:hover {
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1) !important;
+  }
+  .btn-secondary {
+    background: rgb(var(--surface-raised));
+    color: rgb(var(--text-primary));
+    border-color: rgb(var(--border-strong));
+  }
+  .btn-secondary:hover {
+    background: rgb(var(--border-default));
+  }
+  .input-field {
+    background: rgb(var(--surface-input)) !important;
+    border-color: rgb(var(--border-strong)) !important;
+    color: rgb(var(--text-primary));
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+  .input-field:focus {
+    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.25) !important;
+    border-color: #06b6d4 !important;
+  }
+  .task-card {
+    background: rgb(var(--surface-card)) !important;
+    border-color: rgb(var(--border-default)) !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1) !important;
+    backdrop-filter: none !important;
+  }
+  .task-card-completed {
+    background: rgb(var(--surface-raised)) !important;
+    border-color: rgb(var(--border-default)) !important;
+  }
+  .task-menu {
+    background: rgb(var(--surface-card)) !important;
+    border-color: rgb(var(--border-strong)) !important;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18) !important;
+  }
+  .task-suggestion {
+    background: rgb(var(--surface-raised));
+    border-color: rgb(var(--border-default));
+  }
+  /* Neutralize neon/glow text and shadows */
+  .neon-text {
+    text-shadow: none !important;
+    color: rgb(var(--text-primary)) !important;
+  }
+  .pwa-mobile-header {
+    background: rgb(var(--surface-card));
+  }
+}
+
 /* Futuristic animations */
 @keyframes ai-pulse {
   0% {
@@ -330,12 +424,12 @@
   }
 }
 
-/* Dark mode optimizations for OLED displays */
+/* Dark mode optimizations for OLED displays (midnight theme only) */
 @media (prefers-color-scheme: dark) {
-  body {
+  :root:not([data-theme='white']) body {
     background: #000000;
   }
-  
+
   .oled-black {
     background-color: #000000 !important;
   }
@@ -376,8 +470,25 @@
 }
 
 .pwa-mobile-header {
-  padding-top: env(safe-area-inset-top);
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(15, 23, 42, 0.94) 55%, rgba(8, 47, 73, 0.92) 100%);
+  background: linear-gradient(135deg, rgb(15, 23, 42) 0%, rgb(15, 23, 42) 55%, rgb(8, 47, 73) 100%);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+@media (max-width: 1023px) {
+  .mobile-bottom-dock {
+    min-height: var(--mobile-dock-height);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .assistant-composer-form {
+    bottom: var(--mobile-dock-height);
+    padding-bottom: 0.625rem;
+  }
+
+  .assistant-messages-scroll {
+    padding-bottom: calc(var(--mobile-dock-height) + 8rem);
+  }
 }
 
 /* PWA Standalone mode optimizations */
@@ -460,7 +571,8 @@
   }
 
   /* Improve mobile bottom navigation in PWA */
-  .fixed.bottom-0 {
+  .mobile-bottom-dock,
+  .assistant-composer-form {
     background: rgba(17, 24, 39, 0.98) !important;
     backdrop-filter: blur(25px) !important;
     border-top: 1px solid rgba(75, 85, 99, 0.8) !important;
@@ -499,6 +611,15 @@
     min-width: 48px !important;
   }
 
+  .mobile-dock-link {
+    min-height: 56px !important;
+  }
+
+  .assistant-composer button,
+  .assistant-composer select {
+    min-height: 44px !important;
+  }
+
   /* Improve iOS PWA scrolling */
   * {
     -webkit-overflow-scrolling: touch !important;
@@ -519,7 +640,7 @@
   }
 
   /* Better Android PWA navigation */
-  .fixed.bottom-0 {
+  .mobile-bottom-dock {
     padding-bottom: max(env(safe-area-inset-bottom), 16px) !important;
   }
 }
@@ -545,4 +666,10 @@
   .week-rail {
     gap: 0.375rem !important;
   }
+}
+
+/* White theme: override PWA-standalone dark background gradients. */
+[data-theme='white'] .min-h-screen,
+[data-theme='white'] #loading-screen {
+  background: rgb(var(--surface-page)) !important;
 }

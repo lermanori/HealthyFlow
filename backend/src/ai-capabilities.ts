@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
-import { ParsedMeal, ParseMealsReview, parseMealsWithAi } from './openai'
+import { ParsedMeal, ParseMealsReview, parseMealsWithAi, RecoverableToolError } from './openai'
 import {
   AchievementEntryCreateSchema,
   Achievements,
@@ -550,10 +550,31 @@ function previewTaskDbRow(input: z.infer<typeof AddTaskInput>, type: 'task' | 'h
   }
 }
 
+const UUID_RE = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
+
+function itemNotFound(itemId: string) {
+  return new RecoverableToolError(
+    `No Item found with id "${itemId}". Call list_tasks or get_today to get real Item ids, then retry.`,
+  )
+}
+
 async function getOwnedTask(userId: string, itemId: string) {
   const parsed = parseHabitInstanceId(itemId)
-  const task = await db.getTaskById(parsed ? parsed.originalHabitId : itemId)
-  if (!task || task.user_id !== userId) throw new Error('Item not found')
+  const lookupId = parsed ? parsed.originalHabitId : itemId
+  // Guard the id shape before it reaches Postgres: an id the model invented
+  // (e.g. "1") is not a uuid and would otherwise leak a raw 22P02 error. Treat
+  // it as a recoverable "not found" so the model can re-list Items and retry.
+  if (!UUID_RE.test(lookupId)) throw itemNotFound(itemId)
+  let task: any
+  try {
+    task = await db.getTaskById(lookupId)
+  } catch (error: any) {
+    // PGRST116 = ".single()" matched no rows. That is a recoverable not-found;
+    // any other error (DB down, etc.) still aborts and surfaces as tool_error.
+    if (error?.code === 'PGRST116') throw itemNotFound(itemId)
+    throw error
+  }
+  if (!task || task.user_id !== userId) throw itemNotFound(itemId)
   return { task, parsedVirtual: parsed }
 }
 

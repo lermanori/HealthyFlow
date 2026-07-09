@@ -35,11 +35,12 @@ describe('settings API', () => {
       aiSuggestions: false,
       smartReminders: true,
       completionSounds: true,
-      calorieIntake: false,
+      calorieIntake: true,
       achievementTracker: false,
       workoutTracker: true,
       weekStartsOn: 1,
       onboardingStatus: 'completed',
+      theme: 'midnight',
     })
   })
 
@@ -77,8 +78,18 @@ describe('settings API', () => {
     expect(mockDb.upsertUserSettings).not.toHaveBeenCalled()
   })
 
-  it('defaults calorieIntake to false when nothing is stored', async () => {
+  it('defaults calorieIntake to true when nothing is stored', async () => {
     mockDb.getUserSettings.mockResolvedValue({})
+
+    const res = await request(app)
+      .get('/api/settings')
+      .set('Authorization', TOKEN)
+
+    expect(res.body.calorieIntake).toBe(true)
+  })
+
+  it('respects an explicit opt-out of calorieIntake', async () => {
+    mockDb.getUserSettings.mockResolvedValue({ calorieIntake: false })
 
     const res = await request(app)
       .get('/api/settings')

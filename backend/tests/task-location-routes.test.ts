@@ -17,6 +17,8 @@ jest.mock('../src/supabase-client', () => ({
 jest.mock('../src/calendar', () => ({
   syncTaskToGoogleCalendar: jest.fn(),
   deleteGoogleCalendarEvent: jest.fn(),
+  isGoogleCalendarNotConnectedError: (error: unknown) =>
+    error instanceof Error && error.message === 'Google Calendar is not connected',
 }))
 
 const mockDb = db as jest.Mocked<typeof db>

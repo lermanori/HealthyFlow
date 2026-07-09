@@ -47,8 +47,8 @@ function SummaryCards({ totals }: { totals: TokenManagerTotals }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
       {cards.map(([label, value]) => (
-        <div key={label} className="rounded-lg border border-gray-700/50 bg-gray-900/70 p-4">
-          <p className="text-xs text-gray-400">{label}</p>
+        <div key={label} className="rounded-lg border border-line/50 bg-page/70 p-4">
+          <p className="text-xs text-ink-muted">{label}</p>
           <p className="mt-2 text-2xl font-bold text-cyan-300">
             {label === 'OpenAI cost' ? formatUsd(value) : formatNumber(value)}
           </p>
@@ -203,16 +203,16 @@ export default function TokenManagerPage() {
         <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center">
           <Coins className="w-4 h-4 text-white" />
         </div>
-        <h1 className="text-2xl font-bold text-gray-100 neon-text">Token Manager</h1>
+        <h1 className="text-2xl font-bold text-ink neon-text">Token Manager</h1>
       </div>
 
       <div className="card space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
             <Activity className="w-5 h-5 text-cyan-400" />
-            <h2 className="text-lg font-semibold text-gray-100">Usage Totals</h2>
+            <h2 className="text-lg font-semibold text-ink">Usage Totals</h2>
           </div>
-          <div className="flex rounded-lg border border-gray-700/70 bg-gray-900/80 p-1">
+          <div className="flex rounded-lg border border-line/70 bg-page/80 p-1">
             {(Object.keys(rangeLabels) as RangeKey[]).map(range => (
               <button
                 key={range}
@@ -220,7 +220,7 @@ export default function TokenManagerPage() {
                 className={`px-3 py-2 text-sm rounded-md transition-colors ${
                   selectedRange === range
                     ? 'bg-cyan-500/20 text-cyan-300'
-                    : 'text-gray-400 hover:text-gray-200'
+                    : 'text-ink-muted hover:text-ink-soft'
                 }`}
               >
                 {rangeLabels[range]}
@@ -232,17 +232,17 @@ export default function TokenManagerPage() {
         <SummaryCards totals={totals} />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-          <div className="rounded-lg border border-gray-700/50 bg-gray-900/70 p-3">
-            <span className="text-gray-400">Markup app tokens</span>
-            <p className="text-lg font-semibold text-gray-100">{formatNumber(totals.markupTokens)}</p>
+          <div className="rounded-lg border border-line/50 bg-page/70 p-3">
+            <span className="text-ink-muted">Markup app tokens</span>
+            <p className="text-lg font-semibold text-ink">{formatNumber(totals.markupTokens)}</p>
           </div>
-          <div className="rounded-lg border border-gray-700/50 bg-gray-900/70 p-3">
-            <span className="text-gray-400">OpenAI prompt tokens</span>
-            <p className="text-lg font-semibold text-gray-100">{formatNumber(totals.promptTokens)}</p>
+          <div className="rounded-lg border border-line/50 bg-page/70 p-3">
+            <span className="text-ink-muted">OpenAI prompt tokens</span>
+            <p className="text-lg font-semibold text-ink">{formatNumber(totals.promptTokens)}</p>
           </div>
-          <div className="rounded-lg border border-gray-700/50 bg-gray-900/70 p-3">
-            <span className="text-gray-400">OpenAI completion tokens</span>
-            <p className="text-lg font-semibold text-gray-100">{formatNumber(totals.completionTokens)}</p>
+          <div className="rounded-lg border border-line/50 bg-page/70 p-3">
+            <span className="text-ink-muted">OpenAI completion tokens</span>
+            <p className="text-lg font-semibold text-ink">{formatNumber(totals.completionTokens)}</p>
           </div>
         </div>
       </div>
@@ -250,16 +250,16 @@ export default function TokenManagerPage() {
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
           <Settings className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-gray-100">Billing Settings</h2>
+          <h2 className="text-lg font-semibold text-ink">Billing Settings</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">App tokens per $1</label>
+            <label className="block text-sm font-medium text-ink-soft mb-1">App tokens per $1</label>
             <input className="input-field" value={overview.settings.appTokensPerUsd} readOnly />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">Markup percent</label>
+            <label className="block text-sm font-medium text-ink-soft mb-1">Markup percent</label>
             <input
               type="number"
               min="0"
@@ -270,7 +270,7 @@ export default function TokenManagerPage() {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">Minimum markup</label>
+            <label className="block text-sm font-medium text-ink-soft mb-1">Minimum markup</label>
             <input
               type="number"
               min="0"
@@ -296,28 +296,28 @@ export default function TokenManagerPage() {
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
           <BadgeDollarSign className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-gray-100">Subscription Pricing</h2>
+          <h2 className="text-lg font-semibold text-ink">Subscription Pricing</h2>
         </div>
 
         <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-1">Current phase</label>
+            <label className="block text-sm font-medium text-ink-soft mb-1">Current phase</label>
             <button
               type="button"
               onClick={() => setPromoActive(!promoActive)}
               className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition ${
                 promoActive
                   ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
-                  : 'border-gray-700 bg-gray-950/30 text-gray-200'
+                  : 'border-line bg-sunken/30 text-ink-soft'
               }`}
             >
               <span>{promoActive ? 'Promo: $1 / month' : 'Regular: $2 / month'}</span>
-              <span className="text-xs text-gray-400">Toggle</span>
+              <span className="text-xs text-ink-muted">Toggle</span>
             </button>
           </div>
-          <div className="rounded-lg border border-gray-700/70 bg-gray-950/30 p-3 text-sm">
-            <p className="text-gray-400">Sell rate</p>
-            <p className="mt-1 text-lg font-semibold text-gray-100">
+          <div className="rounded-lg border border-line/70 bg-sunken/30 p-3 text-sm">
+            <p className="text-ink-muted">Sell rate</p>
+            <p className="mt-1 text-lg font-semibold text-ink">
               {formatNumber(overview.subscriptionPricing.sellCreditsPerUsd)} credits / $1
             </p>
             <p className="mt-1 text-xs text-gray-500">AI cost metering remains {overview.settings.appTokensPerUsd} tokens / $1.</p>
@@ -337,14 +337,14 @@ export default function TokenManagerPage() {
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
             <Mail className="w-5 h-5 text-cyan-400" />
-            <h2 className="text-lg font-semibold text-gray-100">Admin Inbox</h2>
+            <h2 className="text-lg font-semibold text-ink">Admin Inbox</h2>
             {contactMessages.some(message => message.status === 'pending') && (
               <span className="rounded-full bg-cyan-500/20 px-2 py-1 text-xs font-medium text-cyan-200">
                 {contactMessages.filter(message => message.status === 'pending').length} pending
               </span>
             )}
           </div>
-          <div className="flex rounded-lg border border-gray-700/70 bg-gray-900/80 p-1">
+          <div className="flex rounded-lg border border-line/70 bg-page/80 p-1">
             {(['pending', 'handled', 'all'] as ContactStatusFilter[]).map(status => (
               <button
                 key={status}
@@ -352,7 +352,7 @@ export default function TokenManagerPage() {
                 className={`px-3 py-2 text-sm capitalize rounded-md transition-colors ${
                   contactStatus === status
                     ? 'bg-cyan-500/20 text-cyan-300'
-                    : 'text-gray-400 hover:text-gray-200'
+                    : 'text-ink-muted hover:text-ink-soft'
                 }`}
               >
                 {status}
@@ -362,16 +362,16 @@ export default function TokenManagerPage() {
         </div>
 
         {contactMessagesQuery.isLoading ? (
-          <div className="flex items-center gap-2 text-sm text-gray-400">
+          <div className="flex items-center gap-2 text-sm text-ink-muted">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading messages...
           </div>
         ) : contactMessages.length === 0 ? (
-          <p className="text-sm text-gray-400">No {contactStatus === 'all' ? '' : contactStatus} in-app messages.</p>
+          <p className="text-sm text-ink-muted">No {contactStatus === 'all' ? '' : contactStatus} in-app messages.</p>
         ) : (
           <div className="grid gap-3">
             {contactMessages.map(message => (
-              <div key={message.id} className="rounded-lg border border-gray-700/70 bg-gray-950/30 p-4">
+              <div key={message.id} className="rounded-lg border border-line/70 bg-sunken/30 p-4">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -385,15 +385,15 @@ export default function TokenManagerPage() {
                       <span className={`rounded-full px-2 py-1 text-xs font-medium ${
                         message.status === 'pending'
                           ? 'bg-amber-500/15 text-amber-200'
-                          : 'bg-gray-700/70 text-gray-300'
+                          : 'bg-gray-700/70 text-ink-soft'
                       }`}>
                         {message.status}
                       </span>
                       <span className="text-xs text-gray-500">{formatDate(message.createdAt)}</span>
                     </div>
-                    <p className="mt-2 font-medium text-gray-100">{message.userName ?? 'Unknown user'}</p>
-                    <p className="text-xs text-gray-400">{message.userEmail ?? message.userId}</p>
-                    <p className="mt-3 whitespace-pre-wrap text-sm text-gray-300">{message.message}</p>
+                    <p className="mt-2 font-medium text-ink">{message.userName ?? 'Unknown user'}</p>
+                    <p className="text-xs text-ink-muted">{message.userEmail ?? message.userId}</p>
+                    <p className="mt-3 whitespace-pre-wrap text-sm text-ink-soft">{message.message}</p>
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
                     {message.status === 'pending' ? (
@@ -428,13 +428,13 @@ export default function TokenManagerPage() {
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
           <UserCog className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-gray-100">Users</h2>
+          <h2 className="text-lg font-semibold text-ink">Users</h2>
         </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-700 text-left text-gray-400">
+              <tr className="border-b border-line text-left text-ink-muted">
                 <th className="py-3 pr-4 font-medium">User</th>
                 <th className="py-3 pr-4 font-medium">Role</th>
                 <th className="py-3 pr-4 font-medium">Balance</th>
@@ -446,12 +446,12 @@ export default function TokenManagerPage() {
             </thead>
             <tbody>
               {overview.users.map(user => (
-                <tr key={user.id} className="border-b border-gray-800/80">
+                <tr key={user.id} className="border-b border-card/80">
                   <td className="py-3 pr-4">
-                    <p className="font-medium text-gray-100">{user.name}</p>
-                    <p className="text-xs text-gray-400">{user.email}</p>
+                    <p className="font-medium text-ink">{user.name}</p>
+                    <p className="text-xs text-ink-muted">{user.email}</p>
                   </td>
-                  <td className="py-3 pr-4 text-gray-300">{user.role}</td>
+                  <td className="py-3 pr-4 text-ink-soft">{user.role}</td>
                   <td className="py-3 pr-4">
                     <input
                       type="number"
@@ -464,7 +464,7 @@ export default function TokenManagerPage() {
                   </td>
                   <td className="py-3 pr-4">
                     <div className="space-y-2">
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-ink-muted">
                         {user.subscription?.active ? `${user.subscription.pricePhase} · renews ${user.subscription.renewalDate ?? '-'}` : 'Inactive'}
                       </p>
                       <p className="text-xs text-gray-500">
@@ -499,7 +499,7 @@ export default function TokenManagerPage() {
                       </button>
                     </div>
                   </td>
-                  <td className="py-3 pr-4 text-gray-400">{formatDate(user.balance_updated_at)}</td>
+                  <td className="py-3 pr-4 text-ink-muted">{formatDate(user.balance_updated_at)}</td>
                   <td className="py-3">
                     <button
                       onClick={() => saveBalance(user.id)}
@@ -520,13 +520,13 @@ export default function TokenManagerPage() {
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
           <Activity className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-gray-100">Activity Log</h2>
+          <h2 className="text-lg font-semibold text-ink">Activity Log</h2>
         </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-700 text-left text-gray-400">
+              <tr className="border-b border-line text-left text-ink-muted">
                 <th className="py-3 pr-4 font-medium">Time</th>
                 <th className="py-3 pr-4 font-medium">User</th>
                 <th className="py-3 pr-4 font-medium">Request</th>
@@ -540,15 +540,15 @@ export default function TokenManagerPage() {
             </thead>
             <tbody>
               {overview.activity.map(row => (
-                <tr key={row.id} className="border-b border-gray-800/80 text-gray-300">
+                <tr key={row.id} className="border-b border-card/80 text-ink-soft">
                   <td className="py-3 pr-4 whitespace-nowrap">{formatDate(row.createdAt)}</td>
                   <td className="py-3 pr-4">
-                    <p className="text-gray-100">{row.userName ?? '-'}</p>
-                    <p className="text-xs text-gray-400">{row.userEmail ?? row.userId}</p>
+                    <p className="text-ink">{row.userName ?? '-'}</p>
+                    <p className="text-xs text-ink-muted">{row.userEmail ?? row.userId}</p>
                   </td>
                   <td className="py-3 pr-4">
                     <p>{row.endpoint ?? '-'}</p>
-                    <p className="text-xs text-gray-400">{row.model ?? '-'}</p>
+                    <p className="text-xs text-ink-muted">{row.model ?? '-'}</p>
                   </td>
                   <td className="py-3 pr-4">{formatUsd(row.openAiCostUsd)}</td>
                   <td className="py-3 pr-4">{formatNumber(row.totalOpenAiTokens)}</td>

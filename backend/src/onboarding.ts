@@ -1,4 +1,3 @@
-import { v4 as uuidv4 } from 'uuid'
 import { db } from './supabase-client'
 import { Achievements, DuplicateAchievementEntryError } from './achievements'
 
@@ -6,54 +5,11 @@ const today = () => new Date().toISOString().slice(0, 10)
 
 export const Onboarding = {
   async seedNewUser(userId: string) {
-    const scheduledDate = today()
     await db.upsertUserSettings(userId, {
       calorieIntake: true,
       achievementTracker: true,
       onboardingStatus: 'active',
     })
-
-    await Promise.all([
-      db.createTask({
-        id: uuidv4(),
-        user_id: userId,
-        title: 'Ask AI what to focus on today',
-        type: 'task',
-        category: 'work',
-        start_time: null,
-        location: null,
-        duration: 10,
-        repeat_type: 'none',
-        scheduled_date: scheduledDate,
-        position: 0,
-      }),
-      db.createTask({
-        id: uuidv4(),
-        user_id: userId,
-        title: 'Log your first meal',
-        type: 'task',
-        category: 'nutrition',
-        start_time: null,
-        location: null,
-        duration: 5,
-        repeat_type: 'none',
-        scheduled_date: scheduledDate,
-        position: 1,
-      }),
-      db.createTask({
-        id: uuidv4(),
-        user_id: userId,
-        title: 'Record one small win',
-        type: 'task',
-        category: 'personal',
-        start_time: null,
-        location: null,
-        duration: 5,
-        repeat_type: 'none',
-        scheduled_date: scheduledDate,
-        position: 2,
-      }),
-    ])
   },
 
   async complete(userId: string) {
