@@ -718,6 +718,68 @@ export const settingsService = {
   },
 }
 
+export interface PushSubscriptionJSON {
+  endpoint?: string
+  keys?: { p256dh?: string; auth?: string }
+}
+
+export type TouchpointType = 'morning' | 'midday' | 'weekly'
+
+export interface DailyTouchpointRhythm {
+  enabled: boolean
+  time: string
+  days: Array<0 | 1 | 2 | 3 | 4 | 5 | 6>
+  lastSent: string | null
+}
+
+export interface WeeklyTouchpointRhythm {
+  enabled: boolean
+  time: string
+  day: 0 | 1 | 2 | 3 | 4 | 5 | 6
+  lastSent: string | null
+}
+
+export interface UserRhythm {
+  timezone: string
+  morning: DailyTouchpointRhythm
+  midday: DailyTouchpointRhythm
+  weekly: WeeklyTouchpointRhythm
+}
+
+export type UserRhythmPatch = Partial<{
+  timezone: string
+  morning: Partial<DailyTouchpointRhythm>
+  midday: Partial<DailyTouchpointRhythm>
+  weekly: Partial<WeeklyTouchpointRhythm>
+}>
+
+export const pushService = {
+  subscribe: async (subscription: PushSubscriptionJSON): Promise<void> => {
+    await api.post('/proactivity/push/subscribe', subscription)
+  },
+  unsubscribe: async (endpoint: string): Promise<void> => {
+    await api.delete('/proactivity/push/subscribe', { data: { endpoint } })
+  },
+  sendTest: async (): Promise<void> => {
+    await api.post('/proactivity/test-notification')
+  },
+  getKickoff: async (type: 'morning' | 'midday' | 'weekly'): Promise<string> => {
+    const response = await api.get('/proactivity/kickoff', { params: { type } })
+    return response.data.message
+  },
+}
+
+export const rhythmService = {
+  getRhythm: async (): Promise<UserRhythm> => {
+    const response = await api.get('/proactivity/rhythm')
+    return response.data
+  },
+  updateRhythm: async (partial: UserRhythmPatch): Promise<UserRhythm> => {
+    const response = await api.put('/proactivity/rhythm', partial)
+    return response.data
+  },
+}
+
 export type ApiTokenScope = 'hf:read' | 'hf:write:add' | 'hf:write:update' | 'hf:write:complete' | 'hf:write:delete'
 
 export interface ApiTokenRecord {
