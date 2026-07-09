@@ -872,6 +872,36 @@ describe('POST /api/ai/chat', () => {
     expect(res.body).toEqual({ error: 'database unavailable', code: 'tool_error' })
   })
 
+  it('surfaces object-shaped tool failures instead of generic fallback text', async () => {
+    const { db } = await import('../../src/supabase-client')
+    ;(db.createAiPendingAction as jest.Mock).mockRejectedValueOnce({
+      code: 'PGRST205',
+      message: 'Could not find the table public.ai_pending_actions',
+      details: 'Searched for public.ai_pending_actions in schema cache',
+    })
+
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, toolCallResponse('add_task', {
+        title: 'Buy coffee',
+        category: 'personal',
+        duration: 15,
+      }))
+
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-object-error'))
+      .send({ messages: [{ role: 'user', content: 'Add buy coffee as a task.' }] })
+
+    expect(res.status).toBe(500)
+    expect(res.body).toEqual({
+      error: expect.stringContaining('Could not find the table public.ai_pending_actions'),
+      code: 'tool_error',
+    })
+    expect(res.body.error).toContain('PGRST205')
+    expect(res.body.error).not.toBe('Tool execution failed')
+  })
+
   it('settles accumulated usage when a later tool loop fails', async () => {
     const { Credits } = await import('../../src/credits')
 

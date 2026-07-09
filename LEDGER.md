@@ -1,3 +1,9 @@
+### 2026-07-09 12:49 — `feat/redesign-v2`
+
+Improved the Talk assistant failure path after investigating the mobile "Tool execution failed" screenshot. Backend tool errors now preserve useful Supabase/PostgREST-style object details and log the failing tool name, so the next production failure should expose the real cause instead of collapsing to a generic message. Added focused assistant-chat regression coverage and verified the backend test/build path before deployment.
+
+---
+
 ### 2026-07-09 12:26 — `feat/redesign-v2`
 
 Cleaned up the mobile Today screen after reviewing the live PWA screenshot. The floating `Clear Today` bulk-delete button and its handler are gone, and the Today page no longer reserves the old oversized bottom spacer below AI Insights now that the clear button is removed. The production frontend build passes; lint is still blocked by the missing ESLint config issue in this repo.
