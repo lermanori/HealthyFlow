@@ -1,3 +1,9 @@
+### 2026-07-09 16:20 — `feat/redesign-v2`
+
+Brainstormed issue #133 (proactivity, notifications, future planning) into an approved design spec. The vision crystallised as a "rhythm" of three planning touchpoints — morning planning, mid-day update, weekly planning — delivered as real iPhone web-push notifications (PWA, home-screen install) that deep-link into assistant kickoffs; static push text with AI running only on open, node-cron in the existing Railway backend, one new deep module `proactivity.ts`, and deterministic auto-tune suggestions in a later slice. Spec written to `docs/superpowers/specs/2026-07-09-proactivity-rhythm-design.md` with a 3-slice phasing plan; next step is the implementation plan.
+
+---
+
 ### 2026-07-09 15:10 — `feat/redesign-v2`
 
 Fixed the Talk assistant crash where editing an existing card surfaced a raw Postgres `invalid input syntax for type uuid: "1"` error. Root cause: the model split the confirm flow across turns and, because tool results are not carried between turns, invented an item id like `"1"` that leaked straight into a uuid column. `getOwnedTask` now guards the id shape and throws a new `RecoverableToolError`, which the tool loop feeds back to the model so it re-lists and retries within the turn — while genuine infra failures still abort and surface as `tool_error`. The chat system prompt now tells the model that calling a write tool IS the confirmation step and that ids must come from a same-turn `get_today`/`list_tasks`. Verified live on mobile and with 284 passing backend tests including a new self-heal regression.
