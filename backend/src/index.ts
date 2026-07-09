@@ -21,6 +21,7 @@ import { contactMessageRoutes } from './routes/contact-messages'
 import { mcpRoutes } from './routes/mcp'
 import { initDatabase } from './db/database'
 import { db } from './supabase-client'
+import { startProactivityScheduler } from './proactivity'
 
 // Load .env from parent directory
 dotenv.config({ path: path.join(__dirname, '../.env') })
@@ -95,5 +96,6 @@ if (require.main === module) {
     console.log(`🚀 HealthyFlow Server running on port ${PORT}`)
     console.log(`📊 Features: Task Management, AI Recommendations, Smart Reminders`)
     console.log(`🔗 API Health: http://localhost:${PORT}/api/health`)
+    startProactivityScheduler()
   })
 }

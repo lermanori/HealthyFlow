@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import webpush from 'web-push'
+import cron from 'node-cron'
 import { db } from './supabase-client'
 
 // Closed set of touchpoint types (see spec). Order matters for iteration.
@@ -166,4 +167,49 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
       }
     }
   }))
+}
+
+// Static, deterministic payloads. No AI at send time (spec).
+const TOUCHPOINT_PAYLOADS: Record<TouchpointType, PushPayload> = {
+  morning: { title: 'Good morning ☀️', body: 'Ready to plan your day?', url: '/assistant?kickoff=morning' },
+  midday: { title: 'Mid-day check-in', body: 'How is today going? Want to adjust?', url: '/assistant?kickoff=midday' },
+  weekly: { title: 'Weekly planning', body: "Let's shape the week ahead.", url: '/assistant?kickoff=weekly' },
+}
+
+// Exported object indirection so tests can spy on sendPushToUser.
+export const proactivityInternals = { sendPushToUser }
+
+export async function runProactivityTick(now: Date = new Date(), windowMinutes = 5): Promise<void> {
+  const rows = await db.listAllRhythms()
+  const records: RhythmRecord[] = rows.map((row) => ({
+    userId: row.user_id,
+    rhythm: RhythmSchema.parse(row.rhythm ?? {}),
+  }))
+
+  const due = findDueTouchpoints(records, now, windowMinutes)
+
+  for (const item of due) {
+    // Idempotency: stamp lastSent BEFORE sending so a crash skips, never doubles.
+    // Deep-merge the touchpoint so we don't clobber enabled/time/days (upsertUserRhythm
+    // only shallow-merges top-level keys).
+    const current = records.find((r) => r.userId === item.userId)!.rhythm
+    const currentTp = current[item.type] as Record<string, unknown>
+    await db.upsertUserRhythm(item.userId, { [item.type]: { ...currentTp, lastSent: item.localDate } })
+    await proactivityInternals.sendPushToUser(item.userId, TOUCHPOINT_PAYLOADS[item.type])
+  }
+}
+
+let schedulerStarted = false
+export function startProactivityScheduler(): void {
+  if (schedulerStarted) return
+  if (!configureVapid()) {
+    console.warn('[proactivity] VAPID keys missing — scheduler not started')
+    return
+  }
+  schedulerStarted = true
+  // Every 5 minutes.
+  cron.schedule('*/5 * * * *', () => {
+    runProactivityTick(new Date(), 5).catch((err) => console.error('[proactivity] tick failed:', err))
+  })
+  console.log('[proactivity] scheduler started (*/5 * * * *)')
 }
