@@ -20,14 +20,34 @@ test('Mobile assistant composer wraps long text instead of hiding it off-screen'
 
   const mainBox = await page.locator('main').boundingBox()
   const talkSurfaceBox = await page.locator('main > div > div').first().boundingBox()
+  const mobileHeaderBox = await page.locator('header.pwa-mobile-header').boundingBox()
   const bottomNavBox = await page.locator('div.fixed.bottom-0.left-0.right-0').boundingBox()
+  const composerForm = page.locator('form').filter({ has: page.getByPlaceholder(/Add anything/) })
+  const formBox = await composerForm.boundingBox()
   expect(mainBox).toBeTruthy()
   expect(talkSurfaceBox).toBeTruthy()
+  expect(mobileHeaderBox).toBeTruthy()
   expect(bottomNavBox).toBeTruthy()
+  expect(formBox).toBeTruthy()
+  expect(mainBox!.y).toBeGreaterThanOrEqual(mobileHeaderBox!.y + mobileHeaderBox!.height - 1)
+  const headerStyles = await page.locator('header.pwa-mobile-header').evaluate((element) => {
+    const styles = window.getComputedStyle(element)
+    return {
+      backgroundImage: styles.backgroundImage,
+      backdropFilter: styles.backdropFilter,
+      paddingTop: styles.paddingTop,
+    }
+  })
+  expect(headerStyles.backgroundImage).toContain('linear-gradient')
+  expect(headerStyles.backgroundImage).not.toContain('rgba')
+  expect(headerStyles.backdropFilter).toBe('none')
+  expect(headerStyles.paddingTop).toBe('0px')
   expect(Math.round(talkSurfaceBox!.x - mainBox!.x)).toBe(0)
   expect(Math.round(mainBox!.width - talkSurfaceBox!.width)).toBe(0)
-  expect(Math.abs((talkSurfaceBox!.y + talkSurfaceBox!.height) - bottomNavBox!.y)).toBeLessThanOrEqual(1)
+  expect(formBox!.y).toBeLessThan(bottomNavBox!.y)
+  expect(Math.abs((formBox!.y + formBox!.height) - bottomNavBox!.y)).toBeLessThanOrEqual(1)
   await expect(page.getByRole('contentinfo')).toHaveCount(0)
+  await expect(page.getByText('Chat history')).toHaveCount(0)
 
   const composer = page.getByPlaceholder(/Add anything/)
   await expect(composer).toBeVisible()
@@ -38,7 +58,7 @@ test('Mobile assistant composer wraps long text instead of hiding it off-screen'
   expect(initialBox).toBeTruthy()
   expect(initialShell).toBeTruthy()
   expect(initialBox!.height).toBeLessThanOrEqual(48)
-  expect(initialShell!.height).toBeLessThanOrEqual(100)
+  expect(initialShell!.height).toBeLessThanOrEqual(112)
   await composer.fill('plan a focused morning block then add groceries and send the workout notes')
 
   const box = await composer.boundingBox()
@@ -46,9 +66,10 @@ test('Mobile assistant composer wraps long text instead of hiding it off-screen'
   expect(box).toBeTruthy()
   expect(composerShell).toBeTruthy()
   expect(box!.width).toBeGreaterThan(120)
-  expect(box!.height).toBeLessThanOrEqual(48)
+  expect(box!.height).toBeGreaterThanOrEqual(initialBox!.height)
+  expect(box!.height).toBeLessThanOrEqual(112)
   expect(composerShell!.height).toBeGreaterThan(box!.height)
-  expect(Math.abs((composerShell!.y + composerShell!.height) - bottomNavBox!.y)).toBeLessThanOrEqual(12)
+  expect(composerShell!.y + composerShell!.height).toBeLessThanOrEqual(formBox!.y + formBox!.height)
 })
 
 test('Confirmed assistant task appears on Today without a browser refresh', async ({ page }) => {

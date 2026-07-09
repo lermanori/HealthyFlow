@@ -209,8 +209,8 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Mobile Header */}
       {isMobile && (
-        <header className="pwa-mobile-header relative z-10 border-b border-line/50 lg:hidden">
-          <div className="flex items-center justify-between p-4">
+        <header className="pwa-mobile-header fixed left-0 right-0 top-0 z-30 border-b border-line/50 lg:hidden">
+          <div className="flex h-[calc(4.8125rem+env(safe-area-inset-top))] items-end justify-between p-4">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
               className="p-2 rounded-lg hover:bg-card/50 transition-colors text-ink-muted hover:text-ink-soft"
@@ -330,7 +330,7 @@ export default function Layout({ children }: LayoutProps) {
         <main
           className={`min-w-0 flex-1 overflow-x-hidden ${
             isMobile
-              ? isTalkPage ? 'h-[calc(100dvh-146.5px-env(safe-area-inset-bottom))] p-0' : 'p-4 pb-32'
+              ? isTalkPage ? 'mt-[calc(4.8125rem+env(safe-area-inset-top))] h-[calc(100dvh-4.8125rem-env(safe-area-inset-top))] p-0' : 'mt-[calc(4.8125rem+env(safe-area-inset-top))] p-4 pb-32'
               : 'p-6'
           }`}
           ref={contentRef}
@@ -353,7 +353,7 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Mobile Bottom Navigation — hidden while the drawer is open so it doesn't cover the drawer's Logout button */}
       {isMobile && !isMobileMenuOpen && (
-        <div className="fixed bottom-0 left-0 right-0 bg-page/95 backdrop-blur-xl border-t border-line/50 z-30">
+        <div className="mobile-bottom-dock fixed bottom-0 left-0 right-0 z-30 border-t border-line/50 bg-page/95 backdrop-blur-xl">
           <div className="grid grid-cols-2 gap-2 p-2">
             {primaryMobileNavigation.map((item) => {
               const isActive = location.pathname === item.href
@@ -383,8 +383,6 @@ export default function Layout({ children }: LayoutProps) {
             })}
           </div>
           
-          {/* Safe area padding for devices with home indicator */}
-          <div className="h-safe-area-inset-bottom"></div>
         </div>
       )}
     </div>

@@ -1,3 +1,9 @@
+### 2026-07-09 11:01 — `feat/redesign-v2`
+
+Unified the AI-created Task preview experience across AI Task Analyzer and Talk. A new shared Task draft card now blends the analyzer's compact visual preview with Talk's edit-and-confirm workflow, so generated Tasks and Habits can be edited in the same UI before saving from either surface. Mobile verification covered both the analyzer flow and a mocked Talk pending action, and the production build passes.
+
+---
+
 ### 2026-07-08 15:32 — `feat/redesign-v2`
 
 Diagnosed the Google Calendar sync failure against Railway production logs and confirmed the root cause was an invalid Google refresh token (`invalid_grant`), not the Hebrew timed task payload. Calendar sync now treats revoked Google credentials as a disconnected account, marks affected timed Tasks as skipped instead of failed, and stops the Today page from retrying until the user reconnects. Added focused regression coverage for both the Hebrew/off-hour sync payload and the revoked-token path; backend tests, backend typecheck, and the frontend production build pass.

@@ -30,7 +30,7 @@ export default function AITextAnalyzer({ onClose, onConfirmed, enableTTS = false
 
   const { speak } = useTTS()
   const { balance, summary: creditSummary, refetch: refetchCredits } = useCredits()
-  const { suggestions, selectedSuggestions, isAnalyzing, analyzeText, toggleSuggestion, updateTaskDate, reset } =
+  const { suggestions, selectedSuggestions, isAnalyzing, analyzeText, toggleSuggestion, updateSuggestion, reset } =
     useParsedItems()
   const {
     isListening,
@@ -387,7 +387,7 @@ Examples:
                     suggestion={suggestion}
                     isSelected={selectedSuggestions.has(suggestion.id)}
                     onToggle={() => toggleSuggestion(suggestion.id)}
-                    onUpdateDate={(date) => updateTaskDate(suggestion.id, date)}
+                    onUpdate={(patch) => updateSuggestion(suggestion.id, patch)}
                     quickDates={quickDates}
                     ttsEnabled={ttsEnabled}
                     onSpeakDetails={() => speakTaskDetails(suggestion)}

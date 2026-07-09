@@ -1,10 +1,12 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { format, addDays } from 'date-fns'
 import { Bot, ChevronDown, Dumbbell, Flame, Image as ImageIcon, Mic, MessageSquare, Paperclip, Pencil, Plus, Scale, Send, Target, Trash2, UserRound, Wrench, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantPendingAction, AssistantToolEvent } from '../services/api'
 import { useDictatedText } from '../hooks/useDictatedText'
+import TaskDraftCard, { TaskDraftCardValue } from '../components/TaskDraftCard'
 
 type ConversationPendingAction = AssistantPendingAction & {
   status?: 'pending' | 'confirmed' | 'canceled'
@@ -431,6 +433,44 @@ function buildEditedArgs(action: AssistantPendingAction, draft: Record<string, u
   }
 }
 
+function taskDraftValueFromPendingAction(action: AssistantPendingAction, draft: Record<string, unknown>): TaskDraftCardValue {
+  const isHabit = action.capability === 'add_habit'
+  return {
+    title: fieldValue(draft.title),
+    category: fieldValue(draft.category || 'personal'),
+    duration: fieldValue(draft.duration),
+    priority: typeof draft.priority === 'string' ? draft.priority : undefined,
+    type: isHabit ? 'habit' : 'task',
+    startTime: fieldValue(draft.startTime),
+    scheduledDate: fieldValue(draft.scheduledDate || format(new Date(), 'yyyy-MM-dd')),
+    repeat: isHabit ? fieldValue(draft.repeat || 'daily') : undefined,
+  }
+}
+
+function taskDraftPatchToPendingDraft(patch: Partial<TaskDraftCardValue>) {
+  const next: Record<string, unknown> = {}
+  if (patch.title !== undefined) next.title = patch.title
+  if (patch.category !== undefined) next.category = patch.category
+  if (patch.duration !== undefined) next.duration = patch.duration
+  if (patch.startTime !== undefined) next.startTime = patch.startTime
+  if (patch.scheduledDate !== undefined) next.scheduledDate = patch.scheduledDate
+  if (patch.repeat !== undefined) next.repeat = patch.repeat
+  return next
+}
+
+function assistantQuickDates() {
+  return [
+    { label: 'Today', value: format(new Date(), 'yyyy-MM-dd') },
+    { label: 'Tomorrow', value: format(addDays(new Date(), 1), 'yyyy-MM-dd') },
+    { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
+  ]
+}
+
+function pendingStatusTone(action: ConversationPendingAction): 'pending' | 'confirmed' | 'canceled' | 'error' {
+  if (action.error) return 'error'
+  return action.status ?? 'pending'
+}
+
 function PendingActionCard({
   action,
   onConfirm,
@@ -474,15 +514,6 @@ function PendingActionCard({
         ? 'Canceled'
         : 'Waiting for confirmation'
 
-  const commonTaskFields = (
-    <>
-      <TextField label="Title" value={draft.title} onChange={(value) => setField('title', value)} />
-      <SelectField label="Category" value={draft.category ?? 'personal'} options={categories} onChange={(value) => setField('category', value)} />
-      <TextField label="Duration" value={draft.duration} type="number" onChange={(value) => setField('duration', value)} />
-      <TextField label="Start time" value={draft.startTime} type="time" onChange={(value) => setField('startTime', value)} />
-    </>
-  )
-
   return (
     <div className={`mt-3 rounded-lg border bg-sunken p-4 shadow-lg shadow-black/20 ${
       action.error
@@ -523,31 +554,44 @@ function PendingActionCard({
         )}
       </div>
 
-      <div className={`mb-3 rounded-md border px-3 py-2 text-xs ${
-        action.error
-          ? 'border-red-500/30 bg-red-950/30 text-red-100'
-          : status === 'confirmed'
-            ? 'border-emerald-500/30 bg-emerald-950/30 text-emerald-100'
-            : status === 'canceled'
-              ? 'border-line bg-page text-ink-soft'
-              : 'border-amber-500/30 bg-amber-950/20 text-amber-100'
-      }`}>
-        {statusLabel}
-      </div>
+      {!['add_task', 'add_habit'].includes(action.capability) && (
+        <div className={`mb-3 rounded-md border px-3 py-2 text-xs ${
+          action.error
+            ? 'border-red-500/30 bg-red-950/30 text-red-100'
+            : status === 'confirmed'
+              ? 'border-emerald-500/30 bg-emerald-950/30 text-emerald-100'
+              : status === 'canceled'
+                ? 'border-line bg-page text-ink-soft'
+                : 'border-amber-500/30 bg-amber-950/20 text-amber-100'
+        }`}>
+          {statusLabel}
+        </div>
+      )}
 
       {isEditing && isPending ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {action.capability === 'add_task' && (
-            <>
-              {commonTaskFields}
-              <TextField label="Scheduled date" value={draft.scheduledDate} type="date" onChange={(value) => setField('scheduledDate', value)} />
-            </>
+            <div className="sm:col-span-2">
+              <TaskDraftCard
+                value={taskDraftValueFromPendingAction(action, draft)}
+                editable
+                statusLabel={statusLabel}
+                statusTone={pendingStatusTone(action)}
+                quickDates={assistantQuickDates()}
+                onChange={(patch) => setDraft((current) => ({ ...current, ...taskDraftPatchToPendingDraft(patch) }))}
+              />
+            </div>
           )}
           {action.capability === 'add_habit' && (
-            <>
-              {commonTaskFields}
-              <SelectField label="Repeat" value={draft.repeat ?? 'daily'} options={['daily', 'weekly']} onChange={(value) => setField('repeat', value)} />
-            </>
+            <div className="sm:col-span-2">
+              <TaskDraftCard
+                value={taskDraftValueFromPendingAction(action, draft)}
+                editable
+                statusLabel={statusLabel}
+                statusTone={pendingStatusTone(action)}
+                onChange={(patch) => setDraft((current) => ({ ...current, ...taskDraftPatchToPendingDraft(patch) }))}
+              />
+            </div>
           )}
           {action.capability === 'add_calorie_entry' && (
             <>
@@ -638,9 +682,17 @@ function PendingActionCard({
           )}
         </div>
       ) : (
-        <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-xs text-ink-soft">
-          {JSON.stringify(status === 'confirmed' ? { args: action.args, result: action.result } : buildEditedArgs(action, draft), null, 2)}
-        </pre>
+        ['add_task', 'add_habit'].includes(action.capability) ? (
+          <TaskDraftCard
+            value={taskDraftValueFromPendingAction(action, draft)}
+            statusLabel={statusLabel}
+            statusTone={pendingStatusTone(action)}
+          />
+        ) : (
+          <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-xs text-ink-soft">
+            {JSON.stringify(status === 'confirmed' ? { args: action.args, result: action.result } : buildEditedArgs(action, draft), null, 2)}
+          </pre>
+        )
       )}
 
       {isPending && (
@@ -914,14 +966,33 @@ export default function AssistantPage() {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-card bg-sunken/70">
-      <div className="flex items-center justify-between border-b border-card px-4 py-3">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-3 border-b border-card px-3 py-2.5 md:px-4 md:py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-300">
             <Bot className="h-5 w-5" />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-lg font-semibold text-ink">Talk to your day</h1>
-            <p className="text-xs text-gray-500 md:hidden">{conversations.length} saved chats</p>
+            {conversations.length > 0 ? (
+              <select
+                value={activeConversationId}
+                onChange={(event) => {
+                  const conversation = conversations.find((item) => item.id === event.target.value)
+                  if (conversation) openConversation(conversation)
+                }}
+                disabled={isSending}
+                className="mt-1 block w-full truncate rounded-md border border-card bg-page px-2 py-1 text-xs text-ink outline-none transition-colors focus:border-cyan-500 disabled:opacity-60 md:hidden"
+                aria-label="Chat history"
+              >
+                {conversations.map((conversation) => (
+                  <option key={conversation.id} value={conversation.id}>
+                    {conversation.title}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-xs text-gray-500 md:hidden">{conversations.length} saved chats</p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -938,30 +1009,7 @@ export default function AssistantPage() {
         </div>
       </div>
 
-      {conversations.length > 0 && (
-        <div className="border-b border-card p-3 md:hidden">
-          <label className="grid gap-1 text-xs font-medium text-gray-500">
-            <span>Chat history</span>
-            <select
-              value={activeConversationId}
-              onChange={(event) => {
-                const conversation = conversations.find((item) => item.id === event.target.value)
-                if (conversation) openConversation(conversation)
-              }}
-              disabled={isSending}
-              className="rounded-md border border-card bg-page px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-cyan-500 disabled:opacity-60"
-            >
-              {conversations.map((conversation) => (
-                <option key={conversation.id} value={conversation.id}>
-                  {conversation.title}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      )}
-
-      <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5">
+      <div className="assistant-messages-scroll flex-1 space-y-4 overflow-y-auto px-4 pt-5 md:pb-5">
         {messages.length === 0 ? (
           <div className="grid gap-2 sm:grid-cols-3">
             {starterPrompts.map((prompt) => (
@@ -1022,7 +1070,7 @@ export default function AssistantPage() {
         )}
       </div>
 
-      <form onSubmit={submit} className="border-t border-card px-2.5 pt-2.5 sm:p-3">
+      <form onSubmit={submit} className="assistant-composer-form fixed left-0 right-0 z-20 border-t border-card bg-sunken/95 px-2.5 pt-2.5 backdrop-blur-xl md:static md:bg-transparent md:p-3 md:backdrop-blur-none">
         {attachment && (
           <div className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-card bg-sunken px-3 py-2">
             <div className="flex min-w-0 items-center gap-3">
@@ -1049,20 +1097,11 @@ export default function AssistantPage() {
           </div>
         )}
         {dictationError && <p className="mb-2 text-xs text-red-300">{dictationError}</p>}
-        <div className="assistant-composer rounded-[1.5rem] border border-line-strong bg-raised/70 px-2.5 py-2 shadow-inner shadow-black/20 transition-colors focus-within:border-cyan-500/70 focus-within:bg-raised sm:rounded-[1.75rem] sm:p-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isSending}
-              className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-sunken text-ink-soft transition-colors hover:bg-card hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label={attachment ? 'Replace attachment' : 'Attach file'}
-            >
-              <Paperclip size={20} className="flex-none" />
-            </button>
+        <div className="assistant-composer rounded-[1.5rem] border border-line-strong bg-raised/70 px-3 py-2.5 shadow-inner shadow-black/20 transition-colors focus-within:border-cyan-500/70 focus-within:bg-raised sm:rounded-[1.75rem] sm:p-3">
+          <div className="min-w-0">
             <textarea
               ref={inputRef}
-              className="h-11 min-h-0 min-w-0 flex-1 resize-none bg-transparent px-1 py-2.5 text-base leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-60 sm:h-auto sm:max-h-36 sm:min-h-8 sm:py-1"
+              className="max-h-28 min-h-8 w-full resize-none bg-transparent px-1 py-1 text-base leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-60 sm:max-h-36"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               onKeyDown={(event) => {
@@ -1075,6 +1114,31 @@ export default function AssistantPage() {
               disabled={isSending}
               rows={1}
             />
+          </div>
+          <div className="mt-2 flex min-w-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isSending}
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-sunken text-ink-soft transition-colors hover:bg-card hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={attachment ? 'Replace attachment' : 'Attach file'}
+            >
+              <Paperclip size={20} className="flex-none" />
+            </button>
+            <select
+              value={model}
+              onChange={(event) => setModel(event.target.value as AssistantChatModel)}
+              disabled={isSending}
+              className="h-8 min-w-0 max-w-[9.5rem] rounded-full border border-transparent bg-sunken px-3 text-xs font-medium text-ink outline-none transition-colors hover:bg-card focus:border-cyan-500 disabled:opacity-60 sm:h-11 sm:max-w-56 sm:px-4 sm:text-base"
+              aria-label="Assistant model"
+            >
+              {assistantModels.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <div className="min-w-0 flex-1" />
             <button
               type="button"
               onClick={toggleDictation}
@@ -1092,21 +1156,6 @@ export default function AssistantPage() {
             >
               <Send size={20} className="flex-none" />
             </button>
-          </div>
-          <div className="mt-1.5 flex min-w-0 items-center">
-            <select
-              value={model}
-              onChange={(event) => setModel(event.target.value as AssistantChatModel)}
-              disabled={isSending}
-              className="h-8 min-w-0 max-w-[9.5rem] rounded-full border border-transparent bg-sunken px-3 text-xs font-medium text-ink outline-none transition-colors hover:bg-card focus:border-cyan-500 disabled:opacity-60 sm:h-11 sm:max-w-56 sm:px-4 sm:text-base"
-              aria-label="Assistant model"
-            >
-              {assistantModels.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
           </div>
           <input
             ref={fileInputRef}

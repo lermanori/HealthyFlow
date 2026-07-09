@@ -53,10 +53,16 @@ export function useParsedItems() {
     )
   }, [])
 
+  const updateSuggestion = useCallback((taskId: string, patch: Partial<TaskSuggestion>) => {
+    setSuggestions(prev =>
+      prev.map(task => task.id === taskId ? { ...task, ...patch } : task)
+    )
+  }, [])
+
   const reset = useCallback(() => {
     setSuggestions([])
     setSelectedSuggestions(new Set())
   }, [])
 
-  return { suggestions, selectedSuggestions, isAnalyzing, analyzeText, toggleSuggestion, updateTaskDate, reset }
+  return { suggestions, selectedSuggestions, isAnalyzing, analyzeText, toggleSuggestion, updateTaskDate, updateSuggestion, reset }
 }
