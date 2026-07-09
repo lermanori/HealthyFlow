@@ -6,7 +6,8 @@ import { useNotifications } from '../hooks/useNotifications'
 import { useCredits } from '../hooks/useCredits'
 import { useSettings } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
-import api, { ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, UserSettings } from '../services/api'
+import api, { ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, pushService, UserSettings } from '../services/api'
+import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
 
 function mcpEndpoint() {
@@ -148,6 +149,20 @@ export default function SettingsPage() {
       toast.success('Notifications enabled!')
     } else {
       toast.error('Notifications permission denied')
+    }
+  }
+
+  const handleTestNotification = async () => {
+    const ok = await enablePush()
+    if (!ok) {
+      toast.error('Enable notifications first (install to Home Screen on iPhone).')
+      return
+    }
+    try {
+      await pushService.sendTest()
+      toast.success('Test notification sent — check your device.')
+    } catch {
+      toast.error('Could not send test notification.')
     }
   }
 
@@ -447,9 +462,18 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
 
       {/* Notifications */}
       <div className="card">
-        <div className="flex items-center space-x-3 mb-4">
-          <Bell className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-gray-100">Notifications</h2>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <Bell className="w-5 h-5 text-cyan-400" />
+            <h2 className="text-lg font-semibold text-gray-100">Notifications</h2>
+          </div>
+          <button
+            type="button"
+            onClick={handleTestNotification}
+            className="btn-secondary text-sm"
+          >
+            Send test notification
+          </button>
         </div>
 
         {/* Browser Permission */}

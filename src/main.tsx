@@ -72,4 +72,9 @@ if ('serviceWorker' in navigator && !isViteDevServer) {
         console.error('Service worker registration failed:', error)
       })
   })
+
+  // Re-verify the push subscription on every app open (iOS silently expires them).
+  window.addEventListener('load', () => {
+    import('./lib/push').then(({ ensurePushSubscription }) => ensurePushSubscription())
+  })
 }

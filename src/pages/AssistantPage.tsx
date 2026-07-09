@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { Bot, ChevronDown, Dumbbell, Flame, Image as ImageIcon, Mic, MessageSquare, Paperclip, Pencil, Plus, Scale, Send, Target, Trash2, UserRound, Wrench, X } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantPendingAction, AssistantToolEvent } from '../services/api'
+import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantPendingAction, AssistantToolEvent, pushService } from '../services/api'
 import { useDictatedText } from '../hooks/useDictatedText'
 
 type ConversationPendingAction = AssistantPendingAction & {
@@ -766,6 +767,30 @@ export default function AssistantPage() {
     event.preventDefault()
     sendMessage(draft)
   }
+
+  const [searchParams, setSearchParams] = useSearchParams()
+  const kickoffFiredRef = useRef(false)
+
+  useEffect(() => {
+    const kickoff = searchParams.get('kickoff')
+    if (!kickoff || kickoffFiredRef.current) return
+    if (!['morning', 'midday', 'weekly'].includes(kickoff)) return
+    kickoffFiredRef.current = true
+    // Clear the param so a refresh doesn't re-fire the kickoff.
+    const next = new URLSearchParams(searchParams)
+    next.delete('kickoff')
+    setSearchParams(next, { replace: true })
+
+    ;(async () => {
+      try {
+        const seed = await pushService.getKickoff(kickoff as 'morning' | 'midday' | 'weekly')
+        await sendMessage(seed)
+      } catch {
+        toast.error('Could not start your planning session.')
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handleAttachmentChange = async (file: File | undefined) => {
     if (!file) return

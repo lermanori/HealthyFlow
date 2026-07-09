@@ -1,3 +1,9 @@
+### 2026-07-09 19:11 — `feat/proactivity-rhythm-slice1`
+
+Finished the first proactivity rhythm pipe after the interrupted session. The backend scheduler and routes are already committed, and the frontend now handles JSON push payloads, re-verifies Web Push subscriptions on app open, exposes push/rhythm API helpers, sends test notifications from Settings, and deep-links notification taps into Assistant kickoff sessions. Frontend build, focused proactivity tests, and the full backend test suite passed before commit.
+
+---
+
 ### 2026-07-05 20:09 — `fix/assistant-current-time`
 
 Fixed the remaining Assistant time-context gap after the date-context fix. Assistant chat prompts now include the user's current local `HH:MM` time alongside timezone, today, yesterday, and tomorrow, and explicitly tell the model to use that value for "now" or "right now" tool arguments. Focused assistant route tests and the backend build passed before commit.
