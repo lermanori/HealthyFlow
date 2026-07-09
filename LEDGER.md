@@ -1,3 +1,9 @@
+### 2026-07-09 12:17 — `feat/redesign-v2`
+
+Replaced the Talk calorie confirmation JSON dump with a proper Calorie entry draft/result card. Pending calorie actions now use the same card for editing, confirmed calorie actions show a saved entry summary with calories, macros, date, time, and quantity, and confirmation invalidates calorie caches so Today/Calories refresh. Verified the Hebrew mobile confirm flow with a mocked calorie entry and confirmed no raw `args` JSON remains.
+
+---
+
 ### 2026-07-09 11:25 — `feat/redesign-v2`
 
 Fixed the mobile Talk overflow introduced by the shared AI Task draft card. The pending-action wrapper and draft card now clamp to the message column, use smaller mobile padding, and shrink long date/time/select controls instead of bleeding under the composer. Verified the same mocked Hebrew task flow on a 390px mobile viewport and confirmed the production build passes.

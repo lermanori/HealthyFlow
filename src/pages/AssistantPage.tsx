@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantPendingAction, AssistantToolEvent } from '../services/api'
 import { useDictatedText } from '../hooks/useDictatedText'
 import TaskDraftCard, { TaskDraftCardValue } from '../components/TaskDraftCard'
+import CalorieEntryDraftCard, { CalorieEntryDraftValue } from '../components/CalorieEntryDraftCard'
 
 type ConversationPendingAction = AssistantPendingAction & {
   status?: 'pending' | 'confirmed' | 'canceled'
@@ -471,6 +472,33 @@ function pendingStatusTone(action: ConversationPendingAction): 'pending' | 'conf
   return action.status ?? 'pending'
 }
 
+function calorieEntryFromRecord(value: Record<string, unknown>): CalorieEntryDraftValue {
+  return {
+    date: optionalText(value.date) ?? null,
+    time: optionalText(value.time) ?? null,
+    name: String(value.name ?? '').trim(),
+    calories: fieldValue(value.calories),
+    protein: value.protein == null ? null : fieldValue(value.protein),
+    carbs: value.carbs == null ? null : fieldValue(value.carbs),
+    fat: value.fat == null ? null : fieldValue(value.fat),
+    quantity: nullableText(value.quantity),
+  }
+}
+
+function calorieDraftsFromPendingAction(action: ConversationPendingAction, draft: Record<string, unknown>): CalorieEntryDraftValue[] {
+  const result = action.result as any
+  if ((action.status === 'confirmed' || action.status === 'canceled') && result) {
+    if (Array.isArray(result.entries)) return result.entries.map((entry: Record<string, unknown>) => calorieEntryFromRecord(entry))
+    if (result.entry && typeof result.entry === 'object') return [calorieEntryFromRecord(result.entry)]
+  }
+
+  if (action.capability === 'add_calorie_entries') {
+    return arrayValue(draft.entries).map(calorieEntryFromRecord)
+  }
+
+  return [calorieEntryFromRecord(draft)]
+}
+
 function PendingActionCard({
   action,
   onConfirm,
@@ -554,7 +582,7 @@ function PendingActionCard({
         )}
       </div>
 
-      {!['add_task', 'add_habit'].includes(action.capability) && (
+      {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries'].includes(action.capability) && (
         <div className={`mb-3 rounded-md border px-3 py-2 text-xs ${
           action.error
             ? 'border-red-500/30 bg-red-950/30 text-red-100'
@@ -594,47 +622,27 @@ function PendingActionCard({
             </div>
           )}
           {action.capability === 'add_calorie_entry' && (
-            <>
-              <TextField label="Name" value={draft.name} onChange={(value) => setField('name', value)} />
-              <TextField label="Calories" value={draft.calories} type="number" onChange={(value) => setField('calories', value)} />
-              <TextField label="Protein" value={draft.protein} type="number" onChange={(value) => setField('protein', value)} />
-              <TextField label="Carbs" value={draft.carbs} type="number" onChange={(value) => setField('carbs', value)} />
-              <TextField label="Fat" value={draft.fat} type="number" onChange={(value) => setField('fat', value)} />
-              <TextField label="Quantity" value={draft.quantity} onChange={(value) => setField('quantity', value)} />
-              <TextField label="Date" value={draft.date} type="date" onChange={(value) => setField('date', value)} />
-              <TextField label="Time" value={draft.time} type="time" onChange={(value) => setField('time', value)} />
-            </>
+            <div className="min-w-0 sm:col-span-2">
+              <CalorieEntryDraftCard
+                entries={calorieDraftsFromPendingAction(action, draft)}
+                editable
+                statusLabel={statusLabel}
+                statusTone={pendingStatusTone(action)}
+                onChange={(_index, patch) => setDraft((current) => ({ ...current, ...patch }))}
+              />
+            </div>
           )}
           {action.capability === 'add_calorie_entries' && (
-            <div className="space-y-3 sm:col-span-2">
-              <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-ink">Meal items</p>
-                <span className="text-xs text-ink-muted">{arrayValue(draft.entries).length} entries</span>
-              </div>
-              {arrayValue(draft.entries).map((entry, index) => (
-                <div key={index} className="rounded-lg border border-card bg-page/50 p-3">
-                  <div className="mb-3 flex items-center gap-2">
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-cyan-500/15 text-xs font-semibold text-cyan-200">
-                      {index + 1}
-                    </span>
-                    <input
-                      className="min-w-0 flex-1 bg-transparent text-sm font-medium text-ink outline-none"
-                      value={fieldValue(entry.name)}
-                      onChange={(event) => setEntryField(index, 'name', event.target.value)}
-                      aria-label={`Meal item ${index + 1} name`}
-                    />
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-4">
-                    <TextField label="Calories" value={entry.calories} type="number" onChange={(value) => setEntryField(index, 'calories', value)} />
-                    <TextField label="Protein" value={entry.protein} type="number" onChange={(value) => setEntryField(index, 'protein', value)} />
-                    <TextField label="Carbs" value={entry.carbs} type="number" onChange={(value) => setEntryField(index, 'carbs', value)} />
-                    <TextField label="Fat" value={entry.fat} type="number" onChange={(value) => setEntryField(index, 'fat', value)} />
-                    <TextField label="Quantity" value={entry.quantity} onChange={(value) => setEntryField(index, 'quantity', value)} />
-                    <TextField label="Date" value={entry.date} type="date" onChange={(value) => setEntryField(index, 'date', value)} />
-                    <TextField label="Time" value={entry.time} type="time" onChange={(value) => setEntryField(index, 'time', value)} />
-                  </div>
-                </div>
-              ))}
+            <div className="min-w-0 sm:col-span-2">
+              <CalorieEntryDraftCard
+                entries={calorieDraftsFromPendingAction(action, draft)}
+                editable
+                statusLabel={statusLabel}
+                statusTone={pendingStatusTone(action)}
+                onChange={(index, patch) => {
+                  Object.entries(patch).forEach(([key, value]) => setEntryField(index, key, value))
+                }}
+              />
             </div>
           )}
           {action.capability === 'add_weight_entry' && (
@@ -685,6 +693,12 @@ function PendingActionCard({
         ['add_task', 'add_habit'].includes(action.capability) ? (
           <TaskDraftCard
             value={taskDraftValueFromPendingAction(action, draft)}
+            statusLabel={statusLabel}
+            statusTone={pendingStatusTone(action)}
+          />
+        ) : ['add_calorie_entry', 'add_calorie_entries'].includes(action.capability) ? (
+          <CalorieEntryDraftCard
+            entries={calorieDraftsFromPendingAction(action, draft)}
             statusLabel={statusLabel}
             statusTone={pendingStatusTone(action)}
           />
@@ -856,6 +870,10 @@ export default function AssistantPage() {
       const response = await aiService.confirmChatAction(actionId, args)
       if (['add_task', 'add_habit', 'update_item', 'delete_item'].includes(response.action.capability)) {
         queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      }
+      if (['add_calorie_entry', 'add_calorie_entries'].includes(response.action.capability)) {
+        queryClient.invalidateQueries({ queryKey: ['calories'] })
+        queryClient.invalidateQueries({ queryKey: ['calorie-items'] })
       }
       toast.success('Action confirmed')
       setMessages((current) => current.map((message) =>
