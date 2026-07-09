@@ -939,6 +939,63 @@ export const db = {
     return data.settings as Record<string, unknown>
   },
 
+  // Proactivity: rhythm (one JSONB row per user, mirrors user_settings)
+  async getUserRhythm(userId: string): Promise<Record<string, unknown>> {
+    const { data, error } = await supabase
+      .from('user_rhythm')
+      .select('rhythm')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (error) throw error
+    return (data?.rhythm as Record<string, unknown>) ?? {}
+  },
+
+  async upsertUserRhythm(userId: string, rhythm: Record<string, unknown>): Promise<Record<string, unknown>> {
+    const existing = await this.getUserRhythm(userId)
+    const merged = { ...existing, ...rhythm }
+    const { data, error } = await supabase
+      .from('user_rhythm')
+      .upsert({ user_id: userId, rhythm: merged, updated_at: new Date().toISOString() })
+      .select('rhythm')
+      .single()
+    if (error) throw error
+    return data.rhythm as Record<string, unknown>
+  },
+
+  // Returns every rhythm row for the scheduler tick.
+  async listAllRhythms(): Promise<Array<{ user_id: string; rhythm: Record<string, unknown> }>> {
+    const { data, error } = await supabase
+      .from('user_rhythm')
+      .select('user_id, rhythm')
+    if (error) throw error
+    return (data ?? []) as Array<{ user_id: string; rhythm: Record<string, unknown> }>
+  },
+
+  // Proactivity: push subscriptions
+  async addPushSubscription(row: { user_id: string; endpoint: string; p256dh: string; auth: string }) {
+    const { error } = await supabase
+      .from('push_subscriptions')
+      .upsert({ ...row, last_seen_at: new Date().toISOString() }, { onConflict: 'endpoint' })
+    if (error) throw error
+  },
+
+  async listPushSubscriptions(userId: string): Promise<Array<{ endpoint: string; p256dh: string; auth: string }>> {
+    const { data, error } = await supabase
+      .from('push_subscriptions')
+      .select('endpoint, p256dh, auth')
+      .eq('user_id', userId)
+    if (error) throw error
+    return (data ?? []) as Array<{ endpoint: string; p256dh: string; auth: string }>
+  },
+
+  async deletePushSubscriptionByEndpoint(endpoint: string) {
+    const { error } = await supabase
+      .from('push_subscriptions')
+      .delete()
+      .eq('endpoint', endpoint)
+    if (error) throw error
+  },
+
   // Contact messages
   async createContactMessage(row: {
     user_id: string
