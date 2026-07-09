@@ -1,3 +1,9 @@
+### 2026-07-09 12:26 — `feat/redesign-v2`
+
+Cleaned up the mobile Today screen after reviewing the live PWA screenshot. The floating `Clear Today` bulk-delete button and its handler are gone, and the Today page no longer reserves the old oversized bottom spacer below AI Insights now that the clear button is removed. The production frontend build passes; lint is still blocked by the missing ESLint config issue in this repo.
+
+---
+
 ### 2026-07-09 12:17 — `feat/redesign-v2`
 
 Replaced the Talk calorie confirmation JSON dump with a proper Calorie entry draft/result card. Pending calorie actions now use the same card for editing, confirmed calorie actions show a saved entry summary with calories, macros, date, time, and quantity, and confirmation invalidates calorie caches so Today/Calories refresh. Verified the Hebrew mobile confirm flow with a mocked calorie entry and confirmed no raw `args` JSON remains.

@@ -3,7 +3,7 @@ import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/rea
 import { format, addDays, subDays, startOfWeek, isSameDay, isBefore } from 'date-fns'
 import { Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, CheckCircle2, Clock, Plus } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
-import api, {
+import {
   calendarService,
   caloriesService,
   onboardingService,
@@ -396,28 +396,6 @@ export default function TodayPage() {
     setSelectedDate(new Date())
   }
 
-  // Clear current date's tasks
-  const handleClearCurrentDate = async () => {
-    const dateStr = format(selectedDate, 'yyyy-MM-dd')
-    const isToday = dateStr === format(new Date(), 'yyyy-MM-dd')
-    const dateLabel = isToday ? 'today' : formatRelativeDate(selectedDate).toLowerCase()
-    
-    if (confirm(`Are you sure you want to delete all tasks for ${dateLabel}? This cannot be undone.`)) {
-      try {
-        await api.delete('/tasks', { params: { date: dateStr } })
-        queryClient.invalidateQueries({ queryKey: ['tasks'] })
-        toast.success(`All tasks for ${dateLabel} deleted`)
-        
-        // Vibrate on clear if supported
-        if (hasVibration) {
-          navigator.vibrate([100, 50, 100, 50, 100])
-        }
-      } catch (e) {
-        toast.error(`Failed to delete ${dateLabel}'s tasks`)
-      }
-    }
-  }
-
   // Carry-forward is now query-time (ADR-0002): incomplete untimed tasks with
   // scheduled_date NULL or < the viewed day surface automatically on GET. No
   // client-side rollover trigger needed.
@@ -431,7 +409,7 @@ export default function TodayPage() {
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 pb-28 md:pb-0">
+    <div className="space-y-4 pb-4 md:space-y-6 md:pb-0">
       {/* Smart Reminders */}
       <SmartReminders />
 
@@ -664,20 +642,6 @@ export default function TodayPage() {
         onSave={handleSaveTask}
       />
       
-      {/* Mobile Clear Button - Fixed at bottom with increased bottom margin */}
-      {isMobile && (
-        <div className="fixed bottom-28 right-4 z-20">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleClearCurrentDate}
-            className="btn-secondary flex items-center space-x-2 text-red-400 border-red-400 hover:bg-red-500/10 shadow-lg"
-          >
-            <span>🗑️</span>
-            <span>Clear {formatRelativeDate(selectedDate)}</span>
-          </motion.button>
-        </div>
-      )}
     </div>
   )
 }
