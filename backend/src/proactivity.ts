@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import webpush from 'web-push'
+import { db } from './supabase-client'
 
 // Closed set of touchpoint types (see spec). Order matters for iteration.
 export const TOUCHPOINT_TYPES = ['morning', 'midday', 'weekly'] as const
@@ -124,4 +126,44 @@ export function findDueTouchpoints(records: RhythmRecord[], now: Date, windowMin
   }
 
   return due
+}
+
+export interface PushPayload {
+  title: string
+  body: string
+  url: string
+}
+
+let vapidConfigured = false
+// Lazily configure VAPID from env so tests (which mock web-push) don't require keys.
+export function configureVapid(): boolean {
+  if (vapidConfigured) return true
+  const publicKey = process.env.VAPID_PUBLIC_KEY
+  const privateKey = process.env.VAPID_PRIVATE_KEY
+  const subject = process.env.VAPID_SUBJECT || 'mailto:admin@healthyflow.app'
+  if (!publicKey || !privateKey) return false
+  webpush.setVapidDetails(subject, publicKey, privateKey)
+  vapidConfigured = true
+  return true
+}
+
+export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
+  const subscriptions = await db.listPushSubscriptions(userId)
+  const body = JSON.stringify(payload)
+
+  await Promise.all(subscriptions.map(async (sub) => {
+    const subscription = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }
+    try {
+      await webpush.sendNotification(subscription, body)
+    } catch (err) {
+      const statusCode = (err as { statusCode?: number }).statusCode
+      if (statusCode === 404 || statusCode === 410) {
+        // Subscription is dead (iOS silently expires them). Prune it.
+        await db.deletePushSubscriptionByEndpoint(sub.endpoint)
+      } else {
+        // No silent fallback: log and move on (no retry queue in v1).
+        console.error(`[proactivity] push send failed for ${sub.endpoint}:`, err)
+      }
+    }
+  }))
 }
