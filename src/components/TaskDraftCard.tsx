@@ -107,7 +107,7 @@ function PillSelect({
       value={value}
       onClick={stopControlClick}
       onChange={(event) => onChange?.(event.target.value)}
-      className={`h-8 rounded-full border px-2.5 text-xs font-medium outline-none transition-colors focus:border-cyan-400 ${className}`}
+      className={`h-8 max-w-full rounded-full border px-2.5 text-xs font-medium outline-none transition-colors focus:border-cyan-400 ${className}`}
     >
       {options.map((option) => <option key={option} value={option}>{option}</option>)}
     </select>
@@ -130,14 +130,14 @@ function PillInput({
   suffix?: string
 }) {
   return (
-    <label className={`inline-flex h-8 items-center gap-1 rounded-full border px-2.5 text-xs font-medium ${className}`} onClick={stopControlClick}>
+    <label className={`inline-flex h-8 max-w-full items-center gap-1 rounded-full border px-2.5 text-xs font-medium ${className}`} onClick={stopControlClick}>
       <input
         aria-label={ariaLabel}
         type={type}
         value={value ?? ''}
         onChange={(event) => onChange?.(event.target.value)}
         className="min-w-0 bg-transparent outline-none"
-        style={{ width: type === 'number' ? '3.25rem' : '5.5rem' }}
+        style={{ width: type === 'number' ? '3.25rem' : type === 'date' ? '6.25rem' : '4.75rem' }}
       />
       {suffix && <span>{suffix}</span>}
     </label>
@@ -163,12 +163,12 @@ export default function TaskDraftCard({
 
   return (
     <div
-      className={`task-suggestion rounded-xl border border-cyan-500/25 bg-sunken/55 p-4 shadow-lg shadow-black/15 transition-all ${
+      className={`task-suggestion box-border w-full max-w-full overflow-hidden rounded-xl border border-cyan-500/25 bg-sunken/55 p-3 shadow-lg shadow-black/15 transition-all sm:p-4 ${
         selectable ? 'cursor-pointer' : ''
       } ${selected ? 'ring-2 ring-cyan-400' : 'hover:border-cyan-400/45'}`}
       onClick={selectable ? onToggle : undefined}
     >
-      <div className="flex items-start gap-3">
+      <div className="flex min-w-0 items-start gap-3">
         {selectable && (
           <button
             type="button"
@@ -193,10 +193,11 @@ export default function TaskDraftCard({
                 onClick={stopControlClick}
                 onChange={(event) => update({ title: event.target.value })}
                 className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-base font-semibold text-ink outline-none transition-colors focus:border-cyan-500/60 focus:bg-page/60"
+                dir="auto"
                 aria-label="Draft title"
               />
             ) : (
-              <h4 className="min-w-0 flex-1 text-base font-semibold text-ink">{value.title}</h4>
+              <h4 className="min-w-0 flex-1 break-words text-base font-semibold text-ink" dir="auto">{value.title}</h4>
             )}
             <span className="inline-flex flex-none items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/15 px-2 py-1 text-[11px] font-medium text-cyan-200">
               <Pencil className="h-3 w-3" />
@@ -205,12 +206,12 @@ export default function TaskDraftCard({
           </div>
 
           {statusLabel && (
-            <div className={`mt-3 rounded-md border px-3 py-2 text-xs ${statusClasses(statusTone)}`}>
+            <div className={`mt-3 max-w-full overflow-hidden text-ellipsis rounded-md border px-3 py-2 text-xs ${statusClasses(statusTone)}`}>
               {statusLabel}
             </div>
           )}
 
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex min-w-0 max-w-full flex-wrap gap-2">
             {canEdit ? (
               <PillSelect
                 value={value.category || 'personal'}
@@ -314,7 +315,7 @@ export default function TaskDraftCard({
           {quickDates.length > 0 && (
             <div className="mt-4">
               <p className="mb-2 text-xs font-medium text-ink-muted">Schedule for</p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex min-w-0 flex-wrap gap-2">
                 {quickDates.slice(0, 2).map((date) => (
                   <button
                     key={date.label}

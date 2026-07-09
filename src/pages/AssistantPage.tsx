@@ -515,7 +515,7 @@ function PendingActionCard({
         : 'Waiting for confirmation'
 
   return (
-    <div className={`mt-3 rounded-lg border bg-sunken p-4 shadow-lg shadow-black/20 ${
+    <div className={`mt-3 box-border w-full max-w-full overflow-hidden rounded-lg border bg-sunken p-3 shadow-lg shadow-black/20 sm:p-4 ${
       action.error
         ? 'border-red-500/50'
         : status === 'confirmed'
@@ -524,8 +524,8 @@ function PendingActionCard({
             ? 'border-line'
             : 'border-amber-500/40'
     }`}>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className={`flex items-center gap-2 text-sm font-semibold ${
+      <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
+        <div className={`flex min-w-0 items-center gap-2 text-sm font-semibold ${
           action.error
             ? 'text-red-100'
             : status === 'confirmed'
@@ -545,7 +545,7 @@ function PendingActionCard({
           }`}>
             {iconForCapability(action.capability)}
           </span>
-          {labelForCapability(action.capability)}
+          <span className="min-w-0 truncate">{labelForCapability(action.capability)}</span>
         </div>
         {isPending && (
           <button className="rounded-md border border-line px-2 py-1 text-xs text-ink-soft hover:border-cyan-500 hover:text-cyan-200" onClick={() => setIsEditing((value) => !value)}>
@@ -569,9 +569,9 @@ function PendingActionCard({
       )}
 
       {isEditing && isPending ? (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
           {action.capability === 'add_task' && (
-            <div className="sm:col-span-2">
+            <div className="min-w-0 sm:col-span-2">
               <TaskDraftCard
                 value={taskDraftValueFromPendingAction(action, draft)}
                 editable
@@ -583,7 +583,7 @@ function PendingActionCard({
             </div>
           )}
           {action.capability === 'add_habit' && (
-            <div className="sm:col-span-2">
+            <div className="min-w-0 sm:col-span-2">
               <TaskDraftCard
                 value={taskDraftValueFromPendingAction(action, draft)}
                 editable

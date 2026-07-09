@@ -1,3 +1,9 @@
+### 2026-07-09 11:25 — `feat/redesign-v2`
+
+Fixed the mobile Talk overflow introduced by the shared AI Task draft card. The pending-action wrapper and draft card now clamp to the message column, use smaller mobile padding, and shrink long date/time/select controls instead of bleeding under the composer. Verified the same mocked Hebrew task flow on a 390px mobile viewport and confirmed the production build passes.
+
+---
+
 ### 2026-07-09 11:01 — `feat/redesign-v2`
 
 Unified the AI-created Task preview experience across AI Task Analyzer and Talk. A new shared Task draft card now blends the analyzer's compact visual preview with Talk's edit-and-confirm workflow, so generated Tasks and Habits can be edited in the same UI before saving from either surface. Mobile verification covered both the analyzer flow and a mocked Talk pending action, and the production build passes.
