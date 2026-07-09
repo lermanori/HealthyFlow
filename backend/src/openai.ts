@@ -75,6 +75,20 @@ export type OpenAIToolEvent = {
   result: unknown
 }
 
+/**
+ * A tool failure the model can recover from within the same turn (e.g. it
+ * referenced an Item that does not exist). The tool loop feeds these back to
+ * the model as a tool result so it can correct itself, instead of aborting the
+ * turn. Infrastructure/unexpected errors are NOT recoverable — they still abort
+ * and surface as an explicit `tool_error` (see AI harness rules in CLAUDE.md).
+ */
+export class RecoverableToolError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'RecoverableToolError'
+  }
+}
+
 type ToolCallOpts = {
   userId: string
   endpoint: string
@@ -885,6 +899,17 @@ export const Openai = {
             message,
             error,
           })
+          if (error instanceof RecoverableToolError) {
+            // Let the model correct itself within the turn (e.g. re-list Items
+            // and retry with a real id) instead of aborting.
+            toolEvents.push({ name, args, result: { ok: false, error: message } })
+            messages.push({
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify({ ok: false, error: message }),
+            })
+            continue
+          }
           await Credits.settleReserved(opts.userId, reservedTokens, usage, {
             endpoint: opts.endpoint,
             model: opts.model,

@@ -36,6 +36,7 @@ jest.mock('../../src/supabase-client', () => ({
         created_at: '2026-07-02T08:00:00.000Z',
       },
     ]),
+    getTaskById: jest.fn(),
     getCalorieEntriesByDay: jest.fn().mockResolvedValue([]),
     getCalorieItemByNormalizedName: jest.fn().mockResolvedValue(null),
     getRecentCalorieItems: jest.fn().mockResolvedValue([]),
@@ -900,6 +901,32 @@ describe('POST /api/ai/chat', () => {
     })
     expect(res.body.error).toContain('PGRST205')
     expect(res.body.error).not.toBe('Tool execution failed')
+  })
+
+  it('recovers from an invented item id instead of leaking a raw db error', async () => {
+    const { db } = await import('../../src/supabase-client')
+
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, toolCallResponse('complete_task', { itemId: '1' }))
+      .post('/v1/chat/completions')
+      .reply(200, finalAnswerResponse)
+
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-bad-id'))
+      .send({ messages: [{ role: 'user', content: 'mark coffee with sami as done' }] })
+
+    // The invented id never reached Postgres, so no raw 22P02 surfaced and the
+    // turn was not aborted — the model got a recoverable error and answered.
+    expect(res.status).toBe(200)
+    expect(res.body.message).toBe('You have Buy milk on your plate today.')
+    expect(db.getTaskById).not.toHaveBeenCalled()
+    const badEvent = res.body.toolEvents.find((event: any) => event.name === 'complete_task')
+    expect(badEvent.result).toEqual({
+      ok: false,
+      error: expect.stringContaining('No Item found with id "1"'),
+    })
   })
 
   it('settles accumulated usage when a later tool loop fails', async () => {

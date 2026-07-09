@@ -1,3 +1,9 @@
+### 2026-07-09 15:10 — `feat/redesign-v2`
+
+Fixed the Talk assistant crash where editing an existing card surfaced a raw Postgres `invalid input syntax for type uuid: "1"` error. Root cause: the model split the confirm flow across turns and, because tool results are not carried between turns, invented an item id like `"1"` that leaked straight into a uuid column. `getOwnedTask` now guards the id shape and throws a new `RecoverableToolError`, which the tool loop feeds back to the model so it re-lists and retries within the turn — while genuine infra failures still abort and surface as `tool_error`. The chat system prompt now tells the model that calling a write tool IS the confirmation step and that ids must come from a same-turn `get_today`/`list_tasks`. Verified live on mobile and with 284 passing backend tests including a new self-heal regression.
+
+---
+
 ### 2026-07-09 12:49 — `feat/redesign-v2`
 
 Improved the Talk assistant failure path after investigating the mobile "Tool execution failed" screenshot. Backend tool errors now preserve useful Supabase/PostgREST-style object details and log the failing tool name, so the next production failure should expose the real cause instead of collapsing to a generic message. Added focused assistant-chat regression coverage and verified the backend test/build path before deployment.
