@@ -2,6 +2,7 @@ import { z } from 'zod'
 import webpush from 'web-push'
 import cron from 'node-cron'
 import { db } from './supabase-client'
+import { buildDailyContext } from './daily-context'
 
 // Closed set of touchpoint types (see spec). Order matters for iteration.
 export const TOUCHPOINT_TYPES = ['morning', 'midday', 'weekly'] as const
@@ -212,4 +213,22 @@ export function startProactivityScheduler(): void {
     runProactivityTick(new Date(), 5).catch((err) => console.error('[proactivity] tick failed:', err))
   })
   console.log('[proactivity] scheduler started (*/5 * * * *)')
+}
+
+const KICKOFF_INTROS: Record<TouchpointType, string> = {
+  morning: 'Good morning! Help me plan today. Here is my current day context:',
+  midday: 'Mid-day check-in. Help me adjust the rest of today. Current context:',
+  weekly: 'Weekly planning. Help me place work across the coming days. Current context:',
+}
+
+// Server-built seed message the assistant responds to. No AI here — the assistant
+// chat endpoint runs the model when the client sends this as the first user turn.
+export async function buildKickoffMessage(userId: string, type: TouchpointType): Promise<string> {
+  const context = await buildDailyContext(userId)
+  const tasks = context.day.tasks
+    .filter((t) => !t.completed)
+    .map((t) => `- ${t.title}${t.startTime ? ` at ${t.startTime}` : ''}`)
+    .join('\n')
+  const summary = tasks || '- (nothing scheduled yet)'
+  return `${KICKOFF_INTROS[type]}\n\nDate: ${context.date}\nOpen items today:\n${summary}`
 }
