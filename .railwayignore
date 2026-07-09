@@ -1,0 +1,12 @@
+node_modules
+backend/node_modules
+dist
+.git
+.netlify
+.board-harness
+.scratch
+output
+test-results
+healthyflow.db
+*.log
+.DS_Store
