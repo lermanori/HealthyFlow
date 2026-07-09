@@ -448,6 +448,33 @@ function taskDraftValueFromPendingAction(action: AssistantPendingAction, draft: 
   }
 }
 
+function taskDraftValueFromRecord(value: Record<string, any>): TaskDraftCardValue {
+  return {
+    title: String(value.title ?? ''),
+    category: fieldValue(value.category || 'personal'),
+    duration: fieldValue(value.duration ?? ''),
+    type: value.type === 'habit' ? 'habit' : 'task',
+    startTime: optionalText(value.startTime) ?? null,
+    scheduledDate: optionalText(value.scheduledDate),
+    repeat: value.repeat ? fieldValue(value.repeat) : undefined,
+  }
+}
+
+// The Item a complete_task / update_item card should display: the resulting
+// Item once confirmed, otherwise the previewed Item.
+function taskItemFromAction(action: ConversationPendingAction): Record<string, any> | null {
+  const result = action.result as any
+  if ((action.status === 'confirmed' || action.status === 'canceled') && result?.item) return result.item
+  const preview = action.preview as any
+  if (preview?.item) return preview.item
+  return null
+}
+
+function deleteItemTitle(action: ConversationPendingAction): string | null {
+  const preview = action.preview as any
+  return preview?.item?.title ?? null
+}
+
 function taskDraftPatchToPendingDraft(patch: Partial<TaskDraftCardValue>) {
   const next: Record<string, unknown> = {}
   if (patch.title !== undefined) next.title = patch.title
@@ -470,6 +497,15 @@ function assistantQuickDates() {
 function pendingStatusTone(action: ConversationPendingAction): 'pending' | 'confirmed' | 'canceled' | 'error' {
   if (action.error) return 'error'
   return action.status ?? 'pending'
+}
+
+function statusToneClasses(tone: 'pending' | 'confirmed' | 'canceled' | 'error') {
+  switch (tone) {
+    case 'confirmed': return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+    case 'canceled': return 'border-line bg-page/70 text-ink-soft'
+    case 'error': return 'border-red-500/35 bg-red-500/10 text-red-100'
+    default: return 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+  }
 }
 
 function calorieEntryFromRecord(value: Record<string, unknown>): CalorieEntryDraftValue {
@@ -582,7 +618,7 @@ function PendingActionCard({
         )}
       </div>
 
-      {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries'].includes(action.capability) && (
+      {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'complete_task', 'update_item', 'delete_item'].includes(action.capability) && (
         <div className={`mb-3 rounded-md border px-3 py-2 text-xs ${
           action.error
             ? 'border-red-500/30 bg-red-950/30 text-red-100'
@@ -680,10 +716,19 @@ function PendingActionCard({
               <TextField label="Scheduled date" value={draft.scheduledDate} type="date" onChange={(value) => setField('scheduledDate', value)} />
             </>
           )}
+          {action.capability === 'complete_task' && taskItemFromAction(action) && (
+            <div className="min-w-0 sm:col-span-2">
+              <TaskDraftCard
+                value={taskDraftValueFromRecord(taskItemFromAction(action)!)}
+                statusLabel={statusLabel}
+                statusTone={pendingStatusTone(action)}
+              />
+            </div>
+          )}
           {action.capability === 'delete_item' && (
             <SelectField label="Delete scope" value={draft.deleteScope ?? 'instance'} options={['instance', 'habit']} onChange={(value) => setField('deleteScope', value)} />
           )}
-          {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'add_weight_entry', 'add_achievement_entry', 'add_workout_session', 'update_item', 'delete_item'].includes(action.capability) && (
+          {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'add_weight_entry', 'add_achievement_entry', 'add_workout_session', 'update_item', 'delete_item', 'complete_task'].includes(action.capability) && (
             <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-xs text-ink-soft sm:col-span-2">
               {JSON.stringify(action.preview, null, 2)}
             </pre>
@@ -702,6 +747,17 @@ function PendingActionCard({
             statusLabel={statusLabel}
             statusTone={pendingStatusTone(action)}
           />
+        ) : ['complete_task', 'update_item'].includes(action.capability) && taskItemFromAction(action) ? (
+          <TaskDraftCard
+            value={taskDraftValueFromRecord(taskItemFromAction(action)!)}
+            statusLabel={statusLabel}
+            statusTone={pendingStatusTone(action)}
+          />
+        ) : action.capability === 'delete_item' ? (
+          <div className={`rounded-md border px-3 py-2 text-xs ${statusToneClasses(pendingStatusTone(action))}`}>
+            {statusLabel}
+            {deleteItemTitle(action) && <span className="ml-1 font-medium">{deleteItemTitle(action)}</span>}
+          </div>
         ) : (
           <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-xs text-ink-soft">
             {JSON.stringify(status === 'confirmed' ? { args: action.args, result: action.result } : buildEditedArgs(action, draft), null, 2)}

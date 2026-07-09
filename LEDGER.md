@@ -1,3 +1,9 @@
+### 2026-07-09 18:00 — `feat/redesign-v2`
+
+Redesigned the Today page header and week ribbon. Each day in the ribbon now shows a completed/total count and a colored progress fill bar (green when fully done, cyan otherwise) with a responsive stacked-on-mobile / row-on-desktop layout, replacing the old dots-and-checkmark treatment. The header gained a status subline (done / timed-left / untimed counts), a grouped desktop day-nav, and a dedicated mobile week-nav row; the JS-driven `isMobile` resize listener was dropped in favor of Tailwind breakpoints. The Talk assistant also now renders `complete_task`/`update_item` as TaskDraftCard previews and `delete_item` as a titled status pill instead of raw JSON dumps.
+
+---
+
 ### 2026-07-09 16:20 — `feat/redesign-v2`
 
 Brainstormed issue #133 (proactivity, notifications, future planning) into an approved design spec. The vision crystallised as a "rhythm" of three planning touchpoints — morning planning, mid-day update, weekly planning — delivered as real iPhone web-push notifications (PWA, home-screen install) that deep-link into assistant kickoffs; static push text with AI running only on open, node-cron in the existing Railway backend, one new deep module `proactivity.ts`, and deterministic auto-tune suggestions in a later slice. Spec written to `docs/superpowers/specs/2026-07-09-proactivity-rhythm-design.md` with a 3-slice phasing plan; next step is the implementation plan.

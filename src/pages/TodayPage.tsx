@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays, startOfWeek, isSameDay, isBefore } from 'date-fns'
-import { Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, CheckCircle2, Clock, Plus } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, Clock, Plus } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   calendarService,
@@ -40,34 +40,83 @@ function WeekRibbon({
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
 
   return (
-    <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+    <div className="mt-2.5 grid grid-cols-7 gap-1.5 lg:mt-4 lg:gap-2">
       {days.map((day) => {
         const key = format(day, 'yyyy-MM-dd')
         const load = loadByDay[key] ?? { total: 0, completed: 0 }
         const isSelected = isSameDay(day, selectedDate)
-        const isPast = isBefore(day, today) && !isSameDay(day, today)
-        const allDone = isPast && load.total > 0 && load.completed >= load.total
-        const dots = Math.min(load.total, 4)
+        const isFuture = isBefore(today, day) && !isSameDay(day, today)
+        const allDone = load.total > 0 && load.completed >= load.total
+        const pct = load.total > 0 ? Math.round((load.completed / load.total) * 100) : 0
+        const barColor = allDone ? '#4ade80' : '#22d3ee'
+
         return (
           <button
             key={key}
             type="button"
             onClick={() => onSelect(day)}
-            className={`flex flex-col items-center gap-1 rounded-xl border px-1 py-2 transition-all ${
+            className={`flex flex-col overflow-hidden rounded-xl border transition-all ${
               isSelected
-                ? 'border-cyan-500/60 bg-cyan-500/15 text-cyan-200 shadow-lg shadow-cyan-500/10'
-                : 'border-line/60 bg-page/40 text-ink-muted hover:border-cyan-500/30 hover:text-ink-soft'
+                ? 'border-cyan-400/50 bg-cyan-500/[.12] shadow-lg shadow-cyan-500/10'
+                : 'border-line/50 bg-card/[.35] hover:border-cyan-500/30'
             }`}
           >
-            <span className="text-[10px] font-medium uppercase tracking-wide">{format(day, 'EEEEE')}</span>
-            <span className={`text-sm font-semibold ${isSelected ? 'text-cyan-100' : 'text-ink-soft'}`}>{format(day, 'd')}</span>
-            <span className="flex h-2 items-center gap-0.5">
-              {allDone ? (
-                <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-              ) : (
-                Array.from({ length: dots }).map((_, i) => (
-                  <span key={i} className="h-1 w-1 rounded-full bg-cyan-400/70" />
-                ))
+            {/* content: stacked on mobile, row on desktop */}
+            <div className="flex flex-1 flex-col items-center gap-1 pt-2 lg:flex-row lg:justify-between lg:gap-2 lg:px-3 lg:pb-2 lg:pt-2.5">
+              <span className="flex flex-col items-center gap-1 lg:flex-row lg:items-baseline lg:gap-1.5">
+                <span
+                  className={`text-[10px] tracking-wide lg:uppercase lg:tracking-widest ${
+                    isSelected ? 'font-semibold text-cyan-300' : 'text-ink-muted'
+                  }`}
+                >
+                  <span className="lg:hidden">{format(day, 'EEEEE')}</span>
+                  <span className="hidden lg:inline">{format(day, 'EEE')}</span>
+                </span>
+                <span
+                  className={`text-[15px] leading-none lg:text-lg ${
+                    isSelected
+                      ? 'font-bold text-cyan-100'
+                      : isFuture
+                        ? 'font-semibold text-ink-muted'
+                        : 'font-semibold text-ink-soft'
+                  }`}
+                  style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+                >
+                  {format(day, 'd')}
+                </span>
+              </span>
+              <span
+                className={`text-[10px] font-semibold lg:text-[11px] ${
+                  allDone && !isSelected
+                    ? 'text-green-400'
+                    : isSelected
+                      ? 'text-cyan-200'
+                      : 'text-ink-muted'
+                }`}
+              >
+                {isFuture ? (
+                  <>
+                    <span className="lg:hidden">{load.total || '·'}</span>
+                    <span className="hidden lg:inline">
+                      {load.total ? `${load.total} tasks` : '—'}
+                    </span>
+                  </>
+                ) : (
+                  `${load.completed}/${load.total}`
+                )}
+              </span>
+            </div>
+            {/* fill bar */}
+            <span
+              className={`mt-1 block h-[3px] w-full lg:mt-0 ${
+                isSelected ? 'bg-cyan-400/15' : 'bg-[#1c2739]'
+              }`}
+            >
+              {!isFuture && load.total > 0 && (
+                <span
+                  className="block h-full"
+                  style={{ width: `${pct}%`, background: barColor }}
+                />
               )}
             </span>
           </button>
@@ -127,7 +176,6 @@ export default function TodayPage() {
   const [showConfetti, setShowConfetti] = useState(false)
   const [showAIAnalyzer, setShowAIAnalyzer] = useState(false)
   const [habitDeleteCandidate, setHabitDeleteCandidate] = useState<Task | null>(null)
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const queryClient = useQueryClient()
   const { showNotification } = useNotifications()
   const location = useLocation()
@@ -144,16 +192,6 @@ export default function TodayPage() {
       window.history.replaceState({}, document.title, window.location.pathname)
     }
   }, [location])
-
-  // Update isMobile state on window resize
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-    
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
 
   // Register for vibration feedback if available
   const hasVibration = 'navigator' in window && 'vibrate' in navigator
@@ -194,6 +232,20 @@ export default function TodayPage() {
     }
     return acc
   }, {} as Record<string, { total: number; completed: number }>)
+
+  const doneCount = tasksData.filter((t) => t.completed).length
+  const timedLeft = tasksData.filter((t) => t.startTime && !t.completed).length
+  const untimedLeft = tasksData.filter((t) => !t.startTime && !t.completed).length
+  const headerSubline =
+    tasksData.length === 0
+      ? 'Nothing scheduled yet'
+      : [
+          `${doneCount} of ${tasksData.length} done`,
+          timedLeft ? `${timedLeft} timed left` : null,
+          untimedLeft ? `${untimedLeft} untimed` : null,
+        ]
+          .filter(Boolean)
+          .join(' · ')
 
   useEffect(() => {
     const syncTimedTasks = async () => {
@@ -459,60 +511,90 @@ export default function TodayPage() {
         animate={{ opacity: 1, y: 0 }}
         className="space-y-3"
       >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handlePreviousDay}
-              className="p-2 rounded-xl hover:bg-card/50 transition-all text-ink-muted hover:text-cyan-400"
-              aria-label="Previous day"
+        {/* Title + actions */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-0.5">
+            <h1
+              className="text-[23px] font-bold leading-tight text-ink lg:text-[26px]"
+              style={{ fontFamily: "'Space Grotesk', sans-serif" }}
             >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-2xl md:text-3xl font-bold text-ink neon-text">
               {formatRelativeDate(selectedDate)}
             </h1>
-            <button
-              onClick={handleNextDay}
-              className="p-2 rounded-xl hover:bg-card/50 transition-all text-ink-muted hover:text-cyan-400"
-              aria-label="Next day"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-            {!isSameDay(selectedDate, new Date()) && (
-              <button
-                onClick={handleToday}
-                className="text-xs md:text-sm text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
-              >
-                Today
-              </button>
-            )}
+            <p className="text-xs text-ink-muted lg:text-[13px]">
+              <span>{format(selectedDate, 'EEEE, d MMMM')} ·{' '}</span>
+              {headerSubline}
+              {!isSameDay(selectedDate, new Date()) && (
+                <button
+                  onClick={handleToday}
+                  className="ml-2 text-xs font-medium text-cyan-400 transition-colors hover:text-cyan-300"
+                >
+                  Today
+                </button>
+              )}
+            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowAIAnalyzer(true)}
-              className={`btn-primary flex items-center space-x-2 bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 ${isMobile ? 'text-sm py-2 px-3' : ''}`}
-            >
-              <Brain className="w-4 h-4" />
-              <span>{isMobile ? 'AI' : 'AI Analyzer'}</span>
-              <Sparkles className="w-4 h-4 animate-neon-flicker" />
-            </motion.button>
+          <div className="flex items-center gap-2">
+            {/* Day nav — desktop only (mobile version lives in the week-nav row) */}
+            <div className="hidden items-stretch overflow-hidden rounded-xl border border-line/60 bg-card/40 lg:flex">
+              <button
+                type="button"
+                onClick={handlePreviousDay}
+                aria-label="Previous day"
+                className="flex h-[38px] w-9 items-center justify-center border-r border-line/60 text-ink-muted transition-colors hover:text-cyan-400"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={handleNextDay}
+                aria-label="Next day"
+                className="flex h-[38px] w-9 items-center justify-center text-ink-muted transition-colors hover:text-cyan-400"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+
             <Link
               to="/talk"
-              className={`btn-primary flex items-center space-x-2 ${isMobile ? 'text-sm py-2 px-3' : ''}`}
+              className="flex items-center gap-1.5 rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-950 shadow-lg shadow-cyan-400/20 transition-colors hover:bg-cyan-300"
             >
-              <Sparkles className="w-4 h-4" />
+              <Sparkles className="h-4 w-4" />
               <span>Talk</span>
             </Link>
             <Link
               to="/add"
-              className={`btn-secondary flex items-center space-x-2 ${isMobile ? 'text-sm py-2 px-3' : ''}`}
+              aria-label="Add"
+              className="flex h-[38px] w-[38px] items-center justify-center gap-1.5 rounded-xl border border-line bg-card/50 text-ink-soft transition-colors hover:border-line-strong hover:text-ink lg:w-auto lg:px-3.5"
             >
-              <Plus className="w-4 h-4" />
-              <span>Add</span>
+              <Plus className="h-[17px] w-[17px]" />
+              <span className="hidden text-sm font-medium lg:inline">Add</span>
             </Link>
+          </div>
+        </div>
+
+        {/* Week-nav row — mobile only */}
+        <div className="mt-1 flex items-center justify-between lg:hidden">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+            This week
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handlePreviousDay}
+              aria-label="Previous day"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-line/60 bg-card/40 text-ink-muted transition-colors hover:text-cyan-400"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleNextDay}
+              aria-label="Next day"
+              className="flex h-7 w-7 items-center justify-center rounded-lg border border-line/60 bg-card/40 text-ink-muted transition-colors hover:text-cyan-400"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
 
