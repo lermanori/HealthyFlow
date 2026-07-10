@@ -91,6 +91,8 @@ describe('proactivity routes', () => {
     expect(res.status).toBe(200)
     expect(typeof res.body.message).toBe('string')
     expect(res.body.message.toLowerCase()).toContain('morning')
+    expect(res.body.message).toContain('Run this as a topic-by-topic check-in')
+    expect(res.body.message).toContain('Do not move to the next topic until I answer')
   })
 
   it('GET /kickoff rejects an unknown type', async () => {

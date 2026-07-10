@@ -216,9 +216,21 @@ export function startProactivityScheduler(): void {
 }
 
 const KICKOFF_INTROS: Record<TouchpointType, string> = {
-  morning: 'Good morning! Help me plan today. Here is my current day context:',
-  midday: 'Mid-day check-in. Help me adjust the rest of today. Current context:',
-  weekly: 'Weekly planning. Help me place work across the coming days. Current context:',
+  morning: 'Start a morning planning check-in.',
+  midday: 'Start a mid-day check-in.',
+  weekly: 'Start a weekly planning check-in.',
+}
+
+const KICKOFF_STYLE: Record<TouchpointType, string> = {
+  morning: 'Help me choose a realistic shape for today before I get moving.',
+  midday: 'Help me adjust the rest of today based on what is still open.',
+  weekly: 'Help me zoom out and place work across the coming days.',
+}
+
+const KICKOFF_FIRST_TOPIC: Record<TouchpointType, string> = {
+  morning: 'Start with the day shape: what needs a time, what can stay flexible, and what should be protected.',
+  midday: 'Start with the next block only: what is open now, what changed, and what should move or be dropped.',
+  weekly: 'Start with the week shape: the biggest commitments, pressure points, and what needs a home first.',
 }
 
 // Server-built seed message the assistant responds to. No AI here — the assistant
@@ -230,5 +242,24 @@ export async function buildKickoffMessage(userId: string, type: TouchpointType):
     .map((t) => `- ${t.title}${t.startTime ? ` at ${t.startTime}` : ''}`)
     .join('\n')
   const summary = tasks || '- (nothing scheduled yet)'
-  return `${KICKOFF_INTROS[type]}\n\nDate: ${context.date}\nOpen items today:\n${summary}`
+  return `${KICKOFF_INTROS[type]}
+
+${KICKOFF_STYLE[type]}
+
+Use this context, but do not echo it back as a raw dump.
+Run this as a topic-by-topic check-in, not a full report.
+For the first response:
+- Cover only one topic: ${KICKOFF_FIRST_TOPIC[type]}
+- Use a short, specific heading.
+- Give at most 2 bullets, each with one concrete observation or proposed move.
+- End with one direct question that lets me decide or adjust that topic.
+- Mention other topics only as a tiny queue, e.g. "Next: food, workout, admin" if they are relevant.
+- Do not move to the next topic until I answer.
+- Preserve item titles exactly, including Hebrew or mixed-language text.
+- Do not show JSON, tool traces, or generic assistant phrasing.
+
+Context:
+Date: ${context.date}
+Open items today:
+${summary}`
 }

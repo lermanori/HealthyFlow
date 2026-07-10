@@ -19,6 +19,8 @@ type ConversationPendingAction = AssistantPendingAction & {
 
 type ConversationMessage = AssistantChatMessage & {
   id: string
+  displayContent?: string
+  hidden?: boolean
   attachment?: AssistantChatAttachmentMetadata
   toolEvents?: AssistantToolEvent[]
   pendingActions?: ConversationPendingAction[]
@@ -84,9 +86,83 @@ function writeStoredConversations(conversations: StoredConversation[]) {
 }
 
 function titleFromMessages(messages: ConversationMessage[]) {
-  const firstUserMessage = messages.find((message) => message.role === 'user')?.content.trim()
-  if (!firstUserMessage) return 'New chat'
-  return firstUserMessage.length > 48 ? `${firstUserMessage.slice(0, 45)}...` : firstUserMessage
+  const firstUserMessage = messages.find((message) => message.role === 'user')
+  const title = (firstUserMessage?.displayContent ?? firstUserMessage?.content ?? '').trim()
+  if (!title) return 'New chat'
+  return title.length > 48 ? `${title.slice(0, 45)}...` : title
+}
+
+function renderInlineMarkdown(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={index} className="font-semibold text-ink">{part.slice(2, -2)}</strong>
+    }
+    return <span key={index}>{part}</span>
+  })
+}
+
+function MarkdownMessage({ content }: { content: string }) {
+  const lines = content.split('\n')
+  const elements = lines.map((line, index) => {
+    const trimmed = line.trim()
+    if (!trimmed) return <div key={index} className="h-2" />
+
+    const heading = trimmed.match(/^#{1,3}\s+(.+)$/)
+    if (heading) {
+      return (
+        <h3 key={index} className="pt-1 text-[15px] font-semibold leading-6 text-ink">
+          {renderInlineMarkdown(heading[1])}
+        </h3>
+      )
+    }
+
+    const bullet = trimmed.match(/^[-*]\s+(.+)$/)
+    if (bullet) {
+      return (
+        <div key={index} className="flex gap-2">
+          <span className="mt-[0.62rem] h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300/80" />
+          <p className="min-w-0">{renderInlineMarkdown(bullet[1])}</p>
+        </div>
+      )
+    }
+
+    const numbered = trimmed.match(/^(\d+)\.\s+(.+)$/)
+    if (numbered) {
+      return (
+        <div key={index} className="flex gap-2">
+          <span className="shrink-0 font-semibold text-cyan-300">{numbered[1]}.</span>
+          <p className="min-w-0">{renderInlineMarkdown(numbered[2])}</p>
+        </div>
+      )
+    }
+
+    return <p key={index}>{renderInlineMarkdown(trimmed)}</p>
+  })
+
+  return <div className="space-y-1.5">{elements}</div>
+}
+
+function kickoffDisplayLabel(type: 'morning' | 'midday' | 'weekly') {
+  if (type === 'morning') return 'Start morning planning'
+  if (type === 'weekly') return 'Start weekly planning'
+  return 'Start mid-day check-in'
+}
+
+function compactJson(value: unknown) {
+  const text = JSON.stringify(value)
+  if (!text) return 'null'
+  return text.length > 1200 ? `${text.slice(0, 1200)}...` : text
+}
+
+function continuationPrompt(action: AssistantPendingAction, result: unknown) {
+  return `I confirmed the pending HealthyFlow action.
+
+Action: ${action.capability}
+Result: ${compactJson(result)}
+
+Continue the current conversation naturally.
+If this is a planning/check-in flow, acknowledge the completed action briefly, then continue topic-by-topic: stay on the current topic if there is still a decision to make, otherwise move to the next relevant topic with one concise question.
+Do not repeat the full context, do not show JSON, and do not ask me to confirm something that was already confirmed.`
 }
 
 function formatConversationTime(value: string) {
@@ -830,7 +906,13 @@ export default function AssistantPage() {
     [messages]
   )
 
-  const sendMessage = async (content: string, messageAttachment: ComposerAttachment | null = attachment) => {
+  const sendMessage = async (
+    content: string,
+    messageAttachment: ComposerAttachment | null = attachment,
+    baseMessages: AssistantChatMessage[] = apiMessages,
+    requestModel: AssistantChatModel = model,
+    displayContent?: string
+  ) => {
     const trimmed = content.trim()
     if ((!trimmed && !messageAttachment) || isSending) return
     const userContent = trimmed || `Review the attached ${messageAttachment?.kind === 'image' ? 'image' : 'file'}.`
@@ -839,9 +921,10 @@ export default function AssistantPage() {
       id: crypto.randomUUID(),
       role: 'user',
       content: userContent,
+      displayContent,
       attachment: messageAttachment ? attachmentMetadata(messageAttachment) : undefined,
     }
-    const nextMessages = [...apiMessages, { role: 'user' as const, content: userContent }]
+    const nextMessages = [...baseMessages, { role: 'user' as const, content: userContent }]
 
     setMessages((current) => [...current, userMessage])
     setDraft('')
@@ -859,7 +942,7 @@ export default function AssistantPage() {
             }
           : messageAttachment
         : undefined
-      const response = await aiService.chat(nextMessages, model, requestAttachment)
+      const response = await aiService.chat(nextMessages, requestModel, requestAttachment)
       setMessages((current) => [
         ...current,
         {
@@ -909,7 +992,13 @@ export default function AssistantPage() {
     ;(async () => {
       try {
         const seed = await pushService.getKickoff(kickoff as 'morning' | 'midday' | 'weekly')
-        await sendMessage(seed)
+        const kickoffModel: AssistantChatModel = 'gpt-4o-mini'
+        setActiveConversationId(crypto.randomUUID())
+        setMessages([])
+        setDraft('')
+        setAttachment(null)
+        setModel(kickoffModel)
+        await sendMessage(seed, null, [], kickoffModel, kickoffDisplayLabel(kickoff as 'morning' | 'midday' | 'weekly'))
       } catch {
         toast.error('Could not start your planning session.')
       }
@@ -948,6 +1037,11 @@ export default function AssistantPage() {
 
   const confirmAction = async (actionId: string, args?: Record<string, unknown>) => {
     try {
+      const hasOtherPendingActions = messages.some((message) =>
+        message.pendingActions?.some((action) =>
+          action.id !== actionId && action.status !== 'confirmed' && action.status !== 'canceled'
+        )
+      )
       const response = await aiService.confirmChatAction(actionId, args)
       if (['add_task', 'add_habit', 'update_item', 'delete_item'].includes(response.action.capability)) {
         queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -974,6 +1068,47 @@ export default function AssistantPage() {
             }
           : message
       ))
+      if (!hasOtherPendingActions) {
+        const hiddenContinuation: ConversationMessage = {
+          id: crypto.randomUUID(),
+          role: 'user',
+          content: continuationPrompt(response.action, response.result),
+          displayContent: 'Confirmed',
+          hidden: true,
+        }
+        const nextMessages = [...apiMessages, { role: 'user' as const, content: hiddenContinuation.content }]
+        setMessages((current) => [...current, hiddenContinuation])
+        setIsSending(true)
+
+        try {
+          const nextResponse = await aiService.chat(nextMessages, model)
+          setMessages((current) => [
+            ...current,
+            {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: nextResponse.message,
+              toolEvents: nextResponse.toolEvents,
+              pendingActions: nextResponse.pendingActions,
+            },
+          ])
+        } catch (error: any) {
+          const message = error.response?.data?.error ?? 'Assistant unavailable'
+          toast.error(message)
+          setMessages((current) => [
+            ...current,
+            {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: message,
+              error: true,
+            },
+          ])
+        } finally {
+          setIsSending(false)
+          inputRef.current?.focus()
+        }
+      }
     } catch (error: any) {
       const message = error.response?.data?.error ?? 'Could not confirm action'
       toast.error(message)
@@ -1122,7 +1257,7 @@ export default function AssistantPage() {
             ))}
           </div>
         ) : (
-          messages.map((message) => (
+          messages.filter((message) => !message.hidden).map((message) => (
             <div
               key={message.id}
               className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -1142,7 +1277,11 @@ export default function AssistantPage() {
                         : 'border border-card bg-page text-ink'
                   }`}
                 >
-                  {message.content}
+                  {message.role === 'assistant' ? (
+                    <MarkdownMessage content={message.content} />
+                  ) : (
+                    message.displayContent ?? message.content
+                  )}
                   {message.attachment && (
                     <div className={`mt-2 inline-flex max-w-full items-center gap-2 rounded-md px-2 py-1 text-xs ${
                       message.role === 'user' ? 'bg-sunken/15 text-gray-900' : 'bg-sunken text-ink-soft'

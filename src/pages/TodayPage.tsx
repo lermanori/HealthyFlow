@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays, startOfWeek, isSameDay, isBefore } from 'date-fns'
 import { Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, Clock, Plus } from 'lucide-react'
@@ -7,9 +7,12 @@ import {
   calendarService,
   caloriesService,
   onboardingService,
+  rhythmService,
   taskService,
   ExternalCalendarEvent,
   Task,
+  TouchpointType,
+  UserRhythm,
   type CalorieEntry,
 } from '../services/api'
 import DayTimeline from '../components/DayTimeline'
@@ -25,6 +28,132 @@ import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { useSettings } from '../hooks/useSettings'
+
+const touchpointCtas: Record<TouchpointType, { title: string; body: string; button: string }> = {
+  morning: {
+    title: 'Morning planning is ready',
+    body: 'Set the shape of the day before the timeline fills up.',
+    button: 'Start morning planning',
+  },
+  midday: {
+    title: 'Mid-day check-in is ready',
+    body: 'Rebalance what is left and move anything that changed.',
+    button: 'Start mid-day check-in',
+  },
+  weekly: {
+    title: 'Weekly planning is ready',
+    body: 'Zoom out, reset priorities, and make the week easier to trust.',
+    button: 'Start weekly planning',
+  },
+}
+
+type TouchpointCta = (typeof touchpointCtas)[TouchpointType]
+
+type DueKickoff = {
+  type: TouchpointType
+  startMinutes: number
+} & TouchpointCta
+
+const weekdayIndexes: Record<string, 0 | 1 | 2 | 3 | 4 | 5 | 6> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+}
+
+const touchpointWindowMinutes: Record<TouchpointType, number> = {
+  morning: 4 * 60,
+  midday: 4 * 60,
+  weekly: 12 * 60,
+}
+
+const daytimeCutoffs = {
+  morningEnds: 12 * 60,
+  middayEnds: 18 * 60,
+}
+
+function parseTimeToMinutes(time: string) {
+  const [hours, minutes] = time.split(':').map(Number)
+  return (hours || 0) * 60 + (minutes || 0)
+}
+
+function getRhythmLocalParts(now: Date, timezone: string) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(now)
+  const value = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value
+  const weekday = weekdayIndexes[value('weekday') ?? ''] ?? now.getDay()
+  const hour = Number(value('hour') ?? now.getHours())
+  const minute = Number(value('minute') ?? now.getMinutes())
+  return { weekday, minutes: hour * 60 + minute }
+}
+
+function getDueKickoff(rhythm: UserRhythm | undefined, now: Date): DueKickoff | null {
+  if (!rhythm) return null
+
+  const { weekday, minutes } = getRhythmLocalParts(now, rhythm.timezone)
+  const candidates: DueKickoff[] = []
+
+  const addCandidate = (type: TouchpointType, startMinutes: number) => {
+    const windowMinutes = touchpointWindowMinutes[type]
+    if (minutes >= startMinutes && minutes < startMinutes + windowMinutes) {
+      candidates.push({ type, startMinutes, ...touchpointCtas[type] })
+    }
+  }
+
+  if (rhythm.morning.enabled && rhythm.morning.days.includes(weekday)) {
+    addCandidate('morning', parseTimeToMinutes(rhythm.morning.time))
+  }
+
+  if (rhythm.midday.enabled && rhythm.midday.days.includes(weekday)) {
+    addCandidate('midday', parseTimeToMinutes(rhythm.midday.time))
+  }
+
+  if (rhythm.weekly.enabled && rhythm.weekly.day === weekday) {
+    addCandidate('weekly', parseTimeToMinutes(rhythm.weekly.time))
+  }
+
+  const scheduledDue = candidates.sort((a, b) => b.startMinutes - a.startMinutes)[0]
+  if (scheduledDue) return scheduledDue
+
+  if (rhythm.weekly.enabled && rhythm.weekly.day === weekday) {
+    return {
+      type: 'weekly',
+      startMinutes: parseTimeToMinutes(rhythm.weekly.time),
+      ...touchpointCtas.weekly,
+    }
+  }
+
+  if (minutes < daytimeCutoffs.morningEnds && rhythm.morning.days.includes(weekday)) {
+    return {
+      type: 'morning',
+      startMinutes: parseTimeToMinutes(rhythm.morning.time),
+      ...touchpointCtas.morning,
+    }
+  }
+
+  if (minutes < daytimeCutoffs.middayEnds && rhythm.midday.days.includes(weekday)) {
+    return {
+      type: 'midday',
+      startMinutes: parseTimeToMinutes(rhythm.midday.time),
+      ...touchpointCtas.midday,
+    }
+  }
+
+  return {
+    type: 'midday',
+    startMinutes: parseTimeToMinutes(rhythm.midday.time),
+    ...touchpointCtas.midday,
+  }
+}
 
 function WeekRibbon({
   selectedDate,
@@ -170,8 +299,30 @@ function NowNextCard({ tasks }: { tasks: Task[] }) {
   )
 }
 
+function RhythmKickoffCard({ kickoff }: { kickoff: DueKickoff }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-cyan-500/35 bg-cyan-500/[.08] p-4 shadow-lg shadow-cyan-500/10 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-cyan-300" />
+          <h2 className="text-sm font-semibold text-cyan-100">{kickoff.title}</h2>
+        </div>
+        <p className="mt-1 text-sm text-ink-muted">{kickoff.body}</p>
+      </div>
+      <Link
+        to={`/talk?kickoff=${kickoff.type}`}
+        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 text-sm font-semibold text-cyan-950 shadow-lg shadow-cyan-400/20 transition-colors hover:bg-cyan-300"
+      >
+        <Sparkles className="h-4 w-4" />
+        <span>{kickoff.button}</span>
+      </Link>
+    </div>
+  )
+}
+
 export default function TodayPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
+  const [now, setNow] = useState(new Date())
   const [editingTask, setEditingTask] = useState<Task | null>(null)
   const [showConfetti, setShowConfetti] = useState(false)
   const [showAIAnalyzer, setShowAIAnalyzer] = useState(false)
@@ -193,6 +344,11 @@ export default function TodayPage() {
     }
   }, [location])
 
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setNow(new Date()), 60_000)
+    return () => window.clearInterval(intervalId)
+  }, [])
+
   // Register for vibration feedback if available
   const hasVibration = 'navigator' in window && 'vibrate' in navigator
 
@@ -211,6 +367,12 @@ export default function TodayPage() {
     queryKey: ['calories', selectedDateKey],
     queryFn: () => caloriesService.list(selectedDateKey),
     enabled: calorieModuleEnabled,
+  })
+
+  const { data: rhythm } = useQuery({
+    queryKey: ['user-rhythm'],
+    queryFn: rhythmService.getRhythm,
+    retry: false,
   })
 
   // Week ribbon load dots: one cheap per-day query per weekday. The selected day is
@@ -246,6 +408,11 @@ export default function TodayPage() {
         ]
           .filter(Boolean)
           .join(' · ')
+  const isViewingToday = isSameDay(selectedDate, now)
+  const dueKickoff = useMemo(
+    () => (isViewingToday ? getDueKickoff(rhythm, now) : null),
+    [isViewingToday, now, rhythm]
+  )
 
   useEffect(() => {
     const syncTimedTasks = async () => {
@@ -602,7 +769,8 @@ export default function TodayPage() {
       </motion.div>
 
       {/* Now/next — only when viewing today */}
-      {isSameDay(selectedDate, new Date()) && <NowNextCard tasks={tasksData} />}
+      {isViewingToday && dueKickoff && <RhythmKickoffCard kickoff={dueKickoff} />}
+      {isViewingToday && <NowNextCard tasks={tasksData} />}
 
       {/* AI Text Analyzer Modal */}
       {createPortal(

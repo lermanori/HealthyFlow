@@ -1,3 +1,9 @@
+### 2026-07-10 12:16 — `main`
+
+Added a time-aware Planning Rhythm entry point to the Today screen. When the selected day is today, Today now surfaces a contextual kickoff card for the current rhythm moment and deep-links into the matching `/talk?kickoff=...` flow. Scheduled touchpoints still take priority, the UI falls back to the current part of the day, kickoff launches now open a fresh Talk conversation, and the assistant now keeps the check-in moving topic-by-topic after confirmed actions instead of stopping at the preview card.
+
+---
+
 ### 2026-07-10 12:09 — `main`
 
 Added the first user-facing Planning Rhythm controls to Settings. Users can now configure morning, mid-day, and weekly planning touchpoints, save their local timezone, enable real Web Push subscriptions, and start any kickoff immediately from the rhythm card. The backend now deep-merges rhythm patches safely and sends canonical `/talk?kickoff=...` links while preserving older `/assistant?kickoff=...` redirects; frontend build, backend build, and the full backend test suite passed before commit.
