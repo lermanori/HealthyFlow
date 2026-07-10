@@ -38,7 +38,7 @@ describe('runProactivityTick', () => {
     const sendOrder = sendSpy.mock.invocationCallOrder[0]
     expect(stampOrder).toBeLessThan(sendOrder)
     // morning static payload deep-links to the kickoff
-    expect(sendSpy).toHaveBeenCalledWith('u1', expect.objectContaining({ url: '/assistant?kickoff=morning' }))
+    expect(sendSpy).toHaveBeenCalledWith('u1', expect.objectContaining({ url: '/talk?kickoff=morning' }))
   })
 
   it('sends nothing when no touchpoint is due', async () => {

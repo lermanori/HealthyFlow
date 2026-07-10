@@ -953,6 +953,20 @@ export const db = {
   async upsertUserRhythm(userId: string, rhythm: Record<string, unknown>): Promise<Record<string, unknown>> {
     const existing = await this.getUserRhythm(userId)
     const merged = { ...existing, ...rhythm }
+    for (const key of ['morning', 'midday', 'weekly']) {
+      const existingValue = existing[key]
+      const nextValue = rhythm[key]
+      if (
+        nextValue &&
+        typeof nextValue === 'object' &&
+        !Array.isArray(nextValue) &&
+        existingValue &&
+        typeof existingValue === 'object' &&
+        !Array.isArray(existingValue)
+      ) {
+        merged[key] = { ...(existingValue as Record<string, unknown>), ...(nextValue as Record<string, unknown>) }
+      }
+    }
     const { data, error } = await supabase
       .from('user_rhythm')
       .upsert({ user_id: userId, rhythm: merged, updated_at: new Date().toISOString() })

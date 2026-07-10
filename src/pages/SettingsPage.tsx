@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { CalendarDays, CheckCircle2, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Unplug, Sparkles, Mail, Instagram, MessageCircle, Copy, X, KeyRound, Trash2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
 import { useCredits } from '../hooks/useCredits'
 import { useSettings, applyTheme } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
-import api, { ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, pushService, UserSettings } from '../services/api'
+import api, { ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DailyTouchpointRhythm, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
 import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
 
@@ -15,7 +16,46 @@ function mcpEndpoint() {
   return apiBase.replace(/\/api\/?$/, '/mcp')
 }
 
+type DayIndex = 0 | 1 | 2 | 3 | 4 | 5 | 6
+type DailyTouchpointType = 'morning' | 'midday'
+
+const dayOptions: Array<{ value: DayIndex; label: string }> = [
+  { value: 0, label: 'Sun' },
+  { value: 1, label: 'Mon' },
+  { value: 2, label: 'Tue' },
+  { value: 3, label: 'Wed' },
+  { value: 4, label: 'Thu' },
+  { value: 5, label: 'Fri' },
+  { value: 6, label: 'Sat' },
+]
+
+const touchpointCopy: Record<TouchpointType, { label: string; description: string }> = {
+  morning: {
+    label: 'Morning planning',
+    description: 'Start the day with a planning kickoff.',
+  },
+  midday: {
+    label: 'Mid-day check-in',
+    description: 'Re-plan the rest of today while there is still room to adjust.',
+  },
+  weekly: {
+    label: 'Weekly planning',
+    description: 'Shape the coming week from your current context.',
+  },
+}
+
+function mergeRhythm(current: UserRhythm, patch: UserRhythmPatch): UserRhythm {
+  return {
+    ...current,
+    ...patch,
+    morning: patch.morning ? { ...current.morning, ...patch.morning } : current.morning,
+    midday: patch.midday ? { ...current.midday, ...patch.midday } : current.midday,
+    weekly: patch.weekly ? { ...current.weekly, ...patch.weekly } : current.weekly,
+  }
+}
+
 export default function SettingsPage() {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { permission, requestPermission } = useNotifications()
   const { balance, summary: creditSummary, isLoading: creditsLoading } = useCredits()
@@ -33,6 +73,9 @@ export default function SettingsPage() {
   const [newTokenScopes, setNewTokenScopes] = useState<ApiTokenScope[]>([])
   const [tokenName, setTokenName] = useState('MCP connection')
   const [selectedScopes, setSelectedScopes] = useState<ApiTokenScope[]>(['hf:read'])
+  const [rhythm, setRhythm] = useState<UserRhythm | null>(null)
+  const [rhythmLoading, setRhythmLoading] = useState(true)
+  const [rhythmSaving, setRhythmSaving] = useState<TouchpointType | 'timezone' | null>(null)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -56,7 +99,27 @@ export default function SettingsPage() {
   useEffect(() => {
     loadCalendarStatus()
     loadApiTokens()
+    loadRhythm()
   }, [])
+
+  const loadRhythm = async () => {
+    try {
+      setRhythmLoading(true)
+      const next = await rhythmService.getRhythm()
+      const deviceTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+      if (next.timezone === 'UTC' && deviceTimezone && deviceTimezone !== 'UTC') {
+        const patched = { ...next, timezone: deviceTimezone }
+        setRhythm(patched)
+        rhythmService.updateRhythm({ timezone: deviceTimezone }).catch(() => undefined)
+      } else {
+        setRhythm(next)
+      }
+    } catch {
+      toast.error('Failed to load planning rhythm')
+    } finally {
+      setRhythmLoading(false)
+    }
+  }
 
   const loadCalendarStatus = async () => {
     try {
@@ -150,11 +213,16 @@ export default function SettingsPage() {
   }
 
   const handleNotificationPermission = async () => {
-    const granted = await requestPermission()
-    if (granted) {
+    const granted = permission.granted || await requestPermission()
+    if (!granted) {
+      toast.error('Notifications permission denied')
+      return
+    }
+    const subscribed = await enablePush()
+    if (subscribed) {
       toast.success('Notifications enabled!')
     } else {
-      toast.error('Notifications permission denied')
+      toast.error('Could not enable push notifications on this device')
     }
   }
 
@@ -170,6 +238,47 @@ export default function SettingsPage() {
     } catch {
       toast.error('Could not send test notification.')
     }
+  }
+
+  const updateRhythm = async (patch: UserRhythmPatch, savingKey: TouchpointType | 'timezone') => {
+    if (!rhythm) return
+    const previous = rhythm
+    const optimistic = mergeRhythm(rhythm, patch)
+    setRhythm(optimistic)
+    setRhythmSaving(savingKey)
+    try {
+      const updated = await rhythmService.updateRhythm(patch)
+      setRhythm(updated)
+      toast.success('Planning rhythm updated')
+    } catch {
+      setRhythm(previous)
+      toast.error('Could not update planning rhythm')
+    } finally {
+      setRhythmSaving(null)
+    }
+  }
+
+  const updateDailyTouchpoint = (type: DailyTouchpointType, patch: Partial<DailyTouchpointRhythm>) => {
+    if (!rhythm) return
+    updateRhythm({ [type]: { ...rhythm[type], ...patch } } as UserRhythmPatch, type)
+  }
+
+  const updateWeeklyTouchpoint = (patch: Partial<WeeklyTouchpointRhythm>) => {
+    if (!rhythm) return
+    updateRhythm({ weekly: { ...rhythm.weekly, ...patch } }, 'weekly')
+  }
+
+  const toggleDailyDay = (type: DailyTouchpointType, day: DayIndex) => {
+    if (!rhythm) return
+    const currentDays = rhythm[type].days
+    const nextDays = currentDays.includes(day)
+      ? currentDays.filter((value) => value !== day)
+      : [...currentDays, day].sort((a, b) => a - b)
+    updateDailyTouchpoint(type, { days: nextDays as DayIndex[] })
+  }
+
+  const startKickoff = (type: TouchpointType) => {
+    navigate(`/talk?kickoff=${type}`)
   }
 
   const contactSubject = contactFlow === 'topup' ? 'HealthyFlow credit top-up' : 'HealthyFlow monthly credits'
@@ -543,6 +652,196 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
             onChange={(checked) => handleSettingChange('weeklyReports', checked)}
           />
         </div>
+      </div>
+
+      {/* Planning Rhythm */}
+      <div className="card">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center space-x-3">
+            <CalendarDays className="w-5 h-5 text-cyan-400" />
+            <h2 className="text-lg font-semibold text-ink">Planning Rhythm</h2>
+          </div>
+          {permission.granted ? (
+            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+              Push ready
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={handleNotificationPermission}
+              className="btn-secondary text-sm"
+            >
+              Enable push
+            </button>
+          )}
+        </div>
+
+        {rhythmLoading ? (
+          <div className="flex items-center gap-2 rounded-lg border border-line bg-sunken/40 p-4 text-sm text-ink-muted">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading rhythm
+          </div>
+        ) : rhythm ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border border-line/70 bg-sunken/25 p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-medium text-ink-soft">Timezone</h3>
+                  <p className="text-sm text-ink-muted">Notification times follow this timezone.</p>
+                </div>
+                <div className="flex min-w-0 items-center gap-2">
+                  <input
+                    className="input-field w-full min-w-0 sm:w-64"
+                    value={rhythm.timezone}
+                    onChange={(event) => setRhythm({ ...rhythm, timezone: event.target.value })}
+                    onBlur={() => updateRhythm({ timezone: rhythm.timezone.trim() || 'UTC' }, 'timezone')}
+                    disabled={rhythmSaving !== null}
+                  />
+                  {rhythmSaving === 'timezone' && <Loader2 className="h-4 w-4 animate-spin text-cyan-300" />}
+                </div>
+              </div>
+            </div>
+
+            {(['morning', 'midday'] as const).map((type) => {
+              const touchpoint = rhythm[type]
+              const copy = touchpointCopy[type]
+              return (
+                <div key={type} className="rounded-lg border border-line/70 bg-sunken/25 p-4">
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="text-sm font-medium text-ink-soft">{copy.label}</h3>
+                        <p className="text-sm text-ink-muted">{copy.description}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => startKickoff(type)}
+                          className="btn-secondary px-3 py-2 text-sm"
+                        >
+                          Start now
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => updateDailyTouchpoint(type, { enabled: !touchpoint.enabled })}
+                          disabled={rhythmSaving !== null}
+                          className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                            touchpoint.enabled
+                              ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-200'
+                              : 'border-line bg-page/60 text-ink-muted hover:text-ink-soft'
+                          }`}
+                        >
+                          {touchpoint.enabled ? 'On' : 'Off'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-[9rem_1fr] sm:items-center">
+                      <label className="text-sm text-ink-muted" htmlFor={`${type}-time`}>Time</label>
+                      <input
+                        id={`${type}-time`}
+                        type="time"
+                        className="input-field w-full sm:w-36"
+                        value={touchpoint.time}
+                        onChange={(event) => updateDailyTouchpoint(type, { time: event.target.value })}
+                        disabled={rhythmSaving !== null}
+                      />
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-[9rem_1fr] sm:items-center">
+                      <span className="text-sm text-ink-muted">Days</span>
+                      <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+                        {dayOptions.map((day) => {
+                          const selected = touchpoint.days.includes(day.value)
+                          return (
+                            <button
+                              key={day.value}
+                              type="button"
+                              onClick={() => toggleDailyDay(type, day.value)}
+                              disabled={rhythmSaving !== null || (selected && touchpoint.days.length === 1)}
+                              className={`rounded-lg border px-2 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                                selected
+                                  ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-100'
+                                  : 'border-line bg-page/60 text-ink-muted hover:text-ink-soft'
+                              }`}
+                            >
+                              {day.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+
+            <div className="rounded-lg border border-line/70 bg-sunken/25 p-4">
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-medium text-ink-soft">{touchpointCopy.weekly.label}</h3>
+                    <p className="text-sm text-ink-muted">{touchpointCopy.weekly.description}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => startKickoff('weekly')}
+                      className="btn-secondary px-3 py-2 text-sm"
+                    >
+                      Start now
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateWeeklyTouchpoint({ enabled: !rhythm.weekly.enabled })}
+                      disabled={rhythmSaving !== null}
+                      className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                        rhythm.weekly.enabled
+                          ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-200'
+                          : 'border-line bg-page/60 text-ink-muted hover:text-ink-soft'
+                      }`}
+                    >
+                      {rhythm.weekly.enabled ? 'On' : 'Off'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-[9rem_1fr] sm:items-center">
+                  <label className="text-sm text-ink-muted" htmlFor="weekly-time">Time</label>
+                  <input
+                    id="weekly-time"
+                    type="time"
+                    className="input-field w-full sm:w-36"
+                    value={rhythm.weekly.time}
+                    onChange={(event) => updateWeeklyTouchpoint({ time: event.target.value })}
+                    disabled={rhythmSaving !== null}
+                  />
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-[9rem_1fr] sm:items-center">
+                  <label className="text-sm text-ink-muted" htmlFor="weekly-day">Day</label>
+                  <select
+                    id="weekly-day"
+                    className="input-field w-full sm:w-44"
+                    value={rhythm.weekly.day}
+                    onChange={(event) => updateWeeklyTouchpoint({ day: Number(event.target.value) as DayIndex })}
+                    disabled={rhythmSaving !== null}
+                  >
+                    {dayOptions.map((day) => (
+                      <option key={day.value} value={day.value}>
+                        {day.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+            Planning rhythm is unavailable.
+          </div>
+        )}
       </div>
 
       {/* AI & Sync */}

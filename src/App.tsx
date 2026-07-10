@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
 import TodayPage from './pages/TodayPage'
@@ -18,6 +18,11 @@ import LoadingSpinner from './components/LoadingSpinner'
 import OfflineNotification from './components/OfflineNotification'
 import { useEffect } from 'react'
 import { useSettings } from './hooks/useSettings'
+
+function AssistantRedirect() {
+  const location = useLocation()
+  return <Navigate to={`/talk${location.search}`} replace />
+}
 
 function App() {
   const { user, loading } = useAuth()
@@ -65,7 +70,7 @@ function App() {
           <Route path="/add" element={<AddItemPage />} />
           <Route path="/week" element={<WeekViewPage />} />
           <Route path="/talk" element={<AssistantPage />} />
-          <Route path="/assistant" element={<Navigate to="/talk" replace />} />
+          <Route path="/assistant" element={<AssistantRedirect />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/token-manager" element={user.role === 'admin' ? <TokenManagerPage /> : <Navigate to="/" replace />} />
           <Route path="/meal-ocr-lab" element={user.role === 'admin' ? <MealParserLabPage /> : <Navigate to="/" replace />} />

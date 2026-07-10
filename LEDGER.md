@@ -1,3 +1,9 @@
+### 2026-07-10 12:09 — `main`
+
+Added the first user-facing Planning Rhythm controls to Settings. Users can now configure morning, mid-day, and weekly planning touchpoints, save their local timezone, enable real Web Push subscriptions, and start any kickoff immediately from the rhythm card. The backend now deep-merges rhythm patches safely and sends canonical `/talk?kickoff=...` links while preserving older `/assistant?kickoff=...` redirects; frontend build, backend build, and the full backend test suite passed before commit.
+
+---
+
 ### 2026-07-09 19:11 — `feat/proactivity-rhythm-slice1`
 
 Finished the first proactivity rhythm pipe after the interrupted session. The backend scheduler and routes are already committed, and the frontend now handles JSON push payloads, re-verifies Web Push subscriptions on app open, exposes push/rhythm API helpers, sends test notifications from Settings, and deep-links notification taps into Assistant kickoff sessions. Frontend build, focused proactivity tests, and the full backend test suite passed before commit.

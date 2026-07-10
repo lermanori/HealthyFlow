@@ -78,7 +78,7 @@ router.post('/test-notification', authenticateToken, async (req: AuthRequest, re
     await sendPushToUser(req.user.userId, {
       title: 'HealthyFlow test 🔔',
       body: 'Push is working. Tap to open the assistant.',
-      url: '/assistant?kickoff=morning',
+      url: '/talk?kickoff=morning',
     })
     res.json({ ok: true })
   } catch {
