@@ -294,9 +294,9 @@ describe('nutrition lookup capabilities', () => {
               content: JSON.stringify({
                 meals: [
                   { name: 'שקשוקה', calories: 300, protein: 18, carbs: 20, fat: 20, quantity: '1 serving', labelEvidence: null },
-                  { name: 'ביצה', calories: 70, protein: 6, carbs: 1, fat: 5, quantity: '3 eggs', labelEvidence: null },
-                  { name: 'פיתה', calories: 150, protein: 5, carbs: 30, fat: 1, quantity: '1.5 pitas', labelEvidence: null },
-                  { name: 'טחינה', calories: 90, protein: 3, carbs: 5, fat: 8, quantity: '2 tablespoons', labelEvidence: null },
+                  { name: 'ביצה', calories: 210, protein: 18, carbs: 3, fat: 15, quantity: '3 eggs', labelEvidence: null },
+                  { name: 'פיתה', calories: 225, protein: 7.5, carbs: 45, fat: 1.5, quantity: '1.5 pitas', labelEvidence: null },
+                  { name: 'טחינה', calories: 180, protein: 6, carbs: 10, fat: 16, quantity: '2 tablespoons', labelEvidence: null },
                 ],
               }),
             },
@@ -664,9 +664,9 @@ describe('POST /api/ai/chat', () => {
               content: JSON.stringify({
                 meals: [
                   { name: 'שקשוקה', calories: 300, protein: 18, carbs: 20, fat: 20, quantity: '1 serving', labelEvidence: null },
-                  { name: 'ביצה', calories: 70, protein: 6, carbs: 1, fat: 5, quantity: '3 eggs', labelEvidence: null },
-                  { name: 'פיתה', calories: 150, protein: 5, carbs: 30, fat: 1, quantity: '1.5 pitas', labelEvidence: null },
-                  { name: 'טחינה', calories: 90, protein: 3, carbs: 5, fat: 8, quantity: '2 tablespoons', labelEvidence: null },
+                  { name: 'ביצה', calories: 210, protein: 18, carbs: 3, fat: 15, quantity: '3 eggs', labelEvidence: null },
+                  { name: 'פיתה', calories: 225, protein: 7.5, carbs: 45, fat: 1.5, quantity: '1.5 pitas', labelEvidence: null },
+                  { name: 'טחינה', calories: 180, protein: 6, carbs: 10, fat: 16, quantity: '2 tablespoons', labelEvidence: null },
                 ],
               }),
             },
@@ -679,9 +679,9 @@ describe('POST /api/ai/chat', () => {
         requestId: 'vague-shakshuka-2026-07-02',
         entries: [
           { date: '2026-07-02', time: '20:30', name: 'שקשוקה', quantity: '1 serving', calories: 300, protein: 18, carbs: 20, fat: 20 },
-          { date: '2026-07-02', time: '20:30', name: 'ביצה', quantity: '3 eggs', calories: 70, protein: 6, carbs: 1, fat: 5 },
-          { date: '2026-07-02', time: '20:30', name: 'פיתה', quantity: '1.5 pitas', calories: 150, protein: 5, carbs: 30, fat: 1 },
-          { date: '2026-07-02', time: '20:30', name: 'טחינה', quantity: '2 tablespoons', calories: 90, protein: 3, carbs: 5, fat: 8 },
+          { date: '2026-07-02', time: '20:30', name: 'ביצה', quantity: '3 eggs', calories: 210, protein: 18, carbs: 3, fat: 15 },
+          { date: '2026-07-02', time: '20:30', name: 'פיתה', quantity: '1.5 pitas', calories: 225, protein: 7.5, carbs: 45, fat: 1.5 },
+          { date: '2026-07-02', time: '20:30', name: 'טחינה', quantity: '2 tablespoons', calories: 180, protein: 6, carbs: 10, fat: 16 },
         ],
       }))
       .post('/v1/chat/completions')
@@ -722,9 +722,9 @@ describe('POST /api/ai/chat', () => {
         willCreate: {
           entries: expect.arrayContaining([
             expect.objectContaining({ name: 'שקשוקה', calories: 300 }),
-            expect.objectContaining({ name: 'ביצה', calories: 70 }),
-            expect.objectContaining({ name: 'פיתה', calories: 150 }),
-            expect.objectContaining({ name: 'טחינה', calories: 90 }),
+            expect.objectContaining({ name: 'ביצה', calories: 210 }),
+            expect.objectContaining({ name: 'פיתה', calories: 225 }),
+            expect.objectContaining({ name: 'טחינה', calories: 180 }),
           ]),
         },
       },

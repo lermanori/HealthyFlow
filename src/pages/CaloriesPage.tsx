@@ -55,8 +55,12 @@ function itemToForm(item: CalorieItem, time = currentTime()): FormState {
     protein: item.protein != null ? String(item.protein) : '',
     carbs: item.carbs != null ? String(item.carbs) : '',
     fat: item.fat != null ? String(item.fat) : '',
-    quantity: '',
+    quantity: item.quantity ?? '',
   }
+}
+
+function hasNutritionValues(form: FormState) {
+  return [form.calories, form.protein, form.carbs, form.fat].some((value) => value !== '')
 }
 
 function formatKg(value: number) {
@@ -460,22 +464,25 @@ export default function CaloriesPage() {
                         </div>
                         <div className="grid gap-3 sm:grid-cols-4">
                           <label className="space-y-1">
-                            <span className="text-xs text-ink-muted">Calories</span>
+                            <span className="text-xs text-ink-muted">Calories for quantity</span>
                             <input type="number" className="input-field" value={editForm.calories} onChange={(ev) => setEditForm({ ...editForm, calories: ev.target.value })} />
                           </label>
                           <label className="space-y-1">
-                            <span className="text-xs text-ink-muted">Protein</span>
+                            <span className="text-xs text-ink-muted">Protein for quantity</span>
                             <input type="number" className="input-field" value={editForm.protein} onChange={(ev) => setEditForm({ ...editForm, protein: ev.target.value })} />
                           </label>
                           <label className="space-y-1">
-                            <span className="text-xs text-ink-muted">Carbs</span>
+                            <span className="text-xs text-ink-muted">Carbs for quantity</span>
                             <input type="number" className="input-field" value={editForm.carbs} onChange={(ev) => setEditForm({ ...editForm, carbs: ev.target.value })} />
                           </label>
                           <label className="space-y-1">
-                            <span className="text-xs text-ink-muted">Fat</span>
+                            <span className="text-xs text-ink-muted">Fat for quantity</span>
                             <input type="number" className="input-field" value={editForm.fat} onChange={(ev) => setEditForm({ ...editForm, fat: ev.target.value })} />
                           </label>
                         </div>
+                        {editForm.quantity && hasNutritionValues(editForm) && (
+                          <p className="text-xs text-amber-300">Nutrition numbers are totals for this quantity. Review them if the quantity changes.</p>
+                        )}
                         <div className="flex justify-end">
                           <div className="flex gap-2">
                             <button type="button" onClick={submitEdit} className="text-cyan-400" aria-label="Save calorie entry edit"><Check className="w-4 h-4" /></button>
@@ -642,6 +649,7 @@ export default function CaloriesPage() {
                               <p className="text-xs text-cyan-200/70">
                                 {quickInsertSort === 'most-used' ? `${item.usageCount} uses` : `Last used ${formatLastUsedLabel(item.lastUsedAt)}`}
                               </p>
+                              {item.quantity && <p className="text-xs text-cyan-100/75">{item.quantity}</p>}
                             </div>
                             <span className="text-sm text-cyan-200/80">{item.calories} cal</span>
                           </div>
@@ -668,19 +676,19 @@ export default function CaloriesPage() {
                   </div>
                   <div className="grid gap-3 sm:grid-cols-4">
                     <label className="space-y-1">
-                      <span className="text-xs text-ink-muted">Calories</span>
+                      <span className="text-xs text-ink-muted">Calories for quantity</span>
                       <input type="number" className="input-field" placeholder="Cal" value={addForm.calories} onChange={(ev) => setAddForm({ ...addForm, calories: ev.target.value })} />
                     </label>
                     <label className="space-y-1">
-                      <span className="text-xs text-ink-muted">Protein</span>
+                      <span className="text-xs text-ink-muted">Protein for quantity</span>
                       <input type="number" className="input-field" placeholder="g" value={addForm.protein} onChange={(ev) => setAddForm({ ...addForm, protein: ev.target.value })} />
                     </label>
                     <label className="space-y-1">
-                      <span className="text-xs text-ink-muted">Carbs</span>
+                      <span className="text-xs text-ink-muted">Carbs for quantity</span>
                       <input type="number" className="input-field" placeholder="g" value={addForm.carbs} onChange={(ev) => setAddForm({ ...addForm, carbs: ev.target.value })} />
                     </label>
                     <label className="space-y-1">
-                      <span className="text-xs text-ink-muted">Fat</span>
+                      <span className="text-xs text-ink-muted">Fat for quantity</span>
                       <input type="number" className="input-field" placeholder="g" value={addForm.fat} onChange={(ev) => setAddForm({ ...addForm, fat: ev.target.value })} />
                     </label>
                   </div>

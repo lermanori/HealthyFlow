@@ -115,7 +115,7 @@ export default function CalorieEntryDraftCard({
                   />
                 </label>
                 <label className="grid gap-1 text-xs font-medium text-ink-muted">
-                  <span>Calories</span>
+                  <span>Calories for quantity</span>
                   <input className={inputClass()} type="number" value={fieldValue(entry.calories)} onChange={(event) => onChange?.(index, { calories: event.target.value })} />
                 </label>
                 <label className="grid gap-1 text-xs font-medium text-ink-muted">
@@ -123,15 +123,15 @@ export default function CalorieEntryDraftCard({
                   <input className={inputClass()} value={fieldValue(entry.quantity)} onChange={(event) => onChange?.(index, { quantity: event.target.value })} />
                 </label>
                 <label className="grid gap-1 text-xs font-medium text-ink-muted">
-                  <span>Protein</span>
+                  <span>Protein for quantity</span>
                   <input className={inputClass()} type="number" value={fieldValue(entry.protein)} onChange={(event) => onChange?.(index, { protein: event.target.value })} />
                 </label>
                 <label className="grid gap-1 text-xs font-medium text-ink-muted">
-                  <span>Carbs</span>
+                  <span>Carbs for quantity</span>
                   <input className={inputClass()} type="number" value={fieldValue(entry.carbs)} onChange={(event) => onChange?.(index, { carbs: event.target.value })} />
                 </label>
                 <label className="grid gap-1 text-xs font-medium text-ink-muted">
-                  <span>Fat</span>
+                  <span>Fat for quantity</span>
                   <input className={inputClass()} type="number" value={fieldValue(entry.fat)} onChange={(event) => onChange?.(index, { fat: event.target.value })} />
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -167,6 +167,8 @@ export default function CalorieEntryDraftCard({
           </div>
         ))}
       </div>
+
+      <p className="mt-3 text-xs text-ink-muted">Nutrition numbers are totals for the shown quantity.</p>
 
       {footer && <div className="mt-4 flex flex-wrap items-center gap-2">{footer}</div>}
     </div>

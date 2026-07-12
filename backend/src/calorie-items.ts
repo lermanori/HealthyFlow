@@ -10,6 +10,8 @@ export const CalorieItemSchema = z.object({
   user_id: z.string(),
   name: z.string(),
   normalized_name: z.string(),
+  quantity: z.string().nullable().default(null),
+  normalized_quantity: z.string().default(''),
   calories: z.number().nonnegative(),
   protein: z.number().nonnegative().nullable(),
   carbs: z.number().nonnegative().nullable(),

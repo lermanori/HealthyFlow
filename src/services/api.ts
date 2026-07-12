@@ -861,6 +861,8 @@ export interface CalorieItem {
   userId: string
   name: string
   normalizedName: string
+  quantity: string | null
+  normalizedQuantity: string
   calories: number
   protein: number | null
   carbs: number | null

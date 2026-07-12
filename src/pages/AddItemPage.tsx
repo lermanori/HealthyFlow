@@ -450,19 +450,19 @@ export default function AddItemPage() {
                 </label>
                 <div className="grid gap-3 sm:grid-cols-4">
                   <label className="space-y-2">
-                    <span className="text-sm font-medium text-ink-soft">Calories</span>
+                    <span className="text-sm font-medium text-ink-soft">Calories for quantity</span>
                     <input type="number" min="0" className="input-field" value={calories} onChange={(event) => setCalories(event.target.value)} />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-sm font-medium text-ink-soft">Protein</span>
+                    <span className="text-sm font-medium text-ink-soft">Protein for quantity</span>
                     <input type="number" min="0" className="input-field" value={protein} onChange={(event) => setProtein(event.target.value)} />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-sm font-medium text-ink-soft">Carbs</span>
+                    <span className="text-sm font-medium text-ink-soft">Carbs for quantity</span>
                     <input type="number" min="0" className="input-field" value={carbs} onChange={(event) => setCarbs(event.target.value)} />
                   </label>
                   <label className="space-y-2">
-                    <span className="text-sm font-medium text-ink-soft">Fat</span>
+                    <span className="text-sm font-medium text-ink-soft">Fat for quantity</span>
                     <input type="number" min="0" className="input-field" value={fat} onChange={(event) => setFat(event.target.value)} />
                   </label>
                 </div>

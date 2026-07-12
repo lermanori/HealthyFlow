@@ -242,13 +242,14 @@ function parseMealsSystemPrompt() {
 
 Return a list of meals, each with:
 - name: the food or drink name
-- calories: estimated calories (nonnegative integer)
-- protein, carbs, fat: estimated grams (nonnegative numbers), or null if unknown
 - quantity: a short description of the amount (e.g. "2 eggs"), or null if not specified
+- calories: estimated total calories for that exact quantity (nonnegative integer)
+- protein, carbs, fat: estimated total grams for that exact quantity (nonnegative numbers), or null if unknown
 - labelEvidence: nullable nutrition-label evidence for this exact item. Use null when no nutrition label supports the meal. When a label is visible, include the label basis, basis text/header, visible product/claim text, package amount/unit if visible, numeric and label columns top-to-bottom, calories/macros, and sodium/calcium if visible.
 
 Rules:
 - Estimate calories and macros as accurately as possible for each distinct food item mentioned.
+- Nutrition numbers must be totals for the stated quantity. For example, "3 eggs" should be about 210 calories, not the calories for 1 egg.
 - Macros may be null if you cannot reasonably estimate them.
 - Do not invent foods that are not present in the text or photo.
 - If a nutrition label is visible in the photo, follow these rules:

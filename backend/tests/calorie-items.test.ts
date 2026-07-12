@@ -25,6 +25,8 @@ function calorieItem(overrides: Record<string, unknown> = {}) {
     user_id: USER_ID,
     name: 'Eggs',
     normalized_name: 'eggs',
+    quantity: '2 eggs',
+    normalized_quantity: '2 eggs',
     calories: 140,
     protein: 6,
     carbs: 1,
@@ -55,6 +57,7 @@ describe('calorie items service', () => {
 
       expect(result).toHaveLength(3)
       expect(result[0].name).toBe('Eggs')
+      expect(result[0].quantity).toBe('2 eggs')
       expect(result[0].usage_count).toBe(10)
       expect(result[1].name).toBe('Chicken')
       expect(result[1].usage_count).toBe(8)
@@ -143,6 +146,7 @@ describe('calorie items service', () => {
 
       expect(result).not.toBeNull()
       expect(result?.name).toBe('Eggs')
+      expect(result?.quantity).toBe('2 eggs')
       expect(mockDb.getCalorieItemByNormalizedName).toHaveBeenCalledWith(USER_ID, 'eggs')
     })
 
@@ -179,11 +183,27 @@ describe('calorie items database operations', () => {
         protein: 6,
         carbs: 1,
         fat: 11,
+        quantity: '2 eggs',
       })
 
       expect(result.usage_count).toBe(6)
       expect(result.last_used_at).toBe('2026-06-25T10:00:00.000Z')
       expect(mockDb.upsertCalorieItem).toHaveBeenCalled()
+    })
+
+    it('allows same food with different quantity variants', async () => {
+      const variants = [
+        calorieItem({ id: '123e4567-e89b-12d3-a456-426614174001', quantity: '1 egg', normalized_quantity: '1 egg', calories: 70, usage_count: 3 }),
+        calorieItem({ id: '123e4567-e89b-12d3-a456-426614174002', quantity: '2 eggs', normalized_quantity: '2 eggs', calories: 140, usage_count: 2 }),
+      ]
+      mockDb.getRecentCalorieItems.mockResolvedValue(variants)
+
+      const result = await getRecentCalorieItems(USER_ID, 10)
+
+      expect(result).toEqual([
+        expect.objectContaining({ name: 'Eggs', quantity: '1 egg', calories: 70 }),
+        expect.objectContaining({ name: 'Eggs', quantity: '2 eggs', calories: 140 }),
+      ])
     })
 
     it('creates new item with usage_count of 1 when it does not exist', async () => {
@@ -196,13 +216,14 @@ describe('calorie items database operations', () => {
         protein: 5,
         carbs: 10,
         fat: 5,
+        quantity: '1 bowl',
       })
 
       expect(result.usage_count).toBe(1)
       expect(mockDb.upsertCalorieItem).toHaveBeenCalledWith(
         USER_ID,
         'NewItem',
-        expect.objectContaining({ calories: 100 })
+        expect.objectContaining({ calories: 100, quantity: '1 bowl' })
       )
     })
 

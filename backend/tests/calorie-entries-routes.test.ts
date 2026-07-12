@@ -45,6 +45,8 @@ function calorieItemRow(overrides: Record<string, unknown> = {}) {
     user_id: USER_ID,
     name: 'Eggs',
     normalized_name: 'eggs',
+    quantity: '2 eggs',
+    normalized_quantity: '2 eggs',
     calories: 140,
     protein: 12,
     carbs: 1,
@@ -131,6 +133,8 @@ describe('calorie entries API', () => {
         userId: USER_ID,
         name: 'Eggs',
         normalizedName: 'eggs',
+        quantity: '2 eggs',
+        normalizedQuantity: '2 eggs',
         usageCount: 5,
         lastUsedAt: '2026-06-24T08:00:00.000Z',
       }),
@@ -203,6 +207,23 @@ describe('calorie entries API', () => {
       fat: null,
       quantity: null,
     }))
+  })
+
+  it('preserves quantity when creating an entry', async () => {
+    mockDb.createCalorieEntry.mockResolvedValue(row({ quantity: '2 eggs' }))
+
+    const res = await request(app)
+      .post('/api/calories')
+      .set('Authorization', TOKEN)
+      .send({ date: '2026-06-24', name: 'Eggs', calories: 140, quantity: '2 eggs' })
+
+    expect(res.status).toBe(201)
+    expect(mockDb.createCalorieEntry).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'Eggs',
+      calories: 140,
+      quantity: '2 eggs',
+    }))
+    expect(res.body.quantity).toBe('2 eggs')
   })
 
   it('accepts a time when creating an entry', async () => {

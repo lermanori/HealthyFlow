@@ -672,6 +672,7 @@ export const db = {
       protein: entryData.protein ?? null,
       carbs: entryData.carbs ?? null,
       fat: entryData.fat ?? null,
+      quantity: entryData.quantity ?? null,
     })
 
     // Insert the entry
@@ -1341,8 +1342,11 @@ export const db = {
     protein?: number | null
     carbs?: number | null
     fat?: number | null
+    quantity?: string | null
   }) {
     const normalizedName = name.trim().toLowerCase()
+    const quantity = typeof defaults.quantity === 'string' && defaults.quantity.trim() ? defaults.quantity.trim() : null
+    const normalizedQuantity = quantity ? quantity.toLowerCase().replace(/\s+/g, ' ') : ''
     const now = new Date().toISOString()
 
     const { data: existing, error: getError } = await supabase
@@ -1350,6 +1354,7 @@ export const db = {
       .select('id')
       .eq('user_id', userId)
       .eq('normalized_name', normalizedName)
+      .eq('normalized_quantity', normalizedQuantity)
       .maybeSingle()
 
     if (getError) throw getError
@@ -1360,6 +1365,7 @@ export const db = {
         .rpc('upsert_calorie_item_usage', {
           p_user_id: userId,
           p_normalized_name: normalizedName,
+          p_normalized_quantity: normalizedQuantity,
           p_now: now,
         })
         .single()
@@ -1373,6 +1379,8 @@ export const db = {
           user_id: userId,
           name,
           normalized_name: normalizedName,
+          quantity,
+          normalized_quantity: normalizedQuantity,
           calories: defaults.calories,
           protein: defaults.protein ?? null,
           carbs: defaults.carbs ?? null,
@@ -1406,6 +1414,8 @@ export const db = {
       .select('*')
       .eq('user_id', userId)
       .eq('normalized_name', normalizedName)
+      .order('last_used_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
     if (error) throw error
     return data

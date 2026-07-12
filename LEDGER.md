@@ -1,3 +1,9 @@
+### 2026-07-12 14:34 — `main`
+
+Fixed the calorie quantity contract from issue #127 across the insert pipeline. Calories and macros are now treated as totals for the logged quantity in AI prompts, assistant writes, manual labels, edit guidance, and reusable Quick Insert history; calorie item history now preserves quantity variants such as `Eggs · 1 egg` and `Eggs · 2 eggs`. Applied the Supabase migration to the configured database and verified the live route path with a disposable user before cleaning it up. Focused backend tests, backend/frontend typechecks, production build, and the Quick Insert Playwright spec passed.
+
+---
+
 ### 2026-07-12 — `main`
 
 Locked down backend CORS. Replaced the wide-open `cors()` (which reflected any origin) with an origin allowlist scoped to `healthyflow.app`, the `deluxe-souffle-b9b7f7.netlify.app` Netlify site, both of their subdomains, Netlify `--` deploy/branch previews, and localhost dev — everything else is now rejected. Origin-less requests (curl, health checks) still pass, and future domains are a one-line addition to `CORS_ROOT_DOMAINS`. Backend typecheck passed and a 12-case origin allow/deny matrix verified before commit. Closes the CORS hardening follow-up to issue #19.

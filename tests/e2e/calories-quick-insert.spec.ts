@@ -43,6 +43,8 @@ test('Calories quick insert supports tab sorting, filtering, and keyboard select
             userId: 'user-1',
             name: 'Eggs',
             normalizedName: 'eggs',
+            quantity: '2 eggs',
+            normalizedQuantity: '2 eggs',
             calories: 140,
             protein: 12,
             carbs: 1,
@@ -57,6 +59,8 @@ test('Calories quick insert supports tab sorting, filtering, and keyboard select
             userId: 'user-1',
             name: 'Chicken Salad',
             normalizedName: 'chicken salad',
+            quantity: '1 bowl',
+            normalizedQuantity: '1 bowl',
             calories: 320,
             protein: 35,
             carbs: 8,
@@ -73,6 +77,8 @@ test('Calories quick insert supports tab sorting, filtering, and keyboard select
             userId: 'user-1',
             name: 'Greek Yogurt',
             normalizedName: 'greek yogurt',
+            quantity: '200g cup',
+            normalizedQuantity: '200g cup',
             calories: 120,
             protein: 15,
             carbs: 7,
@@ -87,6 +93,8 @@ test('Calories quick insert supports tab sorting, filtering, and keyboard select
             userId: 'user-1',
             name: 'Chicken Salad',
             normalizedName: 'chicken salad',
+            quantity: '1 bowl',
+            normalizedQuantity: '1 bowl',
             calories: 320,
             protein: 35,
             carbs: 8,
@@ -127,5 +135,6 @@ test('Calories quick insert supports tab sorting, filtering, and keyboard select
   await page.keyboard.press('Enter')
 
   await expect(page.locator('input[placeholder="Yogurt"]')).toHaveValue('Chicken Salad')
+  await expect(page.locator('input[placeholder="e.g. 2 eggs"]')).toHaveValue('1 bowl')
   await expect(page.locator('input[placeholder="Cal"]')).toHaveValue('320')
 })

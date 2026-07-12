@@ -30,6 +30,8 @@ const toItemClient = (row: any) => ({
   userId: row.user_id,
   name: row.name,
   normalizedName: row.normalized_name,
+  quantity: row.quantity ?? null,
+  normalizedQuantity: row.normalized_quantity ?? '',
   calories: row.calories,
   protein: row.protein ?? null,
   carbs: row.carbs ?? null,
