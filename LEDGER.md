@@ -1,3 +1,9 @@
+### 2026-07-12 — `main`
+
+Locked down backend CORS. Replaced the wide-open `cors()` (which reflected any origin) with an origin allowlist scoped to `healthyflow.app`, the `deluxe-souffle-b9b7f7.netlify.app` Netlify site, both of their subdomains, Netlify `--` deploy/branch previews, and localhost dev — everything else is now rejected. Origin-less requests (curl, health checks) still pass, and future domains are a one-line addition to `CORS_ROOT_DOMAINS`. Backend typecheck passed and a 12-case origin allow/deny matrix verified before commit. Closes the CORS hardening follow-up to issue #19.
+
+---
+
 ### 2026-07-10 12:16 — `main`
 
 Added a time-aware Planning Rhythm entry point to the Today screen. When the selected day is today, Today now surfaces a contextual kickoff card for the current rhythm moment and deep-links into the matching `/talk?kickoff=...` flow. Scheduled touchpoints still take priority, the UI falls back to the current part of the day, kickoff launches now open a fresh Talk conversation, and the assistant now keeps the check-in moving topic-by-topic after confirmed actions instead of stopping at the preview card.

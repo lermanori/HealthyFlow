@@ -34,7 +34,33 @@ const PORT = process.env.PORT || 3001
 app.set('trust proxy', 1)
 
 // Middleware
-app.use(cors())
+// Restrict CORS to the production domain, the Netlify site, their subdomains, and local dev.
+const CORS_ROOT_DOMAINS = ['healthyflow.app', 'deluxe-souffle-b9b7f7.netlify.app']
+const isAllowedOrigin = (origin: string): boolean => {
+  let hostname: string
+  try {
+    hostname = new URL(origin).hostname
+  } catch {
+    return false
+  }
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return true
+  return CORS_ROOT_DOMAINS.some(
+    (root) =>
+      hostname === root ||
+      hostname.endsWith(`.${root}`) ||
+      // Netlify deploy/branch previews: `<context>--<site>.netlify.app`
+      hostname.endsWith(`--${root}`)
+  )
+}
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow non-browser requests (curl, server-to-server, health checks) with no Origin header.
+      if (!origin || isAllowedOrigin(origin)) return callback(null, true)
+      callback(new Error(`Origin not allowed by CORS: ${origin}`))
+    },
+  })
+)
 app.use(express.json({ limit: '6mb' }))
 
 // Initialize database (disabled - using Supabase instead)
