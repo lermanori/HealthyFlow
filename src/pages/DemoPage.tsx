@@ -34,7 +34,7 @@ export default function DemoPage() {
             </div>
             <div>
               <p className="text-lg font-bold text-ink">HealthyFlow</p>
-              <p className="text-xs text-cyan-300">Interactive demo</p>
+              <p className="text-xs text-cyan-300">Choose a story</p>
             </div>
           </div>
           <button
@@ -53,7 +53,7 @@ export default function DemoPage() {
               className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-sm text-cyan-200"
             >
               <Sparkles className="h-4 w-4" />
-              Real app data, guided like a product story
+              Persona demo picker
             </motion.div>
             <motion.h1
               initial={{ opacity: 0, y: 16 }}
@@ -62,7 +62,7 @@ export default function DemoPage() {
               className="max-w-3xl text-4xl font-bold leading-tight text-ink sm:text-5xl lg:text-6xl"
               style={{ fontFamily: "'Space Grotesk', sans-serif" }}
             >
-              See how Maya turns a messy founder day into a plan.
+              Pick a relatable day and watch HealthyFlow handle it.
             </motion.h1>
             <motion.p
               initial={{ opacity: 0, y: 16 }}
@@ -70,7 +70,7 @@ export default function DemoPage() {
               transition={{ delay: 0.1 }}
               className="mt-5 max-w-2xl text-lg leading-8 text-ink-muted"
             >
-              This is not a video. HealthyFlow loads a seeded workspace for Maya, then walks you through the real Today, Talk, and Week surfaces with narration and subtitles.
+              Start with Maya, an overloaded founder with scattered notes, scheduled work, habits, and one task rolling forward from yesterday.
             </motion.p>
             <motion.div
               initial={{ opacity: 0, y: 16 }}
@@ -83,7 +83,7 @@ export default function DemoPage() {
                 disabled={loading}
                 className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 font-semibold text-white shadow-lg shadow-cyan-500/25 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {loading ? 'Loading Maya demo...' : 'Start Maya demo'}
+                {loading ? 'Loading Maya...' : "Choose Maya's story"}
                 <ArrowRight className="h-5 w-5" />
               </button>
             </motion.div>
@@ -98,7 +98,7 @@ export default function DemoPage() {
             <div className="rounded-xl border border-line/70 bg-sunken/50 p-4">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-ink-muted">Persona</p>
+                  <p className="text-sm text-ink-muted">Available persona</p>
                   <h2 className="text-2xl font-bold text-ink">Maya Chen</h2>
                 </div>
                 <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-200">
@@ -125,12 +125,12 @@ export default function DemoPage() {
               <div className="rounded-xl border border-line/70 bg-sunken/35 p-4">
                 <Clock className="mb-3 h-5 w-5 text-cyan-300" />
                 <p className="text-sm font-semibold text-ink">Guided narration</p>
-                <p className="mt-1 text-sm text-ink-muted">Subtitles and browser voiceover explain each surface.</p>
+                <p className="mt-1 text-sm text-ink-muted">Subtitles and browser voiceover walk through the real app.</p>
               </div>
               <div className="rounded-xl border border-line/70 bg-sunken/35 p-4">
                 <CalendarClock className="mb-3 h-5 w-5 text-cyan-300" />
                 <p className="text-sm font-semibold text-ink">Always current</p>
-                <p className="mt-1 text-sm text-ink-muted">Maya's data is seeded relative to today's date.</p>
+                <p className="mt-1 text-sm text-ink-muted">Maya's workspace is seeded relative to today's date.</p>
               </div>
             </div>
           </motion.div>
@@ -139,4 +139,3 @@ export default function DemoPage() {
     </div>
   )
 }
-

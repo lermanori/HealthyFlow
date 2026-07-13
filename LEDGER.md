@@ -1,3 +1,9 @@
+### 2026-07-13 10:28 — `feat/maya-demo`
+
+Cleaned up the first-visit path around the new Maya demo. The login form now uses plain `Login` language, points curious visitors to the static landing page, and the landing page's demo CTAs now route into the persona picker at `/demo` where Maya is currently the only available story.
+
+---
+
 ### 2026-07-13 10:16 — `feat/maya-demo`
 
 Built the first persona-based interactive demo around Maya, the overloaded founder persona. The new public `/demo` page starts a real seeded Maya session, the backend refreshes Maya's data relative to the current date, and an in-app guide walks over the actual Today, Talk, and Week surfaces with subtitles and optional browser voiceover. While verifying the flow, SmartReminders was made idempotent and unconnected Google Calendar event fetches now return an empty list so the demo path opens without console errors.
