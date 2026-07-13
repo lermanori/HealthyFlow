@@ -1,3 +1,9 @@
+### 2026-07-13 09:59 — `main`
+
+Added a reusable demo-week seed script for the public demo account. The script refreshes the current week relative to the real date, fills tasks and habit instances, and also seeds calories, weight, workouts, and achievements so the demo account shows a coherent active week across the app.
+
+---
+
 ### 2026-07-12 14:34 — `main`
 
 Fixed the calorie quantity contract from issue #127 across the insert pipeline. Calories and macros are now treated as totals for the logged quantity in AI prompts, assistant writes, manual labels, edit guidance, and reusable Quick Insert history; calorie item history now preserves quantity variants such as `Eggs · 1 egg` and `Eggs · 2 eggs`. Applied the Supabase migration to the configured database and verified the live route path with a disposable user before cleaning it up. Focused backend tests, backend/frontend typechecks, production build, and the Quick Insert Playwright spec passed.
