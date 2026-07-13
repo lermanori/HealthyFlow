@@ -321,6 +321,11 @@ export const authService = {
     return response.data
   },
 
+  startDemoSession: async (persona: 'maya') => {
+    const response = await api.post('/auth/demo-session', { persona })
+    return response.data
+  },
+
   verifyToken: async () => {
     const response = await api.get('/auth/verify')
     return response.data
@@ -448,6 +453,20 @@ export const aiService = {
     return response.data
   },
 
+  getConversations: async (): Promise<AssistantConversation[]> => {
+    const response = await api.get('/ai/conversations')
+    return response.data
+  },
+
+  saveConversation: async (conversation: AssistantConversation): Promise<AssistantConversation> => {
+    const response = await api.put(`/ai/conversations/${conversation.id}`, conversation)
+    return response.data
+  },
+
+  deleteConversation: async (conversationId: string): Promise<void> => {
+    await api.delete(`/ai/conversations/${conversationId}`)
+  },
+
   parseMeals: async (
     text: string,
     photo?: { mimeType: 'image/jpeg' | 'image/png' | 'image/webp'; data: string },
@@ -513,6 +532,31 @@ export interface AssistantPendingAction {
 export interface AssistantConfirmResponse {
   result: unknown
   action: AssistantPendingAction
+}
+
+export interface AssistantStoredMessage extends AssistantChatMessage {
+  id: string
+  displayContent?: string
+  hidden?: boolean
+  attachment?: AssistantChatAttachmentMetadata
+  toolEvents?: AssistantToolEvent[]
+  pendingActions?: Array<AssistantPendingAction & {
+    status?: 'pending' | 'confirmed' | 'canceled'
+    result?: unknown
+    error?: string
+    completedAt?: string
+  }>
+  error?: boolean
+  createdAt?: string
+}
+
+export interface AssistantConversation {
+  id: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  model: AssistantChatModel
+  messages: AssistantStoredMessage[]
 }
 
 export interface MealParseReview {

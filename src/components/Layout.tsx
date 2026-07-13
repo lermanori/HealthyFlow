@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import PWAInstallPrompt from './PWAInstallPrompt'
+import MayaDemoGuide from './MayaDemoGuide'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSettings } from '../hooks/useSettings'
 
@@ -61,8 +62,24 @@ export default function Layout({ children }: LayoutProps) {
     }
   }, [isMobileMenuOpen])
 
+  useEffect(() => {
+    ;(window as any).__healthyFlowDemo = {
+      ...((window as any).__healthyFlowDemo ?? {}),
+      openAccountMenu: () => setIsMobileMenuOpen(true),
+      closeAccountMenu: () => setIsMobileMenuOpen(false),
+    }
+
+    return () => {
+      if (!(window as any).__healthyFlowDemo) return
+      delete (window as any).__healthyFlowDemo.openAccountMenu
+      delete (window as any).__healthyFlowDemo.closeAccountMenu
+    }
+  }, [])
+
   const { settings } = useSettings()
   const isTalkPage = location.pathname === '/talk'
+  const searchParams = new URLSearchParams(location.search)
+  const isMayaDemo = location.pathname === '/demo' || searchParams.get('demo') === 'maya' || localStorage.getItem('demoPersona') === 'maya'
 
   const navigation = [
     { name: 'Today', href: '/', icon: Home },
@@ -134,6 +151,8 @@ export default function Layout({ children }: LayoutProps) {
                       <li key={item.name}>
                         <Link
                           to={item.href}
+                          data-demo={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                          data-demo-id={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
                           className={`flex items-center space-x-3 px-4 py-4 rounded-xl transition-all duration-300 group ${
                             isActive
                               ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/20'
@@ -182,6 +201,7 @@ export default function Layout({ children }: LayoutProps) {
                 
                 <button
                   onClick={logout}
+                  data-demo-id="logout-button"
                   className="flex items-center space-x-2 w-full text-ink-muted hover:text-ink-soft transition-colors p-3 rounded-lg hover:bg-card/50"
                 >
                   <LogOut className="w-5 h-5" />
@@ -198,7 +218,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-page">
       {/* PWA Install Prompt */}
-      <PWAInstallPrompt />
+      <PWAInstallPrompt suppressed={isMayaDemo} />
       
       {/* Futuristic background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -213,6 +233,7 @@ export default function Layout({ children }: LayoutProps) {
           <div className="flex h-[calc(4.8125rem+env(safe-area-inset-top))] items-end justify-between p-4">
             <button
               onClick={() => setIsMobileMenuOpen(true)}
+              data-demo-id="account-menu"
               className="p-2 rounded-lg hover:bg-card/50 transition-colors text-ink-muted hover:text-ink-soft"
             >
               <Menu className="w-6 h-6" />
@@ -231,6 +252,7 @@ export default function Layout({ children }: LayoutProps) {
             {/* Mobile User Menu Button */}
             <button
               onClick={() => setIsMobileMenuOpen(true)}
+              data-demo-id="account-menu"
               className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full flex items-center justify-center"
             >
               <span className="text-white font-semibold text-sm">
@@ -259,13 +281,14 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
               </div>
               
-              <div className="flex items-center space-x-4">
+              <div data-demo-id="account-menu" className="flex items-center space-x-4">
                 <div className="text-right">
                   <span className="text-sm text-ink-soft">Welcome back,</span>
                   <p className="text-sm font-medium text-cyan-400">{user?.name}</p>
                 </div>
                 <button
                   onClick={logout}
+                  data-demo-id="logout-button"
                   className="flex items-center space-x-2 text-ink-muted hover:text-ink-soft transition-colors p-2 rounded-lg hover:bg-card/50"
                 >
                   <LogOut className="w-4 h-4" />
@@ -287,8 +310,10 @@ export default function Layout({ children }: LayoutProps) {
                   const isActive = location.pathname === item.href
                   return (
                     <li key={item.name}>
-                      <Link
+                        <Link
                         to={item.href}
+                        data-demo={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                        data-demo-id={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
                         className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 group ${
                           isActive
                             ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/20'
@@ -328,6 +353,8 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* Main Content */}
         <main
+          data-demo="main-content"
+          data-demo-id="main-content"
           className={`min-w-0 flex-1 overflow-x-hidden ${
             isMobile
               ? isTalkPage ? 'mt-[calc(4.8125rem+env(safe-area-inset-top))] h-[calc(100dvh-4.8125rem-env(safe-area-inset-top))] p-0' : 'mt-[calc(4.8125rem+env(safe-area-inset-top))] p-4 pb-32'
@@ -363,6 +390,7 @@ export default function Layout({ children }: LayoutProps) {
                   key={item.name}
                   to={item.href}
                   aria-label={item.name}
+                  data-demo-id={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
                   className={`mobile-dock-link flex min-w-0 flex-col items-center space-y-1 rounded-xl p-2 transition-all duration-300 xs:p-3 ${
                     isPrimary
                       ? `bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 ${isActive ? 'ring-2 ring-cyan-300/60' : ''}`
@@ -385,6 +413,7 @@ export default function Layout({ children }: LayoutProps) {
           
         </div>
       )}
+      <MayaDemoGuide />
     </div>
   )
 }

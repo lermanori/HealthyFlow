@@ -12,7 +12,18 @@ interface Reminder {
   type: 'upcoming' | 'overdue'
 }
 
+function sameReminders(a: Reminder[], b: Reminder[]) {
+  if (a.length !== b.length) return false
+  return a.every((item, index) => (
+    item.id === b[index].id &&
+    item.taskTitle === b[index].taskTitle &&
+    item.time === b[index].time &&
+    item.type === b[index].type
+  ))
+}
+
 export default function SmartReminders() {
+  const isMayaDemo = localStorage.getItem('demoPersona') === 'maya'
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [dismissedIds, setDismissedIds] = useState<string[]>([])
   const [notifiedOverdueIds, setNotifiedOverdueIds] = useState<Set<string>>(new Set())
@@ -26,6 +37,7 @@ export default function SmartReminders() {
     queryKey: ['tasks'],
     queryFn: () => taskService.getTasks(),
     refetchInterval: 60000, // Check every minute
+    enabled: !isMayaDemo,
   })
 
   useEffect(() => {
@@ -69,7 +81,7 @@ export default function SmartReminders() {
 
     // ponytail: don't filter dismissedIds here — visibleReminders (line below) already does it.
     // Keeping dismissedIds in deps + unconditional setReminders caused the render loop.
-    setReminders(newReminders)
+    setReminders((current) => sameReminders(current, newReminders) ? current : newReminders)
 
     // Only update if there are new IDs
     if (overdueToNotify.length > 0) {
@@ -89,6 +101,7 @@ export default function SmartReminders() {
 
   const visibleReminders = reminders.filter(r => !dismissedIds.includes(r.id))
 
+  if (isMayaDemo) return null
   if (visibleReminders.length === 0) return null
 
   return (

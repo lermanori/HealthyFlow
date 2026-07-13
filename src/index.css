@@ -673,3 +673,33 @@
 [data-theme='white'] #loading-screen {
   background: rgb(var(--surface-page)) !important;
 }
+
+[data-demo-active-target='true'] {
+  position: relative;
+  z-index: 91 !important;
+  outline: 3px solid rgba(103, 232, 249, 0.98) !important;
+  outline-offset: 5px !important;
+  box-shadow: 0 0 0 8px rgba(34, 211, 238, 0.22), 0 0 34px rgba(34, 211, 238, 0.58) !important;
+  filter: brightness(1.18) saturate(1.2);
+}
+
+[data-demo-active-target='true']::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+  pointer-events: none;
+  border: 1px solid rgba(165, 243, 252, 0.9);
+  border-radius: inherit;
+  animation: demo-target-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes demo-target-pulse {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.025);
+  }
+}

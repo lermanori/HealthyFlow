@@ -1,3 +1,39 @@
+### 2026-07-13 16:10 — `feat/maya-demo`
+
+Finished the richer Maya demo pass and Talk history work. The demo now runs through a Joyride-based mobile-friendly walkthrough with static narration audio, guided Talk mocking, real app mutations, account/logout guidance, and demo-safe no-persist chat behavior; regular users now get server-backed Talk history via Supabase. The branch has been deployed to the Netlify preview and Railway backend, with the new Supabase chat-history migration already applied.
+
+---
+
+### 2026-07-13 11:17 — `feat/maya-demo`
+
+Stopped the PWA install prompt from interrupting the public Maya demo flow. The install prompt now accepts a suppression flag, and the layout suppresses it on the demo picker and active Maya demo session so the guided narration is the only overlay users see.
+
+---
+
+### 2026-07-13 10:55 — `feat/maya-demo`
+
+Moved the Maya guide subtitles out of the main app canvas. The narrator panel now docks compactly over the desktop sidebar while mobile keeps the bottom caption treatment, so users can inspect the Today timeline while following the demo.
+
+---
+
+### 2026-07-13 10:48 — `feat/maya-demo`
+
+Polished the Maya guide after reviewing the deployed demo. The overlay now keeps the real app visible by removing backdrop blur and reducing the dimming, and browser narration now prefers higher-quality English system voices with a slower, softer delivery when available.
+
+---
+
+### 2026-07-13 10:28 — `feat/maya-demo`
+
+Cleaned up the first-visit path around the new Maya demo. The login form now uses plain `Login` language, points curious visitors to the static landing page, and the landing page's demo CTAs now route into the persona picker at `/demo` where Maya is currently the only available story.
+
+---
+
+### 2026-07-13 10:16 — `feat/maya-demo`
+
+Built the first persona-based interactive demo around Maya, the overloaded founder persona. The new public `/demo` page starts a real seeded Maya session, the backend refreshes Maya's data relative to the current date, and an in-app guide walks over the actual Today, Talk, and Week surfaces with subtitles and optional browser voiceover. While verifying the flow, SmartReminders was made idempotent and unconnected Google Calendar event fetches now return an empty list so the demo path opens without console errors.
+
+---
+
 ### 2026-07-13 09:59 — `main`
 
 Added a reusable demo-week seed script for the public demo account. The script refreshes the current week relative to the real date, fills tasks and habit instances, and also seeds calories, weight, workouts, and achievements so the demo account shows a coherent active week across the app.

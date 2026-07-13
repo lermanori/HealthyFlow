@@ -5,7 +5,7 @@ import { format, addDays } from 'date-fns'
 import { Bot, ChevronDown, Dumbbell, Flame, Image as ImageIcon, Mic, MessageSquare, Paperclip, Pencil, Plus, Scale, Send, Target, Trash2, UserRound, Wrench, X } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantPendingAction, AssistantToolEvent, pushService } from '../services/api'
+import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantConversation, AssistantPendingAction, AssistantStoredMessage, AssistantToolEvent, pushService } from '../services/api'
 import { useDictatedText } from '../hooks/useDictatedText'
 import TaskDraftCard, { TaskDraftCardValue } from '../components/TaskDraftCard'
 import CalorieEntryDraftCard, { CalorieEntryDraftValue } from '../components/CalorieEntryDraftCard'
@@ -17,26 +17,14 @@ type ConversationPendingAction = AssistantPendingAction & {
   completedAt?: string
 }
 
-type ConversationMessage = AssistantChatMessage & {
-  id: string
-  displayContent?: string
-  hidden?: boolean
-  attachment?: AssistantChatAttachmentMetadata
-  toolEvents?: AssistantToolEvent[]
+type ConversationMessage = AssistantStoredMessage & {
   pendingActions?: ConversationPendingAction[]
-  error?: boolean
 }
 
-type StoredConversation = {
-  id: string
-  title: string
-  createdAt: string
-  updatedAt: string
-  model: AssistantChatModel
-  messages: ConversationMessage[]
-}
+type StoredConversation = AssistantConversation
 
 const ASSISTANT_CONVERSATIONS_KEY = 'healthyflow-assistant-conversations-v1'
+const ASSISTANT_CONVERSATIONS_MIGRATED_KEY = 'healthyflow-assistant-conversations-v1-migrated'
 const MAX_STORED_CONVERSATIONS = 20
 const MAX_IMAGE_ATTACHMENT_BYTES = 4 * 1024 * 1024
 const MAX_TEXT_ATTACHMENT_BYTES = 64 * 1024
@@ -62,6 +50,38 @@ const assistantModels: Array<{ value: AssistantChatModel; label: string }> = [
   { value: 'gpt-5.5', label: 'GPT-5.5' },
 ]
 
+function isMayaDemoSession() {
+  return localStorage.getItem('demoPersona') === 'maya'
+}
+
+function mayaDemoAssistantMessage(): ConversationMessage {
+  return {
+    id: crypto.randomUUID(),
+    role: 'assistant',
+    content: [
+      "Here's a stable plan for Maya's day:",
+      '',
+      '1. Protect the first clear morning block for the rolled-over task. It is the only item that needs a real schedule change.',
+      '2. Keep the lower-pressure personal tasks in Anytime so the timeline stays readable.',
+      '3. Treat habits as lightweight anchors: complete the realistic ones today, but do not let them crowd the plan.',
+      '',
+      "I'll move the rolled-over task into the morning next, then you can keep exploring the real workspace.",
+    ].join('\n'),
+      toolEvents: [
+        {
+          name: 'read_today',
+          args: { date: 'today' },
+          result: { notes: 'Reviewed scheduled work, Anytime tasks, and habits.' },
+        },
+        {
+          name: 'plan_update',
+          args: { goal: 'rebalance day' },
+          result: { notes: 'Prepared a deterministic demo recommendation.' },
+        },
+      ],
+  }
+}
+
 function readStoredConversations(): StoredConversation[] {
   try {
     const raw = localStorage.getItem(ASSISTANT_CONVERSATIONS_KEY)
@@ -79,10 +99,6 @@ function readStoredConversations(): StoredConversation[] {
   } catch {
     return []
   }
-}
-
-function writeStoredConversations(conversations: StoredConversation[]) {
-  localStorage.setItem(ASSISTANT_CONVERSATIONS_KEY, JSON.stringify(conversations.slice(0, MAX_STORED_CONVERSATIONS)))
 }
 
 function titleFromMessages(messages: ConversationMessage[]) {
@@ -858,16 +874,19 @@ function PendingActionCard({
 
 export default function AssistantPage() {
   const queryClient = useQueryClient()
-  const [conversations, setConversations] = useState<StoredConversation[]>(() => readStoredConversations())
-  const [activeConversationId, setActiveConversationId] = useState(() => readStoredConversations()[0]?.id ?? crypto.randomUUID())
-  const activeConversation = conversations.find((conversation) => conversation.id === activeConversationId) ?? null
-  const [messages, setMessages] = useState<ConversationMessage[]>(() => activeConversation?.messages ?? [])
+  const isDemoSession = isMayaDemoSession()
+  const [conversations, setConversations] = useState<StoredConversation[]>([])
+  const [activeConversationId, setActiveConversationId] = useState<string>(() => crypto.randomUUID())
+  const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [draft, setDraft] = useState('')
   const [isSending, setIsSending] = useState(false)
-  const [model, setModel] = useState<AssistantChatModel>(() => activeConversation?.model ?? 'gpt-4o-mini')
+  const [model, setModel] = useState<AssistantChatModel>('gpt-4o-mini')
   const [attachment, setAttachment] = useState<ComposerAttachment | null>(null)
+  const [isHistoryLoaded, setIsHistoryLoaded] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const skipNextPersistRef = useRef(false)
+  const saveTimerRef = useRef<number | null>(null)
   const {
     isListening,
     isDictationSupported,
@@ -876,10 +895,70 @@ export default function AssistantPage() {
   } = useDictatedText({ text: draft, setText: setDraft, disabled: isSending })
 
   useEffect(() => {
-    writeStoredConversations(conversations)
-  }, [conversations])
+    let canceled = false
+
+    const loadConversations = async () => {
+      if (isDemoSession) {
+        setConversations([])
+        setMessages([])
+        setIsHistoryLoaded(true)
+        return
+      }
+
+      try {
+        const serverConversations = await aiService.getConversations()
+        const localConversations = readStoredConversations()
+        const shouldMigrate = localConversations.length > 0 && localStorage.getItem(ASSISTANT_CONVERSATIONS_MIGRATED_KEY) !== 'true'
+        const serverIds = new Set(serverConversations.map((conversation) => conversation.id))
+        const localOnlyConversations = shouldMigrate
+          ? localConversations.filter((conversation) => !serverIds.has(conversation.id))
+          : []
+        const mergedConversations = [
+          ...localOnlyConversations,
+          ...serverConversations,
+        ].slice(0, MAX_STORED_CONVERSATIONS)
+
+        if (canceled) return
+        setConversations(mergedConversations)
+        const firstConversation = mergedConversations[0]
+        if (firstConversation) {
+          skipNextPersistRef.current = true
+          setActiveConversationId(firstConversation.id)
+          setMessages(firstConversation.messages)
+          setModel(firstConversation.model)
+        }
+        setIsHistoryLoaded(true)
+
+        if (shouldMigrate) {
+          await Promise.all(localOnlyConversations.map((conversation) => aiService.saveConversation(conversation)))
+          localStorage.setItem(ASSISTANT_CONVERSATIONS_MIGRATED_KEY, 'true')
+        }
+      } catch {
+        const localConversations = readStoredConversations()
+        if (canceled) return
+        setConversations(localConversations)
+        const firstConversation = localConversations[0]
+        if (firstConversation) {
+          skipNextPersistRef.current = true
+          setActiveConversationId(firstConversation.id)
+          setMessages(firstConversation.messages)
+          setModel(firstConversation.model)
+        }
+        setIsHistoryLoaded(true)
+        toast.error('Could not load saved chats from the server.')
+      }
+    }
+
+    loadConversations()
+
+    return () => {
+      canceled = true
+      if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
+    }
+  }, [isDemoSession])
 
   useEffect(() => {
+    if (!isHistoryLoaded) return
     if (messages.length === 0) return
     setConversations((current) => {
       const existing = current.find((conversation) => conversation.id === activeConversationId)
@@ -897,7 +976,35 @@ export default function AssistantPage() {
         ...current.filter((conversation) => conversation.id !== activeConversationId),
       ].slice(0, MAX_STORED_CONVERSATIONS)
     })
-  }, [activeConversationId, messages, model])
+  }, [activeConversationId, isHistoryLoaded, messages, model])
+
+  useEffect(() => {
+    if (isDemoSession) return
+    if (!isHistoryLoaded) return
+    if (messages.length === 0) return
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false
+      return
+    }
+
+    const existing = conversations.find((conversation) => conversation.id === activeConversationId)
+    const now = new Date().toISOString()
+    const conversation: StoredConversation = {
+      id: activeConversationId,
+      title: titleFromMessages(messages),
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+      model,
+      messages,
+    }
+
+    if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = window.setTimeout(() => {
+      aiService.saveConversation(conversation).catch(() => {
+        toast.error('Could not save chat history.')
+      })
+    }, 350)
+  }, [activeConversationId, conversations, isDemoSession, isHistoryLoaded, messages, model])
 
   const apiMessages = useMemo(
     () => messages
@@ -911,7 +1018,8 @@ export default function AssistantPage() {
     messageAttachment: ComposerAttachment | null = attachment,
     baseMessages: AssistantChatMessage[] = apiMessages,
     requestModel: AssistantChatModel = model,
-    displayContent?: string
+    displayContent?: string,
+    options: { forceMock?: boolean } = {}
   ) => {
     const trimmed = content.trim()
     if ((!trimmed && !messageAttachment) || isSending) return
@@ -932,6 +1040,12 @@ export default function AssistantPage() {
     setIsSending(true)
 
     try {
+      if (options.forceMock) {
+        await new Promise((resolve) => window.setTimeout(resolve, 900))
+        setMessages((current) => [...current, mayaDemoAssistantMessage()])
+        return
+      }
+
       const requestAttachment = messageAttachment
         ? messageAttachment.kind === 'image'
           ? {
@@ -976,6 +1090,23 @@ export default function AssistantPage() {
     sendMessage(draft)
   }
 
+  useEffect(() => {
+    window.__healthyFlowDemo = {
+      ...(window.__healthyFlowDemo ?? {}),
+      setTalkDraft: (value: string) => {
+        setDraft(value)
+        inputRef.current?.focus()
+      },
+      submitTalk: () => sendMessage(draft, null, apiMessages, model, undefined, { forceMock: true }),
+    }
+
+    return () => {
+      if (!window.__healthyFlowDemo) return
+      delete window.__healthyFlowDemo.setTalkDraft
+      delete window.__healthyFlowDemo.submitTalk
+    }
+  }, [apiMessages, draft, model])
+
   const [searchParams, setSearchParams] = useSearchParams()
   const kickoffFiredRef = useRef(false)
 
@@ -1018,6 +1149,7 @@ export default function AssistantPage() {
   }
 
   const startNewChat = () => {
+    skipNextPersistRef.current = false
     setActiveConversationId(crypto.randomUUID())
     setMessages([])
     setDraft('')
@@ -1028,6 +1160,7 @@ export default function AssistantPage() {
 
   const openConversation = (conversation: StoredConversation) => {
     if (isSending) return
+    skipNextPersistRef.current = true
     setActiveConversationId(conversation.id)
     setMessages(conversation.messages)
     setModel(conversation.model)
@@ -1339,6 +1472,7 @@ export default function AssistantPage() {
           <div className="min-w-0">
             <textarea
               ref={inputRef}
+              data-demo-id="talk-input"
               className="max-h-28 min-h-8 w-full resize-none bg-transparent px-1 py-1 text-base leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-60 sm:max-h-36"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
@@ -1388,6 +1522,7 @@ export default function AssistantPage() {
             </button>
             <button
               type="submit"
+              data-demo-id="talk-send-button"
               disabled={isSending || (!draft.trim() && !attachment)}
               className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20 transition-all hover:from-cyan-400 hover:to-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Send"

@@ -313,6 +313,7 @@ export default function WeekViewPage() {
           return (
             <button
               key={off}
+              data-demo-id="week-day-column"
               data-rail-date={format(d, 'yyyy-MM-dd')}
               onClick={() => setSelectedOff(off)}
               style={{
@@ -478,7 +479,7 @@ export default function WeekViewPage() {
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {model.habitRows.map((h, hi) => (
-                    <div key={hi} style={{ display: 'grid', gridTemplateColumns: '1fr repeat(7,22px) 34px', gap: 5, alignItems: 'center' }}>
+                    <div key={hi} data-demo-id="habit-row" style={{ display: 'grid', gridTemplateColumns: '1fr repeat(7,22px) 34px', gap: 5, alignItems: 'center' }}>
                       <span style={{ fontSize: 12.5, color: '#e5e7eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
                       {h.cells.map((c, i) => (
                         <button

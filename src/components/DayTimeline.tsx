@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
 import { CalendarDays, Check, Clock, Flame, GripVertical, MapPin } from 'lucide-react'
@@ -129,6 +129,20 @@ function compactableEmptySlots(slots: string[], hasContent: (slot: string) => bo
   flush()
 
   return compacted
+}
+
+function localDateKey(date = new Date()): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function taskDemoId(task: Task): string {
+  const todayKey = localDateKey()
+  if (!task.startTime && task.scheduledDate && task.scheduledDate < todayKey) return 'rollover-task'
+  if (task.type === 'habit') return 'habit-row'
+  return 'today-task-card'
 }
 
 function CalendarEventBlock({
@@ -302,6 +316,32 @@ export default function DayTimeline({
   // rect intersection, so a compacted 28px slot is still a valid drop target without expanding.
   const compactedEmptySlots = compactableEmptySlots(HOUR_SLOTS, hasSlotContent)
 
+  useEffect(() => {
+    window.__healthyFlowDemo = {
+      ...(window.__healthyFlowDemo ?? {}),
+      moveRolloverTaskToToday: async (startTime: string) => {
+        const todayKey = localDateKey()
+        const task = tasks.find(item => !item.startTime && item.scheduledDate && item.scheduledDate < todayKey)
+          ?? tasks.find(item => !item.startTime)
+        if (!task) {
+          console.warn('[demo] No rollover task available to move')
+          return
+        }
+        const optimistic = tasks.map(item => (
+          item.id === task.id ? { ...item, startTime, position: null } as Task : item
+        ))
+        onTasksReorder(optimistic)
+        const updated = await taskService.updateTask(task.id, { startTime, position: null as any })
+        onTasksReorder(tasks.map(item => (item.id === task.id ? ({ ...item, ...updated } as Task) : item)))
+      },
+    }
+
+    return () => {
+      if (!window.__healthyFlowDemo) return
+      delete window.__healthyFlowDemo.moveRolloverTaskToToday
+    }
+  }, [onTasksReorder, tasks])
+
   const handleDragStart = (start: any) => {
     setDraggedTaskId(start.draggableId)
   }
@@ -366,7 +406,7 @@ export default function DayTimeline({
       <DragDropContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
         <div>
         {/* Scheduled section — one droppable per hour slot */}
-        <div className="space-y-1">
+        <div className="space-y-1" data-demo-id="schedule-section">
           <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wider mb-2">Scheduled</h3>
           {HOUR_SLOTS.map(slot => {
             const slotTasks = slotBuckets[slot]
@@ -384,6 +424,7 @@ export default function DayTimeline({
                     ref={provided.innerRef}
                     data-testid="timeline-hour-slot"
                     data-slot={slot}
+                    data-demo-id={`schedule-slot-${slot}`}
                     data-compacted={isCompacted ? 'true' : 'false'}
                     className={`timeline-slot relative flex min-w-0 gap-1 overflow-visible rounded px-1 py-2 transition-colors sm:gap-2 sm:px-2 ${hasContent ? 'z-20' : ''} ${isCompacted ? 'pointer-events-none' : ''} ${
                       snapshot.isDraggingOver
@@ -432,6 +473,7 @@ export default function DayTimeline({
                               ref={provided.innerRef}
                               {...provided.draggableProps}
                               data-testid="timeline-draggable-task"
+                              data-demo-id={taskDemoId(task)}
                               className="flex min-h-0 min-w-0 gap-1.5"
                               style={{
                                 ...provided.draggableProps.style,
@@ -484,7 +526,7 @@ export default function DayTimeline({
         )}
 
         {/* Anytime section — single droppable for untimed backlog */}
-        <div className="space-y-2">
+        <div className="space-y-2" data-demo-id="anytime-backlog">
           <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wider">Anytime</h3>
           <Droppable droppableId="anytime">
             {(provided, snapshot) => (
@@ -502,6 +544,7 @@ export default function DayTimeline({
                         ref={provided.innerRef}
                         {...provided.draggableProps}
                         data-testid="timeline-draggable-task"
+                        data-demo-id={taskDemoId(task)}
                         className="flex min-w-0 gap-2"
                       >
                         <TaskDragGrip dragHandleProps={provided.dragHandleProps} />
