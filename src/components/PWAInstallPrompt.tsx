@@ -7,7 +7,11 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
 
-export default function PWAInstallPrompt() {
+interface PWAInstallPromptProps {
+  suppressed?: boolean
+}
+
+export default function PWAInstallPrompt({ suppressed = false }: PWAInstallPromptProps) {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showPrompt, setShowPrompt] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
@@ -15,6 +19,13 @@ export default function PWAInstallPrompt() {
   const [isStandalone, setIsStandalone] = useState(false)
 
   useEffect(() => {
+    if (suppressed) {
+      setShowPrompt(false)
+      return
+    }
+
+    const promptTimers: ReturnType<typeof setTimeout>[] = []
+
     // Detect iOS
     const iOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
     setIsIOS(iOS)
@@ -39,9 +50,10 @@ export default function PWAInstallPrompt() {
       const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000)
       
       if (!lastDismissed || parseInt(lastDismissed) < oneDayAgo) {
-        setTimeout(() => {
+        const timer = setTimeout(() => {
           setShowPrompt(true)
         }, 3000)
+        promptTimers.push(timer)
       }
     }
 
@@ -62,17 +74,19 @@ export default function PWAInstallPrompt() {
       const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000)
       
       if (!iosPromptDismissed || parseInt(iosPromptDismissed) < oneDayAgo) {
-        setTimeout(() => {
+        const timer = setTimeout(() => {
           setShowPrompt(true)
         }, 5000)
+        promptTimers.push(timer)
       }
     }
 
     return () => {
+      promptTimers.forEach(clearTimeout)
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
       window.removeEventListener('appinstalled', handleAppInstalled)
     }
-  }, [])
+  }, [suppressed])
 
   const handleInstall = async () => {
     if (!deferredPrompt) return
@@ -104,7 +118,7 @@ export default function PWAInstallPrompt() {
   }
 
   // Don't show if already installed
-  if (isInstalled || isStandalone) {
+  if (suppressed || isInstalled || isStandalone) {
     return null
   }
 

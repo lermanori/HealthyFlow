@@ -1,3 +1,9 @@
+### 2026-07-13 11:17 — `feat/maya-demo`
+
+Stopped the PWA install prompt from interrupting the public Maya demo flow. The install prompt now accepts a suppression flag, and the layout suppresses it on the demo picker and active Maya demo session so the guided narration is the only overlay users see.
+
+---
+
 ### 2026-07-13 10:55 — `feat/maya-demo`
 
 Moved the Maya guide subtitles out of the main app canvas. The narrator panel now docks compactly over the desktop sidebar while mobile keeps the bottom caption treatment, so users can inspect the Today timeline while following the demo.
