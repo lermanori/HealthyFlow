@@ -52,8 +52,16 @@ function speak(text: string) {
   if (!('speechSynthesis' in window)) return
   window.speechSynthesis.cancel()
   const utterance = new SpeechSynthesisUtterance(text)
-  utterance.rate = 0.95
-  utterance.pitch = 1
+  const voices = window.speechSynthesis.getVoices()
+  const preferredVoice = voices.find((voice) => (
+    /samantha|ava|allison|victoria|karen|daniel|google us english|microsoft aria/i.test(voice.name)
+  )) ?? voices.find((voice) => voice.lang.toLowerCase().startsWith('en') && voice.localService)
+    ?? voices.find((voice) => voice.lang.toLowerCase().startsWith('en'))
+
+  if (preferredVoice) utterance.voice = preferredVoice
+  utterance.rate = 0.88
+  utterance.pitch = 1.04
+  utterance.volume = 0.92
   window.speechSynthesis.speak(utterance)
 }
 
@@ -97,6 +105,13 @@ export default function MayaDemoGuide() {
 
   useEffect(() => {
     if (!open || !voiceEnabled) return
+    if (window.speechSynthesis?.getVoices().length === 0) {
+      window.speechSynthesis.onvoiceschanged = () => speak(`${step.title}. ${step.subtitle}`)
+      return () => {
+        window.speechSynthesis.onvoiceschanged = null
+        window.speechSynthesis.cancel()
+      }
+    }
     speak(`${step.title}. ${step.subtitle}`)
     return () => window.speechSynthesis?.cancel()
   }, [open, step, voiceEnabled])
@@ -120,10 +135,10 @@ export default function MayaDemoGuide() {
 
   return (
     <div className="fixed inset-0 z-[80] pointer-events-none">
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
+      <div className="absolute inset-0 bg-black/10" />
       {targetRect && (
         <div
-          className="absolute rounded-2xl border-2 border-cyan-300 shadow-[0_0_0_9999px_rgba(0,0,0,.38),0_0_36px_rgba(34,211,238,.45)] transition-all duration-300"
+          className="absolute rounded-2xl border-2 border-cyan-300 shadow-[0_0_0_9999px_rgba(0,0,0,.16),0_0_28px_rgba(34,211,238,.4)] transition-all duration-300"
           style={{
             left: Math.max(targetRect.left - 8, 8),
             top: Math.max(targetRect.top - 8, 8),
@@ -134,7 +149,7 @@ export default function MayaDemoGuide() {
       )}
 
       <div className="absolute inset-x-4 bottom-4 pointer-events-auto sm:bottom-6">
-        <div className="mx-auto max-w-2xl rounded-2xl border border-cyan-500/30 bg-page/95 p-4 shadow-2xl shadow-cyan-950/40 backdrop-blur-xl sm:p-5">
+        <div className="mx-auto max-w-2xl rounded-2xl border border-cyan-500/35 bg-page/90 p-4 shadow-2xl shadow-cyan-950/35 sm:p-5">
           <div className="mb-4 flex items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">{step.eyebrow}</p>

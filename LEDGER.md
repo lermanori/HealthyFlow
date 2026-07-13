@@ -1,3 +1,9 @@
+### 2026-07-13 10:48 — `feat/maya-demo`
+
+Polished the Maya guide after reviewing the deployed demo. The overlay now keeps the real app visible by removing backdrop blur and reducing the dimming, and browser narration now prefers higher-quality English system voices with a slower, softer delivery when available.
+
+---
+
 ### 2026-07-13 10:28 — `feat/maya-demo`
 
 Cleaned up the first-visit path around the new Maya demo. The login form now uses plain `Login` language, points curious visitors to the static landing page, and the landing page's demo CTAs now route into the persona picker at `/demo` where Maya is currently the only available story.
