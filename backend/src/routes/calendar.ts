@@ -7,6 +7,7 @@ import {
   getCalendarOAuthReturnUrl,
   getGoogleCalendarConnectUrl,
   getGoogleCalendarStatus,
+  isGoogleCalendarNotConnectedError,
   syncTimedTasksForDate,
   syncGoogleCalendarEventsForDate,
   updateExternalCalendarEventCompletion,
@@ -75,6 +76,9 @@ router.get('/google/events', authenticateToken, async (req: AuthRequest, res) =>
   try {
     res.json(await syncGoogleCalendarEventsForDate(req.user.userId, parsed.data.date))
   } catch (error) {
+    if (isGoogleCalendarNotConnectedError(error)) {
+      return res.json([])
+    }
     console.error('Google Calendar events error:', error)
     res.status(500).json({ error: 'Failed to load Google Calendar events' })
   }

@@ -1,3 +1,9 @@
+### 2026-07-13 10:16 — `feat/maya-demo`
+
+Built the first persona-based interactive demo around Maya, the overloaded founder persona. The new public `/demo` page starts a real seeded Maya session, the backend refreshes Maya's data relative to the current date, and an in-app guide walks over the actual Today, Talk, and Week surfaces with subtitles and optional browser voiceover. While verifying the flow, SmartReminders was made idempotent and unconnected Google Calendar event fetches now return an empty list so the demo path opens without console errors.
+
+---
+
 ### 2026-07-13 09:59 — `main`
 
 Added a reusable demo-week seed script for the public demo account. The script refreshes the current week relative to the real date, fills tasks and habit instances, and also seeds calories, weight, workouts, and achievements so the demo account shows a coherent active week across the app.

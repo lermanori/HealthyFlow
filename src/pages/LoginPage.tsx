@@ -261,6 +261,12 @@ export default function LoginPage() {
                   <p><strong className="text-cyan-400">Email:</strong> demo@healthyflow.com</p>
                   <p><strong className="text-cyan-400">Password:</strong> demo123</p>
                 </div>
+                <Link
+                  to="/demo"
+                  className="mt-4 inline-flex items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-200 transition hover:border-cyan-400/50 hover:bg-cyan-500/15"
+                >
+                  Try the guided Maya demo
+                </Link>
               </div>
             </motion.div>
           )}

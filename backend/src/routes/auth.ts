@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { db } from '../supabase-client'
 import { Credits, FREE_SIGNUP_CREDITS } from '../credits'
 import { Onboarding } from '../onboarding'
+import { getMayaDemoUser } from '../demo-personas'
 
 const router = express.Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
@@ -15,6 +16,10 @@ const SignupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().min(1),
+})
+
+const DemoSessionSchema = z.object({
+  persona: z.literal('maya'),
 })
 
 // ponytail: scoped to /signup only — don't rate-limit login or admin routes
@@ -52,6 +57,33 @@ router.post('/signup', signupLimiter, async (req, res) => {
   } catch (error) {
     console.error('Signup error:', error)
     return res.status(500).json({ error: 'Database error' })
+  }
+})
+
+// Public persona demo session. This resets Maya's demo data to the current date
+// before issuing a normal JWT, so the app itself remains the demo surface.
+router.post('/demo-session', async (req, res) => {
+  const parsed = DemoSessionSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Unknown demo persona' })
+  }
+
+  try {
+    const user = await getMayaDemoUser()
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '2h' })
+    return res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role ?? 'user',
+      },
+      token,
+      persona: parsed.data.persona,
+    })
+  } catch (error) {
+    console.error('Demo session error:', error)
+    return res.status(500).json({ error: 'Could not start demo session' })
   }
 })
 

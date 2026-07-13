@@ -15,6 +15,7 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
+  startDemoSession: (persona: 'maya') => Promise<void>
   signup: (email: string, password: string, name: string) => Promise<void>
   logout: () => void
 }
@@ -95,8 +96,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const startDemoSession = async (persona: 'maya') => {
+    try {
+      const { user: userData, token } = await authService.startDemoSession(persona)
+      queryClient.clear()
+      localStorage.setItem('token', token)
+      localStorage.setItem('demoPersona', persona)
+      localStorage.setItem('mayaDemoGuide', 'open')
+      identifyUser(userData)
+      analytics.capture('demo_started', { persona })
+      setUser(userData)
+      toast.success('Maya demo loaded')
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || 'Could not start demo'
+      toast.error(msg)
+      throw error
+    }
+  }
+
   const logout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('demoPersona')
+    localStorage.removeItem('mayaDemoGuide')
     queryClient.clear()
     analytics.reset()
     setUser(null)
@@ -104,7 +125,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, startDemoSession, signup, logout }}>
       {children}
     </AuthContext.Provider>
   )

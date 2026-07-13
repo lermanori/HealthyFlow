@@ -12,6 +12,7 @@ import AchievementsPage from './pages/AchievementsPage'
 import WorkoutsPage from './pages/WorkoutsPage'
 import AssistantPage from './pages/AssistantPage'
 import LoginPage from './pages/LoginPage'
+import DemoPage from './pages/DemoPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsOfServicePage from './pages/TermsOfServicePage'
 import LoadingSpinner from './components/LoadingSpinner'
@@ -54,6 +55,7 @@ function App() {
   if (!user) {
     return (
       <Routes>
+        <Route path="/demo" element={<DemoPage />} />
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="*" element={<LoginPage />} />
@@ -70,6 +72,7 @@ function App() {
           <Route path="/add" element={<AddItemPage />} />
           <Route path="/week" element={<WeekViewPage />} />
           <Route path="/talk" element={<AssistantPage />} />
+          <Route path="/demo" element={<DemoPage />} />
           <Route path="/assistant" element={<AssistantRedirect />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/token-manager" element={user.role === 'admin' ? <TokenManagerPage /> : <Navigate to="/" replace />} />

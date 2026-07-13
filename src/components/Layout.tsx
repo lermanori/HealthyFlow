@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import PWAInstallPrompt from './PWAInstallPrompt'
+import MayaDemoGuide from './MayaDemoGuide'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSettings } from '../hooks/useSettings'
 
@@ -134,6 +135,7 @@ export default function Layout({ children }: LayoutProps) {
                       <li key={item.name}>
                         <Link
                           to={item.href}
+                          data-demo={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
                           className={`flex items-center space-x-3 px-4 py-4 rounded-xl transition-all duration-300 group ${
                             isActive
                               ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/20'
@@ -287,8 +289,9 @@ export default function Layout({ children }: LayoutProps) {
                   const isActive = location.pathname === item.href
                   return (
                     <li key={item.name}>
-                      <Link
+                        <Link
                         to={item.href}
+                        data-demo={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
                         className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 group ${
                           isActive
                             ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/20'
@@ -328,6 +331,7 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* Main Content */}
         <main
+          data-demo="main-content"
           className={`min-w-0 flex-1 overflow-x-hidden ${
             isMobile
               ? isTalkPage ? 'mt-[calc(4.8125rem+env(safe-area-inset-top))] h-[calc(100dvh-4.8125rem-env(safe-area-inset-top))] p-0' : 'mt-[calc(4.8125rem+env(safe-area-inset-top))] p-4 pb-32'
@@ -385,6 +389,7 @@ export default function Layout({ children }: LayoutProps) {
           
         </div>
       )}
+      <MayaDemoGuide />
     </div>
   )
 }

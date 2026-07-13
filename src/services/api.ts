@@ -321,6 +321,11 @@ export const authService = {
     return response.data
   },
 
+  startDemoSession: async (persona: 'maya') => {
+    const response = await api.post('/auth/demo-session', { persona })
+    return response.data
+  },
+
   verifyToken: async () => {
     const response = await api.get('/auth/verify')
     return response.data

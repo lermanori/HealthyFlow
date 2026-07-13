@@ -12,6 +12,16 @@ interface Reminder {
   type: 'upcoming' | 'overdue'
 }
 
+function sameReminders(a: Reminder[], b: Reminder[]) {
+  if (a.length !== b.length) return false
+  return a.every((item, index) => (
+    item.id === b[index].id &&
+    item.taskTitle === b[index].taskTitle &&
+    item.time === b[index].time &&
+    item.type === b[index].type
+  ))
+}
+
 export default function SmartReminders() {
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [dismissedIds, setDismissedIds] = useState<string[]>([])
@@ -69,7 +79,7 @@ export default function SmartReminders() {
 
     // ponytail: don't filter dismissedIds here — visibleReminders (line below) already does it.
     // Keeping dismissedIds in deps + unconditional setReminders caused the render loop.
-    setReminders(newReminders)
+    setReminders((current) => sameReminders(current, newReminders) ? current : newReminders)
 
     // Only update if there are new IDs
     if (overdueToNotify.length > 0) {
