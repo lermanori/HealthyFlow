@@ -1,3 +1,9 @@
+### 2026-07-13 16:10 — `feat/maya-demo`
+
+Finished the richer Maya demo pass and Talk history work. The demo now runs through a Joyride-based mobile-friendly walkthrough with static narration audio, guided Talk mocking, real app mutations, account/logout guidance, and demo-safe no-persist chat behavior; regular users now get server-backed Talk history via Supabase. The branch has been deployed to the Netlify preview and Railway backend, with the new Supabase chat-history migration already applied.
+
+---
+
 ### 2026-07-13 11:17 — `feat/maya-demo`
 
 Stopped the PWA install prompt from interrupting the public Maya demo flow. The install prompt now accepts a suppression flag, and the layout suppresses it on the demo picker and active Maya demo session so the guided narration is the only overlay users see.

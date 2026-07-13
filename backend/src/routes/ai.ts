@@ -88,6 +88,37 @@ const ChatRequest = z.object({
   attachment: ChatAttachment.optional(),
 })
 
+const StoredChatMessage = z.object({
+  id: z.string().uuid(),
+  role: z.enum(['user', 'assistant']),
+  content: z.string().trim().min(1).max(12_000),
+  displayContent: z.string().max(12_000).optional(),
+  hidden: z.boolean().optional(),
+  attachment: z.unknown().optional(),
+  toolEvents: z.unknown().optional(),
+  pendingActions: z.unknown().optional(),
+  error: z.boolean().optional(),
+  createdAt: z.string().datetime().optional(),
+})
+
+const AssistantConversationSnapshot = z.object({
+  id: z.string().uuid(),
+  title: z.string().trim().min(1).max(160),
+  model: ChatModel.default(CHAT_MODEL),
+  createdAt: z.string().datetime().optional(),
+  updatedAt: z.string().datetime().optional(),
+  messages: z.array(StoredChatMessage).max(200),
+})
+
+const ConversationParams = z.object({
+  conversationId: z.string().uuid(),
+})
+
+async function isDemoHistoryUser(userId: string) {
+  const user = await db.getUserById(userId)
+  return user.email === 'demo-maya@healthyflow.com' || user.email === 'demo@healthyflow.com'
+}
+
 const CHAT_SYSTEM_PROMPT = `You are the internal HealthyFlow assistant.
 
 Answer questions using the provided HealthyFlow tools. Use the app vocabulary exactly: Item, Task, Habit, Habit instance, Calorie entry, Weight entry, Achievement, Workout session.
@@ -203,6 +234,46 @@ router.get('/daily-context', authenticateToken, async (req: AuthRequest, res) =>
   } catch (error) {
     console.error('Daily context error:', error)
     res.status(500).json({ error: 'Failed to load daily context' })
+  }
+})
+
+router.get('/conversations', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    if (await isDemoHistoryUser(req.user.userId)) return res.json([])
+    res.json(await db.getAssistantConversations(req.user.userId))
+  } catch (error) {
+    console.error('Assistant conversations error:', error)
+    res.status(500).json({ error: 'Failed to load chat history' })
+  }
+})
+
+router.put('/conversations/:conversationId', authenticateToken, async (req: AuthRequest, res) => {
+  const params = ConversationParams.safeParse(req.params)
+  const body = AssistantConversationSnapshot.safeParse(req.body)
+  if (!params.success || !body.success || params.data.conversationId !== body.data.id) {
+    return res.status(400).json({ error: 'Invalid conversation' })
+  }
+
+  try {
+    if (await isDemoHistoryUser(req.user.userId)) return res.json(body.data)
+    res.json(await db.upsertAssistantConversation(req.user.userId, body.data))
+  } catch (error) {
+    console.error('Save assistant conversation error:', error)
+    res.status(500).json({ error: 'Failed to save chat history' })
+  }
+})
+
+router.delete('/conversations/:conversationId', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = ConversationParams.safeParse(req.params)
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid conversation id' })
+
+  try {
+    if (await isDemoHistoryUser(req.user.userId)) return res.status(204).send()
+    await db.archiveAssistantConversation(req.user.userId, parsed.data.conversationId)
+    res.status(204).send()
+  } catch (error) {
+    console.error('Archive assistant conversation error:', error)
+    res.status(500).json({ error: 'Failed to delete chat history' })
   }
 })
 

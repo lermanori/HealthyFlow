@@ -17,6 +17,7 @@ backend/dist
 # Logs
 *.log
 ngrok.log
+11labs-gen/
 
 # Netlify
 .netlify

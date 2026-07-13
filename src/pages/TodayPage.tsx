@@ -184,6 +184,7 @@ function WeekRibbon({
             key={key}
             type="button"
             onClick={() => onSelect(day)}
+            data-demo-id={isSelected ? 'week-tab' : undefined}
             className={`flex flex-col overflow-hidden rounded-xl border transition-all ${
               isSelected
                 ? 'border-cyan-400/50 bg-cyan-500/[.12] shadow-lg shadow-cyan-500/10'
@@ -270,7 +271,7 @@ function NowNextCard({ tasks }: { tasks: Task[] }) {
 
   if (!current && !next) {
     return (
-      <div className="rounded-xl border border-line/60 bg-page/40 p-4 text-sm text-ink-muted">
+      <div data-demo-id="now-next-card" className="rounded-xl border border-line/60 bg-page/40 p-4 text-sm text-ink-muted">
         Nothing timed right now. Add a time to something below, or enjoy the open space.
       </div>
     )
@@ -288,7 +289,7 @@ function NowNextCard({ tasks }: { tasks: Task[] }) {
   )
 
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-cyan-500/30 bg-page/50 p-4">
+    <div data-demo-id="now-next-card" className="flex flex-col gap-3 rounded-xl border border-cyan-500/30 bg-page/50 p-4">
       {current && <Row label="Now" task={current} accent="bg-cyan-500/20 text-cyan-300" />}
       {next && (
         <div className={current ? 'border-t border-card pt-3' : ''}>
@@ -301,7 +302,7 @@ function NowNextCard({ tasks }: { tasks: Task[] }) {
 
 function RhythmKickoffCard({ kickoff }: { kickoff: DueKickoff }) {
   return (
-    <div className="flex flex-col gap-3 rounded-xl border border-cyan-500/35 bg-cyan-500/[.08] p-4 shadow-lg shadow-cyan-500/10 sm:flex-row sm:items-center sm:justify-between">
+    <div data-demo-id="morning-planning-card" className="flex flex-col gap-3 rounded-xl border border-cyan-500/35 bg-cyan-500/[.08] p-4 shadow-lg shadow-cyan-500/10 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-cyan-300" />
@@ -724,6 +725,7 @@ export default function TodayPage() {
 
             <Link
               to="/talk"
+              data-demo-id="talk-button"
               className="flex items-center gap-1.5 rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-950 shadow-lg shadow-cyan-400/20 transition-colors hover:bg-cyan-300"
             >
               <Sparkles className="h-4 w-4" />
@@ -732,6 +734,7 @@ export default function TodayPage() {
             <Link
               to="/add"
               aria-label="Add"
+              data-demo-id="add-task-button"
               className="flex h-[38px] w-[38px] items-center justify-center gap-1.5 rounded-xl border border-line bg-card/50 text-ink-soft transition-colors hover:border-line-strong hover:text-ink lg:w-auto lg:px-3.5"
             >
               <Plus className="h-[17px] w-[17px]" />
