@@ -1,3 +1,9 @@
+### 2026-07-13 10:55 — `feat/maya-demo`
+
+Moved the Maya guide subtitles out of the main app canvas. The narrator panel now docks compactly over the desktop sidebar while mobile keeps the bottom caption treatment, so users can inspect the Today timeline while following the demo.
+
+---
+
 ### 2026-07-13 10:48 — `feat/maya-demo`
 
 Polished the Maya guide after reviewing the deployed demo. The overlay now keeps the real app visible by removing backdrop blur and reducing the dimming, and browser narration now prefers higher-quality English system voices with a slower, softer delivery when available.
