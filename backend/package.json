@@ -8,7 +8,9 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "server": "npm run build && npm start",
-    "test": "jest --config jest.config.cjs"
+    "test": "jest --config jest.config.cjs",
+    "test:ci": "jest --config jest.config.cjs --ci --testPathIgnorePatterns=\\.live\\.test\\.ts$",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

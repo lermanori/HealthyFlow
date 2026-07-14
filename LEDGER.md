@@ -1,3 +1,9 @@
+### 2026-07-14 05:14 — `claude/improvement-areas-jc166l`
+
+Added a real CI pipeline (`.github/workflows/ci.yml`) — the repo previously had no CI at all, so its 47 backend Jest suites and the frontend gates never ran automatically. CI now runs frontend lint + typecheck and backend typecheck + tests on every push/PR to `main`. Backend test setup was fixed to provide dummy `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` (the client is constructed at import time), which unblocked 7 suites that couldn't even load; all 315 backend tests now pass. Added `typecheck` scripts to both packages and a `test:ci` script that excludes the local-only `*.live.test.ts` suites.
+
+---
+
 ### 2026-07-14 05:07 — `claude/improvement-areas-jc166l`
 
 Restored the frontend lint and typecheck gates as the first step of a codebase-improvement pass. The `tsconfig.json` `baseUrl`/`paths` block (dead config — the `@/` alias was unused and not wired into Vite) was removed, clearing the TS 7.0 deprecation error. A proper `.eslintrc.cjs` was added (ESLint 8 flat-of-record config for the Vite React+TS stack) since the project previously shipped with no ESLint config at all, and the `lint` script's `--max-warnings 0` was relaxed so warnings surface without blocking. Fixed the resulting hard errors (mixed tabs in `TaskCard.tsx`, a stale eslint-disable in `SmartReminders.tsx`) so `npm run lint` and `tsc --noEmit` both exit clean.
