@@ -1,3 +1,9 @@
+### 2026-07-14 05:52 — `claude/improvement-areas-jc166l`
+
+Began breaking up the 1,946-line `supabase-client.ts` god file. Introduced a shared client module (`db/client.ts`) so the facade and domain modules share one Supabase client with no import cycle, and extracted five fully self-contained domains — projects, weight, achievements, push subscriptions, and assistant conversations — into `db/*.ts` modules composed back into the `db` facade via spread. Public API is unchanged (`import { supabase, db } from './supabase-client'` still works via re-export), so none of the 26 importers needed edits. The facade dropped from 1,946 to 1,522 lines (~22%); backend typecheck is clean and all 315 tests pass. Remaining cross-coupled domains (users/tasks/habits core, contact→users, credits→users) can follow the same pattern in a later pass.
+
+---
+
 ### 2026-07-14 05:42 — `claude/improvement-areas-jc166l`
 
 Burned down all 27 `as any` casts to zero across frontend and backend, in line with the "no untyped any" principle. Non-standard browser globals now have a proper ambient declaration (`src/types/globals.d.ts` for `navigator.standalone` / `window.MSStream`); the demo hook and `webkitSpeechRecognition` reuse existing global types; `startTime` became `string | null` so drag-to-clear stops needing a cast; habit grouping narrows on `t.type` instead of casting; and the AI-action payloads / OpenAI responses / jwt claims got minimal named types instead of `any`. Frontend and backend typecheck clean, all 315 backend tests pass, and lint warnings dropped from 48 to 28.
