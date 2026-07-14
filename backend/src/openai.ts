@@ -75,6 +75,18 @@ export type OpenAIToolEvent = {
   result: unknown
 }
 
+// Minimal shape of the OpenAI chat-completions response — just the fields we
+// read. `message` stays loose because the tool-calling path passes it through
+// (its full shape is model/version dependent).
+interface OpenAIChatResponse {
+  choices?: Array<{ message?: Record<string, unknown> & { content?: string } }>
+  usage?: {
+    prompt_tokens: number
+    completion_tokens: number
+    total_tokens: number
+  }
+}
+
 /**
  * A tool failure the model can recover from within the same turn (e.g. it
  * referenced an Item that does not exist). The tool loop feeds these back to
@@ -610,7 +622,7 @@ async function rawCall(
       console.error('OpenAI upstream error:', res.status, res.statusText, body)
       return { ok: false, code: 'upstream', message: `Upstream ${res.status}` }
     }
-    const data = (await res.json()) as any
+    const data = (await res.json()) as OpenAIChatResponse
     const content = data.choices?.[0]?.message?.content
     if (!content) {
       console.error('OpenAI response missing content:', data)
@@ -642,7 +654,7 @@ function addUsage(a: TokenUsage, b?: TokenUsage): TokenUsage {
 function toolFallbackMessage(toolEvents: OpenAIToolEvent[]) {
   if (toolEvents.length === 0) return null
   const pending = toolEvents
-    .map((event) => (event.result as any)?.pendingAction)
+    .map((event) => (event.result as { pendingAction?: unknown })?.pendingAction)
     .find(Boolean)
   if (pending) return 'I prepared that change. Review the preview, then Confirm or Cancel.'
   return 'I ran the requested lookup. See the details above.'
@@ -719,7 +731,7 @@ async function rawToolCall(
       console.error('OpenAI upstream error:', res.status, res.statusText, body)
       return { ok: false, code: 'upstream', message: `Upstream ${res.status}` }
     }
-    const data = (await res.json()) as any
+    const data = (await res.json()) as OpenAIChatResponse
     const message = data.choices?.[0]?.message
     if (!message) {
       console.error('OpenAI tool response missing message:', data)

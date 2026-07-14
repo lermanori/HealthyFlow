@@ -131,7 +131,7 @@ router.get('/verify', async (req, res) => {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as any
+    const decoded = jwt.verify(token, JWT_SECRET) as { userId: string }
     const user = await db.getUserById(decoded.userId)
     
     if (!user) {

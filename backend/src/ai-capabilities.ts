@@ -432,7 +432,7 @@ async function lookupFoodNutrition(query: string, limit: number) {
       headers: { 'User-Agent': 'HealthyFlow/1.0 nutrition lookup' },
     })
     if (res.ok) {
-      const body = await res.json() as any
+      const body = await res.json() as { products?: unknown[] }
       for (const product of body.products ?? []) {
         const candidate = openFoodFactsCandidate(product)
         if (candidate) candidates.push(candidate)
@@ -485,7 +485,7 @@ async function withIdempotency<T>(
 ): Promise<any> {
   if (requestId) {
     const existing = await db.getAiIdempotency(ctx.userId, requestId, tool)
-    if (existing) return { ...(existing.result as any), duplicated: true }
+    if (existing) return { ...(existing.result as Record<string, unknown>), duplicated: true }
   }
 
   const result = await execute()
@@ -509,7 +509,7 @@ async function auditWrite(ctx: AiCapabilityContext, tool: string, args: unknown,
     target_ids: targetIds,
     result,
     model: ctx.model ?? null,
-    request_id: typeof args === 'object' && args && 'requestId' in args ? String((args as any).requestId ?? '') || null : null,
+    request_id: typeof args === 'object' && args && 'requestId' in args ? String((args as Record<string, unknown>).requestId ?? '') || null : null,
   })
 }
 

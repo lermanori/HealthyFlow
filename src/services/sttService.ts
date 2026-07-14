@@ -32,7 +32,7 @@ export class STTService {
 
   private initializeRecognition() {
     // Check for browser support
-    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     
     if (SpeechRecognition) {
       this.recognition = new SpeechRecognition()
@@ -180,7 +180,7 @@ export class STTService {
 
   // Utility method to check if STT is supported
   static isSupported(): boolean {
-    return !!(window.SpeechRecognition || (window as any).webkitSpeechRecognition)
+    return !!(window.SpeechRecognition || window.webkitSpeechRecognition)
   }
 
   // Get available languages (this is a simplified version)

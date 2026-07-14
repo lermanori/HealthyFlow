@@ -1,3 +1,9 @@
+### 2026-07-14 05:42 — `claude/improvement-areas-jc166l`
+
+Burned down all 27 `as any` casts to zero across frontend and backend, in line with the "no untyped any" principle. Non-standard browser globals now have a proper ambient declaration (`src/types/globals.d.ts` for `navigator.standalone` / `window.MSStream`); the demo hook and `webkitSpeechRecognition` reuse existing global types; `startTime` became `string | null` so drag-to-clear stops needing a cast; habit grouping narrows on `t.type` instead of casting; and the AI-action payloads / OpenAI responses / jwt claims got minimal named types instead of `any`. Frontend and backend typecheck clean, all 315 backend tests pass, and lint warnings dropped from 48 to 28.
+
+---
+
 ### 2026-07-14 05:33 — `claude/improvement-areas-jc166l`
 
 Reconciled the rollover documentation with the code. Confirmed `rollover.ts` genuinely owns all carry-forward logic (it's just intentionally thin — ADR-0002 collapsed rollover to one rule), and clarified that in CLAUDE.md/AGENTS.md so its small size no longer reads as missing logic. Added a prominent "historical — superseded by ADR-0002" banner to `ROLLOVER_IMPROVEMENTS.md`, which still described the obsolete new-row-per-rollover design, and updated its FEATURES.md reference to match. Also repaired the FEATURES.md doc links that pointed at files moved into `docs/archive/` in the previous commit.

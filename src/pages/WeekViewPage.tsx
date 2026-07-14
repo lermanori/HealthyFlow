@@ -167,7 +167,7 @@ export default function WeekViewPage() {
       items.forEach((t) => {
         rawRows.push({
           id: t.id, source: 'task', title: t.title, type: typeOf(t), completed: t.completed,
-          hasTime: !!t.startTime, time: t.startTime, off, date,
+          hasTime: !!t.startTime, time: t.startTime ?? undefined, off, date,
         })
       })
     })
@@ -223,10 +223,10 @@ export default function WeekViewPage() {
     const habitMap = new Map<string, { name: string; cells: ({ id: string; completed: boolean } | null)[] }>()
     dayItems.forEach((items, off) => {
       items.forEach((t) => {
-        if (typeOf(t) !== 'habit') return
+        if (t.type !== 'habit') return
         // Backend always sets originalHabitId on habit items (virtual + materialized),
         // so it's the stable key that groups a habit's per-day instances into one row.
-        const key = (t as any).originalHabitId || t.id
+        const key = t.originalHabitId || t.id
         if (!habitMap.has(key)) habitMap.set(key, { name: t.title, cells: Array(7).fill(null) })
         habitMap.get(key)!.cells[off] = { id: t.id, completed: t.completed }
       })

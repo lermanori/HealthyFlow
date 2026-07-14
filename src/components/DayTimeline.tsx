@@ -331,7 +331,7 @@ export default function DayTimeline({
           item.id === task.id ? { ...item, startTime, position: null } as Task : item
         ))
         onTasksReorder(optimistic)
-        const updated = await taskService.updateTask(task.id, { startTime, position: null as any })
+        const updated = await taskService.updateTask(task.id, { startTime, position: null })
         onTasksReorder(tasks.map(item => (item.id === task.id ? ({ ...item, ...updated } as Task) : item)))
       },
     }
@@ -371,7 +371,7 @@ export default function DayTimeline({
       onTasksReorder([...scheduled.filter(t => t.id !== taskId), ...newAnytime])
 
       // updateTask returns the real row (may have a new real id if this was a virtual habit instance)
-      const updated = await taskService.updateTask(taskId, { startTime: null as any, position: destination.index })
+      const updated = await taskService.updateTask(taskId, { startTime: null, position: destination.index })
       if (updated.id !== taskId) {
         // Virtual habit was materialized — id changed; swap in real row for next interaction
         // ponytail: cast needed because spread of discriminated-union loses narrowing
@@ -390,7 +390,7 @@ export default function DayTimeline({
       onTasksReorder([...newScheduled, ...newAnytime])
 
       // updateTask materializes virtual habit instances; returned row has the real id
-      const updated = await taskService.updateTask(taskId, { startTime: zone, position: null as any })
+      const updated = await taskService.updateTask(taskId, { startTime: zone, position: null })
       if (updated.id !== taskId) {
         // Swap synthetic id for real id so next drag uses the real row
         // ponytail: cast needed because spread of discriminated-union loses narrowing

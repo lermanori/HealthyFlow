@@ -553,18 +553,24 @@ function taskDraftValueFromRecord(value: Record<string, any>): TaskDraftCardValu
   }
 }
 
+// Shape of the `result`/`preview` payloads carried by pending actions. They
+// arrive as `unknown` (dynamic AI-action output); narrow to just the fields we
+// read rather than reaching through `any`.
+type ActionItemPayload = { item?: Record<string, unknown> & { title?: string } }
+type ActionEntriesPayload = { entries?: unknown; entry?: unknown }
+
 // The Item a complete_task / update_item card should display: the resulting
 // Item once confirmed, otherwise the previewed Item.
-function taskItemFromAction(action: ConversationPendingAction): Record<string, any> | null {
-  const result = action.result as any
+function taskItemFromAction(action: ConversationPendingAction): Record<string, unknown> | null {
+  const result = action.result as ActionItemPayload | undefined
   if ((action.status === 'confirmed' || action.status === 'canceled') && result?.item) return result.item
-  const preview = action.preview as any
+  const preview = action.preview as ActionItemPayload | undefined
   if (preview?.item) return preview.item
   return null
 }
 
 function deleteItemTitle(action: ConversationPendingAction): string | null {
-  const preview = action.preview as any
+  const preview = action.preview as ActionItemPayload | undefined
   return preview?.item?.title ?? null
 }
 
@@ -615,10 +621,10 @@ function calorieEntryFromRecord(value: Record<string, unknown>): CalorieEntryDra
 }
 
 function calorieDraftsFromPendingAction(action: ConversationPendingAction, draft: Record<string, unknown>): CalorieEntryDraftValue[] {
-  const result = action.result as any
+  const result = action.result as ActionEntriesPayload | undefined
   if ((action.status === 'confirmed' || action.status === 'canceled') && result) {
     if (Array.isArray(result.entries)) return result.entries.map((entry: Record<string, unknown>) => calorieEntryFromRecord(entry))
-    if (result.entry && typeof result.entry === 'object') return [calorieEntryFromRecord(result.entry)]
+    if (result.entry && typeof result.entry === 'object') return [calorieEntryFromRecord(result.entry as Record<string, unknown>)]
   }
 
   if (action.capability === 'add_calorie_entries') {
