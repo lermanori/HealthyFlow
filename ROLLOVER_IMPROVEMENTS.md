@@ -1,5 +1,16 @@
 # Rollover Feature Improvements
 
+> **⚠️ Historical — superseded.** This document describes an earlier
+> virtual-rollover design that layered carry-forward into
+> `getTasksWithRecurringHabits`. It has been superseded by
+> [ADR-0002](docs/adr/0002-task-scheduling-and-materialization-model.md), which
+> collapsed rollover to a single carry-forward rule now owned entirely by
+> `backend/src/rollover.ts`. The `rolled_over_from_task_id` /
+> `original_created_at` columns and the `backend/cleanup-rollover-tasks.js`
+> script referenced below are write-dead leftovers from the original
+> "new row per rollover" approach. Kept for historical context only — see
+> ADR-0002 and `rollover.ts` for current behavior.
+
 ## Problem
 The rollover feature was creating new database entries for every rolled-over task, leading to:
 - Database clutter with duplicate tasks

@@ -1,3 +1,9 @@
+### 2026-07-14 05:33 — `claude/improvement-areas-jc166l`
+
+Reconciled the rollover documentation with the code. Confirmed `rollover.ts` genuinely owns all carry-forward logic (it's just intentionally thin — ADR-0002 collapsed rollover to one rule), and clarified that in CLAUDE.md/AGENTS.md so its small size no longer reads as missing logic. Added a prominent "historical — superseded by ADR-0002" banner to `ROLLOVER_IMPROVEMENTS.md`, which still described the obsolete new-row-per-rollover design, and updated its FEATURES.md reference to match. Also repaired the FEATURES.md doc links that pointed at files moved into `docs/archive/` in the previous commit.
+
+---
+
 ### 2026-07-14 05:26 — `claude/improvement-areas-jc166l`
 
 Introduced a minimal leveled logger (`backend/src/utils/logger.ts`) and routed all 25 backend `console.log` calls through it. Debug tracing (raw task dumps in `routes/tasks.ts` and `supabase-client.ts`) now goes through `logger.debug`, and startup/migration banners through `logger.info`, so trace noise disappears from production logs (level defaults to `info` in production, `debug` in dev, overridable via `LOG_LEVEL`). Backend typecheck and all 315 tests still pass.

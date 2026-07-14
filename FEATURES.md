@@ -80,7 +80,7 @@
 - [`src/components/TTSActions.tsx`](src/components/TTSActions.tsx) - TTS control buttons
 - [`src/hooks/useSTT.ts`](src/hooks/useSTT.ts) - Speech-to-text hook
 - [`src/hooks/useTTS.ts`](src/hooks/useTTS.ts) - Text-to-speech hook
-- [`test-voice.html`](test-voice.html) - Voice features testing page
+- [`docs/archive/test-voice.html`](docs/archive/test-voice.html) - Voice features testing page
 
 ---
 
@@ -534,9 +534,9 @@ const unifiedAIPrompts = {
 ## 📚 Documentation Files
 
 - [`README.md`](README.md) - Main project documentation
-- [`README_HealthyFlow.md`](README_HealthyFlow.md) - Architecture overview
+- [`docs/archive/README_HealthyFlow.md`](docs/archive/README_HealthyFlow.md) - Architecture overview (archived)
 - [`README-DEPLOYMENT.md`](README-DEPLOYMENT.md) - Deployment guide
-- [`ROLLOVER_IMPROVEMENTS.md`](ROLLOVER_IMPROVEMENTS.md) - Rollover feature details
+- [`ROLLOVER_IMPROVEMENTS.md`](ROLLOVER_IMPROVEMENTS.md) - Rollover feature details (historical; superseded by ADR-0002)
 - [`backend/README-SUPABASE-MIGRATION.md`](backend/README-SUPABASE-MIGRATION.md) - Database migration guide
 
 ---
@@ -544,8 +544,8 @@ const unifiedAIPrompts = {
 ## 🧪 Testing
 
 - [`tests/`](tests/) - Comprehensive test suite
-- [`test-voice.html`](test-voice.html) - Voice features testing
-- [`test-tts.html`](test-tts.html) - Text-to-speech testing
+- [`docs/archive/test-voice.html`](docs/archive/test-voice.html) - Voice features testing
+- [`docs/archive/test-tts.html`](docs/archive/test-tts.html) - Text-to-speech testing
 
 ---
 
