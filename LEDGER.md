@@ -1,3 +1,9 @@
+### 2026-07-14 05:26 — `claude/improvement-areas-jc166l`
+
+Introduced a minimal leveled logger (`backend/src/utils/logger.ts`) and routed all 25 backend `console.log` calls through it. Debug tracing (raw task dumps in `routes/tasks.ts` and `supabase-client.ts`) now goes through `logger.debug`, and startup/migration banners through `logger.info`, so trace noise disappears from production logs (level defaults to `info` in production, `debug` in dev, overridable via `LOG_LEVEL`). Backend typecheck and all 315 tests still pass.
+
+---
+
 ### 2026-07-14 05:20 — `claude/improvement-areas-jc166l`
 
 Repo hygiene pass. Documented the committed-env contract: `.env.example` now lists every public `VITE_` var with an explicit warning that server secrets must never live in a committed env file, and `.env.production` got a header saying the same (the values there are public build-time vars that already ship in the browser bundle, so they stay committed). Decluttered the repo root by moving unreferenced dated notes (`26-jul-plan.md`, `review-26jul.md`), an older standalone readme (`README_HealthyFlow.md`), and the loose manual test harnesses (`test-tts.html`, `test-voice.html`) into `docs/archive/`. Root markdown dropped from 13 files to 10; only the active canonical docs remain.

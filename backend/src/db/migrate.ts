@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import sqlite3 from 'sqlite3'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -37,42 +38,42 @@ export function migrateDatabase() {
 
         const addOriginalHabitId = () => {
           if (!hasOriginalHabitId) {
-            console.log('🔄 Adding original_habit_id column to tasks table...')
+            logger.info('🔄 Adding original_habit_id column to tasks table...')
             db.run(`ALTER TABLE tasks ADD COLUMN original_habit_id TEXT`, (err) => {
               if (err) {
                 console.error('❌ Migration failed:', err)
                 reject(err)
               } else {
-                console.log('✅ original_habit_id column added!')
+                logger.info('✅ original_habit_id column added!')
                 resolve()
               }
             })
           } else {
-            console.log('✅ original_habit_id column already exists')
+            logger.info('✅ original_habit_id column already exists')
             resolve()
           }
         }
 
         const addOverdueNotified = () => {
           if (!hasOverdueNotified) {
-            console.log('🔄 Adding overdue_notified column to tasks table...')
+            logger.info('🔄 Adding overdue_notified column to tasks table...')
             db.run(`ALTER TABLE tasks ADD COLUMN overdue_notified BOOLEAN DEFAULT FALSE`, (err) => {
               if (err) {
                 console.error('❌ Migration failed:', err)
                 reject(err)
               } else {
-                console.log('✅ overdue_notified column added!')
+                logger.info('✅ overdue_notified column added!')
                 addOriginalHabitId()
               }
             })
           } else {
-            console.log('✅ overdue_notified column already exists')
+            logger.info('✅ overdue_notified column already exists')
             addOriginalHabitId()
           }
         }
 
         if (!hasScheduledDate) {
-          console.log('🔄 Adding scheduled_date column to tasks table...')
+          logger.info('🔄 Adding scheduled_date column to tasks table...')
           
           // Add the scheduled_date column
           db.run(`
@@ -83,7 +84,7 @@ export function migrateDatabase() {
               console.error('❌ Migration failed:', err)
               reject(err)
             } else {
-              console.log('✅ Migration completed successfully!')
+              logger.info('✅ Migration completed successfully!')
               
               // Update existing tasks with today's date
               const today = new Date().toISOString().split('T')[0]
@@ -96,14 +97,14 @@ export function migrateDatabase() {
                   console.error('❌ Failed to update existing tasks:', err)
                   reject(err)
                 } else {
-                  console.log('✅ Updated existing tasks with today\'s date')
+                  logger.info('✅ Updated existing tasks with today\'s date')
                   addOverdueNotified()
                 }
               })
             }
           })
         } else {
-          console.log('✅ scheduled_date column already exists')
+          logger.info('✅ scheduled_date column already exists')
           addOverdueNotified()
         }
       })
@@ -115,7 +116,7 @@ export function migrateDatabase() {
 // if (import.meta.url === `file://${process.argv[1]}`) {
 //   migrateDatabase()
 //     .then(() => {
-//       console.log('🎉 Database migration completed!')
+//       logger.info('🎉 Database migration completed!')
 //       process.exit(0)
 //     })
 //     .catch((err) => {

@@ -1,3 +1,4 @@
+import { logger } from './utils/logger'
 import { z } from 'zod'
 import webpush from 'web-push'
 import cron from 'node-cron'
@@ -212,7 +213,7 @@ export function startProactivityScheduler(): void {
   cron.schedule('*/5 * * * *', () => {
     runProactivityTick(new Date(), 5).catch((err) => console.error('[proactivity] tick failed:', err))
   })
-  console.log('[proactivity] scheduler started (*/5 * * * *)')
+  logger.info('[proactivity] scheduler started (*/5 * * * *)')
 }
 
 const KICKOFF_INTROS: Record<TouchpointType, string> = {
