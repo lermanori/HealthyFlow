@@ -1,3 +1,9 @@
+### 2026-07-14 05:20 — `claude/improvement-areas-jc166l`
+
+Repo hygiene pass. Documented the committed-env contract: `.env.example` now lists every public `VITE_` var with an explicit warning that server secrets must never live in a committed env file, and `.env.production` got a header saying the same (the values there are public build-time vars that already ship in the browser bundle, so they stay committed). Decluttered the repo root by moving unreferenced dated notes (`26-jul-plan.md`, `review-26jul.md`), an older standalone readme (`README_HealthyFlow.md`), and the loose manual test harnesses (`test-tts.html`, `test-voice.html`) into `docs/archive/`. Root markdown dropped from 13 files to 10; only the active canonical docs remain.
+
+---
+
 ### 2026-07-14 05:14 — `claude/improvement-areas-jc166l`
 
 Added a real CI pipeline (`.github/workflows/ci.yml`) — the repo previously had no CI at all, so its 47 backend Jest suites and the frontend gates never ran automatically. CI now runs frontend lint + typecheck and backend typecheck + tests on every push/PR to `main`. Backend test setup was fixed to provide dummy `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` (the client is constructed at import time), which unblocked 7 suites that couldn't even load; all 315 backend tests now pass. Added `typecheck` scripts to both packages and a `test:ci` script that excludes the local-only `*.live.test.ts` suites.
