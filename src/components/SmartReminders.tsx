@@ -92,7 +92,6 @@ export default function SmartReminders() {
         return updated
       })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks])
 
   const handleDismiss = (id: string) => {

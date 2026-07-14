@@ -1,3 +1,9 @@
+### 2026-07-14 05:07 — `claude/improvement-areas-jc166l`
+
+Restored the frontend lint and typecheck gates as the first step of a codebase-improvement pass. The `tsconfig.json` `baseUrl`/`paths` block (dead config — the `@/` alias was unused and not wired into Vite) was removed, clearing the TS 7.0 deprecation error. A proper `.eslintrc.cjs` was added (ESLint 8 flat-of-record config for the Vite React+TS stack) since the project previously shipped with no ESLint config at all, and the `lint` script's `--max-warnings 0` was relaxed so warnings surface without blocking. Fixed the resulting hard errors (mixed tabs in `TaskCard.tsx`, a stale eslint-disable in `SmartReminders.tsx`) so `npm run lint` and `tsc --noEmit` both exit clean.
+
+---
+
 ### 2026-07-13 16:10 — `feat/maya-demo`
 
 Finished the richer Maya demo pass and Talk history work. The demo now runs through a Joyride-based mobile-friendly walkthrough with static narration audio, guided Talk mocking, real app mutations, account/logout guidance, and demo-safe no-persist chat behavior; regular users now get server-backed Talk history via Supabase. The branch has been deployed to the Netlify preview and Railway backend, with the new Supabase chat-history migration already applied.

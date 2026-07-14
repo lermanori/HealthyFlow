@@ -63,7 +63,7 @@ export default function Layout({ children }: LayoutProps) {
   }, [isMobileMenuOpen])
 
   useEffect(() => {
-    ;(window as any).__healthyFlowDemo = {
+    (window as any).__healthyFlowDemo = {
       ...((window as any).__healthyFlowDemo ?? {}),
       openAccountMenu: () => setIsMobileMenuOpen(true),
       closeAccountMenu: () => setIsMobileMenuOpen(false),
