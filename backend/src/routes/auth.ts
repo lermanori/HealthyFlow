@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { db } from '../supabase-client'
 import { Credits, FREE_SIGNUP_CREDITS } from '../credits'
 import { Onboarding } from '../onboarding'
-import { getMayaDemoUser } from '../demo-personas'
+import { DEMO_PERSONAS, getDemoPersonaUser } from '../demo-personas'
 
 const router = express.Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
@@ -19,7 +19,7 @@ const SignupSchema = z.object({
 })
 
 const DemoSessionSchema = z.object({
-  persona: z.literal('maya'),
+  persona: z.enum(DEMO_PERSONAS),
 })
 
 // ponytail: scoped to /signup only — don't rate-limit login or admin routes
@@ -60,7 +60,7 @@ router.post('/signup', signupLimiter, async (req, res) => {
   }
 })
 
-// Public persona demo session. This resets Maya's demo data to the current date
+// Public persona demo session. This resets the persona's demo data to the current date
 // before issuing a normal JWT, so the app itself remains the demo surface.
 router.post('/demo-session', async (req, res) => {
   const parsed = DemoSessionSchema.safeParse(req.body)
@@ -69,7 +69,7 @@ router.post('/demo-session', async (req, res) => {
   }
 
   try {
-    const user = await getMayaDemoUser()
+    const user = await getDemoPersonaUser(parsed.data.persona)
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '2h' })
     return res.json({
       user: {

@@ -133,6 +133,38 @@ const emptyFinalAnswerResponse = {
   usage: { prompt_tokens: 120, completion_tokens: 12, total_tokens: 132 },
 }
 
+const mullerLabelOcrResponse = {
+  choices: [
+    {
+      message: {
+        content: JSON.stringify({
+          nutritionLabelVisible: true,
+          brand: 'müller',
+          productName: 'משקה קפה',
+          claimText: 'חלב 0% שומן',
+          packageProteinGrams: 25,
+          basisText: 'ב-100 מ״ל',
+          packageText: '350 מ״ל',
+          productText: 'משקה קפה חלב 0% שומן',
+          columns: [{ basis: 'per_100ml', basisText: 'ב-100 מ״ל' }],
+          rows: [
+            { row: 1, rawLabel: 'אנרגיה (קלוריות)', nutrient: 'energy', rawValues: ['45'] },
+            { row: 2, rawLabel: 'שומנים', nutrient: 'fat', rawValues: ['0'] },
+            { row: 3, rawLabel: 'נתרן', nutrient: 'sodium', rawValues: ['70'] },
+            { row: 4, rawLabel: 'סך הפחמימות', nutrient: 'carbs', rawValues: ['4.2'] },
+            { row: 5, rawLabel: 'סוכרים', nutrient: 'sugars', rawValues: ['4'] },
+            { row: 6, rawLabel: 'כפיות סוכר', nutrient: 'other', rawValues: ['1'] },
+            { row: 7, rawLabel: 'חלבונים', nutrient: 'protein', rawValues: ['7.15'] },
+            { row: 8, rawLabel: 'סידן', nutrient: 'calcium', rawValues: ['175'] },
+          ],
+          notes: '',
+        }),
+      },
+    },
+  ],
+  usage: { prompt_tokens: 100, completion_tokens: 30, total_tokens: 130 },
+}
+
 describe('AI capability schemas', () => {
   it('do not accept userId in model-provided tool inputs', () => {
     for (const capability of Object.values(AiCapabilities)) {
@@ -381,6 +413,81 @@ describe('POST /api/ai/chat', () => {
         image_url: { url: `data:image/png;base64,${Buffer.from('fake-image').toString('base64')}` },
       },
     ])
+  })
+
+  it('uses the AI Meal Entry photo parser before preparing a Talk calorie preview', async () => {
+    const imageData = Buffer.from('fake-muller-label').toString('base64')
+    let observedMealParserBody: any
+
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, toolCallResponse('parse_meal_entries', {
+        text: 'Log the drink shown in the attached nutrition label',
+        date: '2026-07-02',
+      }))
+      .post('/v1/chat/completions')
+      .reply(200, function (_uri, body) {
+        observedMealParserBody = body
+        return mullerLabelOcrResponse
+      })
+      .post('/v1/chat/completions')
+      .reply(200, toolCallResponse('add_calorie_entry', {
+        requestId: 'muller-label-2026-07-02',
+        date: '2026-07-02',
+        name: 'müller משקה קפה',
+        quantity: '350 ml',
+        calories: 175,
+        protein: 2,
+        carbs: 7,
+        fat: 0.4,
+      }))
+      .post('/v1/chat/completions')
+      .reply(200, {
+        choices: [{ message: { content: 'I read the label and prepared a Calorie entry. Confirm it to save.' } }],
+        usage: { prompt_tokens: 120, completion_tokens: 12, total_tokens: 132 },
+      })
+
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-muller-label'))
+      .send({
+        messages: [{ role: 'user', content: 'Log this drink' }],
+        attachment: {
+          kind: 'image',
+          name: 'muller.jpg',
+          mimeType: 'image/jpeg',
+          data: imageData,
+        },
+      })
+
+    expect(res.status).toBe(200)
+    expect(observedMealParserBody.messages[1].content).toEqual([
+      expect.objectContaining({ type: 'text', text: expect.stringContaining('OCR ONLY') }),
+      {
+        type: 'image_url',
+        image_url: { url: `data:image/jpeg;base64,${imageData}` },
+      },
+    ])
+    expect(res.body.toolEvents.map((event: any) => event.name)).toEqual([
+      'parse_meal_entries',
+      'add_calorie_entry',
+    ])
+    expect(res.body.pendingActions).toEqual([expect.objectContaining({
+      capability: 'add_calorie_entry',
+      preview: {
+        action: 'add_calorie_entry',
+        willCreate: {
+          entry: expect.objectContaining({
+            name: 'müller משקה קפה',
+            quantity: '350 ml',
+            calories: 158,
+            protein: 25,
+            carbs: 14.7,
+            fat: 0,
+          }),
+        },
+      },
+    })])
   })
 
   it('includes text attachments in the latest user message without using image content', async () => {

@@ -465,7 +465,7 @@ export default function AchievementsPage() {
         <>
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
             <div className="space-y-4">
-              <div className="card">
+              <div className="card" data-demo-id="achievement-detail">
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">

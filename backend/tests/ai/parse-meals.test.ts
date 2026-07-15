@@ -59,23 +59,24 @@ const validOcrOpenAIResponse = {
     {
       message: {
         content: JSON.stringify({
+          nutritionLabelVisible: true,
           brand: 'müller',
           productName: 'משקה קפה',
           claimText: 'חלב 0% שומן',
+          packageProteinGrams: 25,
           basisText: 'ב-100 מ״ל',
           packageText: '350 מ״ל',
           productText: 'משקה קפה חלב 0% שומן',
-          numericColumnTopToBottom: ['45', '0', '70', '4.2', '1', '1', '7.15', '175'],
-          labelColumnTopToBottom: ['אנרגיה (קלוריות)', 'שומנים', 'נתרן', 'סך הפחמימות', 'סוכרים', 'כפיות סוכר', 'חלבונים', 'סידן'],
-          pairedRows: [
-            { row: 1, rawNumber: '45', rawLabel: 'אנרגיה (קלוריות)', canonical: '45 קלוריות' },
-            { row: 2, rawNumber: '0', rawLabel: 'שומנים', canonical: '0 גרם' },
-            { row: 3, rawNumber: '70', rawLabel: 'נתרן', canonical: '70 מ״ג' },
-            { row: 4, rawNumber: '4.2', rawLabel: 'סך הפחמימות', canonical: '4.2 גרם' },
-            { row: 5, rawNumber: '1', rawLabel: 'סוכרים', canonical: '1 גרם' },
-            { row: 6, rawNumber: '1', rawLabel: 'כפיות סוכר', canonical: '1 כפית' },
-            { row: 7, rawNumber: '7.15', rawLabel: 'חלבונים', canonical: '7.15 גרם' },
-            { row: 8, rawNumber: '175', rawLabel: 'סידן', canonical: '175 מ״ג' },
+          columns: [{ basis: 'per_100ml', basisText: 'ב-100 מ״ל' }],
+          rows: [
+            { row: 1, rawLabel: 'אנרגיה (קלוריות)', nutrient: 'energy', rawValues: ['45'] },
+            { row: 2, rawLabel: 'שומנים', nutrient: 'fat', rawValues: ['0'] },
+            { row: 3, rawLabel: 'נתרן', nutrient: 'sodium', rawValues: ['70'] },
+            { row: 4, rawLabel: 'סך הפחמימות', nutrient: 'carbs', rawValues: ['4.2'] },
+            { row: 5, rawLabel: 'סוכרים', nutrient: 'sugars', rawValues: ['1'] },
+            { row: 6, rawLabel: 'כפיות סוכר', nutrient: 'other', rawValues: ['1'] },
+            { row: 7, rawLabel: 'חלבונים', nutrient: 'protein', rawValues: ['7.15'] },
+            { row: 8, rawLabel: 'סידן', nutrient: 'calcium', rawValues: ['175'] },
           ],
           notes: '',
         }),
@@ -197,11 +198,12 @@ describe('POST /api/ai/parse-meals — happy path', () => {
     expect(allText).toContain('OCR ONLY')
     expect(allText).toContain('Do not estimate nutrition and do not calculate totals')
     expect(allText).toContain('brand/logo text')
-    expect(allText).toContain('Do not use nutrition claims like 0% שומן as the productName')
-    expect(allText).toContain('Extract the numeric column top-to-bottom')
-    expect(allText).toContain('Pair rows by index only')
-    expect(allText).toContain('חלבונים')
-    expect(allText).toContain('סידן')
+    expect(allText).toContain('in any language')
+    expect(allText).toContain('do not translate rawLabel')
+    expect(allText).toContain('exactly one columns entry for each header')
+    expect(allText).toContain('rawValues left-to-right')
+    expect(allText).toContain('238 kJ / 56 kcal')
+    expect(allText).toContain('folic acid')
   })
 
   it('asks OCR to extract basis, package amount, and product claims before table rows', async () => {
@@ -230,10 +232,10 @@ describe('POST /api/ai/parse-meals — happy path', () => {
         : message.content.map((part: any) => part.text ?? '').join('\n')
     ).join('\n')
     expect(allText).toContain('nutrition table basis/header')
-    expect(allText).toContain('package/bottle amount')
+    expect(allText).toContain('package amount')
     expect(allText).toContain('claim text')
-    expect(allText).toContain('350 מ״ל')
-    expect(allText).toContain('0% שומן')
+    expect(allText).toContain('160 g')
+    expect(allText).toContain('0% fat')
   })
 
   it('normalizes OCR-first per-100ml table rows into package totals before returning public meals', async () => {
@@ -275,17 +277,18 @@ describe('POST /api/ai/parse-meals — happy path', () => {
           {
             message: {
               content: JSON.stringify({
+                nutritionLabelVisible: true,
                 brand: 'müller',
                 productName: 'משקה קפה',
                 claimText: 'חלב 0% שומן',
+                packageProteinGrams: null,
                 basisText: 'ב-100 מ״ל',
                 packageText: '350 מ״ל',
                 productText: 'משקה קפה חלב 0% שומן',
-                numericColumnTopToBottom: ['45', '0'],
-                labelColumnTopToBottom: ['אנרגיה (קלוריות)', 'שומנים'],
-                pairedRows: [
-                  { row: 1, rawNumber: '45', rawLabel: 'אנרגיה (קלוריות)', canonical: '45 קלוריות' },
-                  { row: 2, rawNumber: '0', rawLabel: 'שומנים', canonical: '0 גרם' },
+                columns: [{ basis: 'per_100ml', basisText: 'ב-100 מ״ל' }],
+                rows: [
+                  { row: 1, rawLabel: 'אנרגיה (קלוריות)', nutrient: 'energy', rawValues: ['45'] },
+                  { row: 2, rawLabel: 'שומנים', nutrient: 'fat', rawValues: ['0'] },
                 ],
                 notes: '',
               }),

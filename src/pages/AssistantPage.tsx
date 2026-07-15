@@ -50,23 +50,55 @@ const assistantModels: Array<{ value: AssistantChatModel; label: string }> = [
   { value: 'gpt-5.5', label: 'GPT-5.5' },
 ]
 
-function isMayaDemoSession() {
-  return localStorage.getItem('demoPersona') === 'maya'
+function isDemoSession() {
+  return Boolean(localStorage.getItem('demoPersona'))
 }
 
-function mayaDemoAssistantMessage(): ConversationMessage {
+const demoAssistantPlans: Record<string, string[]> = {
+  maya: [
+    "Here's a stable plan for Maya's day:",
+    '',
+    '1. Protect the first clear morning block for the rolled-over task. It is the only item that needs a real schedule change.',
+    '2. Keep the lower-pressure personal tasks in Anytime so the timeline stays readable.',
+    '3. Treat habits as lightweight anchors: complete the realistic ones today, but do not let them crowd the plan.',
+    '',
+    "I'll move the rolled-over task into the morning next, then you can keep exploring the real workspace.",
+  ],
+  noam: [
+    "Here's a stable reset plan for Noam:",
+    '',
+    '1. Do the smallest visible step first: open the bill and only read it.',
+    '2. Keep the clinic call in view by giving it a short slot, not by rewriting the whole day.',
+    '3. Leave the rest in Anytime so unfinished work rolls forward without duplicating pressure.',
+    '',
+    "I'll schedule one carried-forward task next, then Noam can keep exploring.",
+  ],
+  lina: [
+    "Here's a stable health-tracking readout for Lina:",
+    '',
+    '1. Today already has habits, Calorie entries with macros, weight trend data, and a Workout session.',
+    '2. Quick Insert can repeat the yogurt bowl from history instead of retyping it.',
+    '3. Achievements shows 5K time as a personal metric with progress over recent entries.',
+    '',
+    'The next stops are Calories, Workouts, and Achievements.',
+  ],
+  amir: [
+    "Here's a stable re-plan for Amir:",
+    '',
+    '1. Protect school pickup because it is the fixed point in the afternoon.',
+    '2. Keep groceries as normal Tasks in Anytime until there is a real window.',
+    '3. Move the carried-forward school forms after pickup and leave flexible work visible.',
+    '',
+    "I'll schedule one rollover item next, then Amir can keep exploring the changed day.",
+  ],
+}
+
+function demoAssistantMessage(): ConversationMessage {
+  const persona = localStorage.getItem('demoPersona') ?? 'maya'
   return {
     id: crypto.randomUUID(),
     role: 'assistant',
-    content: [
-      "Here's a stable plan for Maya's day:",
-      '',
-      '1. Protect the first clear morning block for the rolled-over task. It is the only item that needs a real schedule change.',
-      '2. Keep the lower-pressure personal tasks in Anytime so the timeline stays readable.',
-      '3. Treat habits as lightweight anchors: complete the realistic ones today, but do not let them crowd the plan.',
-      '',
-      "I'll move the rolled-over task into the morning next, then you can keep exploring the real workspace.",
-    ].join('\n'),
+    content: (demoAssistantPlans[persona] ?? demoAssistantPlans.maya).join('\n'),
       toolEvents: [
         {
           name: 'read_today',
@@ -880,7 +912,7 @@ function PendingActionCard({
 
 export default function AssistantPage() {
   const queryClient = useQueryClient()
-  const isDemoSession = isMayaDemoSession()
+  const demoSession = isDemoSession()
   const [conversations, setConversations] = useState<StoredConversation[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string>(() => crypto.randomUUID())
   const [messages, setMessages] = useState<ConversationMessage[]>([])
@@ -904,7 +936,7 @@ export default function AssistantPage() {
     let canceled = false
 
     const loadConversations = async () => {
-      if (isDemoSession) {
+      if (demoSession) {
         setConversations([])
         setMessages([])
         setIsHistoryLoaded(true)
@@ -961,7 +993,7 @@ export default function AssistantPage() {
       canceled = true
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
     }
-  }, [isDemoSession])
+  }, [demoSession])
 
   useEffect(() => {
     if (!isHistoryLoaded) return
@@ -985,7 +1017,7 @@ export default function AssistantPage() {
   }, [activeConversationId, isHistoryLoaded, messages, model])
 
   useEffect(() => {
-    if (isDemoSession) return
+    if (demoSession) return
     if (!isHistoryLoaded) return
     if (messages.length === 0) return
     if (skipNextPersistRef.current) {
@@ -1010,7 +1042,7 @@ export default function AssistantPage() {
         toast.error('Could not save chat history.')
       })
     }, 350)
-  }, [activeConversationId, conversations, isDemoSession, isHistoryLoaded, messages, model])
+  }, [activeConversationId, conversations, demoSession, isHistoryLoaded, messages, model])
 
   const apiMessages = useMemo(
     () => messages
@@ -1048,7 +1080,7 @@ export default function AssistantPage() {
     try {
       if (options.forceMock) {
         await new Promise((resolve) => window.setTimeout(resolve, 900))
-        setMessages((current) => [...current, mayaDemoAssistantMessage()])
+        setMessages((current) => [...current, demoAssistantMessage()])
         return
       }
 

@@ -3,19 +3,22 @@ import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Brain, CalendarClock, CheckCircle2, Clock, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
+import { demoPersonaById, demoPersonas, type DemoPersonaId } from '../demoPersonas'
 
 export default function DemoPage() {
   const { startDemoSession } = useAuth()
   const navigate = useNavigate()
-  const [loading, setLoading] = useState(false)
+  const [loadingPersona, setLoadingPersona] = useState<DemoPersonaId | null>(null)
+  const [selectedPersona, setSelectedPersona] = useState<DemoPersonaId>('maya')
+  const selected = demoPersonaById(selectedPersona)
 
-  const startMaya = async () => {
-    setLoading(true)
+  const startPersona = async (persona: DemoPersonaId) => {
+    setLoadingPersona(persona)
     try {
-      await startDemoSession('maya')
-      navigate('/?demo=maya', { replace: true })
+      await startDemoSession(persona)
+      navigate(`/?demo=${persona}`, { replace: true })
     } finally {
-      setLoading(false)
+      setLoadingPersona(null)
     }
   }
 
@@ -70,22 +73,48 @@ export default function DemoPage() {
               transition={{ delay: 0.1 }}
               className="mt-5 max-w-2xl text-lg leading-8 text-ink-muted"
             >
-              Start with Maya, an overloaded founder with scattered notes, scheduled work, habits, and one task rolling forward from yesterday.
+              Choose a guided workspace seeded around a real day. Each story walks through existing HealthyFlow surfaces with stable demo data.
             </motion.p>
             <motion.div
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15 }}
-              className="mt-8 flex flex-wrap gap-3"
+              className="mt-8 grid gap-3 sm:grid-cols-2"
             >
-              <button
-                onClick={startMaya}
-                disabled={loading}
-                className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 font-semibold text-white shadow-lg shadow-cyan-500/25 transition hover:scale-[1.01] disabled:cursor-not-allowed disabled:opacity-70"
-              >
-                {loading ? 'Loading Maya...' : "Choose Maya's story"}
-                <ArrowRight className="h-5 w-5" />
-              </button>
+              {demoPersonas.map((persona) => {
+                const Icon = persona.icon
+                const isSelected = selectedPersona === persona.id
+                const isLoading = loadingPersona === persona.id
+                return (
+                  <button
+                    key={persona.id}
+                    onMouseEnter={() => setSelectedPersona(persona.id)}
+                    onFocus={() => setSelectedPersona(persona.id)}
+                    onClick={() => startPersona(persona.id)}
+                    disabled={loadingPersona !== null}
+                    className={`group min-h-[8.5rem] rounded-xl border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-70 ${
+                      isSelected
+                        ? 'border-cyan-400/60 bg-cyan-500/15 shadow-lg shadow-cyan-950/20'
+                        : 'border-line/70 bg-card/45 hover:border-cyan-500/40 hover:bg-card/70'
+                    }`}
+                  >
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 text-cyan-200">
+                          <Icon className="h-5 w-5" />
+                        </span>
+                        <div>
+                          <p className="font-semibold text-ink">{persona.name}</p>
+                          <p className="text-xs text-ink-muted">{persona.role}</p>
+                        </div>
+                      </div>
+                      <ArrowRight className="h-5 w-5 shrink-0 text-cyan-300 transition group-hover:translate-x-0.5" />
+                    </div>
+                    <p className="text-sm leading-6 text-ink-soft">{persona.copy}</p>
+                    {isLoading && <p className="mt-2 text-xs font-semibold text-cyan-300">Loading...</p>}
+                  </button>
+                )
+              })}
             </motion.div>
           </div>
 
@@ -98,21 +127,15 @@ export default function DemoPage() {
             <div className="rounded-xl border border-line/70 bg-sunken/50 p-4">
               <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-ink-muted">Available persona</p>
-                  <h2 className="text-2xl font-bold text-ink">Maya Chen</h2>
+                  <p className="text-sm text-ink-muted">Selected persona</p>
+                  <h2 className="text-2xl font-bold text-ink">{selected.fullName}</h2>
                 </div>
                 <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-200">
-                  Founder
+                  {selected.role.replace('The ', '')}
                 </span>
               </div>
               <div className="space-y-3">
-                {[
-                  ['07:45', 'Paste messy notes into parse-tasks'],
-                  ['09:00', 'Reply to pricing email'],
-                  ['11:00', 'Review launch page copy'],
-                  ['14:00', 'Prep investor update bullets'],
-                  ['Anytime', 'Book dentist appointment'],
-                ].map(([time, title]) => (
+                {selected.preview.map(([time, title]) => (
                   <div key={title} className="flex items-center gap-3 rounded-lg border border-line/60 bg-page/45 p-3">
                     <span className="w-16 shrink-0 text-xs font-semibold text-cyan-300">{time}</span>
                     <span className="min-w-0 flex-1 text-sm text-ink-soft">{title}</span>

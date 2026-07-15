@@ -1,3 +1,15 @@
+### 2026-07-15 16:55 — `main`
+
+Reworked nutrition-label photo parsing around language-independent, row-and-column OCR with package-total reconciliation and exact-photo live coverage for the Müller bottle and protein pudding. Talk now routes attached meal labels through the same AI Meal Entry parser, preserves OCR-derived product identity, and grounds the confirmation preview in the parser result so later chat reasoning cannot replace verified macros with guesses. The backend build, full automated suite, and exact Müller Talk flow all pass.
+
+---
+
+### 2026-07-15 13:35 — `main`
+
+Expanded the public demo from the single Maya path into multiple persona stories, with richer seeded data, guided narration updates, and demo-aware module surfaces across Today, Talk, Calories, Workouts, and Achievements. While investigating Talk memory, confirmed the Supabase chat-history tables are already live and fixed stale demo state so real users regain persistent server-backed chat history after leaving a demo. The current working tree was built and deployed to production at `healthyflow.app`.
+
+---
+
 ### 2026-07-14 05:52 — `claude/improvement-areas-jc166l`
 
 Began breaking up the 1,946-line `supabase-client.ts` god file. Introduced a shared client module (`db/client.ts`) so the facade and domain modules share one Supabase client with no import cycle, and extracted five fully self-contained domains — projects, weight, achievements, push subscriptions, and assistant conversations — into `db/*.ts` modules composed back into the `db` facade via spread. Public API is unchanged (`import { supabase, db } from './supabase-client'` still works via re-export), so none of the 26 importers needed edits. The facade dropped from 1,946 to 1,522 lines (~22%); backend typecheck is clean and all 315 tests pass. Remaining cross-coupled domains (users/tasks/habits core, contact→users, credits→users) can follow the same pattern in a later pass.
