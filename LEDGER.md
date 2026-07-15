@@ -1,3 +1,9 @@
+### 2026-07-15 16:55 — `main`
+
+Reworked nutrition-label photo parsing around language-independent, row-and-column OCR with package-total reconciliation and exact-photo live coverage for the Müller bottle and protein pudding. Talk now routes attached meal labels through the same AI Meal Entry parser, preserves OCR-derived product identity, and grounds the confirmation preview in the parser result so later chat reasoning cannot replace verified macros with guesses. The backend build, full automated suite, and exact Müller Talk flow all pass.
+
+---
+
 ### 2026-07-15 13:35 — `main`
 
 Expanded the public demo from the single Maya path into multiple persona stories, with richer seeded data, guided narration updates, and demo-aware module surfaces across Today, Talk, Calories, Workouts, and Achievements. While investigating Talk memory, confirmed the Supabase chat-history tables are already live and fixed stale demo state so real users regain persistent server-backed chat history after leaving a demo. The current working tree was built and deployed to production at `healthyflow.app`.

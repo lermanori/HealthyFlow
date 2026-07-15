@@ -5,7 +5,7 @@ import {
 } from '../../src/openai'
 
 const DEFAULT_MULLER_PHOTO_PATH =
-  '/tmp/codex-remote-attachments/019ef9de-2f62-7600-8d06-06e7140522fe/11DB9EA2-23A5-4931-9A3D-ABE86F29A70F/1-Photo-1.jpg'
+  '/tmp/codex-remote-attachments/019f6592-a01e-7de1-858c-6da9c75c6f70/CEDD7F7B-2FB8-42C8-88BA-7379D6BBA619/1-Photo-1.jpg'
 
 const runLiveOcrTest =
   process.env.RUN_OPENAI_LABEL_OCR_E2E === '1' &&
@@ -19,9 +19,9 @@ function parseLabelNumber(value: string) {
   return match ? Number(match[0]) : null
 }
 
-function findRowValue(rows: Array<{ rawNumber: string; rawLabel: string }>, pattern: RegExp) {
+function findRowValue(rows: Array<{ rawValues: string[]; rawLabel: string }>, pattern: RegExp) {
   const row = rows.find((candidate) => pattern.test(candidate.rawLabel))
-  return row ? parseLabelNumber(row.rawNumber) : null
+  return row ? parseLabelNumber(row.rawValues[0] ?? '') : null
 }
 
 describeLive('nutrition label OCR — live OpenAI extraction', () => {
@@ -32,6 +32,7 @@ describeLive('nutrition label OCR — live OpenAI extraction', () => {
     expect(fs.existsSync(photoPath)).toBe(true)
 
     const photoData = fs.readFileSync(photoPath).toString('base64')
+    const model = process.env.OPENAI_LABEL_OCR_MODEL ?? 'gpt-4o-mini'
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -39,7 +40,7 @@ describeLive('nutrition label OCR — live OpenAI extraction', () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: process.env.OPENAI_LABEL_OCR_MODEL ?? 'gpt-4o-mini',
+        model,
         temperature: 0,
         messages: [
           { role: 'system', content: 'You are an OCR engine for nutrition labels. Return JSON only.' },
@@ -59,14 +60,14 @@ describeLive('nutrition label OCR — live OpenAI extraction', () => {
             strict: true,
           },
         },
-        max_tokens: 1200,
+        ...(model.startsWith('gpt-5') ? { max_completion_tokens: 1200 } : { max_tokens: 1200 }),
       }),
     })
 
     expect(response.ok).toBe(true)
     const data = (await response.json()) as { choices: Array<{ message: { content: string } }> }
     const ocr = JSON.parse(data.choices[0].message.content)
-    const rows = ocr.pairedRows as Array<{ rawNumber: string; rawLabel: string }>
+    const rows = ocr.rows as Array<{ rawValues: string[]; rawLabel: string }>
 
     expect(ocr.brand).toMatch(/m[uü]ller/i)
     expect(ocr.productName).toMatch(/קפה/)

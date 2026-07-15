@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
-import { ParsedMeal, ParseMealsReview, parseMealsWithAi, RecoverableToolError } from './openai'
+import { ParsedMeal, ParseMealsPhoto, ParseMealsReview, parseMealsWithAi, RecoverableToolError } from './openai'
 import {
   AchievementEntryCreateSchema,
   Achievements,
@@ -461,7 +461,13 @@ async function tasksForDay(userId: string, date: string, limit: number) {
 
 export type AiCapabilityRisk = 'auto' | 'confirm'
 export type AiCaller = 'internal' | 'mcp'
-export type AiCapabilityContext = { userId: string; caller?: AiCaller; model?: string | null }
+export type AiCapabilityContext = {
+  userId: string
+  caller?: AiCaller
+  model?: string | null
+  photo?: ParseMealsPhoto
+  groundedMeals?: Array<z.infer<typeof ParsedMeal>>
+}
 
 export type AiCapabilityDefinition<
   TInput extends z.ZodTypeAny = z.ZodTypeAny,
@@ -715,7 +721,7 @@ export const AiCapabilities = {
   },
   parse_meal_entries: {
     name: 'parse_meal_entries',
-    description: 'Use the same AI Meal Entry parser as the Calories page to split a vague or composite meal description into separate reusable Calorie entry candidates. Use this before add_calorie_entries for multi-food meals.',
+    description: 'Use the same AI Meal Entry parser as the Calories page for an attached meal or nutrition-label photo, or to split a vague or composite meal description into separate reusable Calorie entry candidates. In internal Talk, the current image attachment is passed to this parser automatically. Use this before add_calorie_entry/add_calorie_entries for attached food images and multi-food meals.',
     risk: 'auto',
     inputSchema: ParseMealEntriesInput,
     outputSchema: z.object({
@@ -728,9 +734,11 @@ export const AiCapabilities = {
       const result = await parseMealsWithAi({
         userId: ctx.userId,
         text: parsed.text,
+        photo: ctx.photo,
         endpoint: 'ai-chat-parse-meals',
       })
       if (!result.ok) throw new Error(result.message)
+      if (ctx.photo) ctx.groundedMeals = result.value.meals
       return {
         date: parsed.date,
         ...result.value,
@@ -1102,7 +1110,19 @@ export function aiCapabilityTools(options: { mode?: 'internal' | 'mcp'; scopes?:
     outputSchema: capability.outputSchema,
     parameters: z.toJSONSchema(capability.inputSchema),
     execute: async (ctx: AiCapabilityContext, args: unknown) => {
-      const parsed = capability.inputSchema.parse(args ?? {})
+      let parsed: any = capability.inputSchema.parse(args ?? {})
+      if (capability.name === 'add_calorie_entry' && ctx.photo && ctx.groundedMeals?.length === 1) {
+        const meal = ctx.groundedMeals[0]
+        parsed = {
+          ...parsed,
+          name: meal.name,
+          quantity: meal.quantity,
+          calories: meal.calories,
+          protein: meal.protein,
+          carbs: meal.carbs,
+          fat: meal.fat,
+        }
+      }
       if (capability.risk === 'confirm' && mode === 'internal') {
         const preview = await capability.preview?.(ctx, parsed)
         const row = await db.createAiPendingAction({

@@ -108,7 +108,7 @@ type ToolCallOpts = {
 
 type OpenAIUserContent =
   | { type: 'text'; text: string }
-  | { type: 'image_url'; image_url: { url: string } }
+  | { type: 'image_url'; image_url: { url: string; detail?: 'auto' | 'low' | 'high' } }
 
 function toolMessagePromptEstimate(messages: OpenAIToolChatMessage[]) {
   return messages.flatMap((message) => {
@@ -167,21 +167,27 @@ export const PARSED_MEALS_JSON_SCHEMA = z.toJSONSchema(AiParsedMeals)
 
 const NutritionLabelOcrRow = z.object({
   row: z.number().int(),
-  rawNumber: z.string(),
   rawLabel: z.string(),
-  canonical: z.string(),
+  nutrient: z.enum(['energy', 'fat', 'saturated_fat', 'carbs', 'sugars', 'protein', 'salt', 'sodium', 'calcium', 'other']),
+  rawValues: z.array(z.string()).max(6),
+})
+
+const NutritionLabelOcrColumn = z.object({
+  basis: z.enum(['per_100g', 'per_100ml', 'per_package', 'per_serving', 'unknown']),
+  basisText: z.string().nullable(),
 })
 
 export const NutritionLabelOcr = z.object({
+  nutritionLabelVisible: z.boolean(),
   brand: z.string().nullable(),
   productName: z.string().nullable(),
   claimText: z.string().nullable(),
+  packageProteinGrams: z.number().nonnegative().nullable(),
   basisText: z.string().nullable(),
   packageText: z.string().nullable(),
   productText: z.string().nullable(),
-  numericColumnTopToBottom: z.array(z.string()).max(20),
-  labelColumnTopToBottom: z.array(z.string()).max(20),
-  pairedRows: z.array(NutritionLabelOcrRow).max(20),
+  columns: z.array(NutritionLabelOcrColumn).max(6),
+  rows: z.array(NutritionLabelOcrRow).max(20),
   notes: z.string(),
 })
 
@@ -204,26 +210,32 @@ export const NUTRITION_LABEL_READING_RULES = `Nutrition-label reading rules:
 - Hebrew column mapping: "ביחידה" / "באריזה" / "במנה" / "בחטיף" means per serving/package/item; "ב-100 גרם" means per 100g; "ב-100 מ״ל" / "ב-100 מל" means per 100ml.
 - Do not confuse "פחמימות" (carbs) with "חלבונים" (protein). If the per-serving label says "סך הפחמימות 22" and "חלבונים 16", return carbs=22 and protein=16.`
 
-export const NUTRITION_LABEL_OCR_PROMPT = `OCR ONLY. Do not estimate nutrition and do not calculate totals. Read the visible Hebrew product label from the photo.
+export const NUTRITION_LABEL_OCR_PROMPT = `OCR ONLY. Do not estimate nutrition and do not calculate totals. Read the visible product label in any language from the photo.
+
+Set nutritionLabelVisible=true only when a nutrition facts table is visible. Set it to false for an ordinary food photo with no readable nutrition table.
 
 First, read product identity fields if visible:
 - brand/logo text, e.g. Müller
-- concise product name/type/flavor, e.g. משקה קפה. Do not use nutrition claims like 0% שומן as the productName.
-- claim text, e.g. 0% שומן, חלבון, ללא גלוטן
+- productName must directly transcribe the visible product title/type/flavor in its original language. Never translate it, infer a flavor from packaging colors, or guess a product category. Use null when the title is not legible. Do not use a nutrition claim such as 0% fat as the productName.
+- claim text, e.g. 0% fat, high protein, gluten free
+- packageProteinGrams: the explicitly printed protein total for the whole package, or null when no whole-package protein claim is visible
 - full visible product/title text if possible
-- nutrition table basis/header, e.g. ב-100 מ״ל
-- package/bottle amount, e.g. 350 מ״ל
+- nutrition table basis/header, e.g. per 100g, pro 160g, or ב-100 מ״ל
+- package amount, e.g. 160 g or 350 מ״ל
 
 Then read the nutrition table:
-1. Extract the numeric column top-to-bottom exactly as visible.
-2. Extract the Hebrew nutrient label column top-to-bottom exactly as visible.
-3. Pair rows by index only.
-4. Do not skip rows just because text is wrapped or blurry.
-5. This Israeli dairy label commonly has these 8 rows: אנרגיה, שומנים, נתרן, סך הפחמימות, סוכרים, כפיות סוכר, חלבונים, סידן. Use this only to avoid skipping visible rows, not to invent invisible numbers.
+1. Preserve raw labels in their original language; do not translate rawLabel.
+2. Count the visible numeric column headers, then create exactly one columns entry for each header, left-to-right as printed.
+3. Preserve each table row as one rows entry. Set nutrient to the language-independent meaning of the raw label.
+4. For every row, return rawValues left-to-right in the exact same order as columns. The rawValues length must equal the columns length.
+5. An energy cell such as "238 kJ / 56 kcal" is one raw value in one energy row. Preserve both numbers and their order in that string.
+6. Never merge columns, duplicate one column into another, or use saturated fat, sugar, salt, minerals, vitamins, or folic acid as total fat, carbs, or protein.
+7. Do not skip rows just because text is wrapped, multilingual, angled, or blurry. Use an empty string for an unreadable cell so column positions stay aligned.
 
 Return OCR evidence only.`
 
 const PARSE_MEALS_MODEL = 'gpt-4o-mini'
+const NUTRITION_LABEL_OCR_MODEL = 'gpt-5.4-mini'
 const PARSE_MEALS_MAX_TOKENS = 1000
 const NUTRITION_LABEL_OCR_MAX_TOKENS = 1200
 
@@ -364,47 +376,95 @@ function columnPairedNutrients(evidence: NutritionLabelEvidenceValue) {
   return values
 }
 
-function ocrColumnPairedNutrients(ocr: NutritionLabelOcrValue) {
-  const values: Partial<Pick<ParsedMealValue, 'calories' | 'protein' | 'carbs' | 'fat'>> = {}
-  for (const row of ocr.pairedRows) {
-    const value = parseLabelNumber(row.rawNumber)
+type OcrNutrients = Partial<Pick<ParsedMealValue, 'calories' | 'protein' | 'carbs' | 'fat'>>
+
+function parseEnergyKcal(value: string) {
+  const normalized = value.replace(/,/g, '.')
+  const explicitKcal = normalized.match(/(\d+(?:\.\d+)?)\s*kcal/i)
+  if (explicitKcal) return Number(explicitKcal[1])
+  const numbers = [...normalized.matchAll(/\d+(?:\.\d+)?/g)].map((match) => Number(match[0]))
+  if (/\bkj\b/i.test(normalized) && numbers.length === 1) return null
+  return numbers.length >= 2 ? numbers[1] : numbers[0] ?? null
+}
+
+function nutrientsForOcrColumn(ocr: NutritionLabelOcrValue, columnIndex: number): OcrNutrients {
+  const nutrients: OcrNutrients = {}
+  for (const row of ocr.rows) {
+    const rawValue = row.rawValues[columnIndex]
+    if (!rawValue) continue
+    const value = row.nutrient === 'energy' ? parseEnergyKcal(rawValue) : parseLabelNumber(rawValue)
     if (value == null) continue
-    const mapped = HEBREW_NUTRIENT_MAP.find(([pattern]) => pattern.test(row.rawLabel))
-    if (!mapped) continue
-    values[mapped[1]] = value
+    if (row.nutrient === 'energy') nutrients.calories = value
+    if (row.nutrient === 'protein') nutrients.protein = value
+    if (row.nutrient === 'carbs') nutrients.carbs = value
+    if (row.nutrient === 'fat') nutrients.fat = value
   }
-  return values
+  return nutrients
+}
+
+function semanticOcrColumn(ocr: NutritionLabelOcrValue) {
+  const packageAmount = parsePackageAmount(ocr.packageText)
+  const usableColumns = ocr.columns
+    .map((column, index) => ({ column, nutrients: nutrientsForOcrColumn(ocr, index) }))
+    .filter(({ nutrients }) => (
+      nutrients.calories != null &&
+      (nutrients.protein != null || nutrients.carbs != null || nutrients.fat != null)
+    ))
+  const directColumn = usableColumns.find(({ column }) => column.basis === 'per_package')
+    ?? usableColumns.find(({ column }) => column.basis === 'per_serving')
+  const scaledColumn = packageAmount
+    ? usableColumns.find(({ column }) => (
+        (column.basis === 'per_100g' && packageAmount.unit === 'g') ||
+        (column.basis === 'per_100ml' && packageAmount.unit === 'ml')
+      ))
+    : undefined
+  const selected = directColumn ?? scaledColumn
+  if (!selected) return null
+
+  return {
+    basis: selected.column.basis,
+    basisText: selected.column.basisText,
+    factor: directColumn ? 1 : packageAmount!.amount / 100,
+    nutrients: selected.nutrients,
+  }
+}
+
+function preferredOcrEvidence(ocr: NutritionLabelOcrValue) {
+  return semanticOcrColumn(ocr)
 }
 
 export function evaluateOcrEvidence(ocr: NutritionLabelOcrValue): ParseMealsReviewValue {
   let score = 100
   const reasons: string[] = []
-  const basis = basisFromText(ocr.basisText)
+  const preferred = preferredOcrEvidence(ocr)
   const packageAmount = parsePackageAmount(ocr.packageText)
-  const nutrients = ocrColumnPairedNutrients(ocr)
+  const nutrients = preferred?.nutrients ?? {}
 
   const penalize = (points: number, reason: string) => {
     score -= points
     reasons.push(reason)
   }
 
-  if (basis !== 'per_100ml' && basis !== 'per_100g') penalize(25, 'Missing per-100ml/per-100g basis')
+  if (!preferred) penalize(25, 'Missing usable nutrition column')
   if (!packageAmount) penalize(25, 'Missing package size')
   if (nutrients.calories == null) penalize(25, 'Missing calories row')
   if (nutrients.protein == null) penalize(10, 'Missing protein row')
   if (nutrients.carbs == null) penalize(10, 'Missing carbs row')
   if (nutrients.fat == null && !hasZeroFatOcrClaim(ocr)) penalize(10, 'Missing fat row')
-  if (Math.abs(ocr.numericColumnTopToBottom.length - ocr.labelColumnTopToBottom.length) > 1) {
+  if (ocr.rows.some((row) => row.rawValues.length !== ocr.columns.length)) {
     penalize(15, 'Nutrition table rows look misaligned')
   }
   if (nutrients.carbs != null && nutrients.protein != null && nutrients.carbs > nutrients.protein * 8) {
     penalize(20, 'Possible mineral or row mix-up in macros')
   }
+  if (nutrients.calories != null && nutrients.fat != null && nutrients.fat * 9 > nutrients.calories * 1.25) {
+    penalize(35, 'Fat is not plausible for the calorie value')
+  }
 
   const boundedScore = Math.max(0, Math.min(100, score))
   const confidence = boundedScore >= 85 ? 'high' : boundedScore >= 60 ? 'medium' : 'low'
   const summary = [
-    ocr.basisText,
+    preferred?.basisText ?? ocr.basisText,
     ocr.packageText,
     nutrients.calories == null ? null : `${nutrients.calories} cal`,
     nutrients.protein == null ? null : `P ${nutrients.protein}g`,
@@ -520,9 +580,6 @@ function cleanProductNamePart(value: string | null) {
 }
 
 function ocrMealName(ocr: NutritionLabelOcrValue, fallbackName?: string) {
-  const userName = cleanProductNamePart(fallbackName ?? null)
-  if (userName) return userName
-
   const brand = cleanProductNamePart(ocr.brand)
   const productName = cleanProductNamePart(ocr.productName)
   if (brand && productName && !productName.toLowerCase().includes(brand.toLowerCase())) {
@@ -530,17 +587,57 @@ function ocrMealName(ocr: NutritionLabelOcrValue, fallbackName?: string) {
   }
   if (productName) return productName
   if (brand) return brand
+  const userName = cleanProductNamePart(fallbackName ?? null)
+  if (userName) return userName
   return cleanProductNamePart(ocr.productText) || 'Nutrition label item'
 }
 
+function reconciledPackageProtein(ocr: NutritionLabelOcrValue, nutrients: OcrNutrients, factor: number) {
+  if (nutrients.protein == null) return ocr.packageProteinGrams
+  const tableTotal = roundMacro(nutrients.protein * factor)
+  const claimedTotal = ocr.packageProteinGrams
+  const looksLikePrintedPackageTotal = claimedTotal != null && Math.abs(claimedTotal - Math.round(claimedTotal)) < 0.05
+  if (claimedTotal != null && looksLikePrintedPackageTotal && Math.abs(claimedTotal - tableTotal) <= Math.max(1, tableTotal * 0.15)) {
+    return claimedTotal
+  }
+
+  if (nutrients.calories == null || nutrients.carbs == null || nutrients.fat == null) return tableTotal
+  if (nutrients.fat > 1 || nutrients.protein < 5) return tableTotal
+
+  const macroCalories = nutrients.protein * 4 + nutrients.carbs * 4 + nutrients.fat * 9
+  const calorieDisagreement = Math.abs(macroCalories - nutrients.calories) / Math.max(1, nutrients.calories)
+  if (calorieDisagreement <= 0.03) return tableTotal
+
+  const inferredProtein = (nutrients.calories - nutrients.carbs * 4 - nutrients.fat * 9) / 4
+  if (inferredProtein <= 0 || Math.abs(inferredProtein - nutrients.protein) > nutrients.protein * 0.2) return tableTotal
+  return roundMacro(inferredProtein * factor)
+}
+
+function normalizedIdentityTokens(value: string | null) {
+  return new Set((value ?? '')
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean))
+}
+
+function productIdentityNeedsRetry(ocr: NutritionLabelOcrValue) {
+  const productTokens = normalizedIdentityTokens(ocr.productName)
+  const claimTokens = normalizedIdentityTokens(ocr.claimText)
+  if (productTokens.size === 0) return false
+  if (claimTokens.size === 0) return false
+  const overlap = [...productTokens].filter((token) => claimTokens.has(token)).length
+  return overlap / productTokens.size >= 0.6
+}
+
 export function nutritionLabelMealFromOcr(ocr: NutritionLabelOcrValue, fallbackName?: string): ParsedMealValue | null {
-  const basis = basisFromText(ocr.basisText)
   const packageAmount = parsePackageAmount(ocr.packageText)
-  if (basis !== 'per_100ml' && basis !== 'per_100g') return null
   if (!packageAmount) return null
 
-  const factor = packageAmount.amount / 100
-  const nutrients = ocrColumnPairedNutrients(ocr)
+  const preferred = preferredOcrEvidence(ocr)
+  if (!preferred) return null
+  const { factor, nutrients } = preferred
   if (nutrients.calories == null) return null
   if (nutrients.protein == null && nutrients.carbs == null && nutrients.fat == null) return null
   if (hasZeroFatOcrClaim(ocr)) nutrients.fat = 0
@@ -548,7 +645,7 @@ export function nutritionLabelMealFromOcr(ocr: NutritionLabelOcrValue, fallbackN
   return {
     name: ocrMealName(ocr, fallbackName),
     calories: Math.round(nutrients.calories * factor),
-    protein: nutrients.protein == null ? null : roundMacro(nutrients.protein * factor),
+    protein: reconciledPackageProtein(ocr, nutrients, factor),
     carbs: nutrients.carbs == null ? null : roundMacro(nutrients.carbs * factor),
     fat: nutrients.fat == null ? null : roundMacro(nutrients.fat * factor),
     quantity: `${packageAmount.amount} ${packageAmount.unit}`,
@@ -938,12 +1035,13 @@ export async function parseMealsWithAi(opts: {
   const photoContent = parseMealsPhotoContent(opts.photo)
   const userContent = parseMealsUserContent(trimmedText, opts.photo)
   const systemPrompt = parseMealsSystemPrompt()
+  const model = opts.photo ? NUTRITION_LABEL_OCR_MODEL : PARSE_MEALS_MODEL
   let reservedTokens = 0
   let usage: TokenUsage = ZERO_USAGE
 
   try {
     reservedTokens = await Credits.estimateReserve({
-      model: PARSE_MEALS_MODEL,
+      model,
       systemPrompt: opts.photo ? 'You are an OCR engine for nutrition labels. Return JSON only.' : systemPrompt,
       userPrompt: photoContent ?? userContent,
       maxOutputTokens: opts.photo ? NUTRITION_LABEL_OCR_MAX_TOKENS : PARSE_MEALS_MAX_TOKENS,
@@ -961,8 +1059,8 @@ export async function parseMealsWithAi(opts: {
   }
 
   if (photoContent) {
-    const ocrResult = await Openai.callStructured({
-      model: PARSE_MEALS_MODEL,
+    const callOcr = () => Openai.callStructured({
+      model,
       systemPrompt: 'You are an OCR engine for nutrition labels. Return JSON only.',
       userPrompt: photoContent,
       temperature: 0,
@@ -971,26 +1069,49 @@ export async function parseMealsWithAi(opts: {
       jsonSchema: NUTRITION_LABEL_OCR_JSON_SCHEMA,
       parser: (v) => NutritionLabelOcr.parse(v),
     })
+    const ocrResult = await callOcr()
 
     if (!ocrResult.ok) {
       await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
       return ocrResult
     }
     usage = ocrResult.usage ?? ZERO_USAGE
-    const ocrMeal = nutritionLabelMealFromOcr(ocrResult.value, trimmedText || undefined)
-    const review = evaluateOcrEvidence(ocrResult.value)
+    let ocr = ocrResult.value
+    let ocrMeal = nutritionLabelMealFromOcr(ocr, trimmedText || undefined)
+    let labelWasVisible = ocr.nutritionLabelVisible
+
+    for (let retry = 0; retry < 2 && (productIdentityNeedsRetry(ocr) || (ocr.nutritionLabelVisible && !ocrMeal)); retry += 1) {
+      const retryResult = await callOcr()
+      if (!retryResult.ok) {
+        await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+        return retryResult
+      }
+      usage = addUsage(usage, retryResult.usage)
+      labelWasVisible = labelWasVisible || retryResult.value.nutritionLabelVisible
+      const retryMeal = nutritionLabelMealFromOcr(retryResult.value, trimmedText || undefined)
+      if (retryMeal && (!ocrMeal || !productIdentityNeedsRetry(retryResult.value))) {
+        ocr = retryResult.value
+        ocrMeal = retryMeal
+      }
+    }
+
+    const review = evaluateOcrEvidence(ocr)
 
     if (ocrMeal) {
       await Credits.settleReserved(opts.userId, reservedTokens, usage, {
         endpoint: opts.endpoint ?? 'parse-meals',
-        model: PARSE_MEALS_MODEL,
+        model,
       })
       return { ok: true, value: { meals: [ocrMeal], review }, usage }
+    }
+    if (labelWasVisible || ocr.nutritionLabelVisible) {
+      await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+      return { ok: false, code: 'invalid_response', message: 'Could not reliably read the visible nutrition label' }
     }
   }
 
   const result = await Openai.callStructured({
-    model: PARSE_MEALS_MODEL,
+    model,
     systemPrompt,
     userPrompt: userContent,
     temperature: 0.2,
@@ -1008,7 +1129,7 @@ export async function parseMealsWithAi(opts: {
   usage = addUsage(usage, result.usage)
   await Credits.settleReserved(opts.userId, reservedTokens, usage, {
     endpoint: opts.endpoint ?? 'parse-meals',
-    model: PARSE_MEALS_MODEL,
+    model,
   })
   return {
     ok: true,

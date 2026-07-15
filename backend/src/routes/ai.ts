@@ -134,6 +134,7 @@ Write safety:
 
 Food logging:
 - When the user says they ate or drank something, treat it as a Calorie entry candidate.
+- For an attached meal photo or nutrition label, always call parse_meal_entries before add_calorie_entry/add_calorie_entries. The tool receives the current image attachment automatically; use its returned values instead of estimating nutrition from the image yourself.
 - First call search_calorie_history for the food name, and call list_calorie_entries for today if duplicates or daily context could matter.
 - For vague or composite meals with multiple foods, use parse_meal_entries. It is the same parser as the Calories page "AI Meal Entry" flow.
 - Use lookup_food_nutrition for single branded foods or nutrition-source lookup when user history is missing or weak.
@@ -295,9 +296,18 @@ router.post('/chat', authenticateToken, async (req: AuthRequest, res) => {
     return res.status(429).json({ error: 'Too many assistant messages, please try again shortly.', code: 'rate_limited' })
   }
 
+  const capabilityContext = {
+    userId,
+    photo: parsed.data.attachment?.kind === 'image'
+      ? {
+          mimeType: parsed.data.attachment.mimeType,
+          data: parsed.data.attachment.data,
+        }
+      : undefined,
+  }
   const tools = aiCapabilityTools().map((tool) => ({
     ...tool,
-    execute: (args: unknown) => tool.execute({ userId }, args),
+    execute: (args: unknown) => tool.execute(capabilityContext, args),
   }))
   const messages = parsed.data.messages.map((message, index) => ({
     role: message.role,
