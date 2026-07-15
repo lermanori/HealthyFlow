@@ -23,8 +23,8 @@ export function usePWA() {
   useEffect(() => {
     // Check if running in standalone mode
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-    const isIOSStandalone = (window.navigator as any).standalone === true
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream
+    const isIOSStandalone = window.navigator.standalone === true
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream
     
     setState(prev => ({
       ...prev,

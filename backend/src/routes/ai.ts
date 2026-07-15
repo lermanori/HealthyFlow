@@ -335,7 +335,7 @@ router.post('/chat', authenticateToken, async (req: AuthRequest, res) => {
   }
 
   const pendingActions = result.value.toolEvents
-    .map((event) => (event.result as any)?.pendingAction)
+    .map((event) => (event.result as { pendingAction?: unknown })?.pendingAction)
     .filter(Boolean)
 
   res.json({ ...result.value, pendingActions })

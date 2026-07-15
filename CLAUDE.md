@@ -14,7 +14,7 @@ Personal productivity / habit tracker. React + Vite frontend, Express + TypeScri
 ### Deep modules
 Business logic lives in a small number of fat service files rather than many thin ones. Key modules:
 - `openai.ts` — all AI calls, prompt construction, structured output parsing
-- `rollover.ts` — all rollover logic (carrying incomplete items across days)
+- `rollover.ts` — all rollover logic (carrying incomplete untimed items across days). Intentionally small: per ADR-0002 this collapsed to a single carry-forward rule, so a thin file here is by design, not missing logic.
 
 Add logic to existing deep modules rather than creating new files for each feature.
 

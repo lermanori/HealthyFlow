@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import express from 'express'
 import { z } from 'zod'
 import { v4 as uuidv4 } from 'uuid'
@@ -102,8 +103,8 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
   const { date } = req.query
 
-  console.log('Backend - Getting tasks for date:', date)
-  console.log('Backend - User ID:', userId)
+  logger.debug('Backend - Getting tasks for date:', date)
+  logger.debug('Backend - User ID:', userId)
 
   try {
     let tasks;
@@ -118,8 +119,8 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
       tasks = await db.getTasksByUserId(userId)
     }
 
-    console.log('Backend - Raw tasks from database:', tasks)
-    console.log('Backend - Number of tasks found:', tasks.length)
+    logger.debug('Backend - Raw tasks from database:', tasks)
+    logger.debug('Backend - Number of tasks found:', tasks.length)
 
     const formattedTasks = tasks.map((task: any) => {
       let originalHabitId = task.original_habit_id;
@@ -156,7 +157,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
       }
     })
 
-    console.log('Backend - Formatted tasks being sent:', formattedTasks)
+    logger.debug('Backend - Formatted tasks being sent:', formattedTasks)
     res.json(formattedTasks)
   } catch (error) {
     console.error('Backend - Error getting tasks:', error)
@@ -176,8 +177,8 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
     scheduledDate = new Date().toISOString().slice(0, 10)
   }
 
-  console.log('Backend - Adding task with scheduledDate:', scheduledDate)
-  console.log('Backend - Task details:', { title, type, category, startTime, duration, repeat, scheduledDate })
+  logger.debug('Backend - Adding task with scheduledDate:', scheduledDate)
+  logger.debug('Backend - Task details:', { title, type, category, startTime, duration, repeat, scheduledDate })
 
   try {
     // For untimed tasks, append to end of Anytime backlog (MAX position + 1, or null)
@@ -407,7 +408,7 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
     const parsedInstance = parseHabitInstanceId(taskId)
     if (parsedInstance) {
       const { originalHabitId, date: fullDate } = parsedInstance
-      console.log('Backend - Completing virtual habit instance:', { originalHabitId, date: fullDate, taskId })
+      logger.debug('Backend - Completing virtual habit instance:', { originalHabitId, date: fullDate, taskId })
       // Mark this date's instance complete (idempotent: updates an already-materialized
       // row in place, keeping any dragged time, instead of inserting an untimed dup).
       const habitInstance = await db.createHabitInstance(originalHabitId, fullDate, userId, { completed: true })

@@ -63,16 +63,16 @@ export default function Layout({ children }: LayoutProps) {
   }, [isMobileMenuOpen])
 
   useEffect(() => {
-    ;(window as any).__healthyFlowDemo = {
-      ...((window as any).__healthyFlowDemo ?? {}),
+    window.__healthyFlowDemo = {
+      ...(window.__healthyFlowDemo ?? {}),
       openAccountMenu: () => setIsMobileMenuOpen(true),
       closeAccountMenu: () => setIsMobileMenuOpen(false),
     }
 
     return () => {
-      if (!(window as any).__healthyFlowDemo) return
-      delete (window as any).__healthyFlowDemo.openAccountMenu
-      delete (window as any).__healthyFlowDemo.closeAccountMenu
+      if (!window.__healthyFlowDemo) return
+      delete window.__healthyFlowDemo.openAccountMenu
+      delete window.__healthyFlowDemo.closeAccountMenu
     }
   }, [])
 

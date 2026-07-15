@@ -54,7 +54,7 @@ interface ItemBase {
   id: string
   title: string
   category: string
-  startTime?: string
+  startTime?: string | null
   location?: string | null
   duration?: number
   completed: boolean

@@ -32,7 +32,7 @@ export default function PWAInstallPrompt({ suppressed = false }: PWAInstallPromp
 
     // Check if app is already installed
     const standalone = window.matchMedia('(display-mode: standalone)').matches
-    const iosStandalone = (window.navigator as any).standalone === true
+    const iosStandalone = window.navigator.standalone === true
     const isInStandaloneMode = standalone || iosStandalone
     
     setIsStandalone(isInStandaloneMode)

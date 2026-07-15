@@ -1,3 +1,4 @@
+import { logger } from './utils/logger'
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
@@ -121,9 +122,9 @@ export { app }
 
 if (require.main === module) {
   app.listen(PORT, () => {
-    console.log(`🚀 HealthyFlow Server running on port ${PORT}`)
-    console.log(`📊 Features: Task Management, AI Recommendations, Smart Reminders`)
-    console.log(`🔗 API Health: http://localhost:${PORT}/api/health`)
+    logger.info(`🚀 HealthyFlow Server running on port ${PORT}`)
+    logger.info(`📊 Features: Task Management, AI Recommendations, Smart Reminders`)
+    logger.info(`🔗 API Health: http://localhost:${PORT}/api/health`)
     startProactivityScheduler()
   })
 }

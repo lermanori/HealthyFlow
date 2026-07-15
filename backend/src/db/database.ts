@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger'
 import sqlite3 from 'sqlite3'
 import path from 'path'
 import { migrateDatabase } from './migrate'
@@ -137,5 +138,5 @@ export async function initDatabase() {
     `, [task.id, task.title, task.type, task.category, task.start_time, task.duration, task.repeat_type, task.scheduled_date])
   })
 
-  console.log('✅ Database initialized with future planning support')
+  logger.info('✅ Database initialized with future planning support')
 }
