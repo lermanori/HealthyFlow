@@ -8,6 +8,7 @@ import {
   parseMealsWithAi,
 } from '../openai'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
+import { isDemoPersonaEmail } from '../demo-personas'
 
 const QUERY_TASKS_MODEL = 'gpt-3.5-turbo'
 const QUERY_TASKS_MAX_TOKENS = 500
@@ -116,7 +117,7 @@ const ConversationParams = z.object({
 
 async function isDemoHistoryUser(userId: string) {
   const user = await db.getUserById(userId)
-  return user.email === 'demo-maya@healthyflow.com' || user.email === 'demo@healthyflow.com'
+  return isDemoPersonaEmail(user.email)
 }
 
 const CHAT_SYSTEM_PROMPT = `You are the internal HealthyFlow assistant.

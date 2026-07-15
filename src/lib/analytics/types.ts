@@ -13,7 +13,7 @@ export type AnalyticsEvents = {
   // Lifecycle & identity
   signed_up: { method: 'password' }
   logged_in: { is_demo: boolean }
-  demo_started: { persona: 'maya' }
+  demo_started: { persona: 'maya' | 'noam' | 'lina' | 'amir' }
   onboarding_completed: void
   onboarding_skipped: void
 

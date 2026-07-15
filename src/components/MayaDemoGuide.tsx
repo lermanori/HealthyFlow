@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ACTIONS, EVENTS, Joyride, STATUS, type EventData, type Step, type TooltipRenderProps } from 'react-joyride'
+import { demoPersonaById, type DemoPersonaId } from '../demoPersonas'
 
 type DemoAction = 'spotlight' | 'type' | 'submit-talk' | 'drag' | 'open-menu' | 'wait'
 
@@ -27,7 +28,7 @@ declare global {
   }
 }
 
-const script: DemoScriptStep[] = [
+const mayaScript: DemoScriptStep[] = [
   {
     id: 'today-week-strip',
     scene: 0,
@@ -141,6 +142,206 @@ const script: DemoScriptStep[] = [
     placement: 'bottom',
   },
 ]
+
+const noamScript: DemoScriptStep[] = [
+  {
+    id: 'noam-today',
+    scene: 0,
+    route: '/',
+    target: 'now-next-card',
+    action: 'spotlight',
+    narration: 'Noam opens Today with a small, realistic plan. HealthyFlow keeps the next choice visible instead of asking him to organize everything at once.',
+    placement: 'bottom',
+  },
+  {
+    id: 'noam-anytime',
+    scene: 1,
+    route: '/',
+    target: 'anytime-backlog',
+    action: 'spotlight',
+    narration: 'Anytime holds the low-pressure backlog: tiny tasks, a reset habit, and one item carried forward from yesterday without duplicating it.',
+    placement: 'top',
+  },
+  {
+    id: 'noam-talk-input',
+    scene: 2,
+    route: '/talk',
+    target: 'talk-input',
+    action: 'type',
+    payload: { text: 'I feel stuck. Read my day back to me and pick the smallest next step.' },
+    narration: 'Noam uses Talk as a low-friction capture surface. The input can be typed or spoken by the browser, and the request is plain language.',
+    placement: 'top',
+  },
+  {
+    id: 'noam-talk-submit',
+    scene: 2,
+    route: '/talk',
+    target: 'talk-send-button',
+    action: 'submit-talk',
+    narration: 'The demo response stays stable: choose one tiny action, leave the rest visible, and let the day stay handleable.',
+    placement: 'top',
+  },
+  {
+    id: 'noam-drag-rollover',
+    scene: 3,
+    route: '/',
+    target: 'rollover-task',
+    action: 'drag',
+    payload: { dropTarget: 'schedule-slot-10:00', startTime: '10:00' },
+    narration: 'Noam gives the rolled-over clinic call a small time slot. One concrete move is enough progress for this walkthrough.',
+    placement: 'top',
+  },
+  {
+    id: 'noam-explore',
+    scene: 4,
+    route: '/',
+    target: 'account-menu',
+    action: 'spotlight',
+    narration: 'The guided part is done. Noam can keep exploring, ask Talk another question, or open the account menu to leave the demo.',
+    placement: 'bottom',
+  },
+]
+
+const linaScript: DemoScriptStep[] = [
+  {
+    id: 'lina-habits',
+    scene: 0,
+    route: '/',
+    target: 'schedule-section',
+    action: 'spotlight',
+    narration: 'Lina starts with health habits and a workout on Today. The same planning surface can hold water, walks, stretching, and training.',
+    placement: 'top',
+  },
+  {
+    id: 'lina-calories',
+    scene: 1,
+    route: '/calories',
+    target: 'calorie-entries',
+    action: 'spotlight',
+    narration: 'Calories is a real tracker, not a mock module. Breakfast and lunch are logged with calories, macros, quantities, and times.',
+    placement: 'top',
+  },
+  {
+    id: 'lina-weight',
+    scene: 1,
+    route: '/calories',
+    target: 'weight-card',
+    action: 'spotlight',
+    narration: 'Weight entries show the latest value, the previous delta, and a trend over recorded days.',
+    placement: 'bottom',
+  },
+  {
+    id: 'lina-quick-insert',
+    scene: 1,
+    route: '/calories',
+    target: 'calorie-quick-insert-trigger',
+    action: 'spotlight',
+    narration: 'Quick Insert can repeat common meals from history, so everyday logging gets faster after the first entry.',
+    placement: 'bottom',
+  },
+  {
+    id: 'lina-workouts',
+    scene: 2,
+    route: '/workouts',
+    target: 'workout-history',
+    action: 'spotlight',
+    narration: 'Workouts stores completed sessions with exercises, sets, reps, weight, time, and distance.',
+    placement: 'top',
+  },
+  {
+    id: 'lina-achievements',
+    scene: 3,
+    route: '/achievements',
+    target: 'achievement-detail',
+    action: 'spotlight',
+    narration: 'Achievements tracks personal metrics like 5K time. Lina can see latest progress and trend without turning it into another task list.',
+    placement: 'top',
+  },
+  {
+    id: 'lina-explore',
+    scene: 4,
+    route: '/',
+    target: 'talk-button',
+    action: 'spotlight',
+    narration: 'Now Lina can explore the seeded health workspace freely, including Today, Talk, Calories, Workouts, and Achievements.',
+    placement: 'bottom',
+  },
+]
+
+const amirScript: DemoScriptStep[] = [
+  {
+    id: 'amir-schedule',
+    scene: 0,
+    route: '/',
+    target: 'schedule-section',
+    action: 'spotlight',
+    narration: 'Amir has scheduled work blocks and a fixed school pickup. HealthyFlow keeps the clock plan visible when real life changes.',
+    placement: 'top',
+  },
+  {
+    id: 'amir-anytime',
+    scene: 1,
+    route: '/',
+    target: 'anytime-backlog',
+    action: 'spotlight',
+    narration: 'Groceries are represented as ordinary Tasks for now, alongside home calls and a workout Habit that can wait.',
+    placement: 'top',
+  },
+  {
+    id: 'amir-talk-input',
+    scene: 2,
+    route: '/talk',
+    target: 'talk-input',
+    action: 'type',
+    payload: { text: 'School pickup moved earlier. Help me re-plan the rest of today without dropping groceries.' },
+    narration: 'When the day changes, Amir asks Talk to re-plan around the immovable family commitment.',
+    placement: 'top',
+  },
+  {
+    id: 'amir-talk-submit',
+    scene: 2,
+    route: '/talk',
+    target: 'talk-send-button',
+    action: 'submit-talk',
+    narration: 'Talk recommends protecting pickup, moving flexible work later, and keeping groceries in Anytime until there is a clear window.',
+    placement: 'top',
+  },
+  {
+    id: 'amir-drag-rollover',
+    scene: 3,
+    route: '/',
+    target: 'rollover-task',
+    action: 'drag',
+    payload: { dropTarget: 'schedule-slot-16:00', startTime: '16:00' },
+    narration: 'Amir schedules the carried-forward school forms after pickup, while flexible tasks stay in the backlog.',
+    placement: 'top',
+  },
+  {
+    id: 'amir-week',
+    scene: 4,
+    route: '/week',
+    target: 'week-day-column',
+    action: 'spotlight',
+    narration: 'Week view shows tomorrow alongside today, so rollover and fresh habits are visible without pretending everything fit today.',
+    placement: 'bottom',
+  },
+  {
+    id: 'amir-explore',
+    scene: 5,
+    route: '/',
+    target: 'account-menu',
+    action: 'spotlight',
+    narration: 'The guided part is done. Amir can keep moving tasks, ask Talk again, or open the account menu to leave the demo.',
+    placement: 'bottom',
+  },
+]
+
+const scripts: Record<DemoPersonaId, DemoScriptStep[]> = {
+  maya: mayaScript,
+  noam: noamScript,
+  lina: linaScript,
+  amir: amirScript,
+}
 
 const audioManifest: Record<string, { file: string; duration: number }> = {
   'talk-input': { file: '/demo-audio/talk-input.mp3', duration: 7.34 },
@@ -312,20 +513,22 @@ function MobileDemoSheet({
   onPrev,
   step,
   stepIndex,
+  totalSteps,
 }: {
   onClose: () => void
   onNext: () => void
   onPrev: () => void
   step: DemoScriptStep
   stepIndex: number
+  totalSteps: number
 }) {
-  const progress = Math.round(((stepIndex + 1) / script.length) * 100)
-  const isLast = stepIndex === script.length - 1
+  const progress = Math.round(((stepIndex + 1) / totalSteps) * 100)
+  const isLast = stepIndex === totalSteps - 1
 
   return (
     <div className="fixed inset-x-3 bottom-[calc(0.75rem+env(safe-area-inset-bottom))] z-[92] rounded-xl border border-cyan-500/50 bg-page p-4 text-ink shadow-2xl shadow-cyan-950/40">
       <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-300">
-        Scene {step.scene + 1} · {stepIndex + 1}/{script.length}
+        Scene {step.scene + 1} · {stepIndex + 1}/{totalSteps}
       </div>
       <p className="text-[15px] font-medium leading-6 text-ink">
         {step.narration}
@@ -406,9 +609,12 @@ export default function MayaDemoGuide() {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const completedActionsRef = useRef<Set<string>>(new Set())
   const focusedTargetRef = useRef<HTMLElement | null>(null)
+  const persona = (localStorage.getItem('demoPersona') ?? 'maya') as DemoPersonaId
+  const personaMeta = demoPersonaById(persona)
+  const script = scripts[personaMeta.id]
   const step = script[stepIndex]
 
-  const isMayaDemo = useMemo(() => localStorage.getItem('demoPersona') === 'maya', [location.pathname])
+  const isPersonaDemo = useMemo(() => Boolean(localStorage.getItem('demoPersona')), [location.pathname])
 
   const joyrideSteps = useMemo<Step[]>(() => script.map((item) => ({
     target: targetSelector(item.target),
@@ -416,12 +622,14 @@ export default function MayaDemoGuide() {
     placement: isMobile ? 'center' : (item.placement ?? 'auto'),
     disableBeacon: true,
     spotlightPadding: isMobile ? 10 : 8,
-  })), [isMobile])
+  })), [isMobile, script])
 
   useEffect(() => {
-    if (!isMayaDemo) return
+    if (!isPersonaDemo) return
+    setStepIndex(0)
+    completedActionsRef.current.clear()
     setRun(localStorage.getItem('mayaDemoGuide') === 'open')
-  }, [isMayaDemo, location.pathname])
+  }, [isPersonaDemo, personaMeta.id])
 
   useEffect(() => {
     if (!run || !step) return
@@ -514,7 +722,7 @@ export default function MayaDemoGuide() {
     }
   }, [isMobile, isReady, step])
 
-  if (!isMayaDemo || !run) return null
+  if (!isPersonaDemo || !run || !step) return null
 
   const close = () => {
     localStorage.setItem('mayaDemoGuide', 'closed')
@@ -641,6 +849,7 @@ export default function MayaDemoGuide() {
             onPrev={goPrev}
             step={step}
             stepIndex={stepIndex}
+            totalSteps={script.length}
           />
         </>
       )}

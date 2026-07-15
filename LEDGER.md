@@ -1,3 +1,9 @@
+### 2026-07-15 13:35 — `main`
+
+Expanded the public demo from the single Maya path into multiple persona stories, with richer seeded data, guided narration updates, and demo-aware module surfaces across Today, Talk, Calories, Workouts, and Achievements. While investigating Talk memory, confirmed the Supabase chat-history tables are already live and fixed stale demo state so real users regain persistent server-backed chat history after leaving a demo. The current working tree was built and deployed to production at `healthyflow.app`.
+
+---
+
 ### 2026-07-13 16:10 — `feat/maya-demo`
 
 Finished the richer Maya demo pass and Talk history work. The demo now runs through a Joyride-based mobile-friendly walkthrough with static narration audio, guided Talk mocking, real app mutations, account/logout guidance, and demo-safe no-persist chat behavior; regular users now get server-backed Talk history via Supabase. The branch has been deployed to the Netlify preview and Railway backend, with the new Supabase chat-history migration already applied.

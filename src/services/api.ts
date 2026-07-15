@@ -2,6 +2,7 @@
 import axios from 'axios'
 import toast from 'react-hot-toast'
 import { analytics } from '../lib/analytics'
+import type { DemoPersonaId } from '../demoPersonas'
 import type { ItemSource, ItemType } from '../lib/analytics/types'
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 // const API_BASE_URL = 'https://healthyflow-production.up.railway.app/api'
@@ -321,7 +322,7 @@ export const authService = {
     return response.data
   },
 
-  startDemoSession: async (persona: 'maya') => {
+  startDemoSession: async (persona: DemoPersonaId) => {
     const response = await api.post('/auth/demo-session', { persona })
     return response.data
   },

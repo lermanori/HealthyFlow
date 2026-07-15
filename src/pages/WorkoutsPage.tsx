@@ -259,7 +259,7 @@ export default function WorkoutsPage() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
-          <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+          <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3" data-demo-id="workout-quick-insert">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-ink">Quick Insert</h3>
               <div className="inline-flex rounded-lg border border-line/80 bg-sunken/30 p-1 text-xs">
@@ -332,7 +332,7 @@ export default function WorkoutsPage() {
         )}
       </div>
 
-      <div className="card">
+      <div className="card" data-demo-id="workout-history">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-semibold text-ink">History</h2>

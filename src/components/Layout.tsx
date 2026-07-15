@@ -79,7 +79,7 @@ export default function Layout({ children }: LayoutProps) {
   const { settings } = useSettings()
   const isTalkPage = location.pathname === '/talk'
   const searchParams = new URLSearchParams(location.search)
-  const isMayaDemo = location.pathname === '/demo' || searchParams.get('demo') === 'maya' || localStorage.getItem('demoPersona') === 'maya'
+  const isDemo = location.pathname === '/demo' || Boolean(searchParams.get('demo')) || Boolean(localStorage.getItem('demoPersona'))
 
   const navigation = [
     { name: 'Today', href: '/', icon: Home },
@@ -218,7 +218,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-page">
       {/* PWA Install Prompt */}
-      <PWAInstallPrompt suppressed={isMayaDemo} />
+      <PWAInstallPrompt suppressed={isDemo} />
       
       {/* Futuristic background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">

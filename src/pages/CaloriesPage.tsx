@@ -341,7 +341,7 @@ export default function CaloriesPage() {
         )}
       </AnimatePresence>
 
-      <div className="card">
+      <div className="card" data-demo-id="weight-card">
         <div className="mb-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/15">
@@ -425,7 +425,11 @@ export default function CaloriesPage() {
             >
               <Sparkles className="w-4 h-4" /> Add with AI
             </button>
-            <button className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm" onClick={() => setAdding(true)}>
+            <button
+              className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
+              data-demo-id="calorie-quick-insert-trigger"
+              onClick={() => setAdding(true)}
+            >
               <Plus className="w-4 h-4" /> Add Entry
             </button>
           </div>
@@ -434,7 +438,7 @@ export default function CaloriesPage() {
         {isLoading ? (
           <p className="text-ink-muted text-sm">Loading...</p>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-3" data-demo-id="calorie-entries">
             {timeGroups.map(([time, group]) => (
               <div key={time} className="overflow-hidden rounded-lg border border-line/80 bg-sunken/20">
                 <div className="flex items-center justify-between border-b border-line/70 bg-page/45 px-3 py-2">
@@ -520,7 +524,7 @@ export default function CaloriesPage() {
         )}
       </div>
 
-      <div className="card">
+      <div className="card" data-demo-id="calorie-totals">
         <h2 className="text-lg font-semibold text-ink mb-3">Daily Totals</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
           <div>

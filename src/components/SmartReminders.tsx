@@ -23,7 +23,7 @@ function sameReminders(a: Reminder[], b: Reminder[]) {
 }
 
 export default function SmartReminders() {
-  const isMayaDemo = localStorage.getItem('demoPersona') === 'maya'
+  const isDemo = Boolean(localStorage.getItem('demoPersona'))
   const [reminders, setReminders] = useState<Reminder[]>([])
   const [dismissedIds, setDismissedIds] = useState<string[]>([])
   const [notifiedOverdueIds, setNotifiedOverdueIds] = useState<Set<string>>(new Set())
@@ -37,7 +37,7 @@ export default function SmartReminders() {
     queryKey: ['tasks'],
     queryFn: () => taskService.getTasks(),
     refetchInterval: 60000, // Check every minute
-    enabled: !isMayaDemo,
+    enabled: !isDemo,
   })
 
   useEffect(() => {
@@ -101,7 +101,7 @@ export default function SmartReminders() {
 
   const visibleReminders = reminders.filter(r => !dismissedIds.includes(r.id))
 
-  if (isMayaDemo) return null
+  if (isDemo) return null
   if (visibleReminders.length === 0) return null
 
   return (
