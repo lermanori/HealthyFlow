@@ -1046,13 +1046,69 @@ export interface WorkoutExerciseItem {
   userId: string
   name: string
   normalizedName: string
+  sets: number | null
+  reps: number | null
+  weightKg: number | null
+  durationMinutes: number | null
+  distanceKm: number | null
+  notes: string | null
   usageCount: number
   lastUsedAt: string
   createdAt: string
   updatedAt: string
 }
 
+export interface WorkoutPlanExercise extends Omit<WorkoutExercise, 'sessionId'> {
+  planId: string
+}
+
+export interface WorkoutPlan {
+  id: string
+  userId: string
+  name: string
+  color: string | null
+  note: string | null
+  position: number
+  exercises: WorkoutPlanExercise[]
+  createdAt: string
+  updatedAt: string
+}
+
+export type WorkoutPlanInput = {
+  name: string
+  color?: string | null
+  note?: string | null
+  position?: number
+  exercises: WorkoutExerciseInput[]
+}
+
+export type WorkoutPlanPatch = Partial<WorkoutPlanInput>
+
 export const workoutsService = {
+  plans: async (): Promise<WorkoutPlan[]> => {
+    const response = await api.get('/workouts/plans')
+    return response.data
+  },
+
+  createPlan: async (plan: WorkoutPlanInput): Promise<WorkoutPlan> => {
+    const response = await api.post('/workouts/plans', plan)
+    return response.data
+  },
+
+  generatePlan: async (intent: string): Promise<WorkoutPlanInput> => {
+    const response = await api.post('/workouts/plans/generate', { intent })
+    return response.data
+  },
+
+  updatePlan: async (id: string, patch: WorkoutPlanPatch): Promise<WorkoutPlan> => {
+    const response = await api.patch(`/workouts/plans/${id}`, patch)
+    return response.data
+  },
+
+  removePlan: async (id: string): Promise<void> => {
+    await api.delete(`/workouts/plans/${id}`)
+  },
+
   list: async (date: string): Promise<WorkoutSession[]> => {
     const response = await api.get('/workouts', { params: { date } })
     return response.data

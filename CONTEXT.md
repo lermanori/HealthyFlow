@@ -59,6 +59,17 @@ A kg-only body-weight measurement for a specific `date`. Users may skip days, bu
 
 The `/calories` page and its nav entry are gated on the `calorieIntake` user setting (see #47); when off, neither the route nor the nav item appears.
 
+### Workout tracking
+
+**Workout session**:
+A dated training record containing an ordered list of exercises and optional metrics (sets, reps, weight in kg, duration in minutes, and distance in km). It lives in `workout_sessions` with `workout_session_exercises` and is managed on `/workouts`. It is separate from an Item with `type: 'workout'`.
+
+**Workout plan**:
+A reusable, named template containing an ordered list of exercises with optional target metrics. Starting a Workout session from a Workout plan copies its exercises into an editable session draft; it does not log or complete the plan. Plans may represent any training style, including strength, calisthenics, running, yoga, or mobility.
+
+**Exercise history**:
+The Recent / Most-used exercise picker built from previously logged Workout sessions. Choosing an exercise from history pre-fills an exercise draft; it does not create a Workout session until the user saves the session.
+
 ### AI surfaces
 
 **parse-tasks**:

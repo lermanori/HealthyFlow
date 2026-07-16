@@ -1,7 +1,10 @@
 import { z } from 'zod'
 import { Credits, UnpricedModelError } from './credits'
+import { WorkoutPlanDraft, WorkoutPlanDraftSchema } from './workouts'
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
+const WORKOUT_PLAN_MODEL = 'gpt-4o-mini'
+const WORKOUT_PLAN_MAX_TOKENS = 1400
 
 function usesCompletionTokenLimit(model: string) {
   return model.startsWith('gpt-5') || model.startsWith('o')
@@ -1035,6 +1038,42 @@ export const Openai = {
     })
     return { ok: false, code: 'invalid_response', message: 'Tool loop did not produce a final answer' }
   },
+}
+
+export async function generateWorkoutPlanWithAi(opts: {
+  userId: string
+  intent: string
+}): Promise<BillableOpenAIResult<WorkoutPlanDraft>> {
+  const systemPrompt = `Create one reusable HealthyFlow Workout plan from the user's training intent.
+
+Return a plan with a concise name, an optional hex color or null, an optional plan note or null, and an ordered exercise array.
+
+Each exercise must include:
+- name
+- sets, reps, weightKg, durationMinutes, and distanceKm; use a positive number when relevant and null otherwise
+- notes; use a concise instruction when useful and null otherwise
+
+Rules:
+- Stay training-agnostic. Support strength, calisthenics, running, walking, cycling, swimming, yoga, mobility, sports practice, or mixed training without assuming a gym.
+- Match the user's requested duration, style, equipment, level, and constraints when provided.
+- Use only metrics that make sense for each exercise. A yoga pose may use durationMinutes; a run may use durationMinutes or distanceKm; strength may use sets/reps and optional weightKg.
+- Put exercises in the intended execution order.
+- For multi-day intent, keep this a single named reusable template and use exercise notes to identify day/group boundaries where helpful.
+- Do not include medical claims, diagnosis, or extreme prescriptions.
+- The result is a draft the user will review and edit before saving.`
+
+  return Openai.callBillableStructured({
+    userId: opts.userId,
+    endpoint: 'workout-plan-generate',
+    model: WORKOUT_PLAN_MODEL,
+    systemPrompt,
+    userPrompt: opts.intent,
+    temperature: 0.3,
+    maxTokens: WORKOUT_PLAN_MAX_TOKENS,
+    schemaName: 'workout_plan',
+    jsonSchema: z.toJSONSchema(WorkoutPlanDraftSchema),
+    parser: (value) => WorkoutPlanDraftSchema.parse(value),
+  })
 }
 
 export async function parseMealsWithAi(opts: {

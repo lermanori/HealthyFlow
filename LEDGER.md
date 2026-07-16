@@ -1,3 +1,9 @@
+### 2026-07-16 09:10 — `feat/workout-plans-ai`
+
+Added reusable Workout plans and server-keyed AI plan generation, with ordered exercises, editable targets, and plan-to-session drafting. Exercise history now preserves and backfills sets, reps, weight, duration, distance, and notes; the session review flow was redesigned for mobile so loaded exercises are visible first and the add form stays collapsed until requested. The database migrations and both production deployments are live, and the focused backend and Playwright workout suites pass.
+
+---
+
 ### 2026-07-15 16:55 — `main`
 
 Reworked nutrition-label photo parsing around language-independent, row-and-column OCR with package-total reconciliation and exact-photo live coverage for the Müller bottle and protein pudding. Talk now routes attached meal labels through the same AI Meal Entry parser, preserves OCR-derived product identity, and grounds the confirmation preview in the parser result so later chat reasoning cannot replace verified macros with guesses. The backend build, full automated suite, and exact Müller Talk flow all pass.
