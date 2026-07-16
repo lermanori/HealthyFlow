@@ -53,11 +53,13 @@ test('mobile Habit cards open Variant B and persist partial/completed/failed out
   await page.getByText('45-minute workout').click()
   const sheet = page.getByRole('dialog', { name: '45-minute workout' })
   await expect(sheet.getByText('20 / 45 min')).toBeVisible()
+  await expect(sheet.getByRole('button', { name: 'Log 25 min and finish' })).toBeVisible()
   await sheet.getByRole('button', { name: '+ 20 min' }).click()
+  await expect(sheet.getByRole('button', { name: 'Log 5 min and finish' })).toBeVisible()
   await sheet.getByRole('button', { name: '+ 5 min' }).click()
   await expect(sheet.getByText('45 / 45 min')).toBeVisible()
   await expect(sheet.getByText(/100% · Completed/)).toBeVisible()
-  for (const name of ['Complete remaining', 'Not done']) {
+  for (const name of ['Completed', 'Not done']) {
     const box = await sheet.getByRole('button', { name }).boundingBox()
     expect(box).not.toBeNull()
     expect(box!.height).toBeGreaterThanOrEqual(44)

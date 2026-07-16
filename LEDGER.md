@@ -1,3 +1,9 @@
+### 2026-07-16 17:48 — `feat/habit-progress`
+
+Clarified the target-Habit completion shortcut by showing the exact progress it will record, such as “Log 50 min & finish,” instead of the submit-like “Complete remaining.” The label updates as progress changes and becomes a disabled Completed state at the target; mobile browser coverage verifies both the changing remainder and footer sizing.
+
+---
+
 ### 2026-07-16 17:38 — `feat/habit-progress`
 
 Fixed the compact timed-Habit regression visible on mobile after enlarging touch actions: 30-minute Habit rows now reserve enough height for title, metadata, and outcome, while the 44×44 menu target floats over a 28px layout slot so it no longer steals title width. A 390×844 browser regression verifies a failed timed Habit’s Not done status remains inside its timeline row; ordinary timed Tasks keep their existing geometry.
