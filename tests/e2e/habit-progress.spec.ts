@@ -44,6 +44,12 @@ test('mobile Habit cards open Variant B and persist partial/completed/failed out
   })
 
   await page.goto('/')
+  const mobileActions = page.getByRole('button', { name: 'Don’t smoke until 11 actions' })
+  await expect(mobileActions).toBeVisible()
+  const actionsBox = await mobileActions.boundingBox()
+  expect(actionsBox).not.toBeNull()
+  expect(actionsBox!.width).toBeGreaterThanOrEqual(44)
+  expect(actionsBox!.height).toBeGreaterThanOrEqual(44)
   await page.getByText('45-minute workout').click()
   const sheet = page.getByRole('dialog', { name: '45-minute workout' })
   await expect(sheet.getByText('20 / 45 min')).toBeVisible()
@@ -51,6 +57,12 @@ test('mobile Habit cards open Variant B and persist partial/completed/failed out
   await sheet.getByRole('button', { name: '+ 5 min' }).click()
   await expect(sheet.getByText('45 / 45 min')).toBeVisible()
   await expect(sheet.getByText(/100% · Completed/)).toBeVisible()
+  for (const name of ['Complete remaining', 'Not done']) {
+    const box = await sheet.getByRole('button', { name }).boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.height).toBeGreaterThanOrEqual(44)
+    expect(box!.y + box!.height).toBeLessThanOrEqual(844)
+  }
   await sheet.getByRole('button', { name: 'Close', exact: true }).click()
 
   await page.getByText('Don’t smoke until 11').click()

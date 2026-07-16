@@ -1,3 +1,9 @@
+### 2026-07-16 17:12 — `feat/habit-progress`
+
+Completed a 390×844 mobile UX pass for Habit check-ins. The sheet now has a fixed header, independently scrollable progress/history area, and safe-area action footer so Complete remaining and Not done stay fully reachable; Habit card actions are always visible on touch with labeled 44×44 targets. Browser coverage locks down footer visibility and touch-target sizing.
+
+---
+
 ### 2026-07-16 16:58 — `feat/habit-progress`
 
 Made terminal Habit check-ins feel immediate on mobile: Done, Not done, and Complete remaining now dismiss the sheet on tap while persistence finishes in the background and retains error reporting. A latency-controlled browser regression delays the API by 1.5 seconds and verifies the sheet still closes within 500 ms, then confirms the saved outcome and correction flow after reopening.
