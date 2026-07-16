@@ -1,3 +1,9 @@
+### 2026-07-16 18:14 — `feat/habit-progress`
+
+Refined the target-Habit outcome language from “Not done today” to “Not done yet,” keeping the neutral styling, preserved-progress explanation, and immediate dismissal behavior unchanged. The mobile browser regression now asserts the revised label.
+
+---
+
 ### 2026-07-16 18:10 — `feat/habit-progress`
 
 Reworked Habit check-in actions around their actual hierarchy after a research-backed UX review. Target outcomes now appear as neutral, explanatory rows after progress history instead of a fixed green/red submit-like footer; quick amounts are quieter tonal controls, and success color is reserved for the completed state. Binary outcomes use equal neutral choices, while mobile coverage verifies placement, touch size, outcome dismissal, and the absence of success/error styling before a choice.

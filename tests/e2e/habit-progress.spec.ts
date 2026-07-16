@@ -54,11 +54,11 @@ test('mobile Habit cards open Variant B and persist partial/completed/failed out
   const sheet = page.getByRole('dialog', { name: '45-minute workout' })
   await expect(sheet.getByText('20 / 45 min')).toBeVisible()
   const reachedTarget = sheet.getByRole('button', { name: 'Reached the full 45 min' })
-  const notDoneToday = sheet.getByRole('button', { name: 'Not done today' })
+  const notDoneYet = sheet.getByRole('button', { name: 'Not done yet' })
   await expect(reachedTarget).toBeVisible()
-  await expect(notDoneToday).toContainText('Keep the 20 min already recorded')
+  await expect(notDoneYet).toContainText('Keep the 20 min already recorded')
   await expect(reachedTarget).not.toHaveClass(/emerald|rose/)
-  await expect(notDoneToday).not.toHaveClass(/emerald|rose/)
+  await expect(notDoneYet).not.toHaveClass(/emerald|rose/)
   await reachedTarget.scrollIntoViewIfNeeded()
   const [chunksBox, outcomeBox] = await Promise.all([
     sheet.getByRole('heading', { name: 'Progress chunks' }).boundingBox(),
@@ -73,7 +73,7 @@ test('mobile Habit cards open Variant B and persist partial/completed/failed out
   await expect(sheet.getByText('45 / 45 min')).toBeVisible()
   await expect(sheet.getByText(/100% · Completed/)).toBeVisible()
   await expect(reachedTarget).not.toBeVisible()
-  await expect(notDoneToday).not.toBeVisible()
+  await expect(notDoneYet).not.toBeVisible()
   await sheet.getByRole('button', { name: 'Close', exact: true }).click()
 
   await page.getByRole('heading', { name: 'Don’t smoke until 11', exact: true }).click()
