@@ -1,3 +1,9 @@
+### 2026-07-16 18:10 — `feat/habit-progress`
+
+Reworked Habit check-in actions around their actual hierarchy after a research-backed UX review. Target outcomes now appear as neutral, explanatory rows after progress history instead of a fixed green/red submit-like footer; quick amounts are quieter tonal controls, and success color is reserved for the completed state. Binary outcomes use equal neutral choices, while mobile coverage verifies placement, touch size, outcome dismissal, and the absence of success/error styling before a choice.
+
+---
+
 ### 2026-07-16 17:48 — `feat/habit-progress`
 
 Clarified the target-Habit completion shortcut by showing the exact progress it will record, such as “Log 50 min & finish,” instead of the submit-like “Complete remaining.” The label updates as progress changes and becomes a disabled Completed state at the target; mobile browser coverage verifies both the changing remainder and footer sizing.

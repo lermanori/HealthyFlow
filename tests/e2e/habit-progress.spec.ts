@@ -53,18 +53,27 @@ test('mobile Habit cards open Variant B and persist partial/completed/failed out
   await page.getByText('45-minute workout').click()
   const sheet = page.getByRole('dialog', { name: '45-minute workout' })
   await expect(sheet.getByText('20 / 45 min')).toBeVisible()
-  await expect(sheet.getByRole('button', { name: 'Log 25 min and finish' })).toBeVisible()
+  const reachedTarget = sheet.getByRole('button', { name: 'Reached the full 45 min' })
+  const notDoneToday = sheet.getByRole('button', { name: 'Not done today' })
+  await expect(reachedTarget).toBeVisible()
+  await expect(notDoneToday).toContainText('Keep the 20 min already recorded')
+  await expect(reachedTarget).not.toHaveClass(/emerald|rose/)
+  await expect(notDoneToday).not.toHaveClass(/emerald|rose/)
+  await reachedTarget.scrollIntoViewIfNeeded()
+  const [chunksBox, outcomeBox] = await Promise.all([
+    sheet.getByRole('heading', { name: 'Progress chunks' }).boundingBox(),
+    reachedTarget.boundingBox(),
+  ])
+  expect(chunksBox).not.toBeNull()
+  expect(outcomeBox).not.toBeNull()
+  expect(outcomeBox!.y).toBeGreaterThan(chunksBox!.y)
+  expect(outcomeBox!.height).toBeGreaterThanOrEqual(44)
   await sheet.getByRole('button', { name: '+ 20 min' }).click()
-  await expect(sheet.getByRole('button', { name: 'Log 5 min and finish' })).toBeVisible()
   await sheet.getByRole('button', { name: '+ 5 min' }).click()
   await expect(sheet.getByText('45 / 45 min')).toBeVisible()
   await expect(sheet.getByText(/100% · Completed/)).toBeVisible()
-  for (const name of ['Completed', 'Not done']) {
-    const box = await sheet.getByRole('button', { name }).boundingBox()
-    expect(box).not.toBeNull()
-    expect(box!.height).toBeGreaterThanOrEqual(44)
-    expect(box!.y + box!.height).toBeLessThanOrEqual(844)
-  }
+  await expect(reachedTarget).not.toBeVisible()
+  await expect(notDoneToday).not.toBeVisible()
   await sheet.getByRole('button', { name: 'Close', exact: true }).click()
 
   await page.getByRole('heading', { name: 'Don’t smoke until 11', exact: true }).click()
