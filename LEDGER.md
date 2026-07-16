@@ -1,3 +1,9 @@
+### 2026-07-16 16:37 — `feat/habit-progress`
+
+Removed the post-edit refresh requirement from Today by writing the successful Habit edit response directly into the selected-day query cache, including virtual-to-materialized identity changes. Other cached days are invalidated separately, and a browser regression now blocks the follow-up GET to prove Binary-to-Target renders within one second from the PUT response alone.
+
+---
+
 ### 2026-07-16 15:36 — `feat/habit-progress`
 
 Adjusted whole-Habit tracking edits so a Binary-to-Target change takes effect on the selected day immediately as well as on future virtual instances. The backend now updates or materializes that day and recalculates its outcome from its existing chunks, while other materialized days remain historical snapshots; backend and browser regressions cover the behavior.

@@ -479,10 +479,24 @@ export default function TodayPage() {
   const updateTaskMutation = useMutation({
     mutationFn: ({ id, updates, editScope }: { id: string; updates: Partial<Task>; editScope?: 'instance' | 'habit' }) =>
       taskService.updateTask(id, updates, editScope),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    onSuccess: (updatedTask, variables) => {
+      // Render the successful PUT response immediately instead of keeping the old
+      // card visible until a second GET finishes. A virtual Habit can materialize
+      // during the edit, so match both its submitted id and its parent Habit id.
+      queryClient.setQueryData<Task[]>(['tasks', selectedDateKey], (current = []) =>
+        current.map(task => {
+          const sameSubmittedRow = task.id === variables.id
+          const sameHabitDay = updatedTask.type === 'habit' && task.type === 'habit' && updatedTask.originalHabitId &&
+            (task.originalHabitId === updatedTask.originalHabitId || task.id.startsWith(`${updatedTask.originalHabitId}-`))
+          return sameSubmittedRow || sameHabitDay ? updatedTask : task
+        })
+      )
+      queryClient.invalidateQueries({
+        predicate: query => query.queryKey[0] === 'tasks' && query.queryKey[1] !== selectedDateKey,
+      })
       toast.success('Task updated successfully!')
     },
+    onError: () => toast.error('Failed to update task'),
   })
 
   const updateCalendarEventCompletionMutation = useMutation({

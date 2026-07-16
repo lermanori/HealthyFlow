@@ -64,6 +64,12 @@ test('editing a whole Habit from Binary to Target persists the target', async ({
 
   const heading = page.getByRole('heading', { name: habitTitle })
   await expect(heading).toBeVisible()
+  let delayTaskRefresh = false
+  await page.route('**/api/tasks?**', async route => {
+    if (!delayTaskRefresh) return route.continue()
+    await new Promise(resolve => setTimeout(resolve, 3_000))
+    return route.continue()
+  })
   const card = heading.locator('xpath=ancestor::div[contains(@class, "group")]').first()
   await card.hover()
   await card.locator('button').nth(1).click()
@@ -73,8 +79,9 @@ test('editing a whole Habit from Binary to Target persists the target', async ({
   await page.getByRole('button', { name: 'The whole habit', exact: true }).click()
   await page.getByRole('button', { name: 'Target', exact: true }).click()
   await page.getByRole('textbox', { name: 'Habit target value' }).fill('45')
+  delayTaskRefresh = true
   await page.getByRole('button', { name: /Save Changes/ }).click()
 
-  await expect(card.getByText('0 / 45 min')).toBeVisible({ timeout: 10_000 })
+  await expect(card.getByText('0 / 45 min')).toBeVisible({ timeout: 1_000 })
   await expect(card.getByText('Pending', { exact: true })).toBeVisible()
 })
