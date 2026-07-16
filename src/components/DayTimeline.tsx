@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
 import { CalendarDays, Check, Clock, Flame, GripVertical, MapPin } from 'lucide-react'
-import { ExternalCalendarEvent, Task, CalorieEntry } from '../services/api'
+import { ExternalCalendarEvent, Task, CalorieEntry, HabitItem } from '../services/api'
 import TaskCard from './TaskCard'
 import { taskService } from '../services/api'
 
@@ -17,6 +17,7 @@ interface DayTimelineProps {
   onCalendarEventSchedule: (id: string, startTime: string) => Promise<void> | void
   onEditTask: (task: Task) => void
   onDeleteTask: (task: Task) => void
+  onHabitCheckIn: (habit: HabitItem) => void
 }
 
 // ponytail: age badge for the anytime shelf — how stale is this untimed item.
@@ -269,6 +270,7 @@ export default function DayTimeline({
   onCalendarEventSchedule,
   onEditTask,
   onDeleteTask,
+  onHabitCheckIn,
 }: DayTimelineProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
 
@@ -487,6 +489,7 @@ export default function DayTimeline({
                                 onUncomplete={onUncompleteTask}
                                 onEdit={onEditTask}
                                 onDelete={onDeleteTask}
+                                onHabitCheckIn={onHabitCheckIn}
                                 isDragging={snapshot.isDragging || draggedTaskId === task.id}
                                 compact
                                 className="h-full min-w-0 flex-1"
@@ -555,6 +558,7 @@ export default function DayTimeline({
                             onUncomplete={onUncompleteTask}
                             onEdit={onEditTask}
                             onDelete={onDeleteTask}
+                            onHabitCheckIn={onHabitCheckIn}
                             isDragging={snapshot.isDragging || draggedTaskId === task.id}
                             className="min-w-0"
                           />

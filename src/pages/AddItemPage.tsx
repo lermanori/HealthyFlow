@@ -81,6 +81,9 @@ export default function AddItemPage() {
   const [startTime, setStartTime] = useState('')
   const [location, setLocation] = useState('')
   const [duration, setDuration] = useState('30')
+  const [habitTracking, setHabitTracking] = useState<'binary' | 'target'>('binary')
+  const [habitTargetValue, setHabitTargetValue] = useState('45')
+  const [habitTargetUnit, setHabitTargetUnit] = useState<'minutes' | 'reps' | 'count'>('minutes')
   const [scheduledDate, setScheduledDate] = useState(todayStr())
   const [projectId, setProjectId] = useState<string | undefined>()
 
@@ -168,6 +171,11 @@ export default function AddItemPage() {
       toast.error('Please enter a title')
       return
     }
+    const targetValue = Number(habitTargetValue)
+    if (todayType === 'habit' && habitTracking === 'target' && (!Number.isFinite(targetValue) || targetValue <= 0)) {
+      toast.error('Please enter a valid Habit target')
+      return
+    }
 
     addTodayMutation.mutate({
       title: title.trim(),
@@ -179,6 +187,7 @@ export default function AddItemPage() {
       repeat: todayType === 'habit' ? 'daily' : 'none',
       scheduledDate,
       projectId,
+      ...(todayType === 'habit' ? { habitTarget: habitTracking === 'target' ? { value: targetValue, unit: habitTargetUnit } : null } : {}),
     })
   }
 
@@ -391,8 +400,14 @@ export default function AddItemPage() {
               </label>
             </div>
 
+            {todayType === 'habit' && <div className="space-y-3 rounded-xl border border-purple-500/25 bg-purple-500/5 p-4">
+              <div><p className="text-sm font-medium text-ink-soft">How will you track it?</p><p className="mt-1 text-xs text-ink-muted">Binary Habits are Done or Not done. Target Habits accumulate progress.</p></div>
+              <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setHabitTracking('binary')} className={`rounded-lg border px-3 py-2 text-sm ${habitTracking === 'binary' ? 'border-purple-400/50 bg-purple-400/15 text-purple-200' : 'border-line text-ink-muted'}`}>Binary</button><button type="button" onClick={() => setHabitTracking('target')} className={`rounded-lg border px-3 py-2 text-sm ${habitTracking === 'target' ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200' : 'border-line text-ink-muted'}`}>Target</button></div>
+              {habitTracking === 'target' && <div className="grid grid-cols-[1fr_1.2fr] gap-2"><input type="text" inputMode="decimal" value={habitTargetValue} onChange={event => setHabitTargetValue(event.target.value)} className="input-field" aria-label="Habit target value" /><select value={habitTargetUnit} onChange={event => setHabitTargetUnit(event.target.value as typeof habitTargetUnit)} className="input-field" aria-label="Habit target unit"><option value="minutes">Minutes</option><option value="reps">Repetitions</option><option value="count">Count</option></select></div>}
+            </div>}
+
             <label className="block space-y-2">
-              <span className="text-sm font-medium text-ink-soft">Duration</span>
+              <span className="text-sm font-medium text-ink-soft">Scheduled duration</span>
               <input type="number" min="1" value={duration} onChange={(event) => setDuration(event.target.value)} className="input-field holographic" />
             </label>
 

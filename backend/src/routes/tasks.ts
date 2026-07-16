@@ -9,12 +9,64 @@ import { parseHabitInstanceId } from '../utils/parseHabitInstanceId'
 import { isPureDragUpdate } from '../utils/isPureDragUpdate'
 import { deleteGoogleCalendarEvent, isGoogleCalendarNotConnectedError, syncTaskToGoogleCalendar } from '../calendar'
 import { Rollover } from '../rollover'
+import { HabitOutcomeInputSchema, HabitProgress, HabitProgressInputSchema, HabitProgressUpdateSchema } from '../habit-progress'
 
 const router = express.Router()
 
 const ReorderBody = z.object({ ids: z.array(z.string()).nonempty() })
 const DeleteBody = z.object({
   deleteScope: z.enum(['instance', 'habit']).optional(),
+})
+const HabitTargetSchema = z.object({
+  value: z.number().positive().max(100000),
+  unit: z.enum(['minutes', 'reps', 'count']),
+}).nullable()
+
+router.post('/:id/habit-progress', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = HabitProgressInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues })
+  try {
+    const result = await HabitProgress.add(req.user.userId, req.params.id, parsed.data)
+    res.status(201).json(result)
+  } catch (error: any) {
+    res.status(error.status ?? 500).json({ error: error.message ?? 'Database error' })
+  }
+})
+
+router.get('/:id/habit-progress', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    res.json(await HabitProgress.get(req.user.userId, req.params.id, typeof req.query.date === 'string' ? req.query.date : undefined))
+  } catch (error: any) {
+    res.status(error.status ?? 500).json({ error: error.message ?? 'Database error' })
+  }
+})
+
+router.patch('/:id/habit-progress/:entryId', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = HabitProgressUpdateSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues })
+  try {
+    res.json(await HabitProgress.update(req.user.userId, req.params.id, req.params.entryId, parsed.data, req.body.date))
+  } catch (error: any) {
+    res.status(error.status ?? 500).json({ error: error.message ?? 'Database error' })
+  }
+})
+
+router.delete('/:id/habit-progress/:entryId', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    res.json(await HabitProgress.remove(req.user.userId, req.params.id, req.params.entryId, typeof req.query.date === 'string' ? req.query.date : undefined))
+  } catch (error: any) {
+    res.status(error.status ?? 500).json({ error: error.message ?? 'Database error' })
+  }
+})
+
+router.put('/:id/habit-outcome', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = HabitOutcomeInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues })
+  try {
+    res.json(await HabitProgress.setOutcome(req.user.userId, req.params.id, parsed.data))
+  } catch (error: any) {
+    res.status(error.status ?? 500).json({ error: error.message ?? 'Database error' })
+  }
 })
 
 function normalizeLocation(value: unknown): string | null {
@@ -30,6 +82,7 @@ function clientTimeZone(req: AuthRequest): string | undefined {
 
 // Shared PUT/materialize response shape (DB row → API task).
 function formatTaskResponse(row: any, opts: { isHabitInstance?: boolean } = {}) {
+  const targetValue = row.habit_target_value == null ? null : Number(row.habit_target_value)
   return {
     id: row.id,
     title: row.title,
@@ -50,6 +103,11 @@ function formatTaskResponse(row: any, opts: { isHabitInstance?: boolean } = {}) 
     googleEventId: row.google_event_id ?? null,
     syncedToGoogle: Boolean(row.synced_to_google),
     googleSyncStatus: row.google_sync_status ?? 'pending',
+    ...(row.type === 'habit' ? { habitInfo: {
+      target: targetValue == null ? null : { value: targetValue, unit: row.habit_target_unit },
+      outcome: row.habit_outcome ?? (row.completed ? 'completed' : 'pending'),
+      progressTotal: 0,
+    } } : {}),
   }
 }
 
@@ -122,6 +180,14 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
     logger.debug('Backend - Raw tasks from database:', tasks)
     logger.debug('Backend - Number of tasks found:', tasks.length)
 
+    // Virtual instance ids include the date and are not database UUIDs. Only
+    // materialized instances can own progress rows.
+    const habitInstanceIds = tasks
+      .filter((task: any) => task.type === 'habit' && task.original_habit_id && !parseHabitInstanceId(task.id))
+      .map((task: any) => task.id)
+    const progressTotals = typeof db.getHabitProgressTotals === 'function'
+      ? await db.getHabitProgressTotals(habitInstanceIds)
+      : {}
     const formattedTasks = tasks.map((task: any) => {
       let originalHabitId = task.original_habit_id;
       let isVirtualInstance = false;
@@ -132,6 +198,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
           isVirtualInstance = true
         }
       }
+      const targetValue = task.habit_target_value == null ? null : Number(task.habit_target_value)
       return {
         id: task.id,
         title: task.title,
@@ -154,6 +221,13 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
         googleEventId: task.google_event_id ?? null,
         syncedToGoogle: Boolean(task.synced_to_google),
         googleSyncStatus: task.google_sync_status ?? 'pending',
+        ...(task.type === 'habit' ? {
+          habitInfo: {
+            target: targetValue == null ? null : { value: targetValue, unit: task.habit_target_unit },
+            outcome: task.habit_outcome ?? (task.completed ? 'completed' : 'pending'),
+            progressTotal: progressTotals[task.id] ?? 0,
+          },
+        } : {}),
       }
     })
 
@@ -170,6 +244,8 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
   const { title, type, category, startTime, duration, repeat } = req.body
   const location = type === 'task' ? normalizeLocation(req.body.location) : null
+  const parsedTarget = type === 'habit' ? HabitTargetSchema.safeParse(req.body.habitTarget ?? null) : null
+  if (parsedTarget && !parsedTarget.success) return res.status(400).json({ error: parsedTarget.error.issues })
   // Normalize at the write boundary (ADR-0002): a time implies a day — start_time
   // with no scheduled_date is scheduled for today. No date and no time stays someday.
   let scheduledDate = req.body.scheduledDate
@@ -183,7 +259,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
     // For untimed tasks, append to end of Anytime backlog (MAX position + 1, or null)
     let position: number | null = null
-    if (!startTime && scheduledDate) {
+    if (type !== 'habit' && !startTime && scheduledDate) {
       position = await db.getNextPosition(userId, scheduledDate)
     }
 
@@ -197,8 +273,13 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       location,
       duration,
       repeat_type: repeat,
-      scheduled_date: scheduledDate,
+      // Daily Habits are undated templates. Their selected day is represented by
+      // a virtual/materialized instance, never by dating the parent row.
+      scheduled_date: type === 'habit' ? null : scheduledDate,
       position,
+      habit_target_value: parsedTarget?.success ? parsedTarget.data?.value ?? null : null,
+      habit_target_unit: parsedTarget?.success ? parsedTarget.data?.unit ?? null : null,
+      habit_outcome: null,
     }
 
     let task = await db.createTask(taskData)
@@ -221,6 +302,13 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       rolledOverFromTaskId: task.rolled_over_from_task_id,
       originalCreatedAt: task.original_created_at,
       position: task.position ?? null,
+      ...(task.type === 'habit' ? {
+        habitInfo: {
+          target: task.habit_target_value == null ? null : { value: Number(task.habit_target_value), unit: task.habit_target_unit },
+          outcome: 'pending',
+          progressTotal: 0,
+        },
+      } : {}),
       googleEventId: task.google_event_id ?? null,
       syncedToGoogle: Boolean(task.synced_to_google),
       googleSyncStatus: task.google_sync_status ?? 'pending',
@@ -235,6 +323,7 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
   const taskId = req.params.id
   const updates = req.body
+  const editScope: 'instance' | 'habit' = updates.editScope === 'habit' ? 'habit' : 'instance'
 
   const updateData: any = {}
 
@@ -267,6 +356,13 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
   if (updates.position !== undefined) {
     updateData.position = updates.position
   }
+  if (updates.habitTarget !== undefined) {
+    if (editScope !== 'habit') return res.status(400).json({ error: 'Habit targets can only be changed for the whole Habit' })
+    const parsedTarget = HabitTargetSchema.safeParse(updates.habitTarget)
+    if (!parsedTarget.success) return res.status(400).json({ error: parsedTarget.error.issues })
+    updateData.habit_target_value = parsedTarget.data?.value ?? null
+    updateData.habit_target_unit = parsedTarget.data?.unit ?? null
+  }
 
   if (Object.keys(updateData).length === 0) {
     return res.status(400).json({ error: 'No valid fields to update' })
@@ -274,8 +370,6 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
 
   // Habit edits carry a scope: 'habit' changes the whole habit (today + future),
   // 'instance' (default) keeps the change to that one day. Drags ignore this.
-  const editScope: 'instance' | 'habit' = updates.editScope === 'habit' ? 'habit' : 'instance'
-
   try {
     // A habit interaction can target three identities; resolve all of them to the
     // parent habit id + the affected date (and the existing per-day row, if any):
@@ -407,28 +501,14 @@ router.post('/complete/:id', authenticateToken, async (req: AuthRequest, res) =>
     // Check if this is a virtual habit instance (format: originalId-date)
     const parsedInstance = parseHabitInstanceId(taskId)
     if (parsedInstance) {
-      const { originalHabitId, date: fullDate } = parsedInstance
-      logger.debug('Backend - Completing virtual habit instance:', { originalHabitId, date: fullDate, taskId })
-      // Mark this date's instance complete (idempotent: updates an already-materialized
-      // row in place, keeping any dragged time, instead of inserting an untimed dup).
-      const habitInstance = await db.createHabitInstance(originalHabitId, fullDate, userId, { completed: true })
-      res.json({
-        id: habitInstance.id,
-        title: habitInstance.title,
-        type: habitInstance.type,
-        category: habitInstance.category,
-        startTime: habitInstance.start_time,
-        duration: habitInstance.duration,
-        location: habitInstance.location ?? null,
-        repeat: habitInstance.repeat_type,
-        completed: Boolean(habitInstance.completed),
-        scheduledDate: habitInstance.scheduled_date,
-        createdAt: habitInstance.created_at,
-        originalHabitId: habitInstance.original_habit_id,
-        rolledOverFromTaskId: habitInstance.rolled_over_from_task_id,
-        originalCreatedAt: habitInstance.original_created_at
-      })
+      const result = await HabitProgress.setOutcome(userId, taskId, { outcome: 'completed', date: parsedInstance.date })
+      res.json(result.habit)
     } else {
+      const existing = await db.getTaskById(taskId)
+      if (existing?.type === 'habit') {
+        const result = await HabitProgress.setOutcome(userId, taskId, { outcome: 'completed', date: existing.scheduled_date })
+        return res.json(result.habit)
+      }
       // Handle regular task or existing habit instance completion (carried tasks are
       // real rows now — they complete here via the normal path, ADR-0002).
       const task = await db.updateTask(taskId, {

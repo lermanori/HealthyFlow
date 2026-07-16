@@ -1,3 +1,9 @@
+### 2026-07-16 12:22 — `feat/habit-progress`
+
+Promoted the approved Variant B Habit check-in into Today and Week View with binary outcomes, target-based progress chunks, responsive mobile/desktop interaction, and whole-Habit tracking configuration. Added the compatible Habit outcome/progress API, additive Supabase schema with RLS and atomic outcome synchronization, analytics counts, domain documentation, and regression coverage; the migrations and production backend/frontend deployments are live and both canonical production smoke cases pass.
+
+---
+
 ### 2026-07-16 09:10 — `feat/workout-plans-ai`
 
 Added reusable Workout plans and server-keyed AI plan generation, with ordered exercises, editable targets, and plan-to-session drafting. Exercise history now preserves and backfills sets, reps, weight, duration, distance, and notes; the session review flow was redesigned for mobile so loaded exercises are visible first and the add form stays collapsed until requested. The database migrations and both production deployments are live, and the focused backend and Playwright workout suites pass.

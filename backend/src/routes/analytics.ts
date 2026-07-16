@@ -32,6 +32,9 @@ router.get('/streaks', authenticateToken, async (req: AuthRequest, res) => {
           title: habit.title,
           category: habit.category,
           completed_days: 0,
+          partial_days: 0,
+          failed_days: 0,
+          pending_days: 0,
           total_days: 0,
           last_completed: null
         }
@@ -44,6 +47,10 @@ router.get('/streaks', authenticateToken, async (req: AuthRequest, res) => {
           acc[key].last_completed = habit.completed_at
         }
       }
+      const outcome = habit.habit_outcome ?? (habit.completed ? 'completed' : 'pending')
+      if (outcome === 'partial') acc[key].partial_days += 1
+      if (outcome === 'failed') acc[key].failed_days += 1
+      if (outcome === 'pending') acc[key].pending_days += 1
       
       return acc
     }, {})

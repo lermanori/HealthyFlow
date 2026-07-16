@@ -11,7 +11,7 @@ test('Complete Task: marking complete persists across reload', async ({ page }) 
 
   // Add a task via the UI
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = 'Complete Test Task'
   await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
@@ -48,7 +48,7 @@ test('Edit Task: changing title updates Today and persists', async ({ page }) =>
 
   // Add a task via the UI
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const originalTitle = 'Edit Test Task'
   await page.locator('input[placeholder*="Enter"]').first().fill(originalTitle)
@@ -97,7 +97,7 @@ test('Task location: create, edit, and clear location on the card', async ({ pag
   expect(reset.ok()).toBeTruthy()
 
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = 'Location Test Task'
   await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
@@ -142,7 +142,7 @@ test('Delete Task: removing task makes it disappear from Today', async ({ page }
 
   // Add a task via the UI
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = 'Delete Test Task'
   await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
@@ -183,7 +183,7 @@ test('Delete timed task from schedule menu removes it from Today', async ({ page
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = `Delete Timed Task ${Date.now()}`
   await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
@@ -220,7 +220,7 @@ test('Scheduled timeline checkbox toggles reliably while the card is hovered', a
   expect(reset.ok()).toBeTruthy()
 
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = `Hovered Timeline Toggle ${Date.now()}`
   await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
@@ -259,7 +259,7 @@ test('Dedicated drag grip keeps scheduled and Anytime card controls clickable', 
 
   const scheduledTitle = `Grip Scheduled ${Date.now()}`
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
   await page.locator('input[placeholder*="Enter"]').first().fill(scheduledTitle)
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
   await page.locator('input[type="time"]').fill('10:00')
@@ -268,7 +268,7 @@ test('Dedicated drag grip keeps scheduled and Anytime card controls clickable', 
 
   const anytimeTitle = `Grip Anytime ${Date.now()}`
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
   await page.locator('input[placeholder*="Enter"]').first().fill(anytimeTitle)
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
   await page.locator('button[type="submit"]').click()
@@ -312,7 +312,7 @@ test('Compact timeline card does not clip content or overflow menu', async ({ pa
   expect(reset.ok()).toBeTruthy()
 
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = `Compact Clipping ${Date.now()}`
   await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
@@ -368,7 +368,7 @@ test('Schedule compacts empty four-hour windows around timed tasks', async ({ pa
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = `Compact Schedule Anchor ${Date.now()}`
   await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
@@ -400,7 +400,7 @@ test('Schedule expands occupied hours to fit multiple timed items', async ({ pag
 
   for (const title of [firstTitle, secondTitle]) {
     await page.goto('/add')
-    await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
     await page.locator('input[placeholder*="Enter"]').first().fill(title)
     await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
     await page.locator('input[type="time"]').fill('16:00')
@@ -436,7 +436,7 @@ test('Drag start keeps the card attached to the pointer without shifting layout'
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = `Drag Attached Schedule ${Date.now()}`
   await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)

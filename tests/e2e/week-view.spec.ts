@@ -44,7 +44,7 @@ test('Week view golden path: tasks appear under their correct day columns', asyn
 
   // --- Add task for TODAY ---
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
   await page.locator('input[placeholder*="Enter"]').first().fill(todayTitle)
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
   await page.locator('input[type="date"]').fill(todayStr)
@@ -56,7 +56,7 @@ test('Week view golden path: tasks appear under their correct day columns', asyn
   // untimed-only), so it stays on its own day and won't leak into today's column even
   // when otherDay is in the past. Keeps this test correct on any weekday.
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
   await page.locator('input[placeholder*="Enter"]').first().fill(otherTitle)
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
   await page.locator('input[type="date"]').fill(otherDayStr)
@@ -268,7 +268,7 @@ test('Week view shows an untimed one-off task only once', async ({ page }) => {
   const title = `Untimed Week Once ${Date.now()}`
 
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
   await page.locator('input[placeholder*="Enter"]').first().fill(title)
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
   await page.locator('input[type="date"]').fill(todayStr)

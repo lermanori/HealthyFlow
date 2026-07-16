@@ -11,6 +11,7 @@ import {
   taskService,
   ExternalCalendarEvent,
   Task,
+  HabitItem,
   TouchpointType,
   UserRhythm,
   type CalorieEntry,
@@ -28,6 +29,7 @@ import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { useSettings } from '../hooks/useSettings'
+import HabitOutcomeSheet from '../components/HabitOutcomeSheet'
 
 const touchpointCtas: Record<TouchpointType, { title: string; body: string; button: string }> = {
   morning: {
@@ -328,6 +330,7 @@ export default function TodayPage() {
   const [showConfetti, setShowConfetti] = useState(false)
   const [showAIAnalyzer, setShowAIAnalyzer] = useState(false)
   const [habitDeleteCandidate, setHabitDeleteCandidate] = useState<Task | null>(null)
+  const [habitCheckIn, setHabitCheckIn] = useState<HabitItem | null>(null)
   const queryClient = useQueryClient()
   const { showNotification } = useNotifications()
   const location = useLocation()
@@ -878,6 +881,7 @@ export default function TodayPage() {
             onCalendarEventSchedule={handleCalendarEventSchedule}
             onEditTask={handleEditTask}
             onDeleteTask={handleDeleteTask}
+            onHabitCheckIn={setHabitCheckIn}
           />
         </motion.div>
 
@@ -894,6 +898,7 @@ export default function TodayPage() {
         onClose={() => setEditingTask(null)}
         onSave={handleSaveTask}
       />
+      {habitCheckIn && <HabitOutcomeSheet habit={habitCheckIn} date={selectedDateKey} onClose={() => setHabitCheckIn(null)} />}
       
     </div>
   )

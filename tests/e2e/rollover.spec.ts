@@ -19,7 +19,7 @@ test('Rollover golden path: untimed task dated yesterday appears on the Today vi
 
   // --- Create an untimed task dated yesterday ---
   await page.goto('/add')
-  await expect(page.locator('h1', { hasText: 'Add New Item' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()

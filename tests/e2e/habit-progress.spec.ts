@@ -1,0 +1,59 @@
+import { test, expect } from './fixtures/ai-stubs'
+
+test('mobile Habit cards open Variant B and persist partial/completed/failed outcomes', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const date = new Date().toISOString().slice(0, 10)
+  let workoutTotal = 20
+  let workoutOutcome: 'partial' | 'completed' | 'failed' = 'partial'
+  let smokeOutcome: 'pending' | 'completed' | 'failed' = 'pending'
+  let entries = [{ id: 'entry-1', amount: 20, note: 'Run', createdAt: `${date}T08:00:00.000Z`, updatedAt: `${date}T08:00:00.000Z` }]
+
+  const habit = (id: string, title: string, info: any) => ({
+    id, title, type: 'habit', category: 'fitness', startTime: null, duration: 30,
+    completed: info.outcome === 'completed', scheduledDate: date, createdAt: `${date}T07:00:00.000Z`,
+    repeat: 'daily', isHabitInstance: true, originalHabitId: id.split('-').slice(0, 5).join('-'), habitInfo: info,
+  })
+  const workoutInfo = () => ({ target: { value: 45, unit: 'minutes' }, outcome: workoutOutcome, progressTotal: workoutTotal })
+  const smokeInfo = () => ({ target: null, outcome: smokeOutcome, progressTotal: 0 })
+
+  await page.route('**/api/tasks**', async route => {
+    const request = route.request()
+    const url = new URL(request.url())
+    if (url.pathname === '/api/tasks' && request.method() === 'GET') {
+      return route.fulfill({ json: [habit(`aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee-${date}`, '45-minute workout', workoutInfo()), habit(`ffffffff-bbbb-cccc-dddd-eeeeeeeeeeee-${date}`, 'Don’t smoke until 11', smokeInfo())] })
+    }
+    const isWorkout = url.pathname.includes('aaaaaaaa-bbbb')
+    if (url.pathname.endsWith('/habit-progress') && request.method() === 'GET') {
+      return route.fulfill({ json: { habit: habit(isWorkout ? `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee-${date}` : `ffffffff-bbbb-cccc-dddd-eeeeeeeeeeee-${date}`, isWorkout ? '45-minute workout' : 'Don’t smoke until 11', isWorkout ? workoutInfo() : smokeInfo()), entries: isWorkout ? entries : [] } })
+    }
+    if (url.pathname.endsWith('/habit-progress') && request.method() === 'POST') {
+      const input = request.postDataJSON()
+      workoutTotal += input.amount
+      entries = [...entries, { id: `entry-${entries.length + 1}`, amount: input.amount, note: input.note ?? null, createdAt: `${date}T09:00:00.000Z`, updatedAt: `${date}T09:00:00.000Z` }]
+      workoutOutcome = workoutTotal >= 45 ? 'completed' : 'partial'
+      return route.fulfill({ status: 201, json: { habit: habit(`aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee-${date}`, '45-minute workout', workoutInfo()), entries } })
+    }
+    if (url.pathname.endsWith('/habit-outcome') && request.method() === 'PUT') {
+      const input = request.postDataJSON()
+      if (isWorkout) workoutOutcome = input.outcome === 'pending' ? (workoutTotal > 0 ? 'partial' : 'pending') : input.outcome
+      else smokeOutcome = input.outcome
+      return route.fulfill({ json: { habit: habit(isWorkout ? `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee-${date}` : `ffffffff-bbbb-cccc-dddd-eeeeeeeeeeee-${date}`, isWorkout ? '45-minute workout' : 'Don’t smoke until 11', isWorkout ? workoutInfo() : smokeInfo()), entries: isWorkout ? entries : [] } })
+    }
+    return route.fallback()
+  })
+
+  await page.goto('/')
+  await page.getByText('45-minute workout').click()
+  const sheet = page.getByRole('dialog', { name: '45-minute workout' })
+  await expect(sheet.getByText('20 / 45 min')).toBeVisible()
+  await sheet.getByRole('button', { name: '+ 20 min' }).click()
+  await sheet.getByRole('button', { name: '+ 5 min' }).click()
+  await expect(sheet.getByText('45 / 45 min')).toBeVisible()
+  await expect(sheet.getByText(/100% · Completed/)).toBeVisible()
+  await sheet.getByRole('button', { name: 'Close', exact: true }).click()
+
+  await page.getByText('Don’t smoke until 11').click()
+  const binarySheet = page.getByRole('dialog', { name: 'Don’t smoke until 11' })
+  await binarySheet.getByRole('button', { name: 'Not done' }).click()
+  await expect(binarySheet.getByRole('button', { name: 'Clear outcome' })).toBeVisible()
+})
