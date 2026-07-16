@@ -811,6 +811,10 @@ export const db = {
   // ponytail: test-mode only — deletes all task rows for the given user
   async resetTestUser(userId: string) {
     await supabase
+      .from('workout_plans')
+      .delete()
+      .eq('user_id', userId)
+    await supabase
       .from('workout_sessions')
       .delete()
       .eq('user_id', userId)
@@ -1161,6 +1165,102 @@ export const db = {
   },
 
   // Workout Tracker
+  async getWorkoutPlans(userId: string) {
+    const { data, error } = await supabase
+      .from('workout_plans')
+      .select('*')
+      .eq('user_id', userId)
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: true })
+    if (error) throw error
+    return data ?? []
+  },
+
+  async getWorkoutPlanById(planId: string) {
+    const { data, error } = await supabase
+      .from('workout_plans')
+      .select('*')
+      .eq('id', planId)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async createWorkoutPlan(planData: {
+    id: string
+    user_id: string
+    name: string
+    color?: string | null
+    note?: string | null
+    position: number
+  }) {
+    const { data, error } = await supabase
+      .from('workout_plans')
+      .insert(planData)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async updateWorkoutPlan(planId: string, updates: Record<string, unknown>) {
+    const { data, error } = await supabase
+      .from('workout_plans')
+      .update(updates)
+      .eq('id', planId)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async deleteWorkoutPlan(planId: string) {
+    const { error } = await supabase
+      .from('workout_plans')
+      .delete()
+      .eq('id', planId)
+    if (error) throw error
+  },
+
+  async getWorkoutPlanExercises(planId: string) {
+    const { data, error } = await supabase
+      .from('workout_plan_items')
+      .select('*')
+      .eq('plan_id', planId)
+      .order('position', { ascending: true })
+    if (error) throw error
+    return data ?? []
+  },
+
+  async createWorkoutPlanExercises(exercises: Array<{
+    id: string
+    plan_id: string
+    name: string
+    sets?: number | null
+    reps?: number | null
+    weight_kg?: number | null
+    duration_minutes?: number | null
+    distance_km?: number | null
+    notes?: string | null
+    position: number
+  }>) {
+    if (exercises.length === 0) return []
+    const { data, error } = await supabase
+      .from('workout_plan_items')
+      .insert(exercises)
+      .select()
+    if (error) throw error
+    return data ?? []
+  },
+
+  async deleteWorkoutPlanExercises(planId: string) {
+    const { error } = await supabase
+      .from('workout_plan_items')
+      .delete()
+      .eq('plan_id', planId)
+    if (error) throw error
+  },
+
   async getWorkoutSessionsByDay(userId: string, date: string) {
     const { data, error } = await supabase
       .from('workout_sessions')
@@ -1297,8 +1397,16 @@ export const db = {
     if (error) throw error
   },
 
-  async upsertWorkoutExerciseItem(userId: string, name: string) {
-    const normalizedName = name.trim().toLowerCase()
+  async upsertWorkoutExerciseItem(userId: string, exercise: {
+    name: string
+    sets?: number | null
+    reps?: number | null
+    weightKg?: number | null
+    durationMinutes?: number | null
+    distanceKm?: number | null
+    notes?: string | null
+  }) {
+    const normalizedName = exercise.name.trim().toLowerCase()
     const now = new Date().toISOString()
 
     const { data: existing, error: getError } = await supabase
@@ -1314,6 +1422,13 @@ export const db = {
         .rpc('upsert_workout_exercise_item_usage', {
           p_user_id: userId,
           p_normalized_name: normalizedName,
+          p_name: exercise.name,
+          p_sets: exercise.sets ?? null,
+          p_reps: exercise.reps ?? null,
+          p_weight_kg: exercise.weightKg ?? null,
+          p_duration_minutes: exercise.durationMinutes ?? null,
+          p_distance_km: exercise.distanceKm ?? null,
+          p_notes: exercise.notes ?? null,
           p_now: now,
         })
         .single()
@@ -1325,8 +1440,14 @@ export const db = {
       .from('workout_exercise_items')
       .insert({
         user_id: userId,
-        name,
+        name: exercise.name,
         normalized_name: normalizedName,
+        sets: exercise.sets ?? null,
+        reps: exercise.reps ?? null,
+        weight_kg: exercise.weightKg ?? null,
+        duration_minutes: exercise.durationMinutes ?? null,
+        distance_km: exercise.distanceKm ?? null,
+        notes: exercise.notes ?? null,
         usage_count: 1,
         last_used_at: now,
         created_at: now,

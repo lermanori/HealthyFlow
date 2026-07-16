@@ -104,6 +104,7 @@ async function resetDemoData(userId: string) {
   const tables = [
     'assistant_messages',
     'assistant_conversations',
+    'workout_plans',
     'workout_sessions',
     'workout_exercise_items',
     'achievement_entries',

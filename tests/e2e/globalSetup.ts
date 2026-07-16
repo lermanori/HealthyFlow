@@ -45,6 +45,7 @@ export default async function globalSetup() {
     .single()
 
   if (user) {
+    await supabase.from('workout_plans').delete().eq('user_id', user.id)
     await supabase.from('workout_sessions').delete().eq('user_id', user.id)
     await supabase.from('workout_exercise_items').delete().eq('user_id', user.id)
     await supabase.from('tasks').delete().eq('user_id', user.id)
