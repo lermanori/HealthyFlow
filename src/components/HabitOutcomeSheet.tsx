@@ -35,7 +35,13 @@ export default function HabitOutcomeSheet({ habit, date, onClose }: { habit: Hab
       if (action.kind === 'delete') return taskService.deleteHabitProgress(habit.id, action.entryId, date)
       return taskService.updateHabitProgress(habit.id, action.entryId, { amount: action.amount, note: action.note, date })
     },
-    onSuccess: (next) => { refresh(next); setAmount(''); setNote(''); setEditingId(null) },
+    onSuccess: (next, action) => {
+      refresh(next)
+      setAmount('')
+      setNote('')
+      setEditingId(null)
+      if (action.kind === 'outcome' && action.outcome !== 'pending') onClose()
+    },
     onError: (error: any) => toast.error(error?.response?.data?.error ?? 'Could not update Habit'),
   })
 

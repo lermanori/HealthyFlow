@@ -31,8 +31,7 @@ test('Habit golden path: completing today does NOT bleed into tomorrow', async (
   await titleHeading.click()
   const sheet = page.getByRole('dialog', { name: habitTitle })
   await sheet.getByRole('button', { name: 'Done', exact: true }).click()
-  await expect(sheet.getByRole('button', { name: 'Clear outcome' })).toBeVisible()
-  await sheet.getByRole('button', { name: 'Close', exact: true }).click()
+  await expect(sheet).not.toBeVisible()
 
   // Assert completed (line-through on title)
   await expect(titleHeading).toHaveClass(/line-through/, { timeout: 10_000 })

@@ -1,3 +1,9 @@
+### 2026-07-16 16:44 — `feat/habit-progress`
+
+Improved the mobile Habit check-in completion flow so terminal Done, Not done, and Complete remaining actions close the outcome sheet only after the server confirms success. Progress chunks and Clear outcome keep the sheet open, and browser coverage verifies both Done and Not done close while the saved outcome remains available when reopened.
+
+---
+
 ### 2026-07-16 16:37 — `feat/habit-progress`
 
 Removed the post-edit refresh requirement from Today by writing the successful Habit edit response directly into the selected-day query cache, including virtual-to-materialized identity changes. Other cached days are invalidated separately, and a browser regression now blocks the follow-up GET to prove Binary-to-Target renders within one second from the PUT response alone.
