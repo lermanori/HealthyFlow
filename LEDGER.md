@@ -1,3 +1,9 @@
+### 2026-07-16 17:38 — `feat/habit-progress`
+
+Fixed the compact timed-Habit regression visible on mobile after enlarging touch actions: 30-minute Habit rows now reserve enough height for title, metadata, and outcome, while the 44×44 menu target floats over a 28px layout slot so it no longer steals title width. A 390×844 browser regression verifies a failed timed Habit’s Not done status remains inside its timeline row; ordinary timed Tasks keep their existing geometry.
+
+---
+
 ### 2026-07-16 17:12 — `feat/habit-progress`
 
 Completed a 390×844 mobile UX pass for Habit check-ins. The sheet now has a fixed header, independently scrollable progress/history area, and safe-area action footer so Complete remaining and Not done stay fully reachable; Habit card actions are always visible on touch with labeled 44×44 targets. Browser coverage locks down footer visibility and touch-target sizing.

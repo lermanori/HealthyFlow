@@ -261,11 +261,11 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
             </div>
 
             {/* Menu button */}
-            <div className="relative flex-shrink-0">
+            <div className={`relative flex-shrink-0 ${compact ? 'h-7 w-7' : ''}`}>
               <button
                 onClick={(event) => { event.stopPropagation(); setShowMenu(!showMenu) }}
                 aria-label={`${task.title} actions`}
-                className={`${compact ? '!h-11 !min-h-0 !w-11 !min-w-0 p-0.5 sm:!h-7 sm:!w-7' : 'h-11 w-11 p-1 sm:h-auto sm:w-auto'} flex items-center justify-center rounded-lg hover:bg-gray-700 cursor-pointer transition-all duration-200 ${showMenu ? 'opacity-100 bg-gray-700' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100'}`}
+                className={`${compact ? 'absolute -right-2 -top-2 !h-11 !min-h-0 !w-11 !min-w-0 p-0.5 sm:static sm:!h-7 sm:!w-7' : 'h-11 w-11 p-1 sm:h-auto sm:w-auto'} flex items-center justify-center rounded-lg hover:bg-gray-700 cursor-pointer transition-all duration-200 ${showMenu ? 'opacity-100 bg-gray-700' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100'}`}
               >
                 <MoreVertical className="w-4 h-4 text-ink-muted" />
               </button>
