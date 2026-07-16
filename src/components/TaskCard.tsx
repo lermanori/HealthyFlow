@@ -5,7 +5,7 @@ import {
   ShoppingCart, Utensils, Dumbbell, CheckSquare, Circle, Flame,
   DollarSign, Target, Folder, RefreshCw, AlertTriangle, MapPin
 } from 'lucide-react'
-import { Task } from '../services/api'
+import { HabitItem, Task } from '../services/api'
 import { format, parseISO } from 'date-fns'
 
 interface TaskCardProps {
@@ -17,12 +17,17 @@ interface TaskCardProps {
   isDragging?: boolean
   className?: string
   compact?: boolean
+  onHabitCheckIn?: (habit: HabitItem) => void
 }
 
-export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncomplete, isDragging, className = '', compact = false }: TaskCardProps) {
+export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncomplete, onHabitCheckIn, isDragging, className = '', compact = false }: TaskCardProps) {
   const [showMenu, setShowMenu] = useState(false)
 
   const handleComplete = () => {
+    if (task.type === 'habit' && onHabitCheckIn) {
+      onHabitCheckIn(task)
+      return
+    }
     if (task.completed && onUncomplete) {
       onUncomplete(task.id)
     } else {
@@ -75,6 +80,16 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
 
   const renderItemDetails = () => {
     switch (task.type) {
+      case 'habit': {
+        const info = task.habitInfo ?? { target: null, outcome: task.completed ? 'completed' as const : 'pending' as const, progressTotal: 0 }
+        const label = info.outcome === 'failed' ? 'Not done' : info.outcome[0].toUpperCase() + info.outcome.slice(1)
+        return (
+          <div className={`mt-1 flex min-w-0 items-center gap-2 text-xs ${info.outcome === 'failed' ? 'text-rose-300' : info.outcome === 'partial' ? 'text-amber-300' : info.outcome === 'completed' ? 'text-emerald-300' : 'text-ink-muted'}`}>
+            {info.target && <span className="truncate">{info.progressTotal} / {info.target.value} {info.target.unit === 'minutes' ? 'min' : info.target.unit}</span>}
+            <span className="shrink-0">{label}</span>
+          </div>
+        )
+      }
       case 'grocery':
         return (
           <div className="flex items-center space-x-2 text-xs text-ink-muted mt-1">
@@ -211,12 +226,13 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
           ? 'bg-card/50 border-line-strong/50 opacity-75' 
           : 'card glass-effect hover:shadow-lg'
       } ${showMenu ? 'z-[100]' : ''} ${isDragging ? 'z-10 rotate-1' : ''} ${className}`}
+      onClick={() => task.type === 'habit' && onHabitCheckIn?.(task)}
     >
       {/* Completion Checkbox */}
       <div className={`flex min-h-0 min-w-0 ${compact ? 'w-full items-center gap-2' : 'items-start space-x-3'}`}>
         <button
-          onClick={handleComplete}
-          aria-label={task.completed ? 'Uncheck task' : 'Check task'}
+          onClick={(event) => { event.stopPropagation(); handleComplete() }}
+          aria-label={task.type === 'habit' ? `Check in ${task.title}` : task.completed ? 'Uncheck task' : 'Check task'}
           className={`flex-shrink-0 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-300 ${
             compact ? '!h-4 !min-h-0 !w-4 !min-w-0 sm:!h-5 sm:!w-5' : 'h-5 w-5'
           } ${
@@ -225,7 +241,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
               : 'border-line-strong hover:border-cyan-400 hover:bg-cyan-400/10'
           }`}
         >
-          {task.completed && <Check className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />}
+          {task.type === 'habit' ? <RotateCcw className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} /> : task.completed && <Check className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />}
         </button>
 
         <div className="min-w-0 flex-1">
@@ -245,10 +261,11 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
             </div>
 
             {/* Menu button */}
-            <div className="relative flex-shrink-0">
+            <div className={`relative flex-shrink-0 ${compact ? 'h-7 w-7' : ''}`}>
               <button
-                onClick={() => setShowMenu(!showMenu)}
-                className={`${compact ? '!h-7 !min-h-0 !w-7 !min-w-0 p-0.5' : 'p-1'} rounded-lg hover:bg-gray-700 cursor-pointer transition-all duration-200 ${showMenu ? 'opacity-100 bg-gray-700' : 'opacity-0 group-hover:opacity-100'}`}
+                onClick={(event) => { event.stopPropagation(); setShowMenu(!showMenu) }}
+                aria-label={`${task.title} actions`}
+                className={`${compact ? 'absolute -right-2 -top-2 !h-11 !min-h-0 !w-11 !min-w-0 p-0.5 sm:static sm:!h-7 sm:!w-7' : 'h-11 w-11 p-1 sm:h-auto sm:w-auto'} flex items-center justify-center rounded-lg hover:bg-gray-700 cursor-pointer transition-all duration-200 ${showMenu ? 'opacity-100 bg-gray-700' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100'}`}
               >
                 <MoreVertical className="w-4 h-4 text-ink-muted" />
               </button>
@@ -257,7 +274,8 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
               {showMenu && (
                 <div className="task-menu right-0 top-8 rounded-lg shadow-xl min-w-32">
                   <button
-                    onClick={() => {
+                    onClick={(event) => {
+                      event.stopPropagation()
                       onEdit(task)
                       setShowMenu(false)
                     }}
@@ -267,7 +285,8 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                     <span>Edit</span>
                   </button>
                   <button
-                    onClick={() => {
+                    onClick={(event) => {
+                      event.stopPropagation()
                       onDelete(task)
                       setShowMenu(false)
                     }}

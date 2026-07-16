@@ -82,7 +82,16 @@ export interface HabitItem extends ItemBase {
   repeat?: 'daily' | 'weekly'
   isHabitInstance?: boolean
   originalHabitId?: string
+  habitTarget?: HabitTarget | null
+  habitInfo?: HabitInfo
 }
+
+export type HabitOutcome = 'pending' | 'partial' | 'completed' | 'failed'
+export type HabitTargetUnit = 'minutes' | 'reps' | 'count'
+export type HabitTarget = { value: number; unit: HabitTargetUnit }
+export type HabitInfo = { target: HabitTarget | null; outcome: HabitOutcome; progressTotal: number }
+export type HabitProgressEntry = { id: string; amount: number; note: string | null; createdAt: string; updatedAt: string }
+export type HabitProgressDetail = { habit: HabitItem; entries: HabitProgressEntry[] }
 
 export interface GroceryItem extends ItemBase {
   type: 'grocery'
@@ -382,6 +391,31 @@ export const taskService = {
       category: completed.category,
     })
     return completed
+  },
+
+  getHabitProgress: async (id: string, date?: string): Promise<HabitProgressDetail> => {
+    const response = await api.get(`/tasks/${id}/habit-progress`, { params: date ? { date } : undefined })
+    return response.data
+  },
+
+  addHabitProgress: async (id: string, input: { amount: number; note?: string | null; date?: string }): Promise<HabitProgressDetail> => {
+    const response = await api.post(`/tasks/${id}/habit-progress`, input)
+    return response.data
+  },
+
+  updateHabitProgress: async (id: string, entryId: string, input: { amount?: number; note?: string | null; date?: string }): Promise<HabitProgressDetail> => {
+    const response = await api.patch(`/tasks/${id}/habit-progress/${entryId}`, input)
+    return response.data
+  },
+
+  deleteHabitProgress: async (id: string, entryId: string, date?: string): Promise<HabitProgressDetail> => {
+    const response = await api.delete(`/tasks/${id}/habit-progress/${entryId}`, { params: date ? { date } : undefined })
+    return response.data
+  },
+
+  setHabitOutcome: async (id: string, outcome: 'pending' | 'completed' | 'failed', date?: string): Promise<HabitProgressDetail> => {
+    const response = await api.put(`/tasks/${id}/habit-outcome`, { outcome, date })
+    return response.data
   },
 
   deleteTask: async (id: string, deleteScope?: DeleteScope): Promise<void> => {

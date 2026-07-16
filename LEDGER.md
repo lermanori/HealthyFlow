@@ -1,3 +1,63 @@
+### 2026-07-16 18:14 — `feat/habit-progress`
+
+Refined the target-Habit outcome language from “Not done today” to “Not done yet,” keeping the neutral styling, preserved-progress explanation, and immediate dismissal behavior unchanged. The mobile browser regression now asserts the revised label.
+
+---
+
+### 2026-07-16 18:10 — `feat/habit-progress`
+
+Reworked Habit check-in actions around their actual hierarchy after a research-backed UX review. Target outcomes now appear as neutral, explanatory rows after progress history instead of a fixed green/red submit-like footer; quick amounts are quieter tonal controls, and success color is reserved for the completed state. Binary outcomes use equal neutral choices, while mobile coverage verifies placement, touch size, outcome dismissal, and the absence of success/error styling before a choice.
+
+---
+
+### 2026-07-16 17:48 — `feat/habit-progress`
+
+Clarified the target-Habit completion shortcut by showing the exact progress it will record, such as “Log 50 min & finish,” instead of the submit-like “Complete remaining.” The label updates as progress changes and becomes a disabled Completed state at the target; mobile browser coverage verifies both the changing remainder and footer sizing.
+
+---
+
+### 2026-07-16 17:38 — `feat/habit-progress`
+
+Fixed the compact timed-Habit regression visible on mobile after enlarging touch actions: 30-minute Habit rows now reserve enough height for title, metadata, and outcome, while the 44×44 menu target floats over a 28px layout slot so it no longer steals title width. A 390×844 browser regression verifies a failed timed Habit’s Not done status remains inside its timeline row; ordinary timed Tasks keep their existing geometry.
+
+---
+
+### 2026-07-16 17:12 — `feat/habit-progress`
+
+Completed a 390×844 mobile UX pass for Habit check-ins. The sheet now has a fixed header, independently scrollable progress/history area, and safe-area action footer so Complete remaining and Not done stay fully reachable; Habit card actions are always visible on touch with labeled 44×44 targets. Browser coverage locks down footer visibility and touch-target sizing.
+
+---
+
+### 2026-07-16 16:58 — `feat/habit-progress`
+
+Made terminal Habit check-ins feel immediate on mobile: Done, Not done, and Complete remaining now dismiss the sheet on tap while persistence finishes in the background and retains error reporting. A latency-controlled browser regression delays the API by 1.5 seconds and verifies the sheet still closes within 500 ms, then confirms the saved outcome and correction flow after reopening.
+
+---
+
+### 2026-07-16 16:44 — `feat/habit-progress`
+
+Improved the mobile Habit check-in completion flow so terminal Done, Not done, and Complete remaining actions close the outcome sheet only after the server confirms success. Progress chunks and Clear outcome keep the sheet open, and browser coverage verifies both Done and Not done close while the saved outcome remains available when reopened.
+
+---
+
+### 2026-07-16 16:37 — `feat/habit-progress`
+
+Removed the post-edit refresh requirement from Today by writing the successful Habit edit response directly into the selected-day query cache, including virtual-to-materialized identity changes. Other cached days are invalidated separately, and a browser regression now blocks the follow-up GET to prove Binary-to-Target renders within one second from the PUT response alone.
+
+---
+
+### 2026-07-16 15:36 — `feat/habit-progress`
+
+Adjusted whole-Habit tracking edits so a Binary-to-Target change takes effect on the selected day immediately as well as on future virtual instances. The backend now updates or materializes that day and recalculates its outcome from its existing chunks, while other materialized days remain historical snapshots; backend and browser regressions cover the behavior.
+
+---
+
+### 2026-07-16 12:22 — `feat/habit-progress`
+
+Promoted the approved Variant B Habit check-in into Today and Week View with binary outcomes, target-based progress chunks, responsive mobile/desktop interaction, and whole-Habit tracking configuration. Added the compatible Habit outcome/progress API, additive Supabase schema with RLS and atomic outcome synchronization, analytics counts, domain documentation, and regression coverage; the migrations and production backend/frontend deployments are live and both canonical production smoke cases pass.
+
+---
+
 ### 2026-07-16 09:10 — `feat/workout-plans-ai`
 
 Added reusable Workout plans and server-keyed AI plan generation, with ordered exercises, editable targets, and plan-to-session drafting. Exercise history now preserves and backfills sets, reps, weight, duration, distance, and notes; the session review flow was redesigned for mobile so loaded exercises are visible first and the add form stays collapsed until requested. The database migrations and both production deployments are live, and the focused backend and Playwright workout suites pass.

@@ -291,7 +291,7 @@ export const db = {
   async getHabitStreaks(userId: string) {
     const { data, error } = await supabase
       .from('tasks')
-      .select('title, category, completed, completed_at')
+      .select('title, category, completed, completed_at, habit_outcome')
       .eq('user_id', userId)
       .eq('type', 'habit')
       .is('deleted_at', null)
@@ -421,6 +421,9 @@ export const db = {
           category: habit.category,
           start_time: habit.start_time,
           duration: habit.duration,
+          habit_target_value: habit.habit_target_value ?? null,
+          habit_target_unit: habit.habit_target_unit ?? null,
+          habit_outcome: 'pending',
           repeat_type: habit.repeat_type,
           completed: false,
           completed_at: null,
@@ -464,12 +467,15 @@ export const db = {
           habitWinners.set(habitId, task)
           continue
         }
-        // A virtual instance has the synthetic id `${habitId}-${date}`; a real
-        // materialized row has a plain UUID. Prefer the real row.
+        // Prefer a materialized instance over a virtual instance, and either over
+        // a legacy dated parent template. New parents are always undated, but this
+        // ordering keeps reads correct until older rows have been normalized.
         const taskIsVirtual = task.id === `${habitId}-${date}`
         const currentIsVirtual = current.id === `${habitId}-${date}`
-        if (taskIsVirtual !== currentIsVirtual) {
-          if (currentIsVirtual) habitWinners.set(habitId, task) // real beats virtual
+        const taskRank = task.original_habit_id ? (taskIsVirtual ? 2 : 3) : 1
+        const currentRank = current.original_habit_id ? (currentIsVirtual ? 2 : 3) : 1
+        if (taskRank !== currentRank) {
+          if (taskRank > currentRank) habitWinners.set(habitId, task)
           continue
         }
         // Both real (only stale pre-cleanup duplicates collide here): prefer the older
@@ -567,6 +573,9 @@ export const db = {
           // Allow drag to override start_time; fall back to the habit's own time
           start_time: 'start_time' in overrides ? overrides.start_time : originalHabit.start_time,
           duration: 'duration' in overrides ? overrides.duration : originalHabit.duration,
+          habit_target_value: originalHabit.habit_target_value ?? null,
+          habit_target_unit: originalHabit.habit_target_unit ?? null,
+          habit_outcome: isCompleted ? 'completed' : 'pending',
           repeat_type: originalHabit.repeat_type,
           completed: isCompleted,
           completed_at: isCompleted ? new Date().toISOString() : null,
@@ -583,6 +592,62 @@ export const db = {
       console.error('Error creating habit instance:', error)
       throw error
     }
+  },
+
+  async createHabitProgressEntry(row: {
+    habit_instance_id: string
+    user_id: string
+    amount: number
+    note?: string | null
+  }) {
+    const { data, error } = await supabase.from('habit_progress_entries').insert(row).select().single()
+    if (error) throw error
+    return data
+  },
+
+  async getHabitProgressEntries(instanceId: string) {
+    const { data, error } = await supabase
+      .from('habit_progress_entries')
+      .select('*')
+      .eq('habit_instance_id', instanceId)
+      .order('created_at', { ascending: true })
+    if (error) throw error
+    return data ?? []
+  },
+
+  async getHabitProgressEntry(entryId: string) {
+    const { data, error } = await supabase.from('habit_progress_entries').select('*').eq('id', entryId).maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async updateHabitProgressEntry(entryId: string, updates: { amount?: number; note?: string | null }) {
+    const { data, error } = await supabase
+      .from('habit_progress_entries')
+      .update({ ...updates, updated_at: new Date().toISOString() })
+      .eq('id', entryId)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async deleteHabitProgressEntry(entryId: string) {
+    const { error } = await supabase.from('habit_progress_entries').delete().eq('id', entryId)
+    if (error) throw error
+  },
+
+  async getHabitProgressTotals(instanceIds: string[]) {
+    if (instanceIds.length === 0) return {} as Record<string, number>
+    const { data, error } = await supabase
+      .from('habit_progress_entries')
+      .select('habit_instance_id, amount')
+      .in('habit_instance_id', instanceIds)
+    if (error) throw error
+    return (data ?? []).reduce((totals: Record<string, number>, row: any) => {
+      totals[row.habit_instance_id] = (totals[row.habit_instance_id] ?? 0) + Number(row.amount)
+      return totals
+    }, {})
   },
 
   // Calorie entries

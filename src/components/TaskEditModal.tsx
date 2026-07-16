@@ -22,6 +22,9 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
   })
   // For recurring habits: 'instance' = just this day, 'habit' = the whole habit.
   const [editScope, setEditScope] = useState<'instance' | 'habit'>('instance')
+  const [habitTracking, setHabitTracking] = useState<'binary' | 'target'>('binary')
+  const [habitTargetValue, setHabitTargetValue] = useState('45')
+  const [habitTargetUnit, setHabitTargetUnit] = useState<'minutes' | 'reps' | 'count'>('minutes')
   const isHabit = task?.type === 'habit'
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
 
@@ -46,6 +49,11 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
         scheduledDate: task.scheduledDate || format(new Date(), 'yyyy-MM-dd'), // Use task's date or default to today
       })
       setEditScope('instance') // default to this-day-only each time the modal opens
+      setHabitTracking(task.type === 'habit' && task.habitInfo?.target ? 'target' : 'binary')
+      if (task.type === 'habit' && task.habitInfo?.target) {
+        setHabitTargetValue(String(task.habitInfo.target.value))
+        setHabitTargetUnit(task.habitInfo.target.unit)
+      }
     }
   }, [task])
 
@@ -55,6 +63,11 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
       const updates = {
         ...formData,
         location: task.type === 'task' ? formData.location.trim() || null : undefined,
+        ...(task.type === 'habit' && editScope === 'habit' ? {
+          habitTarget: habitTracking === 'target'
+            ? { value: Number(habitTargetValue), unit: habitTargetUnit }
+            : null,
+        } : {}),
       }
       onSave(task.id, updates, task.type === 'habit' ? editScope : undefined)
       onClose()
@@ -266,6 +279,12 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                     </p>
                   </div>
                 )}
+
+                {isHabit && editScope === 'habit' && <div className="space-y-3 rounded-xl border border-purple-500/25 bg-purple-500/5 p-4">
+                  <div><p className="text-sm font-medium text-ink-soft">Habit tracking</p><p className="mt-1 text-xs text-ink-muted">Changes apply to this day and future unrecorded days.</p></div>
+                  <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setHabitTracking('binary')} className={`rounded-lg border px-3 py-2 text-sm ${habitTracking === 'binary' ? 'border-purple-400/50 bg-purple-400/15 text-purple-200' : 'border-line text-ink-muted'}`}>Binary</button><button type="button" onClick={() => setHabitTracking('target')} className={`rounded-lg border px-3 py-2 text-sm ${habitTracking === 'target' ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200' : 'border-line text-ink-muted'}`}>Target</button></div>
+                  {habitTracking === 'target' && <div className="grid grid-cols-2 gap-2"><input type="text" inputMode="decimal" value={habitTargetValue} onChange={event => setHabitTargetValue(event.target.value)} className="input-field" aria-label="Habit target value" /><select value={habitTargetUnit} onChange={event => setHabitTargetUnit(event.target.value as typeof habitTargetUnit)} className="input-field" aria-label="Habit target unit"><option value="minutes">Minutes</option><option value="reps">Repetitions</option><option value="count">Count</option></select></div>}
+                </div>}
 
                 {/* Action Buttons - Part of scrollable content */}
                 <div className="pt-6 border-t border-line/50">

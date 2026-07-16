@@ -11,6 +11,7 @@ import {
   taskService,
   ExternalCalendarEvent,
   Task,
+  HabitItem,
   TouchpointType,
   UserRhythm,
   type CalorieEntry,
@@ -28,6 +29,7 @@ import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { useSettings } from '../hooks/useSettings'
+import HabitOutcomeSheet from '../components/HabitOutcomeSheet'
 
 const touchpointCtas: Record<TouchpointType, { title: string; body: string; button: string }> = {
   morning: {
@@ -328,6 +330,7 @@ export default function TodayPage() {
   const [showConfetti, setShowConfetti] = useState(false)
   const [showAIAnalyzer, setShowAIAnalyzer] = useState(false)
   const [habitDeleteCandidate, setHabitDeleteCandidate] = useState<Task | null>(null)
+  const [habitCheckIn, setHabitCheckIn] = useState<HabitItem | null>(null)
   const queryClient = useQueryClient()
   const { showNotification } = useNotifications()
   const location = useLocation()
@@ -476,10 +479,24 @@ export default function TodayPage() {
   const updateTaskMutation = useMutation({
     mutationFn: ({ id, updates, editScope }: { id: string; updates: Partial<Task>; editScope?: 'instance' | 'habit' }) =>
       taskService.updateTask(id, updates, editScope),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+    onSuccess: (updatedTask, variables) => {
+      // Render the successful PUT response immediately instead of keeping the old
+      // card visible until a second GET finishes. A virtual Habit can materialize
+      // during the edit, so match both its submitted id and its parent Habit id.
+      queryClient.setQueryData<Task[]>(['tasks', selectedDateKey], (current = []) =>
+        current.map(task => {
+          const sameSubmittedRow = task.id === variables.id
+          const sameHabitDay = updatedTask.type === 'habit' && task.type === 'habit' && updatedTask.originalHabitId &&
+            (task.originalHabitId === updatedTask.originalHabitId || task.id.startsWith(`${updatedTask.originalHabitId}-`))
+          return sameSubmittedRow || sameHabitDay ? updatedTask : task
+        })
+      )
+      queryClient.invalidateQueries({
+        predicate: query => query.queryKey[0] === 'tasks' && query.queryKey[1] !== selectedDateKey,
+      })
       toast.success('Task updated successfully!')
     },
+    onError: () => toast.error('Failed to update task'),
   })
 
   const updateCalendarEventCompletionMutation = useMutation({
@@ -878,6 +895,7 @@ export default function TodayPage() {
             onCalendarEventSchedule={handleCalendarEventSchedule}
             onEditTask={handleEditTask}
             onDeleteTask={handleDeleteTask}
+            onHabitCheckIn={setHabitCheckIn}
           />
         </motion.div>
 
@@ -894,6 +912,7 @@ export default function TodayPage() {
         onClose={() => setEditingTask(null)}
         onSave={handleSaveTask}
       />
+      {habitCheckIn && <HabitOutcomeSheet habit={habitCheckIn} date={selectedDateKey} onClose={() => setHabitCheckIn(null)} />}
       
     </div>
   )

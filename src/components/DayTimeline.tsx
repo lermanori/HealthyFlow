@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
 import { CalendarDays, Check, Clock, Flame, GripVertical, MapPin } from 'lucide-react'
-import { ExternalCalendarEvent, Task, CalorieEntry } from '../services/api'
+import { ExternalCalendarEvent, Task, CalorieEntry, HabitItem } from '../services/api'
 import TaskCard from './TaskCard'
 import { taskService } from '../services/api'
 
@@ -17,6 +17,7 @@ interface DayTimelineProps {
   onCalendarEventSchedule: (id: string, startTime: string) => Promise<void> | void
   onEditTask: (task: Task) => void
   onDeleteTask: (task: Task) => void
+  onHabitCheckIn: (habit: HabitItem) => void
 }
 
 // ponytail: age badge for the anytime shelf — how stale is this untimed item.
@@ -39,6 +40,7 @@ const HOUR_SLOT_HEIGHT_PX = 72
 const COMPACT_EMPTY_SLOT_HEIGHT_PX = 28
 const MIN_TIMED_TASK_MINUTES = 30
 const MIN_TIMED_TASK_HEIGHT_PX = 52
+const MIN_TIMED_HABIT_HEIGHT_PX = 72
 const SLOT_VERTICAL_PADDING_PX = 16
 const SLOT_CONTENT_GAP_PX = 4
 
@@ -96,10 +98,15 @@ function timedBlockHeight(duration?: number): number {
   return Math.max(MIN_TIMED_TASK_HEIGHT_PX, Math.round((minutes / 60) * HOUR_SLOT_HEIGHT_PX))
 }
 
+function timedTaskBlockHeight(task: Task): number {
+  const height = timedBlockHeight(task.duration)
+  return task.type === 'habit' ? Math.max(height, MIN_TIMED_HABIT_HEIGHT_PX) : height
+}
+
 function slotHeightForContent(tasks: Task[], events: ExternalCalendarEvent[], calories: CalorieEntry[], isCompacted: boolean): number {
   if (isCompacted) return COMPACT_EMPTY_SLOT_HEIGHT_PX
 
-  const taskHeights = tasks.map(task => timedBlockHeight(task.duration))
+  const taskHeights = tasks.map(timedTaskBlockHeight)
   const eventHeights = events.map(event => timedBlockHeight(eventDurationMinutes(event)))
   const calorieHeights = calories.map(() => MIN_TIMED_TASK_HEIGHT_PX)
   const itemHeights = [...eventHeights, ...taskHeights, ...calorieHeights]
@@ -269,6 +276,7 @@ export default function DayTimeline({
   onCalendarEventSchedule,
   onEditTask,
   onDeleteTask,
+  onHabitCheckIn,
 }: DayTimelineProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
 
@@ -477,7 +485,7 @@ export default function DayTimeline({
                               className="flex min-h-0 min-w-0 gap-1.5"
                               style={{
                                 ...provided.draggableProps.style,
-                                height: timedBlockHeight(task.duration),
+                                height: timedTaskBlockHeight(task),
                               }}
                             >
                               <TaskDragGrip dragHandleProps={provided.dragHandleProps} compact />
@@ -487,6 +495,7 @@ export default function DayTimeline({
                                 onUncomplete={onUncompleteTask}
                                 onEdit={onEditTask}
                                 onDelete={onDeleteTask}
+                                onHabitCheckIn={onHabitCheckIn}
                                 isDragging={snapshot.isDragging || draggedTaskId === task.id}
                                 compact
                                 className="h-full min-w-0 flex-1"
@@ -555,6 +564,7 @@ export default function DayTimeline({
                             onUncomplete={onUncompleteTask}
                             onEdit={onEditTask}
                             onDelete={onDeleteTask}
+                            onHabitCheckIn={onHabitCheckIn}
                             isDragging={snapshot.isDragging || draggedTaskId === task.id}
                             className="min-w-0"
                           />

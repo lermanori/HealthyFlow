@@ -5,8 +5,9 @@ import {
   Calendar, ChevronLeft, ChevronRight, Check, CheckSquare, RotateCcw,
   ShoppingCart, Utensils, Dumbbell, Clock, Infinity as InfinityIcon, Smile,
 } from 'lucide-react'
-import { calendarService, ExternalCalendarEvent, taskService, Task } from '../services/api'
+import { calendarService, ExternalCalendarEvent, taskService, Task, HabitItem } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import HabitOutcomeSheet from '../components/HabitOutcomeSheet'
 import { getFullWeekdayLabels, getWeekDates, getWeekdayLabels, getWeekdayLetters } from '../utils/dateHelpers'
 import { useSettings } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
@@ -87,6 +88,7 @@ type WeekRow = {
   time?: string
   off: number
   date: string
+  task?: Task
 }
 
 export default function WeekViewPage() {
@@ -103,6 +105,7 @@ export default function WeekViewPage() {
     return wd >= 0 ? wd : 0
   })
   const [showCompleted, setShowCompleted] = useState(true)
+  const [habitCheckIn, setHabitCheckIn] = useState<{ habit: HabitItem; date: string } | null>(null)
 
   const refDate = addDays(today, weekOffset * 7)
   const weekDates = getWeekDates(refDate, weekStartsOn)
@@ -148,6 +151,11 @@ export default function WeekViewPage() {
     onError: () => toast.error('Failed to update calendar event'),
   })
   const toggle = (item: { id: string; completed: boolean; source?: 'task' | 'calendar' }) => {
+    const row = item as WeekRow
+    if (row.type === 'habit' && row.task?.type === 'habit') {
+      setHabitCheckIn({ habit: row.task, date: row.date })
+      return
+    }
     if (item.source === 'calendar') {
       calendarCompleteMutation.mutate({ id: item.id, completed: !item.completed })
       return
@@ -167,7 +175,7 @@ export default function WeekViewPage() {
       items.forEach((t) => {
         rawRows.push({
           id: t.id, source: 'task', title: t.title, type: typeOf(t), completed: t.completed,
-          hasTime: !!t.startTime, time: t.startTime ?? undefined, off, date,
+          hasTime: !!t.startTime, time: t.startTime ?? undefined, off, date, task: t,
         })
       })
     })
@@ -536,6 +544,7 @@ export default function WeekViewPage() {
           </div>
         </div>
       </div>
+      {habitCheckIn && <HabitOutcomeSheet habit={habitCheckIn.habit} date={habitCheckIn.date} onClose={() => setHabitCheckIn(null)} />}
     </div>
   )
 }

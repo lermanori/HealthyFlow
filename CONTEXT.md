@@ -39,7 +39,13 @@ Surfacing an incomplete, untimed task on a later day, so "a task I left yesterda
 _Legacy_: `rolled_over_from_task_id` and `original_created_at` are write-dead columns from the old "create a new row per rollover" approach (see `ROLLOVER_IMPROVEMENTS.md`, historical); they survive only as negative filters hiding pre-cleanup rows.
 
 **Habit instance**:
-The per-day materialisation of a habit. The user sees one row per day for a daily habit, each with its own `completed` state, all linking back to the original via `original_habit_id`. Daily only — weekly habits (`repeat_type: 'weekly'`) are not yet synthesised (known gap, see ADR-0002).
+The per-day materialisation of a Habit. The user sees one row per day for a daily Habit, each with its own outcome (`pending`, `partial`, `completed`, or `failed`), all linking back to the original via `original_habit_id`. A target-based Habit may accumulate multiple progress chunks for that day; reaching its target automatically completes the instance. Daily only — weekly Habits (`repeat_type: 'weekly'`) are not yet synthesised (known gap, see ADR-0002).
+
+**Habit target**:
+An optional measurable goal on a Habit definition, separate from its scheduled duration. Targets use minutes, repetitions, or a generic count. Habits without a target are binary: the user explicitly records Done or Not done.
+
+**Habit progress chunk**:
+A positive amount recorded against one materialized Habit instance, with an optional note. Chunks accumulate only within that day and are progress logs, not additional scheduled timeline blocks.
 
 ### Categories
 
