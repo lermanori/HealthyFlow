@@ -1,3 +1,9 @@
+### 2026-07-16 16:58 — `feat/habit-progress`
+
+Made terminal Habit check-ins feel immediate on mobile: Done, Not done, and Complete remaining now dismiss the sheet on tap while persistence finishes in the background and retains error reporting. A latency-controlled browser regression delays the API by 1.5 seconds and verifies the sheet still closes within 500 ms, then confirms the saved outcome and correction flow after reopening.
+
+---
+
 ### 2026-07-16 16:44 — `feat/habit-progress`
 
 Improved the mobile Habit check-in completion flow so terminal Done, Not done, and Complete remaining actions close the outcome sheet only after the server confirms success. Progress chunks and Clear outcome keep the sheet open, and browser coverage verifies both Done and Not done close while the saved outcome remains available when reopened.

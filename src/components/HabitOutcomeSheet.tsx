@@ -35,12 +35,11 @@ export default function HabitOutcomeSheet({ habit, date, onClose }: { habit: Hab
       if (action.kind === 'delete') return taskService.deleteHabitProgress(habit.id, action.entryId, date)
       return taskService.updateHabitProgress(habit.id, action.entryId, { amount: action.amount, note: action.note, date })
     },
-    onSuccess: (next, action) => {
+    onSuccess: (next) => {
       refresh(next)
       setAmount('')
       setNote('')
       setEditingId(null)
-      if (action.kind === 'outcome' && action.outcome !== 'pending') onClose()
     },
     onError: (error: any) => toast.error(error?.response?.data?.error ?? 'Could not update Habit'),
   })
@@ -69,6 +68,11 @@ export default function HabitOutcomeSheet({ habit, date, onClose }: { habit: Hab
     mutation.mutate({ kind: 'add', amount: value, note: note.trim() || null })
   }
 
+  const submitTerminalOutcome = (outcome: 'completed' | 'failed') => {
+    mutation.mutate({ kind: 'outcome', outcome })
+    onClose()
+  }
+
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="habit-outcome-title">
       <button type="button" className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={onClose} aria-label="Close Habit check-in" />
@@ -89,11 +93,11 @@ export default function HabitOutcomeSheet({ habit, date, onClose }: { habit: Hab
 
           {detail.entries.length > 0 && <div className="mt-5 space-y-2"><h3 className="text-sm font-semibold text-ink">Progress chunks</h3>{detail.entries.map(entry => editingId === entry.id ? <div key={entry.id} className="rounded-xl border border-cyan-400/30 bg-card/50 p-3"><div className="grid grid-cols-2 gap-2"><input type="text" inputMode="decimal" defaultValue={entry.amount} id={`amount-${entry.id}`} className="input-field" /><input defaultValue={entry.note ?? ''} id={`note-${entry.id}`} className="input-field" placeholder="Note" /></div><div className="mt-2 flex justify-end gap-2"><button type="button" className="btn-secondary px-3 py-2 text-sm" onClick={() => setEditingId(null)}>Cancel</button><button type="button" className="btn-primary px-3 py-2 text-sm" onClick={() => { const nextAmount = Number((document.getElementById(`amount-${entry.id}`) as HTMLInputElement).value); const nextNote = (document.getElementById(`note-${entry.id}`) as HTMLInputElement).value; if (nextAmount > 0) mutation.mutate({ kind: 'edit', entryId: entry.id, amount: nextAmount, note: nextNote.trim() || null }) }}>Save</button></div></div> : <div key={entry.id} className="flex items-center justify-between gap-3 rounded-xl border border-line bg-card/50 px-3 py-2"><div className="min-w-0"><p className="text-sm text-ink-soft">{entry.amount} {unitLabel(target.unit, entry.amount)}</p>{entry.note && <p className="truncate text-xs text-ink-muted">{entry.note}</p>}</div><div className="flex gap-1"><button type="button" aria-label="Edit progress chunk" onClick={() => setEditingId(entry.id)} className="flex h-11 w-11 items-center justify-center text-ink-muted"><Pencil className="h-4 w-4" /></button><button type="button" aria-label="Delete progress chunk" onClick={() => mutation.mutate({ kind: 'delete', entryId: entry.id })} className="flex h-11 w-11 items-center justify-center text-rose-300"><Minus className="h-4 w-4" /></button></div></div>)}</div>}
 
-          <div className="mt-5 grid gap-2 sm:grid-cols-2"><button type="button" disabled={mutation.isPending || info.outcome === 'completed'} onClick={() => mutation.mutate({ kind: 'outcome', outcome: 'completed' })} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-400/35 bg-emerald-400/10 font-semibold text-emerald-200 disabled:opacity-40"><Check className="h-4 w-4" />Complete remaining</button><button type="button" disabled={mutation.isPending || info.outcome === 'completed'} onClick={() => mutation.mutate({ kind: 'outcome', outcome: 'failed' })} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-rose-400/35 bg-rose-400/10 font-semibold text-rose-200 disabled:opacity-40"><X className="h-4 w-4" />Not done</button></div>
+          <div className="mt-5 grid gap-2 sm:grid-cols-2"><button type="button" disabled={mutation.isPending || info.outcome === 'completed'} onClick={() => submitTerminalOutcome('completed')} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-emerald-400/35 bg-emerald-400/10 font-semibold text-emerald-200 disabled:opacity-40"><Check className="h-4 w-4" />Complete remaining</button><button type="button" disabled={mutation.isPending || info.outcome === 'completed'} onClick={() => submitTerminalOutcome('failed')} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-rose-400/35 bg-rose-400/10 font-semibold text-rose-200 disabled:opacity-40"><X className="h-4 w-4" />Not done</button></div>
           {info.outcome === 'failed' && <button type="button" onClick={() => mutation.mutate({ kind: 'outcome', outcome: 'pending' })} className="mt-3 flex min-h-11 w-full items-center justify-center gap-2 text-sm text-ink-muted"><RotateCcw className="h-4 w-4" />Clear outcome</button>}
         </> : <>
           <p className="mt-3 text-sm text-ink-muted">Choose what happened for this Habit today.</p>
-          <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" disabled={mutation.isPending} onClick={() => mutation.mutate({ kind: 'outcome', outcome: 'completed' })} className="flex min-h-16 flex-col items-center justify-center rounded-2xl border border-emerald-400/35 bg-emerald-400/10 font-semibold text-emerald-200"><Check className="mb-1 h-5 w-5" />Done</button><button type="button" disabled={mutation.isPending} onClick={() => mutation.mutate({ kind: 'outcome', outcome: 'failed' })} className="flex min-h-16 flex-col items-center justify-center rounded-2xl border border-rose-400/35 bg-rose-400/10 font-semibold text-rose-200"><X className="mb-1 h-5 w-5" />Not done</button></div>
+          <div className="mt-5 grid grid-cols-2 gap-3"><button type="button" disabled={mutation.isPending} onClick={() => submitTerminalOutcome('completed')} className="flex min-h-16 flex-col items-center justify-center rounded-2xl border border-emerald-400/35 bg-emerald-400/10 font-semibold text-emerald-200"><Check className="mb-1 h-5 w-5" />Done</button><button type="button" disabled={mutation.isPending} onClick={() => submitTerminalOutcome('failed')} className="flex min-h-16 flex-col items-center justify-center rounded-2xl border border-rose-400/35 bg-rose-400/10 font-semibold text-rose-200"><X className="mb-1 h-5 w-5" />Not done</button></div>
           {info.outcome !== 'pending' && <button type="button" onClick={() => mutation.mutate({ kind: 'outcome', outcome: 'pending' })} className="mt-4 flex min-h-11 w-full items-center justify-center gap-2 text-sm text-ink-muted"><RotateCcw className="h-4 w-4" />Clear outcome</button>}
         </>}
       </div>

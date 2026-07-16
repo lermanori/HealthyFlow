@@ -35,6 +35,7 @@ test('mobile Habit cards open Variant B and persist partial/completed/failed out
     }
     if (url.pathname.endsWith('/habit-outcome') && request.method() === 'PUT') {
       const input = request.postDataJSON()
+      await new Promise(resolve => setTimeout(resolve, 1_500))
       if (isWorkout) workoutOutcome = input.outcome === 'pending' ? (workoutTotal > 0 ? 'partial' : 'pending') : input.outcome
       else smokeOutcome = input.outcome
       return route.fulfill({ json: { habit: habit(isWorkout ? `aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee-${date}` : `ffffffff-bbbb-cccc-dddd-eeeeeeeeeeee-${date}`, isWorkout ? '45-minute workout' : 'Don’t smoke until 11', isWorkout ? workoutInfo() : smokeInfo()), entries: isWorkout ? entries : [] } })
@@ -55,7 +56,7 @@ test('mobile Habit cards open Variant B and persist partial/completed/failed out
   await page.getByText('Don’t smoke until 11').click()
   const binarySheet = page.getByRole('dialog', { name: 'Don’t smoke until 11' })
   await binarySheet.getByRole('button', { name: 'Not done' }).click()
-  await expect(binarySheet).not.toBeVisible()
+  await expect(binarySheet).not.toBeVisible({ timeout: 500 })
   await expect(page.getByText('Not done', { exact: true })).toBeVisible()
   await page.getByText('Don’t smoke until 11').click()
   await expect(page.getByRole('dialog', { name: 'Don’t smoke until 11' }).getByRole('button', { name: 'Clear outcome' })).toBeVisible()
