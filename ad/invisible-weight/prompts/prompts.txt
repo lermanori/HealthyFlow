@@ -1,0 +1,118 @@
+========================================================================
+THE INVISIBLE WEIGHT — copy-paste prompt bank
+Paste STYLE + CHARACTER blocks into every image prompt. Keep them
+byte-identical across generations — consistency comes from repetition.
+========================================================================
+
+--- STYLE BLOCK (append to every image prompt) ---
+cinematic lifestyle commercial still, soft natural window light, muted warm
+palette with cool teal shadows, shallow depth of field, 35mm lens, realistic
+modern apartment, quiet premium mood, generous negative space, vertical 9:16,
+photorealistic, no text, no graphics, no watermark
+
+--- CHARACTER BLOCK (prepend to every image prompt) ---
+a woman in her early 30s, shoulder-length dark hair, plain sage-green crewneck
+sweater, natural minimal makeup, calm neutral expression
+
+--- NEGATIVE PROMPT (where supported) ---
+text, letters, UI, phone screen content, neon, cyberpunk, dramatic expression,
+crying, smiling broadly, extra fingers, warped face, busy background, clutter
+
+========================================================================
+M1 — HERO STILLS (generate 4-8 variants each, pick for SAME FACE + LIGHT)
+Save picks as stills/H1.png ... stills/H8.png
+========================================================================
+
+[H1 kitchen coffee pour]
+pouring coffee from a moka pot into a ceramic mug at a bright kitchen counter,
+steam rising, morning sunlight through sheer curtains, seen from a slight side
+angle, medium shot, upper third of frame empty
+
+[H2 kitchen phone check]
+leaning against the kitchen counter looking down at her smartphone held in one
+hand, other hand around the mug, soft window light, medium close-up, slight
+pensive pause, upper third of frame empty
+
+[H3 hallway walking — start frame for S4]
+walking down a sunlit apartment hallway carrying a coffee mug, plants along
+the wall, relaxed pace, full body, camera at chest height, left half of frame
+open
+
+[H4 desk seated — end frame for S4]
+sitting down at a tidy home office desk with a closed laptop, placing the mug
+beside it, warm daylight from a window on the left, medium wide, space above
+and around her head
+
+[H5 desk typing, distracted]
+typing on a laptop at the desk, caught mid-pause staring slightly past the
+screen with a blank distracted micro-expression, hands still on the keyboard,
+medium shot over the desk
+
+[H6 kitchen water refill, wide]
+wide shot refilling a glass of water at the kitchen sink, midday light, small
+figure in the lower half of the frame, large amounts of empty wall and air
+around her
+
+[H7 desk weary close-up — the freeze frame + ad thumbnail]
+close-up seated at the desk holding her phone loosely, weary but composed
+expression, eyes looking just past the camera, slightly tense shoulders,
+late-afternoon warm light, shallow focus
+
+[H8 desk exhale — relief]
+close-up, exhaling slowly with shoulders visibly dropping, expression
+softening into quiet relief, faint beginning of a smile, warm golden light,
+serene
+
+========================================================================
+M2 — KLING MOTION PROMPTS (image-to-video; still = first frame)
+Motion only, keep short. 2-3 takes each; judge face stability first.
+Save picks as plates/S2.mp4 ... then run scripts/normalize.sh on each.
+========================================================================
+
+[S2 | first: H1 | 4s]
+slow smooth dolly push-in, steam drifts up from the coffee, she finishes
+pouring and lifts the mug slightly, subtle natural body movement, camera
+glides forward slowly
+
+[S3 | first: H2 | 4s]
+she glances at the phone, small exhale, turns the phone face down on the
+counter, minimal camera drift, calm natural motion
+
+[S4 | first: H3, last: H4 | 5-6s]
+she walks down the hallway and sits at the desk, smooth lateral tracking
+camera follows her, steady pace, natural walk
+
+[S5 | first: H5 | 5s]
+she types, pauses mid-motion staring blankly for two seconds, then resumes
+typing, camera static, very subtle handheld breathing
+
+[S6 | first: H6 | 5s]
+wide static shot, she fills the glass, turns off the tap, takes a sip,
+unhurried movements, camera locked
+
+[S7-S8 | first: H7 | 5s]  (or skip Kling — 2.5D push-in on H7 is steadier)
+very slow push-in toward her face, she barely moves, blinks once, gaze fixed
+just past camera, tension held still
+
+[S10 | first: H8 | 4s]
+she exhales, shoulders drop and relax, expression softens, slight settle of
+posture, gentle warmth, camera almost still
+
+========================================================================
+M6 — VOICEOVER (ElevenLabs or similar; stability high, style low; 5 takes)
+========================================================================
+Calm, low, close-miked voice, mid register, conversational and unhurried,
+like someone talking quietly to a friend late at night. No announcer energy.
+
+Line 1: "The hardest part of modern life isn't doing everything."
+[3 second pause]
+Line 2: "It's remembering everything."
+
+========================================================================
+END CARD COPY (S11)
+========================================================================
+HealthyFlow
+Take back control of your day.
+
+I'm looking for the first 10 people who want less noise and more control.
+DM "FLOW" for early access.

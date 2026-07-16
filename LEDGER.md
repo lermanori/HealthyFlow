@@ -1,3 +1,9 @@
+### 2026-07-16 15:48 — `claude/instagram-ad-testers-4c3c0n`
+
+Built the full production workspace for "The Invisible Weight," the cinematic Instagram Reel recruiting the first 10 testers. `ad/invisible-weight/` now holds the director's script and milestone plan, a copy-paste prompt bank for the hero stills and Kling motion passes, a generated-and-validated Lottie animation of the 14 floating notes on the beat map (frozen at 0:30), a config-driven Blender scene builder for the S9 organization shot, and an ffmpeg pipeline (normalize → spine → freeze → overlay → grade → audio → cutdown). Remaining human steps are image generation (M1), Kling (M2), textures/audio — everything scriptable is done.
+
+---
+
 ### 2026-07-16 09:10 — `feat/workout-plans-ai`
 
 Added reusable Workout plans and server-keyed AI plan generation, with ordered exercises, editable targets, and plan-to-session drafting. Exercise history now preserves and backfills sets, reps, weight, duration, distance, and notes; the session review flow was redesigned for mobile so loaded exercises are visible first and the add form stays collapsed until requested. The database migrations and both production deployments are live, and the focused backend and Playwright workout suites pass.

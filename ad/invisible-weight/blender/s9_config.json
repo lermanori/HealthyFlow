@@ -1,0 +1,21 @@
+{
+  "comment": "Config for the S9 organization shot (6s @ 24fps). Textures: put note-card PNGs (exported from the Lottie assets or any design tool) in organize/textures/ as note_00.png..note_13.png and matching timeline-row versions as row_00.png..row_13.png. backdrop.png = the frozen H7 close-up frame. Order of 'rows' = final top-to-bottom order of the timeline column.",
+  "fps": 24,
+  "duration_s": 6.0,
+  "resolution": [1080, 1920],
+  "converge_start_s": 1.0,
+  "converge_dur_s": 2.5,
+  "stagger_s": 0.08,
+  "scatter_seed": 7,
+  "scatter": { "x": 2.2, "y": 3.4, "z_near": -0.5, "z_far": 2.5 },
+  "column": { "x": 0.0, "top_y": 1.6, "row_gap": 0.34, "z": 0.0 },
+  "card_size": [1.5, 0.42],
+  "camera": { "location": [0, 0, 6.5], "drift_z": -0.35, "fstop": 1.8, "focus_z": 0.0 },
+  "backdrop": { "z": -4.0, "scale": 9.0, "dim_to": 0.35 },
+  "rows": [
+    "Pay rent", "Dentist at 3 PM", "Reply to Alex", "Prepare for meeting",
+    "Finish project", "Answer email", "Log lunch", "Buy groceries",
+    "Workout", "Go to the gym", "Drink water", "Schedule appointment",
+    "Call Mom", "Call family"
+  ]
+}

@@ -1,0 +1,10 @@
+# generated media stays local
+stills/*
+plates/*
+audio/*
+build/*
+organize/textures/*
+!*/.gitkeep
+blender/s9.blend
+notes/*.webm
+notes/*.png
