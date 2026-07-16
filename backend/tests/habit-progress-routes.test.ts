@@ -120,4 +120,36 @@ describe('Habit progress API', () => {
     })
     expect(response.body.entries).toHaveLength(1)
   })
+
+  it('applies a whole-Habit target change to the selected materialized day and the parent', async () => {
+    const binaryInstance = {
+      ...instance,
+      habit_target_value: null,
+      habit_target_unit: null,
+    }
+    let storedInstance = binaryInstance
+    mockDb.getTaskById.mockImplementation(async id => (id === INSTANCE_ID ? storedInstance : parent) as any)
+    mockDb.getHabitProgressEntries.mockResolvedValue([] as any)
+    mockDb.updateTask.mockImplementation(async (id, updates) => {
+      const updated = { ...(id === HABIT_ID ? parent : storedInstance), id, ...updates }
+      if (id === INSTANCE_ID) storedInstance = updated as typeof storedInstance
+      return updated as any
+    })
+
+    const response = await request(app)
+      .put(`/api/tasks/${INSTANCE_ID}`)
+      .set('Authorization', TOKEN)
+      .send({ editScope: 'habit', habitTarget: { value: 45, unit: 'minutes' } })
+
+    expect(response.status).toBe(200)
+    expect(mockDb.updateTask).toHaveBeenCalledWith(HABIT_ID, expect.objectContaining({
+      habit_target_value: 45,
+      habit_target_unit: 'minutes',
+    }))
+    expect(mockDb.updateTask).toHaveBeenCalledWith(INSTANCE_ID, expect.objectContaining({
+      habit_target_value: 45,
+      habit_target_unit: 'minutes',
+    }))
+    expect(response.body.habitInfo.target).toEqual({ value: 45, unit: 'minutes' })
+  })
 })

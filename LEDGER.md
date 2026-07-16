@@ -1,3 +1,9 @@
+### 2026-07-16 15:36 — `feat/habit-progress`
+
+Adjusted whole-Habit tracking edits so a Binary-to-Target change takes effect on the selected day immediately as well as on future virtual instances. The backend now updates or materializes that day and recalculates its outcome from its existing chunks, while other materialized days remain historical snapshots; backend and browser regressions cover the behavior.
+
+---
+
 ### 2026-07-16 12:22 — `feat/habit-progress`
 
 Promoted the approved Variant B Habit check-in into Today and Week View with binary outcomes, target-based progress chunks, responsive mobile/desktop interaction, and whole-Habit tracking configuration. Added the compatible Habit outcome/progress API, additive Supabase schema with RLS and atomic outcome synchronization, analytics counts, domain documentation, and regression coverage; the migrations and production backend/frontend deployments are live and both canonical production smoke cases pass.

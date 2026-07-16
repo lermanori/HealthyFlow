@@ -149,4 +149,10 @@ export const HabitProgress = {
     })
     return detail(updated)
   },
+
+  async recalculateTargetDay(userId: string, reference: string, date?: string) {
+    const instance = await resolveInstance(userId, reference, date)
+    if (instance.habit_target_value == null) return detail(instance)
+    return deriveFromProgress(instance)
+  },
 }

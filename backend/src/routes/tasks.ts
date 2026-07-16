@@ -421,15 +421,27 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
         return res.json(formatTaskResponse(materialized, { isHabitInstance: true }))
       }
 
-      // EDIT — WHOLE HABIT: update the parent so it applies to today + every future
-      // virtual instance. Past completed/dragged days are their own rows and keep
-      // their saved values ("freeze real history"). Don't write scheduled_date — a
-      // recurring habit has no single date.
+      // EDIT — WHOLE HABIT: update the parent for future virtual instances and the
+      // selected day's instance so the change takes effect immediately. Other
+      // materialized days remain historical snapshots. Don't write scheduled_date
+      // to the parent because a recurring Habit has no single date.
       if (editScope === 'habit') {
         const habitUpdate = { ...updateData }
         delete habitUpdate.scheduled_date
         const updatedHabit = await db.updateTask(parentHabitId, habitUpdate)
-        return res.json(formatTaskResponse(updatedHabit, { isHabitInstance: false }))
+        if (!instanceDate) {
+          return res.json(formatTaskResponse(updatedHabit, { isHabitInstance: false }))
+        }
+
+        const selectedInstance = instanceRow
+          ? await db.updateTask(instanceRow.id, habitUpdate)
+          : await db.createHabitInstance(parentHabitId, instanceDate, userId)
+
+        if (updates.habitTarget !== undefined && selectedInstance.habit_target_value != null) {
+          const recalculated = await HabitProgress.recalculateTargetDay(userId, selectedInstance.id, instanceDate)
+          return res.json(recalculated.habit)
+        }
+        return res.json(formatTaskResponse(selectedInstance, { isHabitInstance: true }))
       }
 
       // EDIT — THIS DAY ONLY: keep the change on a per-day instance.
