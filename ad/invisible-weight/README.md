@@ -10,7 +10,16 @@ Concept, script and plan live here; generated media stays local (gitignored).
 ## Status
 
 - [x] M0 — workspace + spec locked (1080×1920, 24fps, yuv420p)
-- [ ] M1 — hero stills H1–H8 → `stills/` **(you: image generation)**
+- [x] M1 — hero stills ✔ `stills/H1.png … H8.png`, all 1080×1920. Generated with
+      Gemini 2.5 Flash Image ("nano banana") at gemini.google.com, one continuous
+      chat thread — later prompts referenced "the exact same woman... next frame
+      of the same film" rather than uploading a reference image (no reliable way
+      to drive a native file-picker from the browser extension), and consistency
+      held up well across all 8 without it. Contact-sheet checked: reads as one
+      person, one day. **Gemini bakes a visible sparkle badge into a fixed pixel
+      region near the bottom-right of every generation** (roughly
+      (1215,2435)-(1375,2570) on the raw ~1536×2752 output) — removed with a
+      clone-stamp from clean sweater fabric nearby; see `stills/_dewatermark.py`.
 - [ ] M2 — Kling motion pass → `plates/`, then `scripts/normalize.sh` each **(you: Kling)**
 - [x] M3 — notes layer: `notes/notes_master.json` generated ✔ (14 notes, beat-map
       timing, freeze at 0:30). Regenerate after edits: `python3 notes/generate_lottie.py`
@@ -28,9 +37,11 @@ Concept, script and plan live here; generated media stays local (gitignored).
       (note_00–13, row_00–13) from `blender/s9_config.json`'s "rows" list — cyan
       time chips, one green check row (Drink water), one amber "↻ Tomorrow"
       rollover row (Finish project). S9 rendered ✔ `organize/S9.mp4` (6s,
-      1080×1920, EEVEE, backdrop uses the flat placeholder fallback since H7
-      doesn't exist yet — rebuild once the real still lands). End card rendered
-      ✔ `organize/S11.mp4` (5s) via `organize/generate_endcard.py`.
+      1080×1920, EEVEE, backdrop used the flat placeholder fallback since H7
+      didn't exist yet at render time). Now that `stills/H7.png` exists, copy
+      it to `organize/textures/backdrop.png` and rerun `build_s9.py` + render
+      to composite the real freeze-frame behind the organizing notes. End card
+      rendered ✔ `organize/S11.mp4` (5s) via `organize/generate_endcard.py`.
 - [ ] M5 — assembly: `scripts/assemble.sh spine|freeze|overlay|grade` (blocked on
       M1/M2 plates for `spine`; `overlay`/`grade` follow once spine exists)
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
