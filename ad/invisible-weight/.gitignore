@@ -4,6 +4,8 @@ plates/*
 audio/*
 build/*
 organize/textures/*
+organize/render/*
+organize/*.mp4
 !*/.gitkeep
 blender/s9.blend
 notes/*.webm

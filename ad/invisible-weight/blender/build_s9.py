@@ -29,7 +29,8 @@ def clean_scene():
     sc.render.fps = FPS
     sc.frame_start, sc.frame_end = 1, END
     sc.render.resolution_x, sc.render.resolution_y = CFG["resolution"]
-    sc.render.engine = "BLENDER_EEVEE_NEXT" if hasattr(bpy.types, "SceneEEVEE") else "BLENDER_EEVEE"
+    engine_ids = {i.identifier for i in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items}
+    sc.render.engine = "BLENDER_EEVEE_NEXT" if "BLENDER_EEVEE_NEXT" in engine_ids else "BLENDER_EEVEE"
     sc.render.film_transparent = False
     return sc
 
@@ -59,9 +60,17 @@ def card_plane(name, size):
     return obj
 
 
+def action_fcurves(action):
+    # Blender 5.x layered-action model: fcurves live under layers/strips/channelbags.
+    for layer in action.layers:
+        for strip in layer.strips:
+            for channelbag in strip.channelbags:
+                yield from channelbag.fcurves
+
+
 def ease_keyframe(obj, path, frame):
     obj.keyframe_insert(data_path=path, frame=frame)
-    for fc in obj.animation_data.action.fcurves:
+    for fc in action_fcurves(obj.animation_data.action):
         for kp in fc.keyframe_points:
             kp.interpolation = "BEZIER"
             kp.easing = "EASE_OUT"
