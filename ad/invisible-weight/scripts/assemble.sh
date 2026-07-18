@@ -17,11 +17,14 @@ spine)
   # Beat map: S1 cold flash (1s, from freeze frame) + S2..S8. Trim durations here.
   # S1 requires build/freeze_frame.png (made by the freeze stage) — run once
   # without S1, pick the freeze frame, then rebuild.
-  # Canonical beat-map order (S7 folds into S8's push-in; S9/S11 are motion
-  # graphics, added later; S1 is the freeze frame, added by the freeze stage).
+  # Canonical beat-map order, S2..S8 only (ends at the freeze). S7 folds into
+  # S8's push-in. S1 (cold flash), S9 (organize), S10 (release) and S11 (end
+  # card) are NOT part of this stage -- S1/S9/S11 are motion graphics or reuse
+  # the freeze frame, and S10 comes narratively *after* S9's organize
+  # sequence, not straight after S8 -- they're joined in a later custom stitch.
   # Hardcoded rather than glob-sorted: plain glob sorts lexically (S10 before
   # S2), and macOS's BSD `ls -v` isn't GNU natural sort so it doesn't fix that.
-  SHOTS="S2 S3 S4 S5 S6 S8 S10"
+  SHOTS="S2 S3 S4 S5 S6 S8"
   : > build/concat.txt
   for s in $SHOTS; do
     f="plates/$s.mp4"

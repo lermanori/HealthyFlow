@@ -3,8 +3,8 @@
   "fps": 24,
   "width": 1080,
   "height": 1920,
-  "duration": 45.0,
-  "freeze_at": 30.0,
+  "duration": 22.25,
+  "freeze_at": 22.25,
   "card": {
     "fill": "#F6F4EE",
     "opacity": 92,
@@ -14,23 +14,102 @@
     "pad_x": 36,
     "pad_y": 26
   },
-  "birth": { "fade_s": 0.3, "rise_px": 14 },
-  "bob": { "amplitude_px": 8, "period_s": 3.0 },
-  "age_scale": { "to_pct": 93, "over_s": 8.0 },
+  "birth": {
+    "fade_s": 0.3,
+    "rise_px": 14
+  },
+  "bob": {
+    "amplitude_px": 8,
+    "period_s": 3.0
+  },
+  "age_scale": {
+    "to_pct": 93,
+    "over_s": 8.0
+  },
   "notes": [
-    { "text": "Dentist at 3 PM",        "born": 5.0,  "x": 540, "y": 420 },
-    { "text": "Reply to Alex",          "born": 9.0,  "x": 250, "y": 560 },
-    { "text": "Buy groceries",          "born": 10.5, "x": 810, "y": 610 },
-    { "text": "Workout",                "born": 12.0, "x": 200, "y": 1180 },
-    { "text": "Call Mom",               "born": 14.5, "x": 860, "y": 1230 },
-    { "text": "Pay rent",               "born": 16.0, "x": 320, "y": 380 },
-    { "text": "Go to the gym",          "born": 17.0, "x": 790, "y": 400 },
-    { "text": "Drink water",            "born": 18.0, "x": 170, "y": 860 },
-    { "text": "Finish project",         "born": 20.0, "x": 890, "y": 900 },
-    { "text": "Schedule appointment",   "born": 21.0, "x": 460, "y": 1330 },
-    { "text": "Log lunch",              "born": 22.0, "x": 640, "y": 500 },
-    { "text": "Prepare for meeting",    "born": 23.0, "x": 330, "y": 1440 },
-    { "text": "Answer email",           "born": 24.0, "x": 750, "y": 1400 },
-    { "text": "Call family",            "born": 25.0, "x": 540, "y": 1120 }
+    {
+      "text": "Dentist at 3 PM",
+      "born": 3.71,
+      "x": 540,
+      "y": 420
+    },
+    {
+      "text": "Reply to Alex",
+      "born": 6.68,
+      "x": 250,
+      "y": 560
+    },
+    {
+      "text": "Buy groceries",
+      "born": 7.79,
+      "x": 810,
+      "y": 610
+    },
+    {
+      "text": "Workout",
+      "born": 8.9,
+      "x": 200,
+      "y": 1180
+    },
+    {
+      "text": "Call Mom",
+      "born": 10.75,
+      "x": 860,
+      "y": 1230
+    },
+    {
+      "text": "Pay rent",
+      "born": 11.87,
+      "x": 320,
+      "y": 380
+    },
+    {
+      "text": "Go to the gym",
+      "born": 12.61,
+      "x": 790,
+      "y": 400
+    },
+    {
+      "text": "Drink water",
+      "born": 13.35,
+      "x": 170,
+      "y": 860
+    },
+    {
+      "text": "Finish project",
+      "born": 14.83,
+      "x": 890,
+      "y": 900
+    },
+    {
+      "text": "Schedule appointment",
+      "born": 15.58,
+      "x": 460,
+      "y": 1330
+    },
+    {
+      "text": "Log lunch",
+      "born": 16.32,
+      "x": 640,
+      "y": 500
+    },
+    {
+      "text": "Prepare for meeting",
+      "born": 17.06,
+      "x": 330,
+      "y": 1440
+    },
+    {
+      "text": "Answer email",
+      "born": 17.8,
+      "x": 750,
+      "y": 1400
+    },
+    {
+      "text": "Call family",
+      "born": 18.54,
+      "x": 540,
+      "y": 1120
+    }
   ]
 }

@@ -50,13 +50,20 @@ Concept, script and plan live here; generated media stays local (gitignored).
         visible breath or steam" negative — verified clean by scrubbing the full
         clip before accepting.
 - [x] M3 — notes layer: `notes/notes_master.json` generated ✔ (14 notes, beat-map
-      timing, freeze at 0:30). Regenerate after edits: `python3 notes/generate_lottie.py`
+      timing). Regenerate after edits: `python3 notes/generate_lottie.py`.
+      **Retimed once real footage existed** — `notes_config.json` originally
+      assumed the planned ~30s pre-freeze runtime (shots at 4-6s each); actual
+      Kling output came in at 22.25s (3-5s clips, cost-driven). Rescaled every
+      `born` time and `freeze_at` by 22.25/30.0 (≈0.742) to match. If plates
+      get regenerated at different durations, re-derive this scale factor
+      against the new `build/spine.mp4` length and rerun both generators below.
 - [x] M3b — notes rendered to alpha ✔ `notes/notes_master.webm` (VP9/yuva420p, 1080×1920
-      @24fps, verified transparent). No python-lottie available, so
-      `notes/render_notes.py` rasterizes the same config directly with Pillow instead
-      of going through the Lottie JSON. **Decoding this file requires forcing the
-      alpha-aware decoder: `ffmpeg -c:v libvpx-vp9 -i notes_master.webm ...`** —
-      ffmpeg's default native `vp9` decoder silently drops the alpha plane.
+      @24fps, 22.25s, verified transparent and correctly timed against the real
+      spine — see M5). No python-lottie available, so `notes/render_notes.py`
+      rasterizes the same config directly with Pillow instead of going through
+      the Lottie JSON. **Decoding this file requires forcing the alpha-aware
+      decoder: `ffmpeg -c:v libvpx-vp9 -i notes_master.webm ...`** — ffmpeg's
+      default native `vp9` decoder silently drops the alpha plane.
       `scripts/assemble.sh overlay` already does this correctly.
 - [x] M4 (code) — Blender scene-builder ready: `blender -b -P blender/build_s9.py`
       (patched for Blender 5.1: `BLENDER_EEVEE_NEXT` enum and the layered-action
@@ -68,18 +75,35 @@ Concept, script and plan live here; generated media stays local (gitignored).
       1080×1920, EEVEE) — `organize/textures/backdrop.png` is now `stills/H7.png`,
       so the real frozen close-up sits behind the organizing notes as designed.
       End card rendered ✔ `organize/S11.mp4` (5s) via `organize/generate_endcard.py`.
-- [ ] M5 — assembly: `scripts/assemble.sh spine|freeze|overlay|grade`. `spine`
-      done ✔ `build/spine.mp4` (25.3s, S2→S3→S4→S5→S6→S8→S10, verified in
-      order). Fixed two bugs in `assemble.sh spine` while running it:
-      - the concat demuxer resolves relative paths in the list file relative to
-        the list file's own directory (`build/`), not the caller's cwd, so
-        `plates/S2.mp4` entries silently failed to open — now writes absolute
-        paths.
-      - `plates/S*.mp4` glob sorts lexically (`S10.mp4` before `S2.mp4`), which
-        would've put the ending shot first; `ls -v` doesn't fix this on macOS
-        (BSD `ls -v` isn't GNU natural sort, it means something else entirely)
-        — replaced with a hardcoded canonical shot order.
-      `freeze`/`overlay`/`grade` not yet run.
+- [ ] M5 — assembly: `scripts/assemble.sh spine|freeze|overlay|grade`.
+      - `spine` ✔ `build/spine.mp4` — **S2→S3→S4→S5→S6→S8 only (22.25s), not
+        S10.** S9 (organize) and S10 (release) come narratively *after* the
+        freeze, not straight after S8 — the beat map is S1(freeze)→S9(organize)
+        →S10(release)→S11(end card), so S10 can't just be concatenated onto the
+        pre-freeze spine. Fixed two bugs in `assemble.sh spine` while running
+        it: (1) the concat demuxer resolves relative paths in the list file
+        relative to the list file's own directory (`build/`), not the caller's
+        cwd, so `plates/S2.mp4` entries silently failed to open — now writes
+        absolute paths; (2) `plates/S*.mp4` glob sorts lexically (`S10.mp4`
+        before `S2.mp4`) — `ls -v` doesn't fix this on macOS (BSD `ls -v` isn't
+        GNU natural sort, it means something else entirely) — replaced with a
+        hardcoded canonical shot order.
+      - `freeze` ✔ ran at `T=2.9` (near the end of S8's push-in — the default
+        `T=4.5` assumes the original 5s S8, ours is 3.04s). Produced
+        `build/freeze_frame.png` (the ad thumbnail / S1 cold-flash source —
+        strong pick, direct gaze, composed), `build/S8_ramped.mp4` (2.29s),
+        `build/S8_hold.mp4` (3s hold).
+      - `overlay` ✔ `build/composited.mp4` (22.25s) — spine + notes, confirmed
+        by scrubbing that note count/timing tracks the beat map (0 during the
+        pour, a handful by the phone check, ~14 crowding the frame by the
+        close-up push-in).
+      - `grade` not yet run.
+      - **Still open, beyond what `assemble.sh`'s stages cover:** joining S1
+        (cold flash, needs the *composited* freeze frame with notes on it —
+        can't be built before `overlay`/`grade` run on it) + graded spine +
+        freeze hold + `organize/S9.mp4` + a re-normalized `plates/S10.mp4` +
+        `organize/S11.mp4` into the final 45s timeline. This is a custom stitch
+        script, not an existing `assemble.sh` case.
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
 
 ## Pipeline
