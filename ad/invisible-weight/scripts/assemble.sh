@@ -17,8 +17,19 @@ spine)
   # Beat map: S1 cold flash (1s, from freeze frame) + S2..S8. Trim durations here.
   # S1 requires build/freeze_frame.png (made by the freeze stage) — run once
   # without S1, pick the freeze frame, then rebuild.
-  ls plates/S*.mp4 || { echo "put normalized Kling clips in plates/ first"; exit 1; }
-  printf "file '%s'\n" plates/S*.mp4 > build/concat.txt
+  # Canonical beat-map order (S7 folds into S8's push-in; S9/S11 are motion
+  # graphics, added later; S1 is the freeze frame, added by the freeze stage).
+  # Hardcoded rather than glob-sorted: plain glob sorts lexically (S10 before
+  # S2), and macOS's BSD `ls -v` isn't GNU natural sort so it doesn't fix that.
+  SHOTS="S2 S3 S4 S5 S6 S8 S10"
+  : > build/concat.txt
+  for s in $SHOTS; do
+    f="plates/$s.mp4"
+    [ -f "$f" ] || { echo "missing $f -- put normalized Kling clips in plates/ first"; exit 1; }
+    # Absolute paths: the concat demuxer resolves relative entries relative to
+    # the list file's own directory (build/), not our cwd.
+    printf "file '%s/%s'\n" "$(pwd)" "$f" >> build/concat.txt
+  done
   ffmpeg -y -f concat -safe 0 -i build/concat.txt -c copy build/spine.mp4
   echo "-> build/spine.mp4  (watch it silent; fix pacing before anything else)"
   ;;

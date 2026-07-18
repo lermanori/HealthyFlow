@@ -68,8 +68,18 @@ Concept, script and plan live here; generated media stays local (gitignored).
       1080×1920, EEVEE) — `organize/textures/backdrop.png` is now `stills/H7.png`,
       so the real frozen close-up sits behind the organizing notes as designed.
       End card rendered ✔ `organize/S11.mp4` (5s) via `organize/generate_endcard.py`.
-- [ ] M5 — assembly: `scripts/assemble.sh spine|freeze|overlay|grade`. Unblocked
-      now that all M1/M2 plates exist — not yet run.
+- [ ] M5 — assembly: `scripts/assemble.sh spine|freeze|overlay|grade`. `spine`
+      done ✔ `build/spine.mp4` (25.3s, S2→S3→S4→S5→S6→S8→S10, verified in
+      order). Fixed two bugs in `assemble.sh spine` while running it:
+      - the concat demuxer resolves relative paths in the list file relative to
+        the list file's own directory (`build/`), not the caller's cwd, so
+        `plates/S2.mp4` entries silently failed to open — now writes absolute
+        paths.
+      - `plates/S*.mp4` glob sorts lexically (`S10.mp4` before `S2.mp4`), which
+        would've put the ending shot first; `ls -v` doesn't fix this on macOS
+        (BSD `ls -v` isn't GNU natural sort, it means something else entirely)
+        — replaced with a hardcoded canonical shot order.
+      `freeze`/`overlay`/`grade` not yet run.
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
 
 ## Pipeline
