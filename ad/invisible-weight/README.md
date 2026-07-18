@@ -75,36 +75,48 @@ Concept, script and plan live here; generated media stays local (gitignored).
       1080×1920, EEVEE) — `organize/textures/backdrop.png` is now `stills/H7.png`,
       so the real frozen close-up sits behind the organizing notes as designed.
       End card rendered ✔ `organize/S11.mp4` (5s) via `organize/generate_endcard.py`.
-- [ ] M5 — assembly: `scripts/assemble.sh spine|freeze|overlay|grade`.
-      - `spine` ✔ `build/spine.mp4` — **S2→S3→S4→S5→S6→S8 only (22.25s), not
-        S10.** S9 (organize) and S10 (release) come narratively *after* the
-        freeze, not straight after S8 — the beat map is S1(freeze)→S9(organize)
-        →S10(release)→S11(end card), so S10 can't just be concatenated onto the
-        pre-freeze spine. Fixed two bugs in `assemble.sh spine` while running
-        it: (1) the concat demuxer resolves relative paths in the list file
-        relative to the list file's own directory (`build/`), not the caller's
-        cwd, so `plates/S2.mp4` entries silently failed to open — now writes
-        absolute paths; (2) `plates/S*.mp4` glob sorts lexically (`S10.mp4`
-        before `S2.mp4`) — `ls -v` doesn't fix this on macOS (BSD `ls -v` isn't
-        GNU natural sort, it means something else entirely) — replaced with a
-        hardcoded canonical shot order.
-      - `freeze` ✔ ran at `T=2.9` (near the end of S8's push-in — the default
-        `T=4.5` assumes the original 5s S8, ours is 3.04s). Produced
-        `build/freeze_frame.png` (the ad thumbnail / S1 cold-flash source —
-        strong pick, direct gaze, composed), `build/S8_ramped.mp4` (2.29s),
-        `build/S8_hold.mp4` (3s hold).
-      - `overlay` ✔ `build/composited.mp4` (22.25s) — spine + notes, confirmed
-        by scrubbing that note count/timing tracks the beat map (0 during the
+- [x] M5 — assembly: `scripts/assemble.sh spine|freeze|overlay|grade|final` ✔
+      `build/master_full_silent.mp4` (40.3s, silent). Ran the full chain:
+      - `spine` — **S2→S3→S4→S5→S6→S8 only (22.25s), not S10.** S9 (organize)
+        and S10 (release) come narratively *after* the freeze, not straight
+        after S8 — the beat map is S1(freeze)→S9(organize)→S10(release)
+        →S11(end card), so S10 can't just be concatenated onto the pre-freeze
+        spine. Fixed two bugs while running it: (1) the concat demuxer
+        resolves relative paths in the list file relative to the list file's
+        own directory (`build/`), not the caller's cwd, so `plates/S2.mp4`
+        entries silently failed to open — now writes absolute paths; (2)
+        `plates/S*.mp4` glob sorts lexically (`S10.mp4` before `S2.mp4`) —
+        `ls -v` doesn't fix this on macOS (BSD `ls -v` isn't GNU natural sort,
+        it means something else entirely) — replaced with a hardcoded
+        canonical shot order.
+      - `freeze` — ran at `T=2.9` (near the end of S8's push-in — the default
+        `T=4.5` assumes the original 5s S8, ours is 3.04s). Its outputs
+        (`S8_ramped.mp4`, `S8_hold.mp4`) ended up unused (see `final` below);
+        `build/freeze_frame.png` is still worth keeping as an early thumbnail
+        reference (undesaturated, pre-grade).
+      - `overlay` — `build/composited.mp4`, spine + notes. Confirmed by
+        scrubbing that note count/timing tracks the beat map (0 during the
         pour, a handful by the phone check, ~14 crowding the frame by the
         close-up push-in).
-      - `grade` not yet run.
-      - **Still open, beyond what `assemble.sh`'s stages cover:** joining S1
-        (cold flash, needs the *composited* freeze frame with notes on it —
-        can't be built before `overlay`/`grade` run on it) + graded spine +
-        freeze hold + `organize/S9.mp4` + a re-normalized `plates/S10.mp4` +
-        `organize/S11.mp4` into the final 45s timeline. This is a custom stitch
-        script, not an existing `assemble.sh` case.
+      - `grade` — `build/master_silent.mp4` (22.25s), noise+vignette (no
+        `grade.cube` LUT present, used the documented fallback).
+      - **`final` (new stage, not in the original script)** — stitches the
+        complete silent timeline: S1 cold flash + graded/note-composited spine
+        + freeze hold + `organize/S9.mp4` + graded `plates/S10.mp4` +
+        `organize/S11.mp4`. This didn't exist before — `spine`/`freeze`
+        /`overlay`/`grade` only ever built the pre-freeze portion. Notably,
+        **S1 and the freeze hold are sourced from `master_silent.mp4`'s own
+        last frame**, not `freeze` stage's `build/freeze_frame.png` — S1 is
+        specified as "freeze frame from S8 with full note composite," which
+        doesn't exist until *after* `overlay`+`grade` run, so the original
+        `freeze` stage's output was the wrong source for it. Verified frame-by
+        -frame across all 6 segments (S1 → spine → hold → S9 → S10 → S11) —
+        transitions and note timing are all correct. Total 40.3s vs. the
+        planned 45s — short because plates were generated at 3-5s each rather
+        than the originally scoped 4-6s (see M2).
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
+      (both stages now target `build/master_full_silent.mp4`, not
+      `master_silent.mp4`, since audio needs to cover the complete timeline)
 
 ## Pipeline
 

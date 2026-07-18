@@ -5,6 +5,7 @@
 #   ./assemble.sh freeze    — build S8 freeze + speed ramp
 #   ./assemble.sh overlay   — composite the notes layer (needs notes render)
 #   ./assemble.sh grade     — LUT + grain + vignette cohesion pass
+#   ./assemble.sh final     — stitch S1 + graded spine + freeze hold + S9 + S10 + S11
 #   ./assemble.sh audio     — mix stems + VO, loudness-normalize (needs audio/)
 #   ./assemble.sh cutdown   — 15s Story teaser from the master
 set -euo pipefail
@@ -69,11 +70,43 @@ grade)
   echo "-> build/master_silent.mp4  (QA on a phone, full screen, muted)"
   ;;
 
+final)
+  # Stitch the complete 45s(ish) timeline: S1 cold flash + graded/composited
+  # spine (S2..S8) + freeze hold + S9 (organize, from Blender) + S10 (release)
+  # + S11 (end card). None of spine/freeze/overlay/grade cover this on their
+  # own -- they only build the pre-freeze portion (build/master_silent.mp4).
+  # Uses the *last frame of the graded, note-composited* spine as the freeze
+  # moment for both S1 and the hold, rather than the raw freeze_frame.png from
+  # the `freeze` stage (which predates grading/notes) -- S1 is specified as
+  # "freeze frame from S8 with full note composite", so it has to be sourced
+  # after `overlay`+`grade` have run, not before.
+  for f in build/master_silent.mp4 organize/S9.mp4 organize/S11.mp4 plates/S10.mp4; do
+    [ -f "$f" ] || { echo "missing $f -- run earlier stages / render organize/ first"; exit 1; }
+  done
+  ffmpeg -y -sseof -0.1 -i build/master_silent.mp4 -frames:v 1 build/master_last_frame.png
+  ffmpeg -y -loop 1 -i build/master_last_frame.png -t 1 -r 24 \
+    -vf "eq=saturation=0.9,format=yuv420p" -c:v libx264 -crf 16 build/S1_coldflash.mp4
+  ffmpeg -y -loop 1 -i build/master_last_frame.png -t 3 -r 24 \
+    -vf format=yuv420p -c:v libx264 -crf 16 build/freeze_hold.mp4
+  ffmpeg -y -i plates/S10.mp4 -vf "noise=alls=6:allf=t,vignette=PI/5" \
+    -c:v libx264 -crf 16 build/S10_graded.mp4
+  cat > build/final_concat.txt <<-LIST
+	file '$(pwd)/build/S1_coldflash.mp4'
+	file '$(pwd)/build/master_silent.mp4'
+	file '$(pwd)/build/freeze_hold.mp4'
+	file '$(pwd)/organize/S9.mp4'
+	file '$(pwd)/build/S10_graded.mp4'
+	file '$(pwd)/organize/S11.mp4'
+	LIST
+  ffmpeg -y -f concat -safe 0 -i build/final_concat.txt -c copy build/master_full_silent.mp4
+  echo "-> build/master_full_silent.mp4  (complete silent timeline, QA before audio)"
+  ;;
+
 audio)
   # Stems expected in audio/: bed.wav (room tone + notification stack built in
   # your DAW/CapCut, silent from 30.000s), vo.wav (starts at 31.0s), music.wav
   # (enters ~36s). Adjust delays below if your stems aren't pre-placed.
-  ffmpeg -y -i build/master_silent.mp4 -i audio/bed.wav -i audio/vo.wav -i audio/music.wav \
+  ffmpeg -y -i build/master_full_silent.mp4 -i audio/bed.wav -i audio/vo.wav -i audio/music.wav \
     -filter_complex "[1:a][2:a][3:a]amix=inputs=3:normalize=0,loudnorm=I=-14:TP=-1.5[a]" \
     -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 192k build/master_final.mp4
   echo "-> build/master_final.mp4"
