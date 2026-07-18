@@ -37,11 +37,9 @@ Concept, script and plan live here; generated media stays local (gitignored).
       (note_00–13, row_00–13) from `blender/s9_config.json`'s "rows" list — cyan
       time chips, one green check row (Drink water), one amber "↻ Tomorrow"
       rollover row (Finish project). S9 rendered ✔ `organize/S9.mp4` (6s,
-      1080×1920, EEVEE, backdrop used the flat placeholder fallback since H7
-      didn't exist yet at render time). Now that `stills/H7.png` exists, copy
-      it to `organize/textures/backdrop.png` and rerun `build_s9.py` + render
-      to composite the real freeze-frame behind the organizing notes. End card
-      rendered ✔ `organize/S11.mp4` (5s) via `organize/generate_endcard.py`.
+      1080×1920, EEVEE) — `organize/textures/backdrop.png` is now `stills/H7.png`,
+      so the real frozen close-up sits behind the organizing notes as designed.
+      End card rendered ✔ `organize/S11.mp4` (5s) via `organize/generate_endcard.py`.
 - [ ] M5 — assembly: `scripts/assemble.sh spine|freeze|overlay|grade` (blocked on
       M1/M2 plates for `spine`; `overlay`/`grade` follow once spine exists)
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
