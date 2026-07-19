@@ -123,6 +123,17 @@ Concept, script and plan live here; generated media stays local (gitignored).
         Gotcha: **upscale 2x (`scale=2160:3840`) before `zoompan`** — zoompan
         crops on integer pixel coordinates, so at native res the sub-pixel
         drift quantizes into visible stepping. Master is now 39.29s.
+      - **Fix 2 — note declutter.** Several notes sat directly on her face in
+        the S8 close-up/freeze (Dentist and Log lunch on the forehead, Buy
+        groceries in her hair) and the top cluster overlapped card-on-card.
+        Repositioned 7 notes in `notes_config.json` — all `born` times kept
+        (the ×0.742 retime is untouched). Layout rule used: face oval
+        x 350–750 / y 350–900 stays empty; x/y in the config are the **card
+        center** (see `render_notes.py`), cards are ~96px tall with
+        half-widths 120–190px, so centers must clear the oval by the card's
+        half-extent. Top band cards sit at y=310 (birth rise 14px + bob 8px
+        keeps the card just inside the 250px top safe zone). Verified against
+        extracted frames at t=20.5/22.5/24 of the rebuilt master.
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
       (both stages now target `build/master_full_silent.mp4`, not
       `master_silent.mp4`, since audio needs to cover the complete timeline)

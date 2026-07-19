@@ -2,6 +2,8 @@
 
 Started the Tier 1 client-feedback fixes on "The Invisible Weight" master. Fix 1 is done: the dead 3s freeze hold at ~23s (a looped still that read as a broken video) is now a 2s live hold with a barely perceptible 3% push-in and moving grain, built inside assemble.sh's final stage. The silent master is rebuilt at 39.3s and verified frame-by-frame; note declutter and the real color grade are next.
 
+Fix 2 is also done: seven notes were repositioned so nothing covers her face in the S8 close-up and freeze — the top cluster now sits in a clean band above her head, wide cards moved to the frame edges, and the card-on-card overlaps are gone. Born times and the ×0.742 retime were preserved; the overlay was re-rendered and the master rebuilt and frame-checked.
+
 ---
 
 ### 2026-07-16 15:48 — `claude/instagram-ad-testers-4c3c0n`

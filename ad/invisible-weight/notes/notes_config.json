@@ -30,20 +30,20 @@
     {
       "text": "Dentist at 3 PM",
       "born": 3.71,
-      "x": 540,
-      "y": 420
+      "x": 420,
+      "y": 310
     },
     {
       "text": "Reply to Alex",
       "born": 6.68,
-      "x": 250,
-      "y": 560
+      "x": 180,
+      "y": 570
     },
     {
       "text": "Buy groceries",
       "born": 7.79,
-      "x": 810,
-      "y": 610
+      "x": 850,
+      "y": 970
     },
     {
       "text": "Workout",
@@ -60,14 +60,14 @@
     {
       "text": "Pay rent",
       "born": 11.87,
-      "x": 320,
-      "y": 380
+      "x": 170,
+      "y": 430
     },
     {
       "text": "Go to the gym",
       "born": 12.61,
-      "x": 790,
-      "y": 400
+      "x": 840,
+      "y": 310
     },
     {
       "text": "Drink water",
@@ -78,8 +78,8 @@
     {
       "text": "Finish project",
       "born": 14.83,
-      "x": 890,
-      "y": 900
+      "x": 850,
+      "y": 1090
     },
     {
       "text": "Schedule appointment",
@@ -90,8 +90,8 @@
     {
       "text": "Log lunch",
       "born": 16.32,
-      "x": 640,
-      "y": 500
+      "x": 905,
+      "y": 480
     },
     {
       "text": "Prepare for meeting",
