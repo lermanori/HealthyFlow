@@ -19,6 +19,7 @@ interface AuthContextType {
   startDemoSession: (persona: DemoPersonaId) => Promise<void>
   signup: (email: string, password: string, name: string) => Promise<void>
   logout: () => void
+  completeAccountDeletion: () => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -136,8 +137,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     toast.success('Logged out successfully')
   }
 
+  const completeAccountDeletion = () => {
+    localStorage.removeItem('token')
+    clearDemoState()
+    localStorage.removeItem('healthyflow-assistant-conversations-v1')
+    localStorage.removeItem('healthyflow-assistant-conversations-v1-migrated')
+    queryClient.clear()
+    analytics.reset()
+    setUser(null)
+    toast.success('Account deleted')
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, startDemoSession, signup, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, startDemoSession, signup, logout, completeAccountDeletion }}>
       {children}
     </AuthContext.Provider>
   )

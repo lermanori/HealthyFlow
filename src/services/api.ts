@@ -28,7 +28,8 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && localStorage.getItem('token')) {
+    const isAccountVerification = error.config?.method === 'delete' && error.config?.url === '/account'
+    if (error.response?.status === 401 && localStorage.getItem('token') && !isAccountVerification) {
       localStorage.removeItem('token')
       window.location.reload()
     }
@@ -793,6 +794,33 @@ export const settingsService = {
 
   updateSettings: async (partial: Partial<UserSettings>): Promise<UserSettings> => {
     const response = await api.patch('/settings', partial)
+    return response.data
+  },
+}
+
+export interface AccountDeletionResult {
+  deleted: true
+  warnings: string[]
+}
+
+export const accountService = {
+  exportData: async (): Promise<string> => {
+    const response = await api.get<Blob>('/account/export', { responseType: 'blob' })
+    const disposition = response.headers['content-disposition'] as string | undefined
+    const filename = disposition?.match(/filename="?([^";]+)"?/i)?.[1]
+      ?? `healthyflow-export-${new Date().toISOString().slice(0, 10)}.json`
+    const url = URL.createObjectURL(response.data)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = filename
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+    return filename
+  },
+  deleteAccount: async (input: { password: string; confirmation: string }): Promise<AccountDeletionResult> => {
+    const response = await api.delete('/account', { data: input })
     return response.data
   },
 }

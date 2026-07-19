@@ -19,17 +19,29 @@ const A = {
   border: 'rgba(6,182,212,.4)', chip: 'rgba(6,182,212,.12)', chipHover: 'rgba(6,182,212,.22)',
 }
 
+const W = {
+  page: 'rgb(var(--surface-page))',
+  card: 'rgb(var(--surface-card))',
+  raised: 'rgb(var(--surface-raised))',
+  sunken: 'rgb(var(--surface-sunken))',
+  ink: 'rgb(var(--text-primary))',
+  soft: 'rgb(var(--text-secondary))',
+  muted: 'rgb(var(--text-muted))',
+  line: 'rgb(var(--border-default))',
+  lineStrong: 'rgb(var(--border-strong))',
+}
+
 const GROTESK = "'Space Grotesk', sans-serif"
 
 type ItemType = 'task' | 'habit' | 'grocery' | 'meal' | 'workout' | 'calendar'
 
 const TYPE: Record<ItemType, { label: string; text: string; bg: string; border: string; tint: string }> = {
-  task:    { label: 'Task',    text: '#22d3ee', bg: 'rgba(6,182,212,.15)',  border: 'rgba(6,182,212,.3)',  tint: 'rgba(6,182,212,.07)' },
-  habit:   { label: 'Habit',   text: '#c084fc', bg: 'rgba(168,85,247,.15)', border: 'rgba(168,85,247,.3)', tint: 'rgba(168,85,247,.07)' },
-  grocery: { label: 'Grocery', text: '#34d399', bg: 'rgba(16,185,129,.15)', border: 'rgba(16,185,129,.3)', tint: 'rgba(16,185,129,.07)' },
-  meal:    { label: 'Meal',    text: '#fb7185', bg: 'rgba(244,63,94,.15)',  border: 'rgba(244,63,94,.3)',  tint: 'rgba(244,63,94,.07)' },
-  workout: { label: 'Workout', text: '#fbbf24', bg: 'rgba(245,158,11,.15)', border: 'rgba(245,158,11,.3)', tint: 'rgba(245,158,11,.07)' },
-  calendar:{ label: 'Calendar', text: '#38bdf8', bg: 'rgba(14,165,233,.15)', border: 'rgba(14,165,233,.3)', tint: 'rgba(14,165,233,.07)' },
+  task:    { label: 'Task', text: 'rgb(var(--week-task))', bg: 'rgb(var(--week-task) / .15)', border: 'rgb(var(--week-task) / .35)', tint: 'rgb(var(--week-task) / .08)' },
+  habit:   { label: 'Habit', text: 'rgb(var(--week-habit))', bg: 'rgb(var(--week-habit) / .15)', border: 'rgb(var(--week-habit) / .35)', tint: 'rgb(var(--week-habit) / .08)' },
+  grocery: { label: 'Grocery', text: 'rgb(var(--week-grocery))', bg: 'rgb(var(--week-grocery) / .15)', border: 'rgb(var(--week-grocery) / .35)', tint: 'rgb(var(--week-grocery) / .08)' },
+  meal:    { label: 'Meal', text: 'rgb(var(--week-meal))', bg: 'rgb(var(--week-meal) / .15)', border: 'rgb(var(--week-meal) / .35)', tint: 'rgb(var(--week-meal) / .08)' },
+  workout: { label: 'Workout', text: 'rgb(var(--week-workout))', bg: 'rgb(var(--week-workout) / .15)', border: 'rgb(var(--week-workout) / .35)', tint: 'rgb(var(--week-workout) / .08)' },
+  calendar:{ label: 'Calendar', text: 'rgb(var(--week-calendar))', bg: 'rgb(var(--week-calendar) / .15)', border: 'rgb(var(--week-calendar) / .35)', tint: 'rgb(var(--week-calendar) / .08)' },
 }
 
 function typeOf(t: Task): ItemType {
@@ -284,13 +296,13 @@ export default function WeekViewPage() {
     : model.weekPct > 0 ? 'keep the streak going' : "let's get started"
 
   const navBtn: React.CSSProperties = {
-    width: 38, height: 38, borderRadius: 11, border: '1px solid rgba(75,85,99,.6)',
-    background: 'rgba(31,41,55,.6)', color: '#d1d5db', cursor: 'pointer',
+    width: 38, height: 38, borderRadius: 11, border: `1px solid ${W.lineStrong}`,
+    background: 'rgb(var(--surface-card) / .6)', color: W.soft, cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   }
 
   return (
-    <div style={{ color: '#f3f4f6', display: 'flex', flexDirection: 'column', gap: 22, minWidth: 0, width: '100%' }}>
+    <div style={{ color: W.ink, display: 'flex', flexDirection: 'column', gap: 22, minWidth: 0, width: '100%' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
@@ -298,17 +310,18 @@ export default function WeekViewPage() {
             <Calendar width={21} height={21} color="#fff" />
           </div>
           <div>
-            <h1 style={{ margin: 0, fontFamily: GROTESK, fontSize: 28, fontWeight: 700, letterSpacing: '-.5px', color: '#f9fafb', textShadow: `0 0 12px ${A.textGlow}` }}>My Week</h1>
-            <p style={{ margin: '3px 0 0', fontSize: 13, color: '#9ca3af' }}>Plan across days — your default view is Today · {weekLabel}</p>
+            <h1 style={{ margin: 0, fontFamily: GROTESK, fontSize: 28, fontWeight: 700, letterSpacing: '-.5px', color: W.ink, textShadow: `0 0 12px ${A.textGlow}` }}>My Week</h1>
+            <p style={{ margin: '3px 0 0', fontSize: 13, color: W.muted }}>Plan across days — your default view is Today · {weekLabel}</p>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button onClick={() => setWeekOffset((w) => w - 1)} style={navBtn} aria-label="Previous week"><ChevronLeft width={17} height={17} /></button>
+          <button className="week-focus" onClick={() => setWeekOffset((w) => w - 1)} style={navBtn} aria-label="Previous week"><ChevronLeft width={17} height={17} /></button>
           <button
+            className="week-focus"
             onClick={() => { setWeekOffset(0); const wd = getWeekDates(new Date(), weekStartsOn).findIndex((d) => isSameDay(d, new Date())); setSelectedOff(wd >= 0 ? wd : 0) }}
             style={{ height: 38, padding: '0 16px', borderRadius: 11, border: `1px solid ${A.border}`, background: A.chip, color: A.ring, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
           >Today</button>
-          <button onClick={() => setWeekOffset((w) => w + 1)} style={navBtn} aria-label="Next week"><ChevronRight width={17} height={17} /></button>
+          <button className="week-focus" onClick={() => setWeekOffset((w) => w + 1)} style={navBtn} aria-label="Next week"><ChevronRight width={17} height={17} /></button>
         </div>
       </div>
 
@@ -320,6 +333,9 @@ export default function WeekViewPage() {
           const { done, pct } = model.perDay[off]
           return (
             <button
+              className="week-focus"
+              aria-pressed={isSel}
+              aria-label={`${fullDow[off]}, ${format(d, 'MMMM d')}, ${done} completed`}
               key={off}
               data-demo-id="week-day-column"
               data-rail-date={format(d, 'yyyy-MM-dd')}
@@ -327,16 +343,16 @@ export default function WeekViewPage() {
               style={{
                 position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
                 padding: '13px 6px 12px', borderRadius: 16, cursor: 'pointer',
-                border: `1px solid ${isSel ? A.border : 'rgba(55,65,81,.5)'}`,
-                background: isSel ? `linear-gradient(160deg,${A.chip} 0%, rgba(17,24,39,.9) 70%)` : 'rgba(31,41,55,.4)',
+                border: `1px solid ${isSel ? A.border : 'rgb(var(--border-default) / .5)'}`,
+                background: isSel ? `linear-gradient(160deg,${A.chip} 0%, rgb(var(--surface-card) / .92) 70%)` : 'rgb(var(--surface-card) / .4)',
                 boxShadow: isSel ? `0 0 24px ${A.glow}` : 'none',
               }}
             >
-              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: isSel ? A.ring : '#9ca3af' }}>{dow[off]}</span>
-              <span style={{ fontFamily: GROTESK, fontSize: 22, fontWeight: 700, lineHeight: 1, color: isSel ? '#f9fafb' : (isToday ? A.ring : '#d1d5db'), textShadow: isSel ? `0 0 12px ${A.textGlow}` : 'none' }}>{format(d, 'd')}</span>
-              <div style={{ position: 'relative', width: 30, height: 30 }}>
+              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: isSel ? A.ring : W.muted }}>{dow[off]}</span>
+              <span style={{ fontFamily: GROTESK, fontSize: 22, fontWeight: 700, lineHeight: 1, color: isToday ? A.ring : W.ink, textShadow: isSel ? `0 0 12px ${A.textGlow}` : 'none' }}>{format(d, 'd')}</span>
+              <div role="progressbar" aria-label={`${fullDow[off]} completion`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} style={{ position: 'relative', width: 30, height: 30 }}>
                 <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: `conic-gradient(${A.ring} ${pct}%, rgba(255,255,255,.08) ${pct}%)` }} />
-                <div style={{ position: 'absolute', inset: 4, borderRadius: '50%', background: isSel ? '#0f1830' : '#141d31', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#cbd5e1', fontFamily: GROTESK }}>{done}</div>
+                <div style={{ position: 'absolute', inset: 4, borderRadius: '50%', background: isSel ? W.sunken : W.page, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: W.soft, fontFamily: GROTESK }}>{done}</div>
               </div>
               {isToday && (
                 <span className="animate-neon-flicker" style={{ position: 'absolute', top: 7, right: 8, width: 6, height: 6, borderRadius: '50%', background: A.ring, boxShadow: `0 0 8px ${A.ring}` }} />
@@ -351,21 +367,21 @@ export default function WeekViewPage() {
         {/* Focus column: weekly agenda */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
           {/* Focus hero */}
-          <div style={{ position: 'relative', overflow: 'hidden', padding: '20px 22px', borderRadius: 20, border: `1px solid ${A.border}`, background: `linear-gradient(135deg,${A.chip} 0%, rgba(17,24,39,.92) 70%)`, boxShadow: `0 0 30px ${A.glow}` }}>
+          <div style={{ position: 'relative', overflow: 'hidden', padding: '20px 22px', borderRadius: 20, border: `1px solid ${A.border}`, background: `linear-gradient(135deg,${A.chip} 0%, rgb(var(--surface-card) / .94) 70%)`, boxShadow: `0 0 30px ${A.glow}` }}>
             <div style={{ position: 'absolute', top: -40, right: -30, width: 160, height: 160, borderRadius: '50%', background: `radial-gradient(circle,${A.glow},transparent 70%)`, pointerEvents: 'none' }} />
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 18 }}>
-              <div style={{ position: 'relative', width: 74, height: 74, flex: 'none' }}>
+              <div role="progressbar" aria-label="Week completion" aria-valuemin={0} aria-valuemax={100} aria-valuenow={model.weekPct} style={{ position: 'relative', width: 74, height: 74, flex: 'none' }}>
                 <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: `conic-gradient(${A.ring} ${model.weekPct}%, rgba(255,255,255,.08) ${model.weekPct}%)` }} />
-                <div style={{ position: 'absolute', inset: 7, borderRadius: '50%', background: '#0e1626', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontFamily: GROTESK, fontSize: 20, fontWeight: 700, color: '#f9fafb', lineHeight: 1 }}>{model.weekPct}%</span>
+                <div style={{ position: 'absolute', inset: 7, borderRadius: '50%', background: W.sunken, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontFamily: GROTESK, fontSize: 20, fontWeight: 700, color: W.ink, lineHeight: 1 }}>{model.weekPct}%</span>
                 </div>
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-                  <h2 style={{ margin: 0, fontFamily: GROTESK, fontSize: 26, fontWeight: 700, letterSpacing: '-.5px', color: '#f9fafb' }}>Left this week</h2>
-                  <span style={{ fontSize: 14, color: '#9ca3af' }}>{model.leftCount} to go</span>
+                  <h2 style={{ margin: 0, fontFamily: GROTESK, fontSize: 26, fontWeight: 700, letterSpacing: '-.5px', color: W.ink }}>Left this week</h2>
+                  <span style={{ fontSize: 14, color: W.muted }}>{model.leftCount} to go</span>
                 </div>
-                <p style={{ margin: '6px 0 0', fontSize: 14, color: '#cbd5e1' }}>
+                <p style={{ margin: '6px 0 0', fontSize: 14, color: W.soft }}>
                   <span style={{ color: A.ring, fontWeight: 600 }}>{model.done} of {model.total} done</span> · {encourage}
                 </p>
               </div>
@@ -374,19 +390,19 @@ export default function WeekViewPage() {
 
           {/* Up next */}
           {model.upNext && (
-            <div style={{ position: 'relative', overflow: 'hidden', padding: '16px 18px', borderRadius: 18, border: `1px solid ${TYPE[model.upNext.type].border}`, background: `linear-gradient(120deg,${TYPE[model.upNext.type].bg} 0%, rgba(17,24,39,.85) 75%)` }}>
+            <div style={{ position: 'relative', overflow: 'hidden', padding: '16px 18px', borderRadius: 18, border: `1px solid ${TYPE[model.upNext.type].border}`, background: `linear-gradient(120deg,${TYPE[model.upNext.type].bg} 0%, rgb(var(--surface-card) / .9) 75%)` }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                 <span style={{ flex: 'none', width: 46, height: 46, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', background: TYPE[model.upNext.type].bg, color: TYPE[model.upNext.type].text, border: `1px solid ${TYPE[model.upNext.type].border}` }}>
                   <TypeIcon type={model.upNext.type} size={22} />
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', color: TYPE[model.upNext.type].text }}>Up next</span>
-                  <p data-testid="week-up-next-title" style={{ margin: '3px 0 0', fontSize: 17, fontWeight: 600, color: '#f9fafb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{model.upNext.title}</p>
-                  <p style={{ margin: '3px 0 0', fontSize: 12, color: '#9ca3af' }}>
+                  <p data-testid="week-up-next-title" style={{ margin: '3px 0 0', fontSize: 17, fontWeight: 600, color: W.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{model.upNext.title}</p>
+                  <p style={{ margin: '3px 0 0', fontSize: 12, color: W.muted }}>
                     {(model.upNext.off === model.todayOff ? 'Today' : dow[model.upNext.off])}{model.upNext.hasTime ? ` · ${timeLabel(model.upNext.time)}` : ''}
                   </p>
                 </div>
-                <button onClick={() => toggle(model.upNext!)} style={{ flex: 'none', height: 38, padding: '0 16px', borderRadius: 11, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#0b1120', background: `linear-gradient(135deg,${A.c1},${A.c2})`, boxShadow: `0 0 16px ${A.glow}` }}>
+                <button className="week-focus" aria-label={`Mark ${model.upNext.title} complete`} onClick={() => toggle(model.upNext!)} style={{ flex: 'none', height: 38, padding: '0 16px', borderRadius: 11, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#0b1120', background: `linear-gradient(135deg,${A.c1},${A.c2})`, boxShadow: `0 0 16px ${A.glow}` }}>
                   <Check width={15} height={15} strokeWidth={3} /> Done
                 </button>
               </div>
@@ -400,8 +416,8 @@ export default function WeekViewPage() {
                 <Check width={24} height={24} strokeWidth={2.5} />
               </span>
               <div>
-                <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: '#f9fafb' }}>Week cleared</p>
-                <p style={{ margin: '3px 0 0', fontSize: 13, color: '#9ca3af' }}>Nothing left this week. Every item is complete — nice work.</p>
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: W.ink }}>Week cleared</p>
+                <p style={{ margin: '3px 0 0', fontSize: 13, color: W.muted }}>Nothing left this week. Every item is complete — nice work.</p>
               </div>
             </div>
           )}
@@ -413,12 +429,12 @@ export default function WeekViewPage() {
           ] as const).map((g) => g.items.length > 0 && (
             <div key={g.label} style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ color: g.scheduled ? A.ring : '#94a3b8', display: 'flex' }}>
+                <span style={{ color: g.scheduled ? A.ring : W.muted, display: 'flex' }}>
                   {g.scheduled ? <Clock width={15} height={15} /> : <InfinityIcon width={15} height={15} />}
                 </span>
-                <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: '#9ca3af' }}>{g.label}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', background: 'rgba(255,255,255,.05)', borderRadius: 99, padding: '2px 8px' }}>{g.items.length}</span>
-                <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,.06)' }} />
+                <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: W.muted }}>{g.label}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, color: W.muted, background: 'rgb(var(--text-primary) / .05)', borderRadius: 99, padding: '2px 8px' }}>{g.items.length}</span>
+                <span style={{ flex: 1, height: 1, background: 'rgb(var(--text-primary) / .08)' }} />
               </div>
 
               {g.items.map((item) => {
@@ -429,24 +445,25 @@ export default function WeekViewPage() {
                 return (
                   <div key={item.id} data-date={item.date} style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
                     <div style={{ flex: 'none', width: 62, paddingTop: 11, textAlign: 'right' }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.6px', color: isToday ? A.ring : '#6b7280' }}>{isToday ? 'TODAY' : dow[item.off]}</div>
-                      <span style={{ fontFamily: GROTESK, fontSize: 13, fontWeight: 600, color: item.completed ? '#4b5563' : (item.hasTime ? '#cbd5e1' : '#6b7280') }}>{tShort}</span>
-                      {item.hasTime && <div style={{ fontSize: 10, color: '#6b7280', marginTop: 1 }}>{ampm}</div>}
+                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.6px', color: isToday ? A.ring : W.muted }}>{isToday ? 'TODAY' : dow[item.off]}</div>
+                      <span style={{ fontFamily: GROTESK, fontSize: 13, fontWeight: 600, color: item.completed ? W.muted : (item.hasTime ? W.soft : W.muted) }}>{tShort}</span>
+                      {item.hasTime && <div style={{ fontSize: 10, color: W.muted, marginTop: 1 }}>{ampm}</div>}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 12, alignItems: 'center', padding: '13px 14px', borderRadius: 14, background: item.completed ? 'rgba(55,65,81,.22)' : `linear-gradient(90deg, ${t.tint}, rgba(255,255,255,.02))`, border: `1px solid ${item.completed ? 'rgba(75,85,99,.3)' : t.border}` }}>
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 12, alignItems: 'center', padding: '13px 14px', borderRadius: 14, background: item.completed ? 'rgb(var(--surface-raised) / .45)' : `linear-gradient(90deg, ${t.tint}, rgb(var(--surface-card) / .55))`, border: `1px solid ${item.completed ? 'rgb(var(--border-strong) / .3)' : t.border}` }}>
                       <button
+                        className="week-focus"
                         onClick={() => toggle(item)}
                         aria-label={item.completed ? 'Mark incomplete' : 'Mark complete'}
                         style={item.completed
                           ? { flex: 'none', width: 24, height: 24, borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#22c55e,#16a34a)', color: '#fff', boxShadow: '0 0 12px rgba(34,197,94,.45)' }
-                          : { flex: 'none', width: 24, height: 24, borderRadius: '50%', border: '2px solid #4b5563', background: 'transparent', cursor: 'pointer' }}
+                          : { flex: 'none', width: 24, height: 24, borderRadius: '50%', border: `2px solid ${W.lineStrong}`, background: 'transparent', cursor: 'pointer' }}
                       >
                         {item.completed && <Check width={14} height={14} strokeWidth={3.5} />}
                       </button>
                       <span style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.bg, color: t.text, border: `1px solid ${t.border}` }}>
                         <TypeIcon type={item.type} size={15} />
                       </span>
-                      <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 15, fontWeight: 500, lineHeight: 1.3, color: item.completed ? '#6b7280' : '#f3f4f6', textDecoration: item.completed ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
+                      <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 15, fontWeight: 500, lineHeight: 1.3, color: item.completed ? W.muted : W.ink, textDecoration: item.completed ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
                       <span style={{ flex: 'none', fontSize: 10, fontWeight: 600, letterSpacing: '.5px', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 99, color: t.text, background: t.bg, border: `1px solid ${t.border}` }}>{t.label}</span>
                     </div>
                   </div>
@@ -456,7 +473,7 @@ export default function WeekViewPage() {
           ))}
 
           {model.total === 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '50px 20px', textAlign: 'center', color: '#4b5563', border: '1px dashed rgba(75,85,99,.5)', borderRadius: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '50px 20px', textAlign: 'center', color: W.muted, border: `1px dashed ${W.lineStrong}`, borderRadius: 16 }}>
               <Smile width={34} height={34} strokeWidth={1.5} />
               <p style={{ margin: 0, fontSize: 14 }}>Nothing planned this week</p>
             </div>
@@ -466,31 +483,33 @@ export default function WeekViewPage() {
         {/* Right column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
           {/* Habit consistency */}
-          <div style={{ padding: '18px 18px 16px', borderRadius: 18, border: '1px solid rgba(55,65,81,.5)', background: 'linear-gradient(160deg,rgba(31,41,55,.7) 0%,rgba(17,24,39,.9) 100%)' }}>
+          <div style={{ padding: '18px 18px 16px', borderRadius: 18, border: `1px solid ${W.line}`, background: 'linear-gradient(160deg,rgb(var(--surface-card) / .75) 0%,rgb(var(--surface-raised) / .9) 100%)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 16 }}>
               <span style={{ width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(168,85,247,.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,.3)' }}>
                 <RotateCcw width={16} height={16} />
               </span>
-              <h3 style={{ margin: 0, fontFamily: GROTESK, fontSize: 16, fontWeight: 600, color: '#f9fafb' }}>Habit consistency</h3>
+              <h3 style={{ margin: 0, fontFamily: GROTESK, fontSize: 16, fontWeight: 600, color: W.ink }}>Habit consistency</h3>
             </div>
 
             {model.habitRows.length === 0 ? (
-              <p style={{ margin: 0, fontSize: 13, color: '#6b7280' }}>No habits tracked this week.</p>
+              <p style={{ margin: 0, fontSize: 13, color: W.muted }}>No habits tracked this week.</p>
             ) : (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr repeat(7,22px) 34px', gap: 5, alignItems: 'center', marginBottom: 9, paddingLeft: 2 }}>
                   <span />
                   {letters.map((l, i) => (
-                    <span key={i} style={{ textAlign: 'center', fontSize: 9, fontWeight: 600, color: i === selectedOff ? A.ring : '#6b7280' }}>{l}</span>
+                    <span key={i} style={{ textAlign: 'center', fontSize: 9, fontWeight: 600, color: i === selectedOff ? A.ring : W.muted }}>{l}</span>
                   ))}
                   <span style={{ textAlign: 'center', fontSize: 10 }}>🔥</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
                   {model.habitRows.map((h, hi) => (
                     <div key={hi} data-demo-id="habit-row" style={{ display: 'grid', gridTemplateColumns: '1fr repeat(7,22px) 34px', gap: 5, alignItems: 'center' }}>
-                      <span style={{ fontSize: 12.5, color: '#e5e7eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
+                      <span style={{ fontSize: 12.5, color: W.soft, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
                       {h.cells.map((c, i) => (
                         <button
+                          className="week-focus"
+                          aria-label={`${h.name}, ${fullDow[i]}${c?.completed ? ', completed' : ', incomplete'}`}
                           key={i}
                           disabled={!c}
                           onClick={() => c && toggle(c)}
@@ -498,15 +517,15 @@ export default function WeekViewPage() {
                           style={{
                             width: 22, height: 22, borderRadius: 7, cursor: c ? 'pointer' : 'default',
                             display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
-                            border: `1px solid ${c?.completed ? 'rgba(168,85,247,.5)' : (i === selectedOff ? A.border : 'rgba(255,255,255,.08)')}`,
-                            background: c?.completed ? 'linear-gradient(135deg,#8b5cf6,#d946ef)' : (i === selectedOff ? A.chip : 'rgba(255,255,255,.04)'),
+                            border: `1px solid ${c?.completed ? 'rgba(168,85,247,.5)' : (i === selectedOff ? A.border : 'rgb(var(--text-primary) / .10)')}`,
+                            background: c?.completed ? 'linear-gradient(135deg,#8b5cf6,#d946ef)' : (i === selectedOff ? A.chip : 'rgb(var(--text-primary) / .06)'),
                             opacity: c ? 1 : 0.35,
                           }}
                         >
                           {c?.completed && <Check width={11} height={11} strokeWidth={3.5} />}
                         </button>
                       ))}
-                      <span style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, fontFamily: GROTESK, color: h.streak >= 3 ? '#fbbf24' : (h.streak > 0 ? '#e5e7eb' : '#4b5563') }}>{h.streak}</span>
+                      <span style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, fontFamily: GROTESK, color: h.streak >= 3 ? 'rgb(var(--week-workout))' : (h.streak > 0 ? W.soft : W.muted) }}>{h.streak}</span>
                     </div>
                   ))}
                 </div>
@@ -515,28 +534,30 @@ export default function WeekViewPage() {
           </div>
 
           {/* Weekly momentum */}
-          <div style={{ padding: 18, borderRadius: 18, border: '1px solid rgba(55,65,81,.5)', background: 'linear-gradient(160deg,rgba(31,41,55,.7) 0%,rgba(17,24,39,.9) 100%)' }}>
+          <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${W.line}`, background: 'linear-gradient(160deg,rgb(var(--surface-card) / .75) 0%,rgb(var(--surface-raised) / .9) 100%)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontFamily: GROTESK, fontSize: 16, fontWeight: 600, color: '#f9fafb' }}>This week</h3>
+              <h3 style={{ margin: 0, fontFamily: GROTESK, fontSize: 16, fontWeight: 600, color: W.ink }}>This week</h3>
               <button
+                className="week-focus"
+                aria-pressed={showCompleted}
                 onClick={() => setShowCompleted((s) => !s)}
-                style={{ fontSize: 11, fontWeight: 600, color: showCompleted ? A.ring : '#9ca3af', background: showCompleted ? A.chip : 'rgba(255,255,255,.04)', border: `1px solid ${showCompleted ? A.border : 'rgba(255,255,255,.08)'}`, borderRadius: 99, padding: '3px 10px', cursor: 'pointer' }}
+                style={{ fontSize: 11, fontWeight: 600, color: showCompleted ? A.ring : W.muted, background: showCompleted ? A.chip : 'rgb(var(--text-primary) / .06)', border: `1px solid ${showCompleted ? A.border : 'rgb(var(--text-primary) / .10)'}`, borderRadius: 99, padding: '3px 10px', cursor: 'pointer' }}
               >{showCompleted ? 'Hiding none' : 'Show completed'}</button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-              <div style={{ position: 'relative', width: 84, height: 84, flex: 'none' }}>
+              <div role="progressbar" aria-label="Weekly completion" aria-valuemin={0} aria-valuemax={100} aria-valuenow={model.weekPct} style={{ position: 'relative', width: 84, height: 84, flex: 'none' }}>
                 <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: `conic-gradient(${A.ring} ${model.weekPct}%, rgba(255,255,255,.08) ${model.weekPct}%)` }} />
-                <div style={{ position: 'absolute', inset: 9, borderRadius: '50%', background: '#0e1626', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontFamily: GROTESK, fontSize: 22, fontWeight: 700, color: '#f9fafb', lineHeight: 1 }}>{model.weekPct}%</span>
-                  <span style={{ fontSize: 9, color: '#9ca3af', marginTop: 2 }}>done</span>
+                <div style={{ position: 'absolute', inset: 9, borderRadius: '50%', background: W.sunken, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontFamily: GROTESK, fontSize: 22, fontWeight: 700, color: W.ink, lineHeight: 1 }}>{model.weekPct}%</span>
+                  <span style={{ fontSize: 9, color: W.muted, marginTop: 2 }}>done</span>
                 </div>
               </div>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 11 }}>
                 {model.momentum.map((m, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ width: 9, height: 9, borderRadius: 3, flex: 'none', background: m.color }} />
-                    <span style={{ flex: 1, fontSize: 13, color: '#cbd5e1' }}>{m.label}</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, fontFamily: GROTESK, color: '#f9fafb' }}>{m.value}</span>
+                    <span style={{ flex: 1, fontSize: 13, color: W.soft }}>{m.label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, fontFamily: GROTESK, color: W.ink }}>{m.value}</span>
                   </div>
                 ))}
               </div>

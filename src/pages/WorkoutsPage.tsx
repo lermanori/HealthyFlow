@@ -392,7 +392,7 @@ export default function WorkoutsPage() {
           </div>
           <h1 className="text-2xl font-bold text-ink neon-text">Workout Tracker</h1>
         </div>
-        <input type="date" className="input-field w-auto" value={date} onChange={(event) => setDate(event.target.value)} />
+        <input type="date" aria-label="Workout history date" className="input-field w-auto" value={date} onChange={(event) => setDate(event.target.value)} />
       </div>
 
       <div className="card space-y-4" data-testid="workout-plans">

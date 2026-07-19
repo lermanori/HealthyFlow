@@ -1,3 +1,4 @@
+import { ReactNode, useEffect } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
@@ -17,8 +18,48 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsOfServicePage from './pages/TermsOfServicePage'
 import LoadingSpinner from './components/LoadingSpinner'
 import OfflineNotification from './components/OfflineNotification'
-import { useEffect } from 'react'
-import { useSettings } from './hooks/useSettings'
+import { ModuleAvailability, OptionalModule, useSettings } from './hooks/useSettings'
+
+export interface ModuleNoticeState {
+  moduleNotice: {
+    module: OptionalModule
+    label: string
+    message: string
+  }
+}
+
+function ModuleGate({ availability, label, children, retry }: {
+  availability: ModuleAvailability
+  label: string
+  children: ReactNode
+  retry: () => unknown
+}) {
+  if (availability === 'enabled') return <>{children}</>
+  if (availability === 'disabled') {
+    const module = label.toLowerCase() as OptionalModule
+    return (
+      <Navigate
+        to="/"
+        replace
+        state={{ moduleNotice: { module, label, message: `${label} is disabled for this account.` } } satisfies ModuleNoticeState}
+      />
+    )
+  }
+  if (availability === 'loading') {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-live="polite">
+        <LoadingSpinner size="lg" label={`Checking ${label} availability`} />
+      </div>
+    )
+  }
+  return (
+    <div className="card mx-auto max-w-lg space-y-4" role="alert">
+      <h1 className="text-xl font-semibold text-ink">Could not check {label}</h1>
+      <p className="text-ink-muted">Your module settings could not be loaded. This page has not been disabled.</p>
+      <button type="button" className="btn-primary px-4 py-2" onClick={() => void retry()}>Retry</button>
+    </div>
+  )
+}
 
 function AssistantRedirect() {
   const location = useLocation()
@@ -27,7 +68,7 @@ function AssistantRedirect() {
 
 function App() {
   const { user, loading } = useAuth()
-  const { settings } = useSettings(!!user)
+  const { modules, retry } = useSettings(!!user)
 
   // Handle app visibility changes
   useEffect(() => {
@@ -77,9 +118,9 @@ function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/token-manager" element={user.role === 'admin' ? <TokenManagerPage /> : <Navigate to="/" replace />} />
           <Route path="/meal-ocr-lab" element={user.role === 'admin' ? <MealParserLabPage /> : <Navigate to="/" replace />} />
-          <Route path="/calories" element={settings?.calorieIntake ? <CaloriesPage /> : <Navigate to="/" replace />} />
-          <Route path="/achievements" element={settings?.achievementTracker ? <AchievementsPage /> : <Navigate to="/" replace />} />
-          <Route path="/workouts" element={settings?.workoutTracker ?? true ? <WorkoutsPage /> : <Navigate to="/" replace />} />
+          <Route path="/calories" element={<ModuleGate availability={modules.calories} label="Calories" retry={retry}><CaloriesPage /></ModuleGate>} />
+          <Route path="/achievements" element={<ModuleGate availability={modules.achievements} label="Achievements" retry={retry}><AchievementsPage /></ModuleGate>} />
+          <Route path="/workouts" element={<ModuleGate availability={modules.workouts} label="Workouts" retry={retry}><WorkoutsPage /></ModuleGate>} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

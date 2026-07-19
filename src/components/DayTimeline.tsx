@@ -171,14 +171,12 @@ function CalendarEventBlock({
         <button
           type="button"
           onClick={() => onComplete(event.id, !event.completed)}
-          className={`flex !h-4 !min-h-0 !w-4 !min-w-0 flex-shrink-0 items-center justify-center rounded-full border-2 transition-all duration-300 sm:!h-5 sm:!w-5 ${
-            event.completed
-              ? 'bg-gradient-to-r from-green-500 to-emerald-600 border-green-500 text-white'
-              : 'border-line-strong hover:border-cyan-400 hover:bg-cyan-400/10'
-          }`}
+          className="-m-3 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           aria-label={event.completed ? 'Uncheck calendar event' : 'Check calendar event'}
         >
-          {event.completed && <Check className="h-3 w-3" />}
+          <span aria-hidden="true" className={`flex h-4 w-4 items-center justify-center rounded-full border-2 transition-all duration-300 sm:h-5 sm:w-5 ${event.completed ? 'border-green-500 bg-gradient-to-r from-green-500 to-emerald-600 text-white' : 'border-line-strong'}`}>
+            {event.completed && <Check className="h-3 w-3" />}
+          </span>
         </button>
 
         <div className="min-w-0 flex-1 space-y-1">

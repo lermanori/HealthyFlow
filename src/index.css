@@ -19,6 +19,12 @@
   --text-muted: 156 163 175;   /* gray-400 #9ca3af */
   --border-default: 55 65 81;  /* gray-700 #374151 */
   --border-strong: 75 85 99;   /* gray-600 #4b5563 */
+  --week-task: 34 211 238;
+  --week-habit: 192 132 252;
+  --week-grocery: 52 211 153;
+  --week-meal: 251 113 133;
+  --week-workout: 251 191 36;
+  --week-calendar: 56 189 248;
   --mobile-dock-content-height: 4.5rem;
   --mobile-dock-height: calc(var(--mobile-dock-content-height) + env(safe-area-inset-bottom));
 }
@@ -34,6 +40,12 @@
   --text-muted: 100 116 139;    /* slate-500 #64748b */
   --border-default: 226 232 240;/* slate-200 #e2e8f0 */
   --border-strong: 203 213 225; /* slate-300 #cbd5e1 */
+  --week-task: 8 112 140;
+  --week-habit: 126 34 206;
+  --week-grocery: 4 120 87;
+  --week-meal: 190 18 60;
+  --week-workout: 180 83 9;
+  --week-calendar: 3 105 161;
 }
 
 @layer base {
@@ -56,11 +68,11 @@
     -webkit-text-size-adjust: 100%;
     /* Prevent pull-to-refresh */
     overscroll-behavior-y: contain;
-    /* Prevent selection on mobile */
+    /* Keep ordinary content selectable; controls opt out where interaction requires it. */
     -webkit-touch-callout: none;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    user-select: none;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    user-select: text;
   }
 
   /* Allow text selection for inputs and content areas */
@@ -77,6 +89,11 @@
 
   p, span, div {
     color: rgb(var(--text-secondary));
+  }
+
+  .week-focus:focus-visible {
+    outline: 2px solid rgb(34 211 238);
+    outline-offset: 3px;
   }
 
   /* Futuristic scrollbar */
