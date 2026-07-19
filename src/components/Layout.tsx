@@ -1,5 +1,6 @@
 import { ReactNode, useEffect, useState, useRef } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { createPortal } from 'react-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Home,
   Calendar,
@@ -21,6 +22,8 @@ import PWAInstallPrompt from './PWAInstallPrompt'
 import MayaDemoGuide from './MayaDemoGuide'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSettings } from '../hooks/useSettings'
+import type { ModuleNoticeState } from '../App'
+import { useModalFocus } from '../hooks/useModalFocus'
 
 interface LayoutProps {
   children: ReactNode
@@ -28,10 +31,13 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
+  const navigate = useNavigate()
   const { user, logout } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
+  const mobileMenuRef = useRef<HTMLDivElement>(null)
+  const mobileMenuCloseRef = useRef<HTMLButtonElement>(null)
 
   // Check if device is mobile
   useEffect(() => {
@@ -49,18 +55,12 @@ export default function Layout({ children }: LayoutProps) {
     setIsMobileMenuOpen(false)
   }, [location.pathname])
 
-  // Prevent body scroll when mobile menu is open
-  useEffect(() => {
-    if (isMobileMenuOpen) {
-      document.body.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = 'unset'
-    }
-    
-    return () => {
-      document.body.style.overflow = 'unset'
-    }
-  }, [isMobileMenuOpen])
+  useModalFocus({
+    open: isMobileMenuOpen,
+    onClose: () => setIsMobileMenuOpen(false),
+    containerRef: mobileMenuRef,
+    initialFocusRef: mobileMenuCloseRef,
+  })
 
   useEffect(() => {
     window.__healthyFlowDemo = {
@@ -76,7 +76,7 @@ export default function Layout({ children }: LayoutProps) {
     }
   }, [])
 
-  const { settings } = useSettings()
+  const { modules, resolution, retry } = useSettings()
   const isTalkPage = location.pathname === '/talk'
   const searchParams = new URLSearchParams(location.search)
   const isDemo = location.pathname === '/demo' || Boolean(searchParams.get('demo')) || Boolean(localStorage.getItem('demoPersona'))
@@ -85,24 +85,35 @@ export default function Layout({ children }: LayoutProps) {
     { name: 'Today', href: '/', icon: Home },
     { name: 'Talk', href: '/talk', icon: MessageCircle },
     { name: 'Week View', href: '/week', icon: Calendar },
-    ...(settings?.calorieIntake ? [{ name: 'Calories', href: '/calories', icon: Utensils }] : []),
-    ...(settings?.achievementTracker ? [{ name: 'Achievements', href: '/achievements', icon: Award }] : []),
-    ...(settings?.workoutTracker ?? true ? [{ name: 'Workouts', href: '/workouts', icon: Dumbbell }] : []),
+    ...(modules.calories === 'enabled' ? [{ name: 'Calories', href: '/calories', icon: Utensils }] : []),
+    ...(modules.achievements === 'enabled' ? [{ name: 'Achievements', href: '/achievements', icon: Award }] : []),
+    ...(modules.workouts === 'enabled' ? [{ name: 'Workouts', href: '/workouts', icon: Dumbbell }] : []),
     { name: 'Settings', href: '/settings', icon: Settings },
     ...(user?.role === 'admin' ? [{ name: 'OCR Lab', href: '/meal-ocr-lab', icon: Microscope }] : []),
     ...(user?.role === 'admin' ? [{ name: 'Token Manager', href: '/token-manager', icon: Coins }] : []),
   ]
+  const moduleNotice = (location.state as ModuleNoticeState | null)?.moduleNotice
+
+  const dismissModuleNotice = () => {
+    const state = location.state && typeof location.state === 'object'
+      ? { ...(location.state as Record<string, unknown>) }
+      : {}
+    delete state.moduleNotice
+    navigate(`${location.pathname}${location.search}${location.hash}`, { replace: true, state })
+  }
 
   const primaryMobileNavigation = navigation.filter((item) => (
     item.href === '/' || item.href === '/talk'
   ))
 
-  const MobileNavigation = () => (
+  const MobileNavigation = () => createPortal((
     <AnimatePresence>
       {isMobileMenuOpen && (
         <>
           {/* Backdrop */}
-          <motion.div
+          <motion.button
+            type="button"
+            aria-label="Close navigation drawer"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -112,6 +123,11 @@ export default function Layout({ children }: LayoutProps) {
           
           {/* Mobile Menu */}
           <motion.div
+            ref={mobileMenuRef}
+            tabIndex={-1}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-navigation-title"
             initial={{ x: '-100%' }}
             animate={{ x: 0 }}
             exit={{ x: '-100%' }}
@@ -129,12 +145,15 @@ export default function Layout({ children }: LayoutProps) {
                     <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-cyan-400 animate-neon-flicker" />
                   </div>
                   <div>
-                    <h1 className="text-xl font-bold text-ink neon-text">HealthyFlow</h1>
+                    <h1 id="mobile-navigation-title" className="text-xl font-bold text-ink neon-text">HealthyFlow navigation</h1>
                     <p className="text-xs text-cyan-400">AI-Powered Planner</p>
                   </div>
                 </div>
                 
                 <button
+                  ref={mobileMenuCloseRef}
+                  type="button"
+                  aria-label="Close navigation drawer"
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="p-2 rounded-lg hover:bg-card/50 transition-colors text-ink-muted hover:text-ink-soft"
                 >
@@ -143,7 +162,7 @@ export default function Layout({ children }: LayoutProps) {
               </div>
 
               {/* Navigation */}
-              <nav className="flex-1 overflow-y-auto p-6">
+              <nav aria-label="Application" className="flex-1 overflow-y-auto p-6">
                 <ul className="space-y-2">
                   {navigation.map((item) => {
                     const isActive = location.pathname === item.href
@@ -213,7 +232,7 @@ export default function Layout({ children }: LayoutProps) {
         </>
       )}
     </AnimatePresence>
-  )
+  ), document.body)
 
   return (
     <div className="min-h-screen bg-page">
@@ -232,6 +251,8 @@ export default function Layout({ children }: LayoutProps) {
         <header className="pwa-mobile-header fixed left-0 right-0 top-0 z-30 border-b border-line/50 lg:hidden">
           <div className="flex h-[calc(4.8125rem+env(safe-area-inset-top))] items-end justify-between p-4">
             <button
+              type="button"
+              aria-label="Open navigation menu"
               onClick={() => setIsMobileMenuOpen(true)}
               data-demo-id="account-menu"
               className="p-2 rounded-lg hover:bg-card/50 transition-colors text-ink-muted hover:text-ink-soft"
@@ -251,6 +272,8 @@ export default function Layout({ children }: LayoutProps) {
             
             {/* Mobile User Menu Button */}
             <button
+              type="button"
+              aria-label="Open account navigation"
               onClick={() => setIsMobileMenuOpen(true)}
               data-demo-id="account-menu"
               className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full flex items-center justify-center"
@@ -363,6 +386,25 @@ export default function Layout({ children }: LayoutProps) {
           ref={contentRef}
         >
           <div className={`min-w-0 ${isMobile ? `max-w-full ${isTalkPage ? 'h-full' : ''}` : 'max-w-6xl'} mx-auto`}>
+            {moduleNotice && (
+              <div className="mb-4 flex items-start justify-between gap-4 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm" role="status">
+                <div>
+                  <p className="font-medium text-ink">{moduleNotice.message}</p>
+                  <Link className="mt-1 inline-block font-medium text-cyan-400 underline underline-offset-2" to="/settings#features">
+                    Enable in Settings
+                  </Link>
+                </div>
+                <button type="button" aria-label="Dismiss module notice" className="rounded-lg p-2 text-ink-muted hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400" onClick={dismissModuleNotice}>
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            )}
+            {resolution === 'error' && !moduleNotice && (
+              <div className="mb-4 flex items-center justify-between gap-4 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm" role="status">
+                <p className="text-ink">Optional modules could not be checked.</p>
+                <button type="button" className="font-medium text-cyan-400 underline underline-offset-2" onClick={() => void retry()}>Retry</button>
+              </div>
+            )}
             {children}
             {!(isMobile && isTalkPage) && (
               <footer className="mt-10 flex flex-wrap justify-center gap-4 text-xs text-gray-500">

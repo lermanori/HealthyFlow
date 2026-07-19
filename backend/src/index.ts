@@ -21,6 +21,7 @@ import { onboardingRoutes } from './routes/onboarding'
 import { contactMessageRoutes } from './routes/contact-messages'
 import { mcpRoutes } from './routes/mcp'
 import { proactivityRoutes } from './routes/proactivity'
+import { accountRoutes } from './routes/account'
 import { initDatabase } from './db/database'
 import { db } from './supabase-client'
 import { startProactivityScheduler } from './proactivity'
@@ -86,6 +87,7 @@ app.use('/api/onboarding', onboardingRoutes)
 app.use('/api/contact-messages', contactMessageRoutes)
 app.use('/mcp', mcpRoutes)
 app.use('/api/proactivity', proactivityRoutes)
+app.use('/api/account', accountRoutes)
 
 // Test-mode reset route — 404 in production, mounted only when HF_TEST_MODE=1
 if (process.env.HF_TEST_MODE === '1') {

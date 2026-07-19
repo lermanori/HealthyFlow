@@ -1,3 +1,9 @@
+### 2026-07-19 08:52 — `design-review`
+
+Completed Phase 0’s reliability and trust foundation across module routing, shared accessibility controls, Week theming, modal and mobile-drawer focus behavior, and account privacy workflows. Portable export and verified deletion now have backend contracts and regression coverage, while the frontend and backend validation suites are green and the six implementation issues are ready for review as one coordinated release.
+
+---
+
 ### 2026-07-16 18:14 — `feat/habit-progress`
 
 Refined the target-Habit outcome language from “Not done today” to “Not done yet,” keeping the neutral styling, preserved-progress explanation, and immediate dismissal behavior unchanged. The mobile browser regression now asserts the revised label.

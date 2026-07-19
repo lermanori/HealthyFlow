@@ -4,6 +4,26 @@ import { settingsService, UserSettings } from '../services/api'
 
 const QUERY_KEY = ['settings']
 
+export type SettingsResolution = 'loading' | 'ready' | 'error'
+export type ModuleAvailability = 'loading' | 'enabled' | 'disabled' | 'error'
+export type OptionalModule = 'calories' | 'achievements' | 'workouts'
+
+const moduleSetting: Record<OptionalModule, keyof Pick<UserSettings, 'calorieIntake' | 'achievementTracker' | 'workoutTracker'>> = {
+  calories: 'calorieIntake',
+  achievements: 'achievementTracker',
+  workouts: 'workoutTracker',
+}
+
+export function resolveModuleAvailability(
+  settings: UserSettings | undefined,
+  resolution: SettingsResolution,
+  module: OptionalModule
+): ModuleAvailability {
+  if (resolution === 'loading') return 'loading'
+  if (resolution === 'error' || !settings) return 'error'
+  return settings[moduleSetting[module]] ? 'enabled' : 'disabled'
+}
+
 // Source of truth is the settings record; mirror to localStorage + <html> so the
 // theme applies pre-fetch (see inline snippet in index.html) with no flash.
 export function applyTheme(theme: UserSettings['theme']) {
@@ -20,11 +40,17 @@ export function applyTheme(theme: UserSettings['theme']) {
 export function useSettings(enabled = true) {
   const queryClient = useQueryClient()
 
-  const { data: settings, isLoading } = useQuery({
+  const settingsQuery = useQuery({
     queryKey: QUERY_KEY,
     queryFn: settingsService.getSettings,
     enabled,
   })
+  const settings = settingsQuery.data
+  const resolution: SettingsResolution = settings
+    ? 'ready'
+    : settingsQuery.isError
+      ? 'error'
+      : 'loading'
 
   useEffect(() => {
     if (settings?.theme) applyTheme(settings.theme)
@@ -54,5 +80,17 @@ export function useSettings(enabled = true) {
     mutation.mutate({ [key]: value })
   }
 
-  return { settings, isLoading, updateSetting }
+  return {
+    settings,
+    resolution,
+    isLoading: resolution === 'loading',
+    error: settingsQuery.error,
+    retry: settingsQuery.refetch,
+    modules: {
+      calories: resolveModuleAvailability(settings, resolution, 'calories'),
+      achievements: resolveModuleAvailability(settings, resolution, 'achievements'),
+      workouts: resolveModuleAvailability(settings, resolution, 'workouts'),
+    } satisfies Record<OptionalModule, ModuleAvailability>,
+    updateSetting,
+  }
 }

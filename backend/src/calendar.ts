@@ -857,6 +857,25 @@ export async function disconnectGoogleCalendar(userId: string): Promise<void> {
   await markGoogleCalendarDisconnected(userId)
 }
 
+export async function revokeGoogleAuthorization(userId: string): Promise<void> {
+  const { data, error } = await supabase
+    .from('calendar_connections')
+    .select('access_token_encrypted, refresh_token_encrypted')
+    .eq('user_id', userId)
+    .eq('provider', 'google')
+    .maybeSingle()
+  if (error) throw error
+  if (!data) return
+  const encrypted = data.refresh_token_encrypted || data.access_token_encrypted
+  if (!encrypted) return
+  const token = decryptToken(encrypted)
+  const response = await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(token)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  })
+  if (!response.ok) throw new Error(`Google revocation returned ${response.status}`)
+}
+
 export function getCalendarOAuthReturnUrl(status: 'connected' | 'error', message?: string): string {
   const params = new URLSearchParams({ calendar: status })
   if (message) params.set('message', message)

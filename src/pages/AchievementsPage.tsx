@@ -13,6 +13,7 @@ import {
   Trophy,
   X,
 } from 'lucide-react'
+import Progress from '../components/Progress'
 import { useAchievements } from '../hooks/useAchievements'
 import {
   AchievementBetterDirection,
@@ -182,6 +183,7 @@ function AchievementPill({
   return (
     <button
       onClick={onClick}
+      aria-pressed={active}
       className={`min-w-[11rem] max-w-[14rem] shrink-0 rounded-lg border p-3 text-left transition-all ${
         active
           ? 'border-cyan-500/50 bg-cyan-500/12 shadow-lg shadow-cyan-500/10'
@@ -488,6 +490,7 @@ export default function AchievementsPage() {
                         setEditingDefinition((value) => !value)
                       }}
                       title="Edit"
+                      aria-label={`Edit ${selected.definition.name}`}
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -495,6 +498,7 @@ export default function AchievementsPage() {
                       className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70 hover:text-cyan-300"
                       onClick={() => updateAchievement({ id: selected.definition.id, patch: { archived: true } })}
                       title="Archive"
+                      aria-label={`Archive ${selected.definition.name}`}
                     >
                       <Archive className="h-4 w-4" />
                     </button>
@@ -502,6 +506,7 @@ export default function AchievementsPage() {
                       className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-red-500/10 hover:text-red-400"
                       onClick={() => deleteAchievement(selected.definition.id)}
                       title="Delete"
+                      aria-label={`Delete ${selected.definition.name}`}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -584,12 +589,14 @@ export default function AchievementsPage() {
                     </div>
                     <div className="mt-3 flex justify-end gap-2">
                       <button
+                        aria-label={`Save changes to ${selected.definition.name}`}
                         className="flex h-10 w-10 items-center justify-center rounded-lg text-cyan-400 hover:bg-cyan-500/10"
                         onClick={submitDefinitionEdit}
                       >
                         <Check className="h-4 w-4" />
                       </button>
                       <button
+                        aria-label={`Cancel editing ${selected.definition.name}`}
                         className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70"
                         onClick={() => setEditingDefinition(false)}
                       >
@@ -628,12 +635,7 @@ export default function AchievementsPage() {
 
                 {selected.definition.targetValue && (
                   <div className="mt-4">
-                    <div className="h-2 rounded-full bg-card">
-                      <div
-                        className="h-2 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500"
-                        style={{ width: `${selected.targetProgress == null ? 0 : Math.round(selected.targetProgress)}%` }}
-                      />
-                    </div>
+                    <Progress className="h-2" label={`${selected.definition.name} target progress`} value={selected.targetProgress == null ? 0 : Math.round(selected.targetProgress)} />
                   </div>
                 )}
               </div>
@@ -755,6 +757,7 @@ export default function AchievementsPage() {
                         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[9rem_1fr_1fr_1fr_1.3fr]">
                           <input
                             type="date"
+                            aria-label="Edit achievement entry date"
                             className="input-field"
                             value={editEntryForm.date}
                             onChange={(event) => setEditEntryForm({ ...editEntryForm, date: event.target.value })}
@@ -793,6 +796,7 @@ export default function AchievementsPage() {
                         </div>
                         <div className="flex justify-end gap-2">
                           <button
+                            aria-label={`Save ${selected.definition.name} result from ${formatDateLabel(entry.date)}`}
                             onClick={submitEntryEdit}
                             disabled={!isValidEntryForm(editEntryForm)}
                             className="flex h-10 w-10 items-center justify-center rounded-lg text-cyan-400 hover:bg-cyan-500/10 disabled:opacity-40"
@@ -800,6 +804,7 @@ export default function AchievementsPage() {
                             <Check className="h-4 w-4" />
                           </button>
                           <button
+                            aria-label={`Cancel editing ${selected.definition.name} result from ${formatDateLabel(entry.date)}`}
                             onClick={() => setEditingEntryId(null)}
                             className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70"
                           >
@@ -817,6 +822,7 @@ export default function AchievementsPage() {
                         </div>
                         <div className="flex shrink-0 items-center gap-1">
                           <button
+                            aria-label={`Edit ${selected.definition.name} result from ${formatDateLabel(entry.date)}`}
                             className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70 hover:text-cyan-300"
                             onClick={() => {
                               setEditingEntryId(entry.id)
@@ -826,6 +832,7 @@ export default function AchievementsPage() {
                             <Pencil className="h-4 w-4" />
                           </button>
                           <button
+                            aria-label={`Delete ${selected.definition.name} result from ${formatDateLabel(entry.date)}`}
                             className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-muted hover:bg-red-500/10 hover:text-red-400"
                             onClick={() => deleteEntry(entry.id)}
                           >

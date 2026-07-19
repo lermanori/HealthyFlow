@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Minus, Pencil, Plus, RotateCcw, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { HabitItem, HabitOutcome, HabitProgressDetail, HabitTargetUnit, taskService } from '../services/api'
+import Progress from './Progress'
+import { useModalFocus } from '../hooks/useModalFocus'
 
 const labels: Record<HabitOutcome, string> = { pending: 'Pending', partial: 'Partial', completed: 'Completed', failed: 'Not done' }
 const quickAmounts: Record<HabitTargetUnit, number[]> = { minutes: [5, 10, 20], reps: [1, 5, 10], count: [1, 2, 5] }
@@ -43,25 +45,8 @@ export default function HabitOutcomeSheet({ habit, date, onClose }: { habit: Hab
     },
     onError: (error: any) => toast.error(error?.response?.data?.error ?? 'Could not update Habit'),
   })
-
-  useEffect(() => {
-    const previouslyFocused = document.activeElement as HTMLElement | null
-    const previous = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    panelRef.current?.focus()
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose()
-      if (event.key !== 'Tab' || !panelRef.current) return
-      const focusable = Array.from(panelRef.current.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex="0"]'))
-      if (focusable.length === 0) return
-      const first = focusable[0]
-      const last = focusable[focusable.length - 1]
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus() }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus() }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => { document.body.style.overflow = previous; window.removeEventListener('keydown', onKey); previouslyFocused?.focus() }
-  }, [onClose])
+  const close = () => { if (!mutation.isPending) onClose() }
+  useModalFocus({ open: true, onClose: close, containerRef: panelRef, pending: mutation.isPending })
 
   const submitAmount = (value = Number(amount)) => {
     if (!Number.isFinite(value) || value <= 0) return
@@ -69,26 +54,25 @@ export default function HabitOutcomeSheet({ habit, date, onClose }: { habit: Hab
   }
 
   const submitTerminalOutcome = (outcome: 'completed' | 'failed') => {
-    mutation.mutate({ kind: 'outcome', outcome })
-    onClose()
+    mutation.mutate({ kind: 'outcome', outcome }, { onSuccess: onClose })
   }
 
   return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="habit-outcome-title">
-      <button type="button" className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={onClose} aria-label="Close Habit check-in" />
+      <button type="button" className="absolute inset-0 bg-black/65 backdrop-blur-sm" onClick={close} disabled={mutation.isPending} aria-label="Close Habit check-in" />
       <div ref={panelRef} tabIndex={-1} className="relative flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-line bg-page shadow-2xl outline-none sm:max-h-[88dvh] sm:rounded-3xl">
         <div className="shrink-0 px-5 pb-3 pt-3 sm:pt-5">
           <div className="mx-auto mb-3 h-1 w-12 rounded-full bg-line-strong sm:hidden" />
           <div className="flex items-start justify-between gap-3">
             <div><p className="text-xs font-semibold uppercase tracking-wider text-cyan-400">{target ? 'Log progress' : 'Record outcome'}</p><h2 id="habit-outcome-title" className="mt-1 text-xl font-bold text-ink">{habit.title}</h2></div>
-            <button type="button" onClick={onClose} aria-label="Close" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ink-muted hover:bg-card"><X className="h-5 w-5" /></button>
+            <button type="button" onClick={close} disabled={mutation.isPending} aria-label="Close" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ink-muted hover:bg-card disabled:opacity-50"><X className="h-5 w-5" /></button>
           </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           {isLoading ? <p className="py-10 text-center text-sm text-ink-muted">Loading Habit…</p> : target ? <>
           <div className="mt-5 flex items-end justify-between"><strong className="text-3xl text-ink">{info.progressTotal} <span className="text-base font-medium text-ink-muted">/ {target.value} {unitLabel(target.unit, target.value)}</span></strong><span className="text-xs text-ink-muted">{percent}% · {labels[info.outcome]}</span></div>
-          <div className="mt-2 h-3 overflow-hidden rounded-full bg-card"><div className={`h-full rounded-full ${info.outcome === 'completed' ? 'bg-emerald-400' : 'bg-gradient-to-r from-cyan-400 to-amber-400'}`} style={{ width: `${percent}%` }} /></div>
+          <Progress className="mt-2 h-3" label={`${habit.title} progress`} value={info.progressTotal} max={target.value} indicatorClassName={info.outcome === 'completed' ? 'bg-emerald-400' : 'bg-gradient-to-r from-cyan-400 to-amber-400'} />
           <p className="mt-5 text-sm font-medium text-ink">How much did you do?</p>
           <div className="mt-2 grid grid-cols-3 gap-2">{quickAmounts[target.unit].map(value => <button key={value} type="button" disabled={mutation.isPending} onClick={() => submitAmount(value)} className="min-h-12 rounded-xl border border-line bg-card/70 px-2 text-sm font-medium text-ink-soft transition-colors hover:border-cyan-400/40 hover:bg-card disabled:opacity-50">+ {value} {unitLabel(target.unit, value)}</button>)}</div>
           <div className="mt-3 grid grid-cols-[1fr_auto] gap-2"><input type="text" inputMode="decimal" value={amount} onChange={event => setAmount(event.target.value)} className="input-field" placeholder={`Other ${target.unit}`} /><button type="button" onClick={() => submitAmount()} disabled={mutation.isPending || !amount} className="btn-secondary min-h-11 px-4"><Plus className="h-4 w-4" /></button></div>

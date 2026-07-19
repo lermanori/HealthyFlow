@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
+import { createPortal } from 'react-dom'
 import { Utensils, Plus, Trash2, Pencil, X, Check, Sparkles, Clock, Scale, TrendingDown, TrendingUp, Minus } from 'lucide-react'
 import { useCalorieEntries } from '../hooks/useCalorieEntries'
 import { CalorieEntry, CalorieEntryInput, CalorieItem, WeightEntry } from '../services/api'
 import { useWeightTracking } from '../hooks/useWeightTracking'
 import MealAnalyzer from '../components/MealAnalyzer'
 import { useCalorieItems } from '../hooks/useCalorieItems'
+import { useModalFocus } from '../hooks/useModalFocus'
+import IconButton from '../components/IconButton'
 
 const todayStr = () => new Date().toISOString().slice(0, 10)
 const currentTime = () => new Date().toTimeString().slice(0, 5)
@@ -147,6 +150,7 @@ export default function CaloriesPage() {
   const [weightDraft, setWeightDraft] = useState('')
   const [isEditingWeight, setIsEditingWeight] = useState(false)
   const quickInsertSearchRef = useRef<HTMLInputElement | null>(null)
+  const quickInsertDialogRef = useRef<HTMLDivElement | null>(null)
   const quickInsertItemRefs = useRef<Array<HTMLButtonElement | null>>([])
   const groupedEntries = entries.reduce<Record<string, CalorieEntry[]>>((groups, entry) => {
     const key = entry.time ?? 'no-time'
@@ -178,20 +182,6 @@ export default function CaloriesPage() {
     setHighlightedQuickInsertIndex((current) => Math.min(current, lastIndex))
   }, [adding, filteredQuickInsertItems])
 
-  useEffect(() => {
-    if (!adding) return
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setAdding(false)
-        setAddForm(emptyForm(currentTime()))
-      }
-    }
-
-    window.addEventListener('keydown', handleEscape)
-    return () => window.removeEventListener('keydown', handleEscape)
-  }, [adding])
-
   const submitAdd = () => {
     if (!addForm.name.trim() || addForm.calories === '') return
     createEntry(formToInput(date, addForm))
@@ -208,6 +198,12 @@ export default function CaloriesPage() {
     setAdding(false)
     setAddForm(emptyForm(currentTime()))
   }
+  useModalFocus({
+    open: adding,
+    onClose: closeAddPanel,
+    containerRef: quickInsertDialogRef,
+    initialFocusRef: quickInsertSearchRef,
+  })
 
   const moveQuickInsertHighlight = (direction: 1 | -1) => {
     if (filteredQuickInsertItems.length === 0) return
@@ -328,6 +324,7 @@ export default function CaloriesPage() {
         <div className="flex items-center gap-2">
           <input
             type="date"
+            aria-label="Calorie log date"
             className="input-field w-auto"
             value={date}
             onChange={(e) => setDate(e.target.value)}
@@ -398,6 +395,7 @@ export default function CaloriesPage() {
                     <button onClick={cancelWeight} className="text-ink-muted"><X className="h-4 w-4" /></button>
                     {weightEntry && (
                       <button
+                        aria-label={`Delete weight entry for ${date}`}
                         onClick={() => {
                           deleteWeightEntry(weightEntry.id)
                           cancelWeight()
@@ -507,8 +505,8 @@ export default function CaloriesPage() {
                           <MacroStat label="Fat" value={e.fat} />
                         </div>
                         <div className="flex gap-2 justify-end">
-                          <button onClick={() => startEdit(e)} className="text-ink-muted hover:text-cyan-400"><Pencil className="w-4 h-4" /></button>
-                          <button onClick={() => deleteEntry(e.id)} className="text-ink-muted hover:text-red-400"><Trash2 className="w-4 h-4" /></button>
+                          <IconButton label={`Edit ${e.name} calorie entry`} onClick={() => startEdit(e)} className="text-ink-muted hover:text-cyan-400"><Pencil className="w-4 h-4" /></IconButton>
+                          <IconButton label={`Delete ${e.name} calorie entry`} onClick={() => deleteEntry(e.id)} className="text-ink-muted hover:text-red-400"><Trash2 className="w-4 h-4" /></IconButton>
                         </div>
                       </div>
                     )
@@ -546,8 +544,7 @@ export default function CaloriesPage() {
         </div>
       </div>
 
-      <AnimatePresence>
-        {adding && (
+      {adding && createPortal((
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <button
               type="button"
@@ -556,6 +553,8 @@ export default function CaloriesPage() {
               onClick={closeAddPanel}
             />
             <div
+              ref={quickInsertDialogRef}
+              tabIndex={-1}
               role="dialog"
               aria-modal="true"
               aria-labelledby="calorie-quick-insert-title"
@@ -710,8 +709,7 @@ export default function CaloriesPage() {
               </div>
             </div>
           </div>
-        )}
-      </AnimatePresence>
+        ), document.body)}
     </div>
   )
 }

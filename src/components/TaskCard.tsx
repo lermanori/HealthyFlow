@@ -231,17 +231,14 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       {/* Completion Checkbox */}
       <div className={`flex min-h-0 min-w-0 ${compact ? 'w-full items-center gap-2' : 'items-start space-x-3'}`}>
         <button
+          type="button"
           onClick={(event) => { event.stopPropagation(); handleComplete() }}
           aria-label={task.type === 'habit' ? `Check in ${task.title}` : task.completed ? 'Uncheck task' : 'Check task'}
-          className={`flex-shrink-0 rounded-full border-2 flex items-center justify-center cursor-pointer transition-all duration-300 ${
-            compact ? '!h-4 !min-h-0 !w-4 !min-w-0 sm:!h-5 sm:!w-5' : 'h-5 w-5'
-          } ${
-            task.completed
-              ? 'bg-gradient-to-r from-green-500 to-emerald-600 border-green-500 text-white'
-              : 'border-line-strong hover:border-cyan-400 hover:bg-cyan-400/10'
-          }`}
+          className="-m-3 flex h-11 w-11 flex-shrink-0 cursor-pointer items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
         >
-          {task.type === 'habit' ? <RotateCcw className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} /> : task.completed && <Check className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />}
+          <span aria-hidden="true" className={`flex items-center justify-center rounded-full border-2 transition-all duration-300 ${compact ? 'h-4 w-4 sm:h-5 sm:w-5' : 'h-5 w-5'} ${task.completed ? 'border-green-500 bg-gradient-to-r from-green-500 to-emerald-600 text-white' : 'border-line-strong group-hover:border-cyan-400'}`}>
+            {task.type === 'habit' ? <RotateCcw className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} /> : task.completed && <Check className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />}
+          </span>
         </button>
 
         <div className="min-w-0 flex-1">

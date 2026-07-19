@@ -7,9 +7,11 @@ import { useNotifications } from '../hooks/useNotifications'
 import { useCredits } from '../hooks/useCredits'
 import { useSettings, applyTheme } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
-import api, { ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DailyTouchpointRhythm, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
+import api, { accountService, ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DailyTouchpointRhythm, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
 import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
+import Switch from '../components/Switch'
+import DeleteAccountDialog from '../components/DeleteAccountDialog'
 
 function mcpEndpoint() {
   const apiBase = api.defaults.baseURL ?? 'http://localhost:3001/api'
@@ -56,7 +58,7 @@ function mergeRhythm(current: UserRhythm, patch: UserRhythmPatch): UserRhythm {
 
 export default function SettingsPage() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, completeAccountDeletion } = useAuth()
   const { permission, requestPermission } = useNotifications()
   const { balance, summary: creditSummary, isLoading: creditsLoading } = useCredits()
   const { settings, updateSetting } = useSettings()
@@ -76,6 +78,8 @@ export default function SettingsPage() {
   const [rhythm, setRhythm] = useState<UserRhythm | null>(null)
   const [rhythmLoading, setRhythmLoading] = useState(true)
   const [rhythmSaving, setRhythmSaving] = useState<TouchpointType | 'timezone' | null>(null)
+  const [exportingAccount, setExportingAccount] = useState(false)
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -327,47 +331,21 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
     }
   }
 
-  const SettingToggle = ({ 
-    label, 
-    description, 
-    checked, 
-    onChange,
-    disabled = false
-  }: { 
-    label: string
-    description: string
-    checked: boolean
-    onChange: (checked: boolean) => void
-    disabled?: boolean
-  }) => (
-    <div className="flex items-center justify-between py-4">
-      <div className="flex-1">
-        <h3 className={`text-sm font-medium ${disabled ? 'text-gray-500' : 'text-ink-soft'}`}>
-          {label}
-        </h3>
-        <p className={`text-sm ${disabled ? 'text-gray-600' : 'text-ink-muted'}`}>
-          {description}
-        </p>
-      </div>
-      <button
-        onClick={() => !disabled && onChange(!checked)}
-        disabled={disabled}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-          disabled 
-            ? 'bg-gray-700 cursor-not-allowed'
-            : checked 
-              ? 'bg-cyan-500' 
-              : 'bg-gray-600'
-        }`}
-      >
-        <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-            checked ? 'translate-x-6' : 'translate-x-1'
-          }`}
-        />
-      </button>
-    </div>
-  )
+  const handleExportAccount = async () => {
+    setExportingAccount(true)
+    try {
+      const filename = await accountService.exportData()
+      toast.success(`Exported ${filename}`)
+    } catch {
+      toast.error('Could not export account data')
+      throw new Error('Account export failed')
+    } finally {
+      setExportingAccount(false)
+    }
+  }
+
+  const deletionBlocked = user?.role === 'admin' || user?.email === 'demo@healthyflow.com' || Boolean(user?.email.startsWith('demo-'))
+
 
   const CalendarSyncLed = ({ connected }: { connected: boolean }) => (
     <div className="relative h-16 w-16 shrink-0 rounded-full bg-gradient-to-br from-sunken via-card to-sunken p-2 shadow-inner shadow-black/80 border border-line">
@@ -623,7 +601,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         )}
         
         <div className="divide-y divide-gray-700/50">
-          <SettingToggle
+          <Switch
             label="Push Notifications"
             description="Receive notifications for task reminders and updates"
             checked={settings?.notifications ?? true}
@@ -631,21 +609,21 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
             disabled={!permission.granted}
           />
 
-          <SettingToggle
+          <Switch
             label="Daily Reminders"
             description="Get reminded about your daily tasks and habits"
             checked={settings?.dailyReminders ?? true}
             onChange={(checked) => handleSettingChange('dailyReminders', checked)}
           />
 
-          <SettingToggle
+          <Switch
             label="Smart Reminders"
             description="Intelligent reminders based on your schedule and habits"
             checked={settings?.smartReminders ?? true}
             onChange={(checked) => handleSettingChange('smartReminders', checked)}
           />
 
-          <SettingToggle
+          <Switch
             label="Weekly Reports"
             description="Receive weekly progress summaries"
             checked={settings?.weeklyReports ?? true}
@@ -845,42 +823,42 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       </div>
 
       {/* AI & Sync */}
-      <div className="card">
+      <div className="card" id="features">
         <div className="flex items-center space-x-3 mb-4">
           <Sync className="w-5 h-5 text-cyan-400" />
           <h2 className="text-lg font-semibold text-ink">Features</h2>
         </div>
         
         <div className="divide-y divide-gray-700/50">
-          <SettingToggle
+          <Switch
             label="AI Suggestions"
             description="Get personalized recommendations based on your habits"
             checked={settings?.aiSuggestions ?? true}
             onChange={(checked) => handleSettingChange('aiSuggestions', checked)}
           />
 
-          <SettingToggle
+          <Switch
             label="Completion Sounds"
             description="Play celebratory sounds when completing tasks"
             checked={settings?.completionSounds ?? true}
             onChange={(checked) => handleSettingChange('completionSounds', checked)}
           />
 
-          <SettingToggle
+          <Switch
             label="Calorie Intake"
             description="Track calorie intake alongside your tasks and habits"
             checked={settings?.calorieIntake ?? true}
             onChange={(checked) => handleSettingChange('calorieIntake', checked)}
           />
 
-          <SettingToggle
+          <Switch
             label="Achievement Tracker"
             description="Track personal bests and measurable progress over time"
             checked={settings?.achievementTracker ?? false}
             onChange={(checked) => handleSettingChange('achievementTracker', checked)}
           />
 
-          <SettingToggle
+          <Switch
             label="Workout Tracker"
             description="Log workout sessions and reusable exercises"
             checked={settings?.workoutTracker ?? true}
@@ -1076,20 +1054,9 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         </div>
         
         <div className="space-y-4">
-          <button className="w-full text-left p-3 rounded-lg border border-line-strong hover:bg-card/50 transition-colors">
+          <button disabled={exportingAccount} onClick={() => void handleExportAccount()} className="w-full text-left p-3 rounded-lg border border-line-strong hover:bg-card/50 transition-colors disabled:cursor-wait disabled:opacity-60">
             <div className="font-medium text-ink-soft">Export Data</div>
-            <div className="text-sm text-ink-muted">Download all your data in JSON format</div>
-          </button>
-          
-          <button 
-            onClick={() => {
-              localStorage.clear()
-              toast.success('Cache cleared successfully')
-            }}
-            className="w-full text-left p-3 rounded-lg border border-line-strong hover:bg-card/50 transition-colors"
-          >
-            <div className="font-medium text-ink-soft">Clear Cache</div>
-            <div className="text-sm text-ink-muted">Clear all locally stored data including API keys</div>
+            <div className="text-sm text-ink-muted">{exportingAccount ? 'Preparing your portable archive…' : 'Download a complete portable JSON archive'}</div>
           </button>
           
           {/* Clear All Tasks Button */}
@@ -1101,12 +1068,26 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
             <div className="text-sm text-red-300">Delete all your tasks from the database (cannot be undone)</div>
           </button>
           
-          <button className="w-full text-left p-3 rounded-lg border border-red-500/30 hover:bg-red-500/10 transition-colors">
+          <button disabled={deletionBlocked} onClick={() => setShowDeleteAccount(true)} className="w-full text-left p-3 rounded-lg border border-red-500/30 hover:bg-red-500/10 transition-colors disabled:cursor-not-allowed disabled:opacity-55">
             <div className="font-medium text-red-400">Delete Account</div>
-            <div className="text-sm text-red-300">Permanently delete your account and data</div>
+            <div className="text-sm text-red-300">{deletionBlocked ? 'Demo and administrator accounts cannot be deleted here' : 'Permanently delete your account and data'}</div>
           </button>
         </div>
       </div>
+      {showDeleteAccount && (
+        <DeleteAccountDialog
+          onClose={() => setShowDeleteAccount(false)}
+          onExport={handleExportAccount}
+          onDeleted={(warnings) => {
+            setShowDeleteAccount(false)
+            if (warnings.includes('google-revocation-failed')) {
+              toast('Google access could not be revoked automatically. Remove HealthyFlow in your Google Account permissions.', { icon: '⚠️', duration: 9000 })
+            }
+            completeAccountDeletion()
+            navigate('/login', { replace: true })
+          }}
+        />
+      )}
     </div>
   )
 }

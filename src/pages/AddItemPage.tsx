@@ -31,6 +31,8 @@ import AITextAnalyzer from '../components/AITextAnalyzer'
 import MealAnalyzer from '../components/MealAnalyzer'
 import ProjectSelector from '../components/ProjectSelector'
 import VoiceInput from '../components/VoiceInput'
+import { useSettings } from '../hooks/useSettings'
+import type { ModuleNoticeState } from '../App'
 
 const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 
@@ -70,6 +72,9 @@ export default function AddItemPage() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
+  const { modules, resolution, retry } = useSettings()
+  const calorieAvailability = modules.calories
+  const achievementAvailability = modules.achievements
   const [activeTab, setActiveTab] = useState<DomainTab>('today')
   const [showTaskAi, setShowTaskAi] = useState(false)
   const [showMealAi, setShowMealAi] = useState(false)
@@ -118,10 +123,28 @@ export default function AddItemPage() {
 
   useEffect(() => {
     const tab = searchParams.get('tab')
-    if (tab === 'today' || tab === 'calories' || tab === 'achievements') {
+    if (tab === 'today') {
       setActiveTab(tab)
+      return
     }
-  }, [searchParams])
+    if (tab === 'calories' || tab === 'achievements') {
+      const availability = tab === 'calories' ? calorieAvailability : achievementAvailability
+      if (availability === 'enabled') {
+        setActiveTab(tab)
+      } else if (availability === 'disabled') {
+        const label = tab === 'calories' ? 'Calories' : 'Achievements'
+        setActiveTab('today')
+        navigate('/add?tab=today', {
+          replace: true,
+          state: { moduleNotice: { module: tab, label, message: `${label} is disabled for this account.` } } satisfies ModuleNoticeState,
+        })
+      }
+    }
+  }, [achievementAvailability, calorieAvailability, navigate, searchParams])
+
+  const availableTabs = tabs.filter((tab) => (
+    tab.id === 'today' || modules[tab.id] === 'enabled'
+  ))
 
   const addTodayMutation = useMutation({
     mutationFn: taskService.addTask,
@@ -288,7 +311,7 @@ export default function AddItemPage() {
         </div>
 
         <div className="mb-6 grid gap-2 sm:grid-cols-3" role="tablist" aria-label="Add item domains">
-          {tabs.map((tab) => {
+          {availableTabs.map((tab) => {
             const Icon = tab.icon
             const active = activeTab === tab.id
             return (
@@ -310,6 +333,16 @@ export default function AddItemPage() {
             )
           })}
         </div>
+
+        {resolution === 'loading' && (
+          <p className="mb-6 text-sm text-ink-muted" role="status">Checking optional Add destinations…</p>
+        )}
+        {resolution === 'error' && (
+          <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-amber-400/40 bg-amber-400/10 p-3 text-sm" role="status">
+            <span className="text-ink">Optional Add destinations are temporarily unavailable.</span>
+            <button type="button" className="font-medium text-cyan-400 underline underline-offset-2" onClick={() => void retry()}>Retry</button>
+          </div>
+        )}
 
         {activeTab === 'today' && (
           <form onSubmit={submitToday} className="space-y-6">
