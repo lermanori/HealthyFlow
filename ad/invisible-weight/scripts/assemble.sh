@@ -12,6 +12,12 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p build
 
+# The one unifying look (PRODUCTION.md palette: "muted warm palette with cool
+# teal shadows"). Must be applied identically everywhere real footage appears:
+# the `grade` stage (spine) and the `final` stage (S10) — if this changes,
+# rebuild BOTH or the timeline splits into two looks.
+LOOK="colorbalance=rs=-0.06:gs=0.02:bs=0.10:rh=0.06:gh=0.015:bh=-0.07,eq=saturation=0.85:contrast=1.03,noise=alls=6:allf=t,vignette=PI/5"
+
 case "${1:-}" in
 
 spine)
@@ -63,8 +69,8 @@ grade)
   # One look across everything glues mismatched AI footage together.
   # Drop a grade.cube LUT next to this script, or skip the lut3d filter.
   LUT="scripts/grade.cube"
-  VF="noise=alls=6:allf=t,vignette=PI/5"
-  [ -f "$LUT" ] && VF="lut3d=$LUT,$VF"
+  VF="$LOOK"
+  [ -f "$LUT" ] && VF="lut3d=$LUT,noise=alls=6:allf=t,vignette=PI/5"
   ffmpeg -y -i build/composited.mp4 -vf "$VF" \
     -c:v libx264 -crf 16 build/master_silent.mp4
   echo "-> build/master_silent.mp4  (QA on a phone, full screen, muted)"
@@ -93,7 +99,7 @@ final)
   ffmpeg -y -i build/master_last_frame.png \
     -vf "scale=2160:3840,zoompan=z='1+0.03*on/47':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=48:s=1080x1920:fps=24,noise=alls=4:allf=t,format=yuv420p" \
     -c:v libx264 -crf 16 build/freeze_hold.mp4
-  ffmpeg -y -i plates/S10.mp4 -vf "noise=alls=6:allf=t,vignette=PI/5" \
+  ffmpeg -y -i plates/S10.mp4 -vf "$LOOK" \
     -c:v libx264 -crf 16 build/S10_graded.mp4
   cat > build/final_concat.txt <<-LIST
 	file '$(pwd)/build/S1_coldflash.mp4'

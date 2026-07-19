@@ -134,6 +134,18 @@ Concept, script and plan live here; generated media stays local (gitignored).
         half-extent. Top band cards sit at y=310 (birth rise 14px + bob 8px
         keeps the card just inside the 250px top safe zone). Verified against
         extracted frames at t=20.5/22.5/24 of the rebuilt master.
+      - **Fix 3 — real grade.** `grade` was only noise+vignette. There is now
+        a single `LOOK` variable at the top of `assemble.sh` (colorbalance:
+        teal-shifted shadows, warm highlights; eq: saturation 0.85, contrast
+        1.03; plus the existing grain+vignette) applied identically in the
+        `grade` stage and to S10 inside `final` — if the look changes,
+        rebuild both stages or the timeline splits into two looks. S1 and
+        the freeze hold inherit it automatically (sourced from the graded
+        master's last frame). A `scripts/grade.cube` LUT still overrides the
+        inline look if one is ever dropped in. Note: `organize/S9.mp4`'s
+        backdrop is ungraded `stills/H7.png` baked into the Blender render —
+        regrading it would need a texture regrade + re-render (not done;
+        acceptable since S9 is a stylized UI moment).
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
       (both stages now target `build/master_full_silent.mp4`, not
       `master_silent.mp4`, since audio needs to cover the complete timeline)

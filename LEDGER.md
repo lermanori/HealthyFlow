@@ -4,6 +4,8 @@ Started the Tier 1 client-feedback fixes on "The Invisible Weight" master. Fix 1
 
 Fix 2 is also done: seven notes were repositioned so nothing covers her face in the S8 close-up and freeze — the top cluster now sits in a clean band above her head, wide cards moved to the frame edges, and the card-on-card overlaps are gone. Born times and the ×0.742 retime were preserved; the overlay was re-rendered and the master rebuilt and frame-checked.
 
+Fix 3 replaced the noise+vignette-only grade with a real unifying look — muted warm highlights, cool teal shadows, slight desaturation — defined once in assemble.sh and applied identically to the spine and S10, with S1 and the freeze hold inheriting it. All three Tier 1 client fixes are now in; the 39.3s silent master is rebuilt and ready for M6 audio.
+
 ---
 
 ### 2026-07-16 15:48 — `claude/instagram-ad-testers-4c3c0n`
