@@ -86,8 +86,13 @@ final)
   ffmpeg -y -sseof -0.1 -i build/master_silent.mp4 -frames:v 1 build/master_last_frame.png
   ffmpeg -y -loop 1 -i build/master_last_frame.png -t 1 -r 24 \
     -vf "eq=saturation=0.9,format=yuv420p" -c:v libx264 -crf 16 build/S1_coldflash.mp4
-  ffmpeg -y -loop 1 -i build/master_last_frame.png -t 3 -r 24 \
-    -vf format=yuv420p -c:v libx264 -crf 16 build/freeze_hold.mp4
+  # Live hold, not a looped still: 2s barely-perceptible push-in (~3%) plus
+  # temporal grain so the frame keeps breathing. Upscale 2x before zoompan --
+  # zoompan crops on integer pixel coords, so at native res the sub-pixel
+  # drift quantizes into visible stepping.
+  ffmpeg -y -i build/master_last_frame.png \
+    -vf "scale=2160:3840,zoompan=z='1+0.03*on/47':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=48:s=1080x1920:fps=24,noise=alls=4:allf=t,format=yuv420p" \
+    -c:v libx264 -crf 16 build/freeze_hold.mp4
   ffmpeg -y -i plates/S10.mp4 -vf "noise=alls=6:allf=t,vignette=PI/5" \
     -c:v libx264 -crf 16 build/S10_graded.mp4
   cat > build/final_concat.txt <<-LIST

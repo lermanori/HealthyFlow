@@ -114,6 +114,15 @@ Concept, script and plan live here; generated media stays local (gitignored).
         transitions and note timing are all correct. Total 40.3s vs. the
         planned 45s — short because plates were generated at 3-5s each rather
         than the originally scoped 4-6s (see M2).
+- [x] M5.1 — Tier 1 client fixes (feedback: "at second 24 the video freezes…
+      too much AI vibe"):
+      - **Fix 1 — live freeze hold.** The 3s `build/freeze_hold.mp4` was a
+        looped still and read as a broken/frozen player. Replaced in the
+        `final` stage with a 2s hold that has a ~3% `zoompan` push-in plus
+        temporal grain (`noise=alls=4:allf=t`) so the frame keeps breathing.
+        Gotcha: **upscale 2x (`scale=2160:3840`) before `zoompan`** — zoompan
+        crops on integer pixel coordinates, so at native res the sub-pixel
+        drift quantizes into visible stepping. Master is now 39.29s.
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
       (both stages now target `build/master_full_silent.mp4`, not
       `master_silent.mp4`, since audio needs to cover the complete timeline)

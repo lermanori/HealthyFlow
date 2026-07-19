@@ -1,3 +1,9 @@
+### 2026-07-19 11:00 — `claude/instagram-ad-testers-4c3c0n`
+
+Started the Tier 1 client-feedback fixes on "The Invisible Weight" master. Fix 1 is done: the dead 3s freeze hold at ~23s (a looped still that read as a broken video) is now a 2s live hold with a barely perceptible 3% push-in and moving grain, built inside assemble.sh's final stage. The silent master is rebuilt at 39.3s and verified frame-by-frame; note declutter and the real color grade are next.
+
+---
+
 ### 2026-07-16 15:48 — `claude/instagram-ad-testers-4c3c0n`
 
 Built the full production workspace for "The Invisible Weight," the cinematic Instagram Reel recruiting the first 10 testers. `ad/invisible-weight/` now holds the director's script and milestone plan, a copy-paste prompt bank for the hero stills and Kling motion passes, a generated-and-validated Lottie animation of the 14 floating notes on the beat map (frozen at 0:30), a config-driven Blender scene builder for the S9 organization shot, and an ffmpeg pipeline (normalize → spine → freeze → overlay → grade → audio → cutdown). Remaining human steps are image generation (M1), Kling (M2), textures/audio — everything scriptable is done.
