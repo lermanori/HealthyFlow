@@ -1,3 +1,9 @@
+### 2026-07-20 12:14 — `agent/phase1-today-workspace`
+
+Completed Phase 1’s first vertical slice by giving Today and Week one settings-aware week boundary and consistent selected-date language. Today now labels past, present, and future schedules accurately, both seven-day selectors support semantic dates and roving keyboard focus, frequent date controls meet the 44px touch target, and focused unit and browser regressions cover all week starts and shared Sunday/Monday boundaries. Issue #160 is ready for branch-preview review before DaySummary work begins.
+
+---
+
 ### 2026-07-19 08:57 — `agent/phase1-today-workspace`
 
 Added the comprehensive HealthyFlow UX/UI review as a durable repository artifact, including the evidence-based findings catalog, quick wins, structural redesign proposals, machine-readable summary, and 39 baseline screenshots across major routes and responsive viewports. This gives Phase 1 a traceable research foundation and preserves the verified pre-redesign interface state for future comparison.

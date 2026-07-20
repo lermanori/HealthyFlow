@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef, type KeyboardEvent } from 'react'
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format, addDays, subDays, startOfWeek, isSameDay, isBefore } from 'date-fns'
+import { format, addDays, subDays, isSameDay, isBefore } from 'date-fns'
 import { Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, Clock, Plus } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import {
@@ -24,7 +24,14 @@ import SmartReminders from '../components/SmartReminders'
 import AITextAnalyzer from '../components/AITextAnalyzer'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useNotifications } from '../hooks/useNotifications'
-import { formatRelativeDate } from '../utils/dateHelpers'
+import {
+  formatRelativeDate,
+  formatScheduleHeading,
+  formatSelectedDateAnnouncement,
+  getWeekDates,
+  getWeekNavigationIndex,
+  type WeekStartsOn,
+} from '../utils/dateHelpers'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
@@ -161,18 +168,32 @@ function WeekRibbon({
   selectedDate,
   onSelect,
   loadByDay,
+  weekStartsOn,
 }: {
   selectedDate: Date
   onSelect: (d: Date) => void
   loadByDay: Record<string, { total: number; completed: number }>
+  weekStartsOn: WeekStartsOn
 }) {
-  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 }) // Monday
+  const buttonRefs = useRef<Array<HTMLButtonElement | null>>([])
   const today = new Date()
-  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const days = getWeekDates(selectedDate, weekStartsOn)
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const targetIndex = getWeekNavigationIndex(index, event.key)
+    if (targetIndex === null) return
+    event.preventDefault()
+    onSelect(days[targetIndex])
+    window.requestAnimationFrame(() => buttonRefs.current[targetIndex]?.focus())
+  }
 
   return (
-    <div className="mt-2.5 grid grid-cols-7 gap-1.5 lg:mt-4 lg:gap-2">
-      {days.map((day) => {
+    <div
+      role="group"
+      aria-label="Week dates"
+      className="mt-2.5 grid grid-cols-7 gap-1.5 lg:mt-4 lg:gap-2"
+    >
+      {days.map((day, index) => {
         const key = format(day, 'yyyy-MM-dd')
         const load = loadByDay[key] ?? { total: 0, completed: 0 }
         const isSelected = isSameDay(day, selectedDate)
@@ -184,8 +205,14 @@ function WeekRibbon({
         return (
           <button
             key={key}
+            ref={(button) => { buttonRefs.current[index] = button }}
             type="button"
             onClick={() => onSelect(day)}
+            onKeyDown={(event) => handleKeyDown(event, index)}
+            tabIndex={isSelected ? 0 : -1}
+            aria-current={isSelected ? 'date' : undefined}
+            aria-label={`${format(day, 'EEEE, MMMM d, yyyy')}, ${load.completed} of ${load.total} completed`}
+            data-week-date={key}
             data-demo-id={isSelected ? 'week-tab' : undefined}
             className={`flex flex-col overflow-hidden rounded-xl border transition-all ${
               isSelected
@@ -195,7 +222,7 @@ function WeekRibbon({
           >
             {/* content: stacked on mobile, row on desktop */}
             <div className="flex flex-1 flex-col items-center gap-1 pt-2 lg:flex-row lg:justify-between lg:gap-2 lg:px-3 lg:pb-2 lg:pt-2.5">
-              <span className="flex flex-col items-center gap-1 lg:flex-row lg:items-baseline lg:gap-1.5">
+              <time dateTime={key} className="flex flex-col items-center gap-1 lg:flex-row lg:items-baseline lg:gap-1.5">
                 <span
                   className={`text-[10px] tracking-wide lg:uppercase lg:tracking-widest ${
                     isSelected ? 'font-semibold text-cyan-300' : 'text-ink-muted'
@@ -216,7 +243,7 @@ function WeekRibbon({
                 >
                   {format(day, 'd')}
                 </span>
-              </span>
+              </time>
               <span
                 className={`text-[10px] font-semibold lg:text-[11px] ${
                   allDone && !isSelected
@@ -337,6 +364,7 @@ export default function TodayPage() {
   const { settings } = useSettings()
   const selectedDateKey = format(selectedDate, 'yyyy-MM-dd')
   const calorieModuleEnabled = settings?.calorieIntake ?? true
+  const weekStartsOn = settings?.weekStartsOn ?? 1
 
   // Check for AI parameter in URL
   useEffect(() => {
@@ -381,8 +409,8 @@ export default function TodayPage() {
 
   // Week ribbon load dots: one cheap per-day query per weekday. The selected day is
   // already cached above, so this adds at most 6 small requests and reuses the cache.
-  const weekDayKeys = Array.from({ length: 7 }, (_, i) =>
-    format(addDays(startOfWeek(selectedDate, { weekStartsOn: 1 }), i), 'yyyy-MM-dd')
+  const weekDayKeys = getWeekDates(selectedDate, weekStartsOn).map((date) =>
+    format(date, 'yyyy-MM-dd')
   )
   const weekQueries = useQueries({
     queries: weekDayKeys.map((dateKey) => ({
@@ -703,10 +731,11 @@ export default function TodayPage() {
               className="text-[23px] font-bold leading-tight text-ink lg:text-[26px]"
               style={{ fontFamily: "'Space Grotesk', sans-serif" }}
             >
-              {formatRelativeDate(selectedDate)}
+              <time dateTime={selectedDateKey}>{formatRelativeDate(selectedDate, now)}</time>
             </h1>
             <p className="text-xs text-ink-muted lg:text-[13px]">
-              <span>{format(selectedDate, 'EEEE, d MMMM')} ·{' '}</span>
+              <time dateTime={selectedDateKey}>{format(selectedDate, 'EEEE, d MMMM')}</time>
+              <span> · </span>
               {headerSubline}
               {!isSameDay(selectedDate, new Date()) && (
                 <button
@@ -717,6 +746,9 @@ export default function TodayPage() {
                 </button>
               )}
             </p>
+            <p className="sr-only" aria-live="polite" aria-atomic="true">
+              {formatSelectedDateAnnouncement(selectedDate, now)}
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -726,7 +758,7 @@ export default function TodayPage() {
                 type="button"
                 onClick={handlePreviousDay}
                 aria-label="Previous day"
-                className="flex h-[38px] w-9 items-center justify-center border-r border-line/60 text-ink-muted transition-colors hover:text-cyan-400"
+                className="flex h-11 w-11 items-center justify-center border-r border-line/60 text-ink-muted transition-colors hover:text-cyan-400"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -734,7 +766,7 @@ export default function TodayPage() {
                 type="button"
                 onClick={handleNextDay}
                 aria-label="Next day"
-                className="flex h-[38px] w-9 items-center justify-center text-ink-muted transition-colors hover:text-cyan-400"
+                className="flex h-11 w-11 items-center justify-center text-ink-muted transition-colors hover:text-cyan-400"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -770,7 +802,7 @@ export default function TodayPage() {
               type="button"
               onClick={handlePreviousDay}
               aria-label="Previous day"
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-line/60 bg-card/40 text-ink-muted transition-colors hover:text-cyan-400"
+              className="flex h-11 w-11 items-center justify-center rounded-lg border border-line/60 bg-card/40 text-ink-muted transition-colors hover:text-cyan-400"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
@@ -778,14 +810,19 @@ export default function TodayPage() {
               type="button"
               onClick={handleNextDay}
               aria-label="Next day"
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-line/60 bg-card/40 text-ink-muted transition-colors hover:text-cyan-400"
+              className="flex h-11 w-11 items-center justify-center rounded-lg border border-line/60 bg-card/40 text-ink-muted transition-colors hover:text-cyan-400"
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
 
-        <WeekRibbon selectedDate={selectedDate} onSelect={setSelectedDate} loadByDay={loadByDay} />
+        <WeekRibbon
+          selectedDate={selectedDate}
+          onSelect={setSelectedDate}
+          loadByDay={loadByDay}
+          weekStartsOn={weekStartsOn}
+        />
       </motion.div>
 
       {/* Now/next — only when viewing today */}
@@ -885,6 +922,7 @@ export default function TodayPage() {
           className="lg:col-span-2"
         >
           <DayTimeline
+            heading={formatScheduleHeading(selectedDate, now)}
             tasks={tasksData}
             calendarEvents={calendarEvents}
             calorieEntries={calorieEntries}
