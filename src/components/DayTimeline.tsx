@@ -7,6 +7,7 @@ import TaskCard from './TaskCard'
 import { taskService } from '../services/api'
 
 interface DayTimelineProps {
+  heading?: string
   tasks: Task[]
   calendarEvents?: ExternalCalendarEvent[]
   calorieEntries?: CalorieEntry[]
@@ -264,6 +265,7 @@ function TaskDragGrip({
 }
 
 export default function DayTimeline({
+  heading = "Today's Schedule",
   tasks,
   calendarEvents = [],
   calorieEntries = [],
@@ -407,7 +409,7 @@ export default function DayTimeline({
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <h2 className="text-xl font-semibold text-ink">Today's Schedule</h2>
+      <h2 className="text-xl font-semibold text-ink">{heading}</h2>
 
       <DragDropContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
         <div>
