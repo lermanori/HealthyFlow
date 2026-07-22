@@ -168,6 +168,22 @@ Concept, script and plan live here; generated media stays local (gitignored).
         per-second sweep t=25–38s — cards legible, timeline column + cyan
         chips + green check + amber rollover all read, endcard composite
         correct. `blender/render/` and `blender/test/` are gitignored.
+      - **Fix 5 — first ~24s played as a single frozen frame.** The graded
+        spine (`master_silent.mp4`) and `S10_graded.mp4` were **yuv444p** while
+        every other segment (coldflash, freeze hold, S9, S11) was yuv420p:
+        `libx264` preserves the decoded 4:4:4 unless told otherwise, and the
+        two `grade`/S10 ffmpeg calls never forced a format. The `final` concat
+        (`-c copy`) then produced a stream that switches pixel format
+        mid-play; players init their decoder from the first (yuv420p) segment,
+        can't decode the following yuv444p spine, and hold the last good frame
+        — so the whole 1s coldflash + 22.25s spine read as one frozen frame
+        until the yuv420p freeze hold resumed at ~23.25s. (4:4:4 H.264 is also
+        outside the profiles QuickTime/Instagram will play.) Fix: added
+        `-pix_fmt yuv420p` to the `grade` output and the S10 grade in `final`.
+        Verified: all six segments now yuv420p, full-file decode is clean, all
+        943 frames present, PTS continuous and monotonic across the old
+        boundary. **Any new re-encode in this pipeline must force
+        `-pix_fmt yuv420p`.**
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
       (both stages now target `build/master_full_silent.mp4`, not
       `master_silent.mp4`, since audio needs to cover the complete timeline)

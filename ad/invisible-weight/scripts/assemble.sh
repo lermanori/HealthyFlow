@@ -71,8 +71,12 @@ grade)
   LUT="scripts/grade.cube"
   VF="$LOOK"
   [ -f "$LUT" ] && VF="lut3d=$LUT,noise=alls=6:allf=t,vignette=PI/5"
+  # -pix_fmt yuv420p is mandatory: without it libx264 preserves the decoded
+  # 4:4:4 and the `final` concat (-c copy) then mixes 444/420 segments, which
+  # players decode as a frozen first frame. yuv420p is also required for
+  # QuickTime/Instagram playback at all.
   ffmpeg -y -i build/composited.mp4 -vf "$VF" \
-    -c:v libx264 -crf 16 build/master_silent.mp4
+    -c:v libx264 -crf 16 -pix_fmt yuv420p build/master_silent.mp4
   echo "-> build/master_silent.mp4  (QA on a phone, full screen, muted)"
   ;;
 
@@ -100,7 +104,7 @@ final)
     -vf "scale=2160:3840,zoompan=z='1+0.03*on/47':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=48:s=1080x1920:fps=24,noise=alls=4:allf=t,format=yuv420p" \
     -c:v libx264 -crf 16 build/freeze_hold.mp4
   ffmpeg -y -i plates/S10.mp4 -vf "$LOOK" \
-    -c:v libx264 -crf 16 build/S10_graded.mp4
+    -c:v libx264 -crf 16 -pix_fmt yuv420p build/S10_graded.mp4
   cat > build/final_concat.txt <<-LIST
 	file '$(pwd)/build/S1_coldflash.mp4'
 	file '$(pwd)/build/master_silent.mp4'

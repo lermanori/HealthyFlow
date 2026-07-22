@@ -1,3 +1,9 @@
+### 2026-07-19 12:35 — `claude/instagram-ad-testers-4c3c0n`
+
+Fixed the master playing as a single frozen frame for its first ~24 seconds. The graded spine and the S10 shot were encoded yuv444p while every other segment was yuv420p, so the `-c copy` final concat switched pixel format mid-stream; players decoded the opening yuv420p frame, choked on the following 4:4:4 spine, and held that frame until the next yuv420p segment. Forced `-pix_fmt yuv420p` on both grade outputs so the whole timeline is one uniform format (also required for QuickTime/Instagram). Rebuilt and verified: uniform pix_fmt across all six segments, clean full-file decode, all 943 frames present with continuous timestamps.
+
+---
+
 ### 2026-07-19 12:10 — `claude/instagram-ad-testers-4c3c0n`
 
 Fixed the S9 organize sequence, which was rendering near-black (client: "it's not working at all"). A per-second frame sweep of the whole master isolated the failure to ~t=25–34s plus the endcard: the Blender scene shaded its flat note-card and backdrop art with a Principled BSDF under one weak area light, leaving everything several stops underexposed. Switched those materials to shadeless/emissive so the UI art renders at native brightness, widened and refocused the backdrop, then re-rendered the 144-frame sequence, re-encoded organize/S9.mp4, regenerated the S11 endcard from the new settled frame, and rebuilt the master. A fresh per-second sweep confirms the cards, timeline column, time chips, and endcard composite all read correctly now.
