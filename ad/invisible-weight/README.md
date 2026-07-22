@@ -146,6 +146,28 @@ Concept, script and plan live here; generated media stays local (gitignored).
         backdrop is ungraded `stills/H7.png` baked into the Blender render —
         regrading it would need a texture regrade + re-render (not done;
         acceptable since S9 is a stylized UI moment).
+      - **Fix 4 — S9 render was near-black (client "not working at all").** A
+        per-second frame sweep of the master showed the whole organize
+        sequence (~t=25–34s) and the S11 endcard rendering on near-black: the
+        note cards and the H7 backdrop were several stops underexposed. Cause:
+        `build_s9.py` shaded the card/backdrop planes with **Principled BSDF
+        lit by a single weak area light**, so the flat UI art came through
+        dark. Fix: make the materials **shadeless/emissive** — drive the
+        texture into `Emission Color` (base color black, `Emission Strength`
+        from `backdrop.dim_to` for the backdrop, 1.0 for cards) so every plane
+        renders at its native brightness regardless of scene lighting. Also
+        bumped `backdrop.scale` 9→18 (it was only filling a center strip),
+        `dim_to` 0.35→0.55, and camera `fstop` 1.8→8.0 (the backdrop was so
+        defocused it read as a dark smear). Re-render + re-encode:
+        `blender -b blender/s9.blend -o //render/s9_ -F PNG -x 1 -a`,
+        `ffmpeg -framerate 24 -i blender/render/s9_%04d.png -crf 16
+        -pix_fmt yuv420p organize/S9.mp4`, then regenerate the endcard from
+        the new settled frame:
+        `python3 organize/generate_endcard.py blender/render/s9_0144.png
+        organize/S11.mp4`, then `assemble.sh final`. Verified with a fresh
+        per-second sweep t=25–38s — cards legible, timeline column + cyan
+        chips + green check + amber rollover all read, endcard composite
+        correct. `blender/render/` and `blender/test/` are gitignored.
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
       (both stages now target `build/master_full_silent.mp4`, not
       `master_silent.mp4`, since audio needs to cover the complete timeline)

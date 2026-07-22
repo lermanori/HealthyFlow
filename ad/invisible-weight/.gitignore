@@ -10,5 +10,7 @@ organize/*.mp4
 !stills/*.py
 blender/s9.blend
 blender/*.blend1
+blender/render/*
+blender/test/*
 notes/*.webm
 notes/*.png

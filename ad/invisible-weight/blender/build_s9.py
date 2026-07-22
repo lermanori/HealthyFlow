@@ -35,19 +35,22 @@ def clean_scene():
     return sc
 
 
-def image_material(name, png, fallback_rgba):
+def image_material(name, png, fallback_rgba, strength=1.0):
+    # Shadeless: the card/backdrop art must render at its native brightness.
+    # Principled + scene lights left everything several stops under.
     mat = bpy.data.materials.new(name)
     mat.use_nodes = True
     bsdf = mat.node_tree.nodes["Principled BSDF"]
-    bsdf.inputs["Roughness"].default_value = 0.9
+    bsdf.inputs["Base Color"].default_value = (0, 0, 0, 1)
+    bsdf.inputs["Emission Strength"].default_value = strength
     if png.exists():
         tex = mat.node_tree.nodes.new("ShaderNodeTexImage")
         tex.image = bpy.data.images.load(str(png))
-        mat.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
+        mat.node_tree.links.new(tex.outputs["Color"], bsdf.inputs["Emission Color"])
         mat.node_tree.links.new(tex.outputs["Alpha"], bsdf.inputs["Alpha"])
         mat.blend_method = "BLEND"
     else:
-        bsdf.inputs["Base Color"].default_value = fallback_rgba
+        bsdf.inputs["Emission Color"].default_value = fallback_rgba
     return mat
 
 
@@ -84,7 +87,9 @@ def main():
     # backdrop: the frozen H7 close-up, dimmed so the cards read
     bd = card_plane("backdrop", [CFG["backdrop"]["scale"] * 9 / 16, CFG["backdrop"]["scale"]])
     bd.location = (0, 0, CFG["backdrop"]["z"])
-    bd.data.materials.append(image_material("backdrop", TEX / "backdrop.png", (0.03, 0.07, 0.09, 1)))
+    bd.data.materials.append(image_material(
+        "backdrop", TEX / "backdrop.png", (0.03, 0.07, 0.09, 1),
+        strength=CFG["backdrop"]["dim_to"]))
 
     # camera with slow drift + shallow DOF
     bpy.ops.object.camera_add(location=cam_cfg["location"], rotation=(0, 0, 0))

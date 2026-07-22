@@ -1,3 +1,9 @@
+### 2026-07-19 12:10 — `claude/instagram-ad-testers-4c3c0n`
+
+Fixed the S9 organize sequence, which was rendering near-black (client: "it's not working at all"). A per-second frame sweep of the whole master isolated the failure to ~t=25–34s plus the endcard: the Blender scene shaded its flat note-card and backdrop art with a Principled BSDF under one weak area light, leaving everything several stops underexposed. Switched those materials to shadeless/emissive so the UI art renders at native brightness, widened and refocused the backdrop, then re-rendered the 144-frame sequence, re-encoded organize/S9.mp4, regenerated the S11 endcard from the new settled frame, and rebuilt the master. A fresh per-second sweep confirms the cards, timeline column, time chips, and endcard composite all read correctly now.
+
+---
+
 ### 2026-07-19 11:00 — `claude/instagram-ad-testers-4c3c0n`
 
 Started the Tier 1 client-feedback fixes on "The Invisible Weight" master. Fix 1 is done: the dead 3s freeze hold at ~23s (a looped still that read as a broken video) is now a 2s live hold with a barely perceptible 3% push-in and moving grain, built inside assemble.sh's final stage. The silent master is rebuilt at 39.3s and verified frame-by-frame; note declutter and the real color grade are next.
