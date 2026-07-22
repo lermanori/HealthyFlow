@@ -231,6 +231,13 @@ Concept, script and plan live here; generated media stays local (gitignored).
           `generate_endcard.py blender/render/s9_0144.png organize/S11.mp4` →
           `assemble.sh final`. Verified t=22.5–31s: live motion throughout,
           uniform yuv420p, clean decode.
+        - **Organize starts on the cut.** `converge_start_s` was 1.0, so S9's
+          cards sat static in their scattered pose for the first second (plus
+          per-card stagger) before moving — that static pre-roll read as the
+          overlay "freezing" from ~23.5–25s. Set `converge_start_s` 1.0→0.0 and
+          `stagger_s` 0.08→0.04 so convergence begins the instant the spine
+          cuts to S9. Verified: card motion from the first S9 frame, no static
+          hold.
         - **Still open (deferred):** S1 is still the 1s frozen cold-open flash
           — the client chose to decide that separately.
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
