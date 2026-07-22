@@ -240,6 +240,16 @@ Concept, script and plan live here; generated media stays local (gitignored).
           hold.
         - **Still open (deferred):** S1 is still the 1s frozen cold-open flash
           — the client chose to decide that separately.
+      - **Fix 8 — organize starts on the cut + endcard copy trimmed.**
+        - The cards used to hold static in their scattered positions for the
+          first ~1s of S9 (`converge_start_s: 1.0` + per-card stagger), so
+          right after the spine→S9 cut (~23.5–25s) the overlay read as frozen.
+          Set `converge_start_s` 1.0→0 and `stagger_s` 0.08→0.04 so convergence
+          begins on the cut — cards fly in and organize immediately.
+        - Endcard: dropped the "I'm looking for the first 10 people who want
+          less noise and more control." lead-in; the CTA is now just
+          `DM "FLOW" for early access.` (single centered line in
+          `generate_endcard.py`).
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
       (both stages now target `build/master_full_silent.mp4`, not
       `master_silent.mp4`, since audio needs to cover the complete timeline)

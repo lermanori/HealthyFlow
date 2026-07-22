@@ -26,7 +26,6 @@ GROUND = (7, 18, 25)
 
 WORDMARK_TEXT = "HealthyFlow"
 TAGLINE_TEXT = "Take back control of your day."
-CTA_LINE1 = 'I’m looking for the first 10 people who want less noise and more control.'
 CTA_LINE2 = 'DM "FLOW" for early access.'
 
 BEATS = {  # (fade_in_start_s, fade_in_end_s)
@@ -102,11 +101,9 @@ def render_frame(bg, t):
     op = ease(t, a1, a2)
     if op > 0:
         f = font(34, REGULAR)
-        lines = wrap_text(draw, CTA_LINE1, f, 900) + [CTA_LINE2]
-        line_h = 46
-        start_y = 1500
-        for i, line in enumerate(lines):
-            draw_centered(draw, line, start_y + i * line_h, f, (150, 160, 167, round(255 * op)))
+        # Single CTA line only -- the "looking for the first 10 people" lead-in
+        # was cut per client note; keep just the DM ask.
+        draw_centered(draw, CTA_LINE2, 1540, f, (150, 160, 167, round(255 * op)))
 
     return img
 

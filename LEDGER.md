@@ -1,3 +1,9 @@
+### 2026-07-19 14:05 — `claude/instagram-ad-testers-4c3c0n`
+
+Two quick client tweaks on the live climax. Killed the ~1s static hold at the start of S9 (the notes used to sit in their scattered positions before converging, which read as a frozen overlay right after the cut) by starting convergence on frame zero — the organize now begins the instant we cut in. Also trimmed the end-card CTA down to just "DM \"FLOW\" for early access.", dropping the longer "looking for the first 10 people" lead-in. Re-rendered S9, regenerated the end card, rebuilt the master (37.29s).
+
+---
+
 ### 2026-07-19 13:45 — `claude/instagram-ad-testers-4c3c0n`
 
 Reworked the climax to remove the freeze frames the client disliked. S9's organize animation no longer plays over a frozen still: the Blender cards now render on alpha (new transparent mode) and composite over the live S8 plate slowed ~2x, graded to match the spine, so she stays alive and breathing while the timeline settles. Deleted the 2s held freeze entirely, so the spine flows straight into a fully live climax; the master drops to 37.29s. The 1s cold-open flash (S1) is the only freeze left and was intentionally deferred for a separate decision. Verified live motion throughout, uniform yuv420p, clean decode.
