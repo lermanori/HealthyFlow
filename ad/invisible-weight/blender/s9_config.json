@@ -10,8 +10,8 @@
   "scatter": { "x": 2.2, "y": 3.4, "z_near": -0.5, "z_far": 2.5 },
   "column": { "x": 0.0, "top_y": 1.55, "row_gap": 0.24, "z": 0.0 },
   "card_size": [1.5, 0.42],
-  "camera": { "location": [0, 0, 6.5], "drift_z": -0.7, "fstop": 8.0, "focus_z": 0.0 },
-  "backdrop": { "z": -4.0, "scale": 18.0, "dim_to": 0.55 },
+  "camera": { "location": [0, 0, 6.5], "drift_z": -0.15, "fstop": 8.0, "focus_z": 0.0 },
+  "backdrop": { "z": -4.0, "scale": 18.0, "dim_to": 0.55, "transparent": true },
   "rows": [
     "Pay rent", "Dentist at 3 PM", "Reply to Alex", "Prepare for meeting",
     "Finish project", "Answer email", "Log lunch", "Buy groceries",

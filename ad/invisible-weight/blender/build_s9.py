@@ -31,7 +31,12 @@ def clean_scene():
     sc.render.resolution_x, sc.render.resolution_y = CFG["resolution"]
     engine_ids = {i.identifier for i in bpy.types.RenderSettings.bl_rna.properties["engine"].enum_items}
     sc.render.engine = "BLENDER_EEVEE_NEXT" if "BLENDER_EEVEE_NEXT" in engine_ids else "BLENDER_EEVEE"
-    sc.render.film_transparent = False
+    # transparent mode: render only the note cards on alpha so they can be
+    # composited over a *live* plate (no frozen still baked in). Needs RGBA out.
+    transparent = CFG.get("backdrop", {}).get("transparent", False)
+    sc.render.film_transparent = transparent
+    if transparent:
+        sc.render.image_settings.color_mode = "RGBA"
     return sc
 
 
@@ -84,12 +89,14 @@ def main():
     rng = random.Random(CFG["scatter_seed"])
     sct, col, cam_cfg = CFG["scatter"], CFG["column"], CFG["camera"]
 
-    # backdrop: the frozen H7 close-up, dimmed so the cards read
-    bd = card_plane("backdrop", [CFG["backdrop"]["scale"] * 9 / 16, CFG["backdrop"]["scale"]])
-    bd.location = (0, 0, CFG["backdrop"]["z"])
-    bd.data.materials.append(image_material(
-        "backdrop", TEX / "backdrop.png", (0.03, 0.07, 0.09, 1),
-        strength=CFG["backdrop"]["dim_to"]))
+    # backdrop: the frozen H7 close-up, dimmed so the cards read. Skipped in
+    # transparent mode -- the live plate is composited behind the cards in post.
+    if not CFG.get("backdrop", {}).get("transparent", False):
+        bd = card_plane("backdrop", [CFG["backdrop"]["scale"] * 9 / 16, CFG["backdrop"]["scale"]])
+        bd.location = (0, 0, CFG["backdrop"]["z"])
+        bd.data.materials.append(image_material(
+            "backdrop", TEX / "backdrop.png", (0.03, 0.07, 0.09, 1),
+            strength=CFG["backdrop"]["dim_to"]))
 
     # camera with slow drift + shallow DOF
     bpy.ops.object.camera_add(location=cam_cfg["location"], rotation=(0, 0, 0))

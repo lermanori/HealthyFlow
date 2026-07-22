@@ -204,6 +204,35 @@ Concept, script and plan live here; generated media stays local (gitignored).
           this needs a re-render: `blender -b -P blender/build_s9.py` then the
           render/encode/endcard/`final` chain from Fix 4. Verified against
           frames t=25.5–31s.
+      - **Fix 7 — killed the freeze frames; live climax (client: "i don't
+        like the freeze frames at all").** The whole climax used to be frozen:
+        a 2s held still (23–25s) then S9's organize playing over a *frozen* H7
+        still (25–31s) — ~8s of dead picture. Reworked so nothing freezes:
+        - `build_s9.py` gained a **transparent mode**
+          (`backdrop.transparent: true` → `film_transparent`, RGBA out, skip
+          the backdrop plane). S9 now renders the note-cards on **alpha**, not
+          baked over a still.
+        - The `final` stage composites those alpha cards over the **live S8
+          plate slowed ~2×** (`setpts=2.0*PTS`; S8 is 3.04s, filling S9's 6s
+          gives a reflective slow-mo and no loop seam), then applies the
+          unifying `LOOK` over the whole composite — same `composite→grade`
+          order as the spine, so S9's backdrop and cards match S8 in the spine
+          and share its grain. She's alive/breathing behind the settling
+          timeline.
+        - **Deleted the 2s freeze hold** entirely — with a live climax it was
+          dead weight. Spine now flows straight into S9 (one live→live cut).
+          Master 39.29s → **37.29s**.
+        - Camera `drift_z` dropped -0.7→-0.15 (cards stay a stable UI; the live
+          plate carries the motion now). `row_gap` 0.24 kept (tight column).
+        - S11 endcard regenerated from the new alpha settled frame
+          (`s9_0144.png`) — its ghosted-column background now comes through the
+          card alpha, cleaner over the dark ground.
+        - Rebuild: `blender -b -P blender/build_s9.py` → render alpha PNGs →
+          `generate_endcard.py blender/render/s9_0144.png organize/S11.mp4` →
+          `assemble.sh final`. Verified t=22.5–31s: live motion throughout,
+          uniform yuv420p, clean decode.
+        - **Still open (deferred):** S1 is still the 1s frozen cold-open flash
+          — the client chose to decide that separately.
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
       (both stages now target `build/master_full_silent.mp4`, not
       `master_silent.mp4`, since audio needs to cover the complete timeline)

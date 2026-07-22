@@ -1,3 +1,9 @@
+### 2026-07-19 13:45 — `claude/instagram-ad-testers-4c3c0n`
+
+Reworked the climax to remove the freeze frames the client disliked. S9's organize animation no longer plays over a frozen still: the Blender cards now render on alpha (new transparent mode) and composite over the live S8 plate slowed ~2x, graded to match the spine, so she stays alive and breathing while the timeline settles. Deleted the 2s held freeze entirely, so the spine flows straight into a fully live climax; the master drops to 37.29s. The 1s cold-open flash (S1) is the only freeze left and was intentionally deferred for a separate decision. Verified live motion throughout, uniform yuv420p, clean decode.
+
+---
+
 ### 2026-07-19 13:05 — `claude/instagram-ad-testers-4c3c0n`
 
 Addressed two client notes on the S9 organize section (~25–31s): the backdrop read as frozen, and the settled timeline column was too tall with big gaps between rows. Gave the Blender camera a real slow push-in (drift -0.35→-0.7) and added a moving-grain pass to S9 in the final stage so the held backdrop breathes instead of sitting dead, and tightened the column (row_gap 0.34→0.24, re-centered) so the 14-row list fits inside the frame. Re-rendered S9, regenerated the endcard, and rebuilt the master (still uniform yuv420p, clean decode, 943 frames).

@@ -81,41 +81,38 @@ grade)
   ;;
 
 final)
-  # Stitch the complete 45s(ish) timeline: S1 cold flash + graded/composited
-  # spine (S2..S8) + freeze hold + S9 (organize, from Blender) + S10 (release)
-  # + S11 (end card). None of spine/freeze/overlay/grade cover this on their
-  # own -- they only build the pre-freeze portion (build/master_silent.mp4).
-  # Uses the *last frame of the graded, note-composited* spine as the freeze
-  # moment for both S1 and the hold, rather than the raw freeze_frame.png from
-  # the `freeze` stage (which predates grading/notes) -- S1 is specified as
-  # "freeze frame from S8 with full note composite", so it has to be sourced
-  # after `overlay`+`grade` have run, not before.
-  for f in build/master_silent.mp4 organize/S9.mp4 organize/S11.mp4 plates/S10.mp4; do
-    [ -f "$f" ] || { echo "missing $f -- run earlier stages / render organize/ first"; exit 1; }
+  # Stitch the complete timeline: S1 cold flash + graded/composited spine
+  # (S2..S8) + S9 (organize, LIVE) + S10 (release) + S11 (end card). None of
+  # spine/overlay/grade cover this on their own -- they only build the
+  # pre-climax portion (build/master_silent.mp4).
+  #
+  # No more freeze hold: the climax used to hold a frozen still for 2s and then
+  # play S9 over another frozen still (H7), which read as ~8s of dead freeze.
+  # Now nothing freezes -- S9's organizing cards composite over LIVE S8, so the
+  # picture keeps moving through the whole climax. S1 is still the 1s cold-open
+  # flash (a separate decision, left for later).
+  CARDS="blender/render/s9_0001.png"
+  for f in build/master_silent.mp4 "$CARDS" organize/S11.mp4 plates/S10.mp4 plates/S8.mp4; do
+    [ -f "$f" ] || { echo "missing $f -- run earlier stages / render alpha cards (blender) first"; exit 1; }
   done
   ffmpeg -y -sseof -0.1 -i build/master_silent.mp4 -frames:v 1 build/master_last_frame.png
   ffmpeg -y -loop 1 -i build/master_last_frame.png -t 1 -r 24 \
     -vf "eq=saturation=0.9,format=yuv420p" -c:v libx264 -crf 16 build/S1_coldflash.mp4
-  # Live hold, not a looped still: 2s barely-perceptible push-in (~3%) plus
-  # temporal grain so the frame keeps breathing. Upscale 2x before zoompan --
-  # zoompan crops on integer pixel coords, so at native res the sub-pixel
-  # drift quantizes into visible stepping.
-  ffmpeg -y -i build/master_last_frame.png \
-    -vf "scale=2160:3840,zoompan=z='1+0.03*on/47':x='iw/2-(iw/zoom)/2':y='ih/2-(ih/zoom)/2':d=48:s=1080x1920:fps=24,noise=alls=4:allf=t,format=yuv420p" \
-    -c:v libx264 -crf 16 build/freeze_hold.mp4
   ffmpeg -y -i plates/S10.mp4 -vf "$LOOK" \
     -c:v libx264 -crf 16 -pix_fmt yuv420p build/S10_graded.mp4
-  # S9's backdrop is a frozen still, so without this it's the one segment with
-  # zero grain and zero motion -- it reads as a broken freeze. Add moving grain
-  # + matching vignette (not the color shift -- keep the UI cards clean). The
-  # slow push-in itself comes from the Blender camera drift baked into S9.mp4.
-  ffmpeg -y -i organize/S9.mp4 -vf "noise=alls=6:allf=t,vignette=PI/5" \
-    -c:v libx264 -crf 16 -pix_fmt yuv420p build/S9_graded.mp4
+  # S9 LIVE: the Blender note-cards are rendered on alpha (blender/render/,
+  # transparent mode). Composite them over the S8 plate slowed ~2x to fill the
+  # 6s organize beat (S8 is 3.04s; slow-mo gives a reflective feel and avoids a
+  # loop seam), then apply the unifying LOOK over the whole composite -- same
+  # pipeline as the spine (composite -> grade), so the S9 cards and backdrop
+  # match S8 in the spine and pick up the same grain/motion.
+  ffmpeg -y -framerate 24 -i "blender/render/s9_%04d.png" -i plates/S8.mp4 \
+    -filter_complex "[1:v]setpts=2.0*PTS,fps=24[bg];[bg][0:v]overlay=0:0:format=auto,$LOOK,format=yuv420p[v]" \
+    -map "[v]" -frames:v 144 -c:v libx264 -crf 16 -pix_fmt yuv420p build/S9_live.mp4
   cat > build/final_concat.txt <<-LIST
 	file '$(pwd)/build/S1_coldflash.mp4'
 	file '$(pwd)/build/master_silent.mp4'
-	file '$(pwd)/build/freeze_hold.mp4'
-	file '$(pwd)/build/S9_graded.mp4'
+	file '$(pwd)/build/S9_live.mp4'
 	file '$(pwd)/build/S10_graded.mp4'
 	file '$(pwd)/organize/S11.mp4'
 	LIST
