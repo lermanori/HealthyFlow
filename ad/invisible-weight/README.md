@@ -184,6 +184,26 @@ Concept, script and plan live here; generated media stays local (gitignored).
         943 frames present, PTS continuous and monotonic across the old
         boundary. **Any new re-encode in this pipeline must force
         `-pix_fmt yuv420p`.**
+      - **Fix 6 — S9 read as frozen + column too tall.** Two client notes on
+        the organize section (~t=25–31s): (1) the backdrop looked frozen while
+        only the cards moved, and (2) the settled timeline column was too tall
+        with too much vertical gap between rows, overflowing the frame.
+        Causes/fixes:
+        - *Frozen:* S9's backdrop is a single H7 still by design, and it was
+          the one segment with **no grain and no perceptible motion**. The
+          Blender camera `drift_z` was only -0.35 (~3% push-in, imperceptible,
+          same failure as the old freeze hold). Bumped `drift_z` -0.35→-0.7 for
+          a visible slow push-in on the whole composition, and added a
+          moving-grain pass to S9 in the `final` stage (`build/S9_graded.mp4` =
+          `noise=alls=6:allf=t,vignette=PI/5` — grain+vignette only, no color
+          shift, to keep the UI cards clean). Every frame now changes.
+        - *Too tall:* measured the settled column at ~147px/row → 14 rows
+          overflow the 1920px frame. Reduced `column.row_gap` 0.34→0.24 (~30%
+          tighter) and nudged `top_y` 1.6→1.55 to re-center; the list now fits
+          with top/bottom margins. Both are baked into the Blender layout, so
+          this needs a re-render: `blender -b -P blender/build_s9.py` then the
+          render/encode/endcard/`final` chain from Fix 4. Verified against
+          frames t=25.5–31s.
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
       (both stages now target `build/master_full_silent.mp4`, not
       `master_silent.mp4`, since audio needs to cover the complete timeline)

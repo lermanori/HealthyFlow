@@ -1,3 +1,9 @@
+### 2026-07-19 13:05 — `claude/instagram-ad-testers-4c3c0n`
+
+Addressed two client notes on the S9 organize section (~25–31s): the backdrop read as frozen, and the settled timeline column was too tall with big gaps between rows. Gave the Blender camera a real slow push-in (drift -0.35→-0.7) and added a moving-grain pass to S9 in the final stage so the held backdrop breathes instead of sitting dead, and tightened the column (row_gap 0.34→0.24, re-centered) so the 14-row list fits inside the frame. Re-rendered S9, regenerated the endcard, and rebuilt the master (still uniform yuv420p, clean decode, 943 frames).
+
+---
+
 ### 2026-07-19 12:35 — `claude/instagram-ad-testers-4c3c0n`
 
 Fixed the master playing as a single frozen frame for its first ~24 seconds. The graded spine and the S10 shot were encoded yuv444p while every other segment was yuv420p, so the `-c copy` final concat switched pixel format mid-stream; players decoded the opening yuv420p frame, choked on the following 4:4:4 spine, and held that frame until the next yuv420p segment. Forced `-pix_fmt yuv420p` on both grade outputs so the whole timeline is one uniform format (also required for QuickTime/Instagram). Rebuilt and verified: uniform pix_fmt across all six segments, clean full-file decode, all 943 frames present with continuous timestamps.

@@ -105,11 +105,17 @@ final)
     -c:v libx264 -crf 16 build/freeze_hold.mp4
   ffmpeg -y -i plates/S10.mp4 -vf "$LOOK" \
     -c:v libx264 -crf 16 -pix_fmt yuv420p build/S10_graded.mp4
+  # S9's backdrop is a frozen still, so without this it's the one segment with
+  # zero grain and zero motion -- it reads as a broken freeze. Add moving grain
+  # + matching vignette (not the color shift -- keep the UI cards clean). The
+  # slow push-in itself comes from the Blender camera drift baked into S9.mp4.
+  ffmpeg -y -i organize/S9.mp4 -vf "noise=alls=6:allf=t,vignette=PI/5" \
+    -c:v libx264 -crf 16 -pix_fmt yuv420p build/S9_graded.mp4
   cat > build/final_concat.txt <<-LIST
 	file '$(pwd)/build/S1_coldflash.mp4'
 	file '$(pwd)/build/master_silent.mp4'
 	file '$(pwd)/build/freeze_hold.mp4'
-	file '$(pwd)/organize/S9.mp4'
+	file '$(pwd)/build/S9_graded.mp4'
 	file '$(pwd)/build/S10_graded.mp4'
 	file '$(pwd)/organize/S11.mp4'
 	LIST
