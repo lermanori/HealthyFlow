@@ -287,7 +287,7 @@ export default function LoginPage() {
           )}
 
           <div className="mt-6 flex items-center justify-center gap-4 text-xs text-gray-500">
-            <a href="/landing.html" className="transition-colors hover:text-cyan-400">
+            <a href="/" className="transition-colors hover:text-cyan-400">
               What is HealthyFlow?
             </a>
             <span aria-hidden="true">|</span>
