@@ -606,13 +606,26 @@ describe('POST /api/ai/chat', () => {
   })
 
   it('grounds relative dates in the current client date context', async () => {
-    const systemPrompt = buildChatSystemPrompt('Asia/Jerusalem', new Date('2026-07-05T12:00:00.000Z'))
+    const systemPrompt = buildChatSystemPrompt('Asia/Jerusalem', new Date('2026-07-26T14:48:00.000Z'))
 
     expect(systemPrompt).toContain('Client time zone: Asia/Jerusalem')
-    expect(systemPrompt).toContain('Current local date: 2026-07-05')
-    expect(systemPrompt).toContain('Current local time: 15:00')
-    expect(systemPrompt).toContain('Yesterday: 2026-07-04')
-    expect(systemPrompt).toContain('Tomorrow: 2026-07-06')
+    expect(systemPrompt).toContain('Current local date: Sunday, 2026-07-26')
+    expect(systemPrompt).toContain('Current local time: 17:48')
+    expect(systemPrompt).toContain('Yesterday: Saturday, 2026-07-25')
+    expect(systemPrompt).toContain('Tomorrow: Monday, 2026-07-27')
+    expect(systemPrompt).toContain(`Next 7 days (counting today):
+- Sunday, 2026-07-26
+- Monday, 2026-07-27
+- Tuesday, 2026-07-28
+- Wednesday, 2026-07-29
+- Thursday, 2026-07-30
+- Friday, 2026-07-31
+- Saturday, 2026-08-01`)
+    expect(systemPrompt).toContain(
+      'ראשון=Sunday, שני=Monday, שלישי=Tuesday, רביעי=Wednesday, חמישי=Thursday, שישי=Friday, שבת=Saturday',
+    )
+    expect(systemPrompt).toContain('A bare weekday name means the NEXT occurrence, counting today if it matches')
+    expect(systemPrompt).toContain('Never compute a weekday from a date yourself; use the dated list above')
     expect(systemPrompt).toContain('Resolve relative dates and times')
     expect(systemPrompt).toContain('If the user says now or right now, use the current local time')
   })

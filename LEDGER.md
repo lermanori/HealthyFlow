@@ -1,3 +1,9 @@
+### 2026-07-26 18:14 — `main`
+
+Grounded AI date interpretation in the client’s local calendar by adding weekday-labelled today, yesterday, tomorrow, and a concrete seven-day lookup with Hebrew weekday rules. Both assistant chat and parse-tasks now share the context, parse-tasks honors `X-Client-Time-Zone`, and the reported Jerusalem repro is pinned alongside the passing AI suite and backend typecheck.
+
+---
+
 ### 2026-07-26 17:38 — `codex/hotfix-netlify-root`
 
 Fixed the production blank screen introduced by the `/app` routing move: Netlify was file-shadowing the intended root landing-page rewrite with `dist/index.html`, whose router correctly refuses to render outside `/app`. The root rewrite now explicitly overrides static-file shadowing, and a red/green routing regression is included in the frontend CI unit gate so the deployment contract cannot silently regress again.

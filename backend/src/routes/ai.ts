@@ -32,7 +32,6 @@ const CHAT_RATE_LIMIT_WINDOW_MS = 60_000
 const CHAT_RATE_LIMIT_MAX = 12
 const MAX_CHAT_IMAGE_BYTES = 4 * 1024 * 1024
 const MAX_CHAT_TEXT_ATTACHMENT_CHARS = 12_000
-const ONE_DAY_MS = 24 * 60 * 60 * 1000
 
 const router = express.Router()
 const chatRateLimit = new Map<string, { count: number; resetAt: number }>()
@@ -183,6 +182,14 @@ function formatLocalDate(date: Date, timeZone: string) {
   return `${byType.year}-${byType.month}-${byType.day}`
 }
 
+function formatLocalDateWithWeekday(date: Date, timeZone: string) {
+  const weekday = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'long',
+  }).format(date)
+  return `${weekday}, ${formatLocalDate(date, timeZone)}`
+}
+
 function formatLocalTime(date: Date, timeZone: string) {
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone,
@@ -194,21 +201,48 @@ function formatLocalTime(date: Date, timeZone: string) {
   return `${byType.hour}:${byType.minute}`
 }
 
+function localCalendarDateAtOffset(now: Date, timeZone: string, dayOffset: number) {
+  const [year, month, day] = formatLocalDate(now, timeZone).split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day + dayOffset, 12))
+}
+
+function formatLocalDateAtOffset(now: Date, timeZone: string, dayOffset: number) {
+  return formatLocalDate(localCalendarDateAtOffset(now, timeZone, dayOffset), 'UTC')
+}
+
+function formatLocalDateWithWeekdayAtOffset(now: Date, timeZone: string, dayOffset: number) {
+  return formatLocalDateWithWeekday(localCalendarDateAtOffset(now, timeZone, dayOffset), 'UTC')
+}
+
+function buildDateContext(timeZone: string, now: Date) {
+  const nextSevenDays = Array.from(
+    { length: 7 },
+    (_, dayOffset) => `- ${formatLocalDateWithWeekdayAtOffset(now, timeZone, dayOffset)}`,
+  ).join('\n')
+
+  return `Date context:
+- Client time zone: ${timeZone}
+- Current local date: ${formatLocalDateWithWeekdayAtOffset(now, timeZone, 0)}
+- Current local time: ${formatLocalTime(now, timeZone)}
+- Yesterday: ${formatLocalDateWithWeekdayAtOffset(now, timeZone, -1)}
+- Tomorrow: ${formatLocalDateWithWeekdayAtOffset(now, timeZone, 1)}
+
+Next 7 days (counting today):
+${nextSevenDays}
+
+Named weekday resolution:
+- A bare weekday name means the NEXT occurrence, counting today if it matches.
+- Hebrew weekday names: ראשון=Sunday, שני=Monday, שלישי=Tuesday, רביעי=Wednesday, חמישי=Thursday, שישי=Friday, שבת=Saturday.
+- The Israeli week starts on Sunday.
+- Never compute a weekday from a date yourself; use the dated list above.`
+}
+
 export function buildChatSystemPrompt(timeZoneHeader?: string, now = new Date()) {
   const timeZone = normalizeTimeZone(timeZoneHeader)
-  const today = formatLocalDate(now, timeZone)
-  const currentTime = formatLocalTime(now, timeZone)
-  const yesterday = formatLocalDate(new Date(now.getTime() - ONE_DAY_MS), timeZone)
-  const tomorrow = formatLocalDate(new Date(now.getTime() + ONE_DAY_MS), timeZone)
 
   return `${CHAT_SYSTEM_PROMPT}
 
-Date context:
-- Client time zone: ${timeZone}
-- Current local date: ${today}
-- Current local time: ${currentTime}
-- Yesterday: ${yesterday}
-- Tomorrow: ${tomorrow}
+${buildDateContext(timeZone, now)}
 
 Resolve relative dates and times such as today, yesterday, tomorrow, now, right now, this morning, tonight, and last night from this date and time context when choosing tool arguments. If the user says now or right now, use the current local time. Do not use model training-date assumptions.`
 }
@@ -511,9 +545,11 @@ router.post('/parse-tasks', authenticateToken, async (req: AuthRequest, res) => 
     return res.status(400).json({ error: 'Photo must be 5MB or smaller' })
   }
 
-  const today = new Date().toISOString().split('T')[0]
+  const now = new Date()
+  const timeZone = normalizeTimeZone(req.header('x-client-time-zone'))
+  const today = formatLocalDateAtOffset(now, timeZone, 0)
   const defaultDate = defaultScheduleDate ?? today
-  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const tomorrow = formatLocalDateAtOffset(now, timeZone, 1)
   const userContent = photo
     ? [
         {
@@ -540,7 +576,11 @@ Field rules:
 - If the user does not specify a date, schedule Tasks for the selected default date (${defaultDate})
 - "tomorrow" -> ${tomorrow}, "tonight"/"evening" -> today, "this weekend" -> next Saturday
 - If a photo contains a list, calendar, sticky notes, handwritten plan, or screenshot, extract each actionable item.
-- Do not invent personal details that are not present in the text or photo.`
+- Do not invent personal details that are not present in the text or photo.
+
+${buildDateContext(timeZone, now)}
+
+Resolve relative dates and times from this date and time context. Follow the named weekday resolution rules exactly; do not use model training-date assumptions.`
 
   const result = await Openai.callBillableStructured({
     userId,
