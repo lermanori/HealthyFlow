@@ -79,22 +79,22 @@ def blip(freq, level=0.13, decay=0.32):
     return (tone * env + click * np.exp(-t / 0.004)) * level
 
 
-def room_tone(t0, t1, level):
-    """Low filtered noise — the world being present."""
+def room_tone(t0, t1, amp, rate=110):
+    """Low rumble — the room being present.
+
+    Noise is generated at `rate` Hz and interpolated up to SR, so there is
+    almost no energy above ~rate/2. This matters: a broadband bed (or a gentle
+    6dB/oct one-pole, which was the first attempt) leaves 500Hz-5kHz content
+    that the ear hears as RUNNING WATER, not as a room. Real room tone is
+    nearly all sub-200Hz. `amp` is the target amplitude, not a filter level.
+    """
     n = int((t1 - t0) * SR)
     if n <= 0:
         return
-    white = rng.normal(0, 1, n)
-    # cheap 1-pole lowpass for a soft, non-hissy bed
-    b = np.zeros(n)
-    a = 0.02
-    prev = 0.0
-    for i in range(0, n, 64):  # blockwise to keep it fast
-        chunk = white[i:i + 64]
-        for j, x in enumerate(chunk):
-            prev = prev + a * (x - prev)
-            b[i + j] = prev
-    add(t0, b * level * 30)
+    k = max(2, int((t1 - t0) * rate))
+    coarse = rng.normal(0, 1, k)
+    b = np.interp(np.linspace(0, k - 1, n), np.arange(k), coarse)
+    add(t0, b * amp)
 
 
 def drone(t0, t1, freq, l0, l1):
@@ -138,12 +138,12 @@ def pad(t0, t1, freqs, level, attack=1.6, release=1.2):
 # ---- 0:00–0:01  S1 cold flash: the peak of the stack, hard out ------------
 for k, f in enumerate([1046, 880, 1318, 740, 987, 1174]):
     add(0.02 + k * 0.06, blip(f, level=0.16, decay=0.28), pan=(k % 3 - 1) * 0.5)
-room_tone(0.0, S1_OUT, 0.020)
+room_tone(0.0, S1_OUT, 0.030)
 drone(0.0, S1_OUT, 62, 0.055, 0.055)
 
 # ---- 0:01–22.75  the morning: calm, then the stack builds -----------------
-room_tone(S1_OUT, 12.0, 0.016)
-room_tone(12.0, SILENCE_AT, 0.009)          # room tone thins as pressure rises
+room_tone(S1_OUT, 12.0, 0.024)
+room_tone(12.0, SILENCE_AT, 0.014)          # room tone thins as pressure rises
 drone(9.0, SILENCE_AT, 58, 0.010, 0.085)     # low drone climbs to the peak
 
 for k, (t0, f) in enumerate(zip(NOTE_BIRTHS, BLIP_FREQS)):
@@ -160,7 +160,7 @@ buf[int(SILENCE_AT * SR):int(LOCKIN_AT * SR)] = 0.0
 # ---- the payoff ----------------------------------------------------------
 add(LOCKIN_AT, thock())
 pad(PAD_AT, DURATION - 0.35, [146.83, 220.00, 293.66, 369.99], 0.085)
-room_tone(S10_AT, DURATION, 0.011)           # the world comes back
+room_tone(S10_AT, DURATION, 0.017)           # the world comes back
 for k, f in enumerate([2093, 2637, 3136]):   # faint birds, like S2
     add(S10_AT + 0.5 + k * 0.9, blip(f, level=0.020, decay=0.16), pan=(k - 1) * 0.7)
 pad(S11_AT, DURATION, [146.83, 220.00, 293.66], 0.055, attack=1.0, release=1.6)

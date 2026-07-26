@@ -332,6 +332,16 @@ Concept, script and plan live here; generated media stays local (gitignored).
         two VO slots are left silent (no speech synthesis available). Verified:
         silence window measures −91 dB, lock-in peaks −2.8 dB, overload −12.1 dB.
         **Timing reference only — not the finished sound design.**
+      - **Room tone gotcha (client: "too much water sound").** The first bed
+        was white noise through a 1-pole (6dB/oct) lowpass, which leaves ~38%
+        of its energy in 500Hz–5kHz — the ear reads sustained broadband noise
+        in that band as **running water**, not as a room. Fix: generate the
+        noise at ~110Hz and interpolate up to SR, so nothing survives above
+        ~55Hz (real room tone is nearly all sub-200Hz), and drop the level
+        ~40%. Water band went 37.8%→1.8% on a tone-only window; bed now sits
+        at −33.8dB mean with blips peaking −12.5dB, so alerts still cut ~11dB
+        above it. **Don't reach for a gentle lowpass on a noise bed** — it
+        sounds like plumbing.
       - `./assemble.sh audio` — the real mix. Expects **pre-placed** stems in
         `audio/` (each starting at 0:00 with its own leading silence, so no
         delay offsets are needed): `bed.wav` (room tone + stack + the lock-in;
