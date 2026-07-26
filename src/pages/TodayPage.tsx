@@ -1,7 +1,23 @@
 import { useState, useEffect, useMemo, useRef, type KeyboardEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays, isSameDay, isBefore } from 'date-fns'
-import { Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, Clock, Plus } from 'lucide-react'
+import {
+  AlertTriangle,
+  Brain,
+  Calendar,
+  CalendarDays,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Dumbbell,
+  HeartPulse,
+  Plus,
+  RotateCcw,
+  Sparkles,
+  Trash2,
+  Utensils,
+} from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   calendarService,
@@ -290,65 +306,279 @@ function WeekRibbon({
   )
 }
 
-function NowNextCard({ tasks }: { tasks: Task[] }) {
-  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes()
-  const toMin = (t: string) => {
-    const [h, m] = t.split(':').map(Number)
-    return h * 60 + (m || 0)
-  }
-  const timed = tasks
-    .filter((t) => t.startTime && !t.completed)
-    .sort((a, b) => toMin(a.startTime!) - toMin(b.startTime!))
+const focusReasonCopy: Record<NonNullable<DaySummary['attention']['focus']['reasonCode']>, string> = {
+  active_timed_item: 'This is the Item planned for the current time.',
+  overdue_timed_item: 'Its planned start has passed and it is still incomplete.',
+  first_anytime_item: 'This is first in your Anytime order.',
+  past_incomplete_item: 'This Item was left incomplete on this past day.',
+  first_future_item: 'This is the first planned Item for this future day.',
+}
 
-  const current = [...timed].reverse().find((t) => toMin(t.startTime!) <= nowMinutes)
-  const next = timed.find((t) => toMin(t.startTime!) > nowMinutes)
+const capacityReasonCopy: Record<DaySummary['capacity']['reasonCodes'][number], string> = {
+  planning_window_missing: 'Set a usable-day window in Settings.',
+  planning_window_invalid: 'The usable-day window needs correction.',
+  timezone_missing: 'A time zone is required.',
+  timezone_invalid: 'The saved time zone needs correction.',
+  calendar_not_connected: 'Calendar obligations are not included.',
+  calendar_unavailable: 'Calendar obligations could not be checked.',
+  calendar_event_all_day: 'An all-day obligation has no duration.',
+  calendar_event_missing_time: 'An obligation is missing its time.',
+  calendar_event_invalid_time: 'An obligation has an invalid time.',
+  item_missing_duration: 'One or more timed Items have no duration.',
+  item_invalid_duration: 'One or more Item durations need correction.',
+  item_invalid_start_time: 'One or more Items have an invalid start time.',
+}
 
-  if (!current && !next) {
-    return (
-      <div data-demo-id="now-next-card" className="rounded-xl border border-line/60 bg-page/40 p-4 text-sm text-ink-muted">
-        Nothing timed right now. Add a time to something below, or enjoy the open space.
-      </div>
-    )
-  }
+function formatMinutes(minutes: number) {
+  const hours = Math.floor(minutes / 60)
+  const remainder = minutes % 60
+  if (hours === 0) return `${remainder}m`
+  if (remainder === 0) return `${hours}h`
+  return `${hours}h ${remainder}m`
+}
 
-  const Row = ({ label, task, accent }: { label: string; task: Task; accent: string }) => (
-    <div className="flex min-w-0 items-center gap-3">
-      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${accent}`}>{label}</span>
-      <span className="flex shrink-0 items-center gap-1 text-xs text-ink-muted">
-        <Clock className="h-3 w-3" />
-        {task.startTime}
-      </span>
-      <span className="truncate text-sm font-medium text-ink">{task.title}</span>
-    </div>
-  )
+function itemTypeLabel(item: DaySummary['items'][number]) {
+  if (item.type === 'habit') return 'Habit'
+  if (item.type === 'workout') return 'Workout'
+  if (item.type === 'meal') return 'Meal'
+  if (item.type === 'grocery') return 'Grocery'
+  return 'Item'
+}
+
+function DecisionBand({ summary }: { summary: DaySummary }) {
+  const focus = summary.attention.focus
+  const focusItem = focus.itemId
+    ? summary.items.find((item) => item.id === focus.itemId)
+    : null
+  const next = summary.attention.nextObligation
+  const nextPlanned = summary.attention.nextPlannedItem
+  const nextCalendar = summary.attention.nextCalendarObligation
+  const capacity = summary.capacity
+
+  const emptyFocusCopy = focus.state === 'completed_day'
+    ? { title: 'Day complete', detail: 'Everything planned for this day is complete.' }
+    : focus.state === 'empty_day'
+      ? { title: 'Open day', detail: 'Nothing is planned yet.' }
+      : focus.state === 'nothing_needs_attention'
+        ? { title: 'Nothing needs attention', detail: 'There is no incomplete Item to surface.' }
+        : focus.state === 'past_incomplete'
+          ? { title: 'Past day needs review', detail: 'Incomplete work remains on this date.' }
+          : focus.state === 'future_planned'
+            ? { title: 'Future plan is open', detail: 'No Item needs focus before this date.' }
+            : { title: 'No focus selected', detail: 'The daily plan has no eligible focus Item.' }
+
+  const capacityTitle = capacity.status === 'complete'
+    ? capacity.basis.scope === 'remaining'
+      ? `${formatMinutes(capacity.availableMinutes)} usable time left`
+      : `${formatMinutes(capacity.availableMinutes)} unallocated`
+    : capacity.status === 'partial'
+      ? `At most ${formatMinutes(capacity.availableUpperBoundMinutes)} unallocated`
+      : 'Usable time unavailable'
+
+  const capacityDetail = capacity.status === 'unavailable'
+    ? capacityReasonCopy[capacity.reasonCodes[0]]
+    : capacity.status === 'partial'
+      ? capacity.reasonCodes.map((reason) => capacityReasonCopy[reason]).join(' ')
+      : `${capacity.window.startTime}–${capacity.window.endTime} window · ${formatMinutes(capacity.basis.knownLoadMinutes)} known load${capacity.window.transitionBufferMinutes ? ` · ${capacity.window.transitionBufferMinutes}m buffers` : ''}`
 
   return (
-    <div data-demo-id="now-next-card" className="flex flex-col gap-3 rounded-xl border border-cyan-500/30 bg-page/50 p-4">
-      {current && <Row label="Now" task={current} accent="bg-cyan-500/20 text-cyan-300" />}
-      {next && (
-        <div className={current ? 'border-t border-card pt-3' : ''}>
-          <Row label="Next" task={next} accent="bg-purple-500/20 text-purple-300" />
+    <section
+      aria-labelledby="daily-decisions-heading"
+      data-demo-id="decision-band"
+      className="overflow-hidden rounded-xl border border-line/70 bg-page/45"
+    >
+      <h2 id="daily-decisions-heading" className="sr-only">Daily decisions</h2>
+      <div className="today-decision-grid">
+        <div className="today-decision-primary min-w-0 border-b border-line/60 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-400">
+            Focus now
+          </p>
+          <div className="mt-2 flex min-w-0 items-start gap-3">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-300">
+              {focus.state === 'completed_day'
+                ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                : <Clock className="h-4 w-4" aria-hidden="true" />}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-lg font-semibold leading-tight text-ink">
+                {focusItem?.title ?? emptyFocusCopy.title}
+              </p>
+              <p className="mt-1 text-xs font-medium text-ink-muted">
+                {focusItem
+                  ? `${itemTypeLabel(focusItem)} · ${focusItem.startTime ? `Planned ${focusItem.startTime}` : 'Anytime'}`
+                  : emptyFocusCopy.detail}
+              </p>
+              {focusItem && focus.reasonCode && (
+                <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+                  {focusReasonCopy[focus.reasonCode]}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
-      )}
-    </div>
+
+        <div className="today-decision-secondary min-w-0 border-b border-line/60 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
+            Next obligation
+          </p>
+          <div className="mt-2 flex min-w-0 items-start gap-3">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-raised text-ink-muted">
+              <CalendarDays className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-ink">
+                {next?.title ?? 'No upcoming obligation'}
+              </p>
+              <p className="mt-1 text-xs text-ink-muted">
+                {next
+                  ? `${next.source === 'calendar' ? 'Calendar' : 'Item'} · ${next.startTime}`
+                  : summary.calendar.status === 'unavailable'
+                    ? 'Calendar could not be checked.'
+                    : 'No timed Item or calendar event is next.'}
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+                {next?.conflictIds.length
+                  ? `${next.conflictIds.length} overlapping ${next.conflictIds.length === 1 ? 'obligation' : 'obligations'}`
+                  : [
+                      nextPlanned ? `Next Item ${nextPlanned.startTime}` : 'No next Item',
+                      nextCalendar
+                        ? `calendar ${nextCalendar.startTime}`
+                        : summary.calendar.status === 'not_connected'
+                          ? 'calendar not connected'
+                          : summary.calendar.status === 'unavailable'
+                            ? 'calendar unavailable'
+                            : 'no next calendar event',
+                    ].join(' · ')}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="today-decision-capacity min-w-0 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
+                {capacity.status === 'partial' ? 'Capacity · partly known' : 'Capacity'}
+              </p>
+              <p className="mt-2 text-base font-semibold text-ink">{capacityTitle}</p>
+            </div>
+            {capacity.status === 'partial' || capacity.status === 'unavailable'
+              ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" aria-label="Incomplete capacity data" />
+              : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-400" aria-label="Capacity data complete" />}
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-ink-muted">{capacityDetail}</p>
+          <div className="mt-3 flex items-center gap-2 text-xs text-ink-soft">
+            <span className="font-semibold text-ink">
+              {summary.completion.completed} of {summary.completion.total} done
+            </span>
+            {summary.completion.percent !== null && (
+              <span
+                role="progressbar"
+                aria-label="Daily Item completion"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(summary.completion.percent)}
+                className="h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-raised"
+              >
+                <span
+                  className="block h-full bg-cyan-400"
+                  style={{ width: `${summary.completion.percent}%` }}
+                />
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 
-function RhythmKickoffCard({ kickoff }: { kickoff: DueKickoff }) {
+function DayContextSummary({ summary }: { summary: DaySummary }) {
+  const habits = summary.supporting.habits
+  const nutrition = summary.supporting.nutrition
+  const workouts = summary.supporting.workouts
+  const nutritionCopy = nutrition.status === 'available'
+    ? [
+        nutrition.calories.value !== null
+          ? `${nutrition.calories.value} kcal${nutrition.calories.status === 'partial' ? ' (partial)' : ''}`
+          : 'Calories unavailable',
+        nutrition.protein.value !== null
+          ? `${nutrition.protein.value}g protein${nutrition.protein.status === 'partial' ? ' (partial)' : ''}`
+          : 'Protein unavailable',
+        nutrition.weight.status === 'recorded' && nutrition.weight.entry
+          ? `${nutrition.weight.entry.weightKg} kg`
+          : nutrition.weight.status === 'not_recorded'
+            ? 'Weight not recorded'
+            : 'Weight unavailable',
+      ].join(' · ')
+    : nutrition.status === 'not_logged'
+      ? 'Nothing logged yet'
+      : 'Nutrition data unavailable'
+
   return (
-    <div data-demo-id="morning-planning-card" className="flex flex-col gap-3 rounded-xl border border-cyan-500/35 bg-cyan-500/[.08] p-4 shadow-lg shadow-cyan-500/10 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-cyan-300" />
-          <h2 className="text-sm font-semibold text-cyan-100">{kickoff.title}</h2>
+    <section aria-labelledby="day-context-heading" data-demo-id="day-context">
+      <h3 id="day-context-heading" className="text-sm font-semibold uppercase tracking-wider text-ink-muted">
+        Day context
+      </h3>
+      <div className="mt-2 divide-y divide-line/60 border-y border-line/60">
+        <div className="flex items-start gap-3 py-3">
+          <HeartPulse className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" aria-hidden="true" />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink">Habits</p>
+            <p className="mt-0.5 text-xs text-ink-muted">
+              {habits.total === 0
+                ? 'No Habit instances for this day'
+                : `${habits.completed} complete · ${habits.partial} partial · ${habits.pending} pending${habits.failed ? ` · ${habits.failed} failed` : ''}`}
+            </p>
+          </div>
         </div>
-        <p className="mt-1 text-sm text-ink-muted">{kickoff.body}</p>
+
+        {summary.modules.nutrition !== 'disabled' && (
+          <div className="flex items-start gap-3 py-3">
+            <Utensils className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink">Nutrition and Weight</p>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                {nutritionCopy}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {summary.modules.workouts !== 'disabled' && (
+          <div className="flex items-start gap-3 py-3">
+            <Dumbbell className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink">Workout</p>
+              <p className="mt-0.5 text-xs text-ink-muted">
+                {workouts.status === 'logged'
+                  ? `${workouts.sessions.length} ${workouts.sessions.length === 1 ? 'session' : 'sessions'} logged`
+                  : workouts.status === 'not_logged'
+                    ? 'No workout logged'
+                    : 'Workout data unavailable'}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function RhythmKickoffRow({ kickoff }: { kickoff: DueKickoff }) {
+  return (
+    <div data-demo-id="morning-planning-card" className="flex min-h-12 flex-col gap-2 border-y border-line/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+      <div className="flex min-w-0 items-center gap-2">
+        <Sparkles className="h-4 w-4 shrink-0 text-cyan-400" aria-hidden="true" />
+        <p className="truncate text-sm text-ink-soft">
+          <span className="font-semibold text-ink">{kickoff.title}.</span>{' '}
+          {kickoff.body}
+        </p>
       </div>
       <Link
         to={`/talk?kickoff=${kickoff.type}`}
-        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 text-sm font-semibold text-cyan-950 shadow-lg shadow-cyan-400/20 transition-colors hover:bg-cyan-300"
+        className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-3 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/10"
       >
-        <Sparkles className="h-4 w-4" />
         <span>{kickoff.button}</span>
       </Link>
     </div>
@@ -746,44 +976,7 @@ export default function TodayPage() {
   }
 
   return (
-    <div className="space-y-4 pb-4 md:space-y-6 md:pb-0">
-      {/* Smart Reminders */}
-      <SmartReminders />
-
-      {settings?.onboardingStatus === 'active' && (
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-lg border border-cyan-500/30 bg-page/80 p-4 shadow-xl shadow-cyan-500/10"
-        >
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-cyan-400" />
-            <h2 className="text-lg font-semibold text-ink">Tell me about your day</h2>
-          </div>
-          <p className="mt-1 text-sm text-ink-muted">
-            One brain-dump — work, food, gym, anything — and I'll turn it into your schedule.
-          </p>
-
-          <button
-            type="button"
-            onClick={() => setShowAIAnalyzer(true)}
-            className="btn-primary mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm"
-          >
-            <Brain className="h-4 w-4" />
-            Tell HealthyFlow about your day
-          </button>
-
-          <button
-            type="button"
-            onClick={() => skipOnboardingMutation.mutate()}
-            disabled={skipOnboardingMutation.isPending}
-            className="mt-3 block text-xs text-gray-500 transition-colors hover:text-ink-soft"
-          >
-            I'll do it later
-          </button>
-        </motion.div>
-      )}
-
+    <div className="today-workspace space-y-4 pb-4 md:space-y-5 md:pb-0">
       {/* Confetti Animation */}
       <ConfettiAnimation 
         show={showConfetti} 
@@ -791,11 +984,7 @@ export default function TodayPage() {
       />
 
       {/* Day-first header: title row + week ribbon */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-3"
-      >
+      <div className="space-y-3">
         {/* Title + actions */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-0.5">
@@ -847,7 +1036,7 @@ export default function TodayPage() {
             <Link
               to="/talk"
               data-demo-id="talk-button"
-              className="flex items-center gap-1.5 rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-950 shadow-lg shadow-cyan-400/20 transition-colors hover:bg-cyan-300"
+              className="flex min-h-11 items-center gap-1.5 rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-950 transition-colors hover:bg-cyan-300"
             >
               <Sparkles className="h-4 w-4" />
               <span>Talk</span>
@@ -856,7 +1045,7 @@ export default function TodayPage() {
               to="/add"
               aria-label="Add"
               data-demo-id="add-task-button"
-              className="flex h-[38px] w-[38px] items-center justify-center gap-1.5 rounded-xl border border-line bg-card/50 text-ink-soft transition-colors hover:border-line-strong hover:text-ink lg:w-auto lg:px-3.5"
+              className="flex h-11 w-11 items-center justify-center gap-1.5 rounded-xl border border-line bg-card/50 text-ink-soft transition-colors hover:border-line-strong hover:text-ink lg:w-auto lg:px-3.5"
             >
               <Plus className="h-[17px] w-[17px]" />
               <span className="hidden text-sm font-medium lg:inline">Add</span>
@@ -895,11 +1084,40 @@ export default function TodayPage() {
           loadByDay={loadByDay}
           weekStartsOn={weekStartsOn}
         />
-      </motion.div>
+      </div>
 
-      {/* Now/next — only when viewing today */}
-      {isViewingToday && dueKickoff && <RhythmKickoffCard kickoff={dueKickoff} />}
-      {isViewingToday && <NowNextCard tasks={tasksData} />}
+      {daySummary && <DecisionBand summary={daySummary} />}
+      <AIRecommendationsBox date={selectedDateKey} />
+      {isViewingToday && dueKickoff && <RhythmKickoffRow kickoff={dueKickoff} />}
+
+      {settings?.onboardingStatus === 'active' && (
+        <section className="flex flex-col gap-3 rounded-xl border border-cyan-500/30 bg-cyan-500/[.06] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-ink">Tell HealthyFlow about your day</h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Turn one brain-dump into Items for this date.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => skipOnboardingMutation.mutate()}
+              disabled={skipOnboardingMutation.isPending}
+              className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-ink-muted hover:bg-card hover:text-ink"
+            >
+              Later
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAIAnalyzer(true)}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-cyan-400 px-4 text-sm font-semibold text-cyan-950 hover:bg-cyan-300"
+            >
+              <Brain className="h-4 w-4" aria-hidden="true" />
+              Start
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* AI Text Analyzer Modal */}
       {createPortal(
@@ -986,39 +1204,28 @@ export default function TodayPage() {
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-        {/* Main Timeline */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="lg:col-span-2"
-        >
-          <DayTimeline
-            heading={formatScheduleHeading(selectedDate, now)}
-            tasks={tasksData}
-            calendarEvents={calendarEvents}
-            calorieEntries={calorieEntries}
-            onTasksReorder={handleTasksReorder}
-            onTasksPersisted={() => {
-              queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(selectedDateKey) })
-              queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(selectedDateKey) })
-              queryClient.invalidateQueries({ queryKey: ['tasks', selectedDateKey] })
-            }}
-            onCompleteTask={handleCompleteTask}
-            onUncompleteTask={handleUncompleteTask}
-            onCalendarEventComplete={handleCalendarEventComplete}
-            onCalendarEventSchedule={handleCalendarEventSchedule}
-            onEditTask={handleEditTask}
-            onDeleteTask={handleDeleteTask}
-            onHabitCheckIn={setHabitCheckIn}
-          />
-        </motion.div>
+      <DayTimeline
+        heading={formatScheduleHeading(selectedDate, now)}
+        tasks={tasksData}
+        calendarEvents={calendarEvents}
+        calorieEntries={calorieEntries}
+        onTasksReorder={handleTasksReorder}
+        onTasksPersisted={() => {
+          queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(selectedDateKey) })
+          queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(selectedDateKey) })
+          queryClient.invalidateQueries({ queryKey: ['tasks', selectedDateKey] })
+        }}
+        onCompleteTask={handleCompleteTask}
+        onUncompleteTask={handleUncompleteTask}
+        onCalendarEventComplete={handleCalendarEventComplete}
+        onCalendarEventSchedule={handleCalendarEventSchedule}
+        onEditTask={handleEditTask}
+        onDeleteTask={handleDeleteTask}
+        onHabitCheckIn={setHabitCheckIn}
+        supportingContent={daySummary ? <DayContextSummary summary={daySummary} /> : null}
+      />
 
-        {/* Sidebar */}
-        <div className="space-y-4 md:space-y-6">
-          <AIRecommendationsBox date={format(selectedDate, 'yyyy-MM-dd')} />
-        </div>
-      </div>
+      <SmartReminders />
 
       {/* Task Edit Modal */}
       <TaskEditModal

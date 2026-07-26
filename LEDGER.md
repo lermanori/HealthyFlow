@@ -1,3 +1,9 @@
+### 2026-07-26 12:14 — `codex/phase1-decision-band`
+
+Recomposed Today around a DaySummary-driven decision band that explains Focus, the next obligation, completion, and honest complete/partial/unavailable capacity before planning detail. The schedule now responds to its actual container width, keeps Anytime ahead of the timeline on compact screens, and pairs the wide timeline with restrained module-aware Day Context; Daily Signals are a calm, recoverable row instead of a competing AI card. Dense authenticated visual baselines and focused accessibility, date, Item, Habit, drag, Talk, error, and responsive regressions cover all three target viewports; no database migration is required.
+
+---
+
 ### 2026-07-26 11:16 — `codex/phase1-day-summary`
 
 Completed Phase 1’s DaySummary foundation with one versioned Zod contract, a shared canonical Item read path, deterministic attention rules, and honest complete/partial/unavailable capacity derivation. Today now composes its selected day through one request, optional calendar and health failures degrade independently, usable-day settings remain explicitly opt-in, and canonical cache invalidation preserves Item, Habit, Calendar, health, Week, and Talk behavior. Full backend, build, unit, and focused cross-feature browser validation is green; issue #161 is ready for preview review without a database migration.

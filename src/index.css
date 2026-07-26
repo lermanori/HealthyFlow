@@ -685,6 +685,87 @@
   }
 }
 
+/* Today is responsive to the workspace left after navigation, not the viewport. */
+.today-workspace {
+  container: today / inline-size;
+}
+
+.today-decision-grid,
+.today-plan-grid {
+  display: grid;
+  min-width: 0;
+}
+
+.today-plan-grid {
+  position: relative;
+  grid-template-areas:
+    "anytime"
+    "schedule"
+    "supporting";
+  gap: 1rem;
+}
+
+.today-anytime-panel {
+  grid-area: anytime;
+}
+
+.today-schedule-panel {
+  grid-area: schedule;
+}
+
+.today-supporting-panel {
+  grid-area: supporting;
+}
+
+@container today (max-width: 43.999rem) {
+  .today-decision-primary,
+  .today-decision-secondary,
+  .today-decision-capacity {
+    padding: 0.75rem;
+  }
+}
+
+@container today (min-width: 44rem) {
+  .today-decision-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .today-decision-primary {
+    grid-column: 1 / -1;
+  }
+
+  .today-decision-secondary {
+    border-bottom: 0;
+    border-right: 1px solid rgb(var(--border-default) / 0.6);
+  }
+}
+
+@container today (min-width: 56rem) {
+  .today-decision-grid {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .today-decision-primary {
+    grid-column: auto;
+    border-right: 1px solid rgb(var(--border-default) / 0.6);
+    border-bottom: 0;
+  }
+
+  .today-plan-grid {
+    grid-template-columns: minmax(0, 2fr) minmax(17rem, 0.82fr);
+    grid-template-areas: "schedule anytime";
+    align-items: start;
+    gap: 1.5rem;
+  }
+
+  .today-supporting-panel {
+    position: absolute;
+    top: calc(var(--today-anytime-height) + 1.5rem);
+    right: 0;
+    width: max(17rem, calc((100% - 1.5rem) * 0.2908));
+  }
+}
+
 /* White theme: override PWA-standalone dark background gradients. */
 [data-theme='white'] .min-h-screen,
 [data-theme='white'] #loading-screen {

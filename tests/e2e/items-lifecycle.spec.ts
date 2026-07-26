@@ -21,7 +21,7 @@ test('Complete Task: marking complete persists across reload', async ({ page }) 
 
   // Redirected to Today, task visible
   await expect(page).toHaveURL('/', { timeout: 10_000 })
-  await expect(page.locator(`text=${taskTitle}`)).toBeVisible()
+  await expect(page.getByRole('heading', { name: taskTitle })).toBeVisible()
 
   // Find the task card by its heading, then find and click the checkbox button
   const titleHeading = page.locator('h3', { hasText: taskTitle }).first()

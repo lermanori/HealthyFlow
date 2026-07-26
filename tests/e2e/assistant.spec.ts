@@ -262,5 +262,5 @@ test('Confirmed assistant task appears on Today without a browser refresh', asyn
   await expect(page.getByText('Action confirmed')).toBeVisible()
 
   await page.goto('/')
-  await expect(page.getByText(title)).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 10_000 })
 })
