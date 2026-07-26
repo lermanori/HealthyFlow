@@ -1,104 +1,112 @@
-# The Invisible Weight — רשימת שוטים (רואים / שומעים)
+# The Invisible Weight — Shot List (SEE / HEAR)
 
-פרסומת ל-HealthyFlow. אורך סופי: **36.8 שניות**. פורמט אנכי 1080×1920, 24fps.
+HealthyFlow ad. Final length: **36.8 seconds**. Vertical 1080×1920, 24fps.
 
-המסמך מתאר את **הקאט הקיים בפועל** — לא את התסריט המקורי (שכבר לא תקף).
-לפי הבקשה: רק **קומפוזיציה ומה קורה** בכל שוט. בלי תיאורי צבע/סטייל/גרייד.
+This describes **the cut as it actually exists** — not the original script, which
+is no longer valid. Per the request: **composition and what happens only**. No
+colour / style / grade descriptions.
 
-**קונספט:** אישה עוברת בוקר רגיל. סביבה מצטברים פתקים צפים — כל מה שהיא צריכה
-לזכור. הרעש מגיע לשיא, נעצר לרגע דממה, והפתקים מתארגנים לטיימליין אחד. היא
-נושמת. אין אף פריז-פריים בסרט — התמונה חיה לכל אורכו.
+**Concept:** a woman moves through an ordinary morning. Floating notes pile up
+around her — everything she has to remember. The noise peaks, stops dead for a
+beat of silence, and the notes organise themselves into a single timeline. She
+breathes. There is no freeze frame anywhere in the film — the picture stays alive
+throughout.
 
-**קריינות (2 משפטים בלבד, באנגלית, כפי שהוקלט):**
+**Voiceover (two lines only, as recorded):**
 1. "The hardest part of modern life isn't doing everything."
 2. "It's remembering everything."
 
 ---
 
-## הטבלה
+## The table
 
-| # | זמן | רואים (קומפוזיציה + פעולה) | שומעים |
-|---|-----|---------------------------|--------|
-| **1** | 0:00–0:01 | **תקריב פנים.** היא מביטה מעט מעבר למצלמה וממצמצת. סביבה ענן הפתקים במלואו (14 פתקים). הבזק "הצצה קדימה" — חיתוך חד החוצה. | שיא ערימת ההתראות, נחתך באיבחה. |
-| **2** | 0:01–0:06 | **בינוני, מטבח.** עומדת ליד השיש ומוזגת קפה מקנקן לספל. | מזיגת קפה. טון חדר שקט.<br>**0:04.7** — פתק ראשון: `Dentist at 3 PM` + צליל התראה. |
-| **3** | 0:06–0:11 | **בינוני, חזיתי.** עומדת מאחורי השיש מול המצלמה, טלפון ביד ימין מורם, ספל ביד שמאל. מדפים וצמחייה מאחוריה. בסוף השוט היא עוזבת את השיש. | **0:07.7** `Reply to Alex`<br>**0:08.8** `Buy groceries`<br>**0:09.9** `Workout`<br>כל פתק עם צליל התראה שונה. מ-0:09 נכנס דרון נמוך שמתחיל לעלות.<br>**0:09.9–0:10.9** צעדים — היא חוצה אל השולחן. |
-| **4** | 0:11–0:14 | **רחב, דרך פתח.** קומפוזיציה עמוקה — קיר/מסדרון בחזית ממסגר אותה מצד שמאל, והיא יושבת ליד השולחן בעומק הפריים מימין. מחשב סגור לפניה, ספל. | **0:11.2** כיסא (היא מתיישבת).<br>**0:11.8** `Call Mom`<br>**0:12.9** `Pay rent`<br>**0:13.6** `Go to the gym` |
-| **5** | 0:14–0:17 | **רחב, אותו מסגור דרך הפתח.** אותה זווית בדיוק כמו שוט 4 — המחשב עכשיו פתוח והיא מקלידה. | הקלדה (מקצב לא אחיד, אנושי).<br>**0:14.4** `Drink water`<br>**0:15.8** `Finish project`<br>**0:16.6** `Schedule appointment`<br>טון החדר מתחיל להידלל, הדרון עולה. |
-| **6** | 0:17–0:20 | **רחב, אותו מסגור דרך הפתח.** היא עמוקה יותר בפריים ליד הכיור מתחת לחלון, גב-שלושת-רבעי למצלמה. הדמות הכי קטנה בפריים מכל הסרט — הפתקים הכי דומיננטיים. | **0:17.3** `Log lunch`<br>**0:18.1** `Prepare for meeting`<br>**0:18.8** `Answer email`<br>**0:19.5** `Call family`<br>ההתראות כבר מתחילות לחפוף בלי רווחים. |
-| **7** | 0:20–0:23 | **תקריב, פוש-אין איטי.** היא נעצרת. מביטה מעט מעבר למצלמה. כל 14 הפתקים באוויר סביבה — הפנים שלה נשארות פנויות, אף פתק לא מכסה אותן. | הערימה מגיעה לשיא. הדרון בשיאו. לא מעוות — רק צפוף. |
-| **8** | **0:22.75** | **מעבר (דיזולב 0.5 שנ').** ענן הפתקים הסטטי נמס אל תוך הפתקים המתפזרים שמתחילים להתארגן. | **דממה מוחלטת.** הכל נחתך — כולל טון החדר. |
-| **9** | 0:22.75–0:28.75 | **תקריב — אותו שוט של 7 אבל בהילוך איטי (×2), והיא ממשיכה לנוע. לא פריז.** הפתקים עפים פנימה ומתיישרים לעמודה אחת: טיימליין של יום שלם, 15 שורות, מסודר לפי שעות. ההתארגנות מתחילה מיד עם החיתוך — אין המתנה. | **0:23.9–0:26.5 — קריינות 1:**<br>*"The hardest part of modern life isn't doing everything."*<br>**0:25.8** — צליל ה"נעילה": כל השורות מתיישבות. הצליל הכי חשוב בסרט.<br>**0:26.3** — מוזיקה חמה נכנסת (רק אחרי שהיום התארגן, אף פעם לא לפני).<br>**0:27.7** — קריינות 2 מתחילה **עוד בתוך השוט הזה** (ראה שוט 10). |
-| **10** | 0:28.75–0:31.8 | **תקריב-בינוני, בלי פתקים.** היא נושפת, הכתפיים יורדות, הבעה מתרככת. חוזרת להיות נוכחת. | **0:27.7–0:28.9 — קריינות 2** (מתחילה בסוף שוט 9 ונגמרת ממש עם תחילת שוט 10):<br>*"It's remembering everything."*<br>ציפורים וטון החדר חוזרים — העולם נשמע שוב כמו בשוט 2. |
-| **11** | 0:31.8–0:36.8 | **גרפיקה על מסך מלא.** הטיימליין מהשוט הקודם נשאר ברקע מעומעם. טקסט נכנס בשלושה שלבים. | המוזיקה מתיישבת על אקורד חם אחד ומסתיימת. |
+| # | Time | SEE (composition + action) | HEAR |
+|---|------|---------------------------|------|
+| **1** | 0:00–0:01 | **Face close-up.** She looks slightly past camera and blinks. The full note cloud is around her (14 notes). A flash-forward — hard cut out. | Peak of the notification stack, cut off mid-air. |
+| **2** | 0:01–0:06 | **Medium, kitchen.** Standing at the counter in profile, pouring coffee from a moka pot into a mug. Plants on the windowsill, counter across the lower third. | Coffee pour. Quiet room tone.<br>**0:04.7** — first note: `Dentist at 3 PM` + alert sound. |
+| **3** | 0:06–0:11 | **Medium, frontal.** Standing behind the counter facing camera, phone raised in her right hand, mug in her left. Shelving and plants behind her. She leaves the counter at the end of the shot. | **0:07.7** `Reply to Alex`<br>**0:08.8** `Buy groceries`<br>**0:09.9** `Workout`<br>Each note gets a different alert sound. From 0:09 a low drone enters and starts rising.<br>**0:09.9–0:10.9** footsteps — she crosses to the table. |
+| **4** | 0:11–0:14 | **Wide, through a doorway.** Deep composition — a corridor wall in the foreground frames her from the left; she sits at the table deeper in frame on the right. Closed laptop in front of her, mug. | **0:11.2** chair (she sits down).<br>**0:11.8** `Call Mom`<br>**0:12.9** `Pay rent`<br>**0:13.6** `Go to the gym` |
+| **5** | 0:14–0:17 | **Wide, same doorway framing.** Identical angle to shot 4 — the laptop is now open and she is typing. | Keyboard (irregular, human rhythm).<br>**0:14.4** `Drink water`<br>**0:15.8** `Finish project`<br>**0:16.6** `Schedule appointment`<br>Room tone starts thinning, the drone climbs. |
+| **6** | 0:17–0:20 | **Wide, same doorway framing.** She is deeper in frame at the sink under the window, three-quarters back to camera. The smallest she appears in the whole film — the notes are at their most dominant. | **0:17.3** `Log lunch`<br>**0:18.1** `Prepare for meeting`<br>**0:18.8** `Answer email`<br>**0:19.5** `Call family`<br>The alerts now overlap with no gaps. |
+| **7** | 0:20–0:23 | **Close-up, slow push-in.** She stops. Looks slightly past camera. All 14 notes are in the air around her — her face stays clear, no note covers it. | The stack peaks. Drone at its highest. Never distorted — just crowded. |
+| **8** | **0:22.75** | **Transition (0.5s dissolve).** The static note cloud melts into the scattered cards as they begin to organise. | **Total silence.** Everything cuts — including room tone. |
+| **9** | 0:22.75–0:28.75 | **Close-up — the same shot as 7 but at half speed (×2 slow), and she keeps moving. Not a freeze.** The notes fly in and align into a single column: a whole day as a timeline, 15 rows, ordered by time. Organising starts immediately on the cut — no waiting. | **0:23.9–0:26.5 — VO 1:**<br>*"The hardest part of modern life isn't doing everything."*<br>**0:25.8** — the lock-in sound: every row settles. The most important sound in the film.<br>**0:26.3** — warm music enters (only after the day is organised, never before).<br>**0:27.7** — VO 2 begins **while still in this shot** (see shot 10). |
+| **10** | 0:28.75–0:31.8 | **Medium close-up, no notes.** She exhales, shoulders drop, expression softens. Present again. | **0:27.7–0:28.9 — VO 2** (starts at the end of shot 9, finishes just as shot 10 begins):<br>*"It's remembering everything."*<br>Birds and room tone return — the world sounds like shot 2 again. |
+| **11** | 0:31.8–0:36.8 | **Full-screen graphics.** The timeline from the previous shot stays dimmed in the background. Text enters in three stages. | Music settles onto one warm chord and ends. |
 
 ---
 
-## מיפוי מספרי שוטים לשמות הקבצים
+## Shot number → file name mapping
 
-בטבלה למעלה השוטים ממוספרים 1–11 ברצף. **בקבצים ובקוד** יש מספור אחר —
-אין S7 (הוא נבלע בפוש-אין של S8). כדאי להשתמש בעמודה הימנית כשמדברים על קבצים:
+The table above numbers shots 1–11 in sequence. **The files and code use a
+different numbering** — there is no S7 (it was absorbed into S8's push-in). Use
+the right-hand column when talking about files:
 
-| בטבלה | בקוד/קבצים | הערה |
-|-------|-----------|------|
-| 1 | S1 | נחתך מהשנייה האחרונה של הספיין (חי, לא פריז) |
+| In the table | In code / files | Note |
+|--------------|-----------------|------|
+| 1 | S1 | Cut from the last second of the spine (live, not a freeze) |
 | 2–6 | S2, S3, S4, S5, S6 | `plates/S*.mp4` |
-| 7 | **S8** | אין S7 |
-| 8 | — | המעבר עצמו (דיזולב), נבנה ב-`assemble.sh final` |
-| 9 | S9 | רנדר Blender על אלפא + S8 חי מתחת |
+| 7 | **S8** | There is no S7 |
+| 8 | — | The transition itself (dissolve), built in `assemble.sh final` |
+| 9 | S9 | Blender render on alpha over live S8 underneath |
 | 10 | S10 | `plates/S10.mp4` |
 | 11 | S11 | `organize/generate_endcard.py` |
 
 ---
 
-## מה כתוב על המסך בשוט 11 (כרטיס סיום)
+## On-screen text in shot 11 (end card)
 
-לפי הסדר, בשלושה שלבים:
+In order, in three stages:
 
-1. **HealthyFlow** (וורדמארק)
+1. **HealthyFlow** (wordmark)
 2. Take back control of your day.
 3. DM "FLOW" for early access.
 
 ---
 
-## הטיימליין שמופיע בשוט 9 — 15 שורות לפי הסדר
+## The timeline in shot 9 — 15 rows in order
 
-זו הפואנטה של הפרסומת: לא רשימת מטלות ממוינת, אלא **יום שלם במעקב** — עבודה,
-כושר, אוכל, משקל והרגלים באותה עמודה, מסודרים לפי שעה. כל שורה עם פס צבע
-בקטגוריה שלה ועם "צ'יפ" שמראה מה נמדד:
+This is the point of the ad: not a sorted to-do list, but **a whole day being
+tracked** — work, fitness, food, weight and habits in one column, ordered by
+time. Each row has a category colour bar and a "chip" showing what is measured:
 
-| שורה | הצ'יפ | מה זה מראה |
-|------|-------|-----------|
-| Workout | ✓ 45 min | אימון שכבר בוצע ותועד |
-| Drink water | 6-day streak | הרגל עם רצף |
-| **Weight** | 68.2 kg ▼ | **מדידת משקל — הדבר שהכי מבדיל מיומן** |
-| Pay rent | 8:30 AM | משימה |
-| Reply to Alex | 9:00 AM | משימה |
-| Prepare for meeting | 10:00 AM | משימה |
-| **Log lunch** | 540 kcal | **קלוריות** |
-| Answer email | 1:00 PM | משימה |
-| Schedule appointment | 2:00 PM | משימה |
-| Dentist appointment | 3:00 PM | משימה |
-| Buy groceries | 5:30 PM | קניות |
-| Go to the gym | 6:00 PM | כושר |
-| Call Mom | 7:30 PM | אישי |
-| Call family | 8:00 PM | אישי |
-| **Finish project** | ↻ Tomorrow | **מה שלא הספיקה עובר מעצמו למחר** |
-
----
-
-## גרסת סטורי — 15 שניות
-
-חיתוך מתוך המאסטר מ-**0:21.8 עד הסוף** (בדיוק 15.000 שניות). מכסה את כל הקשת:
-סוף העומס ← דממה ← התארגנות ← שחרור ← כרטיס סיום.
+| Row | Chip | What it shows |
+|-----|------|---------------|
+| Workout | ✓ 45 min | A session already done and logged |
+| Drink water | 6-day streak | A habit with a streak |
+| **Weight** | 68.2 kg ▼ | **A weight measurement — the thing a calendar can never show** |
+| Pay rent | 8:30 AM | Task |
+| Reply to Alex | 9:00 AM | Task |
+| Prepare for meeting | 10:00 AM | Task |
+| **Log lunch** | 540 kcal | **Calories** |
+| Answer email | 1:00 PM | Task |
+| Schedule appointment | 2:00 PM | Task |
+| Dentist appointment | 3:00 PM | Task |
+| Buy groceries | 5:30 PM | Shopping |
+| Go to the gym | 6:00 PM | Fitness |
+| Call Mom | 7:30 PM | Personal |
+| Call family | 8:00 PM | Personal |
+| **Finish project** | ↻ Tomorrow | **What she didn't finish rolls itself to tomorrow** |
 
 ---
 
-## הערות הפקה
+## Story version — 15 seconds
 
-- **אין פריז-פריים בשום מקום.** גם בשיא — התמונה ממשיכה לנוע. זו הייתה החלטה
-  מפורשת אחרי שהגרסה עם ההקפאה נראתה כמו וידאו תקוע.
-- **הדממה ב-0:22.75 היא הכוכבת.** דממה דיגיטלית אמיתית, לא "שקט". שנייה שלמה
-  לפני שהקריינות נכנסת — לא למהר את זה.
-- **הפאוזה בין שני משפטי הקריינות: 1.16 שניות.** הפאוזה עושה את העבודה.
-- **פסקול נוכחי הוא סקראץ' מסונתז** (חוץ מהקריינות, שהיא אמיתית). מיועד לבדיקת
-  תזמונים — לא המיקס הסופי.
+Cut from the master, **0:21.8 to the end** (exactly 15.000 seconds). Covers the
+full arc: end of the overload → silence → organising → release → end card.
+
+---
+
+## Production notes
+
+- **No freeze frame anywhere.** Even at the peak the picture keeps moving. This
+  was an explicit decision after the frozen version looked like a stuck video.
+- **The silence at 0:22.75 is the star.** True digital silence, not "quiet". A
+  full second before the VO comes in — do not rush it.
+- **The pause between the two VO lines is 1.16 seconds.** The pause does the
+  work.
+- **The current soundtrack is a synthesised scratch** (except the VO, which is
+  real). It exists to check timing — it is not the final mix.
+- `PRODUCTION.md` in this folder is **out of date**: it still describes a 3s
+  freeze at 0:30 and an audio cue sheet built around it. Use this document and
+  the README's M6 cue table instead.
