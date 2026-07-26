@@ -2,12 +2,12 @@
   "name": "HealthyFlow",
   "short_name": "HealthyFlow",
   "description": "AI-powered daily planner for tasks, habits, and weekly flow.",
-  "start_url": "/",
+  "start_url": "/app",
   "display": "standalone",
   "background_color": "#101828",
   "theme_color": "#101828",
   "orientation": "portrait-primary",
-  "scope": "/",
+  "scope": "/app",
   "lang": "en",
   "categories": ["productivity", "lifestyle", "health", "utilities"],
   "icons": [
@@ -77,7 +77,7 @@
       "name": "Add Task",
       "short_name": "Add Task",
       "description": "Quickly add a new task",
-      "url": "/add",
+      "url": "/app/add",
       "icons": [
         {
           "src": "/icons/icon-96x96.png",
@@ -89,7 +89,7 @@
       "name": "Week View",
       "short_name": "Week View", 
       "description": "View weekly progress",
-      "url": "/week",
+      "url": "/app/week",
       "icons": [
         {
           "src": "/icons/icon-96x96.png",
@@ -101,7 +101,7 @@
       "name": "AI Analyzer",
       "short_name": "AI Analyzer",
       "description": "Open AI task analyzer",
-      "url": "/?ai=true",
+      "url": "/app?ai=true",
       "icons": [
         {
           "src": "/icons/icon-96x96.png",
