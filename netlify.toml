@@ -2,10 +2,35 @@
   command = "npm run build"
   publish = "dist"
 
+# Marketing page owns the root. Ad traffic must not land on a login form.
 [[redirects]]
-  from = "/*"
+  from = "/"
+  to = "/landing.html"
+  status = 200
+
+# The React app lives under /app; BrowserRouter uses basename="/app".
+[[redirects]]
+  from = "/app/*"
   to = "/index.html"
   status = 200
+
+# Legacy public routes. These must be real 301 redirects, NOT 200 rewrites:
+# with basename="/app" the router ignores any URL outside /app, so serving
+# index.html at /demo would render a blank page.
+[[redirects]]
+  from = "/demo"
+  to = "/app/demo"
+  status = 301
+
+[[redirects]]
+  from = "/privacy"
+  to = "/app/privacy"
+  status = 301
+
+[[redirects]]
+  from = "/terms"
+  to = "/app/terms"
+  status = 301
 
 [[headers]]
   for = "/sw.js"
