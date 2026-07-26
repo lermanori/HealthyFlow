@@ -1,3 +1,4 @@
+import { API_ORIGIN } from './apiBase'
 import { test, expect } from './fixtures/ai-stubs'
 import type { Page } from '@playwright/test'
 import fs from 'fs'
@@ -14,7 +15,7 @@ function getAuthTokenFromStorageState() {
 }
 
 async function enableDomainPages(page: Page) {
-  const response = await page.request.patch('http://localhost:3001/api/settings', {
+  const response = await page.request.patch(`${API_ORIGIN}/api/settings`, {
     headers: { Authorization: `Bearer ${getAuthTokenFromStorageState()}` },
     data: { calorieIntake: true, achievementTracker: true },
   })
@@ -64,7 +65,7 @@ test('Add Item domain tabs create calorie and achievement entries through existi
   const unique = Date.now()
   const achievementName = `Add Item PR ${unique}`
 
-  const achievement = await page.request.post('http://localhost:3001/api/achievements', {
+  const achievement = await page.request.post(`${API_ORIGIN}/api/achievements`, {
     headers: { Authorization: `Bearer ${token}` },
     data: {
       name: achievementName,

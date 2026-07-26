@@ -1,3 +1,4 @@
+import { API_ORIGIN } from './apiBase'
 import { test, expect } from './fixtures/ai-stubs'
 import { format, addDays, startOfWeek } from 'date-fns'
 import type { Page } from '@playwright/test'
@@ -13,7 +14,7 @@ function getAuthTokenFromStorageState() {
 }
 
 async function setWeekStartsOn(page: Page, weekStartsOn: 0 | 1) {
-  const response = await page.request.patch('http://localhost:3001/api/settings', {
+  const response = await page.request.patch(`${API_ORIGIN}/api/settings`, {
     headers: { Authorization: `Bearer ${getAuthTokenFromStorageState()}` },
     data: { weekStartsOn },
   })
@@ -26,7 +27,7 @@ test.beforeEach(async ({ page }) => {
 
 test('Week view golden path: tasks appear under their correct day columns', async ({ page }) => {
   // Reset test user state via backend (React Router catch-all blocks GET /test/reset)
-  const reset = await page.request.post('http://localhost:3001/test/reset')
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset.ok()).toBeTruthy()
 
   const today = new Date()
@@ -108,7 +109,7 @@ test('Week view follows configured first day of week', async ({ page }) => {
 })
 
 test('Week view includes calendar-integrated events in their day', async ({ page }) => {
-  const reset = await page.request.post('http://localhost:3001/test/reset')
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset.ok()).toBeTruthy()
 
   const today = new Date()
@@ -157,7 +158,7 @@ test('Week view includes calendar-integrated events in their day', async ({ page
 test('Week view Up Next ignores past events', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-06-24T12:00:00'))
 
-  const reset = await page.request.post('http://localhost:3001/test/reset')
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset.ok()).toBeTruthy()
 
   const pastTuesdayTitle = `Past Tuesday ${Date.now()}`
@@ -261,7 +262,7 @@ test('Week view Up Next ignores past events', async ({ page }) => {
 test('Week view shows an untimed one-off task only once', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-06-24T12:00:00'))
 
-  const reset = await page.request.post('http://localhost:3001/test/reset')
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset.ok()).toBeTruthy()
 
   const todayStr = '2026-06-24'

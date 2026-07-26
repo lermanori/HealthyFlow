@@ -38,7 +38,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        // Overridable so an e2e run can start its own backend on a free port
+        // instead of proxying to a dev server from another checkout.
+        target: `http://localhost:${process.env.HF_E2E_API_PORT ?? 3001}`,
         changeOrigin: true,
       },
     },

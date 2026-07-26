@@ -1,3 +1,4 @@
+import { API_ORIGIN } from './apiBase'
 import fs from 'fs'
 import type { Page } from '@playwright/test'
 import { expect, test } from './fixtures/ai-stubs'
@@ -14,7 +15,7 @@ function getAuthTokenFromStorageState() {
 }
 
 async function setWeekStartsOn(page: Page, weekStartsOn: 0 | 1) {
-  const response = await page.request.patch('http://localhost:3001/api/settings', {
+  const response = await page.request.patch(`${API_ORIGIN}/api/settings`, {
     headers: { Authorization: `Bearer ${getAuthTokenFromStorageState()}` },
     data: { weekStartsOn },
   })

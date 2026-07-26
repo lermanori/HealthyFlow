@@ -1,3 +1,4 @@
+import { API_ORIGIN } from './apiBase'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { test, expect } from './fixtures/ai-stubs'
@@ -7,7 +8,7 @@ import { daySummaryFixture } from './fixtures/day-summary'
 
 test('Complete Task: marking complete persists across reload', async ({ page }) => {
   // Reset test user state via backend (React Router catch-all blocks GET /test/reset)
-  const reset1 = await page.request.post('http://localhost:3001/test/reset')
+  const reset1 = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset1.ok()).toBeTruthy()
 
   // Add a task via the UI
@@ -94,7 +95,7 @@ test('Edit Task: changing title updates Today and persists', async ({ page }) =>
 })
 
 test('Task location: create, edit, and clear location on the card', async ({ page }) => {
-  const reset = await page.request.post('http://localhost:3001/test/reset')
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset.ok()).toBeTruthy()
 
   await page.goto('/app/add')
@@ -217,7 +218,7 @@ test('Delete timed task from schedule menu removes it from Today', async ({ page
 })
 
 test('Scheduled timeline checkbox toggles reliably while the card is hovered', async ({ page }) => {
-  const reset = await page.request.post('http://localhost:3001/test/reset')
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset.ok()).toBeTruthy()
 
   await page.goto('/app/add')
@@ -255,7 +256,7 @@ test('Scheduled timeline checkbox toggles reliably while the card is hovered', a
 })
 
 test('Dedicated drag grip keeps scheduled and Anytime card controls clickable', async ({ page }) => {
-  const reset = await page.request.post('http://localhost:3001/test/reset')
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset.ok()).toBeTruthy()
 
   const scheduledTitle = `Grip Scheduled ${Date.now()}`
@@ -309,7 +310,7 @@ test('Dedicated drag grip keeps scheduled and Anytime card controls clickable', 
 })
 
 test('Compact timeline card does not clip content or overflow menu', async ({ page }) => {
-  const reset = await page.request.post('http://localhost:3001/test/reset')
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset.ok()).toBeTruthy()
 
   await page.goto('/app/add')

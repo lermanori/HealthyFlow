@@ -1,3 +1,4 @@
+import { API_ORIGIN } from './apiBase'
 import { test, expect } from './fixtures/ai-stubs'
 import { format, subDays } from 'date-fns'
 
@@ -11,7 +12,7 @@ import { format, subDays } from 'date-fns'
 test('Rollover golden path: untimed task dated yesterday appears on the Today view', async ({ page }) => {
   // Reset test user state via the backend test endpoint (HF_TEST_MODE=1).
   // POST directly to the backend — the Vite proxy only covers /api.
-  const reset = await page.request.post('http://localhost:3001/test/reset')
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset.ok()).toBeTruthy()
 
   const yesterday = format(subDays(new Date(), 1), 'yyyy-MM-dd')

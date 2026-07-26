@@ -1,8 +1,9 @@
+import { API_ORIGIN } from './apiBase'
 import { test, expect } from './fixtures/ai-stubs'
 
 test('Habit golden path: completing today does NOT bleed into tomorrow', async ({ page }) => {
   // Reset test user state via backend (React Router catch-all blocks GET /test/reset)
-  const reset = await page.request.post('http://localhost:3001/test/reset')
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset.ok()).toBeTruthy()
 
   // Add a daily habit via the UI
@@ -51,7 +52,7 @@ test('Habit golden path: completing today does NOT bleed into tomorrow', async (
 })
 
 test('editing a whole Habit from Binary to Target persists the target', async ({ page }) => {
-  const reset = await page.request.post('http://localhost:3001/test/reset')
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset.ok()).toBeTruthy()
 
   await page.goto('/app/add')

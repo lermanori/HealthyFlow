@@ -1,3 +1,4 @@
+import { API_ORIGIN } from './apiBase'
 import AxeBuilder from '@axe-core/playwright'
 import { test, expect } from './fixtures/ai-stubs'
 
@@ -147,15 +148,15 @@ test('deletes only a disposable account in destructive E2E mode', async ({ reque
   test.skip(process.env.HF_RUN_DESTRUCTIVE_ACCOUNT_E2E !== '1', 'Opt-in destructive coverage uses a newly created disposable account only')
   const email = `phase0-disposable-${Date.now()}@test.healthyflow.local`
   const password = `Disposable-${Date.now()}!`
-  const signup = await request.post('http://localhost:3001/api/auth/signup', { data: { email, password, name: 'Disposable Phase 0' } })
+  const signup = await request.post(`${API_ORIGIN}/api/auth/signup`, { data: { email, password, name: 'Disposable Phase 0' } })
   expect(signup.ok()).toBeTruthy()
   const { token } = await signup.json()
-  const deletion = await request.delete('http://localhost:3001/api/account', {
+  const deletion = await request.delete(`${API_ORIGIN}/api/account`, {
     headers: { Authorization: `Bearer ${token}` },
     data: { password, confirmation: 'DELETE' },
   })
   expect(deletion.ok()).toBeTruthy()
   expect(await deletion.json()).toEqual({ deleted: true, warnings: [] })
-  const verify = await request.get('http://localhost:3001/api/auth/verify', { headers: { Authorization: `Bearer ${token}` } })
+  const verify = await request.get(`${API_ORIGIN}/api/auth/verify`, { headers: { Authorization: `Bearer ${token}` } })
   expect(verify.status()).toBe(401)
 })

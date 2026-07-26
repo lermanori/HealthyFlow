@@ -1,3 +1,4 @@
+import { API_ORIGIN } from './apiBase'
 import { test, expect } from './fixtures/ai-stubs'
 import type { WorkoutExerciseInput, WorkoutPlan, WorkoutPlanInput } from '../../src/services/api'
 
@@ -17,7 +18,7 @@ function planExercise(exercise: WorkoutExerciseInput, index: number, planId = 'p
 }
 
 test('Workout Tracker logs mixed metrics, persists history, edits, and deletes', async ({ page }) => {
-  const reset = await page.request.post('http://localhost:3001/test/reset')
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset.ok()).toBeTruthy()
 
   await page.goto('/app/workouts')
@@ -73,7 +74,7 @@ test('Workout Tracker logs mixed metrics, persists history, edits, and deletes',
 })
 
 test('Workout plans persist, reorder exercises, and pre-fill an editable session', async ({ page }) => {
-  const reset = await page.request.post('http://localhost:3001/test/reset')
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset.ok()).toBeTruthy()
 
   let plans: WorkoutPlan[] = []
@@ -199,7 +200,7 @@ test('Workout plans persist, reorder exercises, and pre-fill an editable session
 
 test('Workout planning stays editable and reachable on a narrow mobile viewport', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  const reset = await page.request.post('http://localhost:3001/test/reset')
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
   expect(reset.ok()).toBeTruthy()
 
   await page.route('**/api/workouts/exercises**', (route) => route.fulfill({ json: [{

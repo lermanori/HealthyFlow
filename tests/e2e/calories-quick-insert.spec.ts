@@ -1,3 +1,4 @@
+import { API_ORIGIN } from './apiBase'
 import { test, expect } from './fixtures/ai-stubs'
 import type { Page } from '@playwright/test'
 import fs from 'fs'
@@ -12,7 +13,7 @@ function getAuthTokenFromStorageState() {
 }
 
 async function enableCalorieIntake(page: Page) {
-  const response = await page.request.patch('http://localhost:3001/api/settings', {
+  const response = await page.request.patch(`${API_ORIGIN}/api/settings`, {
     headers: { Authorization: `Bearer ${getAuthTokenFromStorageState()}` },
     data: { calorieIntake: true },
   })
