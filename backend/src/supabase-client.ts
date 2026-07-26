@@ -1101,6 +1101,131 @@ export const db = {
     return data
   },
 
+  // ---- Waitlist access control ----
+
+  async getWaitlistByEmail(email: string) {
+    const { data, error } = await supabase
+      .from('waitlist')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async createWaitlistEntry(entry: {
+    email: string
+    name?: string | null
+    source?: string | null
+    utm_source?: string | null
+    utm_medium?: string | null
+    utm_campaign?: string | null
+  }) {
+    const { data, error } = await supabase
+      .from('waitlist')
+      .insert(entry)
+      .select('*')
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async listWaitlist(status?: string) {
+    let query = supabase.from('waitlist').select('*').order('created_at', { ascending: false })
+    if (status) query = query.eq('status', status)
+    const { data, error } = await query
+    if (error) throw error
+    return data ?? []
+  },
+
+  async setWaitlistStatus(id: string, status: string, invitedAt?: string) {
+    const patch: Record<string, unknown> = { status }
+    if (invitedAt) patch.invited_at = invitedAt
+    const { data, error } = await supabase
+      .from('waitlist')
+      .update(patch)
+      .eq('id', id)
+      .select('*')
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async deleteWaitlistEntry(id: string) {
+    const { error } = await supabase.from('waitlist').delete().eq('id', id)
+    if (error) throw error
+  },
+
+  async createInvite(invite: { token: string; waitlist_id: string }) {
+    const { data, error } = await supabase
+      .from('invites')
+      .insert(invite)
+      .select('*')
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async getInviteByToken(token: string) {
+    const { data, error } = await supabase
+      .from('invites')
+      .select('*')
+      .eq('token', token)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async redeemInvite(token: string, userId: string) {
+    // Guarded on redeemed_at IS NULL so a token cannot be redeemed twice.
+    const { data, error } = await supabase
+      .from('invites')
+      .update({ redeemed_at: new Date().toISOString(), redeemed_by_user_id: userId })
+      .eq('token', token)
+      .is('redeemed_at', null)
+      .select('*')
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async listInvitesForWaitlist(waitlistIds: string[]) {
+    if (waitlistIds.length === 0) return []
+    const { data, error } = await supabase
+      .from('invites')
+      .select('*')
+      .in('waitlist_id', waitlistIds)
+    if (error) throw error
+    return data ?? []
+  },
+
+  async getSignupAccess() {
+    const { data, error } = await supabase
+      .from('signup_access')
+      .select('public_slots_open, public_slots_claimed, updated_at')
+      .eq('id', true)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async updateSignupAccess(settings: { public_slots_open: number }) {
+    const { data, error } = await supabase
+      .from('signup_access')
+      .update({ public_slots_open: settings.public_slots_open, updated_at: new Date().toISOString() })
+      .eq('id', true)
+      .select('public_slots_open, public_slots_claimed, updated_at')
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async claimPublicSignupSlot(): Promise<boolean> {
+    const { data, error } = await supabase.rpc('claim_public_signup_slot')
+    if (error) throw error
+    return data === true
+  },
+
   async getUsageLogsSince(sinceIso: string) {
     const { data, error } = await supabase
       .from('ai_usage_log')
