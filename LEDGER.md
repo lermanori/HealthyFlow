@@ -1,3 +1,9 @@
+### 2026-07-19 17:20 — `claude/instagram-ad-testers-4c3c0n`
+
+Filled in the two biggest gaps in the placeholder sound. The world was completely silent apart from notification tones — she poured coffee, crossed the room and typed without making a sound — so the scratch now has a coffee pour, footsteps, a chair, and irregular keystrokes, all placed against what is actually on screen in each shot and run through a room reverb so they sit in her kitchen rather than on top of the picture. The music was a single held chord; it is now a four-chord progression on struck felt-piano voicings that resolves home under the end card. Also moved both mixing stages onto two-pass linear loudness normalization, since the single-pass version compresses exactly the overload-to-silence-to-lock-in contrast the whole design depends on.
+
+---
+
 ### 2026-07-19 16:45 — `claude/instagram-ad-testers-4c3c0n`
 
 The voiceover is recorded and in the cut. Added a stage that places the two ElevenLabs takes on the master timeline and normalizes them against each other — they arrived nearly seven loudness units apart, which would have made the voice audibly jump between lines. The second line had to move later than originally planned because the first one runs long enough to have collided with it; the resulting pause between the lines came out at 1.16 seconds, close to what the original script intended. The scratch mix now plays the real voice over the placeholder bed, so the ad can finally be judged with a voice in it. Two ffmpeg ordering traps around loudness normalization silently misplaced the lines during this and are documented in the stage so they don't recur. Still outstanding: the real room-tone/notification bed and the music.

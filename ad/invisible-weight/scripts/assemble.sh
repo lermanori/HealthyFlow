@@ -22,6 +22,28 @@ mkdir -p build
 # rebuild BOTH or the timeline splits into two looks.
 LOOK="colorbalance=rs=-0.06:gs=0.02:bs=0.10:rh=0.06:gh=0.015:bh=-0.07,eq=saturation=0.85:contrast=1.03,noise=alls=6:allf=t,vignette=PI/5"
 
+# Two-pass loudnorm: measure, then apply a LINEAR gain.
+# Never use single-pass `loudnorm=I=-14` on this mix. Single-pass runs in
+# dynamic mode and lifts quiet passages -- it raised the 22.75s hard silence
+# from -91dB to -43dB, i.e. it destroys the one beat the entire sound design is
+# built around ("the brief's silence is the star"). Linear mode applies one
+# constant gain, so silence stays silent and the -12dB->silence->lock-in
+# dynamic contrast survives.
+# $1 = input audio file, $2 = output wav
+norm_linear() {
+  local meas filt
+  meas=$(ffmpeg -hide_banner -nostats -i "$1" \
+           -af loudnorm=I=-14:TP=-1.5:print_format=json -f null - 2>&1 \
+         | awk '/^[[:space:]]*\{/,/^[[:space:]]*\}/')
+  filt=$(printf '%s' "$meas" | python3 -c "
+import json,sys
+m=json.load(sys.stdin)
+print('loudnorm=I=-14:TP=-1.5:linear=true:'
+      'measured_I=%s:measured_TP=%s:measured_LRA=%s:measured_thresh=%s'
+      % (m['input_i'], m['input_tp'], m['input_lra'], m['input_thresh']))")
+  ffmpeg -y -v error -i "$1" -af "$filt" -ar 48000 -c:a pcm_s16le "$2"
+}
+
 case "${1:-}" in
 
 spine)
@@ -170,15 +192,18 @@ scratch)
   if [ -f audio/vo.wav ]; then
     # Real VO over the placeholder bed -- duck the bed under the lines so the
     # words sit forward, the way the finished mix will.
-    ffmpeg -y -i build/master_full_silent.mp4 -i audio/scratch_bed.wav -i audio/vo.wav \
-      -filter_complex "[1:a][2:a]sidechaincompress=threshold=0.05:ratio=3:attack=20:release=350[duck];[duck][2:a]amix=inputs=2:normalize=0[a]" \
-      -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 192k -shortest build/master_scratch.mp4
-    echo "-> build/master_scratch.mp4  (real VO + SCRATCH bed -- bed is placeholder)"
+    ffmpeg -y -v error -i audio/scratch_bed.wav -i audio/vo.wav \
+      -filter_complex "[0:a][1:a]sidechaincompress=threshold=0.05:ratio=3:attack=20:release=350[duck];[duck][1:a]amix=inputs=2:normalize=0[a]" \
+      -map "[a]" -ar 48000 -c:a pcm_s16le build/scratch_mix.wav
+    LABEL="real VO + SCRATCH bed -- bed is placeholder"
   else
-    ffmpeg -y -i build/master_full_silent.mp4 -i audio/scratch_bed.wav \
-      -map 0:v -map 1:a -c:v copy -c:a aac -b:a 192k -shortest build/master_scratch.mp4
-    echo "-> build/master_scratch.mp4  (SCRATCH audio -- timing reference, not final)"
+    cp audio/scratch_bed.wav build/scratch_mix.wav
+    LABEL="SCRATCH audio -- timing reference, not final"
   fi
+  norm_linear build/scratch_mix.wav build/scratch_mix_norm.wav
+  ffmpeg -y -v error -i build/master_full_silent.mp4 -i build/scratch_mix_norm.wav \
+    -map 0:v -map 1:a -c:v copy -c:a aac -b:a 192k -shortest build/master_scratch.mp4
+  echo "-> build/master_scratch.mp4  ($LABEL)"
   ;;
 
 audio)
@@ -196,9 +221,16 @@ audio)
   for f in audio/bed.wav audio/vo.wav audio/music.wav; do
     [ -f "$f" ] || { echo "missing $f -- see the cue sheet in README (M6); or run './assemble.sh scratch' for a placeholder mix"; exit 1; }
   done
-  ffmpeg -y -i build/master_full_silent.mp4 -i audio/bed.wav -i audio/vo.wav -i audio/music.wav \
-    -filter_complex "[1:a][2:a][3:a]amix=inputs=3:normalize=0,loudnorm=I=-14:TP=-1.5[a]" \
-    -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 192k -shortest build/master_final.mp4
+  # Duck bed+music under the VO, then normalise with the LINEAR two-pass (see
+  # norm_linear above -- single-pass loudnorm would raise the hard silence).
+  ffmpeg -y -v error -i audio/bed.wav -i audio/vo.wav -i audio/music.wav \
+    -filter_complex "[0:a][2:a]amix=inputs=2:normalize=0[bedmus];\
+[bedmus][1:a]sidechaincompress=threshold=0.05:ratio=3:attack=20:release=350[duck];\
+[duck][1:a]amix=inputs=2:normalize=0[a]" \
+    -map "[a]" -ar 48000 -c:a pcm_s16le build/final_mix.wav
+  norm_linear build/final_mix.wav build/final_mix_norm.wav
+  ffmpeg -y -v error -i build/master_full_silent.mp4 -i build/final_mix_norm.wav \
+    -map 0:v -map 1:a -c:v copy -c:a aac -b:a 192k -shortest build/master_final.mp4
   echo "-> build/master_final.mp4"
   ;;
 

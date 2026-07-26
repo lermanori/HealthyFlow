@@ -393,9 +393,40 @@ Concept, script and plan live here; generated media stays local (gitignored).
         the fix is to retime S9's convergence (`converge_dur_s` 2.5→~3.7) so
         the cards settle at ~27.0s — in the 1.16s gap between the lines, which
         is how the original 45s script had it.
-- [ ] M6 (remaining) — source `bed.wav` (room tone + notification stack + the
-      lock-in) and `music.wav`, then `assemble.sh audio`, then re-run `cutdown`
-      against the real mix
+- [x] M6d — scratch bed upgraded: diegetic sound + a real music progression.
+      The first pass was a correct skeleton with no flesh — no diegetic sound
+      at all (she poured coffee, walked and typed in silence for ~22s) and
+      "music" that was one static four-sine chord. Added, placed against the
+      picture (shot bounds S2 1.00–6.04, S3 →11.08, S4 →14.13, S5 →17.17,
+      S6 →20.21, S8 →23.25):
+      - **coffee pour** @1.85s (S2), **footsteps** @9.95/10.40/10.85 + **chair**
+        @11.15 (S4, she crosses and sits), **keyboard** 14.40→17.00s (S5/S6,
+        irregular inter-key gaps — metronomic typing sounds fake).
+      - **Music is now a progression**, not a held chord: struck felt-piano
+        voicings (harmonics decaying faster as they rise) over a sustaining
+        pad — D@26.30 → G@29.00 → A@31.70 → D@34.20, resolving home under the
+        end card.
+      - **A room reverb** (FFT convolution with a decaying-noise IR) on the
+        diegetic layer and the music. The synth stack (blips, drone) stays dry
+        on purpose — it's "in her head", the diegetics are in her kitchen.
+      - The pour is unavoidably liquid-ish, but it's short, motivated by what's
+        on screen, and gurgly rather than a sustained hiss — the opposite of
+        the room-tone failure above.
+      - **Normalisation is now two-pass linear** (`norm_linear` at the top of
+        `assemble.sh`), for both `scratch` and `audio`. Single-pass
+        `loudnorm=I=-14` runs in *dynamic* mode and compresses quiet passages,
+        which is the wrong tool for a mix whose whole arc is
+        −6dB overload → silence → lock-in. Linear applies one constant gain, so
+        that contrast survives by construction. Verified after normalising:
+        hard silence 22.80–23.70s still **−91dB**, overload −5.9dB, lock-in and
+        VO −1.5dB, programme −15.3 LUFS.
+      - Note: ~−43dB appears in 23.75–23.86s. That is the ElevenLabs take's own
+        mic floor (boosted by the per-line loudnorm), not a leak in the silence
+        beat — and a touch of room tone right before the first word is how real
+        VO sits. Don't "fix" it by gating.
+- [ ] M6 (remaining) — optional: replace the synthesised bed/music with real
+      recordings + a licensed track (`bed.wav` / `music.wav`), then
+      `assemble.sh audio` and re-run `cutdown` against the real mix
 - [ ] M7 — cover/thumbnail frame for the Reel. PRODUCTION.md pointed at
       `freeze_frame.png`, which no longer exists; pick a frame from the master
       deliberately (the full-note-cloud close-up around 22.5s is the obvious
