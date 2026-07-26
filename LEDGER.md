@@ -1,3 +1,9 @@
+### 2026-07-26 12:30 — `claude/product-launch-planning-fa4388`
+
+Brainstormed and committed the launch-prep design ahead of driving paid ad traffic at the product. The session surfaced that the marketing page is currently orphaned — `netlify.toml` serves the login form at the root and `landing.html` is only reachable via a footer link — so the design leads with moving the landing page to `/` and the app to `/app`. It also specifies waitlist-centred access control (individual invites plus a capped public opening starting at 10 slots), a landing rewrite around the committed day thesis, and $9/mo launch pricing for the first 100. Design only; no implementation yet, and the next step is turning it into GitHub issues on Project 1.
+
+---
+
 ### 2026-07-26 11:16 — `codex/phase1-day-summary`
 
 Completed Phase 1’s DaySummary foundation with one versioned Zod contract, a shared canonical Item read path, deterministic attention rules, and honest complete/partial/unavailable capacity derivation. Today now composes its selected day through one request, optional calendar and health failures degrade independently, usable-day settings remain explicitly opt-in, and canonical cache invalidation preserves Item, Habit, Calendar, health, Week, and Talk behavior. Full backend, build, unit, and focused cross-feature browser validation is green; issue #161 is ready for preview review without a database migration.
