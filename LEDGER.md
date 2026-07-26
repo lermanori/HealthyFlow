@@ -1,3 +1,9 @@
+### 2026-07-19 15:00 — `claude/instagram-ad-testers-4c3c0n`
+
+Made the 1s cold-open flash live, which was the last frozen frame anywhere in the ad. It now uses the live final second of the graded spine instead of a grabbed still — same overwhelmed peak with the full note cloud, but she blinks through it — so the flash-forward hook survives without opening on a dead frame. The master is unchanged in length at 37.29s and still decodes clean at a uniform yuv420p.
+
+---
+
 ### 2026-07-19 14:40 — `claude/instagram-ad-testers-4c3c0n`
 
 Reworked the S9 payoff so it actually differentiates HealthyFlow from a calendar/task list, which was the client's core critique — the old organize beat just sorted tasks and recolored them. The timeline now shows the product thesis: each vague to-do lands as a tracked item with a category accent colour and a type-specific chip (calories, habit streak, logged workout, weight, time, or a rollover to tomorrow), time-ordered so health, work, and personal weave through one day. Added a 15th "Weight" row per the client and refit the column. Regenerated textures, re-rendered S9, rebuilt the master (37.29s, clean).

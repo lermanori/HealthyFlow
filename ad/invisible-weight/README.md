@@ -274,6 +274,17 @@ Concept, script and plan live here; generated media stays local (gitignored).
           `generate_endcard.py …/s9_0144.png organize/S11.mp4` →
           `assemble.sh final`. Verified the settled column at full scale:
           all chips legible, uniform yuv420p, clean decode.
+      - **Fix 10 — S1 cold flash is live; zero freeze frames remain.** The
+        opening 1s was the last deferred freeze (a grabbed still of the graded
+        spine's final frame, looped). Now built from the **live last 1s of
+        `master_silent.mp4`** (`-sseof -1.0`), still desaturated 10% — same
+        content the freeze was grabbed from (full note cloud, tightest
+        push-in) but moving: she blinks across the second. Keeps the
+        flash-forward hook (see the overwhelmed peak, hard cut back to the calm
+        morning) without opening on a frozen frame. `master_last_frame.png` is
+        no longer produced — nothing consumes it since the freeze hold was
+        deleted in Fix 7. **The timeline now contains no frozen segment
+        anywhere.** Master unchanged at 37.29s / 895 frames.
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
       (both stages now target `build/master_full_silent.mp4`, not
       `master_silent.mp4`, since audio needs to cover the complete timeline)

@@ -86,17 +86,21 @@ final)
   # spine/overlay/grade cover this on their own -- they only build the
   # pre-climax portion (build/master_silent.mp4).
   #
-  # No more freeze hold: the climax used to hold a frozen still for 2s and then
-  # play S9 over another frozen still (H7), which read as ~8s of dead freeze.
-  # Now nothing freezes -- S9's organizing cards composite over LIVE S8, so the
-  # picture keeps moving through the whole climax. S1 is still the 1s cold-open
-  # flash (a separate decision, left for later).
+  # NOTHING in this timeline freezes. The climax used to hold a frozen still
+  # for 2s and then play S9 over another frozen still (H7) -- ~8s of dead
+  # picture -- and S1 was a frozen grab on top of that. Now: S9's organizing
+  # cards composite over LIVE S8, and S1 is the LIVE last second of the graded
+  # spine rather than a held frame.
   CARDS="blender/render/s9_0001.png"
   for f in build/master_silent.mp4 "$CARDS" organize/S11.mp4 plates/S10.mp4 plates/S8.mp4; do
     [ -f "$f" ] || { echo "missing $f -- run earlier stages / render alpha cards (blender) first"; exit 1; }
   done
-  ffmpeg -y -sseof -0.1 -i build/master_silent.mp4 -frames:v 1 build/master_last_frame.png
-  ffmpeg -y -loop 1 -i build/master_last_frame.png -t 1 -r 24 \
+  # S1 cold flash, LIVE: the last 1s of the graded, note-composited spine --
+  # the overwhelmed peak with the full note cloud and the tightest push-in,
+  # desaturated 10%. Same content the old freeze was grabbed from, but moving.
+  # Keeps the flash-forward hook (see the peak, then cut back to the calm
+  # morning) without opening the ad on a frozen frame.
+  ffmpeg -y -sseof -1.0 -i build/master_silent.mp4 \
     -vf "eq=saturation=0.9,format=yuv420p" -c:v libx264 -crf 16 build/S1_coldflash.mp4
   ffmpeg -y -i plates/S10.mp4 -vf "$LOOK" \
     -c:v libx264 -crf 16 -pix_fmt yuv420p build/S10_graded.mp4
