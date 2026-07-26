@@ -1,17 +1,26 @@
 /// <reference types="vite/client" />
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { z } from 'zod'
 import { analytics } from '../lib/analytics'
 import type { DemoPersonaId } from '../demoPersonas'
 import type { ItemSource, ItemType } from '../lib/analytics/types'
 import type { RollbackDragMaterializationInput } from '../../backend/src/task-contracts'
+import {
+  DailyContextSchema,
+  DailySignalSchema,
+  DailySignalTypeSchema,
+  type DailyContext,
+  type DailySignal,
+  type DailySignalType,
+} from '../../backend/src/daily-context-schema'
 import {
   DaySummarySchema,
   type DaySummary,
   type PlanningWindow,
 } from '../../backend/src/day-summary-schema'
 
-export type { DaySummary, PlanningWindow }
+export type { DailyContext, DailySignal, DailySignalType, DaySummary, PlanningWindow }
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 // const API_BASE_URL = 'https://healthyflow-production.up.railway.app/api'
 
@@ -171,39 +180,48 @@ export interface AIRecommendation {
   createdAt: string
 }
 
-export type DailySignalType = 'schedule_overload' | 'habit_risk' | 'missing_calorie_log'
+const LegacyDailySignalSchema = z.object({
+  id: z.string(),
+  type: DailySignalTypeSchema,
+  severity: z.enum(['info', 'low', 'medium', 'high']),
+  confidence: z.enum(['low', 'medium', 'high']),
+  summary: z.string(),
+}).passthrough()
 
-export interface DailySignal {
-  id: string
-  type: DailySignalType
-  severity: 'info' | 'low' | 'medium' | 'high'
-  confidence: 'low' | 'medium' | 'high'
-  summary: string
-  evidence: Record<string, unknown>
-  suggestedAction: {
-    type: string
-    label: string
-    targetId?: string | null
-  } | null
-}
+function dailyContextFromApi(value: unknown): DailyContext {
+  const current = DailyContextSchema.safeParse(value)
+  if (current.success) return current.data
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return DailyContextSchema.parse(value)
+  }
 
-export interface DailyContext {
-  date: string
-  generatedAt: string
-  day: {
-    tasks: unknown[]
-    calorieEntries: unknown[]
-    weight: unknown | null
-    achievements: unknown[]
-    workoutSessions: unknown[]
-    calendarEvents: unknown[]
-  }
-  lookback: {
-    habitHistory: { windowDays: number; days: unknown[] }
-    calorieHistory: { windowDays: number; days: unknown[] }
-    workoutHistory: { windowDays: number; days: unknown[] }
-  }
-  signals: DailySignal[]
+  const signals = (value as Record<string, unknown>).signals
+  if (!Array.isArray(signals)) return DailyContextSchema.parse(value)
+
+  const normalizedSignals = signals.map((signal) => {
+    const parsedCurrent = DailySignalSchema.safeParse(signal)
+    if (parsedCurrent.success) return parsedCurrent.data
+    const legacy = LegacyDailySignalSchema.parse(signal)
+    return {
+      id: legacy.id,
+      type: legacy.type,
+      kind: 'informational' as const,
+      severity: legacy.severity,
+      confidence: legacy.confidence,
+      summary: legacy.summary,
+      rationale: 'This signal came from the previous Daily Signals contract. It stays informational until the server refreshes it with an exact, revalidated change.',
+      evidence: [{
+        label: 'Availability',
+        value: 'Informational until server refresh',
+      }],
+      proposal: null,
+    }
+  })
+
+  return DailyContextSchema.parse({
+    ...value,
+    signals: normalizedSignals,
+  })
 }
 
 export interface AnalyticsData {
@@ -466,6 +484,14 @@ export const aiService = {
 
   getDailyContext: async (date: string): Promise<DailyContext> => {
     const response = await api.get('/ai/daily-context', { params: { date } })
+    return dailyContextFromApi(response.data)
+  },
+
+  reviewDailySignal: async (date: string, signalId: string): Promise<{
+    signal: DailySignal
+    pendingAction: AssistantPendingAction
+  }> => {
+    const response = await api.post('/ai/daily-context/review', { date, signalId })
     return response.data
   },
 

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
+import type { DailySignal } from '../../backend/src/daily-context-schema'
 import type { DaySummary } from '../../backend/src/day-summary-schema'
 import { daySummaryFixture } from './fixtures/day-summary'
 
@@ -30,30 +31,96 @@ const settings = {
   theme: 'midnight',
 }
 
-const signals = [
-  {
-    id: 'signal-habit',
-    type: 'habit_risk',
-    severity: 'medium',
-    confidence: 'high',
-    summary: 'Your afternoon walk is at risk after two missed days.',
-    evidence: { habitId: 'habit-walk' },
-    suggestedAction: {
-      type: 'reschedule_item',
-      label: 'Move the walk before the afternoon meeting',
-      targetId: 'habit-walk',
+function signalsForDate(date: string): DailySignal[] {
+  return [
+    {
+      id: `${date}:schedule_overload:morning:task-client`,
+      type: 'schedule_overload',
+      kind: 'actionable',
+      severity: 'medium',
+      confidence: 'high',
+      summary: 'Your morning has three scheduled Items totaling about 180 minutes.',
+      rationale: '"Prepare client decisions" is the latest-starting Task in this crowded window. Moving it to Anytime would free 30 scheduled minutes without deleting it.',
+      evidence: [
+        { label: 'Window', value: 'morning' },
+        { label: 'Scheduled load', value: '3 Items · 180 min' },
+        { label: 'Concrete candidate', value: 'Prepare client decisions · 10:45' },
+      ],
+      proposal: {
+        capability: 'update_item',
+        label: 'Move "Prepare client decisions" to Anytime',
+        arguments: {
+          itemId: 'task-client',
+          startTime: null,
+          requestId: `daily-signal:${date}:task-client`,
+        },
+        affectedRecords: [{
+          id: 'task-client',
+          kind: 'task',
+          title: 'Prepare client decisions',
+          date,
+        }],
+        changes: [{
+          field: 'startTime',
+          label: 'Start time',
+          before: '10:45',
+          after: null,
+        }],
+      },
     },
-  },
-  {
-    id: 'signal-schedule',
-    type: 'schedule_overload',
-    severity: 'low',
-    confidence: 'medium',
-    summary: 'Two obligations overlap around 15:00.',
-    evidence: { conflictIds: ['event-review', 'task-admin'] },
-    suggestedAction: null,
-  },
-]
+    {
+      id: `${date}:habit_risk:habit-walk`,
+      type: 'habit_risk',
+      kind: 'informational',
+      severity: 'medium',
+      confidence: 'high',
+      summary: 'You missed "Walk outside" two recent days and it is due today.',
+      rationale: 'The Habit is due today after two recent misses. “Do a smaller version” is useful guidance, but it is not an exact record change HealthyFlow can safely apply.',
+      evidence: [
+        { label: 'Habit', value: 'Walk outside' },
+        { label: 'Recent misses', value: '2026-07-14, 2026-07-13' },
+        { label: 'Due', value: date },
+      ],
+      proposal: null,
+    },
+  ]
+}
+
+function reviewedAction(date: string, id = '22222222-2222-4222-8222-222222222222') {
+  return {
+    id,
+    capability: 'update_item',
+    args: {
+      itemId: 'task-client',
+      startTime: null,
+      requestId: `daily-signal:${date}:task-client`,
+    },
+    preview: {
+      action: 'update_item',
+      item: {
+        id: 'task-client',
+        title: 'Prepare client decisions',
+        type: 'task',
+        category: 'work',
+        completed: false,
+        scheduledDate: date,
+        startTime: '10:45',
+        duration: 30,
+        repeat: 'none',
+        position: null,
+        isHabitInstance: false,
+        originalHabitId: null,
+        createdAt: `${date}T08:00:00.000Z`,
+      },
+      updates: {
+        itemId: 'task-client',
+        startTime: null,
+        requestId: `daily-signal:${date}:task-client`,
+      },
+    },
+    expiresAt: `${date}T10:10:00.000Z`,
+  }
+}
 
 function denseDay(date: string): DaySummary {
   const summary = daySummaryFixture({
@@ -156,6 +223,10 @@ function denseDay(date: string): DaySummary {
 }
 
 type DayContextState = 'mixed' | 'empty' | 'unavailable' | 'disabled'
+type ConfirmRequest = {
+  actionId: string
+  args: Record<string, unknown>
+}
 
 function dayContextState(date: string, state: DayContextState): DaySummary {
   const mixedItems = [
@@ -281,6 +352,8 @@ async function mockToday(page: Page, options?: {
   summary?: (date: string) => DaySummary
   summaryError?: () => boolean
   signalError?: boolean
+  signals?: (date: string) => DailySignal[]
+  onSummaryRequest?: () => void
 }) {
   await page.clock.setFixedTime(fixedNow)
   await page.route('**/api/settings', (route) => route.fulfill({ json: settings }))
@@ -293,17 +366,328 @@ async function mockToday(page: Page, options?: {
     },
   }))
   await page.route('**/api/day-summary?**', (route) => {
+    options?.onSummaryRequest?.()
     if (options?.summaryError?.()) {
       return route.fulfill({ status: 503, json: { error: 'Unavailable' } })
     }
     const date = new URL(route.request().url()).searchParams.get('date') ?? '2026-07-15'
     return route.fulfill({ json: (options?.summary ?? denseDay)(date) })
   })
-  await page.route('**/api/ai/daily-context?**', (route) => options?.signalError
-    ? route.fulfill({ status: 503, json: { error: 'Unavailable' } })
-    : route.fulfill({ json: { signals } })
-  )
+  await page.route('**/api/ai/daily-context?**', (route) => {
+    if (options?.signalError) {
+      return route.fulfill({ status: 503, json: { error: 'Unavailable' } })
+    }
+    const date = new URL(route.request().url()).searchParams.get('date') ?? '2026-07-15'
+    return route.fulfill({
+      json: {
+        date,
+        generatedAt: `${date}T14:00:00.000Z`,
+        day: {
+          tasks: [],
+          calorieEntries: [],
+          weight: null,
+          achievements: [],
+          workoutSessions: [],
+          calendarEvents: [],
+        },
+        lookback: {
+          habitHistory: { windowDays: 3, days: [] },
+          calorieHistory: { windowDays: 7, days: [] },
+          workoutHistory: { windowDays: 14, days: [] },
+        },
+        signals: (options?.signals ?? signalsForDate)(date),
+      },
+    })
+  })
 }
+
+for (const viewport of viewports) {
+  test(`expanded Daily Signals at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport)
+    await mockToday(page)
+    await page.goto('/')
+
+    await page.getByRole('button', { name: 'Review', exact: true }).click()
+    const signalsRegion = page.locator('[data-demo-id="daily-signals-summary"]')
+    await expect(signalsRegion.getByText('Why this surfaced').first()).toBeVisible()
+    await expect(signalsRegion.getByText('Move "Prepare client decisions" to Anytime')).toBeVisible()
+    await expect(signalsRegion.getByText('Start time')).toBeVisible()
+    await expect(signalsRegion.getByText(/10:45.*Anytime/)).toBeVisible()
+    await expect(signalsRegion).toHaveScreenshot(`today-daily-signals-expanded-${viewport.name}.png`, {
+      animations: 'disabled',
+    })
+  })
+}
+
+test('Daily Signals expose exact proposals, allow edits, and apply through the shared confirmation path', async ({ page }) => {
+  let summaryRequests = 0
+  let reviewBody: unknown
+  let confirmBody: ConfirmRequest | null = null
+  await mockToday(page, { onSummaryRequest: () => { summaryRequests += 1 } })
+  await page.route('**/api/ai/daily-context/review', async (route) => {
+    reviewBody = route.request().postDataJSON()
+    const body = reviewBody as { date: string }
+    await route.fulfill({
+      json: {
+        signal: signalsForDate(body.date)[0],
+        pendingAction: reviewedAction(body.date),
+      },
+    })
+  })
+  await page.route('**/api/ai/chat/confirm', async (route) => {
+    const body = route.request().postDataJSON() as ConfirmRequest
+    confirmBody = body
+    const action = reviewedAction('2026-07-15')
+    await route.fulfill({
+      json: {
+        action: { ...action, args: body.args },
+        result: {
+          item: {
+            ...action.preview.item,
+            startTime: body.args.startTime,
+          },
+        },
+      },
+    })
+  })
+  await page.goto('/')
+
+  await page.getByRole('button', { name: 'Review', exact: true }).click()
+  const signalsRegion = page.locator('[data-demo-id="daily-signals-summary"]')
+  const actionable = signalsRegion.getByRole('listitem').filter({ hasText: 'Actionable proposal' })
+  const informational = signalsRegion.getByRole('listitem').filter({ hasText: 'Information' })
+
+  await expect(actionable.getByText('Prepare client decisions · Task · 2026-07-15')).toBeVisible()
+  await expect(actionable.getByText(/10:45.*Anytime/)).toBeVisible()
+  await expect(informational.getByRole('button', { name: /Review change|Apply/ })).toHaveCount(0)
+
+  await actionable.getByRole('button', { name: 'Review change' }).click()
+  expect(reviewBody).toEqual({
+    date: '2026-07-15',
+    signalId: '2026-07-15:schedule_overload:morning:task-client',
+  })
+  await expect(actionable.getByText('Review before applying')).toBeVisible()
+  await actionable.getByLabel('Start time').fill('16:30')
+  await actionable.getByRole('button', { name: 'Apply' }).click()
+
+  await expect(page.getByText('Daily plan updated', { exact: true })).toBeVisible()
+  expect(confirmBody).toMatchObject({
+    actionId: '22222222-2222-4222-8222-222222222222',
+    args: {
+      itemId: 'task-client',
+      startTime: '16:30',
+      requestId: 'daily-signal:2026-07-15:task-client',
+    },
+  })
+  await expect.poll(() => summaryRequests).toBeGreaterThan(1)
+  await expect(signalsRegion).toContainText('1 signal')
+  await expect(actionable).toHaveCount(0)
+})
+
+test('Daily Signal recovery preserves edits across prepare and expired-action retries', async ({ page }) => {
+  let reviewAttempts = 0
+  let confirmAttempts = 0
+  const confirmedBodies: ConfirmRequest[] = []
+  await mockToday(page)
+  await page.route('**/api/ai/daily-context/review', async (route) => {
+    reviewAttempts += 1
+    if (reviewAttempts === 1) {
+      return route.fulfill({
+        status: 503,
+        json: { error: 'Could not revalidate this proposal', code: 'daily_signal_prepare_failed' },
+      })
+    }
+    const body = route.request().postDataJSON() as { date: string }
+    return route.fulfill({
+      json: {
+        signal: signalsForDate(body.date)[0],
+        pendingAction: reviewedAction(
+          body.date,
+          reviewAttempts === 2
+            ? '22222222-2222-4222-8222-222222222222'
+            : '33333333-3333-4333-8333-333333333333'
+        ),
+      },
+    })
+  })
+  await page.route('**/api/ai/chat/confirm', async (route) => {
+    confirmAttempts += 1
+    const body = route.request().postDataJSON() as ConfirmRequest
+    confirmedBodies.push(body)
+    if (confirmAttempts === 1) {
+      return route.fulfill({
+        status: 409,
+        json: { error: 'Pending action is no longer available', code: 'pending_action_unavailable' },
+      })
+    }
+    const action = reviewedAction('2026-07-15', '33333333-3333-4333-8333-333333333333')
+    return route.fulfill({
+      json: {
+        action: { ...action, args: body.args },
+        result: { item: { ...action.preview.item, startTime: body.args.startTime } },
+      },
+    })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Review', exact: true }).click()
+  const actionable = page.getByRole('listitem').filter({ hasText: 'Actionable proposal' })
+
+  await actionable.getByRole('button', { name: 'Review change' }).click()
+  await expect(actionable.getByRole('alert')).toContainText('Could not revalidate this proposal')
+  await actionable.getByRole('button', { name: 'Retry review' }).click()
+  await actionable.getByLabel('Start time').fill('16:30')
+  await actionable.getByRole('button', { name: 'Apply' }).click()
+  await expect(actionable.getByText('Pending action is no longer available')).toBeVisible()
+  await actionable.getByRole('button', { name: 'Prepare again' }).click()
+  await expect(actionable.getByLabel('Start time')).toHaveValue('16:30')
+  await actionable.getByRole('button', { name: 'Apply' }).click()
+
+  await expect(page.getByText('Daily plan updated', { exact: true })).toBeVisible()
+  expect(reviewAttempts).toBe(3)
+  expect(confirmedBodies).toHaveLength(2)
+  expect(confirmedBodies[1]).toMatchObject({
+    actionId: '33333333-3333-4333-8333-333333333333',
+    args: { startTime: '16:30' },
+  })
+})
+
+test('a stale Daily Signal refreshes to the latest signal set', async ({ page }) => {
+  let stale = false
+  let signalRequests = 0
+  await mockToday(page, {
+    signals: (date) => {
+      signalRequests += 1
+      return stale ? [] : signalsForDate(date)
+    },
+  })
+  await page.route('**/api/ai/daily-context/review', async (route) => {
+    stale = true
+    await route.fulfill({
+      status: 409,
+      json: {
+        error: 'This Daily Signal is no longer current.',
+        code: 'daily_signal_stale',
+      },
+    })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Review', exact: true }).click()
+  await page.getByRole('listitem').filter({ hasText: 'Actionable proposal' })
+    .getByRole('button', { name: 'Review change' }).click()
+
+  await expect.poll(() => signalRequests).toBeGreaterThan(1)
+  await expect(page.getByText('No Daily Signals need attention.')).toBeVisible()
+  await expect(page.locator('[data-demo-id="daily-signals-summary"] [aria-live="polite"]'))
+    .toContainText('Daily Signals refreshed')
+})
+
+test('Daily Signal dismissal recovers from cancellation failure', async ({ page }) => {
+  let cancelAttempts = 0
+  await mockToday(page)
+  await page.route('**/api/ai/daily-context/review', async (route) => {
+    const body = route.request().postDataJSON() as { date: string }
+    await route.fulfill({
+      json: {
+        signal: signalsForDate(body.date)[0],
+        pendingAction: reviewedAction(body.date),
+      },
+    })
+  })
+  await page.route('**/api/ai/chat/cancel', async (route) => {
+    cancelAttempts += 1
+    if (cancelAttempts === 1) {
+      return route.fulfill({ status: 503, json: { error: 'Cancellation unavailable' } })
+    }
+    return route.fulfill({ json: reviewedAction('2026-07-15') })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Review', exact: true }).click()
+  const actionable = page.getByRole('listitem').filter({ hasText: 'Actionable proposal' })
+
+  await actionable.getByRole('button', { name: 'Review change' }).click()
+  await actionable.getByRole('button', { name: 'Dismiss' }).click()
+  await expect(actionable.getByText('Cancellation unavailable')).toBeVisible()
+  await actionable.getByRole('button', { name: 'Try dismissing again' }).click()
+
+  await expect(actionable).toHaveCount(0)
+  expect(cancelAttempts).toBe(2)
+
+  const informational = page.getByRole('listitem').filter({ hasText: 'Information' })
+  await informational.getByRole('button', { name: 'Dismiss' }).click()
+  const signalsRegion = page.locator('[data-demo-id="daily-signals-summary"]')
+  await expect(signalsRegion).toContainText('Daily Signals cleared for this view.')
+  await expect(signalsRegion).toBeFocused()
+})
+
+test('informational Daily Signals hand off bounded context to Talk without URL payloads', async ({ page }) => {
+  await mockToday(page)
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Review', exact: true }).click()
+  const informational = page.getByRole('listitem').filter({ hasText: 'Information' })
+  await informational.getByRole('link', { name: 'Open Talk' }).click()
+
+  await expect(page).toHaveURL(/\/talk$/)
+  await expect(page.getByText('From Today · 2026-07-15 · habit risk')).toBeVisible()
+  await expect(page.locator('[data-demo-id="talk-input"]')).toHaveValue(/You missed "Walk outside"/)
+  expect(page.url()).not.toContain('signal')
+  expect(page.url()).not.toContain('rationale')
+})
+
+test('the previous Daily Signal contract degrades to safe informational guidance', async ({ page }) => {
+  await mockToday(page)
+  await page.route('**/api/ai/daily-context?**', async (route) => {
+    const date = new URL(route.request().url()).searchParams.get('date') ?? '2026-07-15'
+    await route.fulfill({
+      json: {
+        date,
+        generatedAt: `${date}T14:00:00.000Z`,
+        day: {
+          tasks: [],
+          calorieEntries: [],
+          weight: null,
+          achievements: [],
+          workoutSessions: [],
+          calendarEvents: [],
+        },
+        lookback: {
+          habitHistory: { windowDays: 3, days: [] },
+          calorieHistory: { windowDays: 7, days: [] },
+          workoutHistory: { windowDays: 14, days: [] },
+        },
+        signals: [{
+          id: `${date}:schedule_overload:morning`,
+          type: 'schedule_overload',
+          severity: 'medium',
+          confidence: 'high',
+          summary: 'Your morning has three scheduled items totaling about 180 minutes.',
+          evidence: {
+            window: 'morning',
+            itemIds: ['task-1', 'task-2', 'task-3'],
+          },
+          suggestedAction: {
+            type: 'move_to_anytime',
+            label: 'Move one item to Anytime',
+          },
+        }],
+      },
+    })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Review', exact: true }).click()
+  const signal = page.getByRole('listitem').filter({ hasText: 'Information' })
+
+  await expect(signal).toContainText('previous Daily Signals contract')
+  await expect(signal).toContainText('Informational until server refresh')
+  await expect(signal.getByRole('button', { name: /Review change|Apply/ })).toHaveCount(0)
+})
+
+test('Daily Signals render an explicit no-signal state', async ({ page }) => {
+  await mockToday(page, { signals: () => [] })
+  await page.goto('/')
+
+  await expect(page.getByText('No Daily Signals need attention.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Review', exact: true })).toHaveCount(0)
+})
 
 for (const viewport of viewports) {
   test(`dense Today decision workspace at ${viewport.width}x${viewport.height}`, async ({ page }) => {
@@ -546,6 +930,12 @@ test('frequent controls meet touch size and disclosures preserve keyboard focus'
   await page.emulateMedia({ reducedMotion: 'reduce' })
   const transitionDuration = await closeReview.evaluate((element) => getComputedStyle(element).transitionDuration)
   expect(transitionDuration).toMatch(/0\.00001s|1e-05s|0s/)
+
+  const detailsId = await closeReview.getAttribute('aria-controls')
+  const signal = page.locator(`[id="${detailsId}"] [tabindex="-1"]`).first()
+  await signal.focus()
+  await signal.press('Escape')
+  await expect(page.getByRole('button', { name: 'Review', exact: true })).toBeFocused()
 })
 
 test('decision, signal, and Anytime regions pass targeted accessibility checks', async ({ page }) => {
@@ -560,6 +950,7 @@ test('decision, signal, and Anytime regions pass targeted accessibility checks',
   ]) {
     await expect(page.locator(selector)).toBeVisible()
   }
+  await page.getByRole('button', { name: 'Review', exact: true }).click()
 
   const results = await new AxeBuilder({ page })
     .include('[data-demo-id="decision-band"]')
