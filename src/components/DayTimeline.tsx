@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
 import { CalendarDays, Check, Clock, Flame, GripVertical, MapPin } from 'lucide-react'
@@ -20,6 +20,7 @@ interface DayTimelineProps {
   onEditTask: (task: Task) => void
   onDeleteTask: (task: Task) => void
   onHabitCheckIn: (habit: HabitItem) => void
+  supportingContent?: ReactNode
 }
 
 // ponytail: age badge for the anytime shelf — how stale is this untimed item.
@@ -279,12 +280,27 @@ export default function DayTimeline({
   onEditTask,
   onDeleteTask,
   onHabitCheckIn,
+  supportingContent,
 }: DayTimelineProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
+  const [isAnytimeExpanded, setIsAnytimeExpanded] = useState(false)
+  const [anytimePanelHeight, setAnytimePanelHeight] = useState(0)
+  const anytimePanelRef = useRef<HTMLElement | null>(null)
 
   // Split: scheduled tasks go into hour-slot buckets, untimed go into anytime
   const scheduled = tasks.filter(t => t.startTime)
   const anytime = tasks.filter(t => !t.startTime)
+  const visibleAnytime = isAnytimeExpanded ? anytime : anytime.slice(0, 2)
+
+  useEffect(() => {
+    const panel = anytimePanelRef.current
+    if (!panel) return
+    const updateHeight = () => setAnytimePanelHeight(panel.getBoundingClientRect().height)
+    updateHeight()
+    const observer = new ResizeObserver(updateHeight)
+    observer.observe(panel)
+    return () => observer.disconnect()
+  }, [])
 
   // Group scheduled tasks into hour buckets. A task keeps its real startTime (e.g.
   // "09:30") but renders under its hour's slot; off-the-hour times only snap to ":00"
@@ -413,198 +429,215 @@ export default function DayTimeline({
   }
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <div className="space-y-3 md:space-y-4">
       <h2 className="text-xl font-semibold text-ink">{heading}</h2>
 
       <DragDropContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
-        <div>
-        {/* Scheduled section — one droppable per hour slot */}
-        <div className="space-y-1" data-demo-id="schedule-section">
-          <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wider mb-2">Scheduled</h3>
-          {HOUR_SLOTS.map(slot => {
-            const slotTasks = slotBuckets[slot]
-            const slotCalendarEvents = calendarBuckets[slot]
-            const slotCalories = calorieBuckets[slot]
-            const hasContent = slotTasks.length > 0 || slotCalendarEvents.length > 0 || slotCalories.length > 0
-            const isCompacted = compactedEmptySlots.has(slot)
-            const slotHeight = slotHeightForContent(slotTasks, slotCalendarEvents, slotCalories, isCompacted)
-
-            return (
-              <Droppable droppableId={slot} key={slot}>
-                {(provided, snapshot) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    data-testid="timeline-hour-slot"
-                    data-slot={slot}
-                    data-demo-id={`schedule-slot-${slot}`}
-                    data-compacted={isCompacted ? 'true' : 'false'}
-                    className={`timeline-slot relative flex min-w-0 gap-1 overflow-visible rounded px-1 py-2 transition-colors sm:gap-2 sm:px-2 ${hasContent ? 'z-20' : ''} ${isCompacted ? 'pointer-events-none' : ''} ${
-                      snapshot.isDraggingOver
-                        ? 'bg-blue-900/40 drop-zone'
-                        : hasContent
-                        ? 'bg-card/30'
-                        : isCompacted
-                        ? 'bg-transparent hover:bg-card/5'
-                        : 'bg-transparent hover:bg-card/10'
-                    }`}
-                    style={{ height: slotHeight }}
-                  >
-                    {/* Time label */}
-                    <span className={`w-10 flex-shrink-0 text-xs sm:w-12 ${isCompacted ? 'pt-0 text-[11px]' : 'pt-2'} ${hasContent || snapshot.isDraggingOver ? 'text-ink-muted' : 'text-gray-600'}`}>
-                      {formatHour(slot)}
-                    </span>
-
-                    {/* Tasks in this slot */}
-                    <div className="relative z-10 min-w-0 flex-1 space-y-1 overflow-visible">
-                      {slotCalendarEvents.map((event, index) => (
-                        <Draggable key={event.id} draggableId={`calendar:${event.id}`} index={index}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              data-timeline-drag-handle="true"
-                              className={`min-w-0 ${snapshot.isDragging ? 'opacity-90' : ''}`}
-                              style={{
-                                ...provided.draggableProps.style,
-                                height: timedBlockHeight(eventDurationMinutes(event)),
-                              }}
-                            >
-                              <CalendarEventBlock
-                                event={event}
-                                onComplete={onCalendarEventComplete}
-                              />
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {slotTasks.map((task, index) => (
-                        <Draggable key={task.id} draggableId={task.id} index={slotCalendarEvents.length + index}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              data-testid="timeline-draggable-task"
-                              data-demo-id={taskDemoId(task)}
-                              className="flex min-h-0 min-w-0 gap-1.5"
-                              style={{
-                                ...provided.draggableProps.style,
-                                height: timedTaskBlockHeight(task),
-                              }}
-                            >
-                              <TaskDragGrip dragHandleProps={provided.dragHandleProps} compact />
-                              <TaskCard
-                                task={task}
-                                onComplete={onCompleteTask}
-                                onUncomplete={onUncompleteTask}
-                                onEdit={onEditTask}
-                                onDelete={onDeleteTask}
-                                onHabitCheckIn={onHabitCheckIn}
-                                isDragging={snapshot.isDragging || draggedTaskId === task.id}
-                                compact
-                                className="h-full min-w-0 flex-1"
-                              />
-                            </div>
-                          )}
-                        </Draggable>
-                      ))}
-                      {slotCalories.map(entry => (
-                        <CalorieEntryBlock key={entry.id} entry={entry} />
-                      ))}
-                      {provided.placeholder}
-                      {snapshot.isDraggingOver && slotTasks.length === 0 && (
-                        <div className="text-xs text-blue-400 py-1 px-1">Drop to schedule at {formatHour(slot)}</div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </Droppable>
-            )
-          })}
-        </div>
-
-        {allDayEvents.length > 0 && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wider">Calendar</h3>
-            <div className="space-y-2 rounded-lg bg-card/20 p-4">
-              {allDayEvents.map(event => (
-                <CalendarEventBlock
-                  key={event.id}
-                  event={event}
-                  onComplete={onCalendarEventComplete}
-                />
-              ))}
+        <div
+          className="today-plan-grid"
+          style={{ '--today-anytime-height': `${anytimePanelHeight}px` } as CSSProperties}
+        >
+          {/* DOM order deliberately matches mobile: Anytime access, Schedule, supporting context. */}
+          <section ref={anytimePanelRef} className="today-anytime-panel min-w-0" data-demo-id="anytime-backlog" aria-labelledby="anytime-heading">
+            <div className="mb-2 flex min-h-11 items-center justify-between gap-3">
+              <h3 id="anytime-heading" className="text-sm font-semibold uppercase tracking-wider text-ink-muted">
+                Anytime <span className="font-normal normal-case tracking-normal">({anytime.length})</span>
+              </h3>
+              {anytime.length > 2 && (
+                <button
+                  type="button"
+                  aria-expanded={isAnytimeExpanded}
+                  aria-controls="anytime-items"
+                  onClick={() => setIsAnytimeExpanded((expanded) => !expanded)}
+                  className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-cyan-300 hover:bg-cyan-500/10"
+                >
+                  {isAnytimeExpanded ? 'Show less' : `Show all ${anytime.length}`}
+                </button>
+              )}
             </div>
-          </div>
-        )}
+            <Droppable droppableId="anytime">
+              {(provided, snapshot) => (
+                <div
+                  {...provided.droppableProps}
+                  ref={provided.innerRef}
+                  id="anytime-items"
+                  className={`min-h-20 space-y-2 rounded-lg border border-line/60 p-2 transition-colors ${
+                    snapshot.isDraggingOver ? 'drop-zone' : 'bg-card/20'
+                  }`}
+                >
+                  {visibleAnytime.map((task, index) => (
+                    <Draggable key={task.id} draggableId={task.id} index={index}>
+                      {(provided, snapshot) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          data-testid="timeline-draggable-task"
+                          data-demo-id={taskDemoId(task)}
+                          className="flex min-w-0 gap-1.5"
+                        >
+                          <TaskDragGrip dragHandleProps={provided.dragHandleProps} compact />
+                          <div className="relative min-w-0 flex-1">
+                            <TaskCard
+                              task={task}
+                              onComplete={onCompleteTask}
+                              onUncomplete={onUncompleteTask}
+                              onEdit={onEditTask}
+                              onDelete={onDeleteTask}
+                              onHabitCheckIn={onHabitCheckIn}
+                              isDragging={snapshot.isDragging || draggedTaskId === task.id}
+                              compact
+                              className="min-w-0"
+                            />
+                            {ageBadge(task.scheduledDate) && (
+                              <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                                {ageBadge(task.scheduledDate)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
 
-        {/* Anytime section — single droppable for untimed backlog */}
-        <div className="space-y-2" data-demo-id="anytime-backlog">
-          <h3 className="text-sm font-medium text-ink-muted uppercase tracking-wider">Anytime</h3>
-          <Droppable droppableId="anytime">
-            {(provided, snapshot) => (
-              <div
-                {...provided.droppableProps}
-                ref={provided.innerRef}
-                className={`space-y-3 min-h-24 p-4 rounded-lg transition-colors ${
-                  snapshot.isDraggingOver ? 'drop-zone' : 'bg-card/20'
-                }`}
-              >
-                {anytime.map((task, index) => (
-                  <Draggable key={task.id} draggableId={task.id} index={index}>
+                  {anytime.length === 0 && (
+                    <div className="px-2 py-4 text-center text-ink-muted">
+                      <p className="text-sm text-ink-soft">No Anytime Items.</p>
+                      <p className="mt-1 text-xs text-ink-muted">Add one, or drag a scheduled Item here.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </Droppable>
+          </section>
+
+          <section className="today-schedule-panel min-w-0 space-y-3" data-demo-id="schedule-section" aria-labelledby="scheduled-heading">
+            <h3 id="scheduled-heading" className="text-sm font-semibold uppercase tracking-wider text-ink-muted">
+              Schedule + obligations
+            </h3>
+            <div className="space-y-1">
+              {HOUR_SLOTS.map(slot => {
+                const slotTasks = slotBuckets[slot]
+                const slotCalendarEvents = calendarBuckets[slot]
+                const slotCalories = calorieBuckets[slot]
+                const hasContent = slotTasks.length > 0 || slotCalendarEvents.length > 0 || slotCalories.length > 0
+                const isCompacted = compactedEmptySlots.has(slot)
+                const slotHeight = slotHeightForContent(slotTasks, slotCalendarEvents, slotCalories, isCompacted)
+
+                return (
+                  <Droppable droppableId={slot} key={slot}>
                     {(provided, snapshot) => (
                       <div
+                        {...provided.droppableProps}
                         ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        data-testid="timeline-draggable-task"
-                        data-demo-id={taskDemoId(task)}
-                        className="flex min-w-0 gap-2"
+                        data-testid="timeline-hour-slot"
+                        data-slot={slot}
+                        data-demo-id={`schedule-slot-${slot}`}
+                        data-compacted={isCompacted ? 'true' : 'false'}
+                        className={`timeline-slot relative flex min-w-0 gap-1 overflow-visible rounded px-1 py-2 transition-colors sm:gap-2 sm:px-2 ${hasContent ? 'z-20' : ''} ${isCompacted ? 'pointer-events-none' : ''} ${
+                          snapshot.isDraggingOver
+                            ? 'bg-blue-900/40 drop-zone'
+                            : hasContent
+                              ? 'bg-card/30'
+                              : isCompacted
+                                ? 'bg-transparent hover:bg-card/5'
+                                : 'bg-transparent hover:bg-card/10'
+                        }`}
+                        style={{ height: slotHeight }}
                       >
-                        <TaskDragGrip dragHandleProps={provided.dragHandleProps} />
-                        <div className="relative min-w-0 flex-1">
-                          <TaskCard
-                            task={task}
-                            onComplete={onCompleteTask}
-                            onUncomplete={onUncompleteTask}
-                            onEdit={onEditTask}
-                            onDelete={onDeleteTask}
-                            onHabitCheckIn={onHabitCheckIn}
-                            isDragging={snapshot.isDragging || draggedTaskId === task.id}
-                            className="min-w-0"
-                          />
-                          {ageBadge(task.scheduledDate) && (
-                            <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">
-                              {ageBadge(task.scheduledDate)}
-                            </span>
+                        <span className={`w-10 flex-shrink-0 text-xs sm:w-12 ${isCompacted ? 'pt-0 text-[11px]' : 'pt-2'} ${hasContent || snapshot.isDraggingOver ? 'text-ink-muted' : 'text-gray-600'}`}>
+                          {formatHour(slot)}
+                        </span>
+
+                        <div className="relative z-10 min-w-0 flex-1 space-y-1 overflow-visible">
+                          {slotCalendarEvents.map((event, index) => (
+                            <Draggable key={event.id} draggableId={`calendar:${event.id}`} index={index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  data-timeline-drag-handle="true"
+                                  className={`min-w-0 ${snapshot.isDragging ? 'opacity-90' : ''}`}
+                                  style={{
+                                    ...provided.draggableProps.style,
+                                    height: timedBlockHeight(eventDurationMinutes(event)),
+                                  }}
+                                >
+                                  <CalendarEventBlock event={event} onComplete={onCalendarEventComplete} />
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {slotTasks.map((task, index) => (
+                            <Draggable key={task.id} draggableId={task.id} index={slotCalendarEvents.length + index}>
+                              {(provided, snapshot) => (
+                                <div
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  data-testid="timeline-draggable-task"
+                                  data-demo-id={taskDemoId(task)}
+                                  className="flex min-h-0 min-w-0 gap-1.5"
+                                  style={{
+                                    ...provided.draggableProps.style,
+                                    height: timedTaskBlockHeight(task),
+                                  }}
+                                >
+                                  <TaskDragGrip dragHandleProps={provided.dragHandleProps} compact />
+                                  <TaskCard
+                                    task={task}
+                                    onComplete={onCompleteTask}
+                                    onUncomplete={onUncompleteTask}
+                                    onEdit={onEditTask}
+                                    onDelete={onDeleteTask}
+                                    onHabitCheckIn={onHabitCheckIn}
+                                    isDragging={snapshot.isDragging || draggedTaskId === task.id}
+                                    compact
+                                    className="h-full min-w-0 flex-1"
+                                  />
+                                </div>
+                              )}
+                            </Draggable>
+                          ))}
+                          {slotCalories.map(entry => <CalorieEntryBlock key={entry.id} entry={entry} />)}
+                          {provided.placeholder}
+                          {snapshot.isDraggingOver && slotTasks.length === 0 && (
+                            <div className="px-1 py-1 text-xs text-blue-400">Drop to schedule at {formatHour(slot)}</div>
                           )}
                         </div>
                       </div>
                     )}
-                  </Draggable>
-                ))}
-                {provided.placeholder}
+                  </Droppable>
+                )
+              })}
+            </div>
 
-                {anytime.length === 0 && (
-                  <div className="text-center py-8 text-ink-muted">
-                    <p className="text-ink-soft">No unscheduled tasks.</p>
-                    <p className="text-sm mt-1 text-ink-muted">Add tasks without a time, or drag a scheduled task here to unschedule.</p>
-                  </div>
-                )}
+            {allDayEvents.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="text-sm font-medium uppercase tracking-wider text-ink-muted">All-day calendar</h4>
+                <div className="space-y-2 rounded-lg bg-card/20 p-3">
+                  {allDayEvents.map(event => (
+                    <CalendarEventBlock key={event.id} event={event} onComplete={onCalendarEventComplete} />
+                  ))}
+                </div>
               </div>
             )}
-          </Droppable>
-        </div>
+
+            {tasks.length === 0 && calendarEvents.length === 0 && (
+              <div className="border-y border-line/60 px-3 py-8 text-center text-ink-muted">
+                <p className="text-ink-soft">Nothing planned for this day.</p>
+                <p className="mt-1 text-sm text-ink-muted">Add an Item when you are ready.</p>
+              </div>
+            )}
+          </section>
+
+          {supportingContent && (
+            <aside className="today-supporting-panel min-w-0">
+              {supportingContent}
+            </aside>
+          )}
         </div>
       </DragDropContext>
-
-      {/* Empty state when both sections are empty */}
-      {tasks.length === 0 && calendarEvents.length === 0 && (
-        <div className="text-center py-12 text-ink-muted">
-          <p className="text-ink-soft">No tasks scheduled for today.</p>
-          <p className="text-sm mt-1 text-ink-muted">Add some tasks to get started!</p>
-        </div>
-      )}
     </div>
   )
 }
