@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { CalendarDays, CheckCircle2, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Unplug, Sparkles, Mail, Instagram, MessageCircle, Copy, X, KeyRound, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -7,7 +7,7 @@ import { useNotifications } from '../hooks/useNotifications'
 import { useCredits } from '../hooks/useCredits'
 import { useSettings, applyTheme } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
-import api, { accountService, ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DailyTouchpointRhythm, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
+import api, { accountService, ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DAILY_SIGNALS_QUERY_KEY, DailyTouchpointRhythm, DAY_SUMMARY_QUERY_KEY, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
 import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
 import Switch from '../components/Switch'
@@ -58,6 +58,7 @@ function mergeRhythm(current: UserRhythm, patch: UserRhythmPatch): UserRhythm {
 
 export default function SettingsPage() {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { user, completeAccountDeletion } = useAuth()
   const { permission, requestPermission } = useNotifications()
   const { balance, summary: creditSummary, isLoading: creditsLoading } = useCredits()
@@ -152,6 +153,8 @@ export default function SettingsPage() {
     try {
       setCalendarActionLoading(true)
       await calendarService.disconnectGoogle()
+      queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
       toast.success('Google Calendar disconnected')
       await loadCalendarStatus()
     } catch (e) {
@@ -214,6 +217,31 @@ export default function SettingsPage() {
     applyTheme(theme) // apply instantly; persistence follows
     updateSetting('theme', theme)
     toast.success('Settings updated')
+  }
+
+  const handlePlanningWindowToggle = (enabled: boolean) => {
+    updateSetting('planningWindow', enabled
+      ? {
+          startTime: '08:00',
+          endTime: '18:00',
+          transitionBufferMinutes: 15,
+        }
+      : null
+    )
+    toast.success(enabled ? 'Usable day window enabled' : 'Capacity calculation disabled')
+  }
+
+  const handlePlanningWindowChange = (
+    key: 'startTime' | 'endTime' | 'transitionBufferMinutes',
+    value: string | number
+  ) => {
+    if (!settings?.planningWindow) return
+    const next = { ...settings.planningWindow, [key]: value }
+    if (next.startTime >= next.endTime) {
+      toast.error('End time must be after start time')
+      return
+    }
+    updateSetting('planningWindow', next)
   }
 
   const handleNotificationPermission = async () => {
@@ -818,6 +846,68 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         ) : (
           <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
             Planning rhythm is unavailable.
+          </div>
+        )}
+      </div>
+
+      {/* Capacity planning window */}
+      <div className="card">
+        <div className="mb-2 flex items-center space-x-3">
+          <CalendarDays className="h-5 w-5 text-cyan-400" />
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Usable Day</h2>
+            <p className="text-sm text-ink-muted">
+              Define the window HealthyFlow may use for an honest capacity calculation.
+            </p>
+          </div>
+        </div>
+
+        <Switch
+          label="Calculate daily capacity"
+          description="Uses this explicit window, scheduled Item durations, Calendar obligations, and transition buffers. Reminder times are not reused."
+          checked={settings?.planningWindow != null}
+          onChange={handlePlanningWindowToggle}
+        />
+
+        {settings?.planningWindow && (
+          <div className="mt-2 grid gap-4 border-t border-line/60 pt-4 sm:grid-cols-3">
+            <label className="grid gap-1.5 text-sm text-ink-muted">
+              Day starts
+              <input
+                type="time"
+                value={settings.planningWindow.startTime}
+                onChange={(event) => handlePlanningWindowChange('startTime', event.target.value)}
+                className="input-field min-h-11"
+              />
+            </label>
+            <label className="grid gap-1.5 text-sm text-ink-muted">
+              Day ends
+              <input
+                type="time"
+                value={settings.planningWindow.endTime}
+                onChange={(event) => handlePlanningWindowChange('endTime', event.target.value)}
+                className="input-field min-h-11"
+              />
+            </label>
+            <label className="grid gap-1.5 text-sm text-ink-muted">
+              Transition buffer
+              <select
+                value={settings.planningWindow.transitionBufferMinutes}
+                onChange={(event) => handlePlanningWindowChange('transitionBufferMinutes', Number(event.target.value))}
+                className="input-field min-h-11"
+              >
+                <option value={0}>None</option>
+                <option value={5}>5 minutes</option>
+                <option value={10}>10 minutes</option>
+                <option value={15}>15 minutes</option>
+                <option value={30}>30 minutes</option>
+                <option value={45}>45 minutes</option>
+                <option value={60}>60 minutes</option>
+              </select>
+            </label>
+            <p className="text-xs text-ink-muted sm:col-span-3">
+              The buffer is applied after each known obligation, clipped to this window, and overlapping time is counted once.
+            </p>
           </div>
         )}
       </div>

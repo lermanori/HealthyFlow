@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { settingsService, UserSettings } from '../services/api'
+import { DAILY_SIGNALS_QUERY_KEY, DAY_SUMMARY_QUERY_KEY, settingsService, UserSettings } from '../services/api'
 
 const QUERY_KEY = ['settings']
 
@@ -73,6 +73,8 @@ export function useSettings(enabled = true) {
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
     },
   })
 

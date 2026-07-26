@@ -12,6 +12,7 @@ interface DayTimelineProps {
   calendarEvents?: ExternalCalendarEvent[]
   calorieEntries?: CalorieEntry[]
   onTasksReorder: (tasks: Task[]) => void
+  onTasksPersisted: () => void
   onCompleteTask: (id: string) => void
   onUncompleteTask: (id: string) => void
   onCalendarEventComplete: (id: string, completed: boolean) => void
@@ -270,6 +271,7 @@ export default function DayTimeline({
   calendarEvents = [],
   calorieEntries = [],
   onTasksReorder,
+  onTasksPersisted,
   onCompleteTask,
   onUncompleteTask,
   onCalendarEventComplete,
@@ -341,6 +343,7 @@ export default function DayTimeline({
         onTasksReorder(optimistic)
         const updated = await taskService.updateTask(task.id, { startTime, position: null })
         onTasksReorder(tasks.map(item => (item.id === task.id ? ({ ...item, ...updated } as Task) : item)))
+        onTasksPersisted()
       },
     }
 
@@ -348,7 +351,7 @@ export default function DayTimeline({
       if (!window.__healthyFlowDemo) return
       delete window.__healthyFlowDemo.moveRolloverTaskToToday
     }
-  }, [onTasksReorder, tasks])
+  }, [onTasksPersisted, onTasksReorder, tasks])
 
   const handleDragStart = (start: any) => {
     setDraggedTaskId(start.draggableId)
@@ -389,6 +392,7 @@ export default function DayTimeline({
       // Use real id (updated.id) in case taskId was virtual
       const finalAnytime = newAnytime.map(t => (t.id === taskId ? updated.id : t.id))
       await taskService.reorderTasks(finalAnytime)
+      onTasksPersisted()
     } else {
       // untimed→timed or timed→timed (or virtual habit→hour slot): set startTime to slot, clear position
       const updatedTask = { ...task, startTime: zone, position: null }
@@ -404,6 +408,7 @@ export default function DayTimeline({
         // ponytail: cast needed because spread of discriminated-union loses narrowing
         onTasksReorder(tasks.map(t => (t.id === taskId ? ({ ...t, ...updated } as Task) : t)))
       }
+      onTasksPersisted()
     }
   }
 

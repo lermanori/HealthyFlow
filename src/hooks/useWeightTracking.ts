@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { WeightEntryInput, weightService } from '../services/api'
+import { dailySignalsQueryKey, daySummaryQueryKey, WeightEntryInput, weightService } from '../services/api'
 
 export function useWeightTracking(date: string) {
   const queryClient = useQueryClient()
@@ -19,6 +19,8 @@ export function useWeightTracking(date: string) {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: dayKey })
     queryClient.invalidateQueries({ queryKey: recentKey })
+    queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(date) })
+    queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(date) })
   }
 
   const createMutation = useMutation({

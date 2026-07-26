@@ -8,8 +8,8 @@ import { positionsFromIds } from '../utils/positionsFromIds'
 import { parseHabitInstanceId } from '../utils/parseHabitInstanceId'
 import { isPureDragUpdate } from '../utils/isPureDragUpdate'
 import { deleteGoogleCalendarEvent, isGoogleCalendarNotConnectedError, syncTaskToGoogleCalendar } from '../calendar'
-import { Rollover } from '../rollover'
 import { HabitOutcomeInputSchema, HabitProgress, HabitProgressInputSchema, HabitProgressUpdateSchema } from '../habit-progress'
+import { getItemsForDay, normalizeItemRows } from '../day-summary'
 
 const router = express.Router()
 
@@ -165,71 +165,9 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   logger.debug('Backend - User ID:', userId)
 
   try {
-    let tasks;
-    
-    if (date) {
-      // Dated rows and habit instances come from the DB facade; carry-forward
-      // task rows stay behind Rollover so the rule lives in one module.
-      const datedRows = await db.getTasksWithRecurringHabits(userId, date as string)
-      tasks = await Rollover.addCarryForwardRows(userId, date as string, datedRows)
-    } else {
-      // If no date specified, get all tasks
-      tasks = await db.getTasksByUserId(userId)
-    }
-
-    logger.debug('Backend - Raw tasks from database:', tasks)
-    logger.debug('Backend - Number of tasks found:', tasks.length)
-
-    // Virtual instance ids include the date and are not database UUIDs. Only
-    // materialized instances can own progress rows.
-    const habitInstanceIds = tasks
-      .filter((task: any) => task.type === 'habit' && task.original_habit_id && !parseHabitInstanceId(task.id))
-      .map((task: any) => task.id)
-    const progressTotals = typeof db.getHabitProgressTotals === 'function'
-      ? await db.getHabitProgressTotals(habitInstanceIds)
-      : {}
-    const formattedTasks = tasks.map((task: any) => {
-      let originalHabitId = task.original_habit_id;
-      let isVirtualInstance = false;
-      if (task.type === 'habit' && typeof task.id === 'string') {
-        const parsed = parseHabitInstanceId(task.id)
-        if (parsed) {
-          originalHabitId = parsed.originalHabitId
-          isVirtualInstance = true
-        }
-      }
-      const targetValue = task.habit_target_value == null ? null : Number(task.habit_target_value)
-      return {
-        id: task.id,
-        title: task.title,
-        type: task.type,
-        category: task.category,
-        startTime: task.start_time,
-        location: task.location ?? null,
-        duration: task.duration,
-        repeat: task.repeat_type,
-        completed: Boolean(task.completed),
-        scheduledDate: task.scheduled_date,
-        createdAt: task.created_at,
-        overdueNotified: Boolean(task.overdue_notified),
-        isHabitInstance: isVirtualInstance || Boolean(task.is_habit_instance),
-        originalHabitId,
-        rolledOverFromTaskId: task.rolled_over_from_task_id,
-        originalCreatedAt: task.original_created_at,
-        completedAt: task.completed_at,
-        position: task.position ?? null,
-        googleEventId: task.google_event_id ?? null,
-        syncedToGoogle: Boolean(task.synced_to_google),
-        googleSyncStatus: task.google_sync_status ?? 'pending',
-        ...(task.type === 'habit' ? {
-          habitInfo: {
-            target: targetValue == null ? null : { value: targetValue, unit: task.habit_target_unit },
-            outcome: task.habit_outcome ?? (task.completed ? 'completed' : 'pending'),
-            progressTotal: progressTotals[task.id] ?? 0,
-          },
-        } : {}),
-      }
-    })
+    const formattedTasks = date
+      ? await getItemsForDay(userId, date as string)
+      : await normalizeItemRows(await db.getTasksByUserId(userId))
 
     logger.debug('Backend - Formatted tasks being sent:', formattedTasks)
     res.json(formattedTasks)

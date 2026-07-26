@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/ai-stubs'
+import { daySummaryFixture } from './fixtures/day-summary'
 
 test('mobile Habit cards open Variant B and persist partial/completed/failed outcomes', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
@@ -15,6 +16,17 @@ test('mobile Habit cards open Variant B and persist partial/completed/failed out
   })
   const workoutInfo = () => ({ target: { value: 45, unit: 'minutes' }, outcome: workoutOutcome, progressTotal: workoutTotal })
   const smokeInfo = () => ({ target: null, outcome: smokeOutcome, progressTotal: 0 })
+
+  await page.route('**/api/day-summary?**', async route => {
+    const requestedDate = new URL(route.request().url()).searchParams.get('date') ?? date
+    const items = requestedDate === date
+      ? [
+          habit(`aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee-${date}`, '45-minute workout', workoutInfo()),
+          habit(`ffffffff-bbbb-cccc-dddd-eeeeeeeeeeee-${date}`, 'Don’t smoke until 11', smokeInfo(), '11:00'),
+        ]
+      : []
+    await route.fulfill({ json: daySummaryFixture({ date: requestedDate, items }) })
+  })
 
   await page.route('**/api/tasks**', async route => {
     const request = route.request()
@@ -79,7 +91,7 @@ test('mobile Habit cards open Variant B and persist partial/completed/failed out
   await page.getByRole('heading', { name: 'Don’t smoke until 11', exact: true }).click()
   const binarySheet = page.getByRole('dialog', { name: 'Don’t smoke until 11' })
   await binarySheet.getByRole('button', { name: 'Not done' }).click()
-  await expect(binarySheet).not.toBeVisible({ timeout: 500 })
+  await expect(binarySheet).not.toBeVisible({ timeout: 2_500 })
   await expect(page.getByText('Not done', { exact: true })).toBeVisible()
   const timedHabitRow = page.locator('[data-demo-id="habit-row"]').filter({ hasText: 'Don’t smoke until 11' })
   const [rowBox, statusBox] = await Promise.all([

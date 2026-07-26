@@ -5,7 +5,7 @@ import { format, addDays } from 'date-fns'
 import { Bot, ChevronDown, Dumbbell, Flame, Image as ImageIcon, Mic, MessageSquare, Paperclip, Pencil, Plus, Scale, Send, Target, Trash2, UserRound, Wrench, X } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantConversation, AssistantPendingAction, AssistantStoredMessage, AssistantToolEvent, pushService } from '../services/api'
+import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantConversation, AssistantPendingAction, AssistantStoredMessage, AssistantToolEvent, DAILY_SIGNALS_QUERY_KEY, DAY_SUMMARY_QUERY_KEY, pushService } from '../services/api'
 import { useDictatedText } from '../hooks/useDictatedText'
 import TaskDraftCard, { TaskDraftCardValue } from '../components/TaskDraftCard'
 import CalorieEntryDraftCard, { CalorieEntryDraftValue } from '../components/CalorieEntryDraftCard'
@@ -1239,10 +1239,14 @@ export default function AssistantPage() {
       const response = await aiService.confirmChatAction(actionId, args)
       if (['add_task', 'add_habit', 'update_item', 'delete_item'].includes(response.action.capability)) {
         queryClient.invalidateQueries({ queryKey: ['tasks'] })
+        queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+        queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
       }
       if (['add_calorie_entry', 'add_calorie_entries'].includes(response.action.capability)) {
         queryClient.invalidateQueries({ queryKey: ['calories'] })
         queryClient.invalidateQueries({ queryKey: ['calorie-items'] })
+        queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+        queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
       }
       toast.success('Action confirmed')
       setMessages((current) => current.map((message) =>

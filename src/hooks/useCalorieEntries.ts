@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
-import { caloriesService, CalorieEntry, CalorieEntryInput } from '../services/api'
+import { caloriesService, CalorieEntry, CalorieEntryInput, dailySignalsQueryKey, daySummaryQueryKey } from '../services/api'
 import type { ItemSource } from '../lib/analytics/types'
 
 export function useCalorieEntries(date: string) {
@@ -16,6 +16,8 @@ export function useCalorieEntries(date: string) {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey })
     queryClient.invalidateQueries({ queryKey: calorieItemsKey })
+    queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(date) })
+    queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(date) })
   }
 
   const createMutation = useMutation({

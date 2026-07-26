@@ -5,7 +5,7 @@ import {
   Calendar, ChevronLeft, ChevronRight, Check, CheckSquare, RotateCcw,
   ShoppingCart, Utensils, Dumbbell, Clock, Infinity as InfinityIcon, Smile,
 } from 'lucide-react'
-import { calendarService, ExternalCalendarEvent, taskService, Task, HabitItem } from '../services/api'
+import { calendarService, DAILY_SIGNALS_QUERY_KEY, DAY_SUMMARY_QUERY_KEY, ExternalCalendarEvent, taskService, Task, HabitItem } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import HabitOutcomeSheet from '../components/HabitOutcomeSheet'
 import {
@@ -164,17 +164,29 @@ export default function WeekViewPage() {
   // --- Mutations (same contract as TodayPage) ---
   const completeMutation = useMutation({
     mutationFn: taskService.completeTask,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
+    },
   })
   const uncompleteMutation = useMutation({
     mutationFn: (id: string) => taskService.updateTask(id, { completed: false }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tasks'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
+    },
     onError: () => toast.error('Failed to update item'),
   })
   const calendarCompleteMutation = useMutation({
     mutationFn: ({ id, completed }: { id: string; completed: boolean }) =>
       calendarService.updateGoogleEventCompletion(id, completed),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['google-calendar-events'] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['google-calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
+    },
     onError: () => toast.error('Failed to update calendar event'),
   })
   const toggle = (item: { id: string; completed: boolean; source?: 'task' | 'calendar' }) => {

@@ -1,3 +1,9 @@
+### 2026-07-26 11:16 — `codex/phase1-day-summary`
+
+Completed Phase 1’s DaySummary foundation with one versioned Zod contract, a shared canonical Item read path, deterministic attention rules, and honest complete/partial/unavailable capacity derivation. Today now composes its selected day through one request, optional calendar and health failures degrade independently, usable-day settings remain explicitly opt-in, and canonical cache invalidation preserves Item, Habit, Calendar, health, Week, and Talk behavior. Full backend, build, unit, and focused cross-feature browser validation is green; issue #161 is ready for preview review without a database migration.
+
+---
+
 ### 2026-07-26 09:53 — `codex/fix-talk-history-save-race`
 
 Fixed the false Talk history-save error caused by browser-history migration and normal autosave issuing duplicate writes for the same conversation. Migration now completes before autosave begins, saves for each conversation are serialized, and focused browser regressions cover both legacy-history startup and slow in-flight saves; issue #167 is ready for preview review.

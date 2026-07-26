@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { ApiTokenAudienceSchema, ApiTokens, ApiTokenScopeSchema } from '../api-tokens'
 import { db } from '../supabase-client'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
+import { PlanningWindowSchema } from '../day-summary-schema'
 
 // Zod as single source of truth: schema defines shape + defaults for settings
 export const SettingsSchema = z.object({
@@ -16,6 +17,7 @@ export const SettingsSchema = z.object({
   achievementTracker: z.boolean().default(false),
   workoutTracker: z.boolean().default(true),
   weekStartsOn: z.number().int().min(0).max(6).default(1),
+  planningWindow: PlanningWindowSchema.nullable().default(null),
   onboardingStatus: z.enum(['active', 'completed', 'skipped']).default('completed'),
   theme: z.enum(['midnight', 'white']).default('midnight'),
 })
@@ -34,6 +36,7 @@ const PatchBody = z.object({
   achievementTracker: z.boolean(),
   workoutTracker: z.boolean(),
   weekStartsOn: z.number().int().min(0).max(6),
+  planningWindow: PlanningWindowSchema.nullable(),
   onboardingStatus: z.enum(['active', 'completed', 'skipped']),
   theme: z.enum(['midnight', 'white']),
 }).partial().strict()

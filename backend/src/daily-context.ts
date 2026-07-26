@@ -1,8 +1,17 @@
 import { z } from 'zod'
 import { Achievements } from './achievements'
-import { Rollover } from './rollover'
 import { db } from './supabase-client'
 import { Workouts } from './workouts'
+import {
+  calorieRowToClient,
+  getItemsForDay,
+  weightRowToClient,
+} from './day-summary'
+import {
+  DaySummaryCalorieEntrySchema,
+  DaySummaryItemSchema,
+  DaySummaryWeightEntrySchema,
+} from './day-summary-schema'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const SIGNAL_LIMIT = 3
@@ -34,44 +43,9 @@ export const DailySignalSchema = z.object({
   }).nullable(),
 })
 
-const DailyTaskSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  type: z.string(),
-  category: z.string().nullable().optional(),
-  completed: z.boolean(),
-  completedAt: z.string().nullable(),
-  scheduledDate: z.string().nullable(),
-  startTime: z.string().nullable(),
-  duration: z.number().nullable(),
-  repeat: z.string().nullable().optional(),
-  position: z.number().nullable(),
-  isHabitInstance: z.boolean(),
-  originalHabitId: z.string().nullable(),
-  createdAt: z.string().nullable(),
-})
-
-const DailyCalorieEntrySchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  time: z.string().nullable(),
-  name: z.string(),
-  calories: z.number(),
-  protein: z.number().nullable(),
-  carbs: z.number().nullable(),
-  fat: z.number().nullable(),
-  quantity: z.string().nullable(),
-  createdAt: z.string().nullable(),
-  updatedAt: z.string().nullable(),
-})
-
-const DailyWeightSchema = z.object({
-  id: z.string(),
-  date: z.string(),
-  weightKg: z.number(),
-  createdAt: z.string().nullable(),
-  updatedAt: z.string().nullable(),
-})
+const DailyTaskSchema = DaySummaryItemSchema
+const DailyCalorieEntrySchema = DaySummaryCalorieEntrySchema
+const DailyWeightSchema = DaySummaryWeightEntrySchema
 
 const HabitHistoryDaySchema = z.object({
   date: z.string(),
@@ -167,61 +141,13 @@ function hourFromIso(value: string) {
   return Number.isNaN(parsed.getTime()) ? null : parsed.getUTCHours()
 }
 
-function dailyTaskToClient(row: any): z.infer<typeof DailyTaskSchema> {
-  const originalHabitId = row.original_habit_id ?? row.originalHabitId ?? null
-  return {
-    id: String(row.id),
-    title: String(row.title ?? ''),
-    type: String(row.type ?? 'task'),
-    category: row.category ?? null,
-    completed: Boolean(row.completed),
-    completedAt: row.completed_at ?? row.completedAt ?? null,
-    scheduledDate: row.scheduled_date ?? row.scheduledDate ?? null,
-    startTime: row.start_time ? String(row.start_time).slice(0, 5) : row.startTime ? String(row.startTime).slice(0, 5) : null,
-    duration: typeof row.duration === 'number' ? row.duration : row.duration == null ? null : Number(row.duration),
-    repeat: row.repeat_type ?? row.repeat ?? null,
-    position: typeof row.position === 'number' ? row.position : row.position == null ? null : Number(row.position),
-    isHabitInstance: Boolean(row.is_habit_instance ?? row.isHabitInstance),
-    originalHabitId,
-    createdAt: row.created_at ?? row.createdAt ?? null,
-  }
-}
-
-function calorieToClient(row: any): z.infer<typeof DailyCalorieEntrySchema> {
-  return {
-    id: String(row.id),
-    date: String(row.date),
-    time: row.time ? String(row.time).slice(0, 5) : null,
-    name: String(row.name ?? ''),
-    calories: Number(row.calories ?? 0),
-    protein: row.protein == null ? null : Number(row.protein),
-    carbs: row.carbs == null ? null : Number(row.carbs),
-    fat: row.fat == null ? null : Number(row.fat),
-    quantity: row.quantity ?? null,
-    createdAt: row.created_at ?? row.createdAt ?? null,
-    updatedAt: row.updated_at ?? row.updatedAt ?? null,
-  }
-}
-
-function weightToClient(row: any): z.infer<typeof DailyWeightSchema> {
-  return {
-    id: String(row.id),
-    date: String(row.date),
-    weightKg: Number(row.weight_kg ?? row.weightKg),
-    createdAt: row.created_at ?? row.createdAt ?? null,
-    updatedAt: row.updated_at ?? row.updatedAt ?? null,
-  }
-}
-
 async function tasksForDay(userId: string, date: string) {
-  const datedRows = await db.getTasksWithRecurringHabits(userId, date)
-  const rows = await Rollover.addCarryForwardRows(userId, date, datedRows)
-  return rows.map(dailyTaskToClient)
+  return getItemsForDay(userId, date)
 }
 
 async function caloriesForDay(userId: string, date: string) {
   const rows = await db.getCalorieEntriesByDay(userId, date)
-  return (rows ?? []).map(calorieToClient)
+  return (rows ?? []).map(calorieRowToClient)
 }
 
 async function workoutSessionsForDay(userId: string, date: string) {
@@ -425,7 +351,7 @@ export async function buildDailyContext(userId: string, date = todayIso()): Prom
     day: {
       tasks,
       calorieEntries,
-      weight: weightRow ? weightToClient(weightRow) : null,
+      weight: weightRow ? weightRowToClient(weightRow) : null,
       achievements,
       workoutSessions,
       calendarEvents: [],

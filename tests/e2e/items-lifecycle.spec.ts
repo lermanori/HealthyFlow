@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { test, expect } from './fixtures/ai-stubs'
+import { daySummaryFixture } from './fixtures/day-summary'
 
 // Each test fully independent: reset, add task, perform action, assert persistence
 
@@ -333,7 +334,7 @@ test('Compact timeline card does not clip content or overflow menu', async ({ pa
 
   const cardBox = await card.boundingBox()
   expect(cardBox).toBeTruthy()
-  for (const locator of [checkbox, title, category]) {
+  for (const locator of [title, category]) {
     await expect(locator).toBeVisible()
     const box = await locator.boundingBox()
     expect(box).toBeTruthy()
@@ -342,6 +343,15 @@ test('Compact timeline card does not clip content or overflow menu', async ({ pa
     expect(box!.x + box!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width + 1)
     expect(box!.y + box!.height).toBeLessThanOrEqual(cardBox!.y + cardBox!.height + 1)
   }
+
+  const checkboxBox = await checkbox.boundingBox()
+  const checkboxIndicatorBox = await checkbox.locator('span[aria-hidden="true"]').boundingBox()
+  expect(checkboxBox).toBeTruthy()
+  expect(checkboxIndicatorBox).toBeTruthy()
+  expect(checkboxBox!.width).toBeGreaterThanOrEqual(44)
+  expect(checkboxBox!.height).toBeGreaterThanOrEqual(44)
+  expect(checkboxIndicatorBox!.x).toBeGreaterThanOrEqual(cardBox!.x)
+  expect(checkboxIndicatorBox!.x + checkboxIndicatorBox!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width + 1)
 
   await expect.poll(() => card.evaluate((el) => getComputedStyle(el).transform)).toBe('none')
   const transformBeforeHover = await card.evaluate((el) => getComputedStyle(el).transform)
@@ -493,27 +503,22 @@ test('Mobile calendar event checkbox stays compact and clear of the title', asyn
   const eventTitle = `Mobile Calendar ${Date.now()}`
 
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.route('**/api/calendar/google/events**', async (route) => {
+  await page.route('**/api/day-summary?**', async (route) => {
+    const date = new URL(route.request().url()).searchParams.get('date')
+      ?? new Date().toISOString().slice(0, 10)
     await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify([{
-        id: 'external-mobile-event-1',
-        provider: 'google',
-        calendarId: 'primary',
-        externalEventId: 'google-mobile-event-1',
-        title: eventTitle,
-        description: null,
-        location: null,
-        startAt: `${new Date().toISOString().slice(0, 10)}T10:00:00.000Z`,
-        endAt: `${new Date().toISOString().slice(0, 10)}T11:00:00.000Z`,
-        localStartTime: '10:00',
-        localEndTime: '11:00',
-        allDay: false,
-        status: 'confirmed',
-        htmlLink: null,
-        completed: false,
-        completedAt: null,
-      }]),
+      json: daySummaryFixture({
+        date,
+        calendarEvents: [{
+          id: 'external-mobile-event-1',
+          externalEventId: 'google-mobile-event-1',
+          title: eventTitle,
+          startAt: `${date}T10:00:00.000Z`,
+          endAt: `${date}T11:00:00.000Z`,
+          localStartTime: '10:00',
+          localEndTime: '11:00',
+        }],
+      }),
     })
   })
 
@@ -525,14 +530,15 @@ test('Mobile calendar event checkbox stays compact and clear of the title', asyn
   await expect(title).toBeVisible()
 
   const checkboxBox = await checkbox.boundingBox()
+  const checkboxIndicatorBox = await checkbox.locator('span[aria-hidden="true"]').boundingBox()
   const titleBox = await title.boundingBox()
   expect(checkboxBox).toBeTruthy()
+  expect(checkboxIndicatorBox).toBeTruthy()
   expect(titleBox).toBeTruthy()
-  expect(Math.round(checkboxBox!.width)).toBeLessThanOrEqual(20)
-  expect(Math.round(checkboxBox!.height)).toBeLessThanOrEqual(20)
+  expect(Math.round(checkboxBox!.width)).toBeGreaterThanOrEqual(44)
+  expect(Math.round(checkboxBox!.height)).toBeGreaterThanOrEqual(44)
+  expect(Math.round(checkboxIndicatorBox!.width)).toBeLessThanOrEqual(20)
+  expect(Math.round(checkboxIndicatorBox!.height)).toBeLessThanOrEqual(20)
   expect(titleBox!.x).toBeGreaterThan(checkboxBox!.x + checkboxBox!.width)
   expect(titleBox!.x - (checkboxBox!.x + checkboxBox!.width)).toBeGreaterThanOrEqual(4)
-
-  const source = await readFile(path.join(process.cwd(), 'src/components/DayTimeline.tsx'), 'utf8')
-  expect(source).toContain('!min-h-0 !w-4 !min-w-0')
 })
