@@ -347,8 +347,30 @@ Concept, script and plan live here; generated media stays local (gitignored).
         delay offsets are needed): `bed.wav` (room tone + stack + the lock-in;
         must be silent 22.750→28.750s), `vo.wav`, `music.wav`. Errors with a
         pointer here if any are missing.
+- [x] M6b — pipeline cleanup after the recut:
+      - **Removed the `freeze` stage.** It built `freeze_frame.png`,
+        `S8_ramped.mp4` and `S8_hold.mp4`, none of which anything consumes now
+        that the cut has no frozen segment (fixes 7 and 10). Its stale
+        references in the `spine` stage header went with it. Deleted the
+        orphaned build artifacts too, incl. `S9_graded.mp4` (superseded by
+        `S9_live.mp4` when the climax went live) and `master_last_frame.png`.
+        Note: `render_notes.py`'s `freeze_frame_idx` is unrelated — that's the
+        notes overlay's own "stop animating at `freeze_at`" optimisation.
+      - **Fixed the `cutdown` stage.** Its default in-point (28.0s) predated
+        the recut and would have produced an **8.8s** clip, not 15s, because
+        the master is now shorter than the timeline it assumed. New default
+        **21.791667s** runs to the exact end = 15.000s and covers the whole
+        payoff arc: tail of the overload → hard silence → organize → release →
+        end card. Now also forces `yuv420p`, sets an audio bitrate, and falls
+        back to `master_scratch.mp4` when `master_final.mp4` doesn't exist yet,
+        so the Story cut is previewable before stems land. Verified: 15.000s,
+        1080×1920, yuv420p.
 - [ ] M6 (remaining) — record/source `bed.wav`, `vo.wav`, `music.wav`, then
-      `assemble.sh audio` and `cutdown`
+      `assemble.sh audio`, then re-run `cutdown` against the real mix
+- [ ] M7 — cover/thumbnail frame for the Reel. PRODUCTION.md pointed at
+      `freeze_frame.png`, which no longer exists; pick a frame from the master
+      deliberately (the full-note-cloud close-up around 22.5s is the obvious
+      candidate — it's the hook).
       (both stages now target `build/master_full_silent.mp4`, not
       `master_silent.mp4`, since audio needs to cover the complete timeline)
 

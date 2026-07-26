@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
-# Assemble the 45s master from normalized plates + overlays.
+# Assemble the ~37s master from normalized plates + overlays.
 # Stages (run in order as assets become ready):
 #   ./assemble.sh spine     — concat plates to the beat map (needs plates/S*.mp4)
-#   ./assemble.sh freeze    — build S8 freeze + speed ramp
 #   ./assemble.sh overlay   — composite the notes layer (needs notes render)
 #   ./assemble.sh grade     — LUT + grain + vignette cohesion pass
-#   ./assemble.sh final     — stitch S1 + graded spine + freeze hold + S9 + S10 + S11
+#   ./assemble.sh final     — stitch S1 + graded spine + S9 + S10 + S11
 #   ./assemble.sh scratch   — placeholder synth mix for timing review (no stems)
 #   ./assemble.sh audio     — mix stems + VO, loudness-normalize (needs audio/)
 #   ./assemble.sh cutdown   — 15s Story teaser from the master
+#
+# There is deliberately no `freeze` stage: the cut contains no frozen segment
+# anymore (S1 and the climax are both live -- see README M5.1 fixes 7 and 10).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 mkdir -p build
@@ -22,14 +24,11 @@ LOOK="colorbalance=rs=-0.06:gs=0.02:bs=0.10:rh=0.06:gh=0.015:bh=-0.07,eq=saturat
 case "${1:-}" in
 
 spine)
-  # Beat map: S1 cold flash (1s, from freeze frame) + S2..S8. Trim durations here.
-  # S1 requires build/freeze_frame.png (made by the freeze stage) — run once
-  # without S1, pick the freeze frame, then rebuild.
-  # Canonical beat-map order, S2..S8 only (ends at the freeze). S7 folds into
+  # Canonical beat-map order, S2..S8 only (ends at the climax). S7 folds into
   # S8's push-in. S1 (cold flash), S9 (organize), S10 (release) and S11 (end
-  # card) are NOT part of this stage -- S1/S9/S11 are motion graphics or reuse
-  # the freeze frame, and S10 comes narratively *after* S9's organize
-  # sequence, not straight after S8 -- they're joined in a later custom stitch.
+  # card) are NOT part of this stage -- S1 is cut from the *graded* spine and
+  # S9/S11 are motion graphics, and S10 comes narratively *after* S9's organize
+  # sequence, not straight after S8 -- they're joined by `final`.
   # Hardcoded rather than glob-sorted: plain glob sorts lexically (S10 before
   # S2), and macOS's BSD `ls -v` isn't GNU natural sort so it doesn't fix that.
   SHOTS="S2 S3 S4 S5 S6 S8"
@@ -43,18 +42,6 @@ spine)
   done
   ffmpeg -y -f concat -safe 0 -i build/concat.txt -c copy build/spine.mp4
   echo "-> build/spine.mp4  (watch it silent; fix pacing before anything else)"
-  ;;
-
-freeze)
-  # Pick the freeze moment (default 4.5s into S8), extract the frame, build:
-  # ramped last second (1.0 -> ~0.7x) + 3s hold.
-  T="${2:-4.5}"
-  ffmpeg -y -ss "$T" -i plates/S8.mp4 -frames:v 1 build/freeze_frame.png
-  ffmpeg -y -i plates/S8.mp4 -vf "trim=0:$T,setpts=PTS/if(gte(T\,$T-1)\,1.3\,1)" \
-    -c:v libx264 -crf 16 build/S8_ramped.mp4
-  ffmpeg -y -loop 1 -i build/freeze_frame.png -t 3 -r 24 \
-    -vf format=yuv420p -c:v libx264 -crf 16 build/S8_hold.mp4
-  echo "-> build/freeze_frame.png (also the S1 cold flash + ad thumbnail)"
   ;;
 
 overlay)
@@ -171,12 +158,20 @@ audio)
   ;;
 
 cutdown)
-  # 15s Story teaser: freeze (2s) -> S9 organization (~8s incl. VO) -> end card.
-  # Simplest robust path: mark the in/out points after watching the master.
-  IN="${2:-28.0}"
-  ffmpeg -y -ss "$IN" -i build/master_final.mp4 -t 15 \
-    -c:v libx264 -crf 16 -c:a aac build/story_15s.mp4
-  echo "-> build/story_15s.mp4"
+  # 15s Story teaser. Default in-point 21.7917s runs to the exact end of the
+  # 36.7917s master (= 15.000s) and covers the whole payoff arc: tail of the
+  # overload -> hard silence -> organize -> release -> end card.
+  # (The old default of 28.0 predates the freeze-less recut and would now yield
+  # an 8.8s clip, not 15s -- the master is shorter than the timeline it assumed.)
+  # Prefers the real mix; falls back to the scratch mix so the Story cut can be
+  # previewed before stems exist.
+  IN="${2:-21.791667}"
+  SRC=build/master_final.mp4
+  [ -f "$SRC" ] || SRC=build/master_scratch.mp4
+  [ -f "$SRC" ] || { echo "no master_final.mp4 or master_scratch.mp4 -- run 'audio' or 'scratch' first"; exit 1; }
+  ffmpeg -y -ss "$IN" -i "$SRC" -t 15 \
+    -c:v libx264 -crf 16 -pix_fmt yuv420p -c:a aac -b:a 192k build/story_15s.mp4
+  echo "-> build/story_15s.mp4  (from $(basename "$SRC"))"
   ;;
 
 *)
