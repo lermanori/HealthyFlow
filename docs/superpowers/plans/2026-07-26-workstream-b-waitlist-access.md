@@ -32,7 +32,34 @@ The migration was applied to a throwaway **Postgres 17** container and the two c
 | delete waitlist row | invites cascade away |
 | delete redeeming user | invite survives, `redeemed_by_user_id` nulled |
 
-**Still outstanding:** the migration has **not** been applied to production Supabase, so the HTTP-level loop (join → invite → redeem → `registered`) has not been exercised against the real backend. Applying DDL to production is the owner's action. Until it is applied, `GET /auth/signup-status` errors and the UI fails closed — login works, Create account is hidden — which is why `tests/e2e/onboarding.spec.ts` currently fails both specs.
+### HTTP loop verified against a local Supabase stack
+
+The full stack was brought up locally (`supabase start`), which applied this migration **in sequence with the other 32** — proving it composes, not just that it runs alone. The backend then ran against it and the loop was exercised over real HTTP: **27/27 assertions passed.**
+
+| Step | Verified |
+| --- | --- |
+| `GET /auth/signup-status` | `{mode: open, remaining: 10}` |
+| `POST /api/waitlist` | row created, email lowercased, UTM persisted, status `pending` |
+| Re-join with same email | **200**, identical body, still one row — membership cannot be probed |
+| Admin routes without a token | 401 |
+| Admin list | entry + slot counts returned |
+| Admin invite | token ≥24 chars, row → `invited` |
+| Signup with invite | 200, row → `registered`, invite redeemed, **slot counter unchanged** |
+| Same invite reused | 403 `invite_used` |
+| Public signup | claims exactly one slot, `remaining` drops 10 → 9 |
+| Slots exhausted | status flips to `waitlist`, signup 403 `closed`, **no user row created** |
+
+### UI states verified in the browser
+
+Against that live backend, all three LoginPage states behaved correctly:
+
+- **waitlist** (0 slots) — Create account hidden, waitlist form shown; submitting it wrote a row with `source=login-page` and rendered the success message.
+- **open** (3 slots) — Create account restored, "3 spots left" rendered, no waitlist form.
+- **invited** (`?invite=…`, slots still 0) — signup form opened despite the gate being closed, and completing it created the user, redeemed the invite with `redeemed_by_user_id` set, flipped the row to `registered`, and left the public slot counter at 0/0.
+
+The local stack has been torn down.
+
+**Still outstanding:** the migration has not been applied to **production** Supabase — an owner action, and the only thing between this and shipping. Until it is applied, `GET /auth/signup-status` errors and the UI fails closed (login works, Create account hidden), which is why `tests/e2e/onboarding.spec.ts` fails both specs against production.
 
 ---
 
