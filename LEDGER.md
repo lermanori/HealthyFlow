@@ -1,3 +1,9 @@
+### 2026-07-26 16:15 — `claude/product-launch-planning-fa4388`
+
+Verified Workstream B's schema against a real Postgres 17 rather than leaving it on trust. The migration applies cleanly, and both concurrency guarantees hold under genuine contention: 20 simultaneous claims against a single slot granted exactly one, 50 against ten granted exactly ten, and fifteen simultaneous redemptions of one invite returned a row exactly once. Every check constraint fires as intended — negative slot counts, bogus statuses, duplicate emails, and a second settings row are all rejected — and the cascade rules behave (deleting a waitlist row removes its invites; deleting a redeeming user leaves the invite with a null redeemer). The container was disposable and has been removed. What remains unverified is the HTTP loop against real Supabase, which needs the migration applied to production — an owner action.
+
+---
+
 ### 2026-07-26 15:40 — `claude/product-launch-planning-fa4388`
 
 Finished Workstream E: the landing page's images were ~1.9 MB of 2880px-wide JPEGs on a page whose ad traffic will be mostly mobile. All six are now served as WebP through `<picture>`, with 800w/1400w variants and accurate `sizes` for the 520px media columns, and JPEG kept as the fallback. A desktop visit at DPR 2 now pulls roughly 200 KB of imagery and a phone roughly 110 KB. The mobile screenshot is natively 780px, so it deliberately has no resized variants — generating them produced upscales larger than the original. Verified in the browser: every loaded image resolves to WebP, and the showcase correctly selects the 1400w candidate.

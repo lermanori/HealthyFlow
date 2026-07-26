@@ -14,6 +14,28 @@
 
 ---
 
+## Status (2026-07-26): code-complete, schema verified against real Postgres
+
+All eleven tasks are implemented. The full backend suite passes at **387 tests / 53 suites**, and the frontend builds clean.
+
+The migration was applied to a throwaway **Postgres 17** container and the two concurrency guarantees — the parts that only fail under real load — were exercised directly:
+
+| Check | Result |
+| --- | --- |
+| 20 concurrent claims against **1** slot | exactly **1** granted, 19 refused; counter = 1 |
+| 50 concurrent claims against **10** slots | exactly **10** granted; counter = 10 |
+| 15 concurrent redemptions of **one** invite | exactly **1** returned a row |
+| `public_slots_open = -1` | rejected by check constraint |
+| `waitlist.status = 'bogus'` | rejected by check constraint |
+| duplicate `waitlist.email` | rejected by unique index |
+| second `signup_access` row | rejected by `CHECK (id)` |
+| delete waitlist row | invites cascade away |
+| delete redeeming user | invite survives, `redeemed_by_user_id` nulled |
+
+**Still outstanding:** the migration has **not** been applied to production Supabase, so the HTTP-level loop (join → invite → redeem → `registered`) has not been exercised against the real backend. Applying DDL to production is the owner's action. Until it is applied, `GET /auth/signup-status` errors and the UI fails closed — login works, Create account is hidden — which is why `tests/e2e/onboarding.spec.ts` currently fails both specs.
+
+---
+
 ## File Structure
 
 | File | Responsibility |
