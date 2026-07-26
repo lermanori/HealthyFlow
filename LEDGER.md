@@ -1,3 +1,9 @@
+### 2026-07-26 15:40 — `claude/product-launch-planning-fa4388`
+
+Finished Workstream E: the landing page's images were ~1.9 MB of 2880px-wide JPEGs on a page whose ad traffic will be mostly mobile. All six are now served as WebP through `<picture>`, with 800w/1400w variants and accurate `sizes` for the 520px media columns, and JPEG kept as the fallback. A desktop visit at DPR 2 now pulls roughly 200 KB of imagery and a phone roughly 110 KB. The mobile screenshot is natively 780px, so it deliberately has no resized variants — generating them produced upscales larger than the original. Verified in the browser: every loaded image resolves to WebP, and the showcase correctly selects the 1400w candidate.
+
+---
+
 ### 2026-07-26 15:05 — `claude/product-launch-planning-fa4388`
 
 Landed Workstreams D and F: the landing page now tells the committed day thesis instead of a generic AI story. The hero leads with "Your whole day, in one place", the three steps became say-it / it-lands-on-the-day / tomorrow-picks-it-up so rollover is a headline rather than a subclause, and AI is reframed as the fastest way in rather than the identity. Pricing replaces the $1 Launch Plan with a $9 Founding Member card anchored against $19, and the feature grid was run through the day-razor — Health, Planning, and Analytics out; Rollover, Training, and Week view in. Also fixed the relative `og:image` that would have left every shared ad link without a preview, and added the missing Twitter card tags. `MARKETING.md` carries a superseding note for the old $1/$2 model.
