@@ -1,3 +1,9 @@
+### 2026-07-26 14:20 — `claude/product-launch-planning-fa4388`
+
+Built Workstream B: waitlist-centred access control. Registration is now closed by default with two doors — a single-use invite bound to a waitlist row, and a capped public opening that starts at 10 slots — and the slot claim is a Postgres function so two concurrent signups cannot both take the last one. Adds the `waitlist`/`invites`/`signup_access` schema, a `Waitlist` deep module, public join and signup-status endpoints, admin management routes, a three-state LoginPage, an admin WaitlistPanel, and a landing-page waitlist form with availability-aware CTAs. The full backend suite passes at 387 tests across 53 suites. **The migration has not been applied to Supabase** — until it is, `signup-status` errors and the UI fails closed (Create account hidden, login unaffected), which is why both `onboarding` e2e specs currently fail.
+
+---
+
 ### 2026-07-26 12:55 — `claude/product-launch-planning-fa4388`
 
 Landed Workstream A of the launch plan: the marketing page now serves at `/` and the React app moved to `/app` behind a router basename, so incoming ad traffic no longer hits a login form. Every path the app previously owned redirects to its `/app` equivalent, and the PWA manifest, service worker app shell, and backend push-notification targets moved with it — the service worker would otherwise have cached the landing page as its offline app shell. The Playwright suite's 79 navigations and 26 URL assertions were migrated, the production build is green, and the funnel was verified end to end in the browser. The suite was also made port-configurable, because specs hard-coded `localhost:3001` and a worktree run would silently test whichever checkout owned that port. Measured against a baseline built from the merge base, the suite went 14→15 failures with every differing spec failing on both branches in isolation: pre-existing flake, no regressions from the move.

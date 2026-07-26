@@ -33,6 +33,9 @@ export default function LoginPage() {
   }, [])
 
   useEffect(() => {
+    // Fail closed: if the status call fails we leave signupStatus null, which hides
+    // the Create account tab. Showing a signup form we cannot honour would send the
+    // user through a form that 403s. Login is unaffected either way.
     waitlistService.signupStatus().then(setSignupStatus).catch(() => setSignupStatus(null))
   }, [])
 
