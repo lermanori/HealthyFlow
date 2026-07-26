@@ -155,8 +155,131 @@ function denseDay(date: string): DaySummary {
   return summary
 }
 
+type DayContextState = 'mixed' | 'empty' | 'unavailable' | 'disabled'
+
+function dayContextState(date: string, state: DayContextState): DaySummary {
+  const mixedItems = [
+    { id: 'habit-pending', title: 'Morning reset', type: 'habit' as const, scheduledDate: date, habitInfo: { target: null, outcome: 'pending' as const, progressTotal: 0 } },
+    { id: 'habit-partial', title: 'Walk outside', type: 'habit' as const, scheduledDate: date, habitInfo: { target: { value: 20, unit: 'minutes' as const }, outcome: 'partial' as const, progressTotal: 10 } },
+    { id: 'habit-completed', title: 'Drink water', type: 'habit' as const, scheduledDate: date, completed: true, habitInfo: { target: { value: 8, unit: 'count' as const }, outcome: 'completed' as const, progressTotal: 8 } },
+    { id: 'habit-failed', title: 'No late caffeine', type: 'habit' as const, scheduledDate: date, habitInfo: { target: { value: 1, unit: 'count' as const }, outcome: 'failed' as const, progressTotal: 0 } },
+  ]
+  const summary = daySummaryFixture({
+    date,
+    items: state === 'mixed' ? mixedItems : [],
+  })
+  summary.modules = {
+    habits: 'enabled',
+    nutrition: state === 'disabled' ? 'disabled' : state === 'unavailable' ? 'unavailable' : 'enabled',
+    workouts: state === 'disabled' ? 'disabled' : state === 'unavailable' ? 'unavailable' : 'enabled',
+  }
+  summary.supporting.habits = state === 'mixed'
+    ? { status: 'available', total: 4, pending: 1, partial: 1, completed: 1, failed: 1, targeted: 3 }
+    : { status: 'available', total: 0, pending: 0, partial: 0, completed: 0, failed: 0, targeted: 0 }
+
+  if (state === 'mixed') {
+    summary.calorieEntries = [
+      {
+        id: 'calorie-zero',
+        date,
+        time: '08:00',
+        name: 'Tracked drink',
+        calories: 0,
+        protein: 0,
+        carbs: null,
+        fat: 0,
+        quantity: null,
+        createdAt: null,
+        updatedAt: null,
+      },
+      {
+        id: 'calorie-partial',
+        date,
+        time: null,
+        name: 'Partially tracked snack',
+        calories: 0,
+        protein: 0,
+        carbs: 12,
+        fat: null,
+        quantity: null,
+        createdAt: null,
+        updatedAt: null,
+      },
+    ]
+    summary.supporting.nutrition = {
+      status: 'available',
+      entries: summary.calorieEntries,
+      calories: { status: 'complete', value: 0 },
+      protein: { status: 'complete', value: 0 },
+      carbs: { status: 'partial', value: 12 },
+      fat: { status: 'partial', value: 0 },
+      weight: { status: 'not_recorded', entry: null },
+    }
+    summary.supporting.workouts = {
+      status: 'logged',
+      sessions: [{
+        id: 'workout-session',
+        userId: 'test-user',
+        date,
+        title: 'Logged strength',
+        notes: null,
+        exercises: [{
+          id: 'exercise-1',
+          sessionId: 'workout-session',
+          name: 'Squat',
+          sets: 3,
+          reps: 5,
+          weightKg: 62.5,
+          durationMinutes: null,
+          distanceKm: null,
+          notes: null,
+          position: 0,
+        }, {
+          id: 'exercise-2',
+          sessionId: 'workout-session',
+          name: 'Run',
+          sets: null,
+          reps: null,
+          weightKg: null,
+          durationMinutes: 20,
+          distanceKm: 3.2,
+          notes: null,
+          position: 1,
+        }],
+        createdAt: `${date}T18:00:00.000Z`,
+        updatedAt: `${date}T18:00:00.000Z`,
+      }],
+    }
+  } else if (state === 'empty') {
+    summary.supporting.nutrition = {
+      status: 'not_logged',
+      entries: [],
+      calories: { status: 'unavailable', value: null },
+      protein: { status: 'unavailable', value: null },
+      carbs: { status: 'unavailable', value: null },
+      fat: { status: 'unavailable', value: null },
+      weight: { status: 'not_recorded', entry: null },
+    }
+    summary.supporting.workouts = { status: 'not_logged', sessions: [] }
+  } else if (state === 'unavailable') {
+    summary.supporting.nutrition = {
+      status: 'unavailable',
+      entries: [],
+      calories: { status: 'unavailable', value: null },
+      protein: { status: 'unavailable', value: null },
+      carbs: { status: 'unavailable', value: null },
+      fat: { status: 'unavailable', value: null },
+      weight: { status: 'unavailable', entry: null },
+    }
+    summary.supporting.workouts = { status: 'unavailable', sessions: [] }
+  }
+
+  return summary
+}
+
 async function mockToday(page: Page, options?: {
   summary?: (date: string) => DaySummary
+  summaryError?: () => boolean
   signalError?: boolean
 }) {
   await page.clock.setFixedTime(fixedNow)
@@ -170,6 +293,9 @@ async function mockToday(page: Page, options?: {
     },
   }))
   await page.route('**/api/day-summary?**', (route) => {
+    if (options?.summaryError?.()) {
+      return route.fulfill({ status: 503, json: { error: 'Unavailable' } })
+    }
     const date = new URL(route.request().url()).searchParams.get('date') ?? '2026-07-15'
     return route.fulfill({ json: (options?.summary ?? denseDay)(date) })
   })
@@ -196,6 +322,84 @@ for (const viewport of viewports) {
       animations: 'disabled',
       fullPage: true,
     })
+  })
+}
+
+for (const viewport of viewports) {
+  test(`Day Context preserves honest module states at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    let contextState: DayContextState = 'mixed'
+    let summaryUnavailable = false
+    await page.setViewportSize(viewport)
+    await mockToday(page, {
+      summary: (date) => dayContextState(date, contextState),
+      summaryError: () => summaryUnavailable,
+    })
+    await page.goto('/')
+
+    const context = page.locator('[data-demo-id="day-context"]')
+    const habitsButton = context.getByRole('button', { name: /Habits/ })
+    await expect(habitsButton).toHaveAttribute('aria-expanded', 'false')
+    await habitsButton.click()
+    const habitsPanelId = await habitsButton.getAttribute('aria-controls')
+    expect(habitsPanelId).toBeTruthy()
+    const habitsPanel = page.locator(`#${habitsPanelId}`)
+    await expect(habitsPanel).toBeVisible()
+    await expect(habitsPanel.getByText('10 of 20 min')).toBeVisible()
+    await expect(habitsPanel.getByText('Partial', { exact: true })).toBeVisible()
+    await expect(habitsPanel.getByText('Completed', { exact: true })).toBeVisible()
+    await expect(habitsPanel.getByText('Not done', { exact: true })).toBeVisible()
+    await expect(habitsPanel.getByRole('progressbar', { name: 'Walk outside Habit progress' })).toHaveAttribute('aria-valuenow', '10')
+    await habitsPanel.focus()
+    await habitsPanel.press('Escape')
+    await expect(habitsButton).toHaveAttribute('aria-expanded', 'false')
+    await expect(habitsButton).toBeFocused()
+
+    const nutritionButton = context.getByRole('button', { name: /Nutrition and Weight/ })
+    await expect(nutritionButton).toContainText('0 kcal')
+    await nutritionButton.click()
+    const nutritionPanel = page.locator(`#${await nutritionButton.getAttribute('aria-controls')}`)
+    await expect(nutritionPanel.getByText('0g', { exact: true }).first()).toBeVisible()
+    await expect(nutritionPanel.getByText('12g known', { exact: true })).toBeVisible()
+    await expect(nutritionPanel.getByText('0g known', { exact: true })).toBeVisible()
+    await expect(nutritionPanel.getByText('Not recorded on this date')).toBeVisible()
+
+    const workoutButton = context.getByRole('button', { name: /Workout/ })
+    await expect(workoutButton).toContainText('1 logged session')
+    await workoutButton.click()
+    const workoutPanel = page.locator(`#${await workoutButton.getAttribute('aria-controls')}`)
+    await expect(workoutPanel.getByText('Scheduled Workout Items')).toHaveCount(0)
+    await expect(workoutPanel.getByText('Logged Workout sessions')).toBeVisible()
+    await expect(workoutPanel.getByText('Logged strength')).toBeVisible()
+    await expect(workoutPanel.getByText('Squat')).toBeVisible()
+    await expect(workoutPanel.getByText('3 sets · 5 reps · 62.5 kg')).toBeVisible()
+    await expect(workoutPanel.getByText('Run')).toBeVisible()
+    await expect(workoutPanel.getByText('20 min · 3.2 km')).toBeVisible()
+    await habitsButton.click()
+    await expect(context).toHaveScreenshot(`today-day-context-${viewport.name}.png`, {
+      animations: 'disabled',
+    })
+
+    contextState = 'empty'
+    await page.reload()
+    await expect(context.getByRole('button', { name: /Habits/ })).toContainText('No Habits due this day')
+    await expect(context.getByRole('button', { name: /Nutrition and Weight/ })).toContainText('Calories not logged · Weight not recorded')
+    await expect(context.getByRole('button', { name: /Workout/ })).toContainText('No logged sessions')
+
+    contextState = 'unavailable'
+    await page.reload()
+    await expect(context.getByRole('button', { name: /Nutrition and Weight/ })).toContainText('Calorie entries unavailable · Weight unavailable')
+    await expect(context.getByRole('button', { name: /Workout/ })).toContainText('Logged sessions unavailable')
+
+    contextState = 'disabled'
+    await page.reload()
+    await expect(context.getByRole('button', { name: /Habits/ })).toBeVisible()
+    await expect(context.getByRole('button', { name: /Nutrition and Weight/ })).toHaveCount(0)
+    await expect(context.getByRole('button', { name: /Workout/ })).toHaveCount(0)
+
+    summaryUnavailable = true
+    await page.reload()
+    await expect(page.getByRole('heading', { name: 'Could not load this daily plan' })).toBeVisible()
+    await expect(page.getByText('No Habits due this day')).toHaveCount(0)
   })
 }
 
@@ -316,7 +520,18 @@ test('frequent controls meet touch size and disclosures preserve keyboard focus'
 
   for (const name of ['Talk', 'Add', 'Previous day', 'Next day', 'Review', 'Show all 4']) {
     const control = page.getByRole(name === 'Talk' || name === 'Add' ? 'link' : 'button', { name }).first()
+    await expect(control).toBeVisible()
     const box = await control.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box?.width).toBeGreaterThanOrEqual(44)
+    expect(box?.height).toBeGreaterThanOrEqual(44)
+  }
+
+  for (const name of ['Habits', 'Nutrition and Weight', 'Workout']) {
+    const control = page.locator('[data-demo-id="day-context"]').getByRole('button', { name: new RegExp(name) })
+    await expect(control).toBeVisible()
+    const box = await control.boundingBox()
+    expect(box).not.toBeNull()
     expect(box?.width).toBeGreaterThanOrEqual(44)
     expect(box?.height).toBeGreaterThanOrEqual(44)
   }
@@ -350,6 +565,7 @@ test('decision, signal, and Anytime regions pass targeted accessibility checks',
     .include('[data-demo-id="decision-band"]')
     .include('[data-demo-id="daily-signals-summary"]')
     .include('[data-demo-id="anytime-backlog"]')
+    .include('[data-demo-id="day-context"]')
     .analyze()
 
   expect(results.violations).toEqual([])
