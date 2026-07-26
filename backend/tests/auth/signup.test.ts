@@ -2,6 +2,7 @@ import request from 'supertest'
 import { app } from '../../src/index'
 import { db } from '../../src/supabase-client'
 import { Onboarding } from '../../src/onboarding'
+import { Waitlist } from '../../src/waitlist'
 
 // ponytail: mock db so tests are hermetic — no real Supabase calls
 jest.mock('../../src/supabase-client', () => ({
@@ -19,14 +20,26 @@ jest.mock('../../src/onboarding', () => ({
   },
 }))
 
+jest.mock('../../src/waitlist', () => ({
+  Waitlist: {
+    authorizeSignup: jest.fn(),
+    completeInviteSignup: jest.fn(),
+    getSignupStatus: jest.fn(),
+  },
+}))
+
 const mockDb = db as jest.Mocked<typeof db>
 const mockOnboarding = Onboarding as jest.Mocked<typeof Onboarding>
+const mockWaitlist = Waitlist as jest.Mocked<typeof Waitlist>
 
 beforeEach(() => {
   jest.clearAllMocks()
   // signup grants FREE_SIGNUP_CREDITS via Credits.grant → db.grantCredits + db.insertUsageLog
   mockDb.grantCredits.mockResolvedValue(50)
   mockDb.insertUsageLog.mockResolvedValue(undefined)
+  // Default to an open public slot so the pre-existing tests below still exercise
+  // the happy path; the gating tests override this per case.
+  mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: true, via: 'public' })
 })
 
 describe('POST /api/auth/signup', () => {
@@ -90,6 +103,85 @@ describe('POST /api/auth/signup', () => {
       .set('X-Forwarded-For', '1.2.3.4')
 
     expect(res.status).toBe(429)
+  })
+})
+
+describe('POST /api/auth/signup — access gating', () => {
+  it('403s with a waitlist payload when registration is closed', async () => {
+    mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: false, reason: 'closed' })
+    mockDb.getUserByEmail.mockResolvedValue(null)
+
+    const res = await request(app)
+      .post('/api/auth/signup')
+      .send({ email: 'closed@example.com', password: 'password1', name: 'Alice' })
+      .set('X-Forwarded-For', '10.0.0.1')
+
+    expect(res.status).toBe(403)
+    expect(res.body.reason).toBe('closed')
+    expect(mockDb.createUser).not.toHaveBeenCalled()
+  })
+
+  it('allows signup with a valid invite and redeems it', async () => {
+    mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: true, via: 'invite', inviteToken: 't1' })
+    mockDb.getUserByEmail.mockResolvedValue(null)
+    mockDb.createUser.mockResolvedValue({ id: 'user-1', email: 'invited@example.com', name: 'Alice' })
+
+    const res = await request(app)
+      .post('/api/auth/signup')
+      .send({ email: 'invited@example.com', password: 'password1', name: 'Alice', invite: 't1' })
+      .set('X-Forwarded-For', '10.0.0.2')
+
+    expect(res.status).toBe(200)
+    expect(mockWaitlist.completeInviteSignup).toHaveBeenCalledWith('t1', 'user-1')
+  })
+
+  it('403s on an already-redeemed invite', async () => {
+    mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: false, reason: 'invite_used' })
+    mockDb.getUserByEmail.mockResolvedValue(null)
+
+    const res = await request(app)
+      .post('/api/auth/signup')
+      .send({ email: 'used@example.com', password: 'password1', name: 'Alice', invite: 't1' })
+      .set('X-Forwarded-For', '10.0.0.3')
+
+    expect(res.status).toBe(403)
+    expect(res.body.reason).toBe('invite_used')
+  })
+
+  it('does not consume a slot when the email is already taken', async () => {
+    mockDb.getUserByEmail.mockResolvedValue({ id: 'existing', email: 'taken@example.com', name: 'Bob', password_hash: 'x' })
+
+    const res = await request(app)
+      .post('/api/auth/signup')
+      .send({ email: 'taken@example.com', password: 'password1', name: 'Bob' })
+      .set('X-Forwarded-For', '10.0.0.4')
+
+    expect(res.status).toBe(409)
+    expect(mockWaitlist.authorizeSignup).not.toHaveBeenCalled()
+  })
+
+  it('public signup does not attempt an invite redemption', async () => {
+    mockDb.getUserByEmail.mockResolvedValue(null)
+    mockDb.createUser.mockResolvedValue({ id: 'user-2', email: 'pub@example.com', name: 'Pub' })
+
+    const res = await request(app)
+      .post('/api/auth/signup')
+      .send({ email: 'pub@example.com', password: 'password1', name: 'Pub' })
+      .set('X-Forwarded-For', '10.0.0.5')
+
+    expect(res.status).toBe(200)
+    expect(mockWaitlist.completeInviteSignup).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /api/auth/signup-status', () => {
+  it('returns mode and remaining without exposing the waitlist', async () => {
+    mockWaitlist.getSignupStatus.mockResolvedValue({ mode: 'open', remaining: 7 })
+
+    const res = await request(app).get('/api/auth/signup-status')
+
+    expect(res.status).toBe(200)
+    expect(res.body).toEqual({ mode: 'open', remaining: 7 })
   })
 })
 

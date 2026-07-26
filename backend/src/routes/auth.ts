@@ -6,6 +6,7 @@ import { z } from 'zod'
 import { db } from '../supabase-client'
 import { Credits, FREE_SIGNUP_CREDITS } from '../credits'
 import { Onboarding } from '../onboarding'
+import { Waitlist } from '../waitlist'
 import { DEMO_PERSONAS, getDemoPersonaUser } from '../demo-personas'
 
 const router = express.Router()
@@ -16,6 +17,7 @@ const SignupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().min(1),
+  invite: z.string().min(1).optional(),
 })
 
 const DemoSessionSchema = z.object({
@@ -33,6 +35,17 @@ const signupLimiter = rateLimit({
   message: { error: 'Too many signup attempts, please try again later.' },
 })
 
+// Public: lets the landing page and LoginPage choose between the signup form and
+// the waitlist form. Deliberately exposes no invite tokens or waitlist contents.
+router.get('/signup-status', async (_req, res) => {
+  try {
+    return res.json(await Waitlist.getSignupStatus())
+  } catch (error) {
+    console.error('Signup status error:', error)
+    return res.status(500).json({ error: 'Could not read signup status' })
+  }
+})
+
 // Public self-signup
 router.post('/signup', signupLimiter, async (req, res) => {
   const parsed = SignupSchema.safeParse(req.body)
@@ -47,8 +60,24 @@ router.post('/signup', signupLimiter, async (req, res) => {
       return res.status(409).json({ error: 'Email already taken' })
     }
 
+    // Access gate. Checked after the duplicate-email check so a returning user
+    // never burns a public slot, and before user creation so a refusal creates
+    // nothing. A valid invite always passes and does not consume a slot.
+    const authorization = await Waitlist.authorizeSignup(parsed.data.invite)
+    if (!authorization.allowed) {
+      return res.status(403).json({
+        error: 'Registration is currently closed.',
+        reason: authorization.reason,
+      })
+    }
+
     const password_hash = await bcrypt.hash(password, 10)
     const user = await db.createUser({ email, name, password_hash })
+
+    if (authorization.via === 'invite') {
+      await Waitlist.completeInviteSignup(authorization.inviteToken, user.id)
+    }
+
     await Credits.grant(user.id, FREE_SIGNUP_CREDITS, 'signup_bonus')
     await Onboarding.seedNewUser(user.id)
 

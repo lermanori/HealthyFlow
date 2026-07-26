@@ -42,6 +42,16 @@ jest.mock('../../src/onboarding', () => ({
   },
 }))
 
+// Signup is gated on waitlist access; this suite is about credit seeding, so the
+// gate is stubbed open rather than exercised here.
+jest.mock('../../src/waitlist', () => ({
+  Waitlist: {
+    authorizeSignup: jest.fn().mockResolvedValue({ allowed: true, via: 'public' }),
+    completeInviteSignup: jest.fn(),
+    getSignupStatus: jest.fn(),
+  },
+}))
+
 const mockDb = db as jest.Mocked<typeof db>
 const mockCredits = Credits as jest.Mocked<typeof Credits>
 const mockOnboarding = Onboarding as jest.Mocked<typeof Onboarding>
