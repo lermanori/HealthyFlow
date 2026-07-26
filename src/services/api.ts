@@ -1,14 +1,18 @@
 /// <reference types="vite/client" />
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import { z } from 'zod'
 import { analytics } from '../lib/analytics'
 import type { DemoPersonaId } from '../demoPersonas'
 import type { ItemSource, ItemType } from '../lib/analytics/types'
 import type { RollbackDragMaterializationInput } from '../../backend/src/task-contracts'
-import type {
-  DailyContext,
-  DailySignal,
-  DailySignalType,
+import {
+  DailyContextSchema,
+  DailySignalSchema,
+  DailySignalTypeSchema,
+  type DailyContext,
+  type DailySignal,
+  type DailySignalType,
 } from '../../backend/src/daily-context-schema'
 import {
   DaySummarySchema,
@@ -174,6 +178,50 @@ export interface AIRecommendation {
   message: string
   type: 'suggestion' | 'encouragement' | 'tip'
   createdAt: string
+}
+
+const LegacyDailySignalSchema = z.object({
+  id: z.string(),
+  type: DailySignalTypeSchema,
+  severity: z.enum(['info', 'low', 'medium', 'high']),
+  confidence: z.enum(['low', 'medium', 'high']),
+  summary: z.string(),
+}).passthrough()
+
+function dailyContextFromApi(value: unknown): DailyContext {
+  const current = DailyContextSchema.safeParse(value)
+  if (current.success) return current.data
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return DailyContextSchema.parse(value)
+  }
+
+  const signals = (value as Record<string, unknown>).signals
+  if (!Array.isArray(signals)) return DailyContextSchema.parse(value)
+
+  const normalizedSignals = signals.map((signal) => {
+    const parsedCurrent = DailySignalSchema.safeParse(signal)
+    if (parsedCurrent.success) return parsedCurrent.data
+    const legacy = LegacyDailySignalSchema.parse(signal)
+    return {
+      id: legacy.id,
+      type: legacy.type,
+      kind: 'informational' as const,
+      severity: legacy.severity,
+      confidence: legacy.confidence,
+      summary: legacy.summary,
+      rationale: 'This signal came from the previous Daily Signals contract. It stays informational until the server refreshes it with an exact, revalidated change.',
+      evidence: [{
+        label: 'Availability',
+        value: 'Informational until server refresh',
+      }],
+      proposal: null,
+    }
+  })
+
+  return DailyContextSchema.parse({
+    ...value,
+    signals: normalizedSignals,
+  })
 }
 
 export interface AnalyticsData {
@@ -436,7 +484,7 @@ export const aiService = {
 
   getDailyContext: async (date: string): Promise<DailyContext> => {
     const response = await api.get('/ai/daily-context', { params: { date } })
-    return response.data
+    return dailyContextFromApi(response.data)
   },
 
   reviewDailySignal: async (date: string, signalId: string): Promise<{

@@ -1,3 +1,9 @@
+### 2026-07-26 14:39 — `codex/165-daily-signals`
+
+Hardened the frontend/backend rollout boundary by Zod-validating Daily Context responses and converting the previous signal contract into explicit informational-only guidance. This keeps deploy previews and staggered production deployments readable without manufacturing an actionable proposal or bypassing the pending-action review path.
+
+---
+
 ### 2026-07-26 14:33 — `codex/165-daily-signals`
 
 Completed Phase 1’s Daily Signals slice with Zod-derived informational and actionable contracts, safe rationale/evidence, and exact record/change proposals. Actionable schedule signals now revalidate through the existing pending-action system before an editable Apply or Dismiss, while stale, expired, failed, and canceled paths recover without losing user edits; informational signals remain guidance-only and can hand bounded context to Talk. The production build, all 377 backend tests, and responsive Today interaction, visual, focus, touch-target, and accessibility checks are green across desktop, compact, and mobile widths.

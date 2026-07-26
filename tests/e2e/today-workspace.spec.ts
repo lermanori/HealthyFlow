@@ -614,6 +614,54 @@ test('informational Daily Signals hand off bounded context to Talk without URL p
   expect(page.url()).not.toContain('rationale')
 })
 
+test('the previous Daily Signal contract degrades to safe informational guidance', async ({ page }) => {
+  await mockToday(page)
+  await page.route('**/api/ai/daily-context?**', async (route) => {
+    const date = new URL(route.request().url()).searchParams.get('date') ?? '2026-07-15'
+    await route.fulfill({
+      json: {
+        date,
+        generatedAt: `${date}T14:00:00.000Z`,
+        day: {
+          tasks: [],
+          calorieEntries: [],
+          weight: null,
+          achievements: [],
+          workoutSessions: [],
+          calendarEvents: [],
+        },
+        lookback: {
+          habitHistory: { windowDays: 3, days: [] },
+          calorieHistory: { windowDays: 7, days: [] },
+          workoutHistory: { windowDays: 14, days: [] },
+        },
+        signals: [{
+          id: `${date}:schedule_overload:morning`,
+          type: 'schedule_overload',
+          severity: 'medium',
+          confidence: 'high',
+          summary: 'Your morning has three scheduled items totaling about 180 minutes.',
+          evidence: {
+            window: 'morning',
+            itemIds: ['task-1', 'task-2', 'task-3'],
+          },
+          suggestedAction: {
+            type: 'move_to_anytime',
+            label: 'Move one item to Anytime',
+          },
+        }],
+      },
+    })
+  })
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Review', exact: true }).click()
+  const signal = page.getByRole('listitem').filter({ hasText: 'Information' })
+
+  await expect(signal).toContainText('previous Daily Signals contract')
+  await expect(signal).toContainText('Informational until server refresh')
+  await expect(signal.getByRole('button', { name: /Review change|Apply/ })).toHaveCount(0)
+})
+
 test('Daily Signals render an explicit no-signal state', async ({ page }) => {
   await mockToday(page, { signals: () => [] })
   await page.goto('/')
