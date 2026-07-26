@@ -173,9 +173,9 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
 
 // Static, deterministic payloads. No AI at send time (spec).
 const TOUCHPOINT_PAYLOADS: Record<TouchpointType, PushPayload> = {
-  morning: { title: 'Good morning ☀️', body: 'Ready to plan your day?', url: '/talk?kickoff=morning' },
-  midday: { title: 'Mid-day check-in', body: 'How is today going? Want to adjust?', url: '/talk?kickoff=midday' },
-  weekly: { title: 'Weekly planning', body: "Let's shape the week ahead.", url: '/talk?kickoff=weekly' },
+  morning: { title: 'Good morning ☀️', body: 'Ready to plan your day?', url: '/app/talk?kickoff=morning' },
+  midday: { title: 'Mid-day check-in', body: 'How is today going? Want to adjust?', url: '/app/talk?kickoff=midday' },
+  weekly: { title: 'Weekly planning', body: "Let's shape the week ahead.", url: '/app/talk?kickoff=weekly' },
 }
 
 // Exported object indirection so tests can spy on sendPushToUser.

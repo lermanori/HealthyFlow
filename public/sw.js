@@ -1,9 +1,12 @@
-const CACHE_VERSION = 'healthyflow-v5'
+// Bumped to v6 for the /app move: `activate` only deletes caches that don't start
+// with CACHE_VERSION, so without this bump existing installs would keep serving the
+// old `/` shell — which is now the marketing page, not the app.
+const CACHE_VERSION = 'healthyflow-v6'
 const APP_SHELL_CACHE = `${CACHE_VERSION}-app-shell`
 const ASSET_CACHE = `${CACHE_VERSION}-assets`
 
 const APP_SHELL_ASSETS = [
-  '/',
+  '/app',
   '/manifest.json',
   '/icons/icon-192x192.png',
   '/icons/icon-512x512.png',
@@ -60,7 +63,9 @@ self.addEventListener('fetch', (event) => {
 })
 
 self.addEventListener('push', (event) => {
-  let payload = { title: 'HealthyFlow', body: 'New notification', url: '/' }
+  // Push targets are resolved against the origin by clients.openWindow(), NOT
+  // against the router basename — a bare '/' would open the marketing page.
+  let payload = { title: 'HealthyFlow', body: 'New notification', url: '/app' }
   if (event.data) {
     try {
       payload = { ...payload, ...event.data.json() }
@@ -81,7 +86,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const targetUrl = event.notification.data?.url || '/'
+  const targetUrl = event.notification.data?.url || '/app'
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
@@ -100,7 +105,7 @@ async function handleNavigation(request) {
   try {
     return await fetch(request)
   } catch (error) {
-    const cachedShell = await caches.match('/')
+    const cachedShell = await caches.match('/app')
     return cachedShell || new Response('Offline', { status: 503 })
   }
 }
