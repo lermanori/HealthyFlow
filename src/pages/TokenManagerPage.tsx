@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Coins, Loader2, Mail, RotateCcw, Save, Settings, UserCog, Activity, BadgeDollarSign, Gift } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { tokenManagerService, TokenManagerTotals } from '../services/api'
+import WaitlistPanel from '../components/admin/WaitlistPanel'
 
 type RangeKey = 'today' | 'thisWeek' | 'thisMonth'
 type ContactStatusFilter = 'pending' | 'handled' | 'all'
@@ -332,6 +333,8 @@ export default function TokenManagerPage() {
           </button>
         </div>
       </div>
+
+      <WaitlistPanel />
 
       <div className="card">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

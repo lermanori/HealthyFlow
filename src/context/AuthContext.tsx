@@ -17,7 +17,7 @@ interface AuthContextType {
   loading: boolean
   login: (email: string, password: string) => Promise<void>
   startDemoSession: (persona: DemoPersonaId) => Promise<void>
-  signup: (email: string, password: string, name: string) => Promise<void>
+  signup: (email: string, password: string, name: string, invite?: string) => Promise<void>
   logout: () => void
   completeAccountDeletion: () => void
 }
@@ -87,9 +87,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const signup = async (email: string, password: string, name: string) => {
+  const signup = async (email: string, password: string, name: string, invite?: string) => {
     try {
-      const { user: userData, token } = await authService.signup(email, password, name)
+      const { user: userData, token } = await authService.signup(email, password, name, invite)
       queryClient.clear()
       clearDemoState()
       localStorage.setItem('token', token)

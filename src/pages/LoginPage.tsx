@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Brain, Mail, Lock, User, Sparkles, Zap } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { waitlistService, type SignupStatus } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 export default function LoginPage() {
@@ -14,13 +15,46 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
+  const [signupStatus, setSignupStatus] = useState<SignupStatus | null>(null)
+  const [inviteToken] = useState(() => new URLSearchParams(window.location.search).get('invite') ?? undefined)
+  const [waitlistEmail, setWaitlistEmail] = useState('')
+  const [waitlistJoined, setWaitlistJoined] = useState(false)
+  const [waitlistError, setWaitlistError] = useState('')
+  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false)
   const { login, signup } = useAuth()
+
+  // An invite always opens the form; otherwise the public slot count decides.
+  const signupAllowed = Boolean(inviteToken) || signupStatus?.mode === 'open'
 
   useEffect(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches
     const iosStandalone = window.navigator.standalone === true
     setIsStandalone(standalone || iosStandalone)
   }, [])
+
+  useEffect(() => {
+    waitlistService.signupStatus().then(setSignupStatus).catch(() => setSignupStatus(null))
+  }, [])
+
+  // If the status arrives closed while the signup tab is selected, fall back to
+  // login rather than showing a form that cannot succeed.
+  useEffect(() => {
+    if (signupStatus && !signupAllowed && mode === 'signup') setMode('login')
+  }, [signupStatus, signupAllowed, mode])
+
+  const handleWaitlistSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setWaitlistError('')
+    setWaitlistSubmitting(true)
+    try {
+      await waitlistService.join({ email: waitlistEmail, source: 'login-page' })
+      setWaitlistJoined(true)
+    } catch (_err) {
+      setWaitlistError('Something went wrong — please try again.')
+    } finally {
+      setWaitlistSubmitting(false)
+    }
+  }
 
   // Reset form when switching modes
   const switchMode = (next: 'login' | 'signup') => {
@@ -52,7 +86,7 @@ export default function LoginPage() {
       if (mode === 'login') {
         await login(email, password)
       } else {
-        await signup(email, password, name)
+        await signup(email, password, name, inviteToken)
       }
       if ('navigator' in window && 'vibrate' in navigator) {
         navigator.vibrate([100, 50, 200])
@@ -119,7 +153,7 @@ export default function LoginPage() {
               <p className="text-ink-muted text-sm mt-1">Neural networks ready to optimize your life</p>
             </motion.div>
 
-            {/* Mode toggle */}
+            {/* Mode toggle — the signup tab only exists when signup can succeed */}
             <div className="flex mt-4 rounded-xl overflow-hidden border border-line">
               <button
                 type="button"
@@ -128,14 +162,58 @@ export default function LoginPage() {
               >
                 Sign in
               </button>
-              <button
-                type="button"
-                onClick={() => switchMode('signup')}
-                className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === 'signup' ? 'bg-cyan-600 text-white' : 'bg-card text-ink-muted hover:text-ink-soft'}`}
-              >
-                Create account
-              </button>
+              {signupAllowed && (
+                <button
+                  type="button"
+                  onClick={() => switchMode('signup')}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === 'signup' ? 'bg-cyan-600 text-white' : 'bg-card text-ink-muted hover:text-ink-soft'}`}
+                >
+                  Create account
+                </button>
+              )}
             </div>
+
+            {inviteToken && (
+              <p className="mt-3 text-sm text-cyan-400">
+                You've been invited — create your account below.
+              </p>
+            )}
+
+            {!inviteToken && signupStatus?.mode === 'open' && (
+              <p className="mt-3 text-sm text-cyan-400">
+                {signupStatus.remaining} {signupStatus.remaining === 1 ? 'spot' : 'spots'} left
+              </p>
+            )}
+
+            {!inviteToken && signupStatus?.mode === 'waitlist' && (
+              <div className="mt-4 rounded-xl border border-line p-4 text-left">
+                {waitlistJoined ? (
+                  <p className="text-sm text-cyan-400">
+                    You're on the list. We'll email you when a spot opens.
+                  </p>
+                ) : (
+                  <form onSubmit={handleWaitlistSubmit}>
+                    <label htmlFor="waitlist-email" className="block text-sm font-medium text-ink-soft mb-2">
+                      Registration is closed — join the waitlist
+                    </label>
+                    <input
+                      id="waitlist-email"
+                      type="email"
+                      required
+                      value={waitlistEmail}
+                      onChange={(e) => setWaitlistEmail(e.target.value)}
+                      className="input-field"
+                      placeholder="you@example.com"
+                      autoComplete="email"
+                    />
+                    {waitlistError && <p className="mt-2 text-sm text-red-400">{waitlistError}</p>}
+                    <button type="submit" disabled={waitlistSubmitting} className="btn-primary mt-3 w-full">
+                      {waitlistSubmitting ? 'Joining…' : 'Join the waitlist'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">

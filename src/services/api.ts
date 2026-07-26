@@ -334,8 +334,8 @@ export const authService = {
     return response.data
   },
 
-  signup: async (email: string, password: string, name: string) => {
-    const response = await api.post('/auth/signup', { email, password, name })
+  signup: async (email: string, password: string, name: string, invite?: string) => {
+    const response = await api.post('/auth/signup', { email, password, name, invite })
     return response.data
   },
 
@@ -347,6 +347,62 @@ export const authService = {
   verifyToken: async () => {
     const response = await api.get('/auth/verify')
     return response.data
+  },
+}
+
+export type SignupStatus = { mode: 'open' | 'waitlist'; remaining: number }
+
+export type WaitlistEntry = {
+  id: string
+  email: string
+  name: string | null
+  status: 'pending' | 'invited' | 'registered'
+  source: string | null
+  created_at: string
+  invited_at: string | null
+}
+
+export type SignupAccess = {
+  public_slots_open: number
+  public_slots_claimed: number
+  updated_at: string
+}
+
+// Waitlist Service — public join + signup availability, plus admin management.
+export const waitlistService = {
+  join: async (input: { email: string; name?: string; source?: string }) => {
+    const response = await api.post('/waitlist', input)
+    return response.data as { joined: boolean }
+  },
+
+  signupStatus: async () => {
+    const response = await api.get('/auth/signup-status')
+    return response.data as SignupStatus
+  },
+
+  adminEntries: async (status?: string) => {
+    const response = await api.get('/waitlist/admin/entries', { params: status ? { status } : {} })
+    return response.data as { entries: WaitlistEntry[]; invites: unknown[]; access: SignupAccess | null }
+  },
+
+  adminAdd: async (input: { email: string; name?: string }) => {
+    const response = await api.post('/waitlist/admin/entries', input)
+    return response.data as { entry: WaitlistEntry }
+  },
+
+  adminInvite: async (id: string) => {
+    const response = await api.post(`/waitlist/admin/entries/${id}/invite`)
+    return response.data as { invite: { token: string } }
+  },
+
+  adminRemove: async (id: string) => {
+    const response = await api.delete(`/waitlist/admin/entries/${id}`)
+    return response.data as { deleted: boolean }
+  },
+
+  adminSetSlots: async (publicSlotsOpen: number) => {
+    const response = await api.patch('/waitlist/admin/slots', { publicSlotsOpen })
+    return response.data as { access: SignupAccess }
   },
 }
 
