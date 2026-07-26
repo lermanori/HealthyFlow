@@ -437,6 +437,21 @@ function nutritionMetricCopy(
   return metric.status === 'partial' ? `${value} known` : value
 }
 
+function workoutExerciseMetricCopy(
+  exercise: Pick<
+    DaySummary['supporting']['workouts']['sessions'][number]['exercises'][number],
+    'sets' | 'reps' | 'weightKg' | 'durationMinutes' | 'distanceKm'
+  >
+) {
+  return [
+    exercise.sets !== null ? `${exercise.sets} sets` : null,
+    exercise.reps !== null ? `${exercise.reps} reps` : null,
+    exercise.weightKg !== null ? `${exercise.weightKg} kg` : null,
+    exercise.durationMinutes !== null ? `${exercise.durationMinutes} min` : null,
+    exercise.distanceKm !== null ? `${exercise.distanceKm} km` : null,
+  ].filter((metric): metric is string => metric !== null)
+}
+
 function DecisionBand({ summary }: { summary: DaySummary }) {
   const focus = summary.attention.focus
   const focusItem = focus.itemId
@@ -590,7 +605,6 @@ function DayContextSummary({ summary }: { summary: DaySummary }) {
   const nutrition = summary.supporting.nutrition
   const workouts = summary.supporting.workouts
   const habitInstances = summary.items.filter((item) => item.type === 'habit')
-  const scheduledWorkoutItems = summary.items.filter((item) => item.type === 'workout')
   const habitSummaryCopy = habits.total === 0
     ? 'No Habits due this day'
     : [
@@ -614,12 +628,6 @@ function DayContextSummary({ summary }: { summary: DaySummary }) {
     : workouts.status === 'not_logged'
       ? 'No logged sessions'
       : 'Logged sessions unavailable'
-  const workoutSummaryCopy = [
-    scheduledWorkoutItems.length === 0
-      ? 'No scheduled Workout Items'
-      : `${scheduledWorkoutItems.length} scheduled Workout ${scheduledWorkoutItems.length === 1 ? 'Item' : 'Items'}`,
-    workoutSessionCopy,
-  ].join(' · ')
 
   return (
     <section aria-labelledby="day-context-heading" data-demo-id="day-context">
@@ -751,51 +759,49 @@ function DayContextSummary({ summary }: { summary: DaySummary }) {
             id="workouts"
             icon={<Dumbbell className="h-4 w-4 text-amber-400" />}
             title="Workout"
-            summary={workoutSummaryCopy}
+            summary={workoutSessionCopy}
           >
-            <div className="space-y-4">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
-                  Scheduled Workout Items
-                </p>
-                {scheduledWorkoutItems.length === 0 ? (
-                  <p className="mt-1 text-xs text-ink-muted">None scheduled for this date.</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {scheduledWorkoutItems.map((item) => (
-                      <li key={item.id} className="flex items-baseline justify-between gap-3 text-xs">
-                        <span className="truncate font-medium text-ink-soft">{item.title}</span>
-                        <span className="shrink-0 text-[11px] text-ink-muted">
-                          {item.completed ? 'Completed' : item.startTime ?? 'Anytime'}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <div className="border-t border-line/60 pt-3">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
-                  Logged Workout sessions
-                </p>
-                {workouts.status === 'unavailable' ? (
-                  <p className="mt-1 text-xs text-ink-muted">Workout sessions could not be checked.</p>
-                ) : workouts.sessions.length === 0 ? (
-                  <p className="mt-1 text-xs text-ink-muted">No Workout session logged for this date.</p>
-                ) : (
-                  <ul className="mt-2 space-y-2">
-                    {workouts.sessions.map((session) => (
-                      <li key={session.id} className="flex items-baseline justify-between gap-3 text-xs">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+                Logged Workout sessions
+              </p>
+              {workouts.status === 'unavailable' ? (
+                <p className="mt-1 text-xs text-ink-muted">Workout sessions could not be checked.</p>
+              ) : workouts.sessions.length === 0 ? (
+                <p className="mt-1 text-xs text-ink-muted">No Workout session logged for this date.</p>
+              ) : (
+                <ul className="mt-2 space-y-3">
+                  {workouts.sessions.map((session) => (
+                    <li key={session.id} className="min-w-0">
+                      <div className="flex items-baseline justify-between gap-3 text-xs">
                         <span className="truncate font-medium text-ink-soft">
                           {session.title ?? 'Workout session'}
                         </span>
                         <span className="shrink-0 text-[11px] text-ink-muted">
                           {session.exercises.length} {session.exercises.length === 1 ? 'exercise' : 'exercises'}
                         </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+                      </div>
+                      {session.exercises.length === 0 ? (
+                        <p className="mt-1 text-[11px] text-ink-muted">No exercises recorded</p>
+                      ) : (
+                        <ul className="mt-2 space-y-2 border-l border-line/60 pl-3">
+                          {session.exercises.map((exercise) => {
+                            const metrics = workoutExerciseMetricCopy(exercise)
+                            return (
+                              <li key={exercise.id} className="min-w-0">
+                                <p className="truncate text-xs font-medium text-ink-soft">{exercise.name}</p>
+                                <p className="mt-0.5 text-[11px] text-ink-muted">
+                                  {metrics.length > 0 ? metrics.join(' · ') : 'No metrics recorded'}
+                                </p>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </DayContextDisclosure>
         )}

@@ -163,7 +163,6 @@ function dayContextState(date: string, state: DayContextState): DaySummary {
     { id: 'habit-partial', title: 'Walk outside', type: 'habit' as const, scheduledDate: date, habitInfo: { target: { value: 20, unit: 'minutes' as const }, outcome: 'partial' as const, progressTotal: 10 } },
     { id: 'habit-completed', title: 'Drink water', type: 'habit' as const, scheduledDate: date, completed: true, habitInfo: { target: { value: 8, unit: 'count' as const }, outcome: 'completed' as const, progressTotal: 8 } },
     { id: 'habit-failed', title: 'No late caffeine', type: 'habit' as const, scheduledDate: date, habitInfo: { target: { value: 1, unit: 'count' as const }, outcome: 'failed' as const, progressTotal: 0 } },
-    { id: 'workout-plan', title: 'Evening strength', type: 'workout' as const, scheduledDate: date, startTime: '18:00', duration: 45 },
   ]
   const summary = daySummaryFixture({
     date,
@@ -230,11 +229,22 @@ function dayContextState(date: string, state: DayContextState): DaySummary {
           name: 'Squat',
           sets: 3,
           reps: 5,
-          weightKg: null,
+          weightKg: 62.5,
           durationMinutes: null,
           distanceKm: null,
           notes: null,
           position: 0,
+        }, {
+          id: 'exercise-2',
+          sessionId: 'workout-session',
+          name: 'Run',
+          sets: null,
+          reps: null,
+          weightKg: null,
+          durationMinutes: 20,
+          distanceKm: 3.2,
+          notes: null,
+          position: 1,
         }],
         createdAt: `${date}T18:00:00.000Z`,
         updatedAt: `${date}T18:00:00.000Z`,
@@ -354,13 +364,16 @@ for (const viewport of viewports) {
     await expect(nutritionPanel.getByText('Not recorded on this date')).toBeVisible()
 
     const workoutButton = context.getByRole('button', { name: /Workout/ })
-    await expect(workoutButton).toContainText('1 scheduled Workout Item · 1 logged session')
+    await expect(workoutButton).toContainText('1 logged session')
     await workoutButton.click()
     const workoutPanel = page.locator(`#${await workoutButton.getAttribute('aria-controls')}`)
-    await expect(workoutPanel.getByText('Scheduled Workout Items')).toBeVisible()
-    await expect(workoutPanel.getByText('Evening strength')).toBeVisible()
+    await expect(workoutPanel.getByText('Scheduled Workout Items')).toHaveCount(0)
     await expect(workoutPanel.getByText('Logged Workout sessions')).toBeVisible()
     await expect(workoutPanel.getByText('Logged strength')).toBeVisible()
+    await expect(workoutPanel.getByText('Squat')).toBeVisible()
+    await expect(workoutPanel.getByText('3 sets · 5 reps · 62.5 kg')).toBeVisible()
+    await expect(workoutPanel.getByText('Run')).toBeVisible()
+    await expect(workoutPanel.getByText('20 min · 3.2 km')).toBeVisible()
     await habitsButton.click()
     await expect(context).toHaveScreenshot(`today-day-context-${viewport.name}.png`, {
       animations: 'disabled',
@@ -370,7 +383,7 @@ for (const viewport of viewports) {
     await page.reload()
     await expect(context.getByRole('button', { name: /Habits/ })).toContainText('No Habits due this day')
     await expect(context.getByRole('button', { name: /Nutrition and Weight/ })).toContainText('Calories not logged · Weight not recorded')
-    await expect(context.getByRole('button', { name: /Workout/ })).toContainText('No scheduled Workout Items · No logged sessions')
+    await expect(context.getByRole('button', { name: /Workout/ })).toContainText('No logged sessions')
 
     contextState = 'unavailable'
     await page.reload()

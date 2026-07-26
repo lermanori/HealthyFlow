@@ -1,3 +1,9 @@
+### 2026-07-26 14:03 — `codex/164-day-context`
+
+Refined the Workout Day Context after preview feedback by removing the unreachable scheduled Workout Item section and focusing the disclosure on logged Workout sessions. Each logged session now exposes its exercise names and recorded sets, reps, weight, duration, and distance while Achievements remain deliberately out of scope. The responsive Today browser suite and visual baselines are green across desktop, compact, and mobile widths; PR #172 is ready for another preview pass.
+
+---
+
 ### 2026-07-26 13:34 — `codex/164-day-context`
 
 Completed Phase 1’s module-aware Day Context with progressively disclosed Habit outcomes and target progress, honest Calorie/macro/Weight states, and an explicit separation between scheduled Workout Items and logged Workout sessions. DaySummary now preserves Weight availability independently when the Calorie-entry source fails, while disabled modules remain absent and missing values never masquerade as zero. Backend composition tests and authenticated responsive visual, interaction, touch-target, focus-restoration, and accessibility regressions cover all three target viewports; issue #164 is ready for preview review.
