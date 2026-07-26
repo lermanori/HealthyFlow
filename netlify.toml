@@ -14,9 +14,12 @@
   to = "/index.html"
   status = 200
 
-# Legacy public routes. These must be real 301 redirects, NOT 200 rewrites:
-# with basename="/app" the router ignores any URL outside /app, so serving
-# index.html at /demo would render a blank page.
+# Every path the app owned before it moved under /app. Redirecting these rescues
+# existing bookmarks, PWA shortcuts, and notification deep links.
+#
+# These must be real 301 redirects, NOT 200 rewrites: with basename="/app" the
+# router ignores any URL outside /app, so serving index.html here would render a
+# blank page. An explicit list rather than a catch-all, so genuine 404s stay 404s.
 [[redirects]]
   from = "/demo"
   to = "/app/demo"
@@ -30,6 +33,56 @@
 [[redirects]]
   from = "/terms"
   to = "/app/terms"
+  status = 301
+
+[[redirects]]
+  from = "/add"
+  to = "/app/add"
+  status = 301
+
+[[redirects]]
+  from = "/week"
+  to = "/app/week"
+  status = 301
+
+[[redirects]]
+  from = "/talk"
+  to = "/app/talk"
+  status = 301
+
+[[redirects]]
+  from = "/settings"
+  to = "/app/settings"
+  status = 301
+
+[[redirects]]
+  from = "/calories"
+  to = "/app/calories"
+  status = 301
+
+[[redirects]]
+  from = "/achievements"
+  to = "/app/achievements"
+  status = 301
+
+[[redirects]]
+  from = "/workouts"
+  to = "/app/workouts"
+  status = 301
+
+[[redirects]]
+  from = "/token-manager"
+  to = "/app/token-manager"
+  status = 301
+
+[[redirects]]
+  from = "/meal-ocr-lab"
+  to = "/app/meal-ocr-lab"
+  status = 301
+
+[[redirects]]
+  from = "/assistant"
+  to = "/app/assistant"
   status = 301
 
 [[headers]]

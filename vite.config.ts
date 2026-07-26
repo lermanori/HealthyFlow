@@ -10,7 +10,15 @@ export default defineConfig({
       // Registered in configureServer so it runs before Vite's SPA history fallback.
       name: 'healthyflow-landing-at-root',
       configureServer(server) {
-        const legacyRoutes = ['/demo', '/privacy', '/terms']
+        // Every path the app owned before it moved under /app. Redirecting these
+        // rescues existing bookmarks, PWA shortcuts, and notification deep links.
+        // An explicit list rather than a catch-all: a catch-all would hijack Vite's
+        // own module URLs in dev and swallow genuine 404s in prod.
+        const legacyRoutes = [
+          '/demo', '/privacy', '/terms', '/add', '/week', '/talk', '/settings',
+          '/calories', '/achievements', '/workouts', '/token-manager',
+          '/meal-ocr-lab', '/assistant',
+        ]
         server.middlewares.use((req, res, next) => {
           const [path] = (req.url ?? '').split('?')
           if (path === '/' || path === '/index.html') {
