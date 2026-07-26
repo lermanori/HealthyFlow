@@ -338,6 +338,14 @@ test('decision, signal, and Anytime regions pass targeted accessibility checks',
   await mockToday(page)
   await page.goto('/')
 
+  for (const selector of [
+    '[data-demo-id="decision-band"]',
+    '[data-demo-id="daily-signals-summary"]',
+    '[data-demo-id="anytime-backlog"]',
+  ]) {
+    await expect(page.locator(selector)).toBeVisible()
+  }
+
   const results = await new AxeBuilder({ page })
     .include('[data-demo-id="decision-band"]')
     .include('[data-demo-id="daily-signals-summary"]')

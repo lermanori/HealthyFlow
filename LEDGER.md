@@ -1,3 +1,9 @@
+### 2026-07-26 13:00 — `codex/phase1-anytime-drag`
+
+Completed Phase 1’s shared Schedule and Anytime workspace with honest incomplete/duration summaries, date-scoped disclosure, full-width desktop context, and one drag system across responsive regions. Drag capture now expands every compacted hour before measurement, keyboard/mouse/touch flows restore layout and focus, virtual Habit IDs reconcile safely, and failed multi-write moves compensate server state before restoring the original UI. Frontend build, all 364 backend tests, and dense responsive visual, accessibility, persistence, cancellation, materialization, and rollback regressions are green; no database migration is required.
+
+---
+
 ### 2026-07-26 12:14 — `codex/phase1-decision-band`
 
 Recomposed Today around a DaySummary-driven decision band that explains Focus, the next obligation, completion, and honest complete/partial/unavailable capacity before planning detail. The schedule now responds to its actual container width, keeps Anytime ahead of the timeline on compact screens, and pairs the wide timeline with restrained module-aware Day Context; Daily Signals are a calm, recoverable row instead of a competing AI card. Dense authenticated visual baselines and focused accessibility, date, Item, Habit, drag, Talk, error, and responsive regressions cover all three target viewports; no database migration is required.

@@ -1,13 +1,23 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
-import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
+import type {
+  BeforeCapture,
+  DragStart,
+  DragUpdate,
+  DraggableProvidedDragHandleProps,
+  DropResult,
+  MovementMode,
+  ResponderProvided,
+} from '@hello-pangea/dnd'
 import { CalendarDays, Check, Clock, Flame, GripVertical, MapPin } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { ExternalCalendarEvent, Task, CalorieEntry, HabitItem } from '../services/api'
 import TaskCard from './TaskCard'
 import { taskService } from '../services/api'
 
 interface DayTimelineProps {
   heading?: string
+  dateKey: string
   tasks: Task[]
   calendarEvents?: ExternalCalendarEvent[]
   calorieEntries?: CalorieEntry[]
@@ -21,6 +31,12 @@ interface DayTimelineProps {
   onDeleteTask: (task: Task) => void
   onHabitCheckIn: (habit: HabitItem) => void
   supportingContent?: ReactNode
+}
+
+interface DragSnapshot {
+  tasks: Task[]
+  anytimeIds: string[]
+  mode: MovementMode
 }
 
 // ponytail: age badge for the anytime shelf — how stale is this untimed item.
@@ -244,9 +260,11 @@ function CalorieEntryBlock({ entry }: { entry: CalorieEntry }) {
 
 function TaskDragGrip({
   dragHandleProps,
+  label,
   compact = false,
 }: {
   dragHandleProps: DraggableProvidedDragHandleProps | null
+  label: string
   compact?: boolean
 }) {
   return (
@@ -256,10 +274,8 @@ function TaskDragGrip({
       tabIndex={0}
       data-testid="timeline-task-drag-grip"
       data-timeline-drag-handle="true"
-      aria-label="Drag task"
-      className={`flex shrink-0 cursor-grab touch-none select-none items-center justify-center rounded-md border border-line/70 bg-page/60 text-gray-500 transition-colors hover:border-cyan-500/50 hover:text-cyan-300 active:cursor-grabbing ${
-        compact ? 'h-full w-6 sm:w-5' : 'min-h-11 w-8 self-stretch sm:min-h-10 sm:w-7'
-      }`}
+      aria-label={label}
+      className="flex h-11 min-h-11 w-11 min-w-11 shrink-0 cursor-grab touch-none select-none items-center justify-center self-center rounded-md border border-line/70 bg-page/60 text-gray-500 transition-colors hover:border-cyan-500/50 hover:text-cyan-300 active:cursor-grabbing"
     >
       <GripVertical className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
     </div>
@@ -268,6 +284,7 @@ function TaskDragGrip({
 
 export default function DayTimeline({
   heading = "Today's Schedule",
+  dateKey,
   tasks,
   calendarEvents = [],
   calorieEntries = [],
@@ -283,14 +300,28 @@ export default function DayTimeline({
   supportingContent,
 }: DayTimelineProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
+  const [dragStatus, setDragStatus] = useState('')
   const [isAnytimeExpanded, setIsAnytimeExpanded] = useState(false)
   const [anytimePanelHeight, setAnytimePanelHeight] = useState(0)
   const anytimePanelRef = useRef<HTMLElement | null>(null)
+  const planGridRef = useRef<HTMLDivElement | null>(null)
+  const dragSnapshotRef = useRef<DragSnapshot | null>(null)
 
   // Split: scheduled tasks go into hour-slot buckets, untimed go into anytime
   const scheduled = tasks.filter(t => t.startTime)
   const anytime = tasks.filter(t => !t.startTime)
-  const visibleAnytime = isAnytimeExpanded ? anytime : anytime.slice(0, 2)
+  const incompleteAnytime = anytime.filter(task => !task.completed)
+  const anytimeWithKnownDuration = incompleteAnytime.filter(
+    task => Number.isFinite(task.duration) && (task.duration ?? 0) > 0
+  )
+  const knownFlexibleMinutes = anytimeWithKnownDuration.length > 0
+    ? anytimeWithKnownDuration.reduce((sum, task) => sum + (task.duration ?? 0), 0)
+    : null
+  const missingDurationCount = incompleteAnytime.length - anytimeWithKnownDuration.length
+
+  useEffect(() => {
+    setIsAnytimeExpanded(false)
+  }, [dateKey])
 
   useEffect(() => {
     const panel = anytimePanelRef.current
@@ -337,9 +368,6 @@ export default function DayTimeline({
   }
 
   const hasSlotContent = (slot: string) => slotBuckets[slot].length > 0 || calendarBuckets[slot].length > 0 || calorieBuckets[slot].length > 0
-  // Compaction is static — it never changes during a drag. Expanding mid-lift reflows the
-  // timeline and desyncs the dragged clone from the pointer. @hello-pangea/dnd hit-detects by
-  // rect intersection, so a compacted 28px slot is still a valid drop target without expanding.
   const compactedEmptySlots = compactableEmptySlots(HOUR_SLOTS, hasSlotContent)
 
   useEffect(() => {
@@ -369,87 +397,316 @@ export default function DayTimeline({
     }
   }, [onTasksPersisted, onTasksReorder, tasks])
 
-  const handleDragStart = (start: any) => {
-    setDraggedTaskId(start.draggableId)
+  const findDraggable = (id: string): HTMLElement | null => {
+    const root = planGridRef.current
+    if (!root) return null
+    return Array.from(root.querySelectorAll<HTMLElement>('[data-timeline-drag-id]'))
+      .find(element => element.dataset.timelineDragId === id) ?? null
   }
 
-  const handleDragEnd = async (result: DropResult) => {
-    setDraggedTaskId(null)
-    if (!result.destination) return
+  const dragLabel = (id: string): string => {
+    if (id.startsWith('calendar:')) {
+      return calendarEvents.find(event => `calendar:${event.id}` === id)?.title ?? 'Calendar obligation'
+    }
+    return tasks.find(task => task.id === id)?.title ?? 'Item'
+  }
 
-    const { draggableId: taskId, destination } = result
-    const zone = destination.droppableId // 'anytime' | 'HH:00'
+  const destinationLabel = (droppableId: string, index: number): string => {
+    if (droppableId === 'anytime') return `Anytime, position ${index + 1}`
+    return `${formatHour(droppableId)} in the schedule`
+  }
 
-    if (taskId.startsWith('calendar:')) {
-      const eventId = taskId.slice('calendar:'.length)
-      const event = calendarEvents.find(e => e.id === eventId)
-      if (!event || event.allDay || zone === 'anytime') return
-      await onCalendarEventSchedule(eventId, zone)
+  const handleBeforeCapture = (before: BeforeCapture) => {
+    const root = planGridRef.current
+    const source = findDraggable(before.draggableId)
+    const sourceTopBefore = source?.getBoundingClientRect().top ?? null
+
+    dragSnapshotRef.current = {
+      tasks: [...tasks],
+      anytimeIds: anytime.map(task => task.id),
+      mode: before.mode,
+    }
+
+    // The library invokes this hook before it measures any draggable or droppable.
+    // Expand the real DOM synchronously so compacted hours and hidden Anytime rows
+    // become valid measured destinations without a React render race.
+    if (root) root.dataset.dragLayout = 'expanded'
+
+    if (sourceTopBefore !== null && source) {
+      const sourceTopAfter = source.getBoundingClientRect().top
+      const delta = sourceTopAfter - sourceTopBefore
+      if (Math.abs(delta) > 0.5) window.scrollBy({ top: delta, behavior: 'auto' })
+    }
+  }
+
+  const handleDragStart = (start: DragStart, provided: ResponderProvided) => {
+    setDraggedTaskId(start.draggableId)
+    const label = dragLabel(start.draggableId)
+    const message = start.mode === 'SNAP'
+      ? `${label} lifted. Use arrow keys to choose a destination, Space to drop, or Escape to cancel.`
+      : `${label} lifted.`
+    provided.announce(message)
+    setDragStatus(message)
+  }
+
+  const handleDragUpdate = (update: DragUpdate, provided: ResponderProvided) => {
+    if (!update.destination) {
+      provided.announce('Not over a drop destination.')
+      return
+    }
+    const message = `Moving ${dragLabel(update.draggableId)} to ${destinationLabel(
+      update.destination.droppableId,
+      update.destination.index
+    )}.`
+    provided.announce(message)
+    setDragStatus(message)
+  }
+
+  const finishDragLayout = (focusId: string) => {
+    const snapshot = dragSnapshotRef.current
+    const shouldRestoreFocus = snapshot?.mode === 'SNAP'
+
+    window.requestAnimationFrame(() => {
+      const anchor = findDraggable(focusId)
+      const anchorTopBefore = anchor?.getBoundingClientRect().top ?? null
+      planGridRef.current?.removeAttribute('data-drag-layout')
+
+      window.requestAnimationFrame(() => {
+        const restored = findDraggable(focusId)
+        if (anchorTopBefore !== null && restored) {
+          const delta = restored.getBoundingClientRect().top - anchorTopBefore
+          if (Math.abs(delta) > 0.5) window.scrollBy({ top: delta, behavior: 'auto' })
+        }
+        if (shouldRestoreFocus) {
+          restored?.querySelector<HTMLElement>('[data-timeline-drag-handle="true"]')
+            ?.focus({ preventScroll: true })
+        }
+        dragSnapshotRef.current = null
+      })
+    })
+  }
+
+  const restorePersistedDrag = async (
+    original: Task,
+    updated: Task | null,
+    originalAnytimeIds: string[]
+  ) => {
+    if (updated) {
+      if (updated.id !== original.id && original.type === 'habit') {
+        await taskService.rollbackDragMaterialization(updated.id, { virtualId: original.id })
+      } else {
+        const rollbackUpdates = {
+          startTime: original.startTime ?? null,
+          position: original.position ?? null,
+          ...(original.type !== 'habit' ? { scheduledDate: original.scheduledDate ?? null } : {}),
+        } as Partial<Task>
+        await taskService.updateTask(updated.id, rollbackUpdates)
+      }
+    }
+
+    if (originalAnytimeIds.length > 0) {
+      await taskService.reorderTasks(originalAnytimeIds)
+    }
+  }
+
+  const persistTaskDrag = async (result: DropResult) => {
+    const snapshot = dragSnapshotRef.current
+    const originalTasks = snapshot?.tasks ?? tasks
+    const taskId = result.draggableId
+    const task = originalTasks.find(item => item.id === taskId)
+    const destination = result.destination
+    if (!task || !destination) {
+      finishDragLayout(taskId)
       return
     }
 
-    const task = tasks.find(t => t.id === taskId)
-    if (!task) return
+    const originalScheduled = originalTasks.filter(item => item.startTime)
+    const originalAnytime = originalTasks.filter(item => !item.startTime)
+    const zone = destination.droppableId
+    let updated: Task | null = null
+    let focusId = taskId
 
-    if (zone === 'anytime') {
-      // timed→untimed (or virtual habit→anytime): clear startTime, assign position by drop index
-      const newAnytime = anytime.filter(t => t.id !== taskId)
-      newAnytime.splice(destination.index, 0, { ...task, startTime: undefined, position: destination.index })
-      onTasksReorder([...scheduled.filter(t => t.id !== taskId), ...newAnytime])
+    try {
+      if (zone === 'anytime') {
+        const reorderedAnytime = originalAnytime.filter(item => item.id !== taskId)
+        reorderedAnytime.splice(destination.index, 0, { ...task, startTime: undefined })
+        const positionedAnytime = reorderedAnytime.map((item, position) => ({
+          ...item,
+          startTime: undefined,
+          position,
+        } as Task))
+        const optimistic = [
+          ...originalScheduled.filter(item => item.id !== taskId),
+          ...positionedAnytime,
+        ]
+        onTasksReorder(optimistic)
 
-      // updateTask returns the real row (may have a new real id if this was a virtual habit instance)
-      const updated = await taskService.updateTask(taskId, { startTime: null, position: destination.index })
-      if (updated.id !== taskId) {
-        // Virtual habit was materialized — id changed; swap in real row for next interaction
-        // ponytail: cast needed because spread of discriminated-union loses narrowing
-        onTasksReorder(tasks.map(t => (t.id === taskId ? ({ ...t, ...updated } as Task) : t)))
+        updated = await taskService.updateTask(taskId, {
+          startTime: null,
+          position: destination.index,
+        })
+        focusId = updated.id
+        const reconciled = optimistic.map(item => (
+          item.id === taskId ? ({ ...item, ...updated } as Task) : item
+        ))
+        onTasksReorder(reconciled)
+        await taskService.reorderTasks(
+          positionedAnytime.map(item => item.id === taskId ? updated!.id : item.id)
+        )
+      } else {
+        const optimistic = [
+          ...originalScheduled.filter(item => item.id !== taskId),
+          { ...task, startTime: zone, position: null } as Task,
+          ...originalAnytime.filter(item => item.id !== taskId),
+        ]
+        onTasksReorder(optimistic)
+
+        updated = await taskService.updateTask(taskId, { startTime: zone, position: null })
+        focusId = updated.id
+        onTasksReorder(optimistic.map(item => (
+          item.id === taskId ? ({ ...item, ...updated } as Task) : item
+        )))
       }
-      // Re-persist ordering for the whole anytime list after this insertion
-      // Use real id (updated.id) in case taskId was virtual
-      const finalAnytime = newAnytime.map(t => (t.id === taskId ? updated.id : t.id))
-      await taskService.reorderTasks(finalAnytime)
-      onTasksPersisted()
-    } else {
-      // untimed→timed or timed→timed (or virtual habit→hour slot): set startTime to slot, clear position
-      const updatedTask = { ...task, startTime: zone, position: null }
-      const newScheduled = scheduled.filter(t => t.id !== taskId)
-      newScheduled.push(updatedTask as Task)
-      const newAnytime = anytime.filter(t => t.id !== taskId)
-      onTasksReorder([...newScheduled, ...newAnytime])
 
-      // updateTask materializes virtual habit instances; returned row has the real id
-      const updated = await taskService.updateTask(taskId, { startTime: zone, position: null })
-      if (updated.id !== taskId) {
-        // Swap synthetic id for real id so next drag uses the real row
-        // ponytail: cast needed because spread of discriminated-union loses narrowing
-        onTasksReorder(tasks.map(t => (t.id === taskId ? ({ ...t, ...updated } as Task) : t)))
+      onTasksPersisted()
+      const message = `${task.title} moved to ${destinationLabel(zone, destination.index)}.`
+      setDragStatus(message)
+      if (zone === 'anytime' && destination.index >= 2) setIsAnytimeExpanded(true)
+    } catch (error) {
+      onTasksReorder(originalTasks)
+      let rollbackSucceeded = true
+      try {
+        await restorePersistedDrag(task, updated, snapshot?.anytimeIds ?? originalAnytime.map(item => item.id))
+      } catch (rollbackError) {
+        rollbackSucceeded = false
+        console.error('Failed to compensate persisted drag', rollbackError)
       }
       onTasksPersisted()
+      const message = rollbackSucceeded
+        ? `${task.title} could not be moved. Its original position was restored.`
+        : `${task.title} could not be moved. Refreshing the latest saved position.`
+      setDragStatus(message)
+      toast.error(message, { id: 'today-drag-save' })
+      console.error('Failed to persist timeline drag', error)
+      focusId = task.id
+    } finally {
+      setDraggedTaskId(null)
+      finishDragLayout(focusId)
     }
+  }
+
+  const persistCalendarDrag = async (result: DropResult) => {
+    const destination = result.destination
+    if (!destination) {
+      finishDragLayout(result.draggableId)
+      return
+    }
+    const eventId = result.draggableId.slice('calendar:'.length)
+    const event = calendarEvents.find(item => item.id === eventId)
+    try {
+      await onCalendarEventSchedule(eventId, destination.droppableId)
+      setDragStatus(`${event?.title ?? 'Calendar obligation'} moved to ${formatHour(destination.droppableId)}.`)
+    } catch {
+      setDragStatus(`${event?.title ?? 'Calendar obligation'} could not be moved. Its original time was restored.`)
+    } finally {
+      setDraggedTaskId(null)
+      finishDragLayout(result.draggableId)
+    }
+  }
+
+  const handleDragEnd = (result: DropResult, provided: ResponderProvided) => {
+    const label = dragLabel(result.draggableId)
+    if (result.reason === 'CANCEL' || !result.destination) {
+      const message = `${label} move cancelled.`
+      provided.announce(message)
+      setDragStatus(message)
+      setDraggedTaskId(null)
+      finishDragLayout(result.draggableId)
+      return
+    }
+
+    if (
+      result.source.droppableId === result.destination.droppableId
+      && result.source.index === result.destination.index
+    ) {
+      const message = `${label} stayed in its original position.`
+      provided.announce(message)
+      setDragStatus(message)
+      setDraggedTaskId(null)
+      finishDragLayout(result.draggableId)
+      return
+    }
+
+    if (result.draggableId.startsWith('calendar:')) {
+      const eventId = result.draggableId.slice('calendar:'.length)
+      const event = calendarEvents.find(e => e.id === eventId)
+      if (!event || event.allDay || result.destination.droppableId === 'anytime') {
+        const message = 'Calendar obligations can only move to a scheduled time.'
+        provided.announce(message)
+        setDragStatus(message)
+        setDraggedTaskId(null)
+        finishDragLayout(result.draggableId)
+        return
+      }
+      provided.announce(`${label} dropped at ${formatHour(result.destination.droppableId)}. Saving.`)
+      void persistCalendarDrag(result)
+      return
+    }
+
+    provided.announce(`${label} dropped at ${destinationLabel(
+      result.destination.droppableId,
+      result.destination.index
+    )}. Saving.`)
+    void persistTaskDrag(result)
   }
 
   return (
     <div className="space-y-3 md:space-y-4">
       <h2 className="text-xl font-semibold text-ink">{heading}</h2>
 
-      <DragDropContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
+      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {dragStatus}
+      </p>
+
+      <DragDropContext
+        onBeforeCapture={handleBeforeCapture}
+        onDragStart={handleDragStart}
+        onDragUpdate={handleDragUpdate}
+        onDragEnd={handleDragEnd}
+      >
         <div
+          ref={planGridRef}
           className="today-plan-grid"
           style={{ '--today-anytime-height': `${anytimePanelHeight}px` } as CSSProperties}
         >
           {/* DOM order deliberately matches mobile: Anytime access, Schedule, supporting context. */}
           <section ref={anytimePanelRef} className="today-anytime-panel min-w-0" data-demo-id="anytime-backlog" aria-labelledby="anytime-heading">
             <div className="mb-2 flex min-h-11 items-center justify-between gap-3">
-              <h3 id="anytime-heading" className="text-sm font-semibold uppercase tracking-wider text-ink-muted">
-                Anytime <span className="font-normal normal-case tracking-normal">({anytime.length})</span>
-              </h3>
+              <div className="min-w-0">
+                <h3 id="anytime-heading" className="text-sm font-semibold uppercase tracking-wider text-ink-muted">
+                  Anytime <span className="font-normal normal-case tracking-normal">({anytime.length})</span>
+                </h3>
+                <p className="mt-0.5 text-xs text-ink-muted" data-testid="anytime-summary">
+                  {incompleteAnytime.length === 0
+                    ? 'All complete'
+                    : `${incompleteAnytime.length} incomplete`}
+                  {incompleteAnytime.length > 0 && knownFlexibleMinutes !== null
+                    ? ` · ${knownFlexibleMinutes} min known`
+                    : incompleteAnytime.length > 0
+                      ? ' · no known minutes'
+                      : ''}
+                  {missingDurationCount > 0
+                    ? ` · ${missingDurationCount} without duration`
+                    : ''}
+                </p>
+              </div>
               {anytime.length > 2 && (
                 <button
                   type="button"
                   aria-expanded={isAnytimeExpanded}
                   aria-controls="anytime-items"
                   onClick={() => setIsAnytimeExpanded((expanded) => !expanded)}
-                  className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-cyan-300 hover:bg-cyan-500/10"
+                  className="today-anytime-disclosure inline-flex h-11 min-h-11 shrink-0 items-center whitespace-nowrap rounded-lg px-3 text-sm font-medium text-cyan-300 hover:bg-cyan-500/10"
                 >
                   {isAnytimeExpanded ? 'Show less' : `Show all ${anytime.length}`}
                 </button>
@@ -465,7 +722,7 @@ export default function DayTimeline({
                     snapshot.isDraggingOver ? 'drop-zone' : 'bg-card/20'
                   }`}
                 >
-                  {visibleAnytime.map((task, index) => (
+                  {anytime.map((task, index) => (
                     <Draggable key={task.id} draggableId={task.id} index={index}>
                       {(provided, snapshot) => (
                         <div
@@ -473,9 +730,11 @@ export default function DayTimeline({
                           {...provided.draggableProps}
                           data-testid="timeline-draggable-task"
                           data-demo-id={taskDemoId(task)}
-                          className="flex min-w-0 gap-1.5"
+                          data-timeline-drag-id={task.id}
+                          data-anytime-collapsed={!isAnytimeExpanded && index >= 2 ? 'true' : 'false'}
+                          className="today-anytime-item flex min-w-0 gap-1.5"
                         >
-                          <TaskDragGrip dragHandleProps={provided.dragHandleProps} compact />
+                          <TaskDragGrip dragHandleProps={provided.dragHandleProps} label={`Move ${task.title}`} compact />
                           <div className="relative min-w-0 flex-1">
                             <TaskCard
                               task={task}
@@ -558,6 +817,7 @@ export default function DayTimeline({
                                   {...provided.draggableProps}
                                   {...provided.dragHandleProps}
                                   data-timeline-drag-handle="true"
+                                  data-timeline-drag-id={`calendar:${event.id}`}
                                   className={`min-w-0 ${snapshot.isDragging ? 'opacity-90' : ''}`}
                                   style={{
                                     ...provided.draggableProps.style,
@@ -577,13 +837,14 @@ export default function DayTimeline({
                                   {...provided.draggableProps}
                                   data-testid="timeline-draggable-task"
                                   data-demo-id={taskDemoId(task)}
+                                  data-timeline-drag-id={task.id}
                                   className="flex min-h-0 min-w-0 gap-1.5"
                                   style={{
                                     ...provided.draggableProps.style,
                                     height: timedTaskBlockHeight(task),
                                   }}
                                 >
-                                  <TaskDragGrip dragHandleProps={provided.dragHandleProps} compact />
+                                  <TaskDragGrip dragHandleProps={provided.dragHandleProps} label={`Move ${task.title}`} compact />
                                   <TaskCard
                                     task={task}
                                     onComplete={onCompleteTask}

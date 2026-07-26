@@ -1206,6 +1206,7 @@ export default function TodayPage() {
 
       <DayTimeline
         heading={formatScheduleHeading(selectedDate, now)}
+        dateKey={selectedDateKey}
         tasks={tasksData}
         calendarEvents={calendarEvents}
         calorieEntries={calorieEntries}

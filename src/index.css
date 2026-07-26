@@ -709,6 +709,19 @@
   grid-area: anytime;
 }
 
+.today-anytime-item[data-anytime-collapsed='true'] {
+  display: none;
+}
+
+.today-plan-grid[data-drag-layout='expanded'] .today-anytime-item[data-anytime-collapsed='true'] {
+  display: flex;
+}
+
+.today-plan-grid[data-drag-layout='expanded'] .timeline-slot[data-compacted='true'] {
+  height: 72px !important;
+  pointer-events: auto;
+}
+
 .today-schedule-panel {
   grid-area: schedule;
 }
@@ -756,6 +769,14 @@
     grid-template-areas: "schedule anytime";
     align-items: start;
     gap: 1.5rem;
+  }
+
+  .today-anytime-item[data-anytime-collapsed='true'] {
+    display: flex;
+  }
+
+  .today-anytime-disclosure {
+    display: none;
   }
 
   .today-supporting-panel {
