@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, isSameDay, addDays } from 'date-fns'
 import {
@@ -8,7 +8,13 @@ import {
 import { calendarService, ExternalCalendarEvent, taskService, Task, HabitItem } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import HabitOutcomeSheet from '../components/HabitOutcomeSheet'
-import { getFullWeekdayLabels, getWeekDates, getWeekdayLabels, getWeekdayLetters } from '../utils/dateHelpers'
+import {
+  getFullWeekdayLabels,
+  getWeekDates,
+  getWeekNavigationIndex,
+  getWeekdayLabels,
+  getWeekdayLetters,
+} from '../utils/dateHelpers'
 import { useSettings } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
 
@@ -112,6 +118,7 @@ export default function WeekViewPage() {
   const fullDow = getFullWeekdayLabels(weekStartsOn)
   const today = new Date()
   const [weekOffset, setWeekOffset] = useState(0)
+  const dayButtonRefs = useRef<Array<HTMLButtonElement | null>>([])
   const [selectedOff, setSelectedOff] = useState(() => {
     const wd = getWeekDates(today, weekStartsOn).findIndex((d) => isSameDay(d, today))
     return wd >= 0 ? wd : 0
@@ -121,6 +128,14 @@ export default function WeekViewPage() {
 
   const refDate = addDays(today, weekOffset * 7)
   const weekDates = getWeekDates(refDate, weekStartsOn)
+
+  const handleDayKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const targetIndex = getWeekNavigationIndex(index, event.key)
+    if (targetIndex === null) return
+    event.preventDefault()
+    setSelectedOff(targetIndex)
+    window.requestAnimationFrame(() => dayButtonRefs.current[targetIndex]?.focus())
+  }
 
   useEffect(() => {
     const wd = getWeekDates(new Date(), weekStartsOn).findIndex((d) => isSameDay(d, new Date()))
@@ -285,18 +300,18 @@ export default function WeekViewPage() {
     )
   }
 
-  const monday = weekDates[0]
-  const sunday = weekDates[6]
-  const weekLabel = monday.getMonth() === sunday.getMonth()
-    ? `${format(monday, 'MMM d')} – ${format(sunday, 'd, yyyy')}`
-    : `${format(monday, 'MMM d')} – ${format(sunday, 'MMM d, yyyy')}`
+  const firstDay = weekDates[0]
+  const lastDay = weekDates[6]
+  const weekLabel = firstDay.getMonth() === lastDay.getMonth()
+    ? `${format(firstDay, 'MMM d')} – ${format(lastDay, 'd, yyyy')}`
+    : `${format(firstDay, 'MMM d')} – ${format(lastDay, 'MMM d, yyyy')}`
 
   const encourage = model.weekPct >= 100 ? 'week cleared'
     : model.weekPct >= 60 ? 'almost there'
     : model.weekPct > 0 ? 'keep the streak going' : "let's get started"
 
   const navBtn: React.CSSProperties = {
-    width: 38, height: 38, borderRadius: 11, border: `1px solid ${W.lineStrong}`,
+    width: 44, height: 44, borderRadius: 11, border: `1px solid ${W.lineStrong}`,
     background: 'rgb(var(--surface-card) / .6)', color: W.soft, cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
   }
@@ -319,14 +334,19 @@ export default function WeekViewPage() {
           <button
             className="week-focus"
             onClick={() => { setWeekOffset(0); const wd = getWeekDates(new Date(), weekStartsOn).findIndex((d) => isSameDay(d, new Date())); setSelectedOff(wd >= 0 ? wd : 0) }}
-            style={{ height: 38, padding: '0 16px', borderRadius: 11, border: `1px solid ${A.border}`, background: A.chip, color: A.ring, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+            style={{ minHeight: 44, padding: '0 16px', borderRadius: 11, border: `1px solid ${A.border}`, background: A.chip, color: A.ring, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
           >Today</button>
           <button className="week-focus" onClick={() => setWeekOffset((w) => w + 1)} style={navBtn} aria-label="Next week"><ChevronRight width={17} height={17} /></button>
         </div>
       </div>
 
       {/* Week rail */}
-      <div className="week-rail" style={{ display: 'grid', gridTemplateColumns: 'repeat(7,minmax(0,1fr))', gap: 9, minWidth: 0 }}>
+      <div
+        role="group"
+        aria-label="Week dates"
+        className="week-rail"
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(7,minmax(0,1fr))', gap: 9, minWidth: 0 }}
+      >
         {weekDates.map((d, off) => {
           const isToday = isSameDay(d, today)
           const isSel = off === selectedOff
@@ -334,12 +354,16 @@ export default function WeekViewPage() {
           return (
             <button
               className="week-focus"
+              ref={(button) => { dayButtonRefs.current[off] = button }}
               aria-pressed={isSel}
+              aria-current={isSel ? 'date' : undefined}
               aria-label={`${fullDow[off]}, ${format(d, 'MMMM d')}, ${done} completed`}
+              tabIndex={isSel ? 0 : -1}
               key={off}
               data-demo-id="week-day-column"
               data-rail-date={format(d, 'yyyy-MM-dd')}
               onClick={() => setSelectedOff(off)}
+              onKeyDown={(event) => handleDayKeyDown(event, off)}
               style={{
                 position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
                 padding: '13px 6px 12px', borderRadius: 16, cursor: 'pointer',
@@ -348,8 +372,10 @@ export default function WeekViewPage() {
                 boxShadow: isSel ? `0 0 24px ${A.glow}` : 'none',
               }}
             >
-              <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: isSel ? A.ring : W.muted }}>{dow[off]}</span>
-              <span style={{ fontFamily: GROTESK, fontSize: 22, fontWeight: 700, lineHeight: 1, color: isToday ? A.ring : W.ink, textShadow: isSel ? `0 0 12px ${A.textGlow}` : 'none' }}>{format(d, 'd')}</span>
+              <time dateTime={format(d, 'yyyy-MM-dd')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: isSel ? A.ring : W.muted }}>{dow[off]}</span>
+                <span style={{ fontFamily: GROTESK, fontSize: 22, fontWeight: 700, lineHeight: 1, color: isToday ? A.ring : W.ink, textShadow: isSel ? `0 0 12px ${A.textGlow}` : 'none' }}>{format(d, 'd')}</span>
+              </time>
               <div role="progressbar" aria-label={`${fullDow[off]} completion`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} style={{ position: 'relative', width: 30, height: 30 }}>
                 <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: `conic-gradient(${A.ring} ${pct}%, rgba(255,255,255,.08) ${pct}%)` }} />
                 <div style={{ position: 'absolute', inset: 4, borderRadius: '50%', background: isSel ? W.sunken : W.page, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: W.soft, fontFamily: GROTESK }}>{done}</div>

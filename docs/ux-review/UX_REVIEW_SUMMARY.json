@@ -1,0 +1,191 @@
+{
+  "screensReviewed": [
+    {
+      "screen": "Login",
+      "routes": ["unauthenticated wildcard"],
+      "states": ["default", "auth loading", "mobile", "tablet", "desktop"]
+    },
+    {
+      "screen": "Demo persona picker",
+      "routes": ["/demo"],
+      "states": ["default", "persona selection", "mobile", "tablet", "desktop"]
+    },
+    {
+      "screen": "Today",
+      "routes": ["/"],
+      "states": ["populated", "AI signals", "AI error", "Habit check-in dialog", "completed Task", "delete confirmation", "mobile", "tablet", "desktop"]
+    },
+    {
+      "screen": "Talk",
+      "routes": ["/talk", "/assistant redirect"],
+      "states": ["empty conversation", "starter prompts", "composer", "saved-chat empty state", "mobile", "tablet", "desktop", "pending-action code and tests"]
+    },
+    {
+      "screen": "Week View",
+      "routes": ["/week"],
+      "states": ["populated", "selected day", "Midnight theme", "White theme", "mobile", "tablet", "desktop"]
+    },
+    {
+      "screen": "Add Item",
+      "routes": ["/add"],
+      "states": ["Task form", "validation error", "Calorie module disabled", "mobile", "tablet", "desktop", "Habit and domain forms in code"]
+    },
+    {
+      "screen": "Calories and Weight",
+      "routes": ["/calories"],
+      "states": ["populated", "quick insert dialog", "keyboard focus sequence", "route cold load", "mobile", "tablet", "desktop"]
+    },
+    {
+      "screen": "Achievements",
+      "routes": ["/achievements"],
+      "states": ["populated metric", "disabled Add Result", "route cold load", "mobile", "tablet", "desktop"]
+    },
+    {
+      "screen": "Workouts",
+      "routes": ["/workouts"],
+      "states": ["empty plans", "empty session composer", "populated history", "new plan editor", "mobile", "tablet", "desktop"]
+    },
+    {
+      "screen": "Settings",
+      "routes": ["/settings"],
+      "states": ["Midnight theme", "White theme toggle", "Calorie module off and restored", "mobile", "tablet", "desktop"]
+    },
+    {
+      "screen": "Privacy and Terms",
+      "routes": ["/privacy", "/terms"],
+      "states": ["route and source mapping only"]
+    },
+    {
+      "screen": "Admin tools",
+      "routes": ["/token-manager", "/meal-ocr-lab"],
+      "states": ["source inspection only; demo user lacked admin access"]
+    }
+  ],
+  "viewportsReviewed": [
+    {
+      "name": "desktop",
+      "width": 1440,
+      "height": 900
+    },
+    {
+      "name": "compact desktop or tablet",
+      "width": 1024,
+      "height": 768
+    },
+    {
+      "name": "mobile",
+      "width": 390,
+      "height": 844
+    }
+  ],
+  "topFindings": [
+    {
+      "id": "HF-003",
+      "severity": "Critical",
+      "finding": "White-theme Week View loses readable core content because the page bypasses semantic theme tokens."
+    },
+    {
+      "id": "HF-001",
+      "severity": "High",
+      "finding": "Enabled Calories and Achievements routes redirect to Today on a cold deep link before settings resolve."
+    },
+    {
+      "id": "HF-004",
+      "severity": "High",
+      "finding": "Today presents useful data but not one coherent decision model for focus, obligations, capacity, progress, and next action."
+    },
+    {
+      "id": "HF-026",
+      "severity": "High",
+      "finding": "Module behavior is spread across route, navigation, Add, Today, Week, Settings, and analytics conditionals without one contract."
+    },
+    {
+      "id": "HF-007/HF-008/HF-009/HF-010",
+      "severity": "High",
+      "finding": "Frequent mobile and health interactions have high-impact accessibility defects: a 16x16 Habit target, escaping dialog focus, non-modal drawer behavior, and unnamed switches."
+    }
+  ],
+  "quickWins": [
+    "Add a settings-loading gate before protected health routes.",
+    "Tokenize Week View and add two-theme contrast regression coverage.",
+    "Expand mobile Habit completion hit areas to at least 44x44 CSS pixels.",
+    "Complete the calorie-dialog name, focus trap, inert background, Escape, and focus restoration pattern.",
+    "Introduce accessible Switch and IconButton primitives and label health dates.",
+    "Disable or implement Export Data and Delete Account.",
+    "Centralize first-day-of-week calculations.",
+    "Move calorie/protein daily status before entry history.",
+    "Add previous, Today, and next navigation to daily health logs.",
+    "Disable Save Session until workout requirements are met.",
+    "Add Retry and an Apply/Edit path to Daily Signals.",
+    "Centralize category metadata and make Add respect enabled domains."
+  ],
+  "structuralChanges": [
+    {
+      "name": "Grouped global navigation",
+      "summary": "Keep Today and Talk primary; group Plan and Health tools; move utility and advanced destinations out of the flat list."
+    },
+    {
+      "name": "Today daily decision workspace",
+      "summary": "Compose date, load/capacity, focus, obligations, schedule, Anytime, progress, and transparent AI proposals into one hierarchy."
+    },
+    {
+      "name": "Week master-detail",
+      "summary": "Make selected day or All Week drive the agenda and keep recurring Habit cadence aggregated until selected."
+    },
+    {
+      "name": "Shared Health workspace",
+      "summary": "Use one day navigator, units context, status summary, and focused Nutrition, Workouts, and Progress modes."
+    },
+    {
+      "name": "Mode-based Workouts and category-based Settings",
+      "summary": "Replace long equal stacks with Plan/Session/History modes and settings category drill-down."
+    },
+    {
+      "name": "Frontend module manifest",
+      "summary": "Centralize presentation registration for routes, nav, Add, Today, Week, Settings, empty states, permissions, and analytics."
+    },
+    {
+      "name": "Cross-feature pending actions",
+      "summary": "Reuse typed preview, edit, confirm, dismiss, and safe Undo for AI/calendar/health/project planning changes."
+    },
+    {
+      "name": "Calmer dense visual system",
+      "summary": "Preserve cyan and both themes while reducing ambient motion, gradients, glows, pills, and equal card emphasis."
+    }
+  ],
+  "accessibilityIssues": [
+    "White-theme Week contrast failure.",
+    "Mobile Habit check-in control measured 16x16 pixels.",
+    "Calorie dialog lacks an accessible name and focus containment.",
+    "Mobile drawer lacks dialog semantics, focus trap, named controls, and inert background.",
+    "Settings toggle buttons lack accessible name, switch role, and checked state.",
+    "Calorie and Achievement history icon actions are unnamed.",
+    "Health header date inputs are not consistently labelled.",
+    "Shared loading spinner has no status/name semantics.",
+    "Talk progress and new messages lack live-region status.",
+    "Progress bars/donuts lack programmatic progress semantics.",
+    "Achievement selection lacks programmatic selected state.",
+    "Global text selection is disabled for ordinary content."
+  ],
+  "designSystemIssues": [
+    "Week View implements a parallel hard-coded visual system instead of semantic tokens.",
+    "No consistent accessible Switch, IconButton, Dialog/Drawer, DayNavigator, Progress, or destructive-recovery primitive.",
+    "Cards, borders, rounded corners, glows, gradients, and pills have insufficient hierarchy rules.",
+    "Delete confirmation and Undo behavior differs by entity.",
+    "Category metadata is duplicated and inconsistent between Add and Edit.",
+    "Status colors and module accents are not governed by one semantic model.",
+    "Custom focus styling changes with motion preference even though focus visibility is not a motion concern.",
+    "Perpetual float, pulse, flicker, and background animation competes with task feedback."
+  ],
+  "reviewLimitations": [
+    "The live authenticated walkthrough used the Lina demo persona; other persona days were not reviewed screen by screen.",
+    "No connected Google Calendar was available, so OAuth, dense real obligations, sync errors, and disconnect were source-inspected only.",
+    "Lina had zero AI credits, so a new live Talk response was not sent; pending actions were inspected in source/tests.",
+    "The Lina demo had no duration-target Habit; source was inspected and the existing target-Habit E2E test passed.",
+    "Admin Token Manager and Meal OCR Lab were not accessible to the demo user and were code-inspected only.",
+    "PWA standalone, install completion, push delivery, offline mode, dictation permission, and full screen-reader sessions were not completed.",
+    "Privacy and Terms were mapped but not treated as major workflow screens.",
+    "No automated axe suite exists; accessibility evidence came from DOM snapshots, keyboard tests, measurements, code, and visual inspection.",
+    "Planned but absent concepts were reported as gaps, not evaluated as implemented workflows."
+  ]
+}
