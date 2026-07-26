@@ -1,3 +1,9 @@
+### 2026-07-26 14:41 — `codex/165-daily-signals`
+
+Aligned the Today browser fixtures with the full Zod-validated Daily Context response now consumed by the frontend. Both current and previous-contract signal responses are exercised through the same runtime parser, keeping the rollout-safety regression representative of production.
+
+---
+
 ### 2026-07-26 14:39 — `codex/165-daily-signals`
 
 Hardened the frontend/backend rollout boundary by Zod-validating Daily Context responses and converting the previous signal contract into explicit informational-only guidance. This keeps deploy previews and staggered production deployments readable without manufacturing an actionable proposal or bypassing the pending-action review path.

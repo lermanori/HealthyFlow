@@ -378,7 +378,26 @@ async function mockToday(page: Page, options?: {
       return route.fulfill({ status: 503, json: { error: 'Unavailable' } })
     }
     const date = new URL(route.request().url()).searchParams.get('date') ?? '2026-07-15'
-    return route.fulfill({ json: { signals: (options?.signals ?? signalsForDate)(date) } })
+    return route.fulfill({
+      json: {
+        date,
+        generatedAt: `${date}T14:00:00.000Z`,
+        day: {
+          tasks: [],
+          calorieEntries: [],
+          weight: null,
+          achievements: [],
+          workoutSessions: [],
+          calendarEvents: [],
+        },
+        lookback: {
+          habitHistory: { windowDays: 3, days: [] },
+          calorieHistory: { windowDays: 7, days: [] },
+          workoutHistory: { windowDays: 14, days: [] },
+        },
+        signals: (options?.signals ?? signalsForDate)(date),
+      },
+    })
   })
 }
 
