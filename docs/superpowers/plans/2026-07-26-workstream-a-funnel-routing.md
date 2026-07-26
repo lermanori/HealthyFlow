@@ -2,7 +2,16 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Status: COMPLETE** (2026-07-26). All nine tasks landed. Two things were added during execution that the plan did not anticipate: redirects for *every* legacy app route rather than just the three public ones (bookmarks and PWA shortcuts pointed at `/week`, `/add`, `/settings`), and the backend's push-notification payloads in `backend/src/proactivity.ts`, which hard-coded `/talk`. The Playwright suite was migrated and typechecks, but **was not executed** — this worktree has no `.env`, so the suite cannot reach Supabase. Running it is the one outstanding verification.
+**Status: COMPLETE** (2026-07-26). All nine tasks landed. Two things were added during execution that the plan did not anticipate: redirects for *every* legacy app route rather than just the three public ones (bookmarks and PWA shortcuts pointed at `/week`, `/add`, `/settings`), and the backend's push-notification payloads in `backend/src/proactivity.ts`, which hard-coded `/talk`. The Playwright suite was migrated and **executed**, against a baseline for comparison:
+
+| Run | Failed | Passed |
+| --- | --- | --- |
+| Baseline (merge base `9ded696` + same test infra) | 14 | 48 |
+| This branch | 15 | 47 |
+
+Every spec that differed between the two runs (`auth.spec.ts:20`, `assistant.spec.ts:133`, `habits.spec.ts:54`, `auth.spec.ts:46`) fails on **both** branches when re-run in isolation, and passes on both in other runs. The suite is flaky against a shared live Supabase user; there are no regressions from the `/app` move. The 5 `week-theme-visual` snapshot failures are pre-existing on both branches.
+
+Running the suite required a third change the plan did not anticipate: specs hard-coded `http://localhost:3001`, so a worktree run silently tested whichever checkout owned port 3001. `HF_E2E_WEB_PORT` / `HF_E2E_API_PORT` and `tests/e2e/apiBase.ts` fix that.
 
 **Goal:** Serve the marketing page at `/` and the React app at `/app`, so paid ad traffic lands on the landing page instead of a login form.
 
