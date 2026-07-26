@@ -492,13 +492,35 @@
     .plan li { display: flex; gap: 11px; align-items: baseline; font-size: 15.5px; color: var(--text-dim); }
     .plan li .check { transform: translateY(4px); }
     .plan .btn { width: 100%; }
-    .pricing-note {
-      text-align: center;
-      color: var(--text-faint);
-      font-size: 14px;
-      max-width: 520px;
-      margin: 34px auto 0;
+    .waitlist-form { max-width: 520px; margin: 36px auto 0; text-align: center; }
+    .waitlist-form label {
+      display: block;
+      color: var(--text-dim);
+      font-size: 15px;
+      margin-bottom: 12px;
     }
+    .waitlist-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    .waitlist-row input {
+      flex: 1 1 240px;
+      background: rgba(11, 17, 32, 0.7);
+      border: 1px solid var(--border-strong);
+      border-radius: 14px;
+      padding: 13px 18px;
+      color: var(--text);
+      font-family: var(--font-body);
+      font-size: 16px;
+    }
+    .waitlist-row input:focus {
+      outline: none;
+      border-color: rgba(34, 211, 238, 0.55);
+    }
+    .waitlist-msg {
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--cyan-bright);
+      min-height: 20px;
+    }
+    .waitlist-msg.error { color: #f87171; }
 
     /* ---------- founder ---------- */
     .founder {
@@ -875,10 +897,14 @@
           <a class="btn btn-primary" href="/app">Get Launch Access</a>
         </div>
       </div>
-      <p class="pricing-note reveal">
-        HealthyFlow is in beta — launch access is enabled manually for early adopters.
-        Sign up free and request access from inside the app.
-      </p>
+      <form class="waitlist-form reveal" id="waitlist-form">
+        <label for="waitlist-email">Registration is invite-only right now. Join the waitlist:</label>
+        <div class="waitlist-row">
+          <input id="waitlist-email" type="email" required placeholder="you@example.com" autocomplete="email" />
+          <button class="btn btn-primary" type="submit">Join the waitlist</button>
+        </div>
+        <p class="waitlist-msg" id="waitlist-msg" role="status"></p>
+      </form>
     </div>
   </section>
 
@@ -929,6 +955,57 @@
     const onScroll = () => nav.classList.toggle('scrolled', window.scrollY > 12);
     window.addEventListener('scroll', onScroll, { passive: true });
     onScroll();
+
+    // landing.html is static, so it cannot read VITE_API_URL like the app does.
+    // Locally the Vite dev server proxies /api to the backend; in production the
+    // API lives on Railway, and healthyflow.app is already in its CORS allowlist.
+    const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
+    const API_BASE = isLocal ? '/api' : 'https://healthyflow-production.up.railway.app/api';
+
+    // Swap CTA wording based on real availability — scarcity that is actually true.
+    fetch(`${API_BASE}/auth/signup-status`)
+      .then((r) => r.json())
+      .then((status) => {
+        const ctas = document.querySelectorAll('a.btn-primary[href="/app"]');
+        if (status.mode === 'open' && status.remaining > 0) {
+          ctas.forEach((el) => {
+            el.textContent = `Start Free — ${status.remaining} left`;
+          });
+        } else {
+          ctas.forEach((el) => {
+            el.textContent = 'Join the waitlist';
+            el.setAttribute('href', '#waitlist-form');
+          });
+        }
+      })
+      .catch(() => { /* leave the default CTA text in place */ });
+
+    document.getElementById('waitlist-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('waitlist-msg');
+      const params = new URLSearchParams(location.search);
+      msg.classList.remove('error');
+      msg.textContent = 'Joining…';
+      try {
+        const res = await fetch(`${API_BASE}/waitlist`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: document.getElementById('waitlist-email').value,
+            source: 'landing',
+            utmSource: params.get('utm_source') || undefined,
+            utmMedium: params.get('utm_medium') || undefined,
+            utmCampaign: params.get('utm_campaign') || undefined,
+          }),
+        });
+        if (!res.ok) throw new Error('request failed');
+        msg.textContent = "You're on the list. We'll be in touch.";
+        if (window.posthog) window.posthog.capture('waitlist_submitted', { source: 'landing' });
+      } catch (_err) {
+        msg.classList.add('error');
+        msg.textContent = 'Something went wrong — please try again.';
+      }
+    });
 
     // Reveal-on-scroll animations
     const observer = new IntersectionObserver((entries) => {
