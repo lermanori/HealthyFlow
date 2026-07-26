@@ -55,7 +55,7 @@ test('Migrates browser chat history without triggering a duplicate autosave', as
     await route.fallback()
   })
 
-  await page.goto('/talk')
+  await page.goto('/app/talk')
   await expect(page.getByText('Plan tomorrow').first()).toBeVisible()
   await expect.poll(() => page.evaluate(() =>
     localStorage.getItem('healthyflow-assistant-conversations-v1-migrated')
@@ -120,7 +120,7 @@ test('Serializes autosaves while an earlier chat save is still in flight', async
     })
   })
 
-  await page.goto('/talk')
+  await page.goto('/app/talk')
   await page.getByPlaceholder(/Add anything/).fill('Update the plan')
   await page.getByRole('button', { name: 'Send' }).click()
   await expect(page.getByText('Here is the updated plan.')).toBeVisible()
@@ -132,7 +132,7 @@ test('Serializes autosaves while an earlier chat save is still in flight', async
 
 test('Mobile assistant composer wraps long text instead of hiding it off-screen', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/talk')
+  await page.goto('/app/talk')
 
   const mainBox = await page.locator('main').boundingBox()
   const talkSurfaceBox = await page.locator('main > div > div').first().boundingBox()
@@ -252,15 +252,15 @@ test('Confirmed assistant task appears on Today without a browser refresh', asyn
     })
   })
 
-  await page.goto('/')
+  await page.goto('/app')
   await expect(page.getByText(title)).toHaveCount(0)
 
-  await page.goto('/talk')
+  await page.goto('/app/talk')
   await page.getByPlaceholder(/Add anything/).fill(`add ${title} today`)
   await page.getByRole('button', { name: 'Send' }).click()
   await page.getByRole('button', { name: 'Confirm' }).click()
   await expect(page.getByText('Action confirmed')).toBeVisible()
 
-  await page.goto('/')
+  await page.goto('/app')
   await expect(page.getByText(title)).toBeVisible({ timeout: 10_000 })
 })

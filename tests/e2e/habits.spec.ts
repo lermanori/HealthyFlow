@@ -6,7 +6,7 @@ test('Habit golden path: completing today does NOT bleed into tomorrow', async (
   expect(reset.ok()).toBeTruthy()
 
   // Add a daily habit via the UI
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   // Select type = Habit (repeat is hardcoded to daily when type=habit)
@@ -22,7 +22,7 @@ test('Habit golden path: completing today does NOT bleed into tomorrow', async (
   await page.locator('button[type="submit"]').click()
 
   // Redirected to Today — habit appears as exactly one row today
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
   const habitHeadings = page.locator('h3', { hasText: habitTitle })
   await expect(habitHeadings).toHaveCount(1, { timeout: 10_000 })
 
@@ -54,7 +54,7 @@ test('editing a whole Habit from Binary to Target persists the target', async ({
   const reset = await page.request.post('http://localhost:3001/test/reset')
   expect(reset.ok()).toBeTruthy()
 
-  await page.goto('/add')
+  await page.goto('/app/add')
   await page.getByRole('button', { name: 'Habit', exact: true }).click()
   const habitTitle = `Binary to Target ${Date.now()}`
   await page.locator('input[placeholder*="Enter"]').first().fill(habitTitle)

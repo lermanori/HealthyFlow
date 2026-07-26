@@ -4,9 +4,9 @@ import { TEST_EMAIL, TEST_PASSWORD } from './globalSetup'
 const authFile = 'tests/e2e/.auth/user.json'
 
 setup('authenticate', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/app')
   await page.evaluate(() => localStorage.removeItem('token'))
-  await page.goto('/')
+  await page.goto('/app')
 
   // Ensure we're on the login form (not already authenticated)
   await expect(page.locator('#email')).toBeVisible()

@@ -43,29 +43,29 @@ test('Week view golden path: tasks appear under their correct day columns', asyn
   const otherTitle = `WeekE2E-Other-${Date.now()}`
 
   // --- Add task for TODAY ---
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
   await page.locator('input[placeholder*="Enter"]').first().fill(todayTitle)
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
   await page.locator('input[type="date"]').fill(todayStr)
   await page.locator('button[type="submit"]').click()
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
 
   // --- Add task for OTHER day ---
   // Give it a start time: a TIMED task never rolls over (ADR-0002 carry-forward is
   // untimed-only), so it stays on its own day and won't leak into today's column even
   // when otherDay is in the past. Keeps this test correct on any weekday.
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
   await page.locator('input[placeholder*="Enter"]').first().fill(otherTitle)
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
   await page.locator('input[type="date"]').fill(otherDayStr)
   await page.locator('input[type="time"]').fill('10:00')
   await page.locator('button[type="submit"]').click()
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
 
   // --- Navigate to Week View ---
-  await page.goto('/week')
+  await page.goto('/app/week')
   // Wait for the week rail to render (redesign: 7 selectable day buttons)
   await expect(page.locator(`[data-rail-date="${todayStr}"]`)).toBeVisible({ timeout: 10_000 })
 
@@ -91,14 +91,14 @@ test('Week view follows configured first day of week', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-06-24T12:00:00'))
 
   await setWeekStartsOn(page, 1)
-  await page.goto('/week')
+  await page.goto('/app/week')
   await expect(page.locator('[data-rail-date="2026-06-22"]')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('[data-rail-date="2026-06-28"]')).toBeVisible()
   await expect(page.locator('[data-rail-date="2026-06-21"]')).toHaveCount(0)
   await expect(page.getByText('Jun 22 – 28, 2026')).toBeVisible()
 
   await setWeekStartsOn(page, 0)
-  await page.goto('/week')
+  await page.goto('/app/week')
   await expect(page.locator('[data-rail-date="2026-06-21"]')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('[data-rail-date="2026-06-27"]')).toBeVisible()
   await expect(page.locator('[data-rail-date="2026-06-28"]')).toHaveCount(0)
@@ -143,7 +143,7 @@ test('Week view includes calendar-integrated events in their day', async ({ page
     })
   })
 
-  await page.goto('/week')
+  await page.goto('/app/week')
   await expect(page.locator(`[data-rail-date="${eventDayStr}"]`)).toBeVisible({ timeout: 10_000 })
 
   await expect(
@@ -250,7 +250,7 @@ test('Week view Up Next ignores past events', async ({ page }) => {
     })
   })
 
-  await page.goto('/week')
+  await page.goto('/app/week')
   await expect(page.locator('[data-rail-date="2026-06-24"]')).toBeVisible({ timeout: 10_000 })
 
   await expect(page.getByTestId('week-up-next-title')).toHaveText(futureTodayTitle)
@@ -267,15 +267,15 @@ test('Week view shows an untimed one-off task only once', async ({ page }) => {
   const todayStr = '2026-06-24'
   const title = `Untimed Week Once ${Date.now()}`
 
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
   await page.locator('input[placeholder*="Enter"]').first().fill(title)
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
   await page.locator('input[type="date"]').fill(todayStr)
   await page.locator('button[type="submit"]').click()
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
 
-  await page.goto('/week')
+  await page.goto('/app/week')
   await expect(page.locator(`[data-rail-date="${todayStr}"]`)).toBeVisible({ timeout: 10_000 })
 
   await expect(page.locator('[data-date]').filter({ hasText: title })).toHaveCount(1)

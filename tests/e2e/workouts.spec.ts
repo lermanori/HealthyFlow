@@ -20,7 +20,7 @@ test('Workout Tracker logs mixed metrics, persists history, edits, and deletes',
   const reset = await page.request.post('http://localhost:3001/test/reset')
   expect(reset.ok()).toBeTruthy()
 
-  await page.goto('/workouts')
+  await page.goto('/app/workouts')
   await expect(page.getByRole('heading', { name: 'Workout Tracker' })).toBeVisible()
   await page.getByRole('button', { name: 'Add exercise' }).click()
 
@@ -126,7 +126,7 @@ test('Workout plans persist, reorder exercises, and pre-fill an editable session
     return route.fallback()
   })
 
-  await page.goto('/workouts')
+  await page.goto('/app/workouts')
   await page.getByRole('button', { name: 'New Plan' }).click()
 
   const editor = page.getByTestId('workout-plan-editor')
@@ -219,7 +219,7 @@ test('Workout planning stays editable and reachable on a narrow mobile viewport'
     updatedAt: new Date().toISOString(),
   }] }))
 
-  await page.goto('/workouts')
+  await page.goto('/app/workouts')
   await page.getByRole('button', { name: 'New Plan' }).click()
   const editor = page.getByTestId('workout-plan-editor')
   await editor.getByRole('button', { name: /Weighted Bulgarian Split Squat/ }).click()

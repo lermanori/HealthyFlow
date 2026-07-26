@@ -11,7 +11,7 @@ test('Complete Task: marking complete persists across reload', async ({ page }) 
   expect(reset1.ok()).toBeTruthy()
 
   // Add a task via the UI
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = 'Complete Test Task'
@@ -20,7 +20,7 @@ test('Complete Task: marking complete persists across reload', async ({ page }) 
   await page.locator('button[type="submit"]').click()
 
   // Redirected to Today, task visible
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
   await expect(page.locator(`text=${taskTitle}`)).toBeVisible()
 
   // Find the task card by its heading, then find and click the checkbox button
@@ -48,7 +48,7 @@ test('Edit Task: changing title updates Today and persists', async ({ page }) =>
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
   // Add a task via the UI
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const originalTitle = 'Edit Test Task'
@@ -57,7 +57,7 @@ test('Edit Task: changing title updates Today and persists', async ({ page }) =>
   await page.locator('button[type="submit"]').click()
 
   // Redirected to Today, task visible
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
   const titleHeading = page.locator('h3', { hasText: originalTitle }).first()
   await expect(titleHeading).toBeVisible()
 
@@ -97,7 +97,7 @@ test('Task location: create, edit, and clear location on the card', async ({ pag
   const reset = await page.request.post('http://localhost:3001/test/reset')
   expect(reset.ok()).toBeTruthy()
 
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = 'Location Test Task'
@@ -105,7 +105,7 @@ test('Task location: create, edit, and clear location on the card', async ({ pag
   await page.locator('input[placeholder="Add a place or address..."]').fill('Cafe Noga')
   await page.locator('button[type="submit"]').click()
 
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
   const titleHeading = page.locator('h3', { hasText: taskTitle }).first()
   await expect(titleHeading).toBeVisible()
   await expect(page.locator('text=Cafe Noga')).toBeVisible()
@@ -142,7 +142,7 @@ test('Delete Task: removing task makes it disappear from Today', async ({ page }
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
   // Add a task via the UI
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = 'Delete Test Task'
@@ -151,7 +151,7 @@ test('Delete Task: removing task makes it disappear from Today', async ({ page }
   await page.locator('button[type="submit"]').click()
 
   // Redirected to Today, task visible
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
   const titleHeading = page.locator('h3', { hasText: taskTitle }).first()
   await expect(titleHeading).toBeVisible()
 
@@ -183,7 +183,7 @@ test('Delete Task: removing task makes it disappear from Today', async ({ page }
 test('Delete timed task from schedule menu removes it from Today', async ({ page }) => {
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = `Delete Timed Task ${Date.now()}`
@@ -192,7 +192,7 @@ test('Delete timed task from schedule menu removes it from Today', async ({ page
   await page.locator('input[type="time"]').fill('10:00')
   await page.locator('button[type="submit"]').click()
 
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
   const titleHeading = page.locator('h3', { hasText: taskTitle }).first()
   await expect(titleHeading).toBeVisible()
 
@@ -220,7 +220,7 @@ test('Scheduled timeline checkbox toggles reliably while the card is hovered', a
   const reset = await page.request.post('http://localhost:3001/test/reset')
   expect(reset.ok()).toBeTruthy()
 
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = `Hovered Timeline Toggle ${Date.now()}`
@@ -229,7 +229,7 @@ test('Scheduled timeline checkbox toggles reliably while the card is hovered', a
   await page.locator('input[type="time"]').fill('10:00')
   await page.locator('button[type="submit"]').click()
 
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
 
   const taskCard = page.locator('[data-testid="timeline-draggable-task"]').filter({ hasText: taskTitle }).first()
   const checkbox = taskCard.getByRole('button', { name: 'Check task' })
@@ -259,21 +259,21 @@ test('Dedicated drag grip keeps scheduled and Anytime card controls clickable', 
   expect(reset.ok()).toBeTruthy()
 
   const scheduledTitle = `Grip Scheduled ${Date.now()}`
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
   await page.locator('input[placeholder*="Enter"]').first().fill(scheduledTitle)
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
   await page.locator('input[type="time"]').fill('10:00')
   await page.locator('button[type="submit"]').click()
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
 
   const anytimeTitle = `Grip Anytime ${Date.now()}`
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
   await page.locator('input[placeholder*="Enter"]').first().fill(anytimeTitle)
   await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
   await page.locator('button[type="submit"]').click()
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
 
   const scheduledCard = page.locator('[data-testid="timeline-draggable-task"]').filter({ hasText: scheduledTitle }).first()
   const anytimeCard = page.locator('[data-testid="timeline-draggable-task"]').filter({ hasText: anytimeTitle }).first()
@@ -312,7 +312,7 @@ test('Compact timeline card does not clip content or overflow menu', async ({ pa
   const reset = await page.request.post('http://localhost:3001/test/reset')
   expect(reset.ok()).toBeTruthy()
 
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = `Compact Clipping ${Date.now()}`
@@ -321,7 +321,7 @@ test('Compact timeline card does not clip content or overflow menu', async ({ pa
   await page.locator('input[type="time"]').fill('10:00')
   await page.locator('button[type="submit"]').click()
 
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
 
   const draggable = page.locator('[data-testid="timeline-draggable-task"]').filter({ hasText: taskTitle }).first()
   const card = draggable.getByRole('heading', { name: taskTitle }).locator('xpath=ancestor::div[contains(@class, "rounded-lg") and contains(@class, "border")]').first()
@@ -377,7 +377,7 @@ test('Compact timeline card does not clip content or overflow menu', async ({ pa
 test('Schedule compacts empty four-hour windows around timed tasks', async ({ page }) => {
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = `Compact Schedule Anchor ${Date.now()}`
@@ -386,7 +386,7 @@ test('Schedule compacts empty four-hour windows around timed tasks', async ({ pa
   await page.locator('input[type="time"]').fill('10:00')
   await page.locator('button[type="submit"]').click()
 
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
   await expect(page.locator('h3', { hasText: taskTitle }).first()).toBeVisible()
 
   const sixAm = page.locator('[data-slot="06:00"]')
@@ -409,13 +409,13 @@ test('Schedule expands occupied hours to fit multiple timed items', async ({ pag
   const secondTitle = `Same Hour Second ${Date.now()}`
 
   for (const title of [firstTitle, secondTitle]) {
-    await page.goto('/add')
+    await page.goto('/app/add')
     await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
     await page.locator('input[placeholder*="Enter"]').first().fill(title)
     await page.locator('label', { hasText: 'Category' }).locator('..').locator('button', { hasText: 'Personal' }).click()
     await page.locator('input[type="time"]').fill('16:00')
     await page.locator('button[type="submit"]').click()
-    await expect(page).toHaveURL('/', { timeout: 10_000 })
+    await expect(page).toHaveURL('/app', { timeout: 10_000 })
   }
 
   const fourPm = page.locator('[data-slot="16:00"]')
@@ -445,7 +445,7 @@ test('Schedule expands occupied hours to fit multiple timed items', async ({ pag
 test('Drag start keeps the card attached to the pointer without shifting layout', async ({ page }) => {
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   const taskTitle = `Drag Attached Schedule ${Date.now()}`
@@ -454,7 +454,7 @@ test('Drag start keeps the card attached to the pointer without shifting layout'
   await page.locator('input[type="time"]').fill('10:00')
   await page.locator('button[type="submit"]').click()
 
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
   const titleHeading = page.locator('h3', { hasText: taskTitle }).first()
   await expect(titleHeading).toBeVisible()
   await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'true')
@@ -522,7 +522,7 @@ test('Mobile calendar event checkbox stays compact and clear of the title', asyn
     })
   })
 
-  await page.goto('/')
+  await page.goto('/app')
   const eventRow = page.locator('[data-slot="10:00"]').filter({ hasText: eventTitle }).first()
   const checkbox = eventRow.getByRole('button', { name: 'Check calendar event', exact: true })
   const title = eventRow.getByRole('heading', { name: eventTitle })

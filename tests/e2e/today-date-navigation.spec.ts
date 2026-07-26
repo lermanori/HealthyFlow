@@ -37,23 +37,23 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('Today and Week share Monday and Sunday week boundaries', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/app')
   await expect(page.locator('[data-week-date="2026-06-22"]')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('[data-week-date="2026-06-28"]')).toBeVisible()
   await expect(page.locator('[data-week-date="2026-06-21"]')).toHaveCount(0)
 
-  await page.goto('/week')
+  await page.goto('/app/week')
   await expect(page.locator('[data-rail-date="2026-06-22"]')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('[data-rail-date="2026-06-28"]')).toBeVisible()
   await expect(page.getByText('Jun 22 – 28, 2026')).toBeVisible()
 
   await setWeekStartsOn(page, 0)
-  await page.goto('/')
+  await page.goto('/app')
   await expect(page.locator('[data-week-date="2026-06-21"]')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('[data-week-date="2026-06-27"]')).toBeVisible()
   await expect(page.locator('[data-week-date="2026-06-28"]')).toHaveCount(0)
 
-  await page.goto('/week')
+  await page.goto('/app/week')
   await expect(page.locator('[data-rail-date="2026-06-21"]')).toBeVisible({ timeout: 10_000 })
   await expect(page.locator('[data-rail-date="2026-06-27"]')).toBeVisible()
   await expect(page.getByText('Jun 21 – 27, 2026')).toBeVisible()
@@ -61,7 +61,7 @@ test('Today and Week share Monday and Sunday week boundaries', async ({ page }) 
 
 test('Today uses accurate selected-date language and keeps day-navigation focus', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
-  await page.goto('/')
+  await page.goto('/app')
 
   await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: "Today's Schedule" })).toBeVisible()
@@ -87,7 +87,7 @@ test('Today uses accurate selected-date language and keeps day-navigation focus'
 })
 
 test('Today and Week provide roving keyboard navigation for their seven-day selectors', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/app')
   const todayButton = page.locator('[data-week-date="2026-06-24"]')
   await expect(todayButton).toHaveAttribute('aria-current', 'date')
   await todayButton.focus()
@@ -101,7 +101,7 @@ test('Today and Week provide roving keyboard navigation for their seven-day sele
   await page.locator('[data-week-date="2026-06-28"]').press('Home')
   await expect(page.locator('[data-week-date="2026-06-22"]')).toBeFocused()
 
-  await page.goto('/week')
+  await page.goto('/app/week')
   const weekToday = page.locator('[data-rail-date="2026-06-24"]')
   await expect(weekToday).toHaveAttribute('aria-current', 'date')
   await weekToday.focus()
@@ -113,7 +113,7 @@ test('Today and Week provide roving keyboard navigation for their seven-day sele
 
 test('visible previous and next date controls remain at least 44 by 44 pixels', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/')
+  await page.goto('/app')
 
   for (const name of ['Previous day', 'Next day']) {
     const control = page.getByRole('button', { name })

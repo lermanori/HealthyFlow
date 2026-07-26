@@ -23,7 +23,7 @@ test('module routes wait for Settings and render every enabled destination', asy
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(settings) })
   })
 
-  for (const [path, heading] of [['/calories', 'Calorie Log'], ['/achievements', 'Achievements'], ['/workouts', 'Workout Tracker']] as const) {
+  for (const [path, heading] of [['/app/calories', 'Calorie Log'], ['/app/achievements', 'Achievements'], ['/app/workouts', 'Workout Tracker']] as const) {
     const navigation = page.goto(path)
     await expect(page).toHaveURL(path)
     await navigation
@@ -37,13 +37,13 @@ test('confirmed-disabled routes and Add tabs use one persistent notice', async (
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...settings, calorieIntake: false, achievementTracker: false, workoutTracker: false }) })
   })
 
-  await page.goto('/calories')
-  await expect(page).toHaveURL('/')
+  await page.goto('/app/calories')
+  await expect(page).toHaveURL('/app')
   await expect(page.getByText('Calories is disabled for this account.')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Enable in Settings' })).toBeVisible()
 
-  await page.goto('/add?tab=achievements')
-  await expect(page).toHaveURL('/add?tab=today')
+  await page.goto('/app/add?tab=achievements')
+  await expect(page).toHaveURL('/app/add?tab=today')
   await expect(page.getByText('Achievements is disabled for this account.')).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Achievements' })).toHaveCount(0)
   await expect(page.getByRole('tab', { name: 'Calories' })).toHaveCount(0)
@@ -57,8 +57,8 @@ test('settings failure stays on the requested module URL and Retry recovers', as
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify(settings) })
   })
 
-  await page.goto('/achievements')
-  await expect(page).toHaveURL('/achievements')
+  await page.goto('/app/achievements')
+  await expect(page).toHaveURL('/app/achievements')
   await expect(page.getByRole('heading', { name: 'Could not check Achievements' })).toBeVisible()
   recover = true
   await page.getByRole('button', { name: 'Retry' }).first().click()
@@ -72,18 +72,18 @@ test('cached Settings remain usable during a failed background refresh', async (
     if (backgroundFails) return route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"unavailable"}' })
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify(settings) })
   })
-  await page.goto('/settings#features')
+  await page.goto('/app/settings#features')
   await expect(page.getByRole('switch', { name: /Completion Sounds/ })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Achievements' })).toBeVisible()
   backgroundFails = true
   await page.getByRole('switch', { name: /Completion Sounds/ }).click()
   await page.getByRole('link', { name: 'Achievements' }).click()
-  await expect(page).toHaveURL('/achievements')
+  await expect(page).toHaveURL('/app/achievements')
   await expect(page.getByRole('heading', { name: 'Achievements', exact: true })).toBeVisible()
 })
 
 test('changed Settings switches expose state and pass targeted Axe checks', async ({ page }) => {
-  await page.goto('/settings#features')
+  await page.goto('/app/settings#features')
   const calorieSwitch = page.getByRole('switch', { name: /Calorie Intake/ })
   await expect(calorieSwitch).toBeVisible()
   await expect(calorieSwitch).toHaveAttribute('aria-checked', /true|false/)
@@ -95,7 +95,7 @@ test('changed Settings switches expose state and pass targeted Axe checks', asyn
 })
 
 test('calorie dialog traps focus, inerts the app, closes with Escape, and restores Add Entry', async ({ page }) => {
-  await page.goto('/calories')
+  await page.goto('/app/calories')
   const opener = page.getByRole('button', { name: 'Add Entry' })
   await opener.click()
   const dialog = page.getByTestId('calorie-quick-insert-dialog')
@@ -113,7 +113,7 @@ test('calorie dialog traps focus, inerts the app, closes with Escape, and restor
 
 test('mobile drawer is labelled modal navigation and restores the exact opener', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/')
+  await page.goto('/app')
   const opener = page.getByRole('button', { name: 'Open navigation menu' })
   await opener.click()
   const drawer = page.getByRole('dialog', { name: 'HealthyFlow navigation' })
@@ -136,7 +136,7 @@ test('export downloads the authenticated portable JSON filename and content', as
     },
     body: JSON.stringify({ version: 1, exportedAt: `${exportDate}T12:00:00.000Z`, account: { id: 'user-1' } }),
   }))
-  await page.goto('/settings')
+  await page.goto('/app/settings')
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: /Export Data/ }).click()
   const download = await downloadPromise

@@ -18,7 +18,7 @@ test('Rollover golden path: untimed task dated yesterday appears on the Today vi
   const taskTitle = `Rollover E2E ${yesterday}`
 
   // --- Create an untimed task dated yesterday ---
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('heading', { name: 'Add Item', exact: true })).toBeVisible()
 
   await page.locator('input[placeholder*="Enter"]').first().fill(taskTitle)
@@ -33,7 +33,7 @@ test('Rollover golden path: untimed task dated yesterday appears on the Today vi
   await page.locator('button[type="submit"]').click()
 
   // Redirected to Today (today's view — the app always opens on today)
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
 
   // ADR-0002 one rule: incomplete untimed task with scheduled_date < today
   // surfaces on the Today view. Same real row, same id, title unchanged.

@@ -109,7 +109,7 @@ test('Calories quick insert supports tab sorting, filtering, and keyboard select
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(items) })
   })
 
-  await page.goto('/')
+  await page.goto('/app')
   await expect(page.getByRole('link', { name: 'Calories' })).toBeVisible()
   await page.getByRole('link', { name: 'Calories' }).click()
   await expect(page.getByRole('heading', { name: 'Calorie Log' })).toBeVisible()

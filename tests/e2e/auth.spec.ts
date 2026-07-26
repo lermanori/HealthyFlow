@@ -7,7 +7,7 @@ test.describe('unauthenticated flows', () => {
 
   test('login with seeded credentials lands on Today', async ({ page }) => {
     // unauthenticated root renders the Login page
-    await page.goto('/')
+    await page.goto('/app')
 
     await page.locator('#email').fill(TEST_EMAIL)
     await page.locator('#password').fill(TEST_PASSWORD)
@@ -19,7 +19,7 @@ test.describe('unauthenticated flows', () => {
 
   test('logout after login returns to LoginPage and persists on navigation', async ({ page }) => {
     // Start unauthenticated, log in
-    await page.goto('/')
+    await page.goto('/app')
     await page.locator('#email').fill(TEST_EMAIL)
     await page.locator('#password').fill(TEST_PASSWORD)
     await page.locator('button[type="submit"]').click()
@@ -34,7 +34,7 @@ test.describe('unauthenticated flows', () => {
     await expect(page.locator('#email')).toBeVisible({ timeout: 10_000 })
 
     // Navigate to / and assert still on LoginPage (not redirected back to Today)
-    await page.goto('/')
+    await page.goto('/app')
     await expect(page.locator('#email')).toBeVisible()
   })
 })
@@ -45,7 +45,7 @@ test.describe('authenticated flows', () => {
 
   test('session persists across page reload', async ({ page }) => {
     // Navigate to Today (should already be authenticated via storageState)
-    await page.goto('/')
+    await page.goto('/app')
 
     // Assert Today is shown, not LoginPage
     // Date heading only appears in authenticated Today

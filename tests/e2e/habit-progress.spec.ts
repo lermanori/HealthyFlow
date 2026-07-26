@@ -55,7 +55,7 @@ test('mobile Habit cards open Variant B and persist partial/completed/failed out
     return route.fallback()
   })
 
-  await page.goto('/')
+  await page.goto('/app')
   const mobileActions = page.getByRole('button', { name: 'Don’t smoke until 11 actions' })
   await expect(mobileActions).toBeVisible()
   const actionsBox = await mobileActions.boundingBox()

@@ -22,7 +22,7 @@ async function enableDomainPages(page: Page) {
 }
 
 test('Adding a Task via the UI makes it appear on today\'s Today', async ({ page }) => {
-  await page.goto('/add')
+  await page.goto('/app/add')
   // Wait for form to be ready
   await expect(page.locator('h1', { hasText: 'Add Item' })).toBeVisible()
 
@@ -36,14 +36,14 @@ test('Adding a Task via the UI makes it appear on today\'s Today', async ({ page
   await page.locator('button[type="submit"]').click()
 
   // Should redirect to Today
-  await expect(page).toHaveURL('/', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app', { timeout: 10_000 })
 
   // Task appears by title
   await expect(page.locator('text=Test Task Title')).toBeVisible({ timeout: 10_000 })
 })
 
 test('Category options equal the closed set defined in CONTEXT.md', async ({ page }) => {
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.locator('h1', { hasText: 'Add Item' })).toBeVisible()
 
   // All 6 category buttons sit inside the div that follows the "Category" label
@@ -77,7 +77,7 @@ test('Add Item domain tabs create calorie and achievement entries through existi
   })
   expect(achievement.ok()).toBeTruthy()
 
-  await page.goto('/add')
+  await page.goto('/app/add')
   await expect(page.getByRole('tab', { name: 'Today' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Calories' })).toBeVisible()
   await expect(page.getByRole('tab', { name: 'Achievements' })).toBeVisible()
@@ -88,15 +88,15 @@ test('Add Item domain tabs create calorie and achievement entries through existi
   await page.getByLabel('Calories').fill('180')
   await page.getByLabel('Protein').fill('20')
   await page.getByRole('button', { name: 'Add Entry' }).click()
-  await expect(page).toHaveURL('/calories', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app/calories', { timeout: 10_000 })
   await expect(page.getByText(foodName)).toBeVisible()
 
-  await page.goto('/add')
+  await page.goto('/app/add')
   await page.getByRole('tab', { name: 'Achievements' }).click()
   await page.getByLabel('Achievement').selectOption({ label: achievementName })
   await page.getByRole('spinbutton', { name: 'Value (reps)' }).fill('12')
   await page.getByRole('button', { name: 'Add Achievement Entry' }).click()
-  await expect(page).toHaveURL('/achievements', { timeout: 10_000 })
+  await expect(page).toHaveURL('/app/achievements', { timeout: 10_000 })
   await expect(page.getByRole('heading', { name: achievementName })).toBeVisible()
   await expect(page.getByRole('button', { name: new RegExp(`${achievementName} 12`) })).toBeVisible()
 })

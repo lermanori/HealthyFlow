@@ -43,7 +43,7 @@ test('Today composes its selected-day regions through one DaySummary request', a
     }
   })
 
-  await page.goto('/')
+  await page.goto('/app')
   await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible()
   await expect.poll(
     () => selectedDayRequests.filter((request) => request.startsWith('/api/day-summary?')).length
@@ -55,7 +55,7 @@ test('Today composes its selected-day regions through one DaySummary request', a
 })
 
 test('usable-day settings stay opt-in and produce an honest non-unavailable capacity state', async ({ page }) => {
-  await page.goto('/settings')
+  await page.goto('/app/settings')
   const capacitySwitch = page.getByRole('switch', { name: 'Calculate daily capacity' })
   await expect(capacitySwitch).toHaveAttribute('aria-checked', 'false')
 
@@ -74,7 +74,7 @@ test('usable-day settings stay opt-in and produce an honest non-unavailable capa
   const summaryResponsePromise = page.waitForResponse((response) =>
     new URL(response.url()).pathname === '/api/day-summary'
   )
-  await page.goto('/')
+  await page.goto('/app')
   const summaryResponse = await summaryResponsePromise
   expect(summaryResponse.ok()).toBeTruthy()
   const summary = await summaryResponse.json()

@@ -7,7 +7,7 @@ test('new signup sees brain-dump onboarding, parses a day, and completion stays 
   const email = `onboarding-${unique}@test.healthyflow.local`
   const password = 'onboarding-pw-42!'
 
-  await page.goto('/')
+  await page.goto('/app')
   await page.evaluate(() => localStorage.removeItem('token'))
   await page.reload()
   await page.getByRole('button', { name: 'Create account' }).click()
@@ -43,7 +43,7 @@ test('skip link completes onboarding without parsing', async ({ page }) => {
   const email = `onboarding-skip-${unique}@test.healthyflow.local`
   const password = 'onboarding-pw-42!'
 
-  await page.goto('/')
+  await page.goto('/app')
   await page.evaluate(() => localStorage.removeItem('token'))
   await page.reload()
   await page.getByRole('button', { name: 'Create account' }).click()

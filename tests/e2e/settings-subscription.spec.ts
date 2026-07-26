@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 test('Settings exposes subscription and top-up contact flows', async ({ page }) => {
-  await page.goto('/settings')
+  await page.goto('/app/settings')
 
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'AI Credits' })).toBeVisible()
