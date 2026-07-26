@@ -1,8 +1,19 @@
 import express from 'express'
 import { z } from 'zod'
 import { db } from '../supabase-client'
-import { aiCapabilityTools, cancelPendingAiAction, executePendingAiAction } from '../ai-capabilities'
-import { buildDailyContext, DailyContextInputSchema } from '../daily-context'
+import {
+  aiCapabilityTools,
+  cancelPendingAiAction,
+  DailySignalReviewError,
+  executePendingAiAction,
+  PendingAiActionUnavailableError,
+  prepareDailySignalAction,
+} from '../ai-capabilities'
+import {
+  buildDailyContext,
+  DailyContextInputSchema,
+  DailySignalReviewInputSchema,
+} from '../daily-context'
 import {
   Openai,
   parseMealsWithAi,
@@ -239,6 +250,27 @@ router.get('/daily-context', authenticateToken, async (req: AuthRequest, res) =>
   }
 })
 
+router.post('/daily-context/review', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = DailySignalReviewInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid Daily Signal review request' })
+
+  try {
+    res.json(await prepareDailySignalAction(req.user.userId, parsed.data))
+  } catch (error) {
+    if (error instanceof DailySignalReviewError) {
+      return res.status(error.code === 'daily_signal_stale' ? 409 : 400).json({
+        error: error.message,
+        code: error.code,
+      })
+    }
+    console.error('Daily Signal review error:', error)
+    res.status(500).json({
+      error: 'Could not prepare this Daily Signal change',
+      code: 'daily_signal_prepare_failed',
+    })
+  }
+})
+
 router.get('/conversations', authenticateToken, async (req: AuthRequest, res) => {
   try {
     if (await isDemoHistoryUser(req.user.userId)) return res.json([])
@@ -353,7 +385,19 @@ router.post('/chat/confirm', authenticateToken, async (req: AuthRequest, res) =>
   try {
     res.json(await executePendingAiAction(req.user.userId, parsed.data.actionId, parsed.data.args))
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : 'Could not confirm action' })
+    if (error instanceof PendingAiActionUnavailableError) {
+      return res.status(409).json({ error: error.message, code: error.code })
+    }
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        error: error.issues[0]?.message ?? 'Edited action fields are invalid',
+        code: 'invalid_action_args',
+      })
+    }
+    res.status(400).json({
+      error: error instanceof Error ? error.message : 'Could not confirm action',
+      code: 'action_failed',
+    })
   }
 })
 

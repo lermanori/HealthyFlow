@@ -5,13 +5,18 @@ import { analytics } from '../lib/analytics'
 import type { DemoPersonaId } from '../demoPersonas'
 import type { ItemSource, ItemType } from '../lib/analytics/types'
 import type { RollbackDragMaterializationInput } from '../../backend/src/task-contracts'
+import type {
+  DailyContext,
+  DailySignal,
+  DailySignalType,
+} from '../../backend/src/daily-context-schema'
 import {
   DaySummarySchema,
   type DaySummary,
   type PlanningWindow,
 } from '../../backend/src/day-summary-schema'
 
-export type { DaySummary, PlanningWindow }
+export type { DailyContext, DailySignal, DailySignalType, DaySummary, PlanningWindow }
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 // const API_BASE_URL = 'https://healthyflow-production.up.railway.app/api'
 
@@ -169,41 +174,6 @@ export interface AIRecommendation {
   message: string
   type: 'suggestion' | 'encouragement' | 'tip'
   createdAt: string
-}
-
-export type DailySignalType = 'schedule_overload' | 'habit_risk' | 'missing_calorie_log'
-
-export interface DailySignal {
-  id: string
-  type: DailySignalType
-  severity: 'info' | 'low' | 'medium' | 'high'
-  confidence: 'low' | 'medium' | 'high'
-  summary: string
-  evidence: Record<string, unknown>
-  suggestedAction: {
-    type: string
-    label: string
-    targetId?: string | null
-  } | null
-}
-
-export interface DailyContext {
-  date: string
-  generatedAt: string
-  day: {
-    tasks: unknown[]
-    calorieEntries: unknown[]
-    weight: unknown | null
-    achievements: unknown[]
-    workoutSessions: unknown[]
-    calendarEvents: unknown[]
-  }
-  lookback: {
-    habitHistory: { windowDays: number; days: unknown[] }
-    calorieHistory: { windowDays: number; days: unknown[] }
-    workoutHistory: { windowDays: number; days: unknown[] }
-  }
-  signals: DailySignal[]
 }
 
 export interface AnalyticsData {
@@ -466,6 +436,14 @@ export const aiService = {
 
   getDailyContext: async (date: string): Promise<DailyContext> => {
     const response = await api.get('/ai/daily-context', { params: { date } })
+    return response.data
+  },
+
+  reviewDailySignal: async (date: string, signalId: string): Promise<{
+    signal: DailySignal
+    pendingAction: AssistantPendingAction
+  }> => {
+    const response = await api.post('/ai/daily-context/review', { date, signalId })
     return response.data
   },
 

@@ -1,3 +1,9 @@
+### 2026-07-26 14:33 — `codex/165-daily-signals`
+
+Completed Phase 1’s Daily Signals slice with Zod-derived informational and actionable contracts, safe rationale/evidence, and exact record/change proposals. Actionable schedule signals now revalidate through the existing pending-action system before an editable Apply or Dismiss, while stale, expired, failed, and canceled paths recover without losing user edits; informational signals remain guidance-only and can hand bounded context to Talk. The production build, all 377 backend tests, and responsive Today interaction, visual, focus, touch-target, and accessibility checks are green across desktop, compact, and mobile widths.
+
+---
+
 ### 2026-07-26 14:03 — `codex/164-day-context`
 
 Refined the Workout Day Context after preview feedback by removing the unreachable scheduled Workout Item section and focusing the disclosure on logged Workout sessions. Each logged session now exposes its exercise names and recorded sets, reps, weight, duration, and distance while Achievements remain deliberately out of scope. The responsive Today browser suite and visual baselines are green across desktop, compact, and mobile widths; PR #172 is ready for another preview pass.
