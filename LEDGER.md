@@ -1,3 +1,9 @@
+### 2026-07-26 17:38 — `codex/hotfix-netlify-root`
+
+Fixed the production blank screen introduced by the `/app` routing move: Netlify was file-shadowing the intended root landing-page rewrite with `dist/index.html`, whose router correctly refuses to render outside `/app`. The root rewrite now explicitly overrides static-file shadowing, and a red/green routing regression is included in the frontend CI unit gate so the deployment contract cannot silently regress again.
+
+---
+
 ### 2026-07-26 17:10 — `claude/product-launch-planning-fa4388`
 
 Closed out Workstream B's verification by standing up a full local Supabase stack rather than waiting on production access. Starting it applied the waitlist migration in sequence with the other 32, proving it composes; the backend then ran against it and the whole loop passed 27 of 27 assertions over real HTTP — join, idempotent re-join, admin listing and invite issuance, invite redemption that leaves the public slot counter untouched, invite reuse refused, public signup claiming exactly one slot, and a closed gate returning 403 without creating a user. All three LoginPage states were then driven in the browser against that live backend: the waitlist form wrote a real row tagged `source=login-page`, the open state showed "3 spots left", and an invite link opened the signup form even with zero slots, completing to a registered row and a redeemed invite. The stack was torn down and `.env` restored. Only the production migration remains, and that is the owner's to run.
