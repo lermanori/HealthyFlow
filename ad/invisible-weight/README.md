@@ -365,8 +365,37 @@ Concept, script and plan live here; generated media stays local (gitignored).
         back to `master_scratch.mp4` when `master_final.mp4` doesn't exist yet,
         so the Story cut is previewable before stems land. Verified: 15.000s,
         1080×1920, yuv420p.
-- [ ] M6 (remaining) — record/source `bed.wav`, `vo.wav`, `music.wav`, then
-      `assemble.sh audio`, then re-run `cutdown` against the real mix
+- [x] M6c — **VO recorded and placed.** Two ElevenLabs takes (Shelly, v2,
+      stability 80 / style 0 / speed 0.97 — matches the "flat calm, not
+      performance" direction). `./assemble.sh vo` places them into
+      `audio/vo.wav`:
+      - line 1 @23.750s (speech 23.871→26.502s), line 2 @27.600s (speech
+        27.665→28.936s), **1.16s pause** between them — the script's "the pause
+        is doing the work". Line 2 was moved off its originally-planned 26.600s
+        because line 1 runs 2.873s and they collided.
+      - **The two takes came back 6.8 LU apart** (−32.3 vs −25.5 LUFS), which
+        reads as the voice jumping level mid-thought. The stage loudnorms each
+        line to −20 LUFS before placing; they now sit 0.5dB apart. *Always
+        check this between separate ElevenLabs generations.*
+      - **Two ffmpeg ordering traps** cost real debugging time, both documented
+        in the stage: (1) `loudnorm` resamples to 192kHz, so force 48k *after*
+        it; (2) `loudnorm` leaves a non-zero start PTS and `atrim` honours
+        absolute PTS, so trimming after `adelay` silently lops exactly the
+        delay off the front (13.04s file, speech at 2.7s) — `asetpts=N/SR/TB`
+        between `adelay` and `apad/atrim` fixes it. Symptom to watch for:
+        output duration == target − delay.
+      - `./assemble.sh scratch` now mixes the **real VO over the scratch bed**
+        (side-chain ducked) when `audio/vo.wav` exists, so the cut is
+        reviewable with voice before the real bed/music arrive.
+      - **Known conflict:** the lock-in (25.810s, cards settling) lands inside
+        line 1's tail, so it gets ducked. Ducking was softened
+        (ratio 6→3) to −7.2dB vs the VO's −6.5dB. If it still fights the line,
+        the fix is to retime S9's convergence (`converge_dur_s` 2.5→~3.7) so
+        the cards settle at ~27.0s — in the 1.16s gap between the lines, which
+        is how the original 45s script had it.
+- [ ] M6 (remaining) — source `bed.wav` (room tone + notification stack + the
+      lock-in) and `music.wav`, then `assemble.sh audio`, then re-run `cutdown`
+      against the real mix
 - [ ] M7 — cover/thumbnail frame for the Reel. PRODUCTION.md pointed at
       `freeze_frame.png`, which no longer exists; pick a frame from the master
       deliberately (the full-note-cloud close-up around 22.5s is the obvious

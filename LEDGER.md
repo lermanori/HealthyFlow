@@ -1,3 +1,9 @@
+### 2026-07-19 16:45 — `claude/instagram-ad-testers-4c3c0n`
+
+The voiceover is recorded and in the cut. Added a stage that places the two ElevenLabs takes on the master timeline and normalizes them against each other — they arrived nearly seven loudness units apart, which would have made the voice audibly jump between lines. The second line had to move later than originally planned because the first one runs long enough to have collided with it; the resulting pause between the lines came out at 1.16 seconds, close to what the original script intended. The scratch mix now plays the real voice over the placeholder bed, so the ad can finally be judged with a voice in it. Two ffmpeg ordering traps around loudness normalization silently misplaced the lines during this and are documented in the stage so they don't recur. Still outstanding: the real room-tone/notification bed and the music.
+
+---
+
 ### 2026-07-19 16:15 — `claude/instagram-ad-testers-4c3c0n`
 
 Cleaned up the assembly pipeline now that the picture is locked. Deleted the freeze stage and its orphaned build artifacts, which had been left behind when the freeze frames were removed from the cut and would only have misled the next person. Fixed the 15-second Story cutdown, whose in-point still assumed the older, longer timeline and would have produced a nine-second clip; it now runs to the exact end of the master and covers the full payoff arc, and falls back to the scratch mix so it can be previewed before real audio exists. Verified the whole chain still rebuilds clean.

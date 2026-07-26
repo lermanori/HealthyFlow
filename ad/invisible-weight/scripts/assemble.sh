@@ -5,6 +5,7 @@
 #   ./assemble.sh overlay   — composite the notes layer (needs notes render)
 #   ./assemble.sh grade     — LUT + grain + vignette cohesion pass
 #   ./assemble.sh final     — stitch S1 + graded spine + S9 + S10 + S11
+#   ./assemble.sh vo        — place the two VO takes on the timeline -> audio/vo.wav
 #   ./assemble.sh scratch   — placeholder synth mix for timing review (no stems)
 #   ./assemble.sh audio     — mix stems + VO, loudness-normalize (needs audio/)
 #   ./assemble.sh cutdown   — 15s Story teaser from the master
@@ -125,15 +126,59 @@ final)
   echo "-> build/master_full_silent.mp4  (complete silent timeline, QA before audio)"
   ;;
 
+vo)
+  # Place the two raw VO takes on the master timeline -> audio/vo.wav, padded
+  # to full length so the `audio` stage can mix it with no delay offsets.
+  # Line 2 sits at 27.600s, NOT the 26.600s originally planned: line 1 runs
+  # 2.873s from 23.750s and would have collided. 27.600 leaves a ~0.98s breath
+  # between the lines (the 45s script had ~1.1s -- "the pause is doing the
+  # work") and lands the punchline on the settled timeline as she exhales.
+  # Re-check these if the takes are ever re-recorded at a different length.
+  L1="${2:-audio/vo_line1.mp3}"
+  L2="${3:-audio/vo_line2.mp3}"
+  for f in "$L1" "$L2"; do
+    [ -f "$f" ] || { echo "missing $f -- drop the two ElevenLabs takes in audio/"; exit 1; }
+  done
+  VO1_MS=23750
+  VO2_MS=27600
+  # Per-line loudnorm BEFORE placing: separate ElevenLabs generations can come
+  # back several LU apart (these two were 6.8 LU apart -- line 1 -32.3 LUFS vs
+  # line 2 -25.5), which reads as the VO jumping level mid-thought. Matching
+  # them here keeps the two lines one voice; the `audio` stage still does the
+  # final -14 LUFS pass over the whole mix.
+  # Two ffmpeg ordering traps here, both of which silently misplace the lines:
+  #  1. loudnorm resamples to 192kHz, so force 48k AFTER it, never before.
+  #  2. loudnorm leaves a non-zero start PTS, and `atrim` works on absolute
+  #     PTS -- so trimming after adelay lops exactly the delay off the front
+  #     (36.792 - 23.750 = 13.042s file, speech at ~2.7s instead of 23.8s).
+  #     `asetpts=N/SR/TB` regenerates timestamps from the sample count and
+  #     must sit between adelay and apad/atrim.
+  ffmpeg -y -i "$L1" -i "$L2" -filter_complex "\
+    [0:a]loudnorm=I=-20:TP=-2.0,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,adelay=$VO1_MS|$VO1_MS[a1];\
+    [1:a]loudnorm=I=-20:TP=-2.0,aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo,adelay=$VO2_MS|$VO2_MS[a2];\
+    [a1][a2]amix=inputs=2:normalize=0,asetpts=N/SR/TB,apad,atrim=0:36.791667[a]" \
+    -map "[a]" -ar 48000 -c:a pcm_s16le audio/vo.wav
+  echo "-> audio/vo.wav  (line1 @${VO1_MS}ms, line2 @${VO2_MS}ms)"
+  ;;
+
 scratch)
   # Placeholder sound for timing review only -- NOT the finished mix. Synth bed
   # (note blips, overload drone, hard silence, lock-in, warm pad) with the two
   # VO slots left silent. Regenerate the bed whenever the cut changes: its cue
   # times are hardcoded from this timeline (see audio/generate_scratch.py).
   python3 audio/generate_scratch.py audio/scratch_bed.wav
-  ffmpeg -y -i build/master_full_silent.mp4 -i audio/scratch_bed.wav \
-    -map 0:v -map 1:a -c:v copy -c:a aac -b:a 192k -shortest build/master_scratch.mp4
-  echo "-> build/master_scratch.mp4  (SCRATCH audio -- timing reference, not final)"
+  if [ -f audio/vo.wav ]; then
+    # Real VO over the placeholder bed -- duck the bed under the lines so the
+    # words sit forward, the way the finished mix will.
+    ffmpeg -y -i build/master_full_silent.mp4 -i audio/scratch_bed.wav -i audio/vo.wav \
+      -filter_complex "[1:a][2:a]sidechaincompress=threshold=0.05:ratio=3:attack=20:release=350[duck];[duck][2:a]amix=inputs=2:normalize=0[a]" \
+      -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 192k -shortest build/master_scratch.mp4
+    echo "-> build/master_scratch.mp4  (real VO + SCRATCH bed -- bed is placeholder)"
+  else
+    ffmpeg -y -i build/master_full_silent.mp4 -i audio/scratch_bed.wav \
+      -map 0:v -map 1:a -c:v copy -c:a aac -b:a 192k -shortest build/master_scratch.mp4
+    echo "-> build/master_scratch.mp4  (SCRATCH audio -- timing reference, not final)"
+  fi
   ;;
 
 audio)
