@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status: COMPLETE** (2026-07-26). All nine tasks landed. Two things were added during execution that the plan did not anticipate: redirects for *every* legacy app route rather than just the three public ones (bookmarks and PWA shortcuts pointed at `/week`, `/add`, `/settings`), and the backend's push-notification payloads in `backend/src/proactivity.ts`, which hard-coded `/talk`. The Playwright suite was migrated and typechecks, but **was not executed** — this worktree has no `.env`, so the suite cannot reach Supabase. Running it is the one outstanding verification.
+
 **Goal:** Serve the marketing page at `/` and the React app at `/app`, so paid ad traffic lands on the landing page instead of a login form.
 
 **Architecture:** Netlify rewrites `/` to the static `landing.html` and `/app/*` to the SPA. React Router gets `basename="/app"`, which keeps every in-app route string unchanged. The PWA manifest, service worker app shell, and Playwright suite all currently hard-code `/` as the app and must move in lockstep. A Vite dev-server middleware reproduces the Netlify rewrite locally so dev and prod agree.

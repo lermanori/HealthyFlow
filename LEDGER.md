@@ -1,3 +1,9 @@
+### 2026-07-26 12:55 — `claude/product-launch-planning-fa4388`
+
+Landed Workstream A of the launch plan: the marketing page now serves at `/` and the React app moved to `/app` behind a router basename, so incoming ad traffic no longer hits a login form. Every path the app previously owned redirects to its `/app` equivalent, and the PWA manifest, service worker app shell, and backend push-notification targets moved with it — the service worker would otherwise have cached the landing page as its offline app shell. The Playwright suite's 79 navigations and 26 URL assertions were migrated, the production build is green, and the funnel was verified end to end in the browser. The e2e suite itself has not been run: this worktree has no `.env`, so it cannot reach Supabase.
+
+---
+
 ### 2026-07-26 12:30 — `claude/product-launch-planning-fa4388`
 
 Brainstormed and committed the launch-prep design ahead of driving paid ad traffic at the product. The session surfaced that the marketing page is currently orphaned — `netlify.toml` serves the login form at the root and `landing.html` is only reachable via a footer link — so the design leads with moving the landing page to `/` and the app to `/app`. It also specifies waitlist-centred access control (individual invites plus a capped public opening starting at 10 slots), a landing rewrite around the committed day thesis, and $9/mo launch pricing for the first 100. Design only; no implementation yet, and the next step is turning it into GitHub issues on Project 1.
