@@ -250,6 +250,30 @@ Concept, script and plan live here; generated media stays local (gitignored).
           less noise and more control." lead-in; the CTA is now just
           `DM "FLOW" for early access.` (single centered line in
           `generate_endcard.py`).
+      - **Fix 9 — S9 now differentiates HealthyFlow from a calendar/task list
+        (client: "it doesn't show the benefit / the difference vs a
+        calendar").** The organize beat used to resolve into a monochrome,
+        time-sorted list — indistinguishable from any calendar. Reworked the
+        *after* state to show HealthyFlow's actual thesis ("your whole day in
+        one place — tasks, food, training, weight — one timeline that rolls
+        itself forward"):
+        - `generate_textures.py` rebuilt: each row now has a **category accent
+          bar** (work/fitness/nutrition/health/personal/grocery, from the
+          CONTEXT closed set) and a **chip that varies by item type** — time,
+          `540 kcal`, `6-day streak`, logged `✓ 45 min`, `68.2 kg ▼`, and the
+          `↻ Tomorrow` rollover. The vague to-dos land as *tracked* items a
+          calendar can't hold. Row metadata (category/chip/kind) lives in a
+          `META` table in that script; the before-note cards are unchanged.
+        - Added a **15th row, "Weight"** (per client). It has no floating-note
+          counterpart on the spine — it just flies in with the rest in S9
+          (S9's cards are its own Blender scene, independent of the spine's
+          14-note overlay). `s9_config.json` "rows" is now 15, **time-ordered**
+          so health/work/personal interleave as one woven day; `row_gap`
+          0.24→0.216 and `top_y`→1.62 to fit 15 rows in frame.
+        - Rebuild: `generate_textures.py` → `build_s9.py` → render alpha →
+          `generate_endcard.py …/s9_0144.png organize/S11.mp4` →
+          `assemble.sh final`. Verified the settled column at full scale:
+          all chips legible, uniform yuv420p, clean decode.
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
       (both stages now target `build/master_full_silent.mp4`, not
       `master_silent.mp4`, since audio needs to cover the complete timeline)
