@@ -1,3 +1,9 @@
+### 2026-07-19 15:50 — `claude/instagram-ad-testers-4c3c0n`
+
+Started M6 and found that the whole audio design was anchored to the freeze we deleted — every cue in PRODUCTION.md, and the hardcoded offsets in the audio stage, pointed at shots that no longer exist. Remapped the entire cue sheet to the real 36.79s cut, deriving the key moments from the configs rather than guessing: the hard silence lands with the dissolve, and the lock-in sits exactly where the last card settles. Built a synthesized scratch mix so the edit can be judged with sound before paying for stems, and fixed the real audio stage to expect pre-placed files. Still needed from a human: the two VO lines, music, and the notification/room-tone bed.
+
+---
+
 ### 2026-07-19 15:20 — `claude/instagram-ad-testers-4c3c0n`
 
 Smoothed the last rough seam in the picture edit: the cut from the spine into the organize sequence jumped from the tight end of the push-in back to a wide framing of the same shot, so it now cross-dissolves instead. The dissolve doubles as a story beat, melting the static note cloud into the scattered cards. This boundary can't be stream-copied, so the final stage fades those two segments together first and concatenates the result; the master lands at 36.79s with the fade duration exposed as a stage argument.

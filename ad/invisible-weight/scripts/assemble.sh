@@ -6,6 +6,7 @@
 #   ./assemble.sh overlay   — composite the notes layer (needs notes render)
 #   ./assemble.sh grade     — LUT + grain + vignette cohesion pass
 #   ./assemble.sh final     — stitch S1 + graded spine + freeze hold + S9 + S10 + S11
+#   ./assemble.sh scratch   — placeholder synth mix for timing review (no stems)
 #   ./assemble.sh audio     — mix stems + VO, loudness-normalize (needs audio/)
 #   ./assemble.sh cutdown   — 15s Story teaser from the master
 set -euo pipefail
@@ -137,13 +138,35 @@ final)
   echo "-> build/master_full_silent.mp4  (complete silent timeline, QA before audio)"
   ;;
 
+scratch)
+  # Placeholder sound for timing review only -- NOT the finished mix. Synth bed
+  # (note blips, overload drone, hard silence, lock-in, warm pad) with the two
+  # VO slots left silent. Regenerate the bed whenever the cut changes: its cue
+  # times are hardcoded from this timeline (see audio/generate_scratch.py).
+  python3 audio/generate_scratch.py audio/scratch_bed.wav
+  ffmpeg -y -i build/master_full_silent.mp4 -i audio/scratch_bed.wav \
+    -map 0:v -map 1:a -c:v copy -c:a aac -b:a 192k -shortest build/master_scratch.mp4
+  echo "-> build/master_scratch.mp4  (SCRATCH audio -- timing reference, not final)"
+  ;;
+
 audio)
-  # Stems expected in audio/: bed.wav (room tone + notification stack built in
-  # your DAW/CapCut, silent from 30.000s), vo.wav (starts at 31.0s), music.wav
-  # (enters ~36s). Adjust delays below if your stems aren't pre-placed.
+  # Real stems in audio/, pre-placed on the master timeline (i.e. each file
+  # starts at 0:00 with its own leading silence) -- simplest thing that mixes
+  # correctly and the reason there are no delay offsets here.
+  #   bed.wav   room tone + notification stack. MUST be silent from 22.750s
+  #             (the hard cut to silence) until the world returns at 28.750s.
+  #   vo.wav    line 1 at 23.750s, line 2 at 26.600s.
+  #   music.wav enters no earlier than 26.300s -- never before the day
+  #             organizes -- and resolves under the end card (31.792-36.792s).
+  # The lock-in "thock" at 25.810s (the last card settling) belongs in bed.wav
+  # and is the single most important sound in the ad.
+  # These times come from the current cut; re-derive from `final` if it moves.
+  for f in audio/bed.wav audio/vo.wav audio/music.wav; do
+    [ -f "$f" ] || { echo "missing $f -- see the cue sheet in README (M6); or run './assemble.sh scratch' for a placeholder mix"; exit 1; }
+  done
   ffmpeg -y -i build/master_full_silent.mp4 -i audio/bed.wav -i audio/vo.wav -i audio/music.wav \
     -filter_complex "[1:a][2:a][3:a]amix=inputs=3:normalize=0,loudnorm=I=-14:TP=-1.5[a]" \
-    -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 192k build/master_final.mp4
+    -map 0:v -map "[a]" -c:v copy -c:a aac -b:a 192k -shortest build/master_final.mp4
   echo "-> build/master_final.mp4"
   ;;
 

@@ -8,6 +8,7 @@ organize/render/*
 organize/*.mp4
 !*/.gitkeep
 !stills/*.py
+!audio/*.py
 blender/s9.blend
 blender/*.blend1
 blender/render/*

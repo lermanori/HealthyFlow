@@ -299,7 +299,46 @@ Concept, script and plan live here; generated media stays local (gitignored).
         double-exposure of her face at two scales (inherent to dissolving two
         framings of one subject) — fine in motion at 0.5s, shorten if it reads
         badly. Dissolve lands at 22.75–23.25s in master time.
-- [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
+- [~] M6 — audio. **Scratch mix done; real stems still needed.**
+      - **PRODUCTION.md's audio design is stale — it is anchored to a freeze
+        that no longer exists.** Every cue in the cue sheet there (hard silence
+        at 0:30, VO1 at 0:31, lock-in at 0:35, music at 0:36) assumed the 45s
+        cut with a 3s freeze at 0:30. The freeze was deleted in Fix 7 and the
+        master is now 36.79s, so the old numbers point at the wrong shots. The
+        `audio` stage's hardcoded offsets were wrong for the same reason and
+        have been corrected. **Use the table below, not PRODUCTION.md's.**
+      - The design still holds structurally: the "silence" beat is really *the
+        moment the noise stops and organizing begins*, which is now the
+        dissolve into S9.
+
+      | Master time | Cue |
+      |---|---|
+      | 0.00–1.00s | S1 flash — peak of the stack, hard out |
+      | 4.71, 7.68, 8.79, 9.90, 11.75, 12.87, 13.61, 14.35, 15.83, 16.58, 17.32, 18.06, 18.80, 19.54s | 14 note births (= `notes_config.json` `born` + 1.0s S1 offset). Vary the alert type per note; room tone thins as they stack |
+      | **22.750s** | **HARD SILENCE** — cut everything incl. room tone, as the dissolve starts |
+      | **23.750s** | VO 1: *"The hardest part of modern life isn't doing everything."* (1 full second of silence first — don't rush it) |
+      | **25.810s** | **Lock-in "thock"** — the last card settles. The single most important sound in the ad; make it tactile |
+      | **26.300s** | Warm music enters — never before the day organizes |
+      | **26.600s** | VO 2: *"It's remembering everything."* |
+      | **28.750s** | S10 release — birds + room tone return, world sounds like S2 again |
+      | 31.792–36.792s | End card, music resolves on a sustained warm chord |
+
+      - Derivation (re-run if the cut moves): S9 frame 0 = `1.0 + spine 22.25 −
+        xfade 0.5` = 22.75s; last card = S9 frame 0 + `converge_dur_s` +
+        `stagger_s`×(rows−1) = 25.81s.
+      - `./assemble.sh scratch` — synthesizes `audio/generate_scratch.py` into a
+        placeholder mix (`build/master_scratch.mp4`) so the cut can be judged
+        with sound. Blips, overload drone, real silence, lock-in, warm pad; the
+        two VO slots are left silent (no speech synthesis available). Verified:
+        silence window measures −91 dB, lock-in peaks −2.8 dB, overload −12.1 dB.
+        **Timing reference only — not the finished sound design.**
+      - `./assemble.sh audio` — the real mix. Expects **pre-placed** stems in
+        `audio/` (each starting at 0:00 with its own leading silence, so no
+        delay offsets are needed): `bed.wav` (room tone + stack + the lock-in;
+        must be silent 22.750→28.750s), `vo.wav`, `music.wav`. Errors with a
+        pointer here if any are missing.
+- [ ] M6 (remaining) — record/source `bed.wav`, `vo.wav`, `music.wav`, then
+      `assemble.sh audio` and `cutdown`
       (both stages now target `build/master_full_silent.mp4`, not
       `master_silent.mp4`, since audio needs to cover the complete timeline)
 
