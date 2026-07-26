@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { format, addDays } from 'date-fns'
@@ -925,12 +925,34 @@ export default function AssistantPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const skipNextPersistRef = useRef(false)
   const saveTimerRef = useRef<number | null>(null)
+  const conversationsRef = useRef<StoredConversation[]>([])
+  const saveQueuesRef = useRef(new Map<string, Promise<AssistantConversation>>())
   const {
     isListening,
     isDictationSupported,
     dictationError,
     toggleDictation,
   } = useDictatedText({ text: draft, setText: setDraft, disabled: isSending })
+
+  const queueConversationSave = useCallback((conversation: StoredConversation) => {
+    const previousSave = saveQueuesRef.current.get(conversation.id) ?? Promise.resolve()
+    const queuedSave = previousSave
+      .catch(() => undefined)
+      .then(() => aiService.saveConversation(conversation))
+    const clearQueue = () => {
+      if (saveQueuesRef.current.get(conversation.id) === queuedSave) {
+        saveQueuesRef.current.delete(conversation.id)
+      }
+    }
+
+    saveQueuesRef.current.set(conversation.id, queuedSave)
+    void queuedSave.then(clearQueue, clearQueue)
+    return queuedSave
+  }, [])
+
+  useEffect(() => {
+    conversationsRef.current = conversations
+  }, [conversations])
 
   useEffect(() => {
     let canceled = false
@@ -965,12 +987,13 @@ export default function AssistantPage() {
           setMessages(firstConversation.messages)
           setModel(firstConversation.model)
         }
-        setIsHistoryLoaded(true)
 
         if (shouldMigrate) {
-          await Promise.all(localOnlyConversations.map((conversation) => aiService.saveConversation(conversation)))
+          await Promise.all(localOnlyConversations.map(queueConversationSave))
+          if (canceled) return
           localStorage.setItem(ASSISTANT_CONVERSATIONS_MIGRATED_KEY, 'true')
         }
+        setIsHistoryLoaded(true)
       } catch {
         const localConversations = readStoredConversations()
         if (canceled) return
@@ -993,7 +1016,7 @@ export default function AssistantPage() {
       canceled = true
       if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
     }
-  }, [demoSession])
+  }, [demoSession, queueConversationSave])
 
   useEffect(() => {
     if (!isHistoryLoaded) return
@@ -1025,7 +1048,7 @@ export default function AssistantPage() {
       return
     }
 
-    const existing = conversations.find((conversation) => conversation.id === activeConversationId)
+    const existing = conversationsRef.current.find((conversation) => conversation.id === activeConversationId)
     const now = new Date().toISOString()
     const conversation: StoredConversation = {
       id: activeConversationId,
@@ -1038,11 +1061,11 @@ export default function AssistantPage() {
 
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current)
     saveTimerRef.current = window.setTimeout(() => {
-      aiService.saveConversation(conversation).catch(() => {
+      queueConversationSave(conversation).catch(() => {
         toast.error('Could not save chat history.')
       })
     }, 350)
-  }, [activeConversationId, conversations, demoSession, isHistoryLoaded, messages, model])
+  }, [activeConversationId, demoSession, isHistoryLoaded, messages, model, queueConversationSave])
 
   const apiMessages = useMemo(
     () => messages
