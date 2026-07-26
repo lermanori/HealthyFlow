@@ -10,6 +10,7 @@ import { isPureDragUpdate } from '../utils/isPureDragUpdate'
 import { deleteGoogleCalendarEvent, isGoogleCalendarNotConnectedError, syncTaskToGoogleCalendar } from '../calendar'
 import { HabitOutcomeInputSchema, HabitProgress, HabitProgressInputSchema, HabitProgressUpdateSchema } from '../habit-progress'
 import { getItemsForDay, normalizeItemRows } from '../day-summary'
+import { RollbackDragMaterializationInputSchema } from '../task-contracts'
 
 const router = express.Router()
 
@@ -66,6 +67,36 @@ router.put('/:id/habit-outcome', authenticateToken, async (req: AuthRequest, res
     res.json(await HabitProgress.setOutcome(req.user.userId, req.params.id, parsed.data))
   } catch (error: any) {
     res.status(error.status ?? 500).json({ error: error.message ?? 'Database error' })
+  }
+})
+
+// Compensate a failed multi-write drag after a virtual Habit instance was
+// materialized. The real row and synthetic id must describe the same owner,
+// parent Habit, and date before the row can be hard-deleted.
+router.post('/:id/rollback-drag-materialization', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = RollbackDragMaterializationInputSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues })
+
+  const virtual = parseHabitInstanceId(parsed.data.virtualId)
+  if (!virtual) return res.status(400).json({ error: 'Invalid virtual Habit instance id' })
+
+  try {
+    const row = await db.getTaskById(req.params.id)
+    if (!row || row.user_id !== req.user.userId) {
+      return res.status(403).json({ error: 'Forbidden' })
+    }
+    if (
+      row.type !== 'habit'
+      || row.original_habit_id !== virtual.originalHabitId
+      || row.scheduled_date !== virtual.date
+    ) {
+      return res.status(409).json({ error: 'Habit materialization does not match the failed drag' })
+    }
+
+    await db.deleteTask(row.id)
+    res.json({ success: true })
+  } catch (error) {
+    res.status(500).json({ error: 'Database error' })
   }
 })
 

@@ -4,6 +4,7 @@ import toast from 'react-hot-toast'
 import { analytics } from '../lib/analytics'
 import type { DemoPersonaId } from '../demoPersonas'
 import type { ItemSource, ItemType } from '../lib/analytics/types'
+import type { RollbackDragMaterializationInput } from '../../backend/src/task-contracts'
 import {
   DaySummarySchema,
   type DaySummary,
@@ -435,6 +436,16 @@ export const taskService = {
   // Batch-persist Anytime backlog order; ids ordered front-to-back
   async reorderTasks(ids: string[]): Promise<void> {
     await api.patch('/tasks/reorder', { ids })
+  },
+
+  // Compensating action used only when a virtual Habit drag materialized a row
+  // but the remaining drag transaction failed. The server verifies that the
+  // real row matches the synthetic Habit instance before removing it.
+  async rollbackDragMaterialization(
+    id: string,
+    input: RollbackDragMaterializationInput
+  ): Promise<void> {
+    await api.post(`/tasks/${id}/rollback-drag-materialization`, input)
   },
 }
 

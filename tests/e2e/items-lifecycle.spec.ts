@@ -442,7 +442,7 @@ test('Schedule expands occupied hours to fit multiple timed items', async ({ pag
   expect(fivePmBox!.y).toBeGreaterThanOrEqual(fourPmBox!.y + fourPmBox!.height - 1)
 })
 
-test('Drag start keeps the card attached to the pointer without shifting layout', async ({ page }) => {
+test('Drag start expands compacted hours before capture and restores them after cancel', async ({ page }) => {
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
   await page.goto('/add')
@@ -465,38 +465,28 @@ test('Drag start keeps the card attached to the pointer without shifting layout'
 
   const box = await dragHandle.boundingBox()
   expect(box).toBeTruthy()
-  const cardTopBefore = (await taskCard.boundingBox())!.y
-
   await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
   await page.mouse.down()
+  await page.mouse.move(box!.x + box!.width / 2 + 8, box!.y + box!.height / 2 + 8, { steps: 3 })
 
-  // Lifting must NOT expand the compacted windows — expanding here reflows the timeline
-  // and throws the dragged clone away from the pointer.
-  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'true')
+  await expect(page.locator('.today-plan-grid')).toHaveAttribute('data-drag-layout', 'expanded')
+  await expect(page.locator('[data-slot="06:00"]')).toHaveCSS('height', '72px')
+  await expect(page.locator('[data-slot="11:00"]')).toHaveCSS('height', '72px')
 
-  const dy = 60
-  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2 + dy, { steps: 6 })
-
-  // Still compacted mid-drag: no vertical layout shift above or below the dragged card.
-  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'true')
-  await expect(page.locator('[data-slot="11:00"]')).toHaveAttribute('data-compacted', 'true')
-
-  // The dragged card tracks the pointer: its top moves ~dy, not hundreds of px.
-  const cardTopDuring = (await taskCard.boundingBox())!.y
-  expect(Math.abs((cardTopDuring - cardTopBefore) - dy)).toBeLessThan(24)
-
+  // Releasing away from a new destination cancels the move and returns the compact layout.
   await page.mouse.up()
-  await expect(page.locator('[data-slot="06:00"]')).toHaveAttribute('data-compacted', 'true')
+  await expect(page.locator('.today-plan-grid')).not.toHaveAttribute('data-drag-layout', 'expanded')
+  await expect(page.locator('[data-slot="06:00"]')).toHaveCSS('height', '28px')
 })
 
-test('Drag start avoids fragile capture hooks and drag-time expansion', async () => {
+test('Drag expansion uses the supported pre-capture hook without pointer capture hacks', async () => {
   const source = await readFile(path.join(process.cwd(), 'src/components/DayTimeline.tsx'), 'utf8')
 
   expect(source).not.toContain('flushSync')
   expect(source).not.toContain('onMouseDownCapture')
   expect(source).not.toContain('onPointerDownCapture')
-  expect(source).not.toContain('onBeforeCapture')
-  expect(source).not.toContain('isExpandedForDrag')
+  expect(source).toContain('onBeforeCapture={handleBeforeCapture}')
+  expect(source).toContain("root.dataset.dragLayout = 'expanded'")
 })
 
 test('Mobile calendar event checkbox stays compact and clear of the title', async ({ page }) => {
