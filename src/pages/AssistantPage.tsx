@@ -48,9 +48,10 @@ function dailySignalTalkContext(value: unknown): DailySignalTalkContext | null {
 
 function dailySignalTalkPrompt(context: DailySignalTalkContext) {
   return [
-    `Help me review Daily Signals for ${context.date}.`,
+    `Help me work through this Daily Signal for ${context.date}.`,
     context.summary ? `Signal: ${context.summary}` : null,
     context.rationale ? `Why it surfaced: ${context.rationale}` : null,
+    'Help me choose one useful next step. Ask a clarifying question if the signal does not contain enough context, and do not assume I want to change the Habit.',
   ].filter(Boolean).join('\n')
 }
 
@@ -415,6 +416,7 @@ export default function AssistantPage() {
   const [isHistoryLoaded, setIsHistoryLoaded] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const opensFreshSignalChatRef = useRef(signalContext !== null)
   const skipNextPersistRef = useRef(false)
   const saveTimerRef = useRef<number | null>(null)
   const conversationsRef = useRef<StoredConversation[]>([])
@@ -473,7 +475,7 @@ export default function AssistantPage() {
         if (canceled) return
         setConversations(mergedConversations)
         const firstConversation = mergedConversations[0]
-        if (firstConversation) {
+        if (firstConversation && !opensFreshSignalChatRef.current) {
           skipNextPersistRef.current = true
           setActiveConversationId(firstConversation.id)
           setMessages(firstConversation.messages)
@@ -491,7 +493,7 @@ export default function AssistantPage() {
         if (canceled) return
         setConversations(localConversations)
         const firstConversation = localConversations[0]
-        if (firstConversation) {
+        if (firstConversation && !opensFreshSignalChatRef.current) {
           skipNextPersistRef.current = true
           setActiveConversationId(firstConversation.id)
           setMessages(firstConversation.messages)
@@ -719,6 +721,7 @@ export default function AssistantPage() {
     setMessages(conversation.messages)
     setModel(conversation.model)
     setDraft('')
+    setSignalContext(null)
     setAttachment(null)
   }
 
@@ -899,6 +902,11 @@ export default function AssistantPage() {
                 className="mt-1 block w-full truncate rounded-md border border-card bg-page px-2 py-1 text-xs text-ink outline-none transition-colors focus:border-cyan-500 disabled:opacity-60 md:hidden"
                 aria-label="Chat history"
               >
+                {!conversations.some((conversation) => conversation.id === activeConversationId) && (
+                  <option value={activeConversationId}>
+                    {signalContext ? 'New insight chat' : 'New chat'}
+                  </option>
+                )}
                 {conversations.map((conversation) => (
                   <option key={conversation.id} value={conversation.id}>
                     {conversation.title}

@@ -6,6 +6,7 @@ import {
   getItemsForDay,
   weightRowToClient,
 } from './day-summary'
+import { isDaySummaryItemAddressed } from './day-summary-schema'
 import {
   CALORIE_LOOKBACK_DAYS,
   DailyContextSchema,
@@ -96,7 +97,7 @@ async function workoutSessionsForDay(userId: string, date: string) {
 }
 
 function scheduledTasks(tasks: DailyContext['day']['tasks']) {
-  return tasks.filter((task) => !task.completed && timeToMinutes(task.startTime) != null)
+  return tasks.filter((task) => !isDaySummaryItemAddressed(task) && timeToMinutes(task.startTime) != null)
 }
 
 const scheduleOverloadDetector: SignalDetector = {
@@ -188,7 +189,9 @@ const habitRiskDetector: SignalDetector = {
   version: 1,
   enabledByDefault: true,
   evaluate(context) {
-    const dueHabits = context.day.tasks.filter((task) => task.type === 'habit' && !task.completed)
+    const dueHabits = context.day.tasks.filter((task) => (
+      task.type === 'habit' && !isDaySummaryItemAddressed(task)
+    ))
     const signals: DailySignal[] = []
 
     for (const habit of dueHabits) {

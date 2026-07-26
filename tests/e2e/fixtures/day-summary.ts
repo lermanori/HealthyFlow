@@ -7,6 +7,13 @@ import type {
 type ItemInput = Pick<DaySummaryItem, 'id' | 'title'> & Partial<DaySummaryItem>
 type CalendarEventInput = Pick<DaySummaryCalendarEvent, 'id' | 'title'> & Partial<DaySummaryCalendarEvent>
 
+function isAddressed(item: DaySummaryItem) {
+  return item.completed || (
+    item.type === 'habit' &&
+    (item.habitInfo?.outcome === 'completed' || item.habitInfo?.outcome === 'failed')
+  )
+}
+
 function formatDate(date: Date) {
   return date.toISOString().slice(0, 10)
 }
@@ -87,7 +94,8 @@ export function daySummaryFixture({
   const normalizedItems = items.map(daySummaryItem)
   const normalizedEvents = calendarEvents.map(daySummaryCalendarEvent)
   const completed = normalizedItems.filter((item) => item.completed).length
-  const incomplete = normalizedItems.filter((item) => !item.completed)
+  const addressed = normalizedItems.filter(isAddressed).length
+  const incomplete = normalizedItems.filter((item) => !isAddressed(item))
   const firstAnytime = incomplete.find((item) => item.startTime === null)
   const firstTimed = incomplete.find((item) => item.startTime !== null)
   const focus = firstTimed ?? firstAnytime ?? null
@@ -96,6 +104,7 @@ export function daySummaryFixture({
   if (selectedWeekDay) {
     selectedWeekDay.total = normalizedItems.length
     selectedWeekDay.completed = completed
+    selectedWeekDay.addressed = addressed
   }
 
   return {
@@ -121,11 +130,12 @@ export function daySummaryFixture({
     },
     calorieEntries: [],
     completion: {
-      state: normalizedItems.length === 0 ? 'empty' : completed === normalizedItems.length ? 'complete' : 'in_progress',
+      state: normalizedItems.length === 0 ? 'empty' : addressed === normalizedItems.length ? 'complete' : 'in_progress',
       total: normalizedItems.length,
       completed,
-      remaining: normalizedItems.length - completed,
-      percent: normalizedItems.length === 0 ? null : (completed / normalizedItems.length) * 100,
+      addressed,
+      remaining: normalizedItems.length - addressed,
+      percent: normalizedItems.length === 0 ? null : (addressed / normalizedItems.length) * 100,
     },
     week,
     attention: {

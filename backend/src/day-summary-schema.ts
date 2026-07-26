@@ -235,6 +235,7 @@ export const DayCompletionSchema = z.object({
   state: z.enum(['empty', 'in_progress', 'complete']),
   total: z.number().int().nonnegative(),
   completed: z.number().int().nonnegative(),
+  addressed: z.number().int().nonnegative().optional(),
   remaining: z.number().int().nonnegative(),
   percent: z.number().min(0).max(100).nullable(),
 }).strict()
@@ -243,6 +244,7 @@ export const WeekLoadDaySchema = z.object({
   date: IsoDateSchema,
   total: z.number().int().nonnegative(),
   completed: z.number().int().nonnegative(),
+  addressed: z.number().int().nonnegative().optional(),
 }).strict()
 
 export const WeekLoadSchema = z.object({
@@ -328,3 +330,9 @@ export type DaySummaryCalorieEntry = z.infer<typeof DaySummaryCalorieEntrySchema
 export type DaySummaryWeightEntry = z.infer<typeof DaySummaryWeightEntrySchema>
 export type DaySummaryCapacity = z.infer<typeof DaySummaryCapacitySchema>
 export type DaySummary = z.infer<typeof DaySummarySchema>
+
+export function isDaySummaryItemAddressed(item: DaySummaryItem) {
+  if (item.completed) return true
+  if (item.type !== 'habit') return false
+  return item.habitInfo?.outcome === 'completed' || item.habitInfo?.outcome === 'failed'
+}
