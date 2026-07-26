@@ -5,6 +5,16 @@
 > **Goal:** 10 paying customers. Money first. Everything (audience, pricing, positioning) is pivotable — customers decide.
 > **Last updated:** 2026-07-05 (supersedes the 2026-06-19 pre-launch GTM draft)
 
+> **⚠️ Pricing superseded — 2026-07-26.** The launch price is **$9/mo for the first 100
+> members, anchored against $19 and locked in for as long as they stay**. The `$1/mo promo →
+> $2/mo regular` figures throughout this document are historical. This resolves the tension
+> §3 already named ("nobody successful competes on being cheap") rather than contradicting it:
+> $9 sits under the $19–25 category while still reading as a real product.
+>
+> Fulfilment stays manual, so this is a promise honoured by hand — no billing code changed.
+> The margin-trap warning in §5 (separate sell rate vs `APP_TOKENS_PER_USD`) still stands and
+> is still unimplemented. See `docs/superpowers/specs/2026-07-26-launch-prep-design.md`.
+
 ---
 
 ## 1. The honest frame

@@ -1,3 +1,9 @@
+### 2026-07-26 15:05 — `claude/product-launch-planning-fa4388`
+
+Landed Workstreams D and F: the landing page now tells the committed day thesis instead of a generic AI story. The hero leads with "Your whole day, in one place", the three steps became say-it / it-lands-on-the-day / tomorrow-picks-it-up so rollover is a headline rather than a subclause, and AI is reframed as the fastest way in rather than the identity. Pricing replaces the $1 Launch Plan with a $9 Founding Member card anchored against $19, and the feature grid was run through the day-razor — Health, Planning, and Analytics out; Rollover, Training, and Week view in. Also fixed the relative `og:image` that would have left every shared ad link without a preview, and added the missing Twitter card tags. `MARKETING.md` carries a superseding note for the old $1/$2 model.
+
+---
+
 ### 2026-07-26 14:20 — `claude/product-launch-planning-fa4388`
 
 Built Workstream B: waitlist-centred access control. Registration is now closed by default with two doors — a single-use invite bound to a waitlist row, and a capped public opening that starts at 10 slots — and the slot claim is a Postgres function so two concurrent signups cannot both take the last one. Adds the `waitlist`/`invites`/`signup_access` schema, a `Waitlist` deep module, public join and signup-status endpoints, admin management routes, a three-state LoginPage, an admin WaitlistPanel, and a landing-page waitlist form with availability-aware CTAs. The full backend suite passes at 387 tests across 53 suites. **The migration has not been applied to Supabase** — until it is, `signup-status` errors and the UI fails closed (Create account hidden, login unaffected), which is why both `onboarding` e2e specs currently fail.

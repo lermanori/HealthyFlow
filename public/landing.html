@@ -3,11 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>HealthyFlow — Your life, organized by AI</title>
-  <meta name="description" content="HealthyFlow combines planning, health tracking, habits, calendar, and AI into one workspace that helps you actually get things done." />
-  <meta property="og:title" content="HealthyFlow — Your life, organized by AI" />
-  <meta property="og:description" content="Tasks, habits, meals, workouts, and calendar in one AI-powered workspace." />
-  <meta property="og:image" content="/landing/today-desktop.jpg" />
+  <title>HealthyFlow — Your whole day in one place</title>
+  <meta name="description" content="Tasks, food, training, weight — one timeline that rolls itself forward. HealthyFlow makes the day the unit, instead of scattering it across five apps." />
+  <meta property="og:title" content="HealthyFlow — Your whole day in one place" />
+  <meta property="og:description" content="Tasks, food, training, weight — one timeline that rolls itself forward." />
+  <!-- Absolute URL is required: scrapers (Facebook, X, LinkedIn, iMessage, WhatsApp)
+       reject relative og:image paths, which would leave every shared ad link
+       without a preview image. -->
+  <meta property="og:image" content="https://healthyflow.app/landing/today-desktop.jpg" />
+  <meta property="og:url" content="https://healthyflow.app/" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="HealthyFlow — Your whole day in one place" />
+  <meta name="twitter:description" content="Tasks, food, training, weight — one timeline that rolls itself forward." />
+  <meta name="twitter:image" content="https://healthyflow.app/landing/today-desktop.jpg" />
   <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -487,6 +496,13 @@
       margin: 14px 0 2px;
     }
     .plan .price small { font-size: 17px; font-weight: 500; color: var(--text-dim); }
+    .plan .price .price-was {
+      font-size: 22px;
+      font-weight: 500;
+      color: var(--text-faint);
+      text-decoration: line-through;
+      margin-right: 10px;
+    }
     .plan .tagline { color: var(--text-dim); font-size: 15px; }
     .plan ul { list-style: none; margin: 26px 0 30px; display: grid; gap: 12px; }
     .plan li { display: flex; gap: 11px; align-items: baseline; font-size: 15.5px; color: var(--text-dim); }
@@ -671,17 +687,17 @@
     <div class="orb orb-2"></div>
     <div class="wrap hero-grid">
       <div>
-        <div class="pill"><span class="dot"></span> AI-powered · Now in beta</div>
-        <h1>Your life,<br /><span class="grad-text">organized by AI.</span></h1>
+        <div class="pill"><span class="dot"></span> Invite-only beta · First 100 members</div>
+        <h1>Your whole day,<br /><span class="grad-text">in one place.</span></h1>
         <p class="lede">
-          HealthyFlow combines planning, health tracking, habits, calendar, and AI
-          into one workspace that helps you actually get things done.
+          Tasks, food, training, weight — on one timeline that rolls itself forward.
+          Every other app makes you manage things. HealthyFlow manages the day.
         </p>
         <div class="hero-ctas">
           <a class="btn btn-primary" href="/app">Start Free</a>
           <a class="btn btn-ghost" href="/app/demo">Watch Demo</a>
         </div>
-        <div class="hero-note">Free to use · No credit card required</div>
+        <div class="hero-note">$9/month for the first 100 members · Locked in for good</div>
       </div>
       <div class="mockups">
         <div class="browser">
@@ -703,8 +719,8 @@
     <div class="wrap">
       <div class="center reveal">
         <div class="kicker">How it works</div>
-        <h2 class="section-title">Dump it. It gets planned.<br />Then get it done.</h2>
-        <p class="section-sub">No rigid forms to fill. HealthyFlow meets you where your brain is.</p>
+        <h2 class="section-title">One day. One timeline.<br />It carries itself forward.</h2>
+        <p class="section-sub">No rigid forms to fill. You describe the day; HealthyFlow keeps it.</p>
       </div>
       <div class="steps">
         <div class="card reveal">
@@ -712,24 +728,24 @@
           <div class="icon-tile">
             <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19v3"/><path d="M8 22h8"/><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/></svg>
           </div>
-          <h3>Capture</h3>
-          <p>Tasks, ideas, meals, habits, calendar plans — typed or spoken, in plain language. Whatever's on your mind goes in as-is.</p>
+          <h3>Say what's on today</h3>
+          <p>Tasks, meals, training, weigh-ins — typed or spoken, in plain language. No forms, no categories to pick. Whatever's in your head goes in as-is.</p>
         </div>
         <div class="card reveal" style="transition-delay: 0.1s">
           <div class="step-num">STEP 02</div>
           <div class="icon-tile">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
           </div>
-          <h3>Organize</h3>
-          <p>AI structures everything into today's plan — tasks get times, habits recur, meals get macros. Unfinished items roll forward on their own.</p>
+          <h3>It lands on the day</h3>
+          <p>Everything takes its place on one timeline — tasks get times, habits recur, meals get macros, weight goes on the curve. Not five apps. One day.</p>
         </div>
         <div class="card reveal" style="transition-delay: 0.2s">
           <div class="step-num">STEP 03</div>
           <div class="icon-tile">
-            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg>
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
           </div>
-          <h3>Execute</h3>
-          <p>Work through one clear timeline, track progress by life area, and adjust as the day changes — with your streaks intact.</p>
+          <h3>Tomorrow picks it up</h3>
+          <p>Whatever you didn't finish rolls forward on its own. No re-typing yesterday, no guilt list. The day ends; the plan survives.</p>
         </div>
       </div>
     </div>
@@ -740,7 +756,7 @@
     <div class="wrap">
       <div class="center reveal">
         <div class="kicker">The product</div>
-        <h2 class="section-title">One workspace for everything<br />you keep in five apps.</h2>
+        <h2 class="section-title">One day, holding everything<br />you keep in five apps.</h2>
         <p class="section-sub">Real screens from HealthyFlow — this is the actual product, not a concept.</p>
       </div>
 
@@ -822,8 +838,8 @@
     <div class="wrap">
       <div class="center reveal">
         <div class="kicker">AI, where it helps</div>
-        <h2 class="section-title">An assistant — not a gimmick.</h2>
-        <p class="section-sub">AI in HealthyFlow does the tedious structuring work, so planning stops being a chore.</p>
+        <h2 class="section-title">The fastest way in.</h2>
+        <p class="section-sub">AI isn't the point — the day is. It just removes the typing between what's in your head and what's on your timeline.</p>
       </div>
       <div class="ai-grid reveal">
         <div class="ai-item"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Breaks down your tasks</div>
@@ -844,22 +860,22 @@
     <div class="wrap">
       <div class="center reveal">
         <div class="kicker">All of it, together</div>
-        <h2 class="section-title">Everything in one place.</h2>
-        <p class="section-sub">Stop stitching your life together across five different apps.</p>
+        <h2 class="section-title">Everything that lives on a day.</h2>
+        <p class="section-sub">Stop stitching your day together across five different apps.</p>
       </div>
       <div class="all-grid reveal">
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><span>Calendar</span></div>
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><span>Tasks</span></div>
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.1l4 4-4 4"/><path d="M3 12.2v-2a4 4 0 0 1 4-4h12.8"/><path d="M7 21.9l-4-4 4-4"/><path d="M21 11.8v2a4 4 0 0 1-4 4H4.2"/></svg></div><span>Habits</span></div>
-        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg></div><span>Health</span></div>
+        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></div><span>Rollover</span></div>
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/></svg></div><span>Meals</span></div>
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><span>Timeline</span></div>
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h12M6 14h12M6 10h2m4 0h6"/><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2z"/></svg></div><span>Weight</span></div>
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.5 13l1.5 9-5-3-5 3 1.5-9"/></svg></div><span>Achievements</span></div>
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg></div><span>AI Assistant</span></div>
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19v3"/><path d="M8 22h8"/><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/></svg></div><span>Voice</span></div>
-        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4.5l5 5-11 11H3.5v-5l11-11z"/><path d="M12 7l5 5"/></svg></div><span>Planning</span></div>
-        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></div><span>Analytics</span></div>
+        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11M17.5 6.5v11M3 9v6M21 9v6M6.5 12h11"/></svg></div><span>Training</span></div>
+        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10M15 10v10"/></svg></div><span>Week view</span></div>
       </div>
     </div>
   </section>
@@ -870,31 +886,32 @@
       <div class="center reveal">
         <div class="kicker">Pricing</div>
         <h2 class="section-title">Simple. Honest. Early.</h2>
-        <p class="section-sub">The core app is free. AI runs on tokens — pay only for what you use.</p>
+        <p class="section-sub">The core app is free forever. The first 100 members get everything for $9 a month — and keep that price for as long as they stay.</p>
       </div>
       <div class="plans">
         <div class="plan reveal">
           <h3>Free</h3>
-          <p class="tagline">Everything you need to run your day.</p>
+          <p class="tagline">The whole day, on you.</p>
           <div class="price">$0<small> / forever</small></div>
           <ul>
-            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> All core features — tasks, habits, timeline, week view</li>
-            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Health tracking — calories, weight, workouts</li>
-            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Buy AI tokens whenever you need them</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> The full timeline — tasks, habits, rollover, week view</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Health on the same day — calories, weight, training</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Add AI credits whenever you want them</li>
           </ul>
           <a class="btn btn-ghost" href="/app">Start Free</a>
         </div>
         <div class="plan featured reveal" style="transition-delay: 0.1s">
-          <div class="plan-badge">Limited launch pricing</div>
-          <h3>Launch Plan</h3>
-          <p class="tagline">For early adopters who want AI built in.</p>
-          <div class="price">$1<small> / month</small></div>
+          <div class="plan-badge">First 100 members only</div>
+          <h3>Founding Member</h3>
+          <p class="tagline">Everything, with the AI built in.</p>
+          <div class="price"><span class="price-was">$19</span>$9<small> / month</small></div>
           <ul>
             <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Everything in Free</li>
-            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> 500 AI tokens every month</li>
-            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Early adopter pricing, locked in</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> AI planning included — brain-dump a day, get it structured</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> $9 locked in for as long as you stay</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Direct line to me — you shape what gets built</li>
           </ul>
-          <a class="btn btn-primary" href="/app">Get Launch Access</a>
+          <a class="btn btn-primary" href="#waitlist-form">Claim a founding spot</a>
         </div>
       </div>
       <form class="waitlist-form reveal" id="waitlist-form">
@@ -929,8 +946,8 @@
   <section class="final">
     <div class="orb orb-4"></div>
     <div class="wrap">
-      <h2 class="reveal">Ready to organize your life?</h2>
-      <p class="reveal">One workspace. One plan. Actually done.</p>
+      <h2 class="reveal">Ready to get your day back?</h2>
+      <p class="reveal">One timeline. It rolls itself forward. First 100 members get in at $9.</p>
       <div class="hero-ctas reveal">
         <a class="btn btn-primary" href="/app">Start Free</a>
         <a class="btn btn-ghost" href="/app/demo">Watch Demo</a>
