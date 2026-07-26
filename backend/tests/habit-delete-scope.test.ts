@@ -161,3 +161,56 @@ describe('DELETE /api/tasks/:id — recurring habit scopes', () => {
     expect(mockDb.deleteHabitSeries).not.toHaveBeenCalled()
   })
 })
+
+describe('POST /api/tasks/:id/rollback-drag-materialization', () => {
+  it('hard-deletes only the materialized row matching the failed virtual drag', async () => {
+    mockDb.getTaskById.mockResolvedValue(habitTemplate({
+      id: INSTANCE_ID,
+      scheduled_date: DATE,
+      original_habit_id: HABIT_ID,
+    }))
+    mockDb.deleteTask.mockResolvedValue(undefined)
+
+    const res = await request(app)
+      .post(`/api/tasks/${INSTANCE_ID}/rollback-drag-materialization`)
+      .set('Authorization', TOKEN)
+      .send({ virtualId: VIRTUAL_ID })
+
+    expect(res.status).toBe(200)
+    expect(mockDb.deleteTask).toHaveBeenCalledWith(INSTANCE_ID)
+    expect(mockDb.softDeleteTask).not.toHaveBeenCalled()
+  })
+
+  it('rejects a materialized row that does not match the virtual Habit date', async () => {
+    mockDb.getTaskById.mockResolvedValue(habitTemplate({
+      id: INSTANCE_ID,
+      scheduled_date: '2026-06-24',
+      original_habit_id: HABIT_ID,
+    }))
+
+    const res = await request(app)
+      .post(`/api/tasks/${INSTANCE_ID}/rollback-drag-materialization`)
+      .set('Authorization', TOKEN)
+      .send({ virtualId: VIRTUAL_ID })
+
+    expect(res.status).toBe(409)
+    expect(mockDb.deleteTask).not.toHaveBeenCalled()
+  })
+
+  it('rejects another user materialized Habit row', async () => {
+    mockDb.getTaskById.mockResolvedValue(habitTemplate({
+      id: INSTANCE_ID,
+      user_id: OTHER_USER_ID,
+      scheduled_date: DATE,
+      original_habit_id: HABIT_ID,
+    }))
+
+    const res = await request(app)
+      .post(`/api/tasks/${INSTANCE_ID}/rollback-drag-materialization`)
+      .set('Authorization', TOKEN)
+      .send({ virtualId: VIRTUAL_ID })
+
+    expect(res.status).toBe(403)
+    expect(mockDb.deleteTask).not.toHaveBeenCalled()
+  })
+})

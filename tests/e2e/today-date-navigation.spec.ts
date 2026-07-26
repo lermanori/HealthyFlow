@@ -73,7 +73,9 @@ test('Today uses accurate selected-date language and keeps day-navigation focus'
   await expect(nextDay).toBeFocused()
   await expect(page.getByRole('heading', { name: 'Tomorrow', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: "Tomorrow's Schedule" })).toBeVisible()
-  await expect(page.locator('[aria-live="polite"]')).toHaveText('Tomorrow. Thursday, June 25, 2026.')
+  await expect(
+    page.locator('[aria-live="polite"]').filter({ hasText: 'Tomorrow.' })
+  ).toHaveText('Tomorrow. Thursday, June 25, 2026.')
 
   await nextDay.click()
   await expect(page.getByRole('heading', { name: 'Jun 26', exact: true })).toBeVisible()

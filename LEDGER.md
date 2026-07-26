@@ -37,6 +37,51 @@ Landed Workstream A of the launch plan: the marketing page now serves at `/` and
 ### 2026-07-26 12:30 — `claude/product-launch-planning-fa4388`
 
 Brainstormed and committed the launch-prep design ahead of driving paid ad traffic at the product. The session surfaced that the marketing page is currently orphaned — `netlify.toml` serves the login form at the root and `landing.html` is only reachable via a footer link — so the design leads with moving the landing page to `/` and the app to `/app`. It also specifies waitlist-centred access control (individual invites plus a capped public opening starting at 10 slots), a landing rewrite around the committed day thesis, and $9/mo launch pricing for the first 100. Design only; no implementation yet, and the next step is turning it into GitHub issues on Project 1.
+### 2026-07-26 16:42 — `codex/147-closure-fixes`
+
+Closed the two remaining Today review findings for Phase 1: informational Daily Signals now open a fresh, bounded Talk session with a more useful next-step prompt, and a failed binary Habit counts as addressed without being misreported as completed. Today focus, progress, week load, and Daily Signals now share that distinction while historical failures remain misses; repeated chat migration, one-request DaySummary, responsive visual, frontend, and all 380 backend checks are green.
+
+---
+
+### 2026-07-26 14:41 — `codex/165-daily-signals`
+
+Aligned the Today browser fixtures with the full Zod-validated Daily Context response now consumed by the frontend. Both current and previous-contract signal responses are exercised through the same runtime parser, keeping the rollout-safety regression representative of production.
+
+---
+
+### 2026-07-26 14:39 — `codex/165-daily-signals`
+
+Hardened the frontend/backend rollout boundary by Zod-validating Daily Context responses and converting the previous signal contract into explicit informational-only guidance. This keeps deploy previews and staggered production deployments readable without manufacturing an actionable proposal or bypassing the pending-action review path.
+
+---
+
+### 2026-07-26 14:33 — `codex/165-daily-signals`
+
+Completed Phase 1’s Daily Signals slice with Zod-derived informational and actionable contracts, safe rationale/evidence, and exact record/change proposals. Actionable schedule signals now revalidate through the existing pending-action system before an editable Apply or Dismiss, while stale, expired, failed, and canceled paths recover without losing user edits; informational signals remain guidance-only and can hand bounded context to Talk. The production build, all 377 backend tests, and responsive Today interaction, visual, focus, touch-target, and accessibility checks are green across desktop, compact, and mobile widths.
+
+---
+
+### 2026-07-26 14:03 — `codex/164-day-context`
+
+Refined the Workout Day Context after preview feedback by removing the unreachable scheduled Workout Item section and focusing the disclosure on logged Workout sessions. Each logged session now exposes its exercise names and recorded sets, reps, weight, duration, and distance while Achievements remain deliberately out of scope. The responsive Today browser suite and visual baselines are green across desktop, compact, and mobile widths; PR #172 is ready for another preview pass.
+
+---
+
+### 2026-07-26 13:34 — `codex/164-day-context`
+
+Completed Phase 1’s module-aware Day Context with progressively disclosed Habit outcomes and target progress, honest Calorie/macro/Weight states, and an explicit separation between scheduled Workout Items and logged Workout sessions. DaySummary now preserves Weight availability independently when the Calorie-entry source fails, while disabled modules remain absent and missing values never masquerade as zero. Backend composition tests and authenticated responsive visual, interaction, touch-target, focus-restoration, and accessibility regressions cover all three target viewports; issue #164 is ready for preview review.
+
+---
+
+### 2026-07-26 13:00 — `codex/phase1-anytime-drag`
+
+Completed Phase 1’s shared Schedule and Anytime workspace with honest incomplete/duration summaries, date-scoped disclosure, full-width desktop context, and one drag system across responsive regions. Drag capture now expands every compacted hour before measurement, keyboard/mouse/touch flows restore layout and focus, virtual Habit IDs reconcile safely, and failed multi-write moves compensate server state before restoring the original UI. Frontend build, all 364 backend tests, and dense responsive visual, accessibility, persistence, cancellation, materialization, and rollback regressions are green; no database migration is required.
+
+---
+
+### 2026-07-26 12:14 — `codex/phase1-decision-band`
+
+Recomposed Today around a DaySummary-driven decision band that explains Focus, the next obligation, completion, and honest complete/partial/unavailable capacity before planning detail. The schedule now responds to its actual container width, keeps Anytime ahead of the timeline on compact screens, and pairs the wide timeline with restrained module-aware Day Context; Daily Signals are a calm, recoverable row instead of a competing AI card. Dense authenticated visual baselines and focused accessibility, date, Item, Habit, drag, Talk, error, and responsive regressions cover all three target viewports; no database migration is required.
 
 ---
 

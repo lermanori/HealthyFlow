@@ -103,4 +103,11 @@ test('mobile Habit cards open Variant B and persist partial/completed/failed out
   expect(statusBox!.y + statusBox!.height).toBeLessThanOrEqual(rowBox!.y + rowBox!.height)
   await page.getByRole('heading', { name: 'Don’t smoke until 11', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Don’t smoke until 11' }).getByRole('button', { name: 'Clear outcome' })).toBeVisible()
+  await page.getByRole('dialog', { name: 'Don’t smoke until 11' }).getByRole('button', { name: 'Close', exact: true }).click()
+
+  const decisionBand = page.getByLabel('Daily decisions')
+  await expect(decisionBand).not.toContainText('Don’t smoke until 11')
+  await expect(decisionBand).toContainText('Day addressed')
+  await expect(decisionBand).toContainText('2 of 2 addressed')
+  await expect(page.locator('[data-demo-id="week-tab"]')).toHaveAttribute('aria-label', /2 of 2 addressed/)
 })

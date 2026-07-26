@@ -11,6 +11,7 @@ import {
   DaySummarySchema,
   DaySummaryWeightEntry,
   DaySummaryWeightEntrySchema,
+  isDaySummaryItemAddressed,
   PlanningWindow,
   PlanningWindowSchema,
   type DaySummary,
@@ -364,7 +365,7 @@ export function deriveAttention(input: {
   dateMode: DateMode
   nowMinutes: number | null
 }): DaySummary['attention'] {
-  const incomplete = input.items.filter((item) => !item.completed).sort(compareItems)
+  const incomplete = input.items.filter((item) => !isDaySummaryItemAddressed(item)).sort(compareItems)
   const completionState = input.items.length === 0
     ? 'empty_day'
     : incomplete.length === 0
@@ -495,13 +496,15 @@ export function deriveAttention(input: {
 
 function completionFor(items: DaySummaryItem[]): DaySummary['completion'] {
   const completed = items.filter((item) => item.completed).length
+  const addressed = items.filter(isDaySummaryItemAddressed).length
   const total = items.length
   return {
-    state: total === 0 ? 'empty' : completed === total ? 'complete' : 'in_progress',
+    state: total === 0 ? 'empty' : addressed === total ? 'complete' : 'in_progress',
     total,
     completed,
-    remaining: total - completed,
-    percent: total === 0 ? null : Math.round((completed / total) * 100),
+    addressed,
+    remaining: total - addressed,
+    percent: total === 0 ? null : Math.round((addressed / total) * 100),
   }
 }
 
@@ -650,7 +653,7 @@ export async function buildDaySummary(
       fat: { status: 'unavailable', value: null },
       weight: { status: 'disabled', entry: null },
     }
-  } else if (nutritionEnabled == null || !nutritionRows || nutritionRows[0].status === 'rejected') {
+  } else if (nutritionEnabled == null || !nutritionRows) {
     nutrition = {
       status: 'unavailable',
       entries: [],
@@ -658,22 +661,34 @@ export async function buildDaySummary(
       protein: { status: 'unavailable', value: null },
       carbs: { status: 'unavailable', value: null },
       fat: { status: 'unavailable', value: null },
-      weight: { status: nutritionEnabled == null ? 'unavailable' : nutritionRows?.[1].status === 'rejected' ? 'unavailable' : 'not_recorded', entry: null },
+      weight: { status: 'unavailable', entry: null },
     }
   } else {
-    calorieEntries = nutritionRows[0].value.map(calorieRowToClient)
+    calorieEntries = nutritionRows[0].status === 'fulfilled'
+      ? nutritionRows[0].value.map(calorieRowToClient)
+      : []
     const weight = nutritionRows[1].status === 'fulfilled' && nutritionRows[1].value
       ? weightRowToClient(nutritionRows[1].value)
       : null
     nutrition = {
-      status: calorieEntries.length === 0 ? 'not_logged' : 'available',
+      status: nutritionRows[0].status === 'rejected'
+        ? 'unavailable'
+        : calorieEntries.length === 0
+          ? 'not_logged'
+          : 'available',
       entries: calorieEntries,
-      calories: calorieEntries.length === 0
+      calories: nutritionRows[0].status === 'rejected' || calorieEntries.length === 0
         ? { status: 'unavailable', value: null }
         : { status: 'complete', value: calorieEntries.reduce((sum, entry) => sum + entry.calories, 0) },
-      protein: metricSummary(calorieEntries, 'protein'),
-      carbs: metricSummary(calorieEntries, 'carbs'),
-      fat: metricSummary(calorieEntries, 'fat'),
+      protein: nutritionRows[0].status === 'rejected'
+        ? { status: 'unavailable', value: null }
+        : metricSummary(calorieEntries, 'protein'),
+      carbs: nutritionRows[0].status === 'rejected'
+        ? { status: 'unavailable', value: null }
+        : metricSummary(calorieEntries, 'carbs'),
+      fat: nutritionRows[0].status === 'rejected'
+        ? { status: 'unavailable', value: null }
+        : metricSummary(calorieEntries, 'fat'),
       weight: nutritionRows[1].status === 'rejected'
         ? { status: 'unavailable', entry: null }
         : weight
@@ -737,6 +752,7 @@ export async function buildDaySummary(
         date: weekDate,
         total: weekItems[index].length,
         completed: weekItems[index].filter((item) => item.completed).length,
+        addressed: weekItems[index].filter(isDaySummaryItemAddressed).length,
       })),
     },
     attention,

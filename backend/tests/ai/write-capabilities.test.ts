@@ -29,7 +29,12 @@ jest.mock('../../src/rollover', () => ({
   Rollover: { addCarryForwardRows: jest.fn() },
 }))
 
-import { AiCapabilities, aiCapabilityTools, executePendingAiAction } from '../../src/ai-capabilities'
+import {
+  AiCapabilities,
+  aiCapabilityTools,
+  executePendingAiAction,
+  PendingAiActionUnavailableError,
+} from '../../src/ai-capabilities'
 import { db } from '../../src/supabase-client'
 
 describe('AI write capabilities', () => {
@@ -255,5 +260,29 @@ describe('AI write capabilities', () => {
       protein: 20,
     }))
     expect(db.markAiPendingActionExecuted).toHaveBeenCalledWith('action-1')
+  })
+
+  it('returns a typed recoverable error when a pending action expires', async () => {
+    ;(db.getAiPendingAction as jest.Mock).mockResolvedValueOnce({
+      id: 'action-expired',
+      user_id: 'user-1',
+      capability: 'add_calorie_entry',
+      args: {
+        requestId: 'req-expired',
+        date: '2026-07-02',
+        name: 'Lunch',
+        calories: 300,
+      },
+      preview: {},
+      caller: 'internal',
+      expires_at: new Date(Date.now() - 60_000).toISOString(),
+      executed_at: null,
+      canceled_at: null,
+    })
+
+    await expect(executePendingAiAction('user-1', 'action-expired'))
+      .rejects.toBeInstanceOf(PendingAiActionUnavailableError)
+    expect(db.createCalorieEntry).not.toHaveBeenCalled()
+    expect(db.markAiPendingActionExecuted).not.toHaveBeenCalled()
   })
 })

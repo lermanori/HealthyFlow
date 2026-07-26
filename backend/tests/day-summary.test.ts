@@ -340,9 +340,89 @@ describe('DaySummary attention derivation', () => {
       nowMinutes: 600,
     }).focus.state).toBe('nothing_needs_attention')
   })
+
+  it('does not keep a failed binary Habit in focus or upcoming obligations', () => {
+    const attention = deriveAttention({
+      items: [
+        item({
+          id: 'failed-habit',
+          title: 'Do not smoke',
+          type: 'habit',
+          startTime: '09:00',
+          completed: false,
+          habitInfo: {
+            target: null,
+            outcome: 'failed',
+            progressTotal: 0,
+          },
+        }),
+        item({ id: 'pending-task', title: 'Pending Task', startTime: null }),
+      ],
+      calendarEvents: [],
+      dateMode: 'today',
+      nowMinutes: 10 * 60,
+    })
+
+    expect(attention.focus.itemId).toBe('pending-task')
+    expect(attention.nextPlannedItem).toBeNull()
+  })
 })
 
 describe('DaySummary composition', () => {
+  const dependenciesFor = (overrides: Record<string, jest.Mock> = {}) => ({
+    itemsForDay: jest.fn().mockResolvedValue([]),
+    getSettings: jest.fn().mockResolvedValue({
+      weekStartsOn: 1,
+      calorieIntake: true,
+      workoutTracker: true,
+      planningWindow,
+    }),
+    getCalendarStatus: jest.fn().mockResolvedValue({ connected: false }),
+    getCalendarEvents: jest.fn().mockResolvedValue([]),
+    getCalorieEntries: jest.fn().mockResolvedValue([]),
+    getWeightEntry: jest.fn().mockResolvedValue(null),
+    getWorkoutSessions: jest.fn().mockResolvedValue([]),
+    ...overrides,
+  })
+
+  it('counts a failed binary Habit as addressed without counting it as completed', async () => {
+    const failedHabit = item({
+      id: 'failed-habit',
+      title: 'Do not smoke',
+      type: 'habit',
+      startTime: '09:00',
+      completed: false,
+      habitInfo: {
+        target: null,
+        outcome: 'failed',
+        progressTotal: 0,
+      },
+    })
+    const pendingTask = item({ id: 'pending-task', title: 'Pending Task' })
+    const summary = await buildDaySummary('user-1', '2026-07-27', 'UTC', {
+      now: new Date('2026-07-27T10:00:00.000Z'),
+      dependencies: dependenciesFor({
+        itemsForDay: jest.fn().mockImplementation((_userId, date) =>
+          Promise.resolve(date === '2026-07-27' ? [failedHabit, pendingTask] : [])
+        ),
+      }),
+    })
+
+    expect(summary.completion).toMatchObject({
+      total: 2,
+      completed: 0,
+      addressed: 1,
+      remaining: 1,
+      percent: 50,
+    })
+    expect(summary.week.days.find((day) => day.date === '2026-07-27')).toMatchObject({
+      total: 2,
+      completed: 0,
+      addressed: 1,
+    })
+    expect(summary.attention.focus.itemId).toBe('pending-task')
+  })
+
   it('keeps the core Item plan when optional sources are unavailable', async () => {
     const coreItems = [
       item({
@@ -393,6 +473,192 @@ describe('DaySummary composition', () => {
     expect(summary.supporting.nutrition.status).toBe('unavailable')
     expect(summary.supporting.workouts.status).toBe('unavailable')
     expect(dependencies.itemsForDay).toHaveBeenCalledTimes(7)
+  })
+
+  it('keeps exact zero nutrition values distinct from missing macro values', async () => {
+    const dependencies = dependenciesFor({
+      getCalorieEntries: jest.fn().mockResolvedValue([
+        {
+          id: 'entry-1',
+          date: '2026-07-27',
+          time: '08:00',
+          name: 'Zero-value entry',
+          calories: 0,
+          protein: 0,
+          carbs: null,
+          fat: 0,
+          quantity: null,
+          created_at: null,
+          updated_at: null,
+        },
+        {
+          id: 'entry-2',
+          date: '2026-07-27',
+          time: null,
+          name: 'Partially tracked entry',
+          calories: 0,
+          protein: 0,
+          carbs: 12,
+          fat: null,
+          quantity: null,
+          created_at: null,
+          updated_at: null,
+        },
+      ]),
+    })
+
+    const summary = await buildDaySummary('user-1', '2026-07-27', 'UTC', {
+      now: new Date('2026-07-27T10:00:00.000Z'),
+      dependencies,
+    })
+
+    expect(summary.supporting.nutrition).toMatchObject({
+      status: 'available',
+      calories: { status: 'complete', value: 0 },
+      protein: { status: 'complete', value: 0 },
+      carbs: { status: 'partial', value: 12 },
+      fat: { status: 'partial', value: 0 },
+      weight: { status: 'not_recorded', entry: null },
+    })
+  })
+
+  it('keeps Calorie-entry and Weight source states independent', async () => {
+    const weightRow = {
+      id: 'weight-1',
+      date: '2026-07-27',
+      weight_kg: 72.4,
+      created_at: null,
+      updated_at: null,
+    }
+    const caloriesUnavailable = await buildDaySummary('user-1', '2026-07-27', 'UTC', {
+      dependencies: dependenciesFor({
+        getCalorieEntries: jest.fn().mockRejectedValue(new Error('calories down')),
+        getWeightEntry: jest.fn().mockResolvedValue(weightRow),
+      }),
+    })
+    const weightUnavailable = await buildDaySummary('user-1', '2026-07-27', 'UTC', {
+      dependencies: dependenciesFor({
+        getCalorieEntries: jest.fn().mockResolvedValue([]),
+        getWeightEntry: jest.fn().mockRejectedValue(new Error('weight down')),
+      }),
+    })
+
+    expect(caloriesUnavailable.supporting.nutrition).toMatchObject({
+      status: 'unavailable',
+      calories: { status: 'unavailable', value: null },
+      weight: {
+        status: 'recorded',
+        entry: { date: '2026-07-27', weightKg: 72.4 },
+      },
+    })
+    expect(weightUnavailable.supporting.nutrition).toMatchObject({
+      status: 'not_logged',
+      calories: { status: 'unavailable', value: null },
+      weight: { status: 'unavailable', entry: null },
+    })
+  })
+
+  it('omits disabled optional sources and marks unresolved module settings unavailable', async () => {
+    const disabled = dependenciesFor({
+      getSettings: jest.fn().mockResolvedValue({
+        calorieIntake: false,
+        workoutTracker: false,
+      }),
+    })
+    const disabledSummary = await buildDaySummary('user-1', '2026-07-27', 'UTC', {
+      dependencies: disabled,
+    })
+
+    expect(disabledSummary.modules).toEqual({
+      habits: 'enabled',
+      nutrition: 'disabled',
+      workouts: 'disabled',
+    })
+    expect(disabledSummary.supporting.nutrition.status).toBe('disabled')
+    expect(disabledSummary.supporting.workouts.status).toBe('disabled')
+    expect(disabled.getCalorieEntries).not.toHaveBeenCalled()
+    expect(disabled.getWeightEntry).not.toHaveBeenCalled()
+    expect(disabled.getWorkoutSessions).not.toHaveBeenCalled()
+
+    const unavailable = dependenciesFor({
+      getSettings: jest.fn().mockRejectedValue(new Error('settings down')),
+    })
+    const unavailableSummary = await buildDaySummary('user-1', '2026-07-27', 'UTC', {
+      dependencies: unavailable,
+    })
+
+    expect(unavailableSummary.modules).toEqual({
+      habits: 'enabled',
+      nutrition: 'unavailable',
+      workouts: 'unavailable',
+    })
+    expect(unavailableSummary.supporting.nutrition.status).toBe('unavailable')
+    expect(unavailableSummary.supporting.workouts.status).toBe('unavailable')
+    expect(unavailable.getCalorieEntries).not.toHaveBeenCalled()
+    expect(unavailable.getWeightEntry).not.toHaveBeenCalled()
+    expect(unavailable.getWorkoutSessions).not.toHaveBeenCalled()
+  })
+
+  it('summarizes mixed Habit outcomes and logged versus unlogged Workout sessions', async () => {
+    const habits = [
+      ['pending', 0],
+      ['partial', 4],
+      ['completed', 10],
+      ['failed', 2],
+    ].map(([outcome, progressTotal], index) => item({
+      id: `habit-${index}`,
+      title: `Habit ${index}`,
+      type: 'habit',
+      repeat: 'daily',
+      isHabitInstance: true,
+      originalHabitId: `habit-parent-${index}`,
+      completed: outcome === 'completed',
+      habitInfo: {
+        target: index === 0 ? null : { value: 10, unit: 'count' },
+        outcome: outcome as 'pending' | 'partial' | 'completed' | 'failed',
+        progressTotal: progressTotal as number,
+      },
+    }))
+    const session = {
+      id: 'session-1',
+      userId: 'user-1',
+      date: '2026-07-27',
+      title: 'Strength',
+      notes: null,
+      exercises: [],
+      createdAt: '2026-07-27T18:00:00.000Z',
+      updatedAt: '2026-07-27T18:00:00.000Z',
+    }
+    const logged = await buildDaySummary('user-1', '2026-07-27', 'UTC', {
+      dependencies: dependenciesFor({
+        itemsForDay: jest.fn().mockResolvedValue(habits),
+        getWorkoutSessions: jest.fn().mockResolvedValue([session]),
+      }),
+    })
+    const unlogged = await buildDaySummary('user-1', '2026-07-27', 'UTC', {
+      dependencies: dependenciesFor({
+        itemsForDay: jest.fn().mockResolvedValue(habits),
+        getWorkoutSessions: jest.fn().mockResolvedValue([]),
+      }),
+    })
+
+    expect(logged.supporting.habits).toEqual({
+      status: 'available',
+      total: 4,
+      pending: 1,
+      partial: 1,
+      completed: 1,
+      failed: 1,
+      targeted: 3,
+    })
+    expect(logged.supporting.workouts).toMatchObject({
+      status: 'logged',
+      sessions: [{ id: 'session-1', title: 'Strength' }],
+    })
+    expect(unlogged.supporting.workouts).toEqual({
+      status: 'not_logged',
+      sessions: [],
+    })
   })
 
   it('fails the composition when the core Item plan is unavailable', async () => {

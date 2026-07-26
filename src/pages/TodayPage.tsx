@@ -1,7 +1,23 @@
-import { useState, useEffect, useMemo, useRef, type KeyboardEvent } from 'react'
+import { useState, useEffect, useMemo, useRef, type KeyboardEvent, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays, isSameDay, isBefore } from 'date-fns'
-import { Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, Clock, Plus } from 'lucide-react'
+import {
+  AlertTriangle,
+  Brain,
+  Calendar,
+  CalendarDays,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Dumbbell,
+  HeartPulse,
+  Plus,
+  RotateCcw,
+  Sparkles,
+  Trash2,
+  Utensils,
+} from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   calendarService,
@@ -10,6 +26,7 @@ import {
   daySummaryService,
   DAILY_SIGNALS_QUERY_KEY,
   DAY_SUMMARY_QUERY_KEY,
+  isDaySummaryItemAddressed,
   onboardingService,
   rhythmService,
   taskService,
@@ -177,7 +194,7 @@ function WeekRibbon({
 }: {
   selectedDate: Date
   onSelect: (d: Date) => void
-  loadByDay: Record<string, { total: number; completed: number }>
+  loadByDay: Record<string, { total: number; completed: number; addressed?: number }>
   weekStartsOn: WeekStartsOn
 }) {
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([])
@@ -200,11 +217,12 @@ function WeekRibbon({
     >
       {days.map((day, index) => {
         const key = format(day, 'yyyy-MM-dd')
-        const load = loadByDay[key] ?? { total: 0, completed: 0 }
+        const load = loadByDay[key] ?? { total: 0, completed: 0, addressed: 0 }
+        const addressed = load.addressed ?? load.completed
         const isSelected = isSameDay(day, selectedDate)
         const isFuture = isBefore(today, day) && !isSameDay(day, today)
-        const allDone = load.total > 0 && load.completed >= load.total
-        const pct = load.total > 0 ? Math.round((load.completed / load.total) * 100) : 0
+        const allDone = load.total > 0 && addressed >= load.total
+        const pct = load.total > 0 ? Math.round((addressed / load.total) * 100) : 0
         const barColor = allDone ? '#4ade80' : '#22d3ee'
 
         return (
@@ -216,7 +234,7 @@ function WeekRibbon({
             onKeyDown={(event) => handleKeyDown(event, index)}
             tabIndex={isSelected ? 0 : -1}
             aria-current={isSelected ? 'date' : undefined}
-            aria-label={`${format(day, 'EEEE, MMMM d, yyyy')}, ${load.completed} of ${load.total} completed`}
+            aria-label={`${format(day, 'EEEE, MMMM d, yyyy')}, ${addressed} of ${load.total} addressed`}
             data-week-date={key}
             data-demo-id={isSelected ? 'week-tab' : undefined}
             className={`flex flex-col overflow-hidden rounded-xl border transition-all ${
@@ -266,7 +284,7 @@ function WeekRibbon({
                     </span>
                   </>
                 ) : (
-                  `${load.completed}/${load.total}`
+                  `${addressed}/${load.total}`
                 )}
               </span>
             </div>
@@ -290,65 +308,527 @@ function WeekRibbon({
   )
 }
 
-function NowNextCard({ tasks }: { tasks: Task[] }) {
-  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes()
-  const toMin = (t: string) => {
-    const [h, m] = t.split(':').map(Number)
-    return h * 60 + (m || 0)
+const focusReasonCopy: Record<NonNullable<DaySummary['attention']['focus']['reasonCode']>, string> = {
+  active_timed_item: 'This is the Item planned for the current time.',
+  overdue_timed_item: 'Its planned start has passed and it is still incomplete.',
+  first_anytime_item: 'This is first in your Anytime order.',
+  past_incomplete_item: 'This Item was left incomplete on this past day.',
+  first_future_item: 'This is the first planned Item for this future day.',
+}
+
+const capacityReasonCopy: Record<DaySummary['capacity']['reasonCodes'][number], string> = {
+  planning_window_missing: 'Set a usable-day window in Settings.',
+  planning_window_invalid: 'The usable-day window needs correction.',
+  timezone_missing: 'A time zone is required.',
+  timezone_invalid: 'The saved time zone needs correction.',
+  calendar_not_connected: 'Calendar obligations are not included.',
+  calendar_unavailable: 'Calendar obligations could not be checked.',
+  calendar_event_all_day: 'An all-day obligation has no duration.',
+  calendar_event_missing_time: 'An obligation is missing its time.',
+  calendar_event_invalid_time: 'An obligation has an invalid time.',
+  item_missing_duration: 'One or more timed Items have no duration.',
+  item_invalid_duration: 'One or more Item durations need correction.',
+  item_invalid_start_time: 'One or more Items have an invalid start time.',
+}
+
+function formatMinutes(minutes: number) {
+  const hours = Math.floor(minutes / 60)
+  const remainder = minutes % 60
+  if (hours === 0) return `${remainder}m`
+  if (remainder === 0) return `${hours}h`
+  return `${hours}h ${remainder}m`
+}
+
+function itemTypeLabel(item: DaySummary['items'][number]) {
+  if (item.type === 'habit') return 'Habit'
+  if (item.type === 'workout') return 'Workout'
+  if (item.type === 'meal') return 'Meal'
+  if (item.type === 'grocery') return 'Grocery'
+  return 'Item'
+}
+
+type DayContextDisclosureProps = {
+  dateKey: string
+  id: 'habits' | 'nutrition' | 'workouts'
+  icon: ReactNode
+  title: string
+  summary: string
+  children: ReactNode
+}
+
+function DayContextDisclosure({
+  dateKey,
+  id,
+  icon,
+  title,
+  summary,
+  children,
+}: DayContextDisclosureProps) {
+  const [expanded, setExpanded] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const triggerId = `day-context-${id}-trigger`
+  const panelId = `day-context-${id}-panel`
+
+  useEffect(() => setExpanded(false), [dateKey])
+
+  const handlePanelKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape') return
+    event.preventDefault()
+    event.stopPropagation()
+    setExpanded(false)
+    window.requestAnimationFrame(() => triggerRef.current?.focus())
   }
-  const timed = tasks
-    .filter((t) => t.startTime && !t.completed)
-    .sort((a, b) => toMin(a.startTime!) - toMin(b.startTime!))
-
-  const current = [...timed].reverse().find((t) => toMin(t.startTime!) <= nowMinutes)
-  const next = timed.find((t) => toMin(t.startTime!) > nowMinutes)
-
-  if (!current && !next) {
-    return (
-      <div data-demo-id="now-next-card" className="rounded-xl border border-line/60 bg-page/40 p-4 text-sm text-ink-muted">
-        Nothing timed right now. Add a time to something below, or enjoy the open space.
-      </div>
-    )
-  }
-
-  const Row = ({ label, task, accent }: { label: string; task: Task; accent: string }) => (
-    <div className="flex min-w-0 items-center gap-3">
-      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${accent}`}>{label}</span>
-      <span className="flex shrink-0 items-center gap-1 text-xs text-ink-muted">
-        <Clock className="h-3 w-3" />
-        {task.startTime}
-      </span>
-      <span className="truncate text-sm font-medium text-ink">{task.title}</span>
-    </div>
-  )
 
   return (
-    <div data-demo-id="now-next-card" className="flex flex-col gap-3 rounded-xl border border-cyan-500/30 bg-page/50 p-4">
-      {current && <Row label="Now" task={current} accent="bg-cyan-500/20 text-cyan-300" />}
-      {next && (
-        <div className={current ? 'border-t border-card pt-3' : ''}>
-          <Row label="Next" task={next} accent="bg-purple-500/20 text-purple-300" />
+    <div>
+      <button
+        ref={triggerRef}
+        id={triggerId}
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        onClick={() => setExpanded((current) => !current)}
+        className="group flex min-h-11 w-full items-start gap-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-400"
+      >
+        <span className="mt-0.5 shrink-0" aria-hidden="true">{icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-ink">{title}</span>
+          <span className="mt-0.5 block text-xs leading-relaxed text-ink-muted">{summary}</span>
+        </span>
+        <ChevronRight
+          className={`mt-1 h-4 w-4 shrink-0 text-ink-muted transition-transform motion-reduce:transition-none ${expanded ? 'rotate-90' : ''}`}
+          aria-hidden="true"
+        />
+      </button>
+      {expanded && (
+        <div
+          id={panelId}
+          role="region"
+          aria-labelledby={triggerId}
+          tabIndex={-1}
+          onKeyDown={handlePanelKeyDown}
+          className="pb-4 pl-7 pr-1"
+        >
+          {children}
         </div>
       )}
     </div>
   )
 }
 
-function RhythmKickoffCard({ kickoff }: { kickoff: DueKickoff }) {
+function habitOutcomeLabel(habit: DaySummary['items'][number]) {
+  const outcome = habit.habitInfo?.outcome ?? (habit.completed ? 'completed' : 'pending')
+  if (outcome === 'completed') return 'Completed'
+  if (outcome === 'partial') return 'Partial'
+  if (outcome === 'failed') return 'Not done'
+  return 'Pending'
+}
+
+function habitTargetUnit(unit: 'minutes' | 'reps' | 'count') {
+  if (unit === 'minutes') return 'min'
+  if (unit === 'reps') return 'reps'
+  return ''
+}
+
+function nutritionMetricCopy(
+  metric: DaySummary['supporting']['nutrition']['calories'],
+  unit: 'kcal' | 'g'
+) {
+  if (metric.value === null) return 'Unavailable'
+  const value = `${metric.value}${unit === 'g' ? 'g' : ' kcal'}`
+  return metric.status === 'partial' ? `${value} known` : value
+}
+
+function workoutExerciseMetricCopy(
+  exercise: Pick<
+    DaySummary['supporting']['workouts']['sessions'][number]['exercises'][number],
+    'sets' | 'reps' | 'weightKg' | 'durationMinutes' | 'distanceKm'
+  >
+) {
+  return [
+    exercise.sets !== null ? `${exercise.sets} sets` : null,
+    exercise.reps !== null ? `${exercise.reps} reps` : null,
+    exercise.weightKg !== null ? `${exercise.weightKg} kg` : null,
+    exercise.durationMinutes !== null ? `${exercise.durationMinutes} min` : null,
+    exercise.distanceKm !== null ? `${exercise.distanceKm} km` : null,
+  ].filter((metric): metric is string => metric !== null)
+}
+
+function DecisionBand({ summary }: { summary: DaySummary }) {
+  const focus = summary.attention.focus
+  const focusItem = focus.itemId
+    ? summary.items.find((item) => item.id === focus.itemId)
+    : null
+  const next = summary.attention.nextObligation
+  const nextPlanned = summary.attention.nextPlannedItem
+  const nextCalendar = summary.attention.nextCalendarObligation
+  const capacity = summary.capacity
+
+  const addressed = summary.completion.addressed ?? summary.completion.completed
+  const emptyFocusCopy = focus.state === 'completed_day'
+    ? summary.completion.completed === summary.completion.total
+      ? { title: 'Day complete', detail: 'Everything planned for this day is complete.' }
+      : { title: 'Day addressed', detail: 'Every planned Item has a completion or Habit outcome.' }
+    : focus.state === 'empty_day'
+      ? { title: 'Open day', detail: 'Nothing is planned yet.' }
+      : focus.state === 'nothing_needs_attention'
+        ? { title: 'Nothing needs attention', detail: 'There is no unaddressed Item to surface.' }
+        : focus.state === 'past_incomplete'
+          ? { title: 'Past day needs review', detail: 'Incomplete work remains on this date.' }
+          : focus.state === 'future_planned'
+            ? { title: 'Future plan is open', detail: 'No Item needs focus before this date.' }
+            : { title: 'No focus selected', detail: 'The daily plan has no eligible focus Item.' }
+
+  const capacityTitle = capacity.status === 'complete'
+    ? capacity.basis.scope === 'remaining'
+      ? `${formatMinutes(capacity.availableMinutes)} usable time left`
+      : `${formatMinutes(capacity.availableMinutes)} unallocated`
+    : capacity.status === 'partial'
+      ? `At most ${formatMinutes(capacity.availableUpperBoundMinutes)} unallocated`
+      : 'Usable time unavailable'
+
+  const capacityDetail = capacity.status === 'unavailable'
+    ? capacityReasonCopy[capacity.reasonCodes[0]]
+    : capacity.status === 'partial'
+      ? capacity.reasonCodes.map((reason) => capacityReasonCopy[reason]).join(' ')
+      : `${capacity.window.startTime}–${capacity.window.endTime} window · ${formatMinutes(capacity.basis.knownLoadMinutes)} known load${capacity.window.transitionBufferMinutes ? ` · ${capacity.window.transitionBufferMinutes}m buffers` : ''}`
+
   return (
-    <div data-demo-id="morning-planning-card" className="flex flex-col gap-3 rounded-xl border border-cyan-500/35 bg-cyan-500/[.08] p-4 shadow-lg shadow-cyan-500/10 sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-cyan-300" />
-          <h2 className="text-sm font-semibold text-cyan-100">{kickoff.title}</h2>
+    <section
+      aria-labelledby="daily-decisions-heading"
+      data-demo-id="decision-band"
+      className="overflow-hidden rounded-xl border border-line/70 bg-page/45"
+    >
+      <h2 id="daily-decisions-heading" className="sr-only">Daily decisions</h2>
+      <div className="today-decision-grid">
+        <div className="today-decision-primary min-w-0 border-b border-line/60 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-400">
+            Focus now
+          </p>
+          <div className="mt-2 flex min-w-0 items-start gap-3">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-300">
+              {focus.state === 'completed_day'
+                ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                : <Clock className="h-4 w-4" aria-hidden="true" />}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-lg font-semibold leading-tight text-ink">
+                {focusItem?.title ?? emptyFocusCopy.title}
+              </p>
+              <p className="mt-1 text-xs font-medium text-ink-muted">
+                {focusItem
+                  ? `${itemTypeLabel(focusItem)} · ${focusItem.startTime ? `Planned ${focusItem.startTime}` : 'Anytime'}`
+                  : emptyFocusCopy.detail}
+              </p>
+              {focusItem && focus.reasonCode && (
+                <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+                  {focusReasonCopy[focus.reasonCode]}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
-        <p className="mt-1 text-sm text-ink-muted">{kickoff.body}</p>
+
+        <div className="today-decision-secondary min-w-0 border-b border-line/60 p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
+            Next obligation
+          </p>
+          <div className="mt-2 flex min-w-0 items-start gap-3">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-raised text-ink-muted">
+              <CalendarDays className="h-4 w-4" aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-base font-semibold text-ink">
+                {next?.title ?? 'No upcoming obligation'}
+              </p>
+              <p className="mt-1 text-xs text-ink-muted">
+                {next
+                  ? `${next.source === 'calendar' ? 'Calendar' : 'Item'} · ${next.startTime}`
+                  : summary.calendar.status === 'unavailable'
+                    ? 'Calendar could not be checked.'
+                    : 'No timed Item or calendar event is next.'}
+              </p>
+              <p className="mt-2 text-xs leading-relaxed text-ink-soft">
+                {next?.conflictIds.length
+                  ? `${next.conflictIds.length} overlapping ${next.conflictIds.length === 1 ? 'obligation' : 'obligations'}`
+                  : [
+                      nextPlanned ? `Next Item ${nextPlanned.startTime}` : 'No next Item',
+                      nextCalendar
+                        ? `calendar ${nextCalendar.startTime}`
+                        : summary.calendar.status === 'not_connected'
+                          ? 'calendar not connected'
+                          : summary.calendar.status === 'unavailable'
+                            ? 'calendar unavailable'
+                            : 'no next calendar event',
+                    ].join(' · ')}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="today-decision-capacity min-w-0 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
+                {capacity.status === 'partial' ? 'Capacity · partly known' : 'Capacity'}
+              </p>
+              <p className="mt-2 text-base font-semibold text-ink">{capacityTitle}</p>
+            </div>
+            {capacity.status === 'partial' || capacity.status === 'unavailable'
+              ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" aria-label="Incomplete capacity data" />
+              : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-400" aria-label="Capacity data complete" />}
+          </div>
+          <p className="mt-1 text-xs leading-relaxed text-ink-muted">{capacityDetail}</p>
+          <div className="mt-3 flex items-center gap-2 text-xs text-ink-soft">
+            <span className="font-semibold text-ink">
+              {addressed} of {summary.completion.total} addressed
+            </span>
+            {summary.completion.percent !== null && (
+              <span
+                role="progressbar"
+                aria-label="Daily Item check-in progress"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={Math.round(summary.completion.percent)}
+                className="h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-raised"
+              >
+                <span
+                  className="block h-full bg-cyan-400"
+                  style={{ width: `${summary.completion.percent}%` }}
+                />
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function DayContextSummary({ summary }: { summary: DaySummary }) {
+  const habits = summary.supporting.habits
+  const nutrition = summary.supporting.nutrition
+  const workouts = summary.supporting.workouts
+  const habitInstances = summary.items.filter((item) => item.type === 'habit')
+  const habitSummaryCopy = habits.total === 0
+    ? 'No Habits due this day'
+    : [
+        habits.completed ? `${habits.completed} completed` : null,
+        habits.partial ? `${habits.partial} partial` : null,
+        habits.pending ? `${habits.pending} pending` : null,
+        habits.failed ? `${habits.failed} not done` : null,
+      ].filter(Boolean).join(' · ')
+  const weightSummaryCopy = nutrition.weight.status === 'recorded' && nutrition.weight.entry
+    ? `${nutrition.weight.entry.weightKg} kg recorded`
+    : nutrition.weight.status === 'not_recorded'
+      ? 'Weight not recorded'
+      : 'Weight unavailable'
+  const nutritionSummaryCopy = nutrition.status === 'available'
+    ? `${nutritionMetricCopy(nutrition.calories, 'kcal')} · ${weightSummaryCopy}`
+    : nutrition.status === 'not_logged'
+      ? `Calories not logged · ${weightSummaryCopy}`
+      : `Calorie entries unavailable · ${weightSummaryCopy}`
+  const workoutSessionCopy = workouts.status === 'logged'
+    ? `${workouts.sessions.length} logged ${workouts.sessions.length === 1 ? 'session' : 'sessions'}`
+    : workouts.status === 'not_logged'
+      ? 'No logged sessions'
+      : 'Logged sessions unavailable'
+
+  return (
+    <section aria-labelledby="day-context-heading" data-demo-id="day-context">
+      <h3 id="day-context-heading" className="text-sm font-semibold uppercase tracking-wider text-ink-muted">
+        Day context
+      </h3>
+      <div className="mt-2 divide-y divide-line/60 border-y border-line/60">
+        <DayContextDisclosure
+          dateKey={summary.date}
+          id="habits"
+          icon={<HeartPulse className="h-4 w-4 text-cyan-400" />}
+          title="Habits"
+          summary={habitSummaryCopy}
+        >
+          {habitInstances.length === 0 ? (
+            <p className="text-xs leading-relaxed text-ink-muted">
+              No Habit instances are due on this date. Habit data loaded successfully.
+            </p>
+          ) : (
+            <ul className="space-y-3">
+              {habitInstances.map((habit) => {
+                const target = habit.habitInfo?.target
+                const progress = habit.habitInfo?.progressTotal ?? 0
+                const progressPercent = target
+                  ? Math.min(100, Math.round((progress / target.value) * 100))
+                  : null
+                return (
+                  <li key={habit.id} className="min-w-0">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="truncate text-xs font-medium text-ink-soft">{habit.title}</span>
+                      <span className="shrink-0 text-[11px] font-medium text-ink-muted">
+                        {habitOutcomeLabel(habit)}
+                      </span>
+                    </div>
+                    {target ? (
+                      <>
+                        <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-ink-muted">
+                          <span>
+                            {progress} of {target.value}{habitTargetUnit(target.unit) ? ` ${habitTargetUnit(target.unit)}` : ''}
+                          </span>
+                          <span>Target {target.value}{habitTargetUnit(target.unit) ? ` ${habitTargetUnit(target.unit)}` : ''}</span>
+                        </div>
+                        <div
+                          role="progressbar"
+                          aria-label={`${habit.title} Habit progress`}
+                          aria-valuemin={0}
+                          aria-valuemax={Math.max(target.value, progress)}
+                          aria-valuenow={progress}
+                          aria-valuetext={`${progress} of target ${target.value}${habitTargetUnit(target.unit) ? ` ${habitTargetUnit(target.unit)}` : ''}`}
+                          className="mt-1.5 h-1 overflow-hidden rounded-full bg-raised"
+                        >
+                          <span
+                            className="block h-full bg-cyan-400"
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <p className="mt-1 text-[11px] text-ink-muted">Binary Habit · no numeric target</p>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </DayContextDisclosure>
+
+        {summary.modules.nutrition !== 'disabled' && (
+          <DayContextDisclosure
+            dateKey={summary.date}
+            id="nutrition"
+            icon={<Utensils className="h-4 w-4 text-rose-400" />}
+            title="Nutrition and Weight"
+            summary={nutritionSummaryCopy}
+          >
+            <div className="space-y-3">
+              {nutrition.status === 'unavailable' ? (
+                <p className="text-xs leading-relaxed text-ink-muted">
+                  Calorie entries could not be checked. Missing data is not counted as zero.
+                </p>
+              ) : nutrition.status === 'not_logged' ? (
+                <p className="text-xs leading-relaxed text-ink-muted">
+                  No Calorie entries were logged for this date.
+                </p>
+              ) : (
+                <>
+                  <p className="text-[11px] text-ink-muted">
+                    {nutrition.entries.length} {nutrition.entries.length === 1 ? 'Calorie entry' : 'Calorie entries'}
+                  </p>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    {([
+                      ['Calories', nutrition.calories, 'kcal'],
+                      ['Protein', nutrition.protein, 'g'],
+                      ['Carbohydrate', nutrition.carbs, 'g'],
+                      ['Fat', nutrition.fat, 'g'],
+                    ] as const).map(([label, metric, unit]) => (
+                      <div key={label}>
+                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">{label}</dt>
+                        <dd className="mt-0.5 text-xs font-medium text-ink-soft">
+                          {nutritionMetricCopy(metric, unit)}
+                        </dd>
+                        {metric.status === 'partial' && (
+                          <p className="mt-0.5 text-[10px] leading-snug text-ink-muted">
+                            Some entries are missing this value.
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </dl>
+                </>
+              )}
+              <div className="border-t border-line/60 pt-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Weight</p>
+                <p className="mt-1 text-xs text-ink-soft">
+                  {nutrition.weight.status === 'recorded' && nutrition.weight.entry
+                    ? `${nutrition.weight.entry.weightKg} kg recorded on this date`
+                    : nutrition.weight.status === 'not_recorded'
+                      ? 'Not recorded on this date'
+                      : 'Weight data could not be checked'}
+                </p>
+              </div>
+            </div>
+          </DayContextDisclosure>
+        )}
+
+        {summary.modules.workouts !== 'disabled' && (
+          <DayContextDisclosure
+            dateKey={summary.date}
+            id="workouts"
+            icon={<Dumbbell className="h-4 w-4 text-amber-400" />}
+            title="Workout"
+            summary={workoutSessionCopy}
+          >
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+                Logged Workout sessions
+              </p>
+              {workouts.status === 'unavailable' ? (
+                <p className="mt-1 text-xs text-ink-muted">Workout sessions could not be checked.</p>
+              ) : workouts.sessions.length === 0 ? (
+                <p className="mt-1 text-xs text-ink-muted">No Workout session logged for this date.</p>
+              ) : (
+                <ul className="mt-2 space-y-3">
+                  {workouts.sessions.map((session) => (
+                    <li key={session.id} className="min-w-0">
+                      <div className="flex items-baseline justify-between gap-3 text-xs">
+                        <span className="truncate font-medium text-ink-soft">
+                          {session.title ?? 'Workout session'}
+                        </span>
+                        <span className="shrink-0 text-[11px] text-ink-muted">
+                          {session.exercises.length} {session.exercises.length === 1 ? 'exercise' : 'exercises'}
+                        </span>
+                      </div>
+                      {session.exercises.length === 0 ? (
+                        <p className="mt-1 text-[11px] text-ink-muted">No exercises recorded</p>
+                      ) : (
+                        <ul className="mt-2 space-y-2 border-l border-line/60 pl-3">
+                          {session.exercises.map((exercise) => {
+                            const metrics = workoutExerciseMetricCopy(exercise)
+                            return (
+                              <li key={exercise.id} className="min-w-0">
+                                <p className="truncate text-xs font-medium text-ink-soft">{exercise.name}</p>
+                                <p className="mt-0.5 text-[11px] text-ink-muted">
+                                  {metrics.length > 0 ? metrics.join(' · ') : 'No metrics recorded'}
+                                </p>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </DayContextDisclosure>
+        )}
+      </div>
+    </section>
+  )
+}
+
+function RhythmKickoffRow({ kickoff }: { kickoff: DueKickoff }) {
+  return (
+    <div data-demo-id="morning-planning-card" className="flex min-h-12 flex-col gap-2 border-y border-line/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+      <div className="flex min-w-0 items-center gap-2">
+        <Sparkles className="h-4 w-4 shrink-0 text-cyan-400" aria-hidden="true" />
+        <p className="truncate text-sm text-ink-soft">
+          <span className="font-semibold text-ink">{kickoff.title}.</span>{' '}
+          {kickoff.body}
+        </p>
       </div>
       <Link
         to={`/talk?kickoff=${kickoff.type}`}
-        className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-cyan-400 px-4 text-sm font-semibold text-cyan-950 shadow-lg shadow-cyan-400/20 transition-colors hover:bg-cyan-300"
+        className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-3 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/10"
       >
-        <Sparkles className="h-4 w-4" />
         <span>{kickoff.button}</span>
       </Link>
     </div>
@@ -413,18 +893,22 @@ export default function TodayPage() {
   })
 
   const loadByDay = (daySummary?.week.days ?? []).reduce((acc, day) => {
-    acc[day.date] = { total: day.total, completed: day.completed }
+    acc[day.date] = { total: day.total, completed: day.completed, addressed: day.addressed }
     return acc
-  }, {} as Record<string, { total: number; completed: number }>)
+  }, {} as Record<string, { total: number; completed: number; addressed?: number }>)
 
-  const doneCount = tasksData.filter((t) => t.completed).length
-  const timedLeft = tasksData.filter((t) => t.startTime && !t.completed).length
-  const untimedLeft = tasksData.filter((t) => !t.startTime && !t.completed).length
+  const addressedIds = useMemo(
+    () => new Set((daySummary?.items ?? []).filter(isDaySummaryItemAddressed).map((item) => item.id)),
+    [daySummary?.items]
+  )
+  const addressedCount = daySummary?.completion.addressed ?? daySummary?.completion.completed ?? 0
+  const timedLeft = tasksData.filter((task) => task.startTime && !addressedIds.has(task.id)).length
+  const untimedLeft = tasksData.filter((task) => !task.startTime && !addressedIds.has(task.id)).length
   const headerSubline =
     tasksData.length === 0
       ? 'Nothing scheduled yet'
       : [
-          `${doneCount} of ${tasksData.length} done`,
+          `${addressedCount} of ${tasksData.length} addressed`,
           timedLeft ? `${timedLeft} timed left` : null,
           untimedLeft ? `${untimedLeft} untimed` : null,
         ]
@@ -746,44 +1230,7 @@ export default function TodayPage() {
   }
 
   return (
-    <div className="space-y-4 pb-4 md:space-y-6 md:pb-0">
-      {/* Smart Reminders */}
-      <SmartReminders />
-
-      {settings?.onboardingStatus === 'active' && (
-        <motion.div
-          initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-lg border border-cyan-500/30 bg-page/80 p-4 shadow-xl shadow-cyan-500/10"
-        >
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-cyan-400" />
-            <h2 className="text-lg font-semibold text-ink">Tell me about your day</h2>
-          </div>
-          <p className="mt-1 text-sm text-ink-muted">
-            One brain-dump — work, food, gym, anything — and I'll turn it into your schedule.
-          </p>
-
-          <button
-            type="button"
-            onClick={() => setShowAIAnalyzer(true)}
-            className="btn-primary mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm"
-          >
-            <Brain className="h-4 w-4" />
-            Tell HealthyFlow about your day
-          </button>
-
-          <button
-            type="button"
-            onClick={() => skipOnboardingMutation.mutate()}
-            disabled={skipOnboardingMutation.isPending}
-            className="mt-3 block text-xs text-gray-500 transition-colors hover:text-ink-soft"
-          >
-            I'll do it later
-          </button>
-        </motion.div>
-      )}
-
+    <div className="today-workspace space-y-4 pb-4 md:space-y-5 md:pb-0">
       {/* Confetti Animation */}
       <ConfettiAnimation 
         show={showConfetti} 
@@ -791,11 +1238,7 @@ export default function TodayPage() {
       />
 
       {/* Day-first header: title row + week ribbon */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="space-y-3"
-      >
+      <div className="space-y-3">
         {/* Title + actions */}
         <div className="flex items-start justify-between gap-3">
           <div className="flex flex-col gap-0.5">
@@ -847,7 +1290,7 @@ export default function TodayPage() {
             <Link
               to="/talk"
               data-demo-id="talk-button"
-              className="flex items-center gap-1.5 rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-950 shadow-lg shadow-cyan-400/20 transition-colors hover:bg-cyan-300"
+              className="flex min-h-11 items-center gap-1.5 rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-950 transition-colors hover:bg-cyan-300"
             >
               <Sparkles className="h-4 w-4" />
               <span>Talk</span>
@@ -856,7 +1299,7 @@ export default function TodayPage() {
               to="/add"
               aria-label="Add"
               data-demo-id="add-task-button"
-              className="flex h-[38px] w-[38px] items-center justify-center gap-1.5 rounded-xl border border-line bg-card/50 text-ink-soft transition-colors hover:border-line-strong hover:text-ink lg:w-auto lg:px-3.5"
+              className="flex h-11 w-11 items-center justify-center gap-1.5 rounded-xl border border-line bg-card/50 text-ink-soft transition-colors hover:border-line-strong hover:text-ink lg:w-auto lg:px-3.5"
             >
               <Plus className="h-[17px] w-[17px]" />
               <span className="hidden text-sm font-medium lg:inline">Add</span>
@@ -895,11 +1338,40 @@ export default function TodayPage() {
           loadByDay={loadByDay}
           weekStartsOn={weekStartsOn}
         />
-      </motion.div>
+      </div>
 
-      {/* Now/next — only when viewing today */}
-      {isViewingToday && dueKickoff && <RhythmKickoffCard kickoff={dueKickoff} />}
-      {isViewingToday && <NowNextCard tasks={tasksData} />}
+      {daySummary && <DecisionBand summary={daySummary} />}
+      <AIRecommendationsBox date={selectedDateKey} />
+      {isViewingToday && dueKickoff && <RhythmKickoffRow kickoff={dueKickoff} />}
+
+      {settings?.onboardingStatus === 'active' && (
+        <section className="flex flex-col gap-3 rounded-xl border border-cyan-500/30 bg-cyan-500/[.06] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="text-sm font-semibold text-ink">Tell HealthyFlow about your day</h2>
+            <p className="mt-1 text-sm text-ink-muted">
+              Turn one brain-dump into Items for this date.
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              type="button"
+              onClick={() => skipOnboardingMutation.mutate()}
+              disabled={skipOnboardingMutation.isPending}
+              className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-ink-muted hover:bg-card hover:text-ink"
+            >
+              Later
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowAIAnalyzer(true)}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-cyan-400 px-4 text-sm font-semibold text-cyan-950 hover:bg-cyan-300"
+            >
+              <Brain className="h-4 w-4" aria-hidden="true" />
+              Start
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* AI Text Analyzer Modal */}
       {createPortal(
@@ -986,39 +1458,29 @@ export default function TodayPage() {
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
-        {/* Main Timeline */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          className="lg:col-span-2"
-        >
-          <DayTimeline
-            heading={formatScheduleHeading(selectedDate, now)}
-            tasks={tasksData}
-            calendarEvents={calendarEvents}
-            calorieEntries={calorieEntries}
-            onTasksReorder={handleTasksReorder}
-            onTasksPersisted={() => {
-              queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(selectedDateKey) })
-              queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(selectedDateKey) })
-              queryClient.invalidateQueries({ queryKey: ['tasks', selectedDateKey] })
-            }}
-            onCompleteTask={handleCompleteTask}
-            onUncompleteTask={handleUncompleteTask}
-            onCalendarEventComplete={handleCalendarEventComplete}
-            onCalendarEventSchedule={handleCalendarEventSchedule}
-            onEditTask={handleEditTask}
-            onDeleteTask={handleDeleteTask}
-            onHabitCheckIn={setHabitCheckIn}
-          />
-        </motion.div>
+      <DayTimeline
+        heading={formatScheduleHeading(selectedDate, now)}
+        dateKey={selectedDateKey}
+        tasks={tasksData}
+        calendarEvents={calendarEvents}
+        calorieEntries={calorieEntries}
+        onTasksReorder={handleTasksReorder}
+        onTasksPersisted={() => {
+          queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(selectedDateKey) })
+          queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(selectedDateKey) })
+          queryClient.invalidateQueries({ queryKey: ['tasks', selectedDateKey] })
+        }}
+        onCompleteTask={handleCompleteTask}
+        onUncompleteTask={handleUncompleteTask}
+        onCalendarEventComplete={handleCalendarEventComplete}
+        onCalendarEventSchedule={handleCalendarEventSchedule}
+        onEditTask={handleEditTask}
+        onDeleteTask={handleDeleteTask}
+        onHabitCheckIn={setHabitCheckIn}
+        supportingContent={daySummary ? <DayContextSummary summary={daySummary} /> : null}
+      />
 
-        {/* Sidebar */}
-        <div className="space-y-4 md:space-y-6">
-          <AIRecommendationsBox date={format(selectedDate, 'yyyy-MM-dd')} />
-        </div>
-      </div>
+      <SmartReminders />
 
       {/* Task Edit Modal */}
       <TaskEditModal

@@ -16,6 +16,7 @@ import {
   buildDailyContext,
   DailyContextInputSchema,
   DailyContextSchema,
+  type DailySignal,
 } from './daily-context'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -1093,6 +1094,66 @@ function pendingActionToClient(row: any) {
   }
 }
 
+export class PendingAiActionUnavailableError extends Error {
+  readonly code = 'pending_action_unavailable'
+}
+
+export class DailySignalReviewError extends Error {
+  constructor(
+    message: string,
+    readonly code: 'daily_signal_stale' | 'daily_signal_informational'
+  ) {
+    super(message)
+  }
+}
+
+export async function preparePendingAiAction(
+  ctx: AiCapabilityContext,
+  capabilityName: string,
+  args: unknown
+) {
+  const capability = AiCapabilities[capabilityName as AiCapabilityName] as AiCapabilityDefinition | undefined
+  if (!capability || capability.risk !== 'confirm') throw new Error('Invalid pending action capability')
+  const parsed = capability.inputSchema.parse(args ?? {})
+  const preview = await capability.preview?.(ctx, parsed)
+  const row = await db.createAiPendingAction({
+    user_id: ctx.userId,
+    capability: capability.name,
+    args: parsed,
+    preview,
+    caller: ctx.caller ?? 'internal',
+    expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+  })
+  return pendingActionToClient(row)
+}
+
+export async function prepareDailySignalAction(
+  userId: string,
+  input: { date: string; signalId: string }
+): Promise<{ signal: DailySignal; pendingAction: ReturnType<typeof pendingActionToClient> }> {
+  const context = await buildDailyContext(userId, input.date)
+  const signal = context.signals.find((candidate) => candidate.id === input.signalId)
+  if (!signal) {
+    throw new DailySignalReviewError(
+      'This Daily Signal is no longer current. Refresh Daily Signals and review the latest plan.',
+      'daily_signal_stale'
+    )
+  }
+  if (signal.kind !== 'actionable') {
+    throw new DailySignalReviewError(
+      'This Daily Signal is informational and does not contain an exact change to apply.',
+      'daily_signal_informational'
+    )
+  }
+
+  const pendingAction = await preparePendingAiAction(
+    { userId, caller: 'internal' },
+    signal.proposal.capability,
+    signal.proposal.arguments
+  )
+  return { signal, pendingAction }
+}
+
 export function aiCapabilityTools(options: { mode?: 'internal' | 'mcp'; scopes?: string[]; caller?: AiCaller } = {}) {
   const mode = options.mode ?? 'internal'
   const scopes = options.scopes ?? []
@@ -1124,16 +1185,7 @@ export function aiCapabilityTools(options: { mode?: 'internal' | 'mcp'; scopes?:
         }
       }
       if (capability.risk === 'confirm' && mode === 'internal') {
-        const preview = await capability.preview?.(ctx, parsed)
-        const row = await db.createAiPendingAction({
-          user_id: ctx.userId,
-          capability: capability.name,
-          args: parsed,
-          preview,
-          caller: 'internal',
-          expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-        })
-        return { pendingAction: pendingActionToClient(row) }
+        return { pendingAction: await preparePendingAiAction(ctx, capability.name, parsed) }
       }
       return capability.execute(ctx, parsed)
     },
@@ -1144,7 +1196,7 @@ export async function executePendingAiAction(userId: string, actionId: string, o
   const action = await db.getAiPendingAction(actionId)
   if (!action || action.user_id !== userId) throw new Error('Pending action not found')
   if (action.executed_at || action.canceled_at || new Date(action.expires_at).getTime() <= Date.now()) {
-    throw new Error('Pending action is no longer available')
+    throw new PendingAiActionUnavailableError('Pending action is no longer available')
   }
   const capability = AiCapabilities[action.capability as AiCapabilityName] as AiCapabilityDefinition | undefined
   if (!capability || capability.risk !== 'confirm') throw new Error('Invalid pending action')

@@ -43,7 +43,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>,
 )
 
-const isViteDevServer = location.port === '5173'
+const isViteDevServer = import.meta.env.DEV
 
 if ('serviceWorker' in navigator && !isViteDevServer) {
   let refreshingForServiceWorker = false

@@ -1,4 +1,3 @@
-import { z } from 'zod'
 import { Achievements } from './achievements'
 import { db } from './supabase-client'
 import { Workouts } from './workouts'
@@ -7,92 +6,35 @@ import {
   getItemsForDay,
   weightRowToClient,
 } from './day-summary'
+import { isDaySummaryItemAddressed } from './day-summary-schema'
 import {
-  DaySummaryCalorieEntrySchema,
-  DaySummaryItemSchema,
-  DaySummaryWeightEntrySchema,
-} from './day-summary-schema'
+  CALORIE_LOOKBACK_DAYS,
+  DailyContextSchema,
+  HABIT_LOOKBACK_DAYS,
+  WORKOUT_LOOKBACK_DAYS,
+  type DailyContext,
+  type DailySignal,
+  type DailySignalType,
+} from './daily-context-schema'
 
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+export {
+  DailyContextInputSchema,
+  DailyContextSchema,
+  DailySignalAffectedRecordSchema,
+  DailySignalChangeSchema,
+  DailySignalEvidenceSchema,
+  DailySignalProposalSchema,
+  DailySignalReviewInputSchema,
+  DailySignalSchema,
+  DailySignalTypeSchema,
+} from './daily-context-schema'
+export type {
+  DailyContext,
+  DailySignal,
+  DailySignalType,
+} from './daily-context-schema'
+
 const SIGNAL_LIMIT = 3
-const HABIT_LOOKBACK_DAYS = 3
-const CALORIE_LOOKBACK_DAYS = 7
-const WORKOUT_LOOKBACK_DAYS = 14
-
-export const DailyContextInputSchema = z.object({
-  date: z.string().regex(DATE_RE).optional(),
-})
-
-export const DailySignalTypeSchema = z.enum([
-  'schedule_overload',
-  'habit_risk',
-  'missing_calorie_log',
-])
-
-export const DailySignalSchema = z.object({
-  id: z.string(),
-  type: DailySignalTypeSchema,
-  severity: z.enum(['info', 'low', 'medium', 'high']),
-  confidence: z.enum(['low', 'medium', 'high']),
-  summary: z.string(),
-  evidence: z.record(z.string(), z.unknown()),
-  suggestedAction: z.object({
-    type: z.string(),
-    label: z.string(),
-    targetId: z.string().nullable().optional(),
-  }).nullable(),
-})
-
-const DailyTaskSchema = DaySummaryItemSchema
-const DailyCalorieEntrySchema = DaySummaryCalorieEntrySchema
-const DailyWeightSchema = DaySummaryWeightEntrySchema
-
-const HabitHistoryDaySchema = z.object({
-  date: z.string(),
-  habits: z.array(DailyTaskSchema),
-})
-
-const CalorieHistoryDaySchema = z.object({
-  date: z.string(),
-  entries: z.array(DailyCalorieEntrySchema),
-})
-
-const WorkoutHistoryDaySchema = z.object({
-  date: z.string(),
-  sessions: z.array(z.unknown()),
-})
-
-export const DailyContextSchema = z.object({
-  date: z.string().regex(DATE_RE),
-  generatedAt: z.string(),
-  day: z.object({
-    tasks: z.array(DailyTaskSchema),
-    calorieEntries: z.array(DailyCalorieEntrySchema),
-    weight: DailyWeightSchema.nullable(),
-    achievements: z.array(z.unknown()),
-    workoutSessions: z.array(z.unknown()),
-    calendarEvents: z.array(z.unknown()),
-  }),
-  lookback: z.object({
-    habitHistory: z.object({
-      windowDays: z.literal(HABIT_LOOKBACK_DAYS),
-      days: z.array(HabitHistoryDaySchema),
-    }),
-    calorieHistory: z.object({
-      windowDays: z.literal(CALORIE_LOOKBACK_DAYS),
-      days: z.array(CalorieHistoryDaySchema),
-    }),
-    workoutHistory: z.object({
-      windowDays: z.literal(WORKOUT_LOOKBACK_DAYS),
-      days: z.array(WorkoutHistoryDaySchema),
-    }),
-  }),
-  signals: z.array(DailySignalSchema),
-})
-
-export type DailySignalType = z.infer<typeof DailySignalTypeSchema>
-export type DailySignal = z.infer<typeof DailySignalSchema>
-export type DailyContext = z.infer<typeof DailyContextSchema>
 type DailyContextForSignals = Omit<DailyContext, 'signals'> & { signals?: DailySignal[] }
 
 export type SignalDetector = {
@@ -154,8 +96,8 @@ async function workoutSessionsForDay(userId: string, date: string) {
   return Workouts.listSessions(userId, date)
 }
 
-function scheduledTasks(tasks: Array<z.infer<typeof DailyTaskSchema>>) {
-  return tasks.filter((task) => !task.completed && timeToMinutes(task.startTime) != null)
+function scheduledTasks(tasks: DailyContext['day']['tasks']) {
+  return tasks.filter((task) => !isDaySummaryItemAddressed(task) && timeToMinutes(task.startTime) != null)
 }
 
 const scheduleOverloadDetector: SignalDetector = {
@@ -184,21 +126,59 @@ const scheduleOverloadDetector: SignalDetector = {
 
     if (!overloaded) return []
 
+    const candidate = overloaded.items
+      .filter((item) => item.type === 'task' && item.startTime)
+      .sort((a, b) => (
+        (b.startTime ?? '').localeCompare(a.startTime ?? '')
+        || a.id.localeCompare(b.id)
+      ))[0]
+    const signalId = `${context.date}:schedule_overload:${overloaded.id}${candidate ? `:${candidate.id}` : ''}`
+    const signalBase = {
+      id: signalId,
+      type: 'schedule_overload' as const,
+      severity: (overloaded.totalMinutes >= 240 || overloaded.items.length >= 5 ? 'high' : 'medium') as 'high' | 'medium',
+      confidence: 'high' as const,
+      summary: `Your ${overloaded.label} has ${overloaded.items.length} scheduled Items totaling about ${overloaded.totalMinutes} minutes.`,
+      rationale: candidate
+        ? `"${candidate.title}" is the latest-starting Task in this crowded window. Moving it to Anytime would free ${candidate.duration ?? 30} scheduled minutes without deleting it.`
+        : `This window is crowded, but there is no exact Task change HealthyFlow can safely prepare. Review the schedule or open Talk to choose what should move.`,
+      evidence: [
+        { label: 'Window', value: overloaded.label },
+        { label: 'Scheduled load', value: `${overloaded.items.length} Items · ${overloaded.totalMinutes} min` },
+        ...(candidate ? [{ label: 'Concrete candidate', value: `${candidate.title} · ${candidate.startTime}` }] : []),
+      ],
+    }
+    if (!candidate) {
+      return [{
+        ...signalBase,
+        kind: 'informational',
+        proposal: null,
+      }]
+    }
+
     return [{
-      id: `${context.date}:schedule_overload:${overloaded.id}`,
-      type: 'schedule_overload',
-      severity: overloaded.totalMinutes >= 240 || overloaded.items.length >= 5 ? 'high' : 'medium',
-      confidence: 'high',
-      summary: `Your ${overloaded.label} has ${overloaded.items.length} scheduled items totaling about ${overloaded.totalMinutes} minutes.`,
-      evidence: {
-        window: overloaded.id,
-        itemCount: overloaded.items.length,
-        totalMinutes: overloaded.totalMinutes,
-        itemIds: overloaded.items.map((item) => item.id),
-      },
-      suggestedAction: {
-        type: 'move_to_anytime',
-        label: 'Move one item to Anytime',
+      ...signalBase,
+      kind: 'actionable',
+      proposal: {
+        capability: 'update_item',
+        label: `Move "${candidate.title}" to Anytime`,
+        arguments: {
+          itemId: candidate.id,
+          startTime: null,
+          requestId: `daily-signal:${signalId}`,
+        },
+        affectedRecords: [{
+          id: candidate.id,
+          kind: 'task',
+          title: candidate.title,
+          date: candidate.scheduledDate ?? context.date,
+        }],
+        changes: [{
+          field: 'startTime',
+          label: 'Start time',
+          before: candidate.startTime,
+          after: null,
+        }],
       },
     }]
   },
@@ -209,7 +189,9 @@ const habitRiskDetector: SignalDetector = {
   version: 1,
   enabledByDefault: true,
   evaluate(context) {
-    const dueHabits = context.day.tasks.filter((task) => task.type === 'habit' && !task.completed)
+    const dueHabits = context.day.tasks.filter((task) => (
+      task.type === 'habit' && !isDaySummaryItemAddressed(task)
+    ))
     const signals: DailySignal[] = []
 
     for (const habit of dueHabits) {
@@ -226,20 +208,17 @@ const habitRiskDetector: SignalDetector = {
       signals.push({
         id: `${context.date}:habit_risk:${habitKey}`,
         type: 'habit_risk',
+        kind: 'informational',
         severity: missedDates.length >= 3 ? 'high' : 'medium',
         confidence: 'high',
         summary: `You missed "${habit.title}" ${missedDates.length} recent days and it is due today.`,
-        evidence: {
-          habitId: habitKey,
-          habitTitle: habit.title,
-          missedDates,
-          dueToday: true,
-        },
-        suggestedAction: {
-          type: 'reduce_scope',
-          label: 'Do a smaller version today',
-          targetId: habit.id,
-        },
+        rationale: `The Habit is due today after ${missedDates.length} recent misses. “Do a smaller version” is useful guidance, but it is not an exact record change HealthyFlow can safely apply.`,
+        evidence: [
+          { label: 'Habit', value: habit.title },
+          { label: 'Recent misses', value: missedDates.join(', ') },
+          { label: 'Due', value: context.date },
+        ],
+        proposal: null,
       })
     }
 
@@ -276,18 +255,17 @@ const missingCalorieLogDetector: SignalDetector = {
     return [{
       id: `${context.date}:missing_calorie_log:lunch`,
       type: 'missing_calorie_log',
+      kind: 'informational',
       severity: 'low',
       confidence: historicalLunchLogs.length >= 4 ? 'high' : 'medium',
       summary: 'No lunch or afternoon Calorie entry is logged yet, and recent history suggests you often log one by now.',
-      evidence: {
-        checkedAfterHourUtc: currentHour,
-        historicalLunchLogCount: historicalLunchLogs.length,
-        historicalExamples: historicalLunchLogs.slice(0, 5),
-      },
-      suggestedAction: {
-        type: 'open_calorie_entry',
-        label: 'Log a Calorie entry',
-      },
+      rationale: `HealthyFlow found ${historicalLunchLogs.length} recent lunch-time logs, but it cannot know what you ate today. Logging remains a user-supplied action.`,
+      evidence: [
+        { label: 'Today', value: 'No lunch or afternoon entry' },
+        { label: 'Recent pattern', value: `${historicalLunchLogs.length} lunch-time logs in 7 days` },
+        { label: 'Checked after', value: `${String(currentHour).padStart(2, '0')}:00 UTC` },
+      ],
+      proposal: null,
     }]
   },
 }

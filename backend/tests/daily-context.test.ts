@@ -33,6 +33,7 @@ import { AiCapabilities } from '../src/ai-capabilities'
 import {
   buildDailyContext,
   DailyContextSchema,
+  DailySignalSchema,
   deriveDailySignals,
 } from '../src/daily-context'
 import { Achievements } from '../src/achievements'
@@ -54,6 +55,7 @@ const task = (overrides: Record<string, unknown> = {}) => ({
   isHabitInstance: overrides.isHabitInstance ?? false,
   originalHabitId: overrides.originalHabitId ?? null,
   createdAt: overrides.createdAt ?? '2026-07-02T08:00:00.000Z',
+  habitInfo: overrides.habitInfo,
 })
 
 const calorie = (overrides: Record<string, unknown> = {}) => ({
@@ -109,10 +111,38 @@ describe('daily context signals', () => {
     expect(signals).toHaveLength(1)
     expect(signals[0]).toMatchObject({
       type: 'schedule_overload',
+      kind: 'actionable',
       severity: 'medium',
       confidence: 'high',
+      proposal: {
+        capability: 'update_item',
+        label: 'Move "Task" to Anytime',
+        arguments: {
+          itemId: 't3',
+          startTime: null,
+          requestId: 'daily-signal:2026-07-02:schedule_overload:afternoon:t3',
+        },
+        affectedRecords: [{
+          id: 't3',
+          kind: 'task',
+          title: 'Task',
+          date: '2026-07-02',
+        }],
+        changes: [{
+          field: 'startTime',
+          label: 'Start time',
+          before: '15:00',
+          after: null,
+        }],
+      },
     })
-    expect(signals[0].evidence).toMatchObject({ window: 'afternoon', itemCount: 3, totalMinutes: 180 })
+    expect(signals[0].rationale).toContain('latest-starting Task')
+    expect(signals[0].evidence).toEqual(expect.arrayContaining([
+      { label: 'Window', value: 'afternoon' },
+      { label: 'Scheduled load', value: '3 Items · 180 min' },
+      { label: 'Concrete candidate', value: 'Task · 15:00' },
+    ]))
+    expect(DailySignalSchema.safeParse(signals[0]).success).toBe(true)
   })
 
   it('keeps schedule_overload quiet for a balanced day', () => {
@@ -126,6 +156,26 @@ describe('daily context signals', () => {
     }))
 
     expect(signals.some((signal) => signal.type === 'schedule_overload')).toBe(false)
+  })
+
+  it('keeps an overloaded Habit-only window informational', () => {
+    const signals = deriveDailySignals(baseContext({
+      day: {
+        tasks: [
+          task({ id: 'h1', type: 'habit', startTime: '13:00', duration: 60 }),
+          task({ id: 'h2', type: 'habit', startTime: '14:00', duration: 60 }),
+          task({ id: 'h3', type: 'habit', startTime: '15:00', duration: 60 }),
+        ],
+      },
+    }))
+
+    expect(signals[0]).toMatchObject({
+      type: 'schedule_overload',
+      kind: 'informational',
+      proposal: null,
+    })
+    expect(signals[0].rationale).toContain('no exact Task change')
+    expect(DailySignalSchema.safeParse(signals[0]).success).toBe(true)
   })
 
   it('fires habit_risk when a due Habit was missed on recent days', () => {
@@ -165,10 +215,12 @@ describe('daily context signals', () => {
     expect(signals).toEqual(expect.arrayContaining([
       expect.objectContaining({
         type: 'habit_risk',
-        evidence: expect.objectContaining({
-          habitId: 'habit-1',
-          missedDates: ['2026-07-01', '2026-06-30'],
-        }),
+        kind: 'informational',
+        proposal: null,
+        evidence: expect.arrayContaining([
+          { label: 'Habit', value: 'Stretch' },
+          { label: 'Recent misses', value: '2026-07-01, 2026-06-30' },
+        ]),
       }),
     ]))
   })
@@ -183,6 +235,48 @@ describe('daily context signals', () => {
           windowDays: 3,
           days: [
             { date: '2026-07-01', habits: [task({ id: 'habit-1-2026-07-01', type: 'habit', originalHabitId: 'habit-1', completed: true })] },
+          ],
+        },
+        calorieHistory: { windowDays: 7, days: [] },
+        workoutHistory: { windowDays: 14, days: [] },
+      },
+    }))
+
+    expect(signals.some((signal) => signal.type === 'habit_risk')).toBe(false)
+  })
+
+  it('does not call a failed binary Habit due today after it was addressed', () => {
+    const failedToday = task({
+      id: 'habit-1-2026-07-02',
+      title: 'Stretch',
+      type: 'habit',
+      originalHabitId: 'habit-1',
+      isHabitInstance: true,
+      completed: false,
+      habitInfo: {
+        target: null,
+        outcome: 'failed',
+        progressTotal: 0,
+      },
+    })
+    const missedHabit = (date: string) => task({
+      id: `habit-1-${date}`,
+      title: 'Stretch',
+      type: 'habit',
+      originalHabitId: 'habit-1',
+      isHabitInstance: true,
+      scheduledDate: date,
+      completed: false,
+    })
+
+    const signals = deriveDailySignals(baseContext({
+      day: { tasks: [failedToday] },
+      lookback: {
+        habitHistory: {
+          windowDays: 3,
+          days: [
+            { date: '2026-07-01', habits: [missedHabit('2026-07-01')] },
+            { date: '2026-06-30', habits: [missedHabit('2026-06-30')] },
           ],
         },
         calorieHistory: { windowDays: 7, days: [] },
@@ -211,8 +305,10 @@ describe('daily context signals', () => {
     expect(signals).toEqual(expect.arrayContaining([
       expect.objectContaining({
         type: 'missing_calorie_log',
+        kind: 'informational',
         severity: 'low',
         confidence: 'medium',
+        proposal: null,
       }),
     ]))
   })

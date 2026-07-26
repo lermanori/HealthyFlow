@@ -141,7 +141,7 @@ export const db = {
   // Batch-write positions for the Anytime backlog, scoped to the owner so a user
   // can only reorder their own tasks (mirrors the ownership guard on PUT /:id).
   async reorderTasks(userId: string, pairs: Array<{ id: string; position: number }>) {
-    await Promise.all(
+    const results = await Promise.all(
       pairs.map(({ id, position }) =>
         supabase
           .from('tasks')
@@ -150,6 +150,8 @@ export const db = {
           .eq('user_id', userId)
       )
     );
+    const failed = results.find(result => result.error);
+    if (failed?.error) throw failed.error;
   },
 
   async deleteTask(taskId: string) {
