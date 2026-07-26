@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, type KeyboardEvent } from 'react'
+import { useState, useEffect, useMemo, useRef, type KeyboardEvent, type ReactNode } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays, isSameDay, isBefore } from 'date-fns'
 import {
@@ -345,6 +345,98 @@ function itemTypeLabel(item: DaySummary['items'][number]) {
   return 'Item'
 }
 
+type DayContextDisclosureProps = {
+  dateKey: string
+  id: 'habits' | 'nutrition' | 'workouts'
+  icon: ReactNode
+  title: string
+  summary: string
+  children: ReactNode
+}
+
+function DayContextDisclosure({
+  dateKey,
+  id,
+  icon,
+  title,
+  summary,
+  children,
+}: DayContextDisclosureProps) {
+  const [expanded, setExpanded] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const triggerId = `day-context-${id}-trigger`
+  const panelId = `day-context-${id}-panel`
+
+  useEffect(() => setExpanded(false), [dateKey])
+
+  const handlePanelKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'Escape') return
+    event.preventDefault()
+    event.stopPropagation()
+    setExpanded(false)
+    window.requestAnimationFrame(() => triggerRef.current?.focus())
+  }
+
+  return (
+    <div>
+      <button
+        ref={triggerRef}
+        id={triggerId}
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={panelId}
+        onClick={() => setExpanded((current) => !current)}
+        className="group flex min-h-11 w-full items-start gap-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-400"
+      >
+        <span className="mt-0.5 shrink-0" aria-hidden="true">{icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-ink">{title}</span>
+          <span className="mt-0.5 block text-xs leading-relaxed text-ink-muted">{summary}</span>
+        </span>
+        <ChevronRight
+          className={`mt-1 h-4 w-4 shrink-0 text-ink-muted transition-transform motion-reduce:transition-none ${expanded ? 'rotate-90' : ''}`}
+          aria-hidden="true"
+        />
+      </button>
+      {expanded && (
+        <div
+          id={panelId}
+          role="region"
+          aria-labelledby={triggerId}
+          tabIndex={-1}
+          onKeyDown={handlePanelKeyDown}
+          className="pb-4 pl-7 pr-1"
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function habitOutcomeLabel(habit: DaySummary['items'][number]) {
+  const outcome = habit.habitInfo?.outcome ?? (habit.completed ? 'completed' : 'pending')
+  if (outcome === 'completed') return 'Completed'
+  if (outcome === 'partial') return 'Partial'
+  if (outcome === 'failed') return 'Not done'
+  return 'Pending'
+}
+
+function habitTargetUnit(unit: 'minutes' | 'reps' | 'count') {
+  if (unit === 'minutes') return 'min'
+  if (unit === 'reps') return 'reps'
+  return ''
+}
+
+function nutritionMetricCopy(
+  metric: DaySummary['supporting']['nutrition']['calories'],
+  unit: 'kcal' | 'g'
+) {
+  if (metric.value === null) return 'Unavailable'
+  const value = `${metric.value}${unit === 'g' ? 'g' : ' kcal'}`
+  return metric.status === 'partial' ? `${value} known` : value
+}
+
 function DecisionBand({ summary }: { summary: DaySummary }) {
   const focus = summary.attention.focus
   const focusItem = focus.itemId
@@ -497,23 +589,37 @@ function DayContextSummary({ summary }: { summary: DaySummary }) {
   const habits = summary.supporting.habits
   const nutrition = summary.supporting.nutrition
   const workouts = summary.supporting.workouts
-  const nutritionCopy = nutrition.status === 'available'
-    ? [
-        nutrition.calories.value !== null
-          ? `${nutrition.calories.value} kcal${nutrition.calories.status === 'partial' ? ' (partial)' : ''}`
-          : 'Calories unavailable',
-        nutrition.protein.value !== null
-          ? `${nutrition.protein.value}g protein${nutrition.protein.status === 'partial' ? ' (partial)' : ''}`
-          : 'Protein unavailable',
-        nutrition.weight.status === 'recorded' && nutrition.weight.entry
-          ? `${nutrition.weight.entry.weightKg} kg`
-          : nutrition.weight.status === 'not_recorded'
-            ? 'Weight not recorded'
-            : 'Weight unavailable',
-      ].join(' · ')
+  const habitInstances = summary.items.filter((item) => item.type === 'habit')
+  const scheduledWorkoutItems = summary.items.filter((item) => item.type === 'workout')
+  const habitSummaryCopy = habits.total === 0
+    ? 'No Habits due this day'
+    : [
+        habits.completed ? `${habits.completed} completed` : null,
+        habits.partial ? `${habits.partial} partial` : null,
+        habits.pending ? `${habits.pending} pending` : null,
+        habits.failed ? `${habits.failed} not done` : null,
+      ].filter(Boolean).join(' · ')
+  const weightSummaryCopy = nutrition.weight.status === 'recorded' && nutrition.weight.entry
+    ? `${nutrition.weight.entry.weightKg} kg recorded`
+    : nutrition.weight.status === 'not_recorded'
+      ? 'Weight not recorded'
+      : 'Weight unavailable'
+  const nutritionSummaryCopy = nutrition.status === 'available'
+    ? `${nutritionMetricCopy(nutrition.calories, 'kcal')} · ${weightSummaryCopy}`
     : nutrition.status === 'not_logged'
-      ? 'Nothing logged yet'
-      : 'Nutrition data unavailable'
+      ? `Calories not logged · ${weightSummaryCopy}`
+      : `Calorie entries unavailable · ${weightSummaryCopy}`
+  const workoutSessionCopy = workouts.status === 'logged'
+    ? `${workouts.sessions.length} logged ${workouts.sessions.length === 1 ? 'session' : 'sessions'}`
+    : workouts.status === 'not_logged'
+      ? 'No logged sessions'
+      : 'Logged sessions unavailable'
+  const workoutSummaryCopy = [
+    scheduledWorkoutItems.length === 0
+      ? 'No scheduled Workout Items'
+      : `${scheduledWorkoutItems.length} scheduled Workout ${scheduledWorkoutItems.length === 1 ? 'Item' : 'Items'}`,
+    workoutSessionCopy,
+  ].join(' · ')
 
   return (
     <section aria-labelledby="day-context-heading" data-demo-id="day-context">
@@ -521,44 +627,177 @@ function DayContextSummary({ summary }: { summary: DaySummary }) {
         Day context
       </h3>
       <div className="mt-2 divide-y divide-line/60 border-y border-line/60">
-        <div className="flex items-start gap-3 py-3">
-          <HeartPulse className="mt-0.5 h-4 w-4 shrink-0 text-cyan-400" aria-hidden="true" />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-ink">Habits</p>
-            <p className="mt-0.5 text-xs text-ink-muted">
-              {habits.total === 0
-                ? 'No Habit instances for this day'
-                : `${habits.completed} complete · ${habits.partial} partial · ${habits.pending} pending${habits.failed ? ` · ${habits.failed} failed` : ''}`}
+        <DayContextDisclosure
+          dateKey={summary.date}
+          id="habits"
+          icon={<HeartPulse className="h-4 w-4 text-cyan-400" />}
+          title="Habits"
+          summary={habitSummaryCopy}
+        >
+          {habitInstances.length === 0 ? (
+            <p className="text-xs leading-relaxed text-ink-muted">
+              No Habit instances are due on this date. Habit data loaded successfully.
             </p>
-          </div>
-        </div>
+          ) : (
+            <ul className="space-y-3">
+              {habitInstances.map((habit) => {
+                const target = habit.habitInfo?.target
+                const progress = habit.habitInfo?.progressTotal ?? 0
+                const progressPercent = target
+                  ? Math.min(100, Math.round((progress / target.value) * 100))
+                  : null
+                return (
+                  <li key={habit.id} className="min-w-0">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="truncate text-xs font-medium text-ink-soft">{habit.title}</span>
+                      <span className="shrink-0 text-[11px] font-medium text-ink-muted">
+                        {habitOutcomeLabel(habit)}
+                      </span>
+                    </div>
+                    {target ? (
+                      <>
+                        <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-ink-muted">
+                          <span>
+                            {progress} of {target.value}{habitTargetUnit(target.unit) ? ` ${habitTargetUnit(target.unit)}` : ''}
+                          </span>
+                          <span>Target {target.value}{habitTargetUnit(target.unit) ? ` ${habitTargetUnit(target.unit)}` : ''}</span>
+                        </div>
+                        <div
+                          role="progressbar"
+                          aria-label={`${habit.title} Habit progress`}
+                          aria-valuemin={0}
+                          aria-valuemax={Math.max(target.value, progress)}
+                          aria-valuenow={progress}
+                          aria-valuetext={`${progress} of target ${target.value}${habitTargetUnit(target.unit) ? ` ${habitTargetUnit(target.unit)}` : ''}`}
+                          className="mt-1.5 h-1 overflow-hidden rounded-full bg-raised"
+                        >
+                          <span
+                            className="block h-full bg-cyan-400"
+                            style={{ width: `${progressPercent}%` }}
+                          />
+                        </div>
+                      </>
+                    ) : (
+                      <p className="mt-1 text-[11px] text-ink-muted">Binary Habit · no numeric target</p>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+        </DayContextDisclosure>
 
         {summary.modules.nutrition !== 'disabled' && (
-          <div className="flex items-start gap-3 py-3">
-            <Utensils className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" aria-hidden="true" />
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-ink">Nutrition and Weight</p>
-              <p className="mt-0.5 text-xs text-ink-muted">
-                {nutritionCopy}
-              </p>
+          <DayContextDisclosure
+            dateKey={summary.date}
+            id="nutrition"
+            icon={<Utensils className="h-4 w-4 text-rose-400" />}
+            title="Nutrition and Weight"
+            summary={nutritionSummaryCopy}
+          >
+            <div className="space-y-3">
+              {nutrition.status === 'unavailable' ? (
+                <p className="text-xs leading-relaxed text-ink-muted">
+                  Calorie entries could not be checked. Missing data is not counted as zero.
+                </p>
+              ) : nutrition.status === 'not_logged' ? (
+                <p className="text-xs leading-relaxed text-ink-muted">
+                  No Calorie entries were logged for this date.
+                </p>
+              ) : (
+                <>
+                  <p className="text-[11px] text-ink-muted">
+                    {nutrition.entries.length} {nutrition.entries.length === 1 ? 'Calorie entry' : 'Calorie entries'}
+                  </p>
+                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+                    {([
+                      ['Calories', nutrition.calories, 'kcal'],
+                      ['Protein', nutrition.protein, 'g'],
+                      ['Carbohydrate', nutrition.carbs, 'g'],
+                      ['Fat', nutrition.fat, 'g'],
+                    ] as const).map(([label, metric, unit]) => (
+                      <div key={label}>
+                        <dt className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">{label}</dt>
+                        <dd className="mt-0.5 text-xs font-medium text-ink-soft">
+                          {nutritionMetricCopy(metric, unit)}
+                        </dd>
+                        {metric.status === 'partial' && (
+                          <p className="mt-0.5 text-[10px] leading-snug text-ink-muted">
+                            Some entries are missing this value.
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </dl>
+                </>
+              )}
+              <div className="border-t border-line/60 pt-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">Weight</p>
+                <p className="mt-1 text-xs text-ink-soft">
+                  {nutrition.weight.status === 'recorded' && nutrition.weight.entry
+                    ? `${nutrition.weight.entry.weightKg} kg recorded on this date`
+                    : nutrition.weight.status === 'not_recorded'
+                      ? 'Not recorded on this date'
+                      : 'Weight data could not be checked'}
+                </p>
+              </div>
             </div>
-          </div>
+          </DayContextDisclosure>
         )}
 
         {summary.modules.workouts !== 'disabled' && (
-          <div className="flex items-start gap-3 py-3">
-            <Dumbbell className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" aria-hidden="true" />
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-ink">Workout</p>
-              <p className="mt-0.5 text-xs text-ink-muted">
-                {workouts.status === 'logged'
-                  ? `${workouts.sessions.length} ${workouts.sessions.length === 1 ? 'session' : 'sessions'} logged`
-                  : workouts.status === 'not_logged'
-                    ? 'No workout logged'
-                    : 'Workout data unavailable'}
-              </p>
+          <DayContextDisclosure
+            dateKey={summary.date}
+            id="workouts"
+            icon={<Dumbbell className="h-4 w-4 text-amber-400" />}
+            title="Workout"
+            summary={workoutSummaryCopy}
+          >
+            <div className="space-y-4">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+                  Scheduled Workout Items
+                </p>
+                {scheduledWorkoutItems.length === 0 ? (
+                  <p className="mt-1 text-xs text-ink-muted">None scheduled for this date.</p>
+                ) : (
+                  <ul className="mt-2 space-y-2">
+                    {scheduledWorkoutItems.map((item) => (
+                      <li key={item.id} className="flex items-baseline justify-between gap-3 text-xs">
+                        <span className="truncate font-medium text-ink-soft">{item.title}</span>
+                        <span className="shrink-0 text-[11px] text-ink-muted">
+                          {item.completed ? 'Completed' : item.startTime ?? 'Anytime'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="border-t border-line/60 pt-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+                  Logged Workout sessions
+                </p>
+                {workouts.status === 'unavailable' ? (
+                  <p className="mt-1 text-xs text-ink-muted">Workout sessions could not be checked.</p>
+                ) : workouts.sessions.length === 0 ? (
+                  <p className="mt-1 text-xs text-ink-muted">No Workout session logged for this date.</p>
+                ) : (
+                  <ul className="mt-2 space-y-2">
+                    {workouts.sessions.map((session) => (
+                      <li key={session.id} className="flex items-baseline justify-between gap-3 text-xs">
+                        <span className="truncate font-medium text-ink-soft">
+                          {session.title ?? 'Workout session'}
+                        </span>
+                        <span className="shrink-0 text-[11px] text-ink-muted">
+                          {session.exercises.length} {session.exercises.length === 1 ? 'exercise' : 'exercises'}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
-          </div>
+          </DayContextDisclosure>
         )}
       </div>
     </section>

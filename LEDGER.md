@@ -1,3 +1,9 @@
+### 2026-07-26 13:34 — `codex/164-day-context`
+
+Completed Phase 1’s module-aware Day Context with progressively disclosed Habit outcomes and target progress, honest Calorie/macro/Weight states, and an explicit separation between scheduled Workout Items and logged Workout sessions. DaySummary now preserves Weight availability independently when the Calorie-entry source fails, while disabled modules remain absent and missing values never masquerade as zero. Backend composition tests and authenticated responsive visual, interaction, touch-target, focus-restoration, and accessibility regressions cover all three target viewports; issue #164 is ready for preview review.
+
+---
+
 ### 2026-07-26 13:00 — `codex/phase1-anytime-drag`
 
 Completed Phase 1’s shared Schedule and Anytime workspace with honest incomplete/duration summaries, date-scoped disclosure, full-width desktop context, and one drag system across responsive regions. Drag capture now expands every compacted hour before measurement, keyboard/mouse/touch flows restore layout and focus, virtual Habit IDs reconcile safely, and failed multi-write moves compensate server state before restoring the original UI. Frontend build, all 364 backend tests, and dense responsive visual, accessibility, persistence, cancellation, materialization, and rollback regressions are green; no database migration is required.
