@@ -1,3 +1,9 @@
+### 2026-07-26 09:53 — `codex/fix-talk-history-save-race`
+
+Fixed the false Talk history-save error caused by browser-history migration and normal autosave issuing duplicate writes for the same conversation. Migration now completes before autosave begins, saves for each conversation are serialized, and focused browser regressions cover both legacy-history startup and slow in-flight saves; issue #167 is ready for preview review.
+
+---
+
 ### 2026-07-19 08:52 — `design-review`
 
 Completed Phase 0’s reliability and trust foundation across module routing, shared accessibility controls, Week theming, modal and mobile-drawer focus behavior, and account privacy workflows. Portable export and verified deletion now have backend contracts and regression coverage, while the frontend and backend validation suites are green and the six implementation issues are ready for review as one coordinated release.

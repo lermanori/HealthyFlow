@@ -14,6 +14,121 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
+test('Migrates browser chat history without triggering a duplicate autosave', async ({ page }) => {
+  const now = new Date().toISOString()
+  const conversation = {
+    id: '11111111-1111-4111-8111-111111111111',
+    title: 'Plan tomorrow',
+    model: 'gpt-4o-mini',
+    createdAt: now,
+    updatedAt: now,
+    messages: [{
+      id: '22222222-2222-4222-8222-222222222222',
+      role: 'user',
+      content: 'Plan tomorrow',
+      createdAt: now,
+    }],
+  }
+  let saveRequests = 0
+
+  await page.addInitScript((storedConversation) => {
+    localStorage.setItem('healthyflow-assistant-conversations-v1', JSON.stringify([storedConversation]))
+    localStorage.removeItem('healthyflow-assistant-conversations-v1-migrated')
+  }, conversation)
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ contentType: 'application/json', body: '[]' })
+      return
+    }
+    if (route.request().method() === 'PUT') {
+      saveRequests += 1
+      await route.fulfill({
+        status: saveRequests === 1 ? 200 : 500,
+        contentType: 'application/json',
+        body: saveRequests === 1
+          ? JSON.stringify(conversation)
+          : JSON.stringify({ error: 'Failed to save chat history' }),
+      })
+      return
+    }
+    await route.fallback()
+  })
+
+  await page.goto('/talk')
+  await expect(page.getByText('Plan tomorrow').first()).toBeVisible()
+  await expect.poll(() => page.evaluate(() =>
+    localStorage.getItem('healthyflow-assistant-conversations-v1-migrated')
+  )).toBe('true')
+  await page.waitForTimeout(700)
+
+  expect(saveRequests).toBe(1)
+  await expect(page.getByText('Could not save chat history.')).toHaveCount(0)
+})
+
+test('Serializes autosaves while an earlier chat save is still in flight', async ({ page }) => {
+  const now = new Date().toISOString()
+  const conversation = {
+    id: '33333333-3333-4333-8333-333333333333',
+    title: 'Existing plan',
+    model: 'gpt-4o-mini',
+    createdAt: now,
+    updatedAt: now,
+    messages: [{
+      id: '44444444-4444-4444-8444-444444444444',
+      role: 'user',
+      content: 'Existing plan',
+      createdAt: now,
+    }],
+  }
+  let activeSaves = 0
+  let maximumConcurrentSaves = 0
+  const savedMessageCounts: number[] = []
+
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify([conversation]),
+      })
+      return
+    }
+    if (route.request().method() === 'PUT') {
+      const snapshot = route.request().postDataJSON() as { messages: unknown[] }
+      activeSaves += 1
+      maximumConcurrentSaves = Math.max(maximumConcurrentSaves, activeSaves)
+      savedMessageCounts.push(snapshot.messages.length)
+      await new Promise((resolve) => setTimeout(resolve, 600))
+      activeSaves -= 1
+      await route.fulfill({
+        contentType: 'application/json',
+        body: JSON.stringify(snapshot),
+      })
+      return
+    }
+    await route.fallback()
+  })
+  await page.route('**/api/ai/chat', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 450))
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({
+        message: 'Here is the updated plan.',
+        toolEvents: [],
+        pendingActions: [],
+      }),
+    })
+  })
+
+  await page.goto('/talk')
+  await page.getByPlaceholder(/Add anything/).fill('Update the plan')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByText('Here is the updated plan.')).toBeVisible()
+  await expect.poll(() => savedMessageCounts, { timeout: 4_000 }).toEqual([2, 3])
+
+  expect(maximumConcurrentSaves).toBe(1)
+  await expect(page.getByText('Could not save chat history.')).toHaveCount(0)
+})
+
 test('Mobile assistant composer wraps long text instead of hiding it off-screen', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/talk')
