@@ -26,6 +26,7 @@ import {
   daySummaryService,
   DAILY_SIGNALS_QUERY_KEY,
   DAY_SUMMARY_QUERY_KEY,
+  isDaySummaryItemAddressed,
   onboardingService,
   rhythmService,
   taskService,
@@ -193,7 +194,7 @@ function WeekRibbon({
 }: {
   selectedDate: Date
   onSelect: (d: Date) => void
-  loadByDay: Record<string, { total: number; completed: number }>
+  loadByDay: Record<string, { total: number; completed: number; addressed?: number }>
   weekStartsOn: WeekStartsOn
 }) {
   const buttonRefs = useRef<Array<HTMLButtonElement | null>>([])
@@ -216,11 +217,12 @@ function WeekRibbon({
     >
       {days.map((day, index) => {
         const key = format(day, 'yyyy-MM-dd')
-        const load = loadByDay[key] ?? { total: 0, completed: 0 }
+        const load = loadByDay[key] ?? { total: 0, completed: 0, addressed: 0 }
+        const addressed = load.addressed ?? load.completed
         const isSelected = isSameDay(day, selectedDate)
         const isFuture = isBefore(today, day) && !isSameDay(day, today)
-        const allDone = load.total > 0 && load.completed >= load.total
-        const pct = load.total > 0 ? Math.round((load.completed / load.total) * 100) : 0
+        const allDone = load.total > 0 && addressed >= load.total
+        const pct = load.total > 0 ? Math.round((addressed / load.total) * 100) : 0
         const barColor = allDone ? '#4ade80' : '#22d3ee'
 
         return (
@@ -232,7 +234,7 @@ function WeekRibbon({
             onKeyDown={(event) => handleKeyDown(event, index)}
             tabIndex={isSelected ? 0 : -1}
             aria-current={isSelected ? 'date' : undefined}
-            aria-label={`${format(day, 'EEEE, MMMM d, yyyy')}, ${load.completed} of ${load.total} completed`}
+            aria-label={`${format(day, 'EEEE, MMMM d, yyyy')}, ${addressed} of ${load.total} addressed`}
             data-week-date={key}
             data-demo-id={isSelected ? 'week-tab' : undefined}
             className={`flex flex-col overflow-hidden rounded-xl border transition-all ${
@@ -282,7 +284,7 @@ function WeekRibbon({
                     </span>
                   </>
                 ) : (
-                  `${load.completed}/${load.total}`
+                  `${addressed}/${load.total}`
                 )}
               </span>
             </div>
@@ -462,12 +464,15 @@ function DecisionBand({ summary }: { summary: DaySummary }) {
   const nextCalendar = summary.attention.nextCalendarObligation
   const capacity = summary.capacity
 
+  const addressed = summary.completion.addressed ?? summary.completion.completed
   const emptyFocusCopy = focus.state === 'completed_day'
-    ? { title: 'Day complete', detail: 'Everything planned for this day is complete.' }
+    ? summary.completion.completed === summary.completion.total
+      ? { title: 'Day complete', detail: 'Everything planned for this day is complete.' }
+      : { title: 'Day addressed', detail: 'Every planned Item has a completion or Habit outcome.' }
     : focus.state === 'empty_day'
       ? { title: 'Open day', detail: 'Nothing is planned yet.' }
       : focus.state === 'nothing_needs_attention'
-        ? { title: 'Nothing needs attention', detail: 'There is no incomplete Item to surface.' }
+        ? { title: 'Nothing needs attention', detail: 'There is no unaddressed Item to surface.' }
         : focus.state === 'past_incomplete'
           ? { title: 'Past day needs review', detail: 'Incomplete work remains on this date.' }
           : focus.state === 'future_planned'
@@ -576,12 +581,12 @@ function DecisionBand({ summary }: { summary: DaySummary }) {
           <p className="mt-1 text-xs leading-relaxed text-ink-muted">{capacityDetail}</p>
           <div className="mt-3 flex items-center gap-2 text-xs text-ink-soft">
             <span className="font-semibold text-ink">
-              {summary.completion.completed} of {summary.completion.total} done
+              {addressed} of {summary.completion.total} addressed
             </span>
             {summary.completion.percent !== null && (
               <span
                 role="progressbar"
-                aria-label="Daily Item completion"
+                aria-label="Daily Item check-in progress"
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={Math.round(summary.completion.percent)}
@@ -888,18 +893,22 @@ export default function TodayPage() {
   })
 
   const loadByDay = (daySummary?.week.days ?? []).reduce((acc, day) => {
-    acc[day.date] = { total: day.total, completed: day.completed }
+    acc[day.date] = { total: day.total, completed: day.completed, addressed: day.addressed }
     return acc
-  }, {} as Record<string, { total: number; completed: number }>)
+  }, {} as Record<string, { total: number; completed: number; addressed?: number }>)
 
-  const doneCount = tasksData.filter((t) => t.completed).length
-  const timedLeft = tasksData.filter((t) => t.startTime && !t.completed).length
-  const untimedLeft = tasksData.filter((t) => !t.startTime && !t.completed).length
+  const addressedIds = useMemo(
+    () => new Set((daySummary?.items ?? []).filter(isDaySummaryItemAddressed).map((item) => item.id)),
+    [daySummary?.items]
+  )
+  const addressedCount = daySummary?.completion.addressed ?? daySummary?.completion.completed ?? 0
+  const timedLeft = tasksData.filter((task) => task.startTime && !addressedIds.has(task.id)).length
+  const untimedLeft = tasksData.filter((task) => !task.startTime && !addressedIds.has(task.id)).length
   const headerSubline =
     tasksData.length === 0
       ? 'Nothing scheduled yet'
       : [
-          `${doneCount} of ${tasksData.length} done`,
+          `${addressedCount} of ${tasksData.length} addressed`,
           timedLeft ? `${timedLeft} timed left` : null,
           untimedLeft ? `${untimedLeft} untimed` : null,
         ]

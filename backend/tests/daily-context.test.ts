@@ -55,6 +55,7 @@ const task = (overrides: Record<string, unknown> = {}) => ({
   isHabitInstance: overrides.isHabitInstance ?? false,
   originalHabitId: overrides.originalHabitId ?? null,
   createdAt: overrides.createdAt ?? '2026-07-02T08:00:00.000Z',
+  habitInfo: overrides.habitInfo,
 })
 
 const calorie = (overrides: Record<string, unknown> = {}) => ({
@@ -234,6 +235,48 @@ describe('daily context signals', () => {
           windowDays: 3,
           days: [
             { date: '2026-07-01', habits: [task({ id: 'habit-1-2026-07-01', type: 'habit', originalHabitId: 'habit-1', completed: true })] },
+          ],
+        },
+        calorieHistory: { windowDays: 7, days: [] },
+        workoutHistory: { windowDays: 14, days: [] },
+      },
+    }))
+
+    expect(signals.some((signal) => signal.type === 'habit_risk')).toBe(false)
+  })
+
+  it('does not call a failed binary Habit due today after it was addressed', () => {
+    const failedToday = task({
+      id: 'habit-1-2026-07-02',
+      title: 'Stretch',
+      type: 'habit',
+      originalHabitId: 'habit-1',
+      isHabitInstance: true,
+      completed: false,
+      habitInfo: {
+        target: null,
+        outcome: 'failed',
+        progressTotal: 0,
+      },
+    })
+    const missedHabit = (date: string) => task({
+      id: `habit-1-${date}`,
+      title: 'Stretch',
+      type: 'habit',
+      originalHabitId: 'habit-1',
+      isHabitInstance: true,
+      scheduledDate: date,
+      completed: false,
+    })
+
+    const signals = deriveDailySignals(baseContext({
+      day: { tasks: [failedToday] },
+      lookback: {
+        habitHistory: {
+          windowDays: 3,
+          days: [
+            { date: '2026-07-01', habits: [missedHabit('2026-07-01')] },
+            { date: '2026-06-30', habits: [missedHabit('2026-06-30')] },
           ],
         },
         calorieHistory: { windowDays: 7, days: [] },

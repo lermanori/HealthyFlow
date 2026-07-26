@@ -340,6 +340,32 @@ describe('DaySummary attention derivation', () => {
       nowMinutes: 600,
     }).focus.state).toBe('nothing_needs_attention')
   })
+
+  it('does not keep a failed binary Habit in focus or upcoming obligations', () => {
+    const attention = deriveAttention({
+      items: [
+        item({
+          id: 'failed-habit',
+          title: 'Do not smoke',
+          type: 'habit',
+          startTime: '09:00',
+          completed: false,
+          habitInfo: {
+            target: null,
+            outcome: 'failed',
+            progressTotal: 0,
+          },
+        }),
+        item({ id: 'pending-task', title: 'Pending Task', startTime: null }),
+      ],
+      calendarEvents: [],
+      dateMode: 'today',
+      nowMinutes: 10 * 60,
+    })
+
+    expect(attention.focus.itemId).toBe('pending-task')
+    expect(attention.nextPlannedItem).toBeNull()
+  })
 })
 
 describe('DaySummary composition', () => {
@@ -357,6 +383,44 @@ describe('DaySummary composition', () => {
     getWeightEntry: jest.fn().mockResolvedValue(null),
     getWorkoutSessions: jest.fn().mockResolvedValue([]),
     ...overrides,
+  })
+
+  it('counts a failed binary Habit as addressed without counting it as completed', async () => {
+    const failedHabit = item({
+      id: 'failed-habit',
+      title: 'Do not smoke',
+      type: 'habit',
+      startTime: '09:00',
+      completed: false,
+      habitInfo: {
+        target: null,
+        outcome: 'failed',
+        progressTotal: 0,
+      },
+    })
+    const pendingTask = item({ id: 'pending-task', title: 'Pending Task' })
+    const summary = await buildDaySummary('user-1', '2026-07-27', 'UTC', {
+      now: new Date('2026-07-27T10:00:00.000Z'),
+      dependencies: dependenciesFor({
+        itemsForDay: jest.fn().mockImplementation((_userId, date) =>
+          Promise.resolve(date === '2026-07-27' ? [failedHabit, pendingTask] : [])
+        ),
+      }),
+    })
+
+    expect(summary.completion).toMatchObject({
+      total: 2,
+      completed: 0,
+      addressed: 1,
+      remaining: 1,
+      percent: 50,
+    })
+    expect(summary.week.days.find((day) => day.date === '2026-07-27')).toMatchObject({
+      total: 2,
+      completed: 0,
+      addressed: 1,
+    })
+    expect(summary.attention.focus.itemId).toBe('pending-task')
   })
 
   it('keeps the core Item plan when optional sources are unavailable', async () => {

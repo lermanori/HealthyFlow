@@ -1,3 +1,9 @@
+### 2026-07-26 16:42 — `codex/147-closure-fixes`
+
+Closed the two remaining Today review findings for Phase 1: informational Daily Signals now open a fresh, bounded Talk session with a more useful next-step prompt, and a failed binary Habit counts as addressed without being misreported as completed. Today focus, progress, week load, and Daily Signals now share that distinction while historical failures remain misses; repeated chat migration, one-request DaySummary, responsive visual, frontend, and all 380 backend checks are green.
+
+---
+
 ### 2026-07-26 14:41 — `codex/165-daily-signals`
 
 Aligned the Today browser fixtures with the full Zod-validated Daily Context response now consumed by the frontend. Both current and previous-contract signal responses are exercised through the same runtime parser, keeping the rollout-safety regression representative of production.

@@ -16,11 +16,13 @@ import {
 } from '../../backend/src/daily-context-schema'
 import {
   DaySummarySchema,
+  isDaySummaryItemAddressed,
   type DaySummary,
   type PlanningWindow,
 } from '../../backend/src/day-summary-schema'
 
 export type { DailyContext, DailySignal, DailySignalType, DaySummary, PlanningWindow }
+export { isDaySummaryItemAddressed }
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 // const API_BASE_URL = 'https://healthyflow-production.up.railway.app/api'
 

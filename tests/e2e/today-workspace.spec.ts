@@ -619,8 +619,37 @@ test('Daily Signal dismissal recovers from cancellation failure', async ({ page 
   await expect(signalsRegion).toBeFocused()
 })
 
-test('informational Daily Signals hand off bounded context to Talk without URL payloads', async ({ page }) => {
+test('informational Daily Signals start a fresh bounded Talk conversation', async ({ page }) => {
   await mockToday(page)
+  const now = new Date().toISOString()
+  await page.route('**/api/ai/conversations', async (route) => {
+    await route.fulfill({
+      json: [{
+        id: '11111111-1111-4111-8111-111111111111',
+        title: 'Unrelated existing plan',
+        model: 'gpt-4o-mini',
+        createdAt: now,
+        updatedAt: now,
+        messages: [{
+          id: '22222222-2222-4222-8222-222222222222',
+          role: 'user',
+          content: 'Keep discussing my unrelated existing plan.',
+          createdAt: now,
+        }],
+      }],
+    })
+  })
+  let chatMessages: Array<{ role: string; content: string }> = []
+  await page.route('**/api/ai/chat', async (route) => {
+    chatMessages = route.request().postDataJSON().messages
+    await route.fulfill({
+      json: {
+        message: 'Let us choose one useful next step for this signal.',
+        toolEvents: [],
+        pendingActions: [],
+      },
+    })
+  })
   await page.goto('/')
   await page.getByRole('button', { name: 'Review', exact: true }).click()
   const informational = page.getByRole('listitem').filter({ hasText: 'Information' })
@@ -628,9 +657,18 @@ test('informational Daily Signals hand off bounded context to Talk without URL p
 
   await expect(page).toHaveURL(/\/talk$/)
   await expect(page.getByText('From Today · 2026-07-15 · habit risk')).toBeVisible()
-  await expect(page.locator('[data-demo-id="talk-input"]')).toHaveValue(/You missed "Walk outside"/)
+  const talkInput = page.locator('[data-demo-id="talk-input"]')
+  await expect(talkInput).toHaveValue(/You missed "Walk outside"/)
+  await expect(talkInput).toHaveValue(/one useful next step/i)
+  await expect(page.locator('.assistant-messages-scroll')).not.toContainText('unrelated existing plan')
   expect(page.url()).not.toContain('signal')
   expect(page.url()).not.toContain('rationale')
+
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByText('Let us choose one useful next step for this signal.')).toBeVisible()
+  expect(chatMessages).toHaveLength(1)
+  expect(chatMessages[0].content).toContain('You missed "Walk outside"')
+  expect(chatMessages[0].content).not.toContain('unrelated existing plan')
 })
 
 test('the previous Daily Signal contract degrades to safe informational guidance', async ({ page }) => {

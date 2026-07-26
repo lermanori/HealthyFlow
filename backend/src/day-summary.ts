@@ -11,6 +11,7 @@ import {
   DaySummarySchema,
   DaySummaryWeightEntry,
   DaySummaryWeightEntrySchema,
+  isDaySummaryItemAddressed,
   PlanningWindow,
   PlanningWindowSchema,
   type DaySummary,
@@ -364,7 +365,7 @@ export function deriveAttention(input: {
   dateMode: DateMode
   nowMinutes: number | null
 }): DaySummary['attention'] {
-  const incomplete = input.items.filter((item) => !item.completed).sort(compareItems)
+  const incomplete = input.items.filter((item) => !isDaySummaryItemAddressed(item)).sort(compareItems)
   const completionState = input.items.length === 0
     ? 'empty_day'
     : incomplete.length === 0
@@ -495,13 +496,15 @@ export function deriveAttention(input: {
 
 function completionFor(items: DaySummaryItem[]): DaySummary['completion'] {
   const completed = items.filter((item) => item.completed).length
+  const addressed = items.filter(isDaySummaryItemAddressed).length
   const total = items.length
   return {
-    state: total === 0 ? 'empty' : completed === total ? 'complete' : 'in_progress',
+    state: total === 0 ? 'empty' : addressed === total ? 'complete' : 'in_progress',
     total,
     completed,
-    remaining: total - completed,
-    percent: total === 0 ? null : Math.round((completed / total) * 100),
+    addressed,
+    remaining: total - addressed,
+    percent: total === 0 ? null : Math.round((addressed / total) * 100),
   }
 }
 
@@ -749,6 +752,7 @@ export async function buildDaySummary(
         date: weekDate,
         total: weekItems[index].length,
         completed: weekItems[index].filter((item) => item.completed).length,
+        addressed: weekItems[index].filter(isDaySummaryItemAddressed).length,
       })),
     },
     attention,
