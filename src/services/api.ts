@@ -4,6 +4,13 @@ import toast from 'react-hot-toast'
 import { analytics } from '../lib/analytics'
 import type { DemoPersonaId } from '../demoPersonas'
 import type { ItemSource, ItemType } from '../lib/analytics/types'
+import {
+  DaySummarySchema,
+  type DaySummary,
+  type PlanningWindow,
+} from '../../backend/src/day-summary-schema'
+
+export type { DaySummary, PlanningWindow }
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 // const API_BASE_URL = 'https://healthyflow-production.up.railway.app/api'
 
@@ -782,6 +789,7 @@ export interface UserSettings {
   achievementTracker: boolean
   workoutTracker: boolean
   weekStartsOn: 0 | 1 | 2 | 3 | 4 | 5 | 6
+  planningWindow: PlanningWindow | null
   onboardingStatus: 'active' | 'completed' | 'skipped'
   theme: 'midnight' | 'white'
 }
@@ -795,6 +803,18 @@ export const settingsService = {
   updateSettings: async (partial: Partial<UserSettings>): Promise<UserSettings> => {
     const response = await api.patch('/settings', partial)
     return response.data
+  },
+}
+
+export const DAY_SUMMARY_QUERY_KEY = ['day-summary'] as const
+export const daySummaryQueryKey = (date: string) => [...DAY_SUMMARY_QUERY_KEY, date] as const
+export const DAILY_SIGNALS_QUERY_KEY = ['daily-context'] as const
+export const dailySignalsQueryKey = (date: string) => [...DAILY_SIGNALS_QUERY_KEY, date] as const
+
+export const daySummaryService = {
+  get: async (date: string): Promise<DaySummary> => {
+    const response = await api.get('/day-summary', { params: { date } })
+    return DaySummarySchema.parse(response.data)
   },
 }
 

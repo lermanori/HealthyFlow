@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Brain, CalendarClock, HeartPulse, Utensils, X, Sparkles } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { aiService, type DailySignal } from '../services/api'
+import { aiService, dailySignalsQueryKey, type DailySignal } from '../services/api'
 import LoadingSpinner from './LoadingSpinner'
 
 type AIRecommendationsBoxProps = {
@@ -13,7 +13,7 @@ export default function AIRecommendationsBox({ date }: AIRecommendationsBoxProps
   const [dismissedIds, setDismissedIds] = useState<string[]>([])
 
   const { data: dailyContext, isLoading, isError } = useQuery({
-    queryKey: ['daily-context', date],
+    queryKey: dailySignalsQueryKey(date),
     queryFn: () => aiService.getDailyContext(date),
     retry: false,
   })

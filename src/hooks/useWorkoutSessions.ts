@@ -6,6 +6,8 @@ import {
   WorkoutPlanPatch,
   WorkoutSessionInput,
   WorkoutSessionPatch,
+  dailySignalsQueryKey,
+  daySummaryQueryKey,
   workoutsService,
 } from '../services/api'
 
@@ -68,6 +70,8 @@ export function useWorkoutSessions(date: string) {
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey })
     queryClient.invalidateQueries({ queryKey: exerciseItemsKey })
+    queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(date) })
+    queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(date) })
   }
 
   const createMutation = useMutation({

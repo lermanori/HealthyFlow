@@ -64,7 +64,7 @@ test('editing a whole Habit from Binary to Target persists the target', async ({
   const heading = page.getByRole('heading', { name: habitTitle })
   await expect(heading).toBeVisible()
   let delayTaskRefresh = false
-  await page.route('**/api/tasks?**', async route => {
+  await page.route('**/api/day-summary?**', async route => {
     if (!delayTaskRefresh) return route.continue()
     await new Promise(resolve => setTimeout(resolve, 3_000))
     return route.continue()

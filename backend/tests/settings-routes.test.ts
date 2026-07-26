@@ -39,6 +39,7 @@ describe('settings API', () => {
       achievementTracker: false,
       workoutTracker: true,
       weekStartsOn: 1,
+      planningWindow: null,
       onboardingStatus: 'completed',
       theme: 'midnight',
     })
@@ -156,5 +157,46 @@ describe('settings API', () => {
     expect(patchRes.status).toBe(200)
     expect(mockDb.upsertUserSettings).toHaveBeenCalledWith(USER_ID, { weekStartsOn: 0 })
     expect(patchRes.body.weekStartsOn).toBe(0)
+  })
+
+  it('defaults capacity to unavailable and accepts an explicit planning window', async () => {
+    const planningWindow = {
+      startTime: '08:00',
+      endTime: '18:00',
+      transitionBufferMinutes: 15,
+    }
+    mockDb.getUserSettings.mockResolvedValue({})
+    mockDb.upsertUserSettings.mockResolvedValue({ planningWindow })
+
+    const getRes = await request(app)
+      .get('/api/settings')
+      .set('Authorization', TOKEN)
+
+    expect(getRes.body.planningWindow).toBeNull()
+
+    const patchRes = await request(app)
+      .patch('/api/settings')
+      .set('Authorization', TOKEN)
+      .send({ planningWindow })
+
+    expect(patchRes.status).toBe(200)
+    expect(mockDb.upsertUserSettings).toHaveBeenCalledWith(USER_ID, { planningWindow })
+    expect(patchRes.body.planningWindow).toEqual(planningWindow)
+  })
+
+  it('rejects an overnight or inverted planning window', async () => {
+    const res = await request(app)
+      .patch('/api/settings')
+      .set('Authorization', TOKEN)
+      .send({
+        planningWindow: {
+          startTime: '18:00',
+          endTime: '08:00',
+          transitionBufferMinutes: 15,
+        },
+      })
+
+    expect(res.status).toBe(400)
+    expect(mockDb.upsertUserSettings).not.toHaveBeenCalled()
   })
 })

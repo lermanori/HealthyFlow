@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/ai-stubs'
+import { daySummaryFixture } from './fixtures/day-summary'
 
 function formatLocalDate(date: Date) {
   return [
@@ -192,11 +193,10 @@ test('Confirmed assistant task appears on Today without a browser refresh', asyn
   const title = `Assistant cache task ${Date.now()}`
   let created = false
 
-  await page.route('**/api/tasks**', async (route) => {
-    if (route.request().method() !== 'GET') return route.fallback()
+  await page.route('**/api/day-summary?**', async (route) => {
     const requestUrl = new URL(route.request().url())
     const requestedDate = requestUrl.searchParams.get('date')
-    const tasks = created && requestedDate === today
+    const items = created && requestedDate === today
       ? [{
           id: 'assistant-created-task',
           title,
@@ -215,14 +215,10 @@ test('Confirmed assistant task appears on Today without a browser refresh', asyn
           googleSyncStatus: 'skipped',
         }]
       : []
-    await route.fulfill({ contentType: 'application/json', body: JSON.stringify(tasks) })
+    await route.fulfill({
+      json: daySummaryFixture({ date: requestedDate ?? today, items }),
+    })
   })
-  await page.route('**/api/calendar/google/events**', (route) =>
-    route.fulfill({ contentType: 'application/json', body: '[]' })
-  )
-  await page.route('**/api/calories**', (route) =>
-    route.fulfill({ contentType: 'application/json', body: '[]' })
-  )
   await page.route('**/api/ai/chat', (route) =>
     route.fulfill({
       contentType: 'application/json',

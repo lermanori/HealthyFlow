@@ -1,11 +1,15 @@
 import { useState, useEffect, useMemo, useRef, type KeyboardEvent } from 'react'
-import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays, isSameDay, isBefore } from 'date-fns'
 import { Calendar, ChevronLeft, ChevronRight, Brain, Sparkles, Trash2, RotateCcw, Clock, Plus } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   calendarService,
-  caloriesService,
+  dailySignalsQueryKey,
+  daySummaryQueryKey,
+  daySummaryService,
+  DAILY_SIGNALS_QUERY_KEY,
+  DAY_SUMMARY_QUERY_KEY,
   onboardingService,
   rhythmService,
   taskService,
@@ -15,6 +19,7 @@ import {
   TouchpointType,
   UserRhythm,
   type CalorieEntry,
+  type DaySummary,
 } from '../services/api'
 import DayTimeline from '../components/DayTimeline'
 import AIRecommendationsBox from '../components/AIRecommendationsBox'
@@ -363,8 +368,6 @@ export default function TodayPage() {
   const location = useLocation()
   const { settings } = useSettings()
   const selectedDateKey = format(selectedDate, 'yyyy-MM-dd')
-  const calorieModuleEnabled = settings?.calorieIntake ?? true
-  const weekStartsOn = settings?.weekStartsOn ?? 1
 
   // Check for AI parameter in URL
   useEffect(() => {
@@ -384,22 +387,24 @@ export default function TodayPage() {
   // Register for vibration feedback if available
   const hasVibration = 'navigator' in window && 'vibrate' in navigator
 
-  const { data: tasksData = [], isLoading } = useQuery({
-    queryKey: ['tasks', selectedDateKey],
-    queryFn: () => taskService.getTasks(selectedDateKey),
+  const {
+    data: daySummary,
+    isLoading,
+    isError: isDaySummaryError,
+    refetch: retryDaySummary,
+  } = useQuery({
+    queryKey: daySummaryQueryKey(selectedDateKey),
+    queryFn: () => daySummaryService.get(selectedDateKey),
+    placeholderData: (previousSummary) => previousSummary,
+    retry: 1,
   })
-
-  const { data: calendarEvents = [] } = useQuery({
-    queryKey: ['google-calendar-events', selectedDateKey],
-    queryFn: () => calendarService.getGoogleEvents(selectedDateKey),
-    retry: false,
-  })
-
-  const { data: calorieEntries = [] } = useQuery<CalorieEntry[]>({
-    queryKey: ['calories', selectedDateKey],
-    queryFn: () => caloriesService.list(selectedDateKey),
-    enabled: calorieModuleEnabled,
-  })
+  const tasksData = useMemo(
+    () => (daySummary?.items ?? []) as Task[],
+    [daySummary?.items]
+  )
+  const calendarEvents = daySummary?.calendar.events ?? []
+  const calorieEntries = (daySummary?.calorieEntries ?? []) as unknown as CalorieEntry[]
+  const weekStartsOn = (daySummary?.week.weekStartsOn ?? settings?.weekStartsOn ?? 1) as WeekStartsOn
 
   const { data: rhythm } = useQuery({
     queryKey: ['user-rhythm'],
@@ -407,23 +412,8 @@ export default function TodayPage() {
     retry: false,
   })
 
-  // Week ribbon load dots: one cheap per-day query per weekday. The selected day is
-  // already cached above, so this adds at most 6 small requests and reuses the cache.
-  const weekDayKeys = getWeekDates(selectedDate, weekStartsOn).map((date) =>
-    format(date, 'yyyy-MM-dd')
-  )
-  const weekQueries = useQueries({
-    queries: weekDayKeys.map((dateKey) => ({
-      queryKey: ['tasks', dateKey],
-      queryFn: () => taskService.getTasks(dateKey),
-    })),
-  })
-  const loadByDay = weekDayKeys.reduce((acc, key, i) => {
-    const items = (weekQueries[i]?.data ?? []) as Task[]
-    acc[key] = {
-      total: items.length,
-      completed: items.filter((t) => t.completed).length,
-    }
+  const loadByDay = (daySummary?.week.days ?? []).reduce((acc, day) => {
+    acc[day.date] = { total: day.total, completed: day.completed }
     return acc
   }, {} as Record<string, { total: number; completed: number }>)
 
@@ -463,6 +453,8 @@ export default function TodayPage() {
         await calendarService.syncTimedTasks(date)
         queryClient.invalidateQueries({ queryKey: ['google-calendar-events', date] })
         queryClient.invalidateQueries({ queryKey: ['tasks', date] })
+        queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(date) })
+        queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(date) })
       } catch (error) {
         console.error('Today - Error syncing timed tasks to Google Calendar:', error)
       }
@@ -475,6 +467,8 @@ export default function TodayPage() {
     mutationFn: taskService.completeTask,
     onSuccess: (completedTask) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
       setShowConfetti(true)
       
       // Vibrate on task completion if supported
@@ -497,6 +491,8 @@ export default function TodayPage() {
     },
     onSuccess: (task) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
       toast.success(`"${task.title}" marked as incomplete`)
     },
     onError: () => {
@@ -519,8 +515,32 @@ export default function TodayPage() {
           return sameSubmittedRow || sameHabitDay ? updatedTask : task
         })
       )
+      queryClient.setQueryData<DaySummary>(daySummaryQueryKey(selectedDateKey), (current) => {
+        if (!current) return current
+        return {
+          ...current,
+          items: current.items.map((task) => {
+            const sameSubmittedRow = task.id === variables.id
+            const sameHabitDay = updatedTask.type === 'habit' && task.type === 'habit' && updatedTask.originalHabitId &&
+              (task.originalHabitId === updatedTask.originalHabitId || task.id.startsWith(`${updatedTask.originalHabitId}-`))
+            return sameSubmittedRow || sameHabitDay
+              ? updatedTask as DaySummary['items'][number]
+              : task
+          }),
+        }
+      })
       queryClient.invalidateQueries({
         predicate: query => query.queryKey[0] === 'tasks' && query.queryKey[1] !== selectedDateKey,
+      })
+      queryClient.invalidateQueries({
+        queryKey: variables.editScope === 'habit'
+          ? DAY_SUMMARY_QUERY_KEY
+          : daySummaryQueryKey(selectedDateKey),
+      })
+      queryClient.invalidateQueries({
+        queryKey: variables.editScope === 'habit'
+          ? DAILY_SIGNALS_QUERY_KEY
+          : dailySignalsQueryKey(selectedDateKey),
       })
       toast.success('Task updated successfully!')
     },
@@ -537,6 +557,20 @@ export default function TodayPage() {
         (events: ExternalCalendarEvent[] = []) =>
           events.map(event => event.id === updatedEvent.id ? updatedEvent : event)
       )
+      queryClient.setQueryData<DaySummary>(daySummaryQueryKey(date), (current) => current
+        ? {
+            ...current,
+            calendar: {
+              ...current.calendar,
+              events: current.calendar.events.map((event) =>
+                event.id === updatedEvent.id ? updatedEvent : event
+              ),
+            },
+          }
+        : current
+      )
+      queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(date) })
+      queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(date) })
     },
     onError: () => {
       toast.error('Failed to update calendar event')
@@ -556,6 +590,20 @@ export default function TodayPage() {
         (events: ExternalCalendarEvent[] = []) =>
           events.map(event => event.id === updatedEvent.id ? updatedEvent : event)
       )
+      queryClient.setQueryData<DaySummary>(daySummaryQueryKey(date), (current) => current
+        ? {
+            ...current,
+            calendar: {
+              ...current.calendar,
+              events: current.calendar.events.map((event) =>
+                event.id === updatedEvent.id ? updatedEvent : event
+              ),
+            },
+          }
+        : current
+      )
+      queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(date) })
+      queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(date) })
       toast.success('Calendar event moved')
     },
     onError: () => {
@@ -571,6 +619,8 @@ export default function TodayPage() {
       taskService.deleteTask(id, deleteScope),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
+      queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
       setHabitDeleteCandidate(null)
       toast.success('Task deleted')
       
@@ -619,6 +669,10 @@ export default function TodayPage() {
   // Optimistic local update only — persistence happens inside DayTimeline via reorderTasks
   const handleTasksReorder = (reorderedTasks: Task[]) => {
     queryClient.setQueryData(['tasks', format(selectedDate, 'yyyy-MM-dd')], reorderedTasks)
+    queryClient.setQueryData<DaySummary>(daySummaryQueryKey(selectedDateKey), (current) => current
+      ? { ...current, items: reorderedTasks as DaySummary['items'] }
+      : current
+    )
   }
 
   const handleEditTask = (task: Task) => {
@@ -669,6 +723,24 @@ export default function TodayPage() {
     return (
       <div className="flex items-center justify-center py-12">
         <LoadingSpinner size="lg" />
+      </div>
+    )
+  }
+
+  if (isDaySummaryError) {
+    return (
+      <div className="mx-auto max-w-lg rounded-xl border border-red-500/30 bg-red-500/10 p-5 text-center">
+        <h1 className="text-lg font-semibold text-ink">Could not load this daily plan</h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          Your Items were not changed. Retry the selected date.
+        </p>
+        <button
+          type="button"
+          onClick={() => void retryDaySummary()}
+          className="btn-secondary mt-4 min-h-11 px-4 py-2 text-sm"
+        >
+          Retry
+        </button>
       </div>
     )
   }
@@ -927,6 +999,11 @@ export default function TodayPage() {
             calendarEvents={calendarEvents}
             calorieEntries={calorieEntries}
             onTasksReorder={handleTasksReorder}
+            onTasksPersisted={() => {
+              queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(selectedDateKey) })
+              queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(selectedDateKey) })
+              queryClient.invalidateQueries({ queryKey: ['tasks', selectedDateKey] })
+            }}
             onCompleteTask={handleCompleteTask}
             onUncompleteTask={handleUncompleteTask}
             onCalendarEventComplete={handleCalendarEventComplete}
