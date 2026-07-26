@@ -1,3 +1,9 @@
+### 2026-07-19 15:20 — `claude/instagram-ad-testers-4c3c0n`
+
+Smoothed the last rough seam in the picture edit: the cut from the spine into the organize sequence jumped from the tight end of the push-in back to a wide framing of the same shot, so it now cross-dissolves instead. The dissolve doubles as a story beat, melting the static note cloud into the scattered cards. This boundary can't be stream-copied, so the final stage fades those two segments together first and concatenates the result; the master lands at 36.79s with the fade duration exposed as a stage argument.
+
+---
+
 ### 2026-07-19 15:00 — `claude/instagram-ad-testers-4c3c0n`
 
 Made the 1s cold-open flash live, which was the last frozen frame anywhere in the ad. It now uses the live final second of the graded spine instead of a grabbed still — same overwhelmed peak with the full note cloud, but she blinks through it — so the flash-forward hook survives without opening on a dead frame. The master is unchanged in length at 37.29s and still decodes clean at a uniform yuv420p.

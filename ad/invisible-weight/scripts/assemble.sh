@@ -113,10 +113,23 @@ final)
   ffmpeg -y -framerate 24 -i "blender/render/s9_%04d.png" -i plates/S8.mp4 \
     -filter_complex "[1:v]setpts=2.0*PTS,fps=24[bg];[bg][0:v]overlay=0:0:format=auto,$LOOK,format=yuv420p[v]" \
     -map "[v]" -frames:v 144 -c:v libx264 -crf 16 -pix_fmt yuv420p build/S9_live.mp4
+  # Crossfade the spine -> S9 boundary. Both sides are the same S8 shot, but
+  # the spine ends on the TIGHT end of its push-in while S9 restarts S8 wide,
+  # so a hard cut there reads as a jump. A short dissolve hides it almost
+  # completely -- and thematically the static note cloud melts into the
+  # scattered cards as they start organizing. This is the one boundary that
+  # can't be stream-copied, so fade the two into a single segment here and let
+  # the rest of the concat stay -c copy.
+  # xfade eats the overlap: output = 22.25 + 6 - XFADE_S.
+  XFADE_S="${2:-0.5}"
+  SPINE_S=$(ffprobe -v error -show_entries format=duration -of csv=p=0 build/master_silent.mp4)
+  OFFSET=$(python3 -c "print(f'{$SPINE_S - $XFADE_S:.6f}')")
+  ffmpeg -y -i build/master_silent.mp4 -i build/S9_live.mp4 \
+    -filter_complex "[0:v][1:v]xfade=transition=fade:duration=$XFADE_S:offset=$OFFSET,format=yuv420p[v]" \
+    -map "[v]" -c:v libx264 -crf 16 -pix_fmt yuv420p build/spine_s9.mp4
   cat > build/final_concat.txt <<-LIST
 	file '$(pwd)/build/S1_coldflash.mp4'
-	file '$(pwd)/build/master_silent.mp4'
-	file '$(pwd)/build/S9_live.mp4'
+	file '$(pwd)/build/spine_s9.mp4'
 	file '$(pwd)/build/S10_graded.mp4'
 	file '$(pwd)/organize/S11.mp4'
 	LIST

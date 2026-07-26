@@ -285,6 +285,20 @@ Concept, script and plan live here; generated media stays local (gitignored).
         no longer produced — nothing consumes it since the freeze hold was
         deleted in Fix 7. **The timeline now contains no frozen segment
         anywhere.** Master unchanged at 37.29s / 895 frames.
+      - **Fix 11 — crossfade on the spine→S9 cut.** Both sides of that cut are
+        the same S8 shot, but the spine ends on the **tight** end of its
+        push-in while S9 restarts S8 **wide**, so the hard cut read as a jump.
+        Added a 0.5s `xfade` dissolve; it also works thematically (the static
+        note cloud melts into the scattered cards as they start organizing).
+        Implementation note: this is the one boundary that **can't be
+        `-c copy`**, so `final` now xfades `master_silent` + `S9_live` into
+        `build/spine_s9.mp4` and concatenates *that* with the rest, which stays
+        stream-copied. xfade eats the overlap, so the master drops
+        37.29s → **36.79s** (883 frames). Duration is the stage's 2nd arg:
+        `./scripts/assemble.sh final 0.3`. Caveat: mid-dissolve there's a brief
+        double-exposure of her face at two scales (inherent to dissolving two
+        framings of one subject) — fine in motion at 0.5s, shorten if it reads
+        badly. Dissolve lands at 22.75–23.25s in master time.
 - [ ] M6 — VO + stems in `audio/`, then `assemble.sh audio` and `cutdown`
       (both stages now target `build/master_full_silent.mp4`, not
       `master_silent.mp4`, since audio needs to cover the complete timeline)
