@@ -1,3 +1,9 @@
+### 2026-07-27 11:45 — `codex/148-week-planning-workspace`
+
+Rebuilt Week as the issue #148 master-detail planning workspace and replaced the legacy random summary endpoint with one canonical, versioned seven-day contract. The workspace now has durable day and All Week URLs, rollover-safe totals, Habit cadence and check-in, independent Calendar obligations, honest per-day capacity, populated-domain controls, responsive layouts, keyboard/focus behavior, and write-driven cache freshness. Backend, selector, navigation, theme, capacity, and Habit regressions are covered; lint, typechecks, unit/backend suites, production build, and 20 focused browser tests are green.
+
+---
+
 ### 2026-07-26 18:14 — `main`
 
 Grounded AI date interpretation in the client’s local calendar by adding weekday-labelled today, yesterday, tomorrow, and a concrete seven-day lookup with Hebrew weekday rules. Both assistant chat and parse-tasks now share the context, parse-tasks honors `X-Client-Time-Zone`, and the reported Jerusalem repro is pinned alongside the passing AI suite and backend typecheck.

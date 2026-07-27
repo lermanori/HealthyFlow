@@ -1,4 +1,6 @@
 import { test, expect } from '@playwright/test'
+import { daySummaryItem } from './fixtures/day-summary'
+import { weekSummaryFixture } from './fixtures/week-summary'
 
 const baseSettings = {
   notifications: true,
@@ -36,19 +38,26 @@ async function freezeDate(page: import('@playwright/test').Page) {
 
 async function mockWeek(page: import('@playwright/test').Page, theme: 'midnight' | 'white', mode: 'content' | 'empty' | 'loading' = 'content') {
   await page.route('**/api/settings', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...baseSettings, theme }) }))
-  await page.route('**/api/calendar/google/events?*', (route) => route.fulfill({ contentType: 'application/json', body: '[]' }))
-  await page.route('**/api/tasks?*', async (route) => {
+  await page.route('**/api/week-summary?*', async (route) => {
     if (mode === 'loading') return new Promise(() => undefined)
-    if (mode === 'empty') return route.fulfill({ contentType: 'application/json', body: '[]' })
-    const date = new URL(route.request().url()).searchParams.get('date')
-    const rows = date === '2026-07-13'
-      ? [{ id: 'done-task', title: 'Plan the week', type: 'task', category: 'work', completed: true, startTime: '09:00', scheduledDate: date }]
-      : date === '2026-07-15'
-        ? [{ id: 'habit-wed', originalHabitId: 'habit-parent', title: 'Walk outside', type: 'habit', category: 'health', completed: false, scheduledDate: date }]
-        : date === '2026-07-16'
-          ? [{ id: 'workout-thu', title: 'Strength session', type: 'workout', category: 'fitness', completed: false, startTime: '18:00', scheduledDate: date }]
-          : []
-    return route.fulfill({ contentType: 'application/json', body: JSON.stringify(rows) })
+    const itemsByDate = mode === 'empty' ? {} : {
+      '2026-07-13': [daySummaryItem({ id: 'done-task', title: 'Plan the week', completed: true, startTime: '09:00', scheduledDate: '2026-07-13' })],
+      '2026-07-15': [daySummaryItem({
+        id: 'habit-wed',
+        originalHabitId: 'habit-parent',
+        title: 'Walk outside',
+        type: 'habit',
+        repeat: 'daily',
+        isHabitInstance: true,
+        scheduledDate: '2026-07-15',
+        habitInfo: { target: null, outcome: 'failed', progressTotal: 0 },
+      })],
+      '2026-07-16': [daySummaryItem({ id: 'workout-thu', title: 'Strength session', type: 'workout', startTime: '18:00', scheduledDate: '2026-07-16' })],
+    }
+    return route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify(weekSummaryFixture({ startDate: '2026-07-13', itemsByDate })),
+    })
   })
 }
 
@@ -71,7 +80,7 @@ test('Week empty state visual', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await mockWeek(page, 'white', 'empty')
   await page.goto('/app/week')
-  await expect(page.getByText('Nothing planned this week')).toBeVisible()
+  await expect(page.getByText('Nothing planned for this scope.')).toBeVisible()
   await expect(page.locator('#loading-screen')).toBeHidden()
   await expect(page).toHaveScreenshot('week-white-desktop-empty.png', { animations: 'disabled', fullPage: true })
 })

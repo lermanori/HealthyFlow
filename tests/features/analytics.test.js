@@ -5,18 +5,19 @@ const token = 'demo-token';
 describe('Analytics & Progress', () => {
   it('weekly summary endpoint returns stats', async () => {
     const res = await request(API_URL)
-      .get('/week-summary')
+      .get('/week-summary?date=2026-07-27')
       .set('Authorization', `Bearer ${token}`);
     expect(res.statusCode).toBe(200);
-    expect(res.body.totalTasks).toBeDefined();
-    expect(res.body.completedTasks).toBeDefined();
+    expect(res.body.version).toBe(1);
+    expect(res.body.days).toHaveLength(7);
+    expect(res.body.completion).toBeDefined();
   });
 
-  it('category breakdown includes at least one category', async () => {
+  it('returns populated-domain contributions', async () => {
     const res = await request(API_URL)
-      .get('/week-summary')
+      .get('/week-summary?date=2026-07-27')
       .set('Authorization', `Bearer ${token}`);
     expect(res.statusCode).toBe(200);
-    expect(Object.keys(res.body.categories).length).toBeGreaterThan(0);
+    expect(Array.isArray(res.body.contributions)).toBe(true);
   });
-}); 
+});

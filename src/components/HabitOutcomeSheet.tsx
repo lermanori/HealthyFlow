@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Minus, Pencil, Plus, RotateCcw, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { dailySignalsQueryKey, daySummaryQueryKey, HabitItem, HabitOutcome, HabitProgressDetail, HabitTargetUnit, taskService } from '../services/api'
+import { dailySignalsQueryKey, daySummaryQueryKey, HabitItem, HabitOutcome, HabitProgressDetail, HabitTargetUnit, taskService, WEEK_SUMMARY_QUERY_KEY } from '../services/api'
 import Progress from './Progress'
 import { useModalFocus } from '../hooks/useModalFocus'
 
@@ -30,6 +30,7 @@ export default function HabitOutcomeSheet({ habit, date, onClose }: { habit: Hab
     queryClient.invalidateQueries({ queryKey: ['tasks'] })
     queryClient.invalidateQueries({ queryKey: ['habit-streaks'] })
     queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(date) })
+    queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY })
     queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(date) })
   }
   const mutation = useMutation({

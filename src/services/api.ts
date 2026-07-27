@@ -16,12 +16,14 @@ import {
 } from '../../backend/src/daily-context-schema'
 import {
   DaySummarySchema,
+  WeekSummarySchema,
   isDaySummaryItemAddressed,
   type DaySummary,
   type PlanningWindow,
+  type WeekSummary,
 } from '../../backend/src/day-summary-schema'
 
-export type { DailyContext, DailySignal, DailySignalType, DaySummary, PlanningWindow }
+export type { DailyContext, DailySignal, DailySignalType, DaySummary, PlanningWindow, WeekSummary }
 export { isDaySummaryItemAddressed }
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 // const API_BASE_URL = 'https://healthyflow-production.up.railway.app/api'
@@ -166,14 +168,6 @@ export type Item = TaskItem | HabitItem | GroceryItem | MealItem | WorkoutItem
 // Backwards-compat alias — all existing `Task` references keep working
 export type Task = Item
 export type DeleteScope = 'instance' | 'habit'
-
-export interface WeeklySummary {
-  totalTasks: number
-  completedTasks: number
-  completionRate: number
-  categories: Record<string, { total: number; completed: number }>
-  streaks: Record<string, number>
-}
 
 export interface AIRecommendation {
   id: string
@@ -527,9 +521,9 @@ export const taskService = {
 
 // Summary Service
 export const summaryService = {
-  getWeeklySummary: async (): Promise<WeeklySummary> => {
-    const response = await api.get('/week-summary')
-    return response.data
+  getWeeklySummary: async (date: string): Promise<WeekSummary> => {
+    const response = await api.get('/week-summary', { params: { date } })
+    return WeekSummarySchema.parse(response.data)
   },
 }
 
@@ -903,6 +897,8 @@ export const settingsService = {
 
 export const DAY_SUMMARY_QUERY_KEY = ['day-summary'] as const
 export const daySummaryQueryKey = (date: string) => [...DAY_SUMMARY_QUERY_KEY, date] as const
+export const WEEK_SUMMARY_QUERY_KEY = ['week-summary'] as const
+export const weekSummaryQueryKey = (weekStart: string) => [...WEEK_SUMMARY_QUERY_KEY, weekStart] as const
 export const DAILY_SIGNALS_QUERY_KEY = ['daily-context'] as const
 export const dailySignalsQueryKey = (date: string) => [...DAILY_SIGNALS_QUERY_KEY, date] as const
 

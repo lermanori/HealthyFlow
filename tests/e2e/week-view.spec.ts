@@ -3,6 +3,8 @@ import { test, expect } from './fixtures/ai-stubs'
 import { format, addDays, startOfWeek } from 'date-fns'
 import type { Page } from '@playwright/test'
 import fs from 'fs'
+import { daySummaryItem } from './fixtures/day-summary'
+import { weekSummaryFixture } from './fixtures/week-summary'
 
 function getAuthTokenFromStorageState() {
   const storageState = JSON.parse(fs.readFileSync('tests/e2e/.auth/user.json', 'utf8'))
@@ -69,6 +71,7 @@ test('Week view golden path: tasks appear under their correct day columns', asyn
   await page.goto('/app/week')
   // Wait for the week rail to render (redesign: 7 selectable day buttons)
   await expect(page.locator(`[data-rail-date="${todayStr}"]`)).toBeVisible({ timeout: 10_000 })
+  await page.getByRole('button', { name: 'All week' }).click()
 
   // The redesign shows a single weekly agenda where each item row is tagged with
   // its scheduled date via data-date (instead of one column per day).
@@ -118,12 +121,14 @@ test('Week view includes calendar-integrated events in their day', async ({ page
   const eventDayStr = format(eventDay, 'yyyy-MM-dd')
   const eventTitle = `CalendarE2E-${Date.now()}`
 
-  await page.route('**/api/calendar/google/events**', async (route) => {
-    const url = new URL(route.request().url())
-    const date = url.searchParams.get('date')
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify(date === eventDayStr ? [{
+  await page.route('**/api/week-summary?*', async (route) => {
+    const response = await route.fetch()
+    const body = await response.json()
+    const day = body.days.find((candidate: { date: string }) => candidate.date === eventDayStr)
+    day.calendar = {
+      status: 'connected',
+      reasonCode: null,
+      events: [{
         id: 'external-week-event-1',
         provider: 'google',
         calendarId: 'primary',
@@ -140,12 +145,20 @@ test('Week view includes calendar-integrated events in their day', async ({ page
         htmlLink: null,
         completed: false,
         completedAt: null,
-      }] : []),
+      }],
+    }
+    body.obligations = { total: 1, completed: 0 }
+    body.contributions.push({ domain: 'calendar', total: 1, completed: 0, addressed: 0 })
+    await route.fulfill({
+      response,
+      contentType: 'application/json',
+      body: JSON.stringify(body),
     })
   })
 
   await page.goto('/app/week')
   await expect(page.locator(`[data-rail-date="${eventDayStr}"]`)).toBeVisible({ timeout: 10_000 })
+  await page.getByRole('button', { name: 'All week' }).click()
 
   await expect(
     page.locator(`[data-date="${eventDayStr}"]`).filter({ hasText: eventTitle })
@@ -155,108 +168,20 @@ test('Week view includes calendar-integrated events in their day', async ({ page
   ).toBeVisible()
 })
 
-test('Week view Up Next ignores past events', async ({ page }) => {
+test('Week scope and selected date survive refresh and browser history', async ({ page }) => {
   await page.clock.setFixedTime(new Date('2026-06-24T12:00:00'))
-
-  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
-  expect(reset.ok()).toBeTruthy()
-
-  const pastTuesdayTitle = `Past Tuesday ${Date.now()}`
-  const pastTodayTitle = `Past Today ${Date.now()}`
-  const futureTodayTitle = `Future Today ${Date.now()}`
-  const futureThursdayTitle = `Future Thursday ${Date.now()}`
-
-  await page.route('**/api/calendar/google/events**', async (route) => {
-    const date = new URL(route.request().url()).searchParams.get('date')
-    const eventsByDate: Record<string, unknown[]> = {
-      '2026-06-23': [{
-        id: 'past-tuesday',
-        provider: 'google',
-        calendarId: 'primary',
-        externalEventId: 'past-tuesday',
-        title: pastTuesdayTitle,
-        description: null,
-        location: null,
-        startAt: '2026-06-23T10:00:00.000Z',
-        endAt: '2026-06-23T11:00:00.000Z',
-        localStartTime: '10:00',
-        localEndTime: '11:00',
-        allDay: false,
-        status: 'confirmed',
-        htmlLink: null,
-        completed: false,
-        completedAt: null,
-      }],
-      '2026-06-24': [
-        {
-          id: 'past-today',
-          provider: 'google',
-          calendarId: 'primary',
-          externalEventId: 'past-today',
-          title: pastTodayTitle,
-          description: null,
-          location: null,
-          startAt: '2026-06-24T09:00:00.000Z',
-          endAt: '2026-06-24T10:00:00.000Z',
-          localStartTime: '09:00',
-          localEndTime: '10:00',
-          allDay: false,
-          status: 'confirmed',
-          htmlLink: null,
-          completed: false,
-          completedAt: null,
-        },
-        {
-          id: 'future-today',
-          provider: 'google',
-          calendarId: 'primary',
-          externalEventId: 'future-today',
-          title: futureTodayTitle,
-          description: null,
-          location: null,
-          startAt: '2026-06-24T15:00:00.000Z',
-          endAt: '2026-06-24T16:00:00.000Z',
-          localStartTime: '15:00',
-          localEndTime: '16:00',
-          allDay: false,
-          status: 'confirmed',
-          htmlLink: null,
-          completed: false,
-          completedAt: null,
-        },
-      ],
-      '2026-06-25': [{
-        id: 'future-thursday',
-        provider: 'google',
-        calendarId: 'primary',
-        externalEventId: 'future-thursday',
-        title: futureThursdayTitle,
-        description: null,
-        location: null,
-        startAt: '2026-06-25T10:00:00.000Z',
-        endAt: '2026-06-25T11:00:00.000Z',
-        localStartTime: '10:00',
-        localEndTime: '11:00',
-        allDay: false,
-        status: 'confirmed',
-        htmlLink: null,
-        completed: false,
-        completedAt: null,
-      }],
-    }
-
-    await route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify(eventsByDate[date ?? ''] ?? []),
-    })
-  })
 
   await page.goto('/app/week')
   await expect(page.locator('[data-rail-date="2026-06-24"]')).toBeVisible({ timeout: 10_000 })
+  await page.locator('[data-rail-date="2026-06-25"]').click()
+  await expect(page).toHaveURL(/date=2026-06-25/)
+  await page.reload()
+  await expect(page.locator('[data-rail-date="2026-06-25"]')).toHaveAttribute('aria-current', 'date')
 
-  await expect(page.getByTestId('week-up-next-title')).toHaveText(futureTodayTitle)
-  await expect(page.getByTestId('week-up-next-title')).not.toHaveText(pastTuesdayTitle)
-  await expect(page.getByTestId('week-up-next-title')).not.toHaveText(pastTodayTitle)
+  await page.getByRole('button', { name: 'All week' }).click()
+  await expect(page).toHaveURL(/scope=all/)
+  await page.goBack()
+  await expect(page.locator('[data-rail-date="2026-06-25"]')).toHaveAttribute('aria-current', 'date')
 })
 
 test('Week view shows an untimed one-off task only once', async ({ page }) => {
@@ -281,4 +206,94 @@ test('Week view shows an untimed one-off task only once', async ({ page }) => {
 
   await expect(page.locator('[data-date]').filter({ hasText: title })).toHaveCount(1)
   await expect(page.locator(`[data-date="${todayStr}"]`).filter({ hasText: title })).toBeVisible()
+})
+
+test('All Week aggregates Habit instances while selected-day check-in remains available', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-06-24T12:00:00'))
+  const dates = Array.from({ length: 7 }, (_, index) => `2026-06-${22 + index}`)
+  const itemsByDate = Object.fromEntries(dates.map((date, index) => [date, [
+    daySummaryItem({
+      id: `habit-parent-${date}`,
+      title: 'Walk outside',
+      type: 'habit',
+      repeat: 'daily',
+      isHabitInstance: true,
+      originalHabitId: 'habit-parent',
+      scheduledDate: date,
+      completed: index === 0,
+      habitInfo: {
+        target: null,
+        outcome: index === 0 ? 'completed' : index === 2 ? 'failed' : 'pending',
+        progressTotal: 0,
+      },
+    }),
+  ]]))
+  itemsByDate['2026-06-25'].push(daySummaryItem({
+    id: 'one-time',
+    title: 'Prepare report',
+    scheduledDate: '2026-06-25',
+  }))
+
+  await page.route('**/api/week-summary?*', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify(weekSummaryFixture({ startDate: '2026-06-22', itemsByDate })),
+  }))
+
+  await page.goto('/app/week')
+  const agenda = page.getByTestId('week-agenda')
+  await expect(agenda.getByText('Walk outside')).toBeVisible()
+  await expect(page.locator('[data-rail-date="2026-06-24"]')).toHaveAttribute('aria-label', /1 addressed of 1/)
+
+  await page.getByRole('button', { name: 'All week' }).click()
+  await expect(agenda.getByText('Walk outside')).toHaveCount(0)
+  await expect(agenda.getByText('Prepare report')).toBeVisible()
+
+  const habitDisclosure = page.getByRole('button', { name: 'Walk outside', exact: true })
+  await habitDisclosure.click()
+  await expect(habitDisclosure).toHaveAttribute('aria-expanded', 'true')
+  await page.getByRole('button', { name: 'Walk outside, Wednesday, Not done' }).click()
+  await expect(page.getByRole('dialog')).toContainText('Walk outside')
+})
+
+test('All Week communicates complete, partial, and unavailable capacity without a false total', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-06-24T12:00:00'))
+  const common = {
+    window: {
+      startTime: '08:00',
+      endTime: '18:00',
+      transitionBufferMinutes: 0,
+      totalMinutes: 600,
+      consideredStartTime: '08:00',
+      consideredEndTime: '18:00',
+      consideredMinutes: 600,
+      bufferPolicy: 'after_each_obligation' as const,
+    },
+    basis: {
+      scope: 'planned' as const,
+      knownLoadMinutes: 120,
+      timedItemCount: 1,
+      calendarEventCount: 0,
+      bufferedIntervalCount: 1,
+    },
+  }
+  const capacityByDate = {
+    '2026-06-22': { status: 'complete' as const, ...common, availableMinutes: 480, reasonCodes: [] },
+    '2026-06-23': {
+      status: 'partial' as const,
+      ...common,
+      availableUpperBoundMinutes: 480,
+      reasonCodes: ['item_missing_duration' as const],
+    },
+  }
+  await page.route('**/api/week-summary?*', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify(weekSummaryFixture({ startDate: '2026-06-22', capacityByDate })),
+  }))
+
+  await page.goto('/app/week')
+  await page.getByRole('button', { name: 'All week' }).click()
+  await expect(page.getByText('Monday, Jun 22 · 8h unallocated')).toBeVisible()
+  await expect(page.getByText(/Capacity partly known/)).toBeVisible()
+  await expect(page.getByText('Capacity unavailable').first()).toBeVisible()
+  await expect(page.getByText(/weekly capacity/i)).toHaveCount(0)
 })

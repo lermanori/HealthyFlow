@@ -323,6 +323,75 @@ export const DaySummarySchema = z.object({
   }).strict(),
 }).strict()
 
+export const WeekDomainSchema = z.enum([
+  'task',
+  'habit',
+  'calendar',
+  'workout',
+  'meal',
+  'grocery',
+])
+
+export const WeekContributionSchema = z.object({
+  domain: WeekDomainSchema,
+  total: z.number().int().nonnegative(),
+  completed: z.number().int().nonnegative(),
+  addressed: z.number().int().nonnegative(),
+}).strict()
+
+export const WeekHabitCadenceCellSchema = z.object({
+  date: IsoDateSchema,
+  itemId: z.string(),
+  outcome: z.enum(['pending', 'partial', 'completed', 'failed']),
+  progressTotal: z.number().nonnegative(),
+  completed: z.boolean(),
+  addressed: z.boolean(),
+}).strict()
+
+export const WeekHabitCadenceSchema = z.object({
+  originalHabitId: z.string(),
+  title: z.string(),
+  target: HabitTargetSchema.nullable(),
+  days: z.array(WeekHabitCadenceCellSchema.nullable()).length(7),
+}).strict()
+
+export const WeekSummaryDaySchema = z.object({
+  date: IsoDateSchema,
+  dateMode: z.enum(['past', 'today', 'future', 'unknown']),
+  items: z.array(DaySummaryItemSchema),
+  calendar: CalendarSourceSchema,
+  completion: DayCompletionSchema,
+  capacity: DaySummaryCapacitySchema,
+}).strict()
+
+export const WeekSummarySchema = z.object({
+  version: z.literal(1),
+  generatedAt: z.string(),
+  timeZone: z.string().nullable(),
+  week: z.object({
+    weekStartsOn: z.number().int().min(0).max(6),
+    startDate: IsoDateSchema,
+    endDate: IsoDateSchema,
+  }).strict(),
+  settings: z.object({
+    sourceStatus: z.literal('available'),
+    planningWindow: PlanningWindowSchema.nullable(),
+  }).strict(),
+  modules: z.object({
+    habits: z.literal('enabled'),
+    nutrition: ModuleAvailabilitySchema,
+    workouts: ModuleAvailabilitySchema,
+  }).strict(),
+  days: z.array(WeekSummaryDaySchema).length(7),
+  completion: DayCompletionSchema,
+  obligations: z.object({
+    total: z.number().int().nonnegative(),
+    completed: z.number().int().nonnegative(),
+  }).strict(),
+  contributions: z.array(WeekContributionSchema),
+  habitCadence: z.array(WeekHabitCadenceSchema),
+}).strict()
+
 export type PlanningWindow = z.infer<typeof PlanningWindowSchema>
 export type DaySummaryItem = z.infer<typeof DaySummaryItemSchema>
 export type DaySummaryCalendarEvent = z.infer<typeof DaySummaryCalendarEventSchema>
@@ -330,6 +399,9 @@ export type DaySummaryCalorieEntry = z.infer<typeof DaySummaryCalorieEntrySchema
 export type DaySummaryWeightEntry = z.infer<typeof DaySummaryWeightEntrySchema>
 export type DaySummaryCapacity = z.infer<typeof DaySummaryCapacitySchema>
 export type DaySummary = z.infer<typeof DaySummarySchema>
+export type WeekSummary = z.infer<typeof WeekSummarySchema>
+export type WeekSummaryDay = z.infer<typeof WeekSummaryDaySchema>
+export type WeekDomain = z.infer<typeof WeekDomainSchema>
 
 export function isDaySummaryItemAddressed(item: DaySummaryItem) {
   if (item.completed) return true

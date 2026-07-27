@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import {
   DAILY_SIGNALS_QUERY_KEY,
   DAY_SUMMARY_QUERY_KEY,
+  WEEK_SUMMARY_QUERY_KEY,
   type AssistantPendingAction,
 } from '../services/api'
 
@@ -11,6 +12,7 @@ export async function invalidatePendingActionQueries(
 ) {
   const invalidations = [
     queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY }),
+    queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY }),
     queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY }),
   ]
 

@@ -26,6 +26,7 @@ import {
   caloriesService,
   DAILY_SIGNALS_QUERY_KEY,
   DAY_SUMMARY_QUERY_KEY,
+  WEEK_SUMMARY_QUERY_KEY,
   taskService,
   weightService,
 } from '../services/api'
@@ -153,6 +154,7 @@ export default function AddItemPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
       toast.success(`${todayType === 'habit' ? 'Habit' : 'Task'} added`)
       navigate('/')
@@ -166,6 +168,7 @@ export default function AddItemPage() {
       queryClient.invalidateQueries({ queryKey: ['calories'] })
       queryClient.invalidateQueries({ queryKey: ['calorie-items'] })
       queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
       toast.success('Calorie entry added')
       navigate('/calories')
@@ -178,6 +181,7 @@ export default function AddItemPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['weight'] })
       queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
       toast.success('Weight entry added')
       navigate('/calories')

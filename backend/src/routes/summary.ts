@@ -1,48 +1,30 @@
 import express from 'express'
-import { db } from '../supabase-client'
+import { z } from 'zod'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
+import { buildWeekSummary } from '../day-summary'
 
 const router = express.Router()
+const WeekSummaryQuerySchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+})
 
-// Get weekly summary
 router.get('/week-summary', authenticateToken, async (req: AuthRequest, res) => {
-  const userId = req.user.userId
+  const parsed = WeekSummaryQuerySchema.safeParse(req.query)
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'date must be YYYY-MM-DD' })
+  }
 
+  const timeZoneHeader = req.header('x-client-time-zone')
+  const timeZone = timeZoneHeader && timeZoneHeader.length <= 100 ? timeZoneHeader : null
   try {
-    // Get all tasks for the user
-    const tasks = await db.getWeeklyTasks(userId)
-
-    const totalTasks = tasks.length
-    const completedTasks = tasks.filter(task => task.completed).length
-    const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
-
-    // Group by category
-    const categories: Record<string, { total: number; completed: number }> = {}
-    tasks.forEach((task: any) => {
-      if (!categories[task.category]) {
-        categories[task.category] = { total: 0, completed: 0 }
-      }
-      categories[task.category].total++
-      if (task.completed) {
-        categories[task.category].completed++
-      }
-    })
-
-    // Calculate streaks (simplified)
-    const streaks = {
-      daily: Math.floor(Math.random() * 7) + 1,
-      weekly: Math.floor(Math.random() * 4) + 1
-    }
-
-    res.json({
-      totalTasks,
-      completedTasks,
-      completionRate,
-      categories,
-      streaks
-    })
+    res.json(await buildWeekSummary(
+      req.user.userId,
+      parsed.data.date,
+      timeZone
+    ))
   } catch (error) {
-    res.status(500).json({ error: 'Database error' })
+    console.error('WeekSummary error:', error)
+    res.status(500).json({ error: 'Failed to load the weekly plan' })
   }
 })
 

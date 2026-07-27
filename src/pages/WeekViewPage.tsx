@@ -1,609 +1,569 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
-import { format, isSameDay, addDays } from 'date-fns'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { addDays, format, isSameDay, parseISO } from 'date-fns'
+import { useSearchParams } from 'react-router-dom'
 import {
-  Calendar, ChevronLeft, ChevronRight, Check, CheckSquare, RotateCcw,
-  ShoppingCart, Utensils, Dumbbell, Clock, Infinity as InfinityIcon, Smile,
+  AlertTriangle,
+  Calendar,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Dumbbell,
+  Infinity as InfinityIcon,
+  RotateCcw,
+  ShoppingCart,
+  Utensils,
 } from 'lucide-react'
-import { calendarService, DAILY_SIGNALS_QUERY_KEY, DAY_SUMMARY_QUERY_KEY, ExternalCalendarEvent, taskService, Task, HabitItem } from '../services/api'
+import toast from 'react-hot-toast'
+import {
+  calendarService,
+  DAILY_SIGNALS_QUERY_KEY,
+  DAY_SUMMARY_QUERY_KEY,
+  summaryService,
+  taskService,
+  WEEK_SUMMARY_QUERY_KEY,
+  weekSummaryQueryKey,
+  type HabitItem,
+  type WeekSummary,
+} from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import HabitOutcomeSheet from '../components/HabitOutcomeSheet'
 import {
-  getFullWeekdayLabels,
   getWeekDates,
   getWeekNavigationIndex,
-  getWeekdayLabels,
-  getWeekdayLetters,
 } from '../utils/dateHelpers'
 import { useSettings } from '../hooks/useSettings'
-import toast from 'react-hot-toast'
+import {
+  findHabitItem,
+  selectWeekAgenda,
+  type WeekAgendaEntry,
+  type WeekDomainFilter,
+  type WeekScope,
+} from '../utils/weekSummary'
+import type { WeekDomain } from '../../backend/src/day-summary-schema'
 
-// --- Accent (design: cyan) -------------------------------------------------
-const A = {
-  c1: '#06b6d4', c2: '#3b82f6', ring: '#22d3ee',
-  glow: 'rgba(6,182,212,.45)', textGlow: 'rgba(6,182,212,.55)',
-  border: 'rgba(6,182,212,.4)', chip: 'rgba(6,182,212,.12)', chipHover: 'rgba(6,182,212,.22)',
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+const domainOrder: WeekDomain[] = ['task', 'habit', 'calendar', 'workout', 'meal', 'grocery']
+const domainLabel: Record<WeekDomain, string> = {
+  task: 'Tasks',
+  habit: 'Habits',
+  calendar: 'Calendar',
+  workout: 'Workouts',
+  meal: 'Meals',
+  grocery: 'Groceries',
 }
 
-const W = {
-  page: 'rgb(var(--surface-page))',
-  card: 'rgb(var(--surface-card))',
-  raised: 'rgb(var(--surface-raised))',
-  sunken: 'rgb(var(--surface-sunken))',
-  ink: 'rgb(var(--text-primary))',
-  soft: 'rgb(var(--text-secondary))',
-  muted: 'rgb(var(--text-muted))',
-  line: 'rgb(var(--border-default))',
-  lineStrong: 'rgb(var(--border-strong))',
+function validDate(value: string | null): value is string {
+  if (!value || !ISO_DATE.test(value)) return false
+  return !Number.isNaN(parseISO(value).getTime())
 }
 
-const GROTESK = "'Space Grotesk', sans-serif"
-
-type ItemType = 'task' | 'habit' | 'grocery' | 'meal' | 'workout' | 'calendar'
-
-const TYPE: Record<ItemType, { label: string; text: string; bg: string; border: string; tint: string }> = {
-  task:    { label: 'Task', text: 'rgb(var(--week-task))', bg: 'rgb(var(--week-task) / .15)', border: 'rgb(var(--week-task) / .35)', tint: 'rgb(var(--week-task) / .08)' },
-  habit:   { label: 'Habit', text: 'rgb(var(--week-habit))', bg: 'rgb(var(--week-habit) / .15)', border: 'rgb(var(--week-habit) / .35)', tint: 'rgb(var(--week-habit) / .08)' },
-  grocery: { label: 'Grocery', text: 'rgb(var(--week-grocery))', bg: 'rgb(var(--week-grocery) / .15)', border: 'rgb(var(--week-grocery) / .35)', tint: 'rgb(var(--week-grocery) / .08)' },
-  meal:    { label: 'Meal', text: 'rgb(var(--week-meal))', bg: 'rgb(var(--week-meal) / .15)', border: 'rgb(var(--week-meal) / .35)', tint: 'rgb(var(--week-meal) / .08)' },
-  workout: { label: 'Workout', text: 'rgb(var(--week-workout))', bg: 'rgb(var(--week-workout) / .15)', border: 'rgb(var(--week-workout) / .35)', tint: 'rgb(var(--week-workout) / .08)' },
-  calendar:{ label: 'Calendar', text: 'rgb(var(--week-calendar))', bg: 'rgb(var(--week-calendar) / .15)', border: 'rgb(var(--week-calendar) / .35)', tint: 'rgb(var(--week-calendar) / .08)' },
+function dateLabel(date: string, today: Date) {
+  const value = parseISO(date)
+  if (isSameDay(value, today)) return 'Today'
+  return format(value, 'EEEE, MMM d')
 }
 
-function typeOf(t: Task): ItemType {
-  return (TYPE[t.type as ItemType] ? t.type : 'task') as ItemType
+function timeLabel(value: string | null) {
+  if (!value) return ''
+  const [hour, minute] = value.split(':').map(Number)
+  return `${hour % 12 || 12}:${String(minute).padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`
 }
 
-function timeLabel(hhmm?: string): string {
-  if (!hhmm) return ''
-  const [h, m] = hhmm.split(':').map(Number)
-  const ampm = h < 12 ? 'AM' : 'PM'
-  const h12 = h % 12 === 0 ? 12 : h % 12
-  return `${h12}:${String(m).padStart(2, '0')} ${ampm}`
+function minutesLabel(value: number) {
+  if (value < 60) return `${value}m`
+  const hours = Math.floor(value / 60)
+  const minutes = value % 60
+  return minutes ? `${hours}h ${minutes}m` : `${hours}h`
 }
 
-function timeNumber(hhmm: string): number {
-  return Number(hhmm.replace(':', ''))
-}
-
-function isUpcoming(row: WeekRow, now: Date): boolean {
-  const todayKey = format(now, 'yyyy-MM-dd')
-  if (row.date < todayKey) return false
-  if (row.date > todayKey) return true
-  if (!row.hasTime || !row.time) return true
-  return timeNumber(row.time) >= timeNumber(format(now, 'HH:mm'))
-}
-
-function dedupeWeekRows(rows: WeekRow[]): WeekRow[] {
-  const seenTaskIds = new Set<string>()
-  return rows.filter((row) => {
-    if (row.source !== 'task' || row.type === 'habit') return true
-    if (seenTaskIds.has(row.id)) return false
-    seenTaskIds.add(row.id)
-    return true
-  })
-}
-
-function TypeIcon({ type, size = 15 }: { type: ItemType; size?: number }) {
-  const p = { width: size, height: size }
-  switch (type) {
-    case 'habit':   return <RotateCcw {...p} />
-    case 'grocery': return <ShoppingCart {...p} />
-    case 'meal':    return <Utensils {...p} />
-    case 'workout': return <Dumbbell {...p} />
-    case 'calendar': return <Calendar {...p} />
-    default:        return <CheckSquare {...p} />
+function capacityCopy(day: WeekSummary['days'][number]) {
+  if (day.capacity.status === 'unavailable') {
+    return { title: 'Capacity unavailable', detail: 'Set a usable-day window or reconnect missing sources.' }
+  }
+  if (day.capacity.status === 'partial') {
+    return {
+      title: `${minutesLabel(day.capacity.basis.knownLoadMinutes)} known load`,
+      detail: `Capacity partly known · at most ${minutesLabel(day.capacity.availableUpperBoundMinutes)} unallocated`,
+    }
+  }
+  if (day.dateMode === 'past') {
+    return {
+      title: `${minutesLabel(day.capacity.basis.knownLoadMinutes)} known load`,
+      detail: `${minutesLabel(day.capacity.availableMinutes)} was unallocated`,
+    }
+  }
+  return {
+    title: day.dateMode === 'today'
+      ? `${minutesLabel(day.capacity.availableMinutes)} usable time left`
+      : `${minutesLabel(day.capacity.availableMinutes)} unallocated`,
+    detail: `${minutesLabel(day.capacity.basis.knownLoadMinutes)} known load`,
   }
 }
 
-type WeekRow = {
-  id: string
-  source: 'task' | 'calendar'
-  title: string
-  type: ItemType
-  completed: boolean
-  hasTime: boolean
-  time?: string
-  off: number
-  date: string
-  task?: Task
+function DomainIcon({ domain }: { domain: WeekDomain }) {
+  const className = 'h-4 w-4'
+  if (domain === 'habit') return <RotateCcw className={className} />
+  if (domain === 'calendar') return <Calendar className={className} />
+  if (domain === 'workout') return <Dumbbell className={className} />
+  if (domain === 'meal') return <Utensils className={className} />
+  if (domain === 'grocery') return <ShoppingCart className={className} />
+  return <Check className={className} />
+}
+
+function outcomeLabel(outcome: string) {
+  if (outcome === 'completed') return 'Completed'
+  if (outcome === 'failed') return 'Not done'
+  if (outcome === 'partial') return 'Partial'
+  return 'Pending'
 }
 
 export default function WeekViewPage() {
   const queryClient = useQueryClient()
   const { settings, isLoading: settingsLoading } = useSettings()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const today = useMemo(() => new Date(), [])
+  const todayKey = format(today, 'yyyy-MM-dd')
   const weekStartsOn = settings?.weekStartsOn ?? 1
-  const dow = getWeekdayLabels(weekStartsOn)
-  const letters = getWeekdayLetters(weekStartsOn)
-  const fullDow = getFullWeekdayLabels(weekStartsOn)
-  const today = new Date()
-  const [weekOffset, setWeekOffset] = useState(0)
-  const dayButtonRefs = useRef<Array<HTMLButtonElement | null>>([])
-  const [selectedOff, setSelectedOff] = useState(() => {
-    const wd = getWeekDates(today, weekStartsOn).findIndex((d) => isSameDay(d, today))
-    return wd >= 0 ? wd : 0
-  })
+  const rawDate = searchParams.get('date')
+  const rawWeek = searchParams.get('week')
+  const allScope = searchParams.get('scope') === 'all'
+  const selectedDate = !allScope && validDate(rawDate) ? rawDate : todayKey
+  const anchorDate = allScope && validDate(rawWeek) ? rawWeek : selectedDate
+  const clientWeekStart = format(getWeekDates(parseISO(anchorDate), weekStartsOn)[0], 'yyyy-MM-dd')
+  const scope = useMemo<WeekScope>(
+    () => allScope ? { kind: 'all' } : { kind: 'day', date: selectedDate },
+    [allScope, selectedDate]
+  )
+
   const [showCompleted, setShowCompleted] = useState(true)
+  const [domain, setDomain] = useState<WeekDomainFilter>('all')
+  const [expandedHabitId, setExpandedHabitId] = useState<string | null>(null)
   const [habitCheckIn, setHabitCheckIn] = useState<{ habit: HabitItem; date: string } | null>(null)
-
-  const refDate = addDays(today, weekOffset * 7)
-  const weekDates = getWeekDates(refDate, weekStartsOn)
-
-  const handleDayKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    const targetIndex = getWeekNavigationIndex(index, event.key)
-    if (targetIndex === null) return
-    event.preventDefault()
-    setSelectedOff(targetIndex)
-    window.requestAnimationFrame(() => dayButtonRefs.current[targetIndex]?.focus())
-  }
+  const dayButtonRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   useEffect(() => {
-    const wd = getWeekDates(new Date(), weekStartsOn).findIndex((d) => isSameDay(d, new Date()))
-    if (wd >= 0 && weekOffset === 0) setSelectedOff(wd)
-  }, [weekOffset, weekStartsOn])
+    if (settingsLoading) return
+    const invalidScope = searchParams.has('scope') && searchParams.get('scope') !== 'all'
+    const invalidDate = rawDate != null && !validDate(rawDate)
+    const invalidWeek = rawWeek != null && !validDate(rawWeek)
+    if (invalidScope || invalidDate || invalidWeek) {
+      setSearchParams({}, { replace: true })
+      return
+    }
 
-  // 7 parallel day queries (mirrors the existing approach)
-  const dayQueries = useQueries({
-    queries: weekDates.map((date) => ({
-      queryKey: ['tasks', format(date, 'yyyy-MM-dd')],
-      queryFn: () => taskService.getTasks(format(date, 'yyyy-MM-dd')),
-    })),
-  })
-  const calendarQueries = useQueries({
-    queries: weekDates.map((date) => {
-      const dateKey = format(date, 'yyyy-MM-dd')
-      return {
-        queryKey: ['google-calendar-events', dateKey],
-        queryFn: () => calendarService.getGoogleEvents(dateKey),
-        retry: false,
+    if (allScope) {
+      const canonical = new URLSearchParams({ scope: 'all', week: clientWeekStart })
+      if (searchParams.toString() !== canonical.toString()) {
+        setSearchParams(canonical, { replace: true })
       }
-    }),
-  })
-  const isLoading = settingsLoading || dayQueries.some((q) => q.isLoading) || calendarQueries.some((q) => q.isLoading)
+      return
+    }
 
-  // --- Mutations (same contract as TodayPage) ---
-  const completeMutation = useMutation({
-    mutationFn: taskService.completeTask,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
-      queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
-    },
-  })
-  const uncompleteMutation = useMutation({
-    mutationFn: (id: string) => taskService.updateTask(id, { completed: false }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] })
-      queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
-      queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
-    },
-    onError: () => toast.error('Failed to update item'),
-  })
-  const calendarCompleteMutation = useMutation({
-    mutationFn: ({ id, completed }: { id: string; completed: boolean }) =>
-      calendarService.updateGoogleEventCompletion(id, completed),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['google-calendar-events'] })
-      queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
-      queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
-    },
-    onError: () => toast.error('Failed to update calendar event'),
-  })
-  const toggle = (item: { id: string; completed: boolean; source?: 'task' | 'calendar' }) => {
-    const row = item as WeekRow
-    if (row.type === 'habit' && row.task?.type === 'habit') {
-      setHabitCheckIn({ habit: row.task, date: row.date })
-      return
+    const canonical = selectedDate === todayKey
+      ? new URLSearchParams()
+      : new URLSearchParams({ date: selectedDate })
+    if (searchParams.toString() !== canonical.toString()) {
+      setSearchParams(canonical, { replace: true })
     }
-    if (item.source === 'calendar') {
-      calendarCompleteMutation.mutate({ id: item.id, completed: !item.completed })
-      return
-    }
-    if (item.completed) uncompleteMutation.mutate(item.id)
-    else completeMutation.mutate(item.id)
+  }, [
+    allScope,
+    clientWeekStart,
+    rawDate,
+    rawWeek,
+    searchParams,
+    selectedDate,
+    setSearchParams,
+    settingsLoading,
+    todayKey,
+  ])
+
+  const {
+    data: summary,
+    isLoading: summaryLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: weekSummaryQueryKey(clientWeekStart),
+    queryFn: () => summaryService.getWeeklySummary(anchorDate),
+    enabled: !settingsLoading,
+  })
+
+  useEffect(() => {
+    if (!summary || scope.kind !== 'day') return
+    if (summary.days.some((day) => day.date === scope.date)) return
+    setSearchParams({ date: summary.week.startDate }, { replace: true })
+  }, [scope, setSearchParams, summary])
+
+  const invalidatePlanning = () => {
+    queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY })
+    queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+    queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
+    queryClient.invalidateQueries({ queryKey: ['tasks'] })
   }
 
-  const dayItems: Task[][] = weekDates.map((_, i) => dayQueries[i].data ?? [])
-  const dayCalendarEvents: ExternalCalendarEvent[][] = weekDates.map((_, i) => calendarQueries[i].data ?? [])
+  const completeMutation = useMutation({
+    mutationFn: ({ id, completed }: { id: string; completed: boolean }) =>
+      completed ? taskService.updateTask(id, { completed: false }) : taskService.completeTask(id),
+    onSuccess: invalidatePlanning,
+    onError: () => toast.error('Failed to update Item'),
+  })
+  const calendarMutation = useMutation({
+    mutationFn: ({ id, completed }: { id: string; completed: boolean }) =>
+      calendarService.updateGoogleEventCompletion(id, !completed),
+    onSuccess: () => {
+      invalidatePlanning()
+      queryClient.invalidateQueries({ queryKey: ['google-calendar-events'] })
+    },
+    onError: () => toast.error('Failed to update Calendar event'),
+  })
+  const mutationPending = completeMutation.isPending || calendarMutation.isPending
 
-  const model = useMemo(() => {
-    // Flatten the week, tagging each item with its day offset + date
-    const rawRows: WeekRow[] = []
-    dayItems.forEach((items, off) => {
-      const date = format(weekDates[off], 'yyyy-MM-dd')
-      items.forEach((t) => {
-        rawRows.push({
-          id: t.id, source: 'task', title: t.title, type: typeOf(t), completed: t.completed,
-          hasTime: !!t.startTime, time: t.startTime ?? undefined, off, date, task: t,
-        })
-      })
-    })
-    dayCalendarEvents.forEach((events, off) => {
-      const date = format(weekDates[off], 'yyyy-MM-dd')
-      events.forEach((event) => {
-        rawRows.push({
-          id: event.id,
-          source: 'calendar',
-          title: event.title,
-          type: 'calendar',
-          completed: event.completed,
-          hasTime: !event.allDay && !!event.localStartTime,
-          time: event.allDay ? undefined : event.localStartTime || undefined,
-          off,
-          date,
-        })
-      })
-    })
-    const rows = dedupeWeekRows(rawRows)
+  const agenda = useMemo(
+    () => summary
+      ? selectWeekAgenda(summary, scope, { showCompleted, domain })
+      : { days: [], totalCount: 0 },
+    [domain, scope, showCompleted, summary]
+  )
 
-    const sortKey = (r: WeekRow) => r.off * 10000 + (r.time ? Number(r.time.replace(':', '')) : 9999)
-    const byDayTime = (a: WeekRow, b: WeekRow) => sortKey(a) - sortKey(b)
-
-    const todayOff = weekDates.findIndex((d) => isSameDay(d, today))
-
-    // Per-day counts for the rail
-    const perDay = weekDates.map((_, off) => {
-      const its = rows.filter((r) => r.off === off)
-      const done = its.filter((r) => r.completed).length
-      const total = its.length
-      return { done, total, pct: total ? Math.round((done / total) * 100) : 0 }
-    })
-
-    const total = rows.length
-    const done = rows.filter((r) => r.completed).length
-    const leftCount = total - done
-    const weekPct = total ? Math.round((done / total) * 100) : 0
-
-    // Up next: first upcoming incomplete timed item (then today's/future untimed).
-    // Past days are reviewable in the agenda, but not promoted as upcoming work.
-    const incomplete = rows.filter((r) => !r.completed && isUpcoming(r, today))
-    const upNext = incomplete.filter((r) => r.hasTime).sort(byDayTime)[0]
-      || incomplete.slice().sort(byDayTime)[0]
-      || null
-
-    // Agenda groups across the whole week
-    const shown = showCompleted ? rows : rows.filter((r) => !r.completed)
-    const timed = shown.filter((r) => r.hasTime).sort(byDayTime)
-    const untimed = shown.filter((r) => !r.hasTime).sort(byDayTime)
-
-    // Habit matrix: distinct habits across the week × 7 day cells
-    const habitMap = new Map<string, { name: string; cells: ({ id: string; completed: boolean } | null)[] }>()
-    dayItems.forEach((items, off) => {
-      items.forEach((t) => {
-        if (t.type !== 'habit') return
-        // Backend always sets originalHabitId on habit items (virtual + materialized),
-        // so it's the stable key that groups a habit's per-day instances into one row.
-        const key = t.originalHabitId || t.id
-        if (!habitMap.has(key)) habitMap.set(key, { name: t.title, cells: Array(7).fill(null) })
-        habitMap.get(key)!.cells[off] = { id: t.id, completed: t.completed }
-      })
-    })
-    const habitRows = Array.from(habitMap.values()).map((h) => {
-      let streak = 0
-      const from = selectedOff
-      for (let i = from; i >= 0; i--) {
-        const c = h.cells[i]
-        if (c && c.completed) streak++
-        else break
-      }
-      return { ...h, streak }
-    })
-
-    // Weekly momentum by type
-    const types: ItemType[] = ['task', 'habit', 'calendar', 'workout', 'meal']
-    const momentum = types.map((ty) => {
-      const its = rows.filter((r) => r.type === ty)
-      return {
-        label: ty === 'task' ? 'Tasks' : ty === 'habit' ? 'Habits' : ty === 'calendar' ? 'Calendar' : ty === 'workout' ? 'Workouts' : 'Meals',
-        color: TYPE[ty].text,
-        value: `${its.filter((r) => r.completed).length}/${its.length}`,
-      }
-    })
-
-    return { rows, perDay, todayOff, total, done, leftCount, weekPct, upNext, timed, untimed, habitRows, momentum }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dayItems, dayCalendarEvents, weekDates, selectedOff, showCompleted])
-
-  if (isLoading) {
+  if (settingsLoading || summaryLoading) {
+    return <div className="flex min-h-[45vh] items-center justify-center"><LoadingSpinner size="lg" /></div>
+  }
+  if (isError || !summary) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <LoadingSpinner size="lg" />
+      <div className="card mx-auto max-w-lg space-y-4" role="alert">
+        <h1 className="text-xl font-semibold text-ink">Could not load this week</h1>
+        <p className="text-sm text-ink-muted">Your weekly plan is still unchanged.</p>
+        <button type="button" className="btn-primary min-h-11 px-4" onClick={() => void refetch()}>Retry</button>
       </div>
     )
   }
 
-  const firstDay = weekDates[0]
-  const lastDay = weekDates[6]
-  const weekLabel = firstDay.getMonth() === lastDay.getMonth()
-    ? `${format(firstDay, 'MMM d')} – ${format(lastDay, 'd, yyyy')}`
-    : `${format(firstDay, 'MMM d')} – ${format(lastDay, 'MMM d, yyyy')}`
+  const selectedDay = scope.kind === 'day'
+    ? summary.days.find((day) => day.date === scope.date) ?? summary.days[0]
+    : null
+  const completion = selectedDay?.completion ?? summary.completion
+  const populatedDomains = domainOrder.filter((candidate) =>
+    summary.contributions.some((contribution) => contribution.domain === candidate)
+  )
+  const weekStartDate = parseISO(summary.week.startDate)
+  const weekEndDate = parseISO(summary.week.endDate)
+  const weekLabel = weekStartDate.getMonth() === weekEndDate.getMonth()
+    ? `${format(weekStartDate, 'MMM d')} – ${format(weekEndDate, 'd, yyyy')}`
+    : `${format(weekStartDate, 'MMM d')} – ${format(weekEndDate, 'MMM d, yyyy')}`
 
-  const encourage = model.weekPct >= 100 ? 'week cleared'
-    : model.weekPct >= 60 ? 'almost there'
-    : model.weekPct > 0 ? 'keep the streak going' : "let's get started"
-
-  const navBtn: React.CSSProperties = {
-    width: 44, height: 44, borderRadius: 11, border: `1px solid ${W.lineStrong}`,
-    background: 'rgb(var(--surface-card) / .6)', color: W.soft, cursor: 'pointer',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  const selectDay = (date: string) => {
+    setSearchParams(date === todayKey ? {} : { date })
+  }
+  const selectAll = () => {
+    setSearchParams({ scope: 'all', week: summary.week.startDate })
+  }
+  const navigateWeek = (direction: -1 | 1) => {
+    if (scope.kind === 'all') {
+      setSearchParams({
+        scope: 'all',
+        week: format(addDays(parseISO(summary.week.startDate), direction * 7), 'yyyy-MM-dd'),
+      })
+    } else {
+      setSearchParams({
+        date: format(addDays(parseISO(scope.date), direction * 7), 'yyyy-MM-dd'),
+      })
+    }
+  }
+  const handleDayKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const target = getWeekNavigationIndex(index, event.key)
+    if (target == null) return
+    event.preventDefault()
+    selectDay(summary.days[target].date)
+    window.requestAnimationFrame(() => dayButtonRefs.current[target]?.focus())
+  }
+  const toggleEntry = (entry: WeekAgendaEntry) => {
+    if (entry.source === 'calendar') {
+      calendarMutation.mutate({ id: entry.id, completed: entry.completed })
+      return
+    }
+    if (entry.item?.type === 'habit') {
+      setHabitCheckIn({ habit: entry.item as unknown as HabitItem, date: entry.date })
+      return
+    }
+    completeMutation.mutate({ id: entry.id, completed: entry.completed })
+  }
+  const openHabitCell = (itemId: string) => {
+    const found = findHabitItem(summary, itemId)
+    if (found?.item.type === 'habit') {
+      setHabitCheckIn({ habit: found.item as unknown as HabitItem, date: found.date })
+    }
   }
 
   return (
-    <div style={{ color: W.ink, display: 'flex', flexDirection: 'column', gap: 22, minWidth: 0, width: '100%' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
-          <div className="animate-float" style={{ width: 42, height: 42, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `linear-gradient(135deg,${A.c1},${A.c2})`, boxShadow: `0 0 22px ${A.glow}` }}>
-            <Calendar width={21} height={21} color="#fff" />
-          </div>
-          <div>
-            <h1 style={{ margin: 0, fontFamily: GROTESK, fontSize: 28, fontWeight: 700, letterSpacing: '-.5px', color: W.ink, textShadow: `0 0 12px ${A.textGlow}` }}>My Week</h1>
-            <p style={{ margin: '3px 0 0', fontSize: 13, color: W.muted }}>Plan across days — your default view is Today · {weekLabel}</p>
-          </div>
+    <main className="week-workspace space-y-5 text-ink">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-400">Plan across days</p>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight">My Week</h1>
+          <p className="mt-1 text-sm text-ink-muted">{weekLabel}</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button className="week-focus" onClick={() => setWeekOffset((w) => w - 1)} style={navBtn} aria-label="Previous week"><ChevronLeft width={17} height={17} /></button>
+        <div className="flex items-center gap-2">
+          <button type="button" className="week-focus flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-card/60" aria-label="Previous week" onClick={() => navigateWeek(-1)}><ChevronLeft className="h-5 w-5" /></button>
+          <button type="button" className="week-focus min-h-11 rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-4 text-sm font-semibold text-cyan-300" onClick={() => setSearchParams({})}>Today</button>
+          <button type="button" className="week-focus flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-card/60" aria-label="Next week" onClick={() => navigateWeek(1)}><ChevronRight className="h-5 w-5" /></button>
+        </div>
+      </header>
+
+      <div className="sr-only" aria-live="polite">
+        {scope.kind === 'all' ? `All week, ${weekLabel}` : `${dateLabel(scope.date, today)} selected`}
+      </div>
+
+      <section aria-label="Week scope" className="space-y-3">
+        <button
+          type="button"
+          className={`week-focus min-h-11 rounded-xl border px-4 text-sm font-semibold ${
+            scope.kind === 'all' ? 'border-cyan-400 bg-cyan-400/15 text-cyan-300' : 'border-line bg-card/50 text-ink-soft'
+          }`}
+          aria-pressed={scope.kind === 'all'}
+          onClick={selectAll}
+        >
+          All week
+        </button>
+        <div role="group" aria-label="Week dates" className="week-rail grid grid-cols-7 gap-2">
+          {summary.days.map((day, index) => {
+            const date = parseISO(day.date)
+            const selected = scope.kind === 'day' && day.date === scope.date
+            return (
+              <button
+                key={day.date}
+                ref={(button) => { dayButtonRefs.current[index] = button }}
+                type="button"
+                className={`week-focus relative flex min-h-[88px] min-w-0 flex-col items-center justify-center rounded-2xl border px-1 py-2 ${
+                  selected ? 'border-cyan-400 bg-cyan-400/12 text-cyan-300' : 'border-line bg-card/40 text-ink-soft'
+                }`}
+                data-rail-date={day.date}
+                aria-current={selected ? 'date' : undefined}
+                aria-pressed={selected}
+                aria-label={`${format(date, 'EEEE, MMMM d')}, ${day.completion.addressed ?? day.completion.completed} addressed of ${day.completion.total}`}
+                tabIndex={selected || (scope.kind === 'all' && index === 0) ? 0 : -1}
+                onClick={() => selectDay(day.date)}
+                onKeyDown={(event) => handleDayKeyDown(event, index)}
+              >
+                <span className="text-[10px] font-semibold uppercase">{format(date, 'EEE')}</span>
+                <time dateTime={day.date} className="mt-1 text-xl font-bold">{format(date, 'd')}</time>
+                <span className="mt-1 text-[10px] text-ink-muted">{day.completion.addressed ?? day.completion.completed}/{day.completion.total}</span>
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      <section className="flex flex-wrap items-center gap-2" aria-label="Agenda filters">
+        <button
+          type="button"
+          className={`week-focus min-h-11 rounded-xl border px-3 text-sm ${domain === 'all' ? 'border-cyan-400/50 bg-cyan-400/10 text-cyan-300' : 'border-line text-ink-soft'}`}
+          aria-pressed={domain === 'all'}
+          onClick={() => setDomain('all')}
+        >All domains</button>
+        {populatedDomains.map((candidate) => (
           <button
-            className="week-focus"
-            onClick={() => { setWeekOffset(0); const wd = getWeekDates(new Date(), weekStartsOn).findIndex((d) => isSameDay(d, new Date())); setSelectedOff(wd >= 0 ? wd : 0) }}
-            style={{ minHeight: 44, padding: '0 16px', borderRadius: 11, border: `1px solid ${A.border}`, background: A.chip, color: A.ring, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-          >Today</button>
-          <button className="week-focus" onClick={() => setWeekOffset((w) => w + 1)} style={navBtn} aria-label="Next week"><ChevronRight width={17} height={17} /></button>
-        </div>
-      </div>
+            type="button"
+            key={candidate}
+            className={`week-focus flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm ${domain === candidate ? 'border-cyan-400/50 bg-cyan-400/10 text-cyan-300' : 'border-line text-ink-soft'}`}
+            aria-pressed={domain === candidate}
+            onClick={() => setDomain(candidate)}
+          >
+            <DomainIcon domain={candidate} />{domainLabel[candidate]}
+          </button>
+        ))}
+        <button
+          type="button"
+          className="week-focus ml-auto min-h-11 rounded-xl border border-line px-3 text-sm text-ink-soft"
+          aria-pressed={!showCompleted}
+          onClick={() => setShowCompleted((value) => !value)}
+        >
+          {showCompleted ? 'Hide completed' : 'Show completed'}
+        </button>
+      </section>
 
-      {/* Week rail */}
-      <div
-        role="group"
-        aria-label="Week dates"
-        className="week-rail"
-        style={{ display: 'grid', gridTemplateColumns: 'repeat(7,minmax(0,1fr))', gap: 9, minWidth: 0 }}
-      >
-        {weekDates.map((d, off) => {
-          const isToday = isSameDay(d, today)
-          const isSel = off === selectedOff
-          const { done, pct } = model.perDay[off]
-          return (
-            <button
-              className="week-focus"
-              ref={(button) => { dayButtonRefs.current[off] = button }}
-              aria-pressed={isSel}
-              aria-current={isSel ? 'date' : undefined}
-              aria-label={`${fullDow[off]}, ${format(d, 'MMMM d')}, ${done} completed`}
-              tabIndex={isSel ? 0 : -1}
-              key={off}
-              data-demo-id="week-day-column"
-              data-rail-date={format(d, 'yyyy-MM-dd')}
-              onClick={() => setSelectedOff(off)}
-              onKeyDown={(event) => handleDayKeyDown(event, off)}
-              style={{
-                position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
-                padding: '13px 6px 12px', borderRadius: 16, cursor: 'pointer',
-                border: `1px solid ${isSel ? A.border : 'rgb(var(--border-default) / .5)'}`,
-                background: isSel ? `linear-gradient(160deg,${A.chip} 0%, rgb(var(--surface-card) / .92) 70%)` : 'rgb(var(--surface-card) / .4)',
-                boxShadow: isSel ? `0 0 24px ${A.glow}` : 'none',
-              }}
-            >
-              <time dateTime={format(d, 'yyyy-MM-dd')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: isSel ? A.ring : W.muted }}>{dow[off]}</span>
-                <span style={{ fontFamily: GROTESK, fontSize: 22, fontWeight: 700, lineHeight: 1, color: isToday ? A.ring : W.ink, textShadow: isSel ? `0 0 12px ${A.textGlow}` : 'none' }}>{format(d, 'd')}</span>
-              </time>
-              <div role="progressbar" aria-label={`${fullDow[off]} completion`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} style={{ position: 'relative', width: 30, height: 30 }}>
-                <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: `conic-gradient(${A.ring} ${pct}%, rgba(255,255,255,.08) ${pct}%)` }} />
-                <div style={{ position: 'absolute', inset: 4, borderRadius: '50%', background: isSel ? W.sunken : W.page, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: W.soft, fontFamily: GROTESK }}>{done}</div>
-              </div>
-              {isToday && (
-                <span className="animate-neon-flicker" style={{ position: 'absolute', top: 7, right: 8, width: 6, height: 6, borderRadius: '50%', background: A.ring, boxShadow: `0 0 8px ${A.ring}` }} />
-              )}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Two-column body */}
-      <div className="week-grid" style={{ display: 'grid', gridTemplateColumns: '1.55fr 1fr', gap: 20, alignItems: 'start', minWidth: 0 }}>
-        {/* Focus column: weekly agenda */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
-          {/* Focus hero */}
-          <div style={{ position: 'relative', overflow: 'hidden', padding: '20px 22px', borderRadius: 20, border: `1px solid ${A.border}`, background: `linear-gradient(135deg,${A.chip} 0%, rgb(var(--surface-card) / .94) 70%)`, boxShadow: `0 0 30px ${A.glow}` }}>
-            <div style={{ position: 'absolute', top: -40, right: -30, width: 160, height: 160, borderRadius: '50%', background: `radial-gradient(circle,${A.glow},transparent 70%)`, pointerEvents: 'none' }} />
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 18 }}>
-              <div role="progressbar" aria-label="Week completion" aria-valuemin={0} aria-valuemax={100} aria-valuenow={model.weekPct} style={{ position: 'relative', width: 74, height: 74, flex: 'none' }}>
-                <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: `conic-gradient(${A.ring} ${model.weekPct}%, rgba(255,255,255,.08) ${model.weekPct}%)` }} />
-                <div style={{ position: 'absolute', inset: 7, borderRadius: '50%', background: W.sunken, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontFamily: GROTESK, fontSize: 20, fontWeight: 700, color: W.ink, lineHeight: 1 }}>{model.weekPct}%</span>
-                </div>
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-                  <h2 style={{ margin: 0, fontFamily: GROTESK, fontSize: 26, fontWeight: 700, letterSpacing: '-.5px', color: W.ink }}>Left this week</h2>
-                  <span style={{ fontSize: 14, color: W.muted }}>{model.leftCount} to go</span>
-                </div>
-                <p style={{ margin: '6px 0 0', fontSize: 14, color: W.soft }}>
-                  <span style={{ color: A.ring, fontWeight: 600 }}>{model.done} of {model.total} done</span> · {encourage}
-                </p>
-              </div>
+      <div className="week-master-detail">
+        <section className="min-w-0 space-y-4" data-testid="week-agenda" aria-labelledby="week-agenda-heading">
+          <div className="flex items-end justify-between gap-4 border-b border-line pb-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-cyan-400">Selected scope</p>
+              <h2 id="week-agenda-heading" className="mt-1 text-xl font-semibold">
+                {scope.kind === 'all' ? 'All Week agenda' : dateLabel(scope.date, today)}
+              </h2>
             </div>
+            <span className="text-sm text-ink-muted">{agenda.totalCount} shown</span>
           </div>
 
-          {/* Up next */}
-          {model.upNext && (
-            <div style={{ position: 'relative', overflow: 'hidden', padding: '16px 18px', borderRadius: 18, border: `1px solid ${TYPE[model.upNext.type].border}`, background: `linear-gradient(120deg,${TYPE[model.upNext.type].bg} 0%, rgb(var(--surface-card) / .9) 75%)` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                <span style={{ flex: 'none', width: 46, height: 46, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', background: TYPE[model.upNext.type].bg, color: TYPE[model.upNext.type].text, border: `1px solid ${TYPE[model.upNext.type].border}` }}>
-                  <TypeIcon type={model.upNext.type} size={22} />
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1.4, textTransform: 'uppercase', color: TYPE[model.upNext.type].text }}>Up next</span>
-                  <p data-testid="week-up-next-title" style={{ margin: '3px 0 0', fontSize: 17, fontWeight: 600, color: W.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{model.upNext.title}</p>
-                  <p style={{ margin: '3px 0 0', fontSize: 12, color: W.muted }}>
-                    {(model.upNext.off === model.todayOff ? 'Today' : dow[model.upNext.off])}{model.upNext.hasTime ? ` · ${timeLabel(model.upNext.time)}` : ''}
-                  </p>
-                </div>
-                <button className="week-focus" aria-label={`Mark ${model.upNext.title} complete`} onClick={() => toggle(model.upNext!)} style={{ flex: 'none', height: 38, padding: '0 16px', borderRadius: 11, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#0b1120', background: `linear-gradient(135deg,${A.c1},${A.c2})`, boxShadow: `0 0 16px ${A.glow}` }}>
-                  <Check width={15} height={15} strokeWidth={3} /> Done
-                </button>
-              </div>
+          {agenda.days.length === 0 || agenda.totalCount === 0 ? (
+            <div className="rounded-2xl border border-dashed border-line p-8 text-center text-sm text-ink-muted">
+              {domain === 'habit' && scope.kind === 'all'
+                ? 'Habits are summarized in Habit cadence.'
+                : showCompleted ? 'Nothing planned for this scope.' : 'No incomplete Items in this scope.'}
             </div>
-          )}
-
-          {/* All-done celebration */}
-          {model.total > 0 && model.leftCount === 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 18, border: '1px solid rgba(34,197,94,.4)', background: 'linear-gradient(120deg,rgba(34,197,94,.14) 0%, rgba(17,24,39,.85) 75%)' }}>
-              <span style={{ flex: 'none', width: 46, height: 46, borderRadius: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#22c55e,#16a34a)', color: '#fff', boxShadow: '0 0 18px rgba(34,197,94,.45)' }}>
-                <Check width={24} height={24} strokeWidth={2.5} />
-              </span>
-              <div>
-                <p style={{ margin: 0, fontSize: 16, fontWeight: 600, color: W.ink }}>Week cleared</p>
-                <p style={{ margin: '3px 0 0', fontSize: 13, color: W.muted }}>Nothing left this week. Every item is complete — nice work.</p>
-              </div>
-            </div>
-          )}
-
-          {/* Agenda groups */}
-          {([
-            { label: 'Scheduled', scheduled: true, items: model.timed },
-            { label: 'Anytime', scheduled: false, items: model.untimed },
-          ] as const).map((g) => g.items.length > 0 && (
-            <div key={g.label} style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ color: g.scheduled ? A.ring : W.muted, display: 'flex' }}>
-                  {g.scheduled ? <Clock width={15} height={15} /> : <InfinityIcon width={15} height={15} />}
-                </span>
-                <span style={{ fontSize: 12, fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase', color: W.muted }}>{g.label}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, color: W.muted, background: 'rgb(var(--text-primary) / .05)', borderRadius: 99, padding: '2px 8px' }}>{g.items.length}</span>
-                <span style={{ flex: 1, height: 1, background: 'rgb(var(--text-primary) / .08)' }} />
-              </div>
-
-              {g.items.map((item) => {
-                const t = TYPE[item.type]
-                const isToday = item.off === model.todayOff
-                const tl = timeLabel(item.time)
-                const [tShort, ampm] = tl ? tl.split(' ') : ['Any', '']
+          ) : agenda.days.map((day) => (
+            <section key={day.date} aria-labelledby={`agenda-${day.date}`} className="space-y-3">
+              {scope.kind === 'all' && (
+                <h3 id={`agenda-${day.date}`} className="sticky top-0 z-10 border-b border-line bg-page/95 py-2 text-sm font-semibold backdrop-blur">
+                  {dateLabel(day.date, today)}
+                </h3>
+              )}
+              {(['scheduled', 'all_day', 'anytime'] as const).map((group) => {
+                const entries = day.entries.filter((entry) => entry.group === group)
+                if (!entries.length) return null
+                const label = group === 'scheduled' ? 'Scheduled' : group === 'all_day' ? 'All-day obligations' : 'Anytime'
                 return (
-                  <div key={item.id} data-date={item.date} style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
-                    <div style={{ flex: 'none', width: 62, paddingTop: 11, textAlign: 'right' }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '.6px', color: isToday ? A.ring : W.muted }}>{isToday ? 'TODAY' : dow[item.off]}</div>
-                      <span style={{ fontFamily: GROTESK, fontSize: 13, fontWeight: 600, color: item.completed ? W.muted : (item.hasTime ? W.soft : W.muted) }}>{tShort}</span>
-                      {item.hasTime && <div style={{ fontSize: 10, color: W.muted, marginTop: 1 }}>{ampm}</div>}
+                  <div key={group} className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-ink-muted">
+                      {group === 'scheduled' ? <Clock className="h-4 w-4" /> : group === 'anytime' ? <InfinityIcon className="h-4 w-4" /> : <Calendar className="h-4 w-4" />}
+                      {label}
                     </div>
-                    <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 12, alignItems: 'center', padding: '13px 14px', borderRadius: 14, background: item.completed ? 'rgb(var(--surface-raised) / .45)' : `linear-gradient(90deg, ${t.tint}, rgb(var(--surface-card) / .55))`, border: `1px solid ${item.completed ? 'rgb(var(--border-strong) / .3)' : t.border}` }}>
-                      <button
-                        className="week-focus"
-                        onClick={() => toggle(item)}
-                        aria-label={item.completed ? 'Mark incomplete' : 'Mark complete'}
-                        style={item.completed
-                          ? { flex: 'none', width: 24, height: 24, borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#22c55e,#16a34a)', color: '#fff', boxShadow: '0 0 12px rgba(34,197,94,.45)' }
-                          : { flex: 'none', width: 24, height: 24, borderRadius: '50%', border: `2px solid ${W.lineStrong}`, background: 'transparent', cursor: 'pointer' }}
-                      >
-                        {item.completed && <Check width={14} height={14} strokeWidth={3.5} />}
-                      </button>
-                      <span style={{ flex: 'none', width: 34, height: 34, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.bg, color: t.text, border: `1px solid ${t.border}` }}>
-                        <TypeIcon type={item.type} size={15} />
-                      </span>
-                      <p style={{ flex: 1, minWidth: 0, margin: 0, fontSize: 15, fontWeight: 500, lineHeight: 1.3, color: item.completed ? W.muted : W.ink, textDecoration: item.completed ? 'line-through' : 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
-                      <span style={{ flex: 'none', fontSize: 10, fontWeight: 600, letterSpacing: '.5px', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 99, color: t.text, background: t.bg, border: `1px solid ${t.border}` }}>{t.label}</span>
+                    {entries.map((entry) => (
+                      <article key={`${entry.source}-${entry.id}-${entry.date}`} data-date={entry.date} className="flex min-h-16 items-center gap-3 rounded-2xl border border-line bg-card/45 p-3">
+                        <button
+                          type="button"
+                          className={`week-focus flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${
+                            entry.completed ? 'border-emerald-400 bg-emerald-500 text-white' : entry.addressed ? 'border-slate-400 bg-slate-500/20 text-ink-soft' : 'border-line-strong'
+                          }`}
+                          disabled={mutationPending}
+                          aria-label={entry.source === 'item' && entry.item?.type === 'habit'
+                            ? `Record outcome for ${entry.title}`
+                            : entry.completed ? `Mark ${entry.title} incomplete` : `Mark ${entry.title} complete`}
+                          onClick={() => toggleEntry(entry)}
+                        >
+                          {entry.completed ? <Check className="h-5 w-5" /> : entry.addressed ? <span aria-hidden="true">—</span> : null}
+                        </button>
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-raised text-cyan-300"><DomainIcon domain={entry.domain} /></span>
+                        <div className="min-w-0 flex-1">
+                          <p className={`truncate text-sm font-medium ${entry.completed ? 'text-ink-muted line-through' : 'text-ink'}`}>{entry.title}</p>
+                          <p className="mt-1 text-xs text-ink-muted">
+                            {entry.time ? timeLabel(entry.time) : domainLabel[entry.domain]}
+                            {entry.item?.type === 'habit' && entry.item.habitInfo ? ` · ${outcomeLabel(entry.item.habitInfo.outcome)}` : ''}
+                          </p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                )
+              })}
+            </section>
+          ))}
+        </section>
+
+        <aside className="min-w-0 space-y-5">
+          <section className="border-b border-line pb-5" aria-labelledby="scope-status-heading">
+            <h2 id="scope-status-heading" className="text-base font-semibold">{scope.kind === 'all' ? 'Week status' : 'Day status'}</h2>
+            <p className="mt-2 text-2xl font-bold">{completion.addressed ?? completion.completed} of {completion.total} addressed</p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-raised" role="progressbar" aria-label="Item completion" aria-valuemin={0} aria-valuemax={100} aria-valuenow={completion.percent ?? 0}>
+              <div className="h-full bg-cyan-400" style={{ width: `${completion.percent ?? 0}%` }} />
+            </div>
+            {summary.obligations.total > 0 && <p className="mt-2 text-xs text-ink-muted">{summary.obligations.completed} of {summary.obligations.total} Calendar obligations marked complete</p>}
+          </section>
+
+          <section className="border-b border-line pb-5" aria-labelledby="capacity-heading">
+            <h2 id="capacity-heading" className="text-base font-semibold">Capacity by day</h2>
+            <div className="mt-3 space-y-3">
+              {(selectedDay ? [selectedDay] : summary.days).map((day) => {
+                const copy = capacityCopy(day)
+                return (
+                  <div key={day.date} className="flex gap-3">
+                    {day.capacity.status === 'complete'
+                      ? <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
+                      : <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium">{dateLabel(day.date, today)} · {copy.title}</p>
+                      <p className="mt-0.5 text-xs text-ink-muted">{copy.detail}</p>
                     </div>
                   </div>
                 )
               })}
             </div>
-          ))}
+          </section>
 
-          {model.total === 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '50px 20px', textAlign: 'center', color: W.muted, border: `1px dashed ${W.lineStrong}`, borderRadius: 16 }}>
-              <Smile width={34} height={34} strokeWidth={1.5} />
-              <p style={{ margin: 0, fontSize: 14 }}>Nothing planned this week</p>
-            </div>
-          )}
-        </div>
-
-        {/* Right column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, minWidth: 0 }}>
-          {/* Habit consistency */}
-          <div style={{ padding: '18px 18px 16px', borderRadius: 18, border: `1px solid ${W.line}`, background: 'linear-gradient(160deg,rgb(var(--surface-card) / .75) 0%,rgb(var(--surface-raised) / .9) 100%)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, marginBottom: 16 }}>
-              <span style={{ width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(168,85,247,.15)', color: '#c084fc', border: '1px solid rgba(168,85,247,.3)' }}>
-                <RotateCcw width={16} height={16} />
-              </span>
-              <h3 style={{ margin: 0, fontFamily: GROTESK, fontSize: 16, fontWeight: 600, color: W.ink }}>Habit consistency</h3>
-            </div>
-
-            {model.habitRows.length === 0 ? (
-              <p style={{ margin: 0, fontSize: 13, color: W.muted }}>No habits tracked this week.</p>
-            ) : (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr repeat(7,22px) 34px', gap: 5, alignItems: 'center', marginBottom: 9, paddingLeft: 2 }}>
-                  <span />
-                  {letters.map((l, i) => (
-                    <span key={i} style={{ textAlign: 'center', fontSize: 9, fontWeight: 600, color: i === selectedOff ? A.ring : W.muted }}>{l}</span>
-                  ))}
-                  <span style={{ textAlign: 'center', fontSize: 10 }}>🔥</span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-                  {model.habitRows.map((h, hi) => (
-                    <div key={hi} data-demo-id="habit-row" style={{ display: 'grid', gridTemplateColumns: '1fr repeat(7,22px) 34px', gap: 5, alignItems: 'center' }}>
-                      <span style={{ fontSize: 12.5, color: W.soft, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.name}</span>
-                      {h.cells.map((c, i) => (
-                        <button
-                          className="week-focus"
-                          aria-label={`${h.name}, ${fullDow[i]}${c?.completed ? ', completed' : ', incomplete'}`}
-                          key={i}
-                          disabled={!c}
-                          onClick={() => c && toggle(c)}
-                          title={`${h.name} · ${fullDow[i]}`}
-                          style={{
-                            width: 22, height: 22, borderRadius: 7, cursor: c ? 'pointer' : 'default',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff',
-                            border: `1px solid ${c?.completed ? 'rgba(168,85,247,.5)' : (i === selectedOff ? A.border : 'rgb(var(--text-primary) / .10)')}`,
-                            background: c?.completed ? 'linear-gradient(135deg,#8b5cf6,#d946ef)' : (i === selectedOff ? A.chip : 'rgb(var(--text-primary) / .06)'),
-                            opacity: c ? 1 : 0.35,
-                          }}
-                        >
-                          {c?.completed && <Check width={11} height={11} strokeWidth={3.5} />}
-                        </button>
-                      ))}
-                      <span style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, fontFamily: GROTESK, color: h.streak >= 3 ? 'rgb(var(--week-workout))' : (h.streak > 0 ? W.soft : W.muted) }}>{h.streak}</span>
+          {summary.habitCadence.length > 0 && (domain === 'all' || domain === 'habit') && (
+            <section className="border-b border-line pb-5" aria-labelledby="habit-cadence-heading">
+              <h2 id="habit-cadence-heading" className="text-base font-semibold">Habit cadence</h2>
+              <div className="mt-3 space-y-3">
+                {summary.habitCadence.map((habit) => {
+                  const expanded = expandedHabitId === habit.originalHabitId
+                  return (
+                    <div key={habit.originalHabitId} className="rounded-2xl border border-line bg-card/35 p-3">
+                      <button
+                        type="button"
+                        className="week-focus flex min-h-11 w-full items-center justify-between gap-3 text-left"
+                        aria-expanded={expanded}
+                        onClick={() => setExpandedHabitId(expanded ? null : habit.originalHabitId)}
+                      >
+                        <span className="truncate text-sm font-medium">{habit.title}</span>
+                        <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                      </button>
+                      <div className="mt-2 grid grid-cols-7 gap-1" aria-label={`${habit.title} week outcomes`}>
+                        {habit.days.map((cell, index) => (
+                          <button
+                            type="button"
+                            key={summary.days[index].date}
+                            className={`week-focus flex h-11 min-w-0 items-center justify-center rounded-lg border text-[10px] font-semibold ${
+                              cell?.outcome === 'completed' ? 'border-emerald-400/60 bg-emerald-500/20 text-emerald-300'
+                                : cell?.outcome === 'failed' ? 'border-slate-400/60 bg-slate-500/20 text-ink-soft'
+                                  : cell?.outcome === 'partial' ? 'border-amber-400/60 bg-amber-500/15 text-amber-300'
+                                    : 'border-line text-ink-muted'
+                            }`}
+                            disabled={!cell}
+                            aria-label={`${habit.title}, ${format(parseISO(summary.days[index].date), 'EEEE')}, ${cell ? outcomeLabel(cell.outcome) : 'not due'}`}
+                            onClick={() => cell && openHabitCell(cell.itemId)}
+                          >
+                            {cell?.outcome === 'completed' ? '✓' : cell?.outcome === 'failed' ? '—' : cell?.outcome === 'partial' ? '½' : format(parseISO(summary.days[index].date), 'EEEEE')}
+                          </button>
+                        ))}
+                      </div>
+                      {expanded && (
+                        <div className="mt-3 space-y-1 border-t border-line pt-3">
+                          {habit.days.map((cell, index) => cell && (
+                            <button
+                              type="button"
+                              key={cell.itemId}
+                              className="week-focus flex min-h-11 w-full items-center justify-between rounded-xl px-2 text-sm hover:bg-raised"
+                              onClick={() => openHabitCell(cell.itemId)}
+                            >
+                              <span>{format(parseISO(summary.days[index].date), 'EEEE')}</span>
+                              <span className="text-ink-muted">{outcomeLabel(cell.outcome)}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+                  )
+                })}
+              </div>
+            </section>
+          )}
 
-          {/* Weekly momentum */}
-          <div style={{ padding: 18, borderRadius: 18, border: `1px solid ${W.line}`, background: 'linear-gradient(160deg,rgb(var(--surface-card) / .75) 0%,rgb(var(--surface-raised) / .9) 100%)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontFamily: GROTESK, fontSize: 16, fontWeight: 600, color: W.ink }}>This week</h3>
-              <button
-                className="week-focus"
-                aria-pressed={showCompleted}
-                onClick={() => setShowCompleted((s) => !s)}
-                style={{ fontSize: 11, fontWeight: 600, color: showCompleted ? A.ring : W.muted, background: showCompleted ? A.chip : 'rgb(var(--text-primary) / .06)', border: `1px solid ${showCompleted ? A.border : 'rgb(var(--text-primary) / .10)'}`, borderRadius: 99, padding: '3px 10px', cursor: 'pointer' }}
-              >{showCompleted ? 'Hiding none' : 'Show completed'}</button>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-              <div role="progressbar" aria-label="Weekly completion" aria-valuemin={0} aria-valuemax={100} aria-valuenow={model.weekPct} style={{ position: 'relative', width: 84, height: 84, flex: 'none' }}>
-                <div style={{ position: 'absolute', inset: 0, borderRadius: '50%', background: `conic-gradient(${A.ring} ${model.weekPct}%, rgba(255,255,255,.08) ${model.weekPct}%)` }} />
-                <div style={{ position: 'absolute', inset: 9, borderRadius: '50%', background: W.sunken, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontFamily: GROTESK, fontSize: 22, fontWeight: 700, color: W.ink, lineHeight: 1 }}>{model.weekPct}%</span>
-                  <span style={{ fontSize: 9, color: W.muted, marginTop: 2 }}>done</span>
+          <section aria-labelledby="contributions-heading">
+            <h2 id="contributions-heading" className="text-base font-semibold">This week</h2>
+            <div className="mt-3 space-y-2">
+              {summary.contributions.map((contribution) => (
+                <div key={contribution.domain} className="flex min-h-11 items-center gap-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-raised text-cyan-300"><DomainIcon domain={contribution.domain} /></span>
+                  <span className="flex-1 text-sm text-ink-soft">{domainLabel[contribution.domain]}</span>
+                  <span className="text-sm font-semibold">{contribution.addressed}/{contribution.total}</span>
                 </div>
-              </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 11 }}>
-                {model.momentum.map((m, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ width: 9, height: 9, borderRadius: 3, flex: 'none', background: m.color }} />
-                    <span style={{ flex: 1, fontSize: 13, color: W.soft }}>{m.label}</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, fontFamily: GROTESK, color: W.ink }}>{m.value}</span>
-                  </div>
-                ))}
-              </div>
+              ))}
             </div>
-          </div>
-        </div>
+          </section>
+        </aside>
       </div>
-      {habitCheckIn && <HabitOutcomeSheet habit={habitCheckIn.habit} date={habitCheckIn.date} onClose={() => setHabitCheckIn(null)} />}
-    </div>
+
+      {habitCheckIn && (
+        <HabitOutcomeSheet
+          habit={habitCheckIn.habit}
+          date={habitCheckIn.date}
+          onClose={() => {
+            setHabitCheckIn(null)
+            queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY })
+          }}
+        />
+      )}
+    </main>
   )
 }

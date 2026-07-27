@@ -26,6 +26,7 @@ import {
   daySummaryService,
   DAILY_SIGNALS_QUERY_KEY,
   DAY_SUMMARY_QUERY_KEY,
+  WEEK_SUMMARY_QUERY_KEY,
   isDaySummaryItemAddressed,
   onboardingService,
   rhythmService,
@@ -938,6 +939,7 @@ export default function TodayPage() {
         queryClient.invalidateQueries({ queryKey: ['google-calendar-events', date] })
         queryClient.invalidateQueries({ queryKey: ['tasks', date] })
         queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(date) })
+        queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY })
         queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(date) })
       } catch (error) {
         console.error('Today - Error syncing timed tasks to Google Calendar:', error)
@@ -952,6 +954,7 @@ export default function TodayPage() {
     onSuccess: (completedTask) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
       setShowConfetti(true)
       
@@ -976,6 +979,7 @@ export default function TodayPage() {
     onSuccess: (task) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
       toast.success(`"${task.title}" marked as incomplete`)
     },
@@ -1026,6 +1030,7 @@ export default function TodayPage() {
           ? DAILY_SIGNALS_QUERY_KEY
           : dailySignalsQueryKey(selectedDateKey),
       })
+      queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY })
       toast.success('Task updated successfully!')
     },
     onError: () => toast.error('Failed to update task'),
@@ -1054,6 +1059,7 @@ export default function TodayPage() {
         : current
       )
       queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(date) })
+      queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(date) })
     },
     onError: () => {
@@ -1087,6 +1093,7 @@ export default function TodayPage() {
         : current
       )
       queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(date) })
+      queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(date) })
       toast.success('Calendar event moved')
     },
@@ -1104,6 +1111,7 @@ export default function TodayPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
       setHabitDeleteCandidate(null)
       toast.success('Task deleted')

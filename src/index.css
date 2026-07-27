@@ -661,21 +661,37 @@
     padding-bottom: max(env(safe-area-inset-bottom), 16px) !important;
   }
 }
-/* Week view: stack the two-column body on narrow screens */
+/* Week planning workspace responds to the content area left by navigation. */
 .mobile-nav-label {
   display: block;
 }
 
-.week-grid,
-.week-grid > *,
+.week-workspace {
+  container: week / inline-size;
+  min-width: 0;
+}
+
+.week-master-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1.5rem;
+}
+
+.week-master-detail > *,
 .week-rail {
   min-width: 0;
   max-width: 100%;
 }
 
-@media (max-width: 860px) {
-  .week-grid {
-    grid-template-columns: 1fr !important;
+@container week (min-width: 56rem) {
+  .week-master-detail {
+    grid-template-columns: minmax(0, 1.55fr) minmax(18rem, 0.8fr);
+    align-items: start;
+  }
+
+  .week-master-detail > aside {
+    position: sticky;
+    top: 1rem;
   }
 }
 

@@ -15,6 +15,9 @@ import {
   PlanningWindow,
   PlanningWindowSchema,
   type DaySummary,
+  type WeekDomain,
+  type WeekSummary,
+  WeekSummarySchema,
 } from './day-summary-schema'
 import { Rollover } from './rollover'
 import { db } from './supabase-client'
@@ -762,5 +765,180 @@ export async function buildDaySummary(
       nutrition,
       workouts,
     },
+  })
+}
+
+const WEEK_DOMAIN_ORDER: WeekDomain[] = [
+  'task',
+  'habit',
+  'calendar',
+  'workout',
+  'meal',
+  'grocery',
+]
+
+function uniqueWeekItems(days: { items: DaySummaryItem[] }[]) {
+  const seen = new Set<string>()
+  const result: DaySummaryItem[] = []
+  for (const day of days) {
+    for (const item of day.items) {
+      if (item.type !== 'habit') {
+        if (seen.has(item.id)) continue
+        seen.add(item.id)
+      }
+      result.push(item)
+    }
+  }
+  return result
+}
+
+function habitCadence(days: { date: string; items: DaySummaryItem[] }[]) {
+  const rows = new Map<string, WeekSummary['habitCadence'][number]>()
+  days.forEach((day, dayIndex) => {
+    for (const item of day.items) {
+      if (item.type !== 'habit') continue
+      const originalHabitId = item.originalHabitId ?? item.id
+      if (!rows.has(originalHabitId)) {
+        rows.set(originalHabitId, {
+          originalHabitId,
+          title: item.title,
+          target: item.habitInfo?.target ?? null,
+          days: Array(7).fill(null),
+        })
+      }
+      const outcome = item.habitInfo?.outcome ?? (item.completed ? 'completed' : 'pending')
+      rows.get(originalHabitId)!.days[dayIndex] = {
+        date: day.date,
+        itemId: item.id,
+        outcome,
+        progressTotal: item.habitInfo?.progressTotal ?? 0,
+        completed: item.completed,
+        addressed: isDaySummaryItemAddressed(item),
+      }
+    }
+  })
+  return Array.from(rows.values())
+}
+
+function weekContributions(
+  items: DaySummaryItem[],
+  days: { calendar: CalendarSource }[]
+): WeekSummary['contributions'] {
+  const counts = new Map<WeekDomain, { total: number; completed: number; addressed: number }>()
+  const add = (domain: WeekDomain, completed: boolean, addressed: boolean) => {
+    const current = counts.get(domain) ?? { total: 0, completed: 0, addressed: 0 }
+    current.total += 1
+    if (completed) current.completed += 1
+    if (addressed) current.addressed += 1
+    counts.set(domain, current)
+  }
+  items.forEach((item) => add(item.type, item.completed, isDaySummaryItemAddressed(item)))
+  days.flatMap((day) => day.calendar.events)
+    .forEach((event) => add('calendar', event.completed, event.completed))
+  return WEEK_DOMAIN_ORDER
+    .filter((domain) => counts.has(domain))
+    .map((domain) => ({ domain, ...counts.get(domain)! }))
+}
+
+export async function buildWeekSummary(
+  userId: string,
+  anchorDate: string,
+  timeZone: string | null | undefined,
+  options: {
+    now?: Date
+    dependencies?: Partial<Pick<
+      DaySummaryDependencies,
+      'itemsForDay' | 'getSettings' | 'getCalendarStatus' | 'getCalendarEvents'
+    >>
+  } = {}
+): Promise<WeekSummary> {
+  const now = options.now ?? new Date()
+  const dependencies = { ...defaultDependencies, ...options.dependencies }
+  const settings = await dependencies.getSettings(userId)
+  const weekStartsOn = typeof settings.weekStartsOn === 'number' &&
+    Number.isInteger(settings.weekStartsOn) &&
+    settings.weekStartsOn >= 0 &&
+    settings.weekStartsOn <= 6
+    ? settings.weekStartsOn
+    : 1
+  const dates = weekDates(anchorDate, weekStartsOn)
+  const itemsByDay = await Promise.all(dates.map((date) => dependencies.itemsForDay(userId, date)))
+  const planningWindowResult = PlanningWindowSchema.safeParse(settings.planningWindow ?? null)
+  const planningWindow = planningWindowResult.success ? planningWindowResult.data : null
+
+  let calendarStatus: Awaited<ReturnType<typeof dependencies.getCalendarStatus>> | null = null
+  try {
+    calendarStatus = await dependencies.getCalendarStatus(userId)
+  } catch {
+    calendarStatus = null
+  }
+
+  const calendars: CalendarSource[] = !calendarStatus
+    ? dates.map(() => ({ status: 'unavailable', reasonCode: 'status_unavailable', events: [] }))
+    : !calendarStatus.connected
+      ? dates.map(() => ({ status: 'not_connected', reasonCode: 'not_connected', events: [] }))
+      : await Promise.all(dates.map(async (date): Promise<CalendarSource> => {
+          try {
+            const events = (await dependencies.getCalendarEvents(userId, date))
+              .map((event) => DaySummaryCalendarEventSchema.parse(event))
+            return {
+              status: events.length > 0 ? 'connected' : 'connected_empty',
+              reasonCode: null,
+              events,
+            }
+          } catch {
+            return { status: 'unavailable', reasonCode: 'sync_failed', events: [] }
+          }
+        }))
+
+  const days: WeekSummary['days'] = dates.map((date, index) => {
+    const dateMode = deriveDateMode(date, timeZone, now)
+    return {
+      date,
+      dateMode,
+      items: itemsByDay[index],
+      calendar: calendars[index],
+      completion: completionFor(itemsByDay[index]),
+      capacity: deriveCapacity({
+        date,
+        dateMode,
+        timeZone,
+        now,
+        planningWindow: settings.planningWindow ?? null,
+        items: itemsByDay[index],
+        calendar: calendars[index],
+      }),
+    }
+  })
+  const items = uniqueWeekItems(days)
+  const completion = completionFor(items)
+  const calendarEvents = days.flatMap((day) => day.calendar.events)
+
+  return WeekSummarySchema.parse({
+    version: 1,
+    generatedAt: now.toISOString(),
+    timeZone: validTimeZone(timeZone) ? timeZone : timeZone ?? null,
+    week: {
+      weekStartsOn,
+      startDate: dates[0],
+      endDate: dates[6],
+    },
+    settings: {
+      sourceStatus: 'available',
+      planningWindow,
+    },
+    modules: {
+      habits: 'enabled',
+      nutrition: settings.calorieIntake === false ? 'disabled' : 'enabled',
+      workouts: settings.workoutTracker === false ? 'disabled' : 'enabled',
+    },
+    days,
+    completion,
+    obligations: {
+      total: calendarEvents.length,
+      completed: calendarEvents.filter((event) => event.completed).length,
+    },
+    contributions: weekContributions(items, days),
+    habitCadence: habitCadence(days),
   })
 }

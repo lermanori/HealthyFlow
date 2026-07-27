@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken'
 
 jest.mock('../src/day-summary', () => ({
   buildDaySummary: jest.fn(),
+  buildWeekSummary: jest.fn(),
   getItemsForDay: jest.fn(),
   normalizeItemRows: jest.fn(),
   calorieRowToClient: jest.fn(),
@@ -10,12 +11,13 @@ jest.mock('../src/day-summary', () => ({
 }))
 
 import { app } from '../src/index'
-import { buildDaySummary, getItemsForDay } from '../src/day-summary'
+import { buildDaySummary, buildWeekSummary, getItemsForDay } from '../src/day-summary'
 import type { DaySummaryItem } from '../src/day-summary-schema'
 
 const USER_ID = 'user-1'
 const TOKEN = `Bearer ${jwt.sign({ userId: USER_ID }, process.env.JWT_SECRET!)}`
 const mockedBuildDaySummary = buildDaySummary as jest.MockedFunction<typeof buildDaySummary>
+const mockedBuildWeekSummary = buildWeekSummary as jest.MockedFunction<typeof buildWeekSummary>
 const mockedGetItemsForDay = getItemsForDay as jest.MockedFunction<typeof getItemsForDay>
 
 describe('DaySummary API', () => {
@@ -94,5 +96,36 @@ describe('DaySummary API', () => {
     expect(response.status).toBe(200)
     expect(response.body).toEqual(canonicalItems)
     expect(mockedGetItemsForDay).toHaveBeenCalledWith(USER_ID, '2026-07-27')
+  })
+})
+
+describe('WeekSummary API', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('requires an anchor date and passes the client timezone to the service', async () => {
+    mockedBuildWeekSummary.mockResolvedValue({
+      version: 1,
+      week: { startDate: '2026-07-27', endDate: '2026-08-02', weekStartsOn: 1 },
+    } as any)
+
+    const response = await request(app)
+      .get('/api/week-summary?date=2026-07-29')
+      .set('Authorization', TOKEN)
+      .set('X-Client-Time-Zone', 'Asia/Jerusalem')
+
+    expect(response.status).toBe(200)
+    expect(mockedBuildWeekSummary).toHaveBeenCalledWith(
+      USER_ID,
+      '2026-07-29',
+      'Asia/Jerusalem'
+    )
+
+    const invalid = await request(app)
+      .get('/api/week-summary')
+      .set('Authorization', TOKEN)
+
+    expect(invalid.status).toBe(400)
   })
 })

@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { DAILY_SIGNALS_QUERY_KEY, DAY_SUMMARY_QUERY_KEY, taskService } from '../services/api'
+import { DAILY_SIGNALS_QUERY_KEY, DAY_SUMMARY_QUERY_KEY, taskService, WEEK_SUMMARY_QUERY_KEY } from '../services/api'
 import { format, addDays } from 'date-fns'
 import toast from 'react-hot-toast'
 import type { TaskSuggestion } from '../lib/ai/parseTasksSchema'
@@ -28,6 +28,7 @@ export function useAddItems(onSuccess?: () => void) {
     onSuccess: (tasks) => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+      queryClient.invalidateQueries({ queryKey: WEEK_SUMMARY_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
 
       const regularTasks = tasks.filter(t => t.type !== 'habit')
