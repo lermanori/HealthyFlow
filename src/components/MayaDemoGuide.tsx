@@ -263,7 +263,7 @@ const linaScript: DemoScriptStep[] = [
     route: '/',
     target: 'talk-button',
     action: 'spotlight',
-    narration: 'Now Lina can explore the seeded health workspace freely, including Today, Talk, Calories, Workouts, and Achievements.',
+    narration: 'Now Lina can explore the seeded Health workspace freely, with Nutrition, Workouts, and Progress together under one parent.',
     placement: 'bottom',
   },
 ]

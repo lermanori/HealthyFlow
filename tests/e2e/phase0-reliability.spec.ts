@@ -24,7 +24,7 @@ test('module routes wait for Settings and render every enabled destination', asy
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(settings) })
   })
 
-  for (const [path, heading] of [['/app/calories', 'Calorie Log'], ['/app/achievements', 'Achievements'], ['/app/workouts', 'Workout Tracker']] as const) {
+  for (const [path, heading] of [['/app/health', 'Health'], ['/app/calories', 'Calorie Log'], ['/app/achievements', 'Achievements'], ['/app/workouts', 'Workout Tracker']] as const) {
     const navigation = page.goto(path)
     await expect(page).toHaveURL(path)
     await navigation
@@ -42,6 +42,11 @@ test('confirmed-disabled routes and Add tabs use one persistent notice', async (
   await expect(page).toHaveURL('/app')
   await expect(page.getByText('Calories is disabled for this account.')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Enable in Settings' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Health' })).toHaveCount(0)
+
+  await page.goto('/app/health')
+  await expect(page).toHaveURL('/app')
+  await expect(page.getByText('Health is disabled for this account.')).toBeVisible()
 
   await page.goto('/app/add?tab=achievements')
   await expect(page).toHaveURL('/app/add?tab=today')
@@ -75,12 +80,12 @@ test('cached Settings remain usable during a failed background refresh', async (
   })
   await page.goto('/app/settings#features')
   await expect(page.getByRole('switch', { name: /Completion Sounds/ })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Achievements' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Health' })).toBeVisible()
   backgroundFails = true
   await page.getByRole('switch', { name: /Completion Sounds/ }).click()
-  await page.getByRole('link', { name: 'Achievements' }).click()
-  await expect(page).toHaveURL('/app/achievements')
-  await expect(page.getByRole('heading', { name: 'Achievements', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Health' }).click()
+  await expect(page).toHaveURL('/app/health')
+  await expect(page.getByRole('heading', { name: 'Health', exact: true })).toBeVisible()
 })
 
 test('changed Settings switches expose state and pass targeted Axe checks', async ({ page }) => {

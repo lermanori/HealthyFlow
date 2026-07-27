@@ -7,6 +7,7 @@ import { useWorkoutExerciseItems } from '../hooks/useWorkoutExerciseItems'
 import { useWorkoutPlans, useWorkoutSessions } from '../hooks/useWorkoutSessions'
 import { WorkoutExercise, WorkoutExerciseInput, WorkoutExerciseItem, WorkoutPlan, WorkoutSession } from '../services/api'
 import HealthDayNavigator from '../components/HealthDayNavigator'
+import HealthNavigation from '../components/HealthNavigation'
 import IconButton from '../components/IconButton'
 import { showUndoToast } from '../components/UndoToast'
 
@@ -442,6 +443,8 @@ export default function WorkoutsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 pb-28 md:pb-0">
+      <HealthNavigation date={date} />
+
       <header className="flex flex-col gap-4 border-b border-line/70 pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-600">

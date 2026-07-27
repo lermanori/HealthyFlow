@@ -111,8 +111,9 @@ test('Calories quick insert supports tab sorting, filtering, and keyboard select
   })
 
   await page.goto('/app')
-  await expect(page.getByRole('link', { name: 'Calories' })).toBeVisible()
-  await page.getByRole('link', { name: 'Calories' }).click()
+  await expect(page.getByRole('link', { name: 'Health', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Health', exact: true }).click()
+  await page.getByRole('navigation', { name: 'Health' }).getByRole('link', { name: 'Nutrition' }).click()
   await expect(page.getByRole('heading', { name: 'Calorie Log' })).toBeVisible()
 
   await page.getByRole('button', { name: /Add Entry/i }).click()

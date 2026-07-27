@@ -3,7 +3,7 @@ import toast from 'react-hot-toast'
 import { caloriesService, CalorieEntry, CalorieEntryInput, dailySignalsQueryKey, daySummaryQueryKey } from '../services/api'
 import type { ItemSource } from '../lib/analytics/types'
 
-export function useCalorieEntries(date: string) {
+export function useCalorieEntries(date: string, enabled = true) {
   const queryClient = useQueryClient()
   const queryKey = ['calories', date]
   const calorieItemsKey = ['calorie-items']
@@ -11,6 +11,7 @@ export function useCalorieEntries(date: string) {
   const { data: entries, isLoading } = useQuery({
     queryKey,
     queryFn: () => caloriesService.list(date),
+    enabled,
   })
 
   const invalidate = () => {
