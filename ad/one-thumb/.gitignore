@@ -1,0 +1,8 @@
+# generated media stays local
+plates/*
+inserts/*
+build/*
+audio/*
+!*/.gitkeep
+!audio/*.py
+!inserts/*.py

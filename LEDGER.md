@@ -1,3 +1,9 @@
+### 2026-07-19 18:00 — `claude/instagram-ad-testers-4c3c0n`
+
+Brainstormed and specced a second ad, "One Thumb", in its own folder alongside the finished one. It is a twenty-second rhythmic piece built on the idea that life is varied but capturing it is always the same small motion: five moments across one day — weight, water, lunch, work, training — each followed by a one-second capture, resolving into the whole day as a single timeline. The structure was chosen to fix the two things that went wrong last time: every beat is a different room and framing so the shots cannot look samey, and four of the five are tight on hands or objects, which is where AI video is most reliable and least uncanny. The spec carries forward the pipeline lessons and reuses the row art, end card and audio stages from the first ad.
+
+---
+
 ### 2026-07-19 17:20 — `claude/instagram-ad-testers-4c3c0n`
 
 Filled in the two biggest gaps in the placeholder sound. The world was completely silent apart from notification tones — she poured coffee, crossed the room and typed without making a sound — so the scratch now has a coffee pour, footsteps, a chair, and irregular keystrokes, all placed against what is actually on screen in each shot and run through a room reverb so they sit in her kitchen rather than on top of the picture. The music was a single held chord; it is now a four-chord progression on struck felt-piano voicings that resolves home under the end card. Also moved both mixing stages onto two-pass linear loudness normalization, since the single-pass version compresses exactly the overload-to-silence-to-lock-in contrast the whole design depends on.
