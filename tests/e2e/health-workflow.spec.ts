@@ -109,51 +109,55 @@ async function mockHealthDay(page: Page) {
   }] }))
 }
 
-test('daily health hierarchy shows selected-day status before detailed history', async ({ page }) => {
+test('Health owns the cross-domain overview while Nutrition keeps the detailed log', async ({ page }) => {
   await enableHealthModules(page)
   await mockHealthDay(page)
-  await page.goto(`/app/calories?date=${today()}`)
+  await page.goto(`/app/health?date=${today()}`)
 
   const overview = page.locator('[data-demo-id="health-daily-overview"]')
-  const details = page.locator('[data-demo-id="calorie-entries"]')
   await expect(overview).toBeVisible()
   await expect(overview.getByText('960 kcal')).toBeVisible()
   await expect(overview.getByText('64g protein')).toBeVisible()
   await expect(overview.getByText('68.4 kg')).toBeVisible()
   await expect(overview.getByText('1 logged')).toBeVisible()
   await expect(overview.getByText('1 tracked')).toBeVisible()
-  await expect(details.getByText('Greek yogurt')).toBeVisible()
-
-  const overviewBox = await overview.boundingBox()
-  const detailsBox = await details.boundingBox()
-  expect(overviewBox).not.toBeNull()
-  expect(detailsBox).not.toBeNull()
-  expect(overviewBox!.y).toBeLessThan(detailsBox!.y)
+  await expect(page.getByRole('navigation', { name: 'Health' }).getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page')
 
   await page.getByRole('button', { name: 'Next day' }).click()
   await expect(page).toHaveURL(new RegExp(`date=${tomorrow()}`))
   await expect(page.getByText('Tomorrow', { exact: true })).toBeVisible()
+
+  await page.getByRole('navigation', { name: 'Health' }).getByRole('link', { name: 'Nutrition' }).click()
+  await expect(page).toHaveURL(new RegExp(`/app/calories\\?date=${tomorrow()}`))
+  await expect(page.getByRole('heading', { name: 'Calorie Log' })).toBeVisible()
+  const nutritionOverview = page.locator('[data-demo-id="nutrition-daily-overview"]')
+  await expect(nutritionOverview.getByText('Workout', { exact: true })).toHaveCount(0)
+  await expect(nutritionOverview.getByText('Progress', { exact: true })).toHaveCount(0)
 })
 
 test('health workflow stays touch-safe and accessible on mobile', async ({ page }) => {
   await enableHealthModules(page)
   await mockHealthDay(page)
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto(`/app/calories?date=${today()}`)
+  await page.goto(`/app/health?date=${today()}`)
 
-  for (const name of ['Previous day', 'Next day', 'Today', 'Add Entry']) {
+  for (const name of ['Previous day', 'Next day', 'Today']) {
     const control = page.getByRole('button', { name }).first()
     const box = await control.boundingBox()
     expect(box).not.toBeNull()
     expect(box!.width).toBeGreaterThanOrEqual(44)
     expect(box!.height).toBeGreaterThanOrEqual(44)
   }
+  for (const name of ['Overview', 'Nutrition', 'Workouts', 'Progress']) {
+    const link = page.getByRole('navigation', { name: 'Health' }).getByRole('link', { name })
+    const box = await link.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.height).toBeGreaterThanOrEqual(44)
+  }
 
   expect(await page.locator('main').evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
   const results = await new AxeBuilder({ page })
     .include('[data-demo-id="health-daily-overview"]')
-    .include('[data-demo-id="calorie-entries"]')
-    .include('[data-demo-id="weight-card"]')
     .analyze()
   expect(results.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))).toEqual([])
 })
@@ -277,6 +281,7 @@ test('health surfaces remain contained at desktop, compact, and mobile widths', 
   await page.route('**/api/workouts/plans**', (route) => route.fulfill({ json: [] }))
 
   const surfaces = [
+    { path: `/app/health?date=${today()}`, heading: 'Health' },
     { path: `/app/calories?date=${today()}`, heading: 'Calorie Log' },
     { path: `/app/workouts?date=${today()}&mode=session`, heading: 'Workout Tracker' },
     { path: '/app/achievements', heading: 'Achievements' },

@@ -1117,7 +1117,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         <div className="flex flex-col gap-3 py-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-sm font-medium text-ink-soft">First Day of Week</h3>
-            <p className="text-sm text-ink-muted">Used by Week View and weekly date ranges</p>
+            <p className="text-sm text-ink-muted">Used by weekly date ranges</p>
           </div>
           <select
             aria-label="First Day of Week"

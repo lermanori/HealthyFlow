@@ -12,11 +12,10 @@ import {
   X,
   Coins,
   MessageCircle,
-  Utensils,
   Microscope,
-  Award,
-  Dumbbell
+  HeartPulse
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import PWAInstallPrompt from './PWAInstallPrompt'
 import MayaDemoGuide from './MayaDemoGuide'
@@ -24,9 +23,17 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useSettings } from '../hooks/useSettings'
 import type { ModuleNoticeState } from '../App'
 import { useModalFocus } from '../hooks/useModalFocus'
+import { WEEK_VIEW_ENABLED } from '../featureFlags'
 
 interface LayoutProps {
   children: ReactNode
+}
+
+interface NavigationItem {
+  name: string
+  href: string
+  icon: LucideIcon
+  activePaths?: string[]
 }
 
 export default function Layout({ children }: LayoutProps) {
@@ -81,17 +88,24 @@ export default function Layout({ children }: LayoutProps) {
   const searchParams = new URLSearchParams(location.search)
   const isDemo = location.pathname === '/demo' || Boolean(searchParams.get('demo')) || Boolean(localStorage.getItem('demoPersona'))
 
-  const navigation = [
+  const healthEnabled = Object.values(modules).includes('enabled')
+  const navigation: NavigationItem[] = [
     { name: 'Today', href: '/', icon: Home },
     { name: 'Talk', href: '/talk', icon: MessageCircle },
-    { name: 'Week View', href: '/week', icon: Calendar },
-    ...(modules.calories === 'enabled' ? [{ name: 'Calories', href: '/calories', icon: Utensils }] : []),
-    ...(modules.achievements === 'enabled' ? [{ name: 'Achievements', href: '/achievements', icon: Award }] : []),
-    ...(modules.workouts === 'enabled' ? [{ name: 'Workouts', href: '/workouts', icon: Dumbbell }] : []),
+    ...(WEEK_VIEW_ENABLED ? [{ name: 'Week View', href: '/week', icon: Calendar }] : []),
+    ...(healthEnabled ? [{
+      name: 'Health',
+      href: '/health',
+      icon: HeartPulse,
+      activePaths: ['/health', '/calories', '/workouts', '/achievements'],
+    }] : []),
     { name: 'Settings', href: '/settings', icon: Settings },
     ...(user?.role === 'admin' ? [{ name: 'OCR Lab', href: '/meal-ocr-lab', icon: Microscope }] : []),
     ...(user?.role === 'admin' ? [{ name: 'Token Manager', href: '/token-manager', icon: Coins }] : []),
   ]
+  const isNavigationActive = (item: NavigationItem) => (
+    item.activePaths?.includes(location.pathname) ?? location.pathname === item.href
+  )
   const moduleNotice = (location.state as ModuleNoticeState | null)?.moduleNotice
 
   const dismissModuleNotice = () => {
@@ -165,7 +179,7 @@ export default function Layout({ children }: LayoutProps) {
               <nav aria-label="Application" className="flex-1 overflow-y-auto p-6">
                 <ul className="space-y-2">
                   {navigation.map((item) => {
-                    const isActive = location.pathname === item.href
+                    const isActive = isNavigationActive(item)
                     return (
                       <li key={item.name}>
                         <Link
@@ -330,7 +344,7 @@ export default function Layout({ children }: LayoutProps) {
             <div className="p-4">
               <ul className="space-y-2">
                 {navigation.map((item) => {
-                  const isActive = location.pathname === item.href
+                  const isActive = isNavigationActive(item)
                   return (
                     <li key={item.name}>
                         <Link
@@ -425,7 +439,7 @@ export default function Layout({ children }: LayoutProps) {
         <div className="mobile-bottom-dock fixed bottom-0 left-0 right-0 z-30 border-t border-line/50 bg-page/95 backdrop-blur-xl">
           <div className="grid grid-cols-2 gap-2 p-2">
             {primaryMobileNavigation.map((item) => {
-              const isActive = location.pathname === item.href
+              const isActive = isNavigationActive(item)
               const isPrimary = item.href === '/talk'
               return (
                 <Link

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { dailySignalsQueryKey, daySummaryQueryKey, WeightEntryInput, weightService } from '../services/api'
 
-export function useWeightTracking(date: string) {
+export function useWeightTracking(date: string, enabled = true) {
   const queryClient = useQueryClient()
   const dayKey = ['weight', date]
   const recentKey = ['weight', 'recent']
@@ -9,11 +9,13 @@ export function useWeightTracking(date: string) {
   const { data: entry, isLoading: isDayLoading } = useQuery({
     queryKey: dayKey,
     queryFn: () => weightService.getByDate(date),
+    enabled,
   })
 
   const { data: trend, isLoading: isTrendLoading } = useQuery({
     queryKey: recentKey,
     queryFn: () => weightService.recent(30),
+    enabled,
   })
 
   const invalidate = () => {

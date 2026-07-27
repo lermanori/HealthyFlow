@@ -103,7 +103,7 @@ const demoAssistantPlans: Record<string, string[]> = {
     '2. Quick Insert can repeat the yogurt bowl from history instead of retyping it.',
     '3. Achievements shows 5K time as a personal metric with progress over recent entries.',
     '',
-    'The next stops are Calories, Workouts, and Achievements.',
+    'The next stop is Health, with Nutrition, Workouts, and Progress inside it.',
   ],
   amir: [
     "Here's a stable re-plan for Amir:",

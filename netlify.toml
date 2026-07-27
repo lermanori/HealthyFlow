@@ -57,6 +57,11 @@
   status = 301
 
 [[redirects]]
+  from = "/health"
+  to = "/app/health"
+  status = 301
+
+[[redirects]]
   from = "/calories"
   to = "/app/calories"
   status = 301

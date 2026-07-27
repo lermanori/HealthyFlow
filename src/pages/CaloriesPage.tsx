@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
-import { useQuery } from '@tanstack/react-query'
-import { Link, useSearchParams } from 'react-router-dom'
-import { Activity, Award, Dumbbell, Utensils, Plus, Trash2, Pencil, X, Check, Sparkles, Clock, Scale, TrendingDown, TrendingUp, Minus } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
+import { Activity, Utensils, Plus, Trash2, Pencil, X, Check, Sparkles, Clock, Scale, TrendingDown, TrendingUp, Minus } from 'lucide-react'
 import { format } from 'date-fns'
 import { useCalorieEntries } from '../hooks/useCalorieEntries'
-import { achievementService, CalorieEntry, CalorieEntryInput, CalorieItem, WeightEntry, workoutsService } from '../services/api'
+import { CalorieEntry, CalorieEntryInput, CalorieItem, WeightEntry } from '../services/api'
 import { useWeightTracking } from '../hooks/useWeightTracking'
 import MealAnalyzer from '../components/MealAnalyzer'
 import { useCalorieItems } from '../hooks/useCalorieItems'
 import { useModalFocus } from '../hooks/useModalFocus'
 import IconButton from '../components/IconButton'
 import HealthDayNavigator from '../components/HealthDayNavigator'
+import HealthNavigation from '../components/HealthNavigation'
 import { showUndoToast } from '../components/UndoToast'
-import { useSettings } from '../hooks/useSettings'
 
 const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 const currentTime = () => new Date().toTimeString().slice(0, 5)
@@ -144,17 +143,6 @@ export default function CaloriesPage() {
     setSearchParams(nextParams)
   }
   const { entries, isLoading, totals, createEntry, updateEntry, deleteEntry } = useCalorieEntries(date)
-  const { modules } = useSettings()
-  const { data: workoutSessions = [], isLoading: areWorkoutsLoading } = useQuery({
-    queryKey: ['workouts', date],
-    queryFn: () => workoutsService.list(date),
-    enabled: modules.workouts === 'enabled',
-  })
-  const { data: achievements = [], isLoading: areAchievementsLoading } = useQuery({
-    queryKey: ['achievements', 'health-overview'],
-    queryFn: () => achievementService.list({ entryLimit: 1 }),
-    enabled: modules.achievements === 'enabled',
-  })
   const [quickInsertSort, setQuickInsertSort] = useState<'recent' | 'most-used'>('recent')
   const { items: quickInsertItems, isLoading: isQuickInsertLoading } = useCalorieItems(quickInsertSort, 8)
   const {
@@ -339,6 +327,8 @@ export default function CaloriesPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 pb-28 md:pb-0">
+      <HealthNavigation date={date} />
+
       <header className="flex flex-col gap-4 border-b border-line/70 pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600">
@@ -374,14 +364,14 @@ export default function CaloriesPage() {
         )}
       </AnimatePresence>
 
-      <section className="overflow-hidden rounded-3xl border border-line/80 bg-card/60 shadow-xl shadow-black/10" data-demo-id="health-daily-overview">
+      <section className="overflow-hidden rounded-3xl border border-line/80 bg-card/60 shadow-xl shadow-black/10" data-demo-id="nutrition-daily-overview">
         <div className="flex flex-col gap-4 border-b border-line/70 p-4 lg:flex-row lg:items-center lg:justify-between lg:p-5">
           <HealthDayNavigator date={date} onChange={setDate} label="Calorie log" />
           <p className="max-w-sm text-sm leading-6 text-ink-muted">
             Totals are neutral until you configure targets. Missing data is never treated as failure.
           </p>
         </div>
-        <div className="grid sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid sm:grid-cols-2 xl:grid-cols-3">
           <div className="border-b border-line/70 p-4 sm:border-r xl:border-b-0">
             <div className="flex items-center gap-2">
               <Utensils className="h-4 w-4 text-orange-300" />
@@ -406,35 +396,6 @@ export default function CaloriesPage() {
             <p className="mt-3 text-xl font-semibold text-ink">{weightEntry ? formatKg(weightEntry.weightKg) : 'Not recorded'}</p>
             <p className="mt-1 text-xs text-ink-muted">{weightEntry ? 'Recorded for this date' : 'Optional daily measurement · kg'}</p>
           </div>
-          {modules.workouts === 'enabled' && (
-            <Link
-              to={`/workouts?date=${date}&mode=session`}
-              className="group border-b border-line/70 p-4 transition hover:bg-cyan-400/5 sm:border-r-0 xl:border-b-0 xl:border-r"
-            >
-              <div className="flex items-center gap-2">
-                <Dumbbell className="h-4 w-4 text-violet-300" />
-                <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Workout</p>
-              </div>
-              <p className="mt-3 text-xl font-semibold text-ink">
-                {areWorkoutsLoading ? 'Loading…' : `${workoutSessions.length} logged`}
-              </p>
-              <p className="mt-1 text-xs text-ink-muted group-hover:text-cyan-200">Open Plan, Session, or History</p>
-            </Link>
-          )}
-          {modules.achievements === 'enabled' && (
-            <Link to="/achievements" className="group p-4 transition hover:bg-cyan-400/5">
-              <div className="flex items-center gap-2">
-                <Award className="h-4 w-4 text-amber-300" />
-                <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Progress</p>
-              </div>
-              <p className="mt-3 text-xl font-semibold text-ink">
-                {areAchievementsLoading ? 'Loading…' : `${achievements.length} tracked`}
-              </p>
-              <p className="mt-1 text-xs text-ink-muted group-hover:text-cyan-200">
-                {achievements.filter((achievement) => achievement.latest).length} with a recorded result
-              </p>
-            </Link>
-          )}
         </div>
       </section>
 

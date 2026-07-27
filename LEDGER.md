@@ -1,3 +1,9 @@
+### 2026-07-27 16:49 — `codex/150-health-navigation`
+
+Grouped Nutrition, Workouts, and Progress beneath a new Health overview and shared local navigation while preserving every existing deep link. This release also carries the approved mobile landing-header fix, hides Week View behind an opt-in flag, and refreshes responsive visual and workflow coverage for the new hierarchy.
+
+---
+
 ### 2026-07-27 16:10 — `codex/149-health-workflow`
 
 Reworked the health tools into a coherent selected-day workflow: Calories now leads with neutral Nutrition, Macros, Weight, Workout, and Progress status, while Workouts separates Plan, Session, and History into explicit URL-backed modes. Shared date navigation, visible canonical units, touch-safe accessible actions, reversible record deletion, readable progress/history, and desktop-to-mobile regression coverage leave issue #149 ready to ship.

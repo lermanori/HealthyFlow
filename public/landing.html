@@ -628,11 +628,33 @@
     }
     @media (max-width: 560px) {
       body { font-size: 16px; }
+      .wrap { padding-left: 16px; padding-right: 16px; }
+      .nav-inner { height: 64px; gap: 10px; }
+      .brand {
+        min-width: 0;
+        flex: 0 1 auto;
+        gap: 8px;
+        font-size: 17px;
+        white-space: nowrap;
+      }
+      .brand img { width: 32px; height: 32px; flex: 0 0 auto; }
+      .nav-cta { flex: 0 0 auto; gap: 7px; }
+      .nav-cta .btn-sm {
+        min-height: 44px;
+        padding: 0 12px;
+        border-radius: 12px;
+        font-size: 13px;
+        line-height: 1;
+        white-space: nowrap;
+      }
       .ai-grid { grid-template-columns: 1fr; }
       .all-grid { grid-template-columns: repeat(2, 1fr); }
       .founder { padding: 34px 26px; }
       .hero-ctas .btn { flex: 1 1 100%; }
       .final .hero-ctas .btn { flex: none; }
+    }
+    @media (max-width: 350px) {
+      .brand-name { display: none; }
     }
   </style>
   <!-- Product telemetry (PostHog). landing.html is static, so the project key is
@@ -666,7 +688,7 @@
     <div class="wrap nav-inner">
       <a class="brand" href="#top">
         <img src="/icons/icon-192x192.png" alt="HealthyFlow logo" />
-        HealthyFlow
+        <span class="brand-name">HealthyFlow</span>
       </a>
       <nav class="nav-links">
         <a href="#how">How it works</a>
@@ -676,7 +698,7 @@
       </nav>
       <div class="nav-cta">
         <a class="btn btn-ghost btn-sm" href="/app">Log in</a>
-        <a class="btn btn-primary btn-sm" href="/app">Start Free</a>
+        <a class="btn btn-primary btn-sm nav-primary" href="/app">Start Free</a>
       </div>
     </div>
   </header>
@@ -983,7 +1005,7 @@
     fetch(`${API_BASE}/auth/signup-status`)
       .then((r) => r.json())
       .then((status) => {
-        const ctas = document.querySelectorAll('a.btn-primary[href="/app"]');
+        const ctas = document.querySelectorAll('a.btn-primary[href="/app"]:not(.nav-primary)');
         if (status.mode === 'open' && status.remaining > 0) {
           ctas.forEach((el) => {
             el.textContent = `Start Free — ${status.remaining} left`;

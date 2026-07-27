@@ -18,6 +18,7 @@ import { format } from 'date-fns'
 import Progress from '../components/Progress'
 import { showUndoToast } from '../components/UndoToast'
 import { useAchievements } from '../hooks/useAchievements'
+import HealthNavigation from '../components/HealthNavigation'
 import {
   AchievementBetterDirection,
   AchievementEntry,
@@ -421,6 +422,8 @@ export default function AchievementsPage() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-4 pb-28 md:space-y-6 md:pb-0">
+      <HealthNavigation />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600">

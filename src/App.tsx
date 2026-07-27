@@ -8,6 +8,7 @@ import WeekViewPage from './pages/WeekViewPage'
 import SettingsPage from './pages/SettingsPage'
 import TokenManagerPage from './pages/TokenManagerPage'
 import CaloriesPage from './pages/CaloriesPage'
+import HealthPage from './pages/HealthPage'
 import MealParserLabPage from './pages/MealParserLabPage'
 import AchievementsPage from './pages/AchievementsPage'
 import WorkoutsPage from './pages/WorkoutsPage'
@@ -19,24 +20,25 @@ import TermsOfServicePage from './pages/TermsOfServicePage'
 import LoadingSpinner from './components/LoadingSpinner'
 import OfflineNotification from './components/OfflineNotification'
 import { ModuleAvailability, OptionalModule, useSettings } from './hooks/useSettings'
+import { WEEK_VIEW_ENABLED } from './featureFlags'
 
 export interface ModuleNoticeState {
   moduleNotice: {
-    module: OptionalModule
+    module: OptionalModule | 'health'
     label: string
     message: string
   }
 }
 
-function ModuleGate({ availability, label, children, retry }: {
+function ModuleGate({ availability, module, label, children, retry }: {
   availability: ModuleAvailability
+  module: OptionalModule | 'health'
   label: string
   children: ReactNode
   retry: () => unknown
 }) {
   if (availability === 'enabled') return <>{children}</>
   if (availability === 'disabled') {
-    const module = label.toLowerCase() as OptionalModule
     return (
       <Navigate
         to="/"
@@ -66,9 +68,18 @@ function AssistantRedirect() {
   return <Navigate to={`/talk${location.search}`} replace />
 }
 
+function resolveHealthAvailability(modules: Record<OptionalModule, ModuleAvailability>): ModuleAvailability {
+  const availability = Object.values(modules)
+  if (availability.includes('enabled')) return 'enabled'
+  if (availability.includes('loading')) return 'loading'
+  if (availability.includes('error')) return 'error'
+  return 'disabled'
+}
+
 function App() {
   const { user, loading } = useAuth()
   const { modules, retry } = useSettings(!!user)
+  const healthAvailability = resolveHealthAvailability(modules)
 
   // Handle app visibility changes
   useEffect(() => {
@@ -111,16 +122,17 @@ function App() {
         <Routes>
           <Route path="/" element={<TodayPage />} />
           <Route path="/add" element={<AddItemPage />} />
-          <Route path="/week" element={<WeekViewPage />} />
+          <Route path="/week" element={WEEK_VIEW_ENABLED ? <WeekViewPage /> : <Navigate to="/" replace />} />
           <Route path="/talk" element={<AssistantPage />} />
           <Route path="/demo" element={<DemoPage />} />
           <Route path="/assistant" element={<AssistantRedirect />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/token-manager" element={user.role === 'admin' ? <TokenManagerPage /> : <Navigate to="/" replace />} />
           <Route path="/meal-ocr-lab" element={user.role === 'admin' ? <MealParserLabPage /> : <Navigate to="/" replace />} />
-          <Route path="/calories" element={<ModuleGate availability={modules.calories} label="Calories" retry={retry}><CaloriesPage /></ModuleGate>} />
-          <Route path="/achievements" element={<ModuleGate availability={modules.achievements} label="Achievements" retry={retry}><AchievementsPage /></ModuleGate>} />
-          <Route path="/workouts" element={<ModuleGate availability={modules.workouts} label="Workouts" retry={retry}><WorkoutsPage /></ModuleGate>} />
+          <Route path="/health" element={<ModuleGate availability={healthAvailability} module="health" label="Health" retry={retry}><HealthPage /></ModuleGate>} />
+          <Route path="/calories" element={<ModuleGate availability={modules.calories} module="calories" label="Calories" retry={retry}><CaloriesPage /></ModuleGate>} />
+          <Route path="/achievements" element={<ModuleGate availability={modules.achievements} module="achievements" label="Achievements" retry={retry}><AchievementsPage /></ModuleGate>} />
+          <Route path="/workouts" element={<ModuleGate availability={modules.workouts} module="workouts" label="Workouts" retry={retry}><WorkoutsPage /></ModuleGate>} />
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
