@@ -1,16 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
-import { Utensils, Plus, Trash2, Pencil, X, Check, Sparkles, Clock, Scale, TrendingDown, TrendingUp, Minus } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Link, useSearchParams } from 'react-router-dom'
+import { Activity, Award, Dumbbell, Utensils, Plus, Trash2, Pencil, X, Check, Sparkles, Clock, Scale, TrendingDown, TrendingUp, Minus } from 'lucide-react'
+import { format } from 'date-fns'
 import { useCalorieEntries } from '../hooks/useCalorieEntries'
-import { CalorieEntry, CalorieEntryInput, CalorieItem, WeightEntry } from '../services/api'
+import { achievementService, CalorieEntry, CalorieEntryInput, CalorieItem, WeightEntry, workoutsService } from '../services/api'
 import { useWeightTracking } from '../hooks/useWeightTracking'
 import MealAnalyzer from '../components/MealAnalyzer'
 import { useCalorieItems } from '../hooks/useCalorieItems'
 import { useModalFocus } from '../hooks/useModalFocus'
 import IconButton from '../components/IconButton'
+import HealthDayNavigator from '../components/HealthDayNavigator'
+import { showUndoToast } from '../components/UndoToast'
+import { useSettings } from '../hooks/useSettings'
 
-const todayStr = () => new Date().toISOString().slice(0, 10)
+const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 const currentTime = () => new Date().toTimeString().slice(0, 5)
 
 type FormState = {
@@ -81,7 +87,7 @@ function formatLastUsedLabel(value: string) {
 function MacroStat({ label, value, accent = false }: { label: string; value: number | null; accent?: boolean }) {
   return (
     <div className={`rounded-lg border px-3 py-2 ${accent ? 'border-cyan-500/30 bg-cyan-500/10' : 'border-line/70 bg-sunken/25'}`}>
-      <p className="text-[0.65rem] font-medium uppercase tracking-wide text-gray-500">{label}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">{label}</p>
       <p className={`mt-0.5 text-sm font-semibold ${accent ? 'text-cyan-200' : 'text-ink'}`}>
         {value ?? '-'}
         {label !== 'Calories' && value != null ? 'g' : ''}
@@ -128,8 +134,27 @@ function WeightSparkline({ entries }: { entries: WeightEntry[] }) {
 }
 
 export default function CaloriesPage() {
-  const [date, setDate] = useState(todayStr())
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedDate = searchParams.get('date')
+  const date = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : todayStr()
+  const setDate = (nextDate: string) => {
+    const nextParams = new URLSearchParams(searchParams)
+    if (nextDate === todayStr()) nextParams.delete('date')
+    else nextParams.set('date', nextDate)
+    setSearchParams(nextParams)
+  }
   const { entries, isLoading, totals, createEntry, updateEntry, deleteEntry } = useCalorieEntries(date)
+  const { modules } = useSettings()
+  const { data: workoutSessions = [], isLoading: areWorkoutsLoading } = useQuery({
+    queryKey: ['workouts', date],
+    queryFn: () => workoutsService.list(date),
+    enabled: modules.workouts === 'enabled',
+  })
+  const { data: achievements = [], isLoading: areAchievementsLoading } = useQuery({
+    queryKey: ['achievements', 'health-overview'],
+    queryFn: () => achievementService.list({ entryLimit: 1 }),
+    enabled: modules.achievements === 'enabled',
+  })
   const [quickInsertSort, setQuickInsertSort] = useState<'recent' | 'most-used'>('recent')
   const { items: quickInsertItems, isLoading: isQuickInsertLoading } = useCalorieItems(quickInsertSort, 8)
   const {
@@ -313,24 +338,35 @@ export default function CaloriesPage() {
     : `${weightTrend.deltaKg > 0 ? '+' : ''}${Math.round(weightTrend.deltaKg * 10) / 10} kg since last entry`
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-28 md:pb-0">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center animate-float">
-            <Utensils className="w-4 h-4 text-white" />
+    <div className="mx-auto max-w-6xl space-y-5 pb-28 md:pb-0">
+      <header className="flex flex-col gap-4 border-b border-line/70 pb-5 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600">
+            <Activity className="h-5 w-5 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-ink neon-text">Calorie Log</h1>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-ink">Calorie Log</h1>
+            <p className="mt-1 max-w-xl text-sm text-ink-muted">
+              Understand the selected day first, then log or correct the details.
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            aria-label="Calorie log date"
-            className="input-field w-auto"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-          />
+        <div className="flex flex-wrap gap-2">
+          <button
+            className="btn-secondary inline-flex min-h-11 items-center gap-2 px-4 py-2 text-sm"
+            onClick={() => setShowAiAnalyzer(true)}
+          >
+            <Sparkles className="h-4 w-4" /> Add with AI
+          </button>
+          <button
+            className="btn-primary inline-flex min-h-11 items-center gap-2 px-4 py-2 text-sm"
+            data-demo-id="calorie-quick-insert-trigger"
+            onClick={() => setAdding(true)}
+          >
+            <Plus className="h-4 w-4" /> Add Entry
+          </button>
         </div>
-      </div>
+      </header>
 
       <AnimatePresence>
         {showAiAnalyzer && (
@@ -338,210 +374,300 @@ export default function CaloriesPage() {
         )}
       </AnimatePresence>
 
-      <div className="card" data-demo-id="weight-card">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/15">
-              <Scale className="h-4 w-4 text-cyan-300" />
+      <section className="overflow-hidden rounded-3xl border border-line/80 bg-card/60 shadow-xl shadow-black/10" data-demo-id="health-daily-overview">
+        <div className="flex flex-col gap-4 border-b border-line/70 p-4 lg:flex-row lg:items-center lg:justify-between lg:p-5">
+          <HealthDayNavigator date={date} onChange={setDate} label="Calorie log" />
+          <p className="max-w-sm text-sm leading-6 text-ink-muted">
+            Totals are neutral until you configure targets. Missing data is never treated as failure.
+          </p>
+        </div>
+        <div className="grid sm:grid-cols-2 xl:grid-cols-5">
+          <div className="border-b border-line/70 p-4 sm:border-r xl:border-b-0">
+            <div className="flex items-center gap-2">
+              <Utensils className="h-4 w-4 text-orange-300" />
+              <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Nutrition</p>
             </div>
-            <div>
-              <h2 className="text-lg font-semibold text-ink">Weight</h2>
-              <p className="text-xs text-ink-muted">Last 30 recorded entries</p>
-            </div>
+            <p className="mt-3 text-xl font-semibold text-ink">{totals.calories.toLocaleString()} kcal</p>
+            <p className="mt-1 text-xs text-ink-muted">{entries.length} Calorie entr{entries.length === 1 ? 'y' : 'ies'} · no target configured</p>
           </div>
-          {!isEditingWeight && (
-            <button className="btn-secondary inline-flex items-center gap-2 px-3 py-2 text-sm" onClick={startWeightEdit}>
-              {weightEntry ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-              {weightEntry ? 'Edit Day' : 'Log Day'}
-            </button>
+          <div className="border-b border-line/70 p-4 sm:border-r-0 xl:border-b-0 xl:border-r">
+            <div className="flex items-center gap-2">
+              <Activity className="h-4 w-4 text-cyan-300" />
+              <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Macros</p>
+            </div>
+            <p className="mt-3 text-xl font-semibold text-ink">{totals.protein}g protein</p>
+            <p className="mt-1 text-xs text-ink-muted">{totals.carbs}g carbs · {totals.fat}g fat</p>
+          </div>
+          <div className="border-b border-line/70 p-4 sm:border-r xl:border-b-0">
+            <div className="flex items-center gap-2">
+              <Scale className="h-4 w-4 text-emerald-300" />
+              <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Weight</p>
+            </div>
+            <p className="mt-3 text-xl font-semibold text-ink">{weightEntry ? formatKg(weightEntry.weightKg) : 'Not recorded'}</p>
+            <p className="mt-1 text-xs text-ink-muted">{weightEntry ? 'Recorded for this date' : 'Optional daily measurement · kg'}</p>
+          </div>
+          {modules.workouts === 'enabled' && (
+            <Link
+              to={`/workouts?date=${date}&mode=session`}
+              className="group border-b border-line/70 p-4 transition hover:bg-cyan-400/5 sm:border-r-0 xl:border-b-0 xl:border-r"
+            >
+              <div className="flex items-center gap-2">
+                <Dumbbell className="h-4 w-4 text-violet-300" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Workout</p>
+              </div>
+              <p className="mt-3 text-xl font-semibold text-ink">
+                {areWorkoutsLoading ? 'Loading…' : `${workoutSessions.length} logged`}
+              </p>
+              <p className="mt-1 text-xs text-ink-muted group-hover:text-cyan-200">Open Plan, Session, or History</p>
+            </Link>
+          )}
+          {modules.achievements === 'enabled' && (
+            <Link to="/achievements" className="group p-4 transition hover:bg-cyan-400/5">
+              <div className="flex items-center gap-2">
+                <Award className="h-4 w-4 text-amber-300" />
+                <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Progress</p>
+              </div>
+              <p className="mt-3 text-xl font-semibold text-ink">
+                {areAchievementsLoading ? 'Loading…' : `${achievements.length} tracked`}
+              </p>
+              <p className="mt-1 text-xs text-ink-muted group-hover:text-cyan-200">
+                {achievements.filter((achievement) => achievement.latest).length} with a recorded result
+              </p>
+            </Link>
           )}
         </div>
+      </section>
 
-        {isWeightLoading ? (
-          <p className="text-sm text-ink-muted">Loading...</p>
-        ) : (
-          <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-[1fr_1.4fr]">
-              <div className="rounded-lg border border-line/80 bg-sunken/20 p-4">
-                <p className="text-xs uppercase tracking-wide text-gray-500">Latest</p>
-                <p className="mt-2 text-3xl font-bold text-cyan-300">
-                  {weightTrend.latest ? formatKg(weightTrend.latest.weightKg) : '--'}
-                </p>
-                <p className="mt-1 text-sm text-ink-muted">
-                  {weightTrend.latest ? formatDateLabel(weightTrend.latest.date) : 'No weight logged yet'}
-                </p>
-                <div className="mt-4 flex items-center gap-2 text-sm text-ink-soft">
-                  <DeltaIcon className="h-4 w-4 text-cyan-400" />
-                  <span>{deltaText}</span>
-                </div>
-              </div>
-              <WeightSparkline entries={weightTrend.entries} />
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,.55fr)]">
+        <section className="rounded-3xl border border-line/80 bg-card/60 p-4 md:p-5" aria-labelledby="calorie-entries-heading">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="calorie-entries-heading" className="text-lg font-semibold text-ink">Detailed log</h2>
+              <p className="mt-1 text-xs text-ink-muted">Repeat, edit, or correct a Calorie entry without leaving this date.</p>
             </div>
+            <span className="rounded-full border border-line bg-sunken/30 px-3 py-1 text-xs text-ink-muted">
+              {entries.length} entr{entries.length === 1 ? 'y' : 'ies'}
+            </span>
+          </div>
 
-            {isEditingWeight && (
-              <div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-3">
-                <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="1"
-                    className="input-field"
-                    placeholder="Weight in kg"
-                    value={weightDraft}
-                    onChange={(event) => setWeightDraft(event.target.value)}
-                  />
-                  <div className="flex items-center gap-2">
-                    <button onClick={submitWeight} className="text-cyan-400"><Check className="h-4 w-4" /></button>
-                    <button onClick={cancelWeight} className="text-ink-muted"><X className="h-4 w-4" /></button>
-                    {weightEntry && (
-                      <button
-                        aria-label={`Delete weight entry for ${date}`}
-                        onClick={() => {
-                          deleteWeightEntry(weightEntry.id)
-                          cancelWeight()
-                        }}
-                        className="text-ink-muted hover:text-red-400"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+          {isLoading ? (
+            <p className="text-sm text-ink-muted">Loading...</p>
+          ) : entries.length === 0 ? (
+            <div className="flex min-h-56 items-center justify-center rounded-2xl border border-dashed border-line bg-sunken/20 p-6 text-center">
+              <div>
+                <Utensils className="mx-auto h-7 w-7 text-ink-muted" />
+                <p className="mt-3 text-sm font-medium text-ink">No Calorie entries for this day</p>
+                <p className="mt-1 text-xs text-ink-muted">Log something manually, repeat a saved item, or use AI.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3" data-demo-id="calorie-entries">
+              {timeGroups.map(([time, group]) => (
+                <div key={time} className="overflow-hidden rounded-xl border border-line/80 bg-sunken/20">
+                  <div className="flex items-center justify-between border-b border-line/70 bg-page/45 px-3 py-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-ink">
+                      <Clock className="h-4 w-4 text-cyan-400" />
+                      <span>{time === 'no-time' ? 'No time recorded' : time}</span>
+                    </div>
+                    <span className="text-xs text-ink-muted">{group.length} entr{group.length === 1 ? 'y' : 'ies'}</span>
+                  </div>
+                  <div className="divide-y divide-line/70">
+                    {group.map((entry: CalorieEntry) =>
+                      editingId === entry.id ? (
+                        <div key={entry.id} className="space-y-3 p-3">
+                          <div className="grid gap-3 md:grid-cols-[7rem_1.4fr_1.2fr]">
+                            <label className="space-y-1">
+                              <span className="text-xs text-ink-muted">Time</span>
+                              <input type="time" className="input-field" aria-label="Edit calorie entry time" value={editForm.time} onChange={(event) => setEditForm({ ...editForm, time: event.target.value })} />
+                            </label>
+                            <label className="space-y-1">
+                              <span className="text-xs text-ink-muted">Title</span>
+                              <input className="input-field" aria-label="Edit calorie entry title" value={editForm.name} onChange={(event) => setEditForm({ ...editForm, name: event.target.value })} />
+                            </label>
+                            <label className="space-y-1">
+                              <span className="text-xs text-ink-muted">Quantity</span>
+                              <input className="input-field" value={editForm.quantity} onChange={(event) => setEditForm({ ...editForm, quantity: event.target.value })} />
+                            </label>
+                          </div>
+                          <div className="grid gap-3 sm:grid-cols-4">
+                            {([
+                              ['Calories for quantity', 'calories'],
+                              ['Protein for quantity', 'protein'],
+                              ['Carbs for quantity', 'carbs'],
+                              ['Fat for quantity', 'fat'],
+                            ] as const).map(([label, field]) => (
+                              <label key={field} className="space-y-1">
+                                <span className="text-xs text-ink-muted">{label}</span>
+                                <input type="number" className="input-field" value={editForm[field]} onChange={(event) => setEditForm({ ...editForm, [field]: event.target.value })} />
+                              </label>
+                            ))}
+                          </div>
+                          {editForm.quantity && hasNutritionValues(editForm) && (
+                            <p className="text-xs text-amber-300">Nutrition numbers are totals for this quantity. Review them if the quantity changes.</p>
+                          )}
+                          <div className="flex justify-end gap-2">
+                            <IconButton label="Save calorie entry edit" onClick={submitEdit} className="text-cyan-400"><Check className="h-4 w-4" /></IconButton>
+                            <IconButton label="Cancel calorie entry edit" onClick={() => setEditingId(null)} className="text-ink-muted"><X className="h-4 w-4" /></IconButton>
+                          </div>
+                        </div>
+                      ) : (
+                        <div key={entry.id} className="grid gap-3 px-3 py-3 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(17rem,1fr)_auto] lg:items-center">
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold text-ink">{entry.name}</p>
+                            <p className="mt-1 truncate text-sm text-ink-muted">{entry.quantity ?? 'Quantity not recorded'}</p>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                            <MacroStat label="Calories" value={entry.calories} accent />
+                            <MacroStat label="Protein" value={entry.protein} />
+                            <MacroStat label="Carbs" value={entry.carbs} />
+                            <MacroStat label="Fat" value={entry.fat} />
+                          </div>
+                          <div className="flex justify-end gap-1">
+                            <IconButton label={`Edit ${entry.name} calorie entry`} onClick={() => startEdit(entry)} className="text-ink-muted hover:text-cyan-400"><Pencil className="h-4 w-4" /></IconButton>
+                            <IconButton
+                              label={`Delete ${entry.name} calorie entry`}
+                              onClick={() => {
+                                deleteEntry(entry.id, {
+                                  onSuccess: () => showUndoToast(
+                                    `${entry.name} deleted`,
+                                    () => createEntry({
+                                      date: entry.date,
+                                      time: entry.time,
+                                      name: entry.name,
+                                      calories: entry.calories,
+                                      protein: entry.protein,
+                                      carbs: entry.carbs,
+                                      fat: entry.fat,
+                                      quantity: entry.quantity,
+                                    }),
+                                    `Undo deletion of ${entry.name}`,
+                                  ),
+                                })
+                              }}
+                              className="text-ink-muted hover:text-red-400"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </IconButton>
+                          </div>
+                        </div>
+                      )
                     )}
                   </div>
                 </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <aside className="space-y-5">
+          <section className="rounded-3xl border border-line/80 bg-card/60 p-4 md:p-5" data-demo-id="weight-card" aria-labelledby="weight-heading">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-400/25 bg-emerald-400/10">
+                  <Scale className="h-4 w-4 text-emerald-300" />
+                </div>
+                <div>
+                  <h2 id="weight-heading" className="font-semibold text-ink">Weight</h2>
+                  <p className="text-xs text-ink-muted">Recorded and displayed in kg</p>
+                </div>
               </div>
-            )}
-          </div>
-        )}
-      </div>
+              {!isEditingWeight && (
+                <button className="btn-secondary inline-flex min-h-11 items-center gap-2 px-3 py-2 text-sm" onClick={startWeightEdit}>
+                  {weightEntry ? <Pencil className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {weightEntry ? 'Edit' : 'Log'}
+                </button>
+              )}
+            </div>
 
-      <div className="card">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-ink">Entries</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm"
-              onClick={() => setShowAiAnalyzer(true)}
-            >
-              <Sparkles className="w-4 h-4" /> Add with AI
-            </button>
-            <button
-              className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
-              data-demo-id="calorie-quick-insert-trigger"
-              onClick={() => setAdding(true)}
-            >
-              <Plus className="w-4 h-4" /> Add Entry
-            </button>
-          </div>
-        </div>
-
-        {isLoading ? (
-          <p className="text-ink-muted text-sm">Loading...</p>
-        ) : (
-          <div className="space-y-3" data-demo-id="calorie-entries">
-            {timeGroups.map(([time, group]) => (
-              <div key={time} className="overflow-hidden rounded-lg border border-line/80 bg-sunken/20">
-                <div className="flex items-center justify-between border-b border-line/70 bg-page/45 px-3 py-2">
-                  <div className="flex items-center gap-2 text-sm font-medium text-ink">
-                    <Clock className="h-4 w-4 text-cyan-400" />
-                    <span>{time === 'no-time' ? 'No time' : time}</span>
+            {isWeightLoading ? (
+              <p className="text-sm text-ink-muted">Loading...</p>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Latest recorded</p>
+                  <p className="mt-2 text-3xl font-semibold text-ink">{weightTrend.latest ? formatKg(weightTrend.latest.weightKg) : 'Not recorded'}</p>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    {weightTrend.latest ? formatDateLabel(weightTrend.latest.date) : 'Add a first Weight entry when useful.'}
+                  </p>
+                  <div className="mt-3 flex items-center gap-2 text-sm text-ink-soft">
+                    <DeltaIcon className="h-4 w-4 text-emerald-300" />
+                    <span>{deltaText}</span>
                   </div>
-                  <span className="text-xs text-ink-muted">{group.length} entr{group.length === 1 ? 'y' : 'ies'}</span>
                 </div>
-                <div className="divide-y divide-card/90">
-                  {group.map((e: CalorieEntry) =>
-                    editingId === e.id ? (
-                      <div key={e.id} className="space-y-3 p-3">
-                        <div className="grid gap-3 md:grid-cols-[7rem_1.4fr_1.2fr]">
-                          <label className="space-y-1">
-                            <span className="text-xs text-ink-muted">Time</span>
-                            <input type="time" className="input-field" aria-label="Edit calorie entry time" value={editForm.time} onChange={(ev) => setEditForm({ ...editForm, time: ev.target.value })} />
-                          </label>
-                          <label className="space-y-1">
-                            <span className="text-xs text-ink-muted">Title</span>
-                            <input className="input-field" aria-label="Edit calorie entry title" value={editForm.name} onChange={(ev) => setEditForm({ ...editForm, name: ev.target.value })} />
-                          </label>
-                          <label className="space-y-1">
-                            <span className="text-xs text-ink-muted">Quantity</span>
-                            <input className="input-field" value={editForm.quantity} onChange={(ev) => setEditForm({ ...editForm, quantity: ev.target.value })} />
-                          </label>
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-4">
-                          <label className="space-y-1">
-                            <span className="text-xs text-ink-muted">Calories for quantity</span>
-                            <input type="number" className="input-field" value={editForm.calories} onChange={(ev) => setEditForm({ ...editForm, calories: ev.target.value })} />
-                          </label>
-                          <label className="space-y-1">
-                            <span className="text-xs text-ink-muted">Protein for quantity</span>
-                            <input type="number" className="input-field" value={editForm.protein} onChange={(ev) => setEditForm({ ...editForm, protein: ev.target.value })} />
-                          </label>
-                          <label className="space-y-1">
-                            <span className="text-xs text-ink-muted">Carbs for quantity</span>
-                            <input type="number" className="input-field" value={editForm.carbs} onChange={(ev) => setEditForm({ ...editForm, carbs: ev.target.value })} />
-                          </label>
-                          <label className="space-y-1">
-                            <span className="text-xs text-ink-muted">Fat for quantity</span>
-                            <input type="number" className="input-field" value={editForm.fat} onChange={(ev) => setEditForm({ ...editForm, fat: ev.target.value })} />
-                          </label>
-                        </div>
-                        {editForm.quantity && hasNutritionValues(editForm) && (
-                          <p className="text-xs text-amber-300">Nutrition numbers are totals for this quantity. Review them if the quantity changes.</p>
-                        )}
-                        <div className="flex justify-end">
-                          <div className="flex gap-2">
-                            <button type="button" onClick={submitEdit} className="text-cyan-400" aria-label="Save calorie entry edit"><Check className="w-4 h-4" /></button>
-                            <button type="button" onClick={() => setEditingId(null)} className="text-ink-muted" aria-label="Cancel calorie entry edit"><X className="w-4 h-4" /></button>
-                          </div>
+                <WeightSparkline entries={weightTrend.entries} />
+
+                {isEditingWeight && (
+                  <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-3">
+                    <label className="space-y-1">
+                      <span className="text-xs text-ink-muted">Weight for {formatDateLabel(date)} (kg)</span>
+                      <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="1"
+                          inputMode="decimal"
+                          aria-label="Weight in kilograms"
+                          className="input-field"
+                          placeholder="68.4"
+                          value={weightDraft}
+                          onChange={(event) => setWeightDraft(event.target.value)}
+                        />
+                        <div className="flex items-center gap-1">
+                          <IconButton label="Save Weight entry" onClick={submitWeight} className="text-cyan-400"><Check className="h-4 w-4" /></IconButton>
+                          <IconButton label="Cancel Weight entry" onClick={cancelWeight} className="text-ink-muted"><X className="h-4 w-4" /></IconButton>
+                          {weightEntry && (
+                            <IconButton
+                              label={`Delete Weight entry for ${date}`}
+                              onClick={() => {
+                                deleteWeightEntry(weightEntry.id, {
+                                  onSuccess: () => showUndoToast(
+                                    `Weight entry for ${formatDateLabel(weightEntry.date)} deleted`,
+                                    () => createWeightEntry({ date: weightEntry.date, weightKg: weightEntry.weightKg }),
+                                    `Undo deletion of Weight entry for ${formatDateLabel(weightEntry.date)}`,
+                                  ),
+                                })
+                                cancelWeight()
+                              }}
+                              className="text-ink-muted hover:text-red-400"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </IconButton>
+                          )}
                         </div>
                       </div>
-                    ) : (
-                      <div key={e.id} className="grid gap-3 px-3 py-3 text-sm text-ink-soft lg:grid-cols-[minmax(0,1.4fr)_minmax(24rem,1fr)_auto] lg:items-center">
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-ink">{e.name}</p>
-                          <p className="mt-1 truncate text-sm text-ink-muted">{e.quantity ?? 'No quantity'}</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                          <MacroStat label="Calories" value={e.calories} accent />
-                          <MacroStat label="Protein" value={e.protein} />
-                          <MacroStat label="Carbs" value={e.carbs} />
-                          <MacroStat label="Fat" value={e.fat} />
-                        </div>
-                        <div className="flex gap-2 justify-end">
-                          <IconButton label={`Edit ${e.name} calorie entry`} onClick={() => startEdit(e)} className="text-ink-muted hover:text-cyan-400"><Pencil className="w-4 h-4" /></IconButton>
-                          <IconButton label={`Delete ${e.name} calorie entry`} onClick={() => deleteEntry(e.id)} className="text-ink-muted hover:text-red-400"><Trash2 className="w-4 h-4" /></IconButton>
-                        </div>
-                      </div>
-                    )
-                  )}
-                </div>
+                    </label>
+                  </div>
+                )}
               </div>
-            ))}
-
-            {entries.length === 0 && !adding && (
-              <p className="py-6 text-center text-sm text-gray-500">No entries for this day yet.</p>
             )}
-          </div>
-        )}
-      </div>
+          </section>
 
-      <div className="card" data-demo-id="calorie-totals">
-        <h2 className="text-lg font-semibold text-ink mb-3">Daily Totals</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-          <div>
-            <p className="text-2xl font-bold text-cyan-400">{totals.calories}</p>
-            <p className="text-xs text-ink-muted">Calories</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-ink">{totals.protein}g</p>
-            <p className="text-xs text-ink-muted">Protein</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-ink">{totals.carbs}g</p>
-            <p className="text-xs text-ink-muted">Carbs</p>
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-ink">{totals.fat}g</p>
-            <p className="text-xs text-ink-muted">Fat</p>
-          </div>
-        </div>
+          <section className="rounded-3xl border border-line/80 bg-card/60 p-4 md:p-5" aria-labelledby="quick-repeat-heading">
+            <div>
+              <h2 id="quick-repeat-heading" className="font-semibold text-ink">Quick repeat</h2>
+              <p className="mt-1 text-xs text-ink-muted">Reuse recent Calorie entries without scanning history.</p>
+            </div>
+            {isQuickInsertLoading ? (
+              <p className="mt-4 text-sm text-ink-muted">Loading...</p>
+            ) : quickInsertItems.length === 0 ? (
+              <p className="mt-4 rounded-xl border border-dashed border-line p-4 text-sm text-ink-muted">Saved items appear after you log them.</p>
+            ) : (
+              <div className="mt-4 grid gap-2">
+                {quickInsertItems.slice(0, 3).map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => applyQuickInsert(item)}
+                    className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-line bg-sunken/25 px-3 text-left transition hover:border-cyan-400/40 hover:bg-cyan-400/5"
+                  >
+                    <span className="min-w-0 truncate text-sm font-medium text-ink">{item.name}</span>
+                    <span className="shrink-0 text-xs text-ink-muted">{item.calories} kcal</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        </aside>
       </div>
 
       {adding && createPortal((

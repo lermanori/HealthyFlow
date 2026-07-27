@@ -40,7 +40,7 @@ test('Adding a Task via the UI makes it appear on today\'s Today', async ({ page
   await expect(page).toHaveURL('/app', { timeout: 10_000 })
 
   // Task appears by title
-  await expect(page.locator('text=Test Task Title')).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByLabel('Daily decisions').getByText('Test Task Title', { exact: true })).toBeVisible({ timeout: 10_000 })
 })
 
 test('Category options equal the closed set defined in CONTEXT.md', async ({ page }) => {
@@ -90,7 +90,7 @@ test('Add Item domain tabs create calorie and achievement entries through existi
   await page.getByLabel('Protein').fill('20')
   await page.getByRole('button', { name: 'Add Entry' }).click()
   await expect(page).toHaveURL('/app/calories', { timeout: 10_000 })
-  await expect(page.getByText(foodName)).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Detailed log' }).getByText(foodName, { exact: true })).toBeVisible()
 
   await page.goto('/app/add')
   await page.getByRole('tab', { name: 'Achievements' }).click()
