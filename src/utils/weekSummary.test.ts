@@ -72,4 +72,41 @@ describe('Week agenda selection', () => {
     )
     assert.equal(agenda.days[0].entries[1].addressed, true)
   })
+
+  it('reduces Today to unresolved non-Habit Items and Calendar obligations', () => {
+    const todaySummary = structuredClone(summary)
+    todaySummary.days[0].items.push({
+      ...todaySummary.days[0].items[0],
+      id: 'completed',
+      title: 'Already handled',
+      completed: true,
+    })
+    todaySummary.days[0].calendar.events.push(
+      {
+        ...todaySummary.days[1].calendar.events[0],
+        id: 'standup',
+        title: 'Standup',
+        localStartTime: '09:00',
+        allDay: false,
+        completed: false,
+      },
+      {
+        ...todaySummary.days[1].calendar.events[0],
+        id: 'completed-event',
+        title: 'Finished meeting',
+        completed: true,
+      }
+    )
+
+    const agenda = selectWeekAgenda(todaySummary, { kind: 'day', date: '2026-07-27' }, {
+      showCompleted: true,
+      domain: 'all',
+      mode: 'today_planning',
+    })
+
+    assert.deepEqual(
+      agenda.days[0].entries.map((entry) => entry.title),
+      ['Standup', 'Carry me']
+    )
+  })
 })

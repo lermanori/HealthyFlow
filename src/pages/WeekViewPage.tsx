@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addDays, format, isSameDay, parseISO } from 'date-fns'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Calendar,
@@ -220,12 +220,17 @@ export default function WeekViewPage() {
     onError: () => toast.error('Failed to update Calendar event'),
   })
   const mutationPending = completeMutation.isPending || calendarMutation.isPending
+  const isTodayPlanning = scope.kind === 'day' && scope.date === todayKey
 
   const agenda = useMemo(
     () => summary
-      ? selectWeekAgenda(summary, scope, { showCompleted, domain })
+      ? selectWeekAgenda(summary, scope, {
+          showCompleted,
+          domain,
+          mode: isTodayPlanning ? 'today_planning' : 'full',
+        })
       : { days: [], totalCount: 0 },
-    [domain, scope, showCompleted, summary]
+    [domain, isTodayPlanning, scope, showCompleted, summary]
   )
 
   if (settingsLoading || summaryLoading) {
@@ -374,14 +379,23 @@ export default function WeekViewPage() {
             <DomainIcon domain={candidate} />{domainLabel[candidate]}
           </button>
         ))}
-        <button
-          type="button"
-          className="week-focus ml-auto min-h-11 rounded-xl border border-line px-3 text-sm text-ink-soft"
-          aria-pressed={!showCompleted}
-          onClick={() => setShowCompleted((value) => !value)}
-        >
-          {showCompleted ? 'Hide completed' : 'Show completed'}
-        </button>
+        {isTodayPlanning ? (
+          <Link
+            to="/"
+            className="week-focus ml-auto inline-flex min-h-11 items-center rounded-xl border border-cyan-400/40 bg-cyan-400/10 px-4 text-sm font-semibold text-cyan-300"
+          >
+            Open Today
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className="week-focus ml-auto min-h-11 rounded-xl border border-line px-3 text-sm text-ink-soft"
+            aria-pressed={!showCompleted}
+            onClick={() => setShowCompleted((value) => !value)}
+          >
+            {showCompleted ? 'Hide completed' : 'Show completed'}
+          </button>
+        )}
       </section>
 
       <div className="week-master-detail">
@@ -390,16 +404,27 @@ export default function WeekViewPage() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-cyan-400">Selected scope</p>
               <h2 id="week-agenda-heading" className="mt-1 text-xl font-semibold">
-                {scope.kind === 'all' ? 'All Week agenda' : dateLabel(scope.date, today)}
+                {scope.kind === 'all'
+                  ? 'All Week agenda'
+                  : isTodayPlanning ? 'Today planning snapshot' : dateLabel(scope.date, today)}
               </h2>
+              {isTodayPlanning && (
+                <p className="mt-1 max-w-xl text-sm text-ink-muted">
+                  Unresolved Items and Calendar obligations only. Habits stay in cadence; execution stays on Today.
+                </p>
+              )}
             </div>
-            <span className="text-sm text-ink-muted">{agenda.totalCount} shown</span>
+            <span className="shrink-0 text-sm text-ink-muted">
+              {agenda.totalCount} {isTodayPlanning ? 'unresolved' : 'shown'}
+            </span>
           </div>
 
           {agenda.days.length === 0 || agenda.totalCount === 0 ? (
             <div className="rounded-2xl border border-dashed border-line p-8 text-center text-sm text-ink-muted">
               {domain === 'habit' && scope.kind === 'all'
                 ? 'Habits are summarized in Habit cadence.'
+                : isTodayPlanning
+                  ? 'No unresolved one-off Items or Calendar obligations. Habits are summarized in cadence.'
                 : showCompleted ? 'Nothing planned for this scope.' : 'No incomplete Items in this scope.'}
             </div>
           ) : agenda.days.map((day) => (
@@ -420,21 +445,33 @@ export default function WeekViewPage() {
                       {label}
                     </div>
                     {entries.map((entry) => (
-                      <article key={`${entry.source}-${entry.id}-${entry.date}`} data-date={entry.date} className="flex min-h-16 items-center gap-3 rounded-2xl border border-line bg-card/45 p-3">
-                        <button
-                          type="button"
-                          className={`week-focus flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${
-                            entry.completed ? 'border-emerald-400 bg-emerald-500 text-white' : entry.addressed ? 'border-slate-400 bg-slate-500/20 text-ink-soft' : 'border-line-strong'
-                          }`}
-                          disabled={mutationPending}
-                          aria-label={entry.source === 'item' && entry.item?.type === 'habit'
-                            ? `Record outcome for ${entry.title}`
-                            : entry.completed ? `Mark ${entry.title} incomplete` : `Mark ${entry.title} complete`}
-                          onClick={() => toggleEntry(entry)}
-                        >
-                          {entry.completed ? <Check className="h-5 w-5" /> : entry.addressed ? <span aria-hidden="true">—</span> : null}
-                        </button>
+                      <article
+                        key={`${entry.source}-${entry.id}-${entry.date}`}
+                        data-date={entry.date}
+                        className={`flex items-center gap-3 rounded-2xl border border-line bg-card/45 p-3 ${isTodayPlanning ? 'min-h-14' : 'min-h-16'}`}
+                      >
+                        {isTodayPlanning ? (
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-raised text-cyan-300">
+                            <DomainIcon domain={entry.domain} />
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className={`week-focus flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${
+                              entry.completed ? 'border-emerald-400 bg-emerald-500 text-white' : entry.addressed ? 'border-slate-400 bg-slate-500/20 text-ink-soft' : 'border-line-strong'
+                            }`}
+                            disabled={mutationPending}
+                            aria-label={entry.source === 'item' && entry.item?.type === 'habit'
+                              ? `Record outcome for ${entry.title}`
+                              : entry.completed ? `Mark ${entry.title} incomplete` : `Mark ${entry.title} complete`}
+                            onClick={() => toggleEntry(entry)}
+                          >
+                            {entry.completed ? <Check className="h-5 w-5" /> : entry.addressed ? <span aria-hidden="true">—</span> : null}
+                          </button>
+                        )}
+                        {!isTodayPlanning && (
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-raised text-cyan-300"><DomainIcon domain={entry.domain} /></span>
+                        )}
                         <div className="min-w-0 flex-1">
                           <p className={`truncate text-sm font-medium ${entry.completed ? 'text-ink-muted line-through' : 'text-ink'}`}>{entry.title}</p>
                           <p className="mt-1 text-xs text-ink-muted">

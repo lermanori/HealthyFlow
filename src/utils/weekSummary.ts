@@ -84,7 +84,11 @@ function eventEntry(event: DaySummaryCalendarEvent, date: string): WeekAgendaEnt
 export function selectWeekAgenda(
   summary: WeekSummary,
   scope: WeekScope,
-  filters: { showCompleted: boolean; domain: WeekDomainFilter }
+  filters: {
+    showCompleted: boolean
+    domain: WeekDomainFilter
+    mode?: 'full' | 'today_planning'
+  }
 ): WeekAgenda {
   const selectedDays = scope.kind === 'day'
     ? summary.days.filter((day) => day.date === scope.date)
@@ -93,6 +97,9 @@ export function selectWeekAgenda(
 
   const days = selectedDays.map((day) => {
     const items = day.items.filter((item) => {
+      if (filters.mode === 'today_planning') {
+        return item.type !== 'habit' && !isAddressed(item)
+      }
       if (scope.kind === 'all') {
         if (item.type === 'habit') return false
         if (seenItems.has(item.id)) return false
@@ -104,6 +111,7 @@ export function selectWeekAgenda(
       ...items.map((item) => itemEntry(item, day.date)),
       ...day.calendar.events.map((event) => eventEntry(event, day.date)),
     ]
+      .filter((entry) => filters.mode !== 'today_planning' || !entry.completed)
       .filter((entry) => filters.showCompleted || !entry.completed)
       .filter((entry) => filters.domain === 'all' || entry.domain === filters.domain)
       .sort(compareEntries)

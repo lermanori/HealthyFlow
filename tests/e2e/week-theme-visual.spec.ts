@@ -80,7 +80,7 @@ test('Week empty state visual', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await mockWeek(page, 'white', 'empty')
   await page.goto('/app/week')
-  await expect(page.getByText('Nothing planned for this scope.')).toBeVisible()
+  await expect(page.getByText('No unresolved one-off Items or Calendar obligations. Habits are summarized in cadence.')).toBeVisible()
   await expect(page.locator('#loading-screen')).toBeHidden()
   await expect(page).toHaveScreenshot('week-white-desktop-empty.png', { animations: 'disabled', fullPage: true })
 })

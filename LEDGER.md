@@ -1,3 +1,9 @@
+### 2026-07-27 12:08 — `codex/148-week-planning-workspace`
+
+Clarified the boundary between Today and Week after preview review. Selecting Today in Week now shows a compact, read-only planning handoff containing only unresolved non-Habit Items and Calendar obligations, keeps Habits in cadence, omits completed execution history, and links directly to the full Today workspace. Selector, interaction, and six responsive theme baselines cover the distinction.
+
+---
+
 ### 2026-07-27 11:45 — `codex/148-week-planning-workspace`
 
 Rebuilt Week as the issue #148 master-detail planning workspace and replaced the legacy random summary endpoint with one canonical, versioned seven-day contract. The workspace now has durable day and All Week URLs, rollover-safe totals, Habit cadence and check-in, independent Calendar obligations, honest per-day capacity, populated-domain controls, responsive layouts, keyboard/focus behavior, and write-driven cache freshness. Backend, selector, navigation, theme, capacity, and Habit regressions are covered; lint, typechecks, unit/backend suites, production build, and 20 focused browser tests are green.

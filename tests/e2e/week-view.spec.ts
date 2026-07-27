@@ -241,8 +241,11 @@ test('All Week aggregates Habit instances while selected-day check-in remains av
 
   await page.goto('/app/week')
   const agenda = page.getByTestId('week-agenda')
-  await expect(agenda.getByText('Walk outside')).toBeVisible()
+  await expect(agenda.getByText('Walk outside')).toHaveCount(0)
   await expect(page.locator('[data-rail-date="2026-06-24"]')).toHaveAttribute('aria-label', /1 addressed of 1/)
+  await page.getByRole('button', { name: 'Walk outside, Wednesday, Not done' }).click()
+  await expect(page.getByRole('dialog')).toContainText('Walk outside')
+  await page.getByRole('button', { name: 'Close', exact: true }).click()
 
   await page.getByRole('button', { name: 'All week' }).click()
   await expect(agenda.getByText('Walk outside')).toHaveCount(0)
@@ -253,6 +256,73 @@ test('All Week aggregates Habit instances while selected-day check-in remains av
   await expect(habitDisclosure).toHaveAttribute('aria-expanded', 'true')
   await page.getByRole('button', { name: 'Walk outside, Wednesday, Not done' }).click()
   await expect(page.getByRole('dialog')).toContainText('Walk outside')
+})
+
+test('selected Today is a compact planning snapshot instead of a second Today timeline', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-06-24T12:00:00'))
+  const today = '2026-06-24'
+  const itemsByDate = {
+    [today]: [
+      daySummaryItem({ id: 'open-task', title: 'Unresolved proposal', scheduledDate: today }),
+      daySummaryItem({ id: 'done-task', title: 'Completed execution', scheduledDate: today, completed: true }),
+      daySummaryItem({
+        id: 'habit-today',
+        title: 'Daily stretch',
+        type: 'habit',
+        repeat: 'daily',
+        isHabitInstance: true,
+        originalHabitId: 'daily-stretch',
+        scheduledDate: today,
+        habitInfo: { target: null, outcome: 'pending', progressTotal: 0 },
+      }),
+    ],
+  }
+  const calendarEvent = {
+    id: 'calendar-open',
+    provider: 'google' as const,
+    calendarId: 'primary',
+    externalEventId: 'calendar-open',
+    title: 'Planning call',
+    description: null,
+    location: null,
+    startAt: `${today}T10:00:00.000Z`,
+    endAt: `${today}T10:30:00.000Z`,
+    localStartTime: '10:00',
+    localEndTime: '10:30',
+    allDay: false,
+    status: 'confirmed',
+    htmlLink: null,
+    completed: false,
+    completedAt: null,
+  }
+  const eventsByDate = {
+    [today]: [
+      calendarEvent,
+      {
+        ...calendarEvent,
+        id: 'calendar-done',
+        externalEventId: 'calendar-done',
+        title: 'Finished call',
+        completed: true,
+      },
+    ],
+  }
+
+  await page.route('**/api/week-summary?*', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify(weekSummaryFixture({ startDate: '2026-06-22', itemsByDate, eventsByDate })),
+  }))
+
+  await page.goto('/app/week')
+  const agenda = page.getByTestId('week-agenda')
+  await expect(agenda.getByRole('heading', { name: 'Today planning snapshot' })).toBeVisible()
+  await expect(agenda.getByText('Unresolved proposal')).toBeVisible()
+  await expect(agenda.getByText('Planning call')).toBeVisible()
+  await expect(agenda.getByText('Completed execution')).toHaveCount(0)
+  await expect(agenda.getByText('Finished call')).toHaveCount(0)
+  await expect(agenda.getByText('Daily stretch')).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Open Today' })).toHaveAttribute('href', '/app')
+  await expect(page.getByRole('heading', { name: 'Habit cadence' })).toBeVisible()
 })
 
 test('All Week communicates complete, partial, and unavailable capacity without a false total', async ({ page }) => {
