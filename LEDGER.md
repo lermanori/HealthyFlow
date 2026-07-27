@@ -1,3 +1,9 @@
+### 2026-07-27 16:10 — `codex/149-health-workflow`
+
+Reworked the health tools into a coherent selected-day workflow: Calories now leads with neutral Nutrition, Macros, Weight, Workout, and Progress status, while Workouts separates Plan, Session, and History into explicit URL-backed modes. Shared date navigation, visible canonical units, touch-safe accessible actions, reversible record deletion, readable progress/history, and desktop-to-mobile regression coverage leave issue #149 ready to ship.
+
+---
+
 ### 2026-07-26 18:14 — `main`
 
 Grounded AI date interpretation in the client’s local calendar by adding weekday-labelled today, yesterday, tomorrow, and a concrete seven-day lookup with Hebrew weekday rules. Both assistant chat and parse-tasks now share the context, parse-tasks honors `X-Client-Time-Zone`, and the reported Jerusalem repro is pinned alongside the passing AI suite and backend typecheck.

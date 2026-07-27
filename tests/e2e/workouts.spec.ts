@@ -23,6 +23,10 @@ test('Workout Tracker logs mixed metrics, persists history, edits, and deletes',
 
   await page.goto('/app/workouts')
   await expect(page.getByRole('heading', { name: 'Workout Tracker' })).toBeVisible()
+  await expect(page.getByTestId('workout-session-empty')).toBeVisible()
+  await page.getByRole('button', { name: 'Log without plan' }).click()
+  await expect(page.getByText('Add at least one named exercise before saving.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Save session' })).toBeDisabled()
   await page.getByRole('button', { name: 'Add exercise' }).click()
 
   await page.getByTestId('workout-session-title').fill('Mixed morning session')
@@ -52,13 +56,16 @@ test('Workout Tracker logs mixed metrics, persists history, edits, and deletes',
   await expect(page.getByTestId('workout-history').getByText('Bench Press')).toBeVisible()
   await expect(page.getByTestId('workout-history').getByText('Mobility Flow')).toBeVisible()
 
+  await page.getByTestId('workout-mode-session').click()
+  await page.getByRole('button', { name: 'Log without plan' }).click()
   await page.getByRole('button', { name: 'Add exercise' }).click()
   await expect(page.getByTestId('workout-quick-insert-item').filter({ hasText: 'Bench Press' })).toBeVisible()
 
+  await page.getByTestId('workout-mode-history').click()
   await page.getByTestId('edit-workout-exercise').first().click()
   await page.getByTestId('workout-exercise-name').last().fill('Incline Bench Press')
   await page.getByTestId('workout-exercise-reps').last().fill('10')
-  await page.getByRole('button', { name: 'Save exercise changes' }).click()
+  await page.getByRole('button', { name: 'Save changes to Bench Press' }).click()
 
   await expect(page.getByTestId('workout-history').getByText('Incline Bench Press')).toBeVisible()
   await expect(page.getByTestId('workout-history').getByText('10 reps')).toBeVisible()
@@ -67,10 +74,15 @@ test('Workout Tracker logs mixed metrics, persists history, edits, and deletes',
   await page.getByTestId('delete-workout-exercise').first().click()
   await expect(page.getByTestId('workout-history').getByText('Incline Bench Press')).not.toBeVisible()
   await expect(page.getByTestId('workout-history').getByText('Mobility Flow')).toBeVisible()
+  await page.getByRole('button', { name: 'Undo deletion of Incline Bench Press' }).click()
+  await expect(page.getByTestId('workout-history').getByText('Incline Bench Press')).toBeVisible()
 
   await page.getByTestId('delete-workout-session').click()
   await expect(page.getByTestId('workout-history').getByText('Mobility Flow')).not.toBeVisible()
   await expect(page.getByText('No workout sessions for this day yet.')).toBeVisible()
+  await page.getByRole('button', { name: 'Undo deletion of Mixed morning session' }).click()
+  await expect(page.getByTestId('workout-history').getByText('Mixed morning session')).toBeVisible()
+  await expect(page.getByTestId('workout-history').getByText('Mobility Flow')).toBeVisible()
 })
 
 test('Workout plans persist, reorder exercises, and pre-fill an editable session', async ({ page }) => {
@@ -128,6 +140,7 @@ test('Workout plans persist, reorder exercises, and pre-fill an editable session
   })
 
   await page.goto('/app/workouts')
+  await page.getByTestId('workout-mode-plan').click()
   await page.getByRole('button', { name: 'New Plan' }).click()
 
   const editor = page.getByTestId('workout-plan-editor')
@@ -189,11 +202,13 @@ test('Workout plans persist, reorder exercises, and pre-fill an editable session
   await expect(history.getByText('Bench Press')).toBeVisible()
   await expect(history.getByText('Easy Run')).toBeVisible()
 
+  await page.getByTestId('workout-mode-plan').click()
   await persistedPlan.getByRole('button', { name: 'Edit Mixed training' }).click()
   await page.getByTestId('workout-plan-name').fill('Flexible plan')
   await page.getByRole('button', { name: 'Save Plan' }).click()
   await expect(page.getByTestId('workout-plan-card').filter({ hasText: 'Flexible plan' })).toBeVisible()
 
+  page.once('dialog', (dialog) => dialog.accept())
   await page.getByRole('button', { name: 'Delete Flexible plan' }).click()
   await expect(page.getByTestId('workout-plan-card').filter({ hasText: 'Flexible plan' })).toHaveCount(0)
 })
@@ -221,6 +236,16 @@ test('Workout planning stays editable and reachable on a narrow mobile viewport'
   }] }))
 
   await page.goto('/app/workouts')
+  const modeNav = page.getByRole('navigation', { name: 'Workout mode' })
+  for (const mode of ['Plan', 'Session', 'History']) {
+    const modeButton = modeNav.getByRole('button', { name: mode, exact: true })
+    await expect(modeButton).toBeVisible()
+    const box = await modeButton.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.height).toBeGreaterThanOrEqual(44)
+  }
+  expect(await modeNav.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true)
+  await page.getByTestId('workout-mode-plan').click()
   await page.getByRole('button', { name: 'New Plan' }).click()
   const editor = page.getByTestId('workout-plan-editor')
   await editor.getByRole('button', { name: /Weighted Bulgarian Split Squat/ }).click()
