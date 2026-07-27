@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addDays, format, isSameDay, parseISO } from 'date-fns'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import {
   AlertTriangle,
   Calendar,
@@ -12,8 +12,10 @@ import {
   Clock,
   Dumbbell,
   Infinity as InfinityIcon,
+  MoveRight,
   RotateCcw,
   ShoppingCart,
+  Sparkles,
   Utensils,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -26,6 +28,7 @@ import {
   WEEK_SUMMARY_QUERY_KEY,
   weekSummaryQueryKey,
   type HabitItem,
+  type WeekPlanningDecision,
   type WeekSummary,
 } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -120,8 +123,24 @@ function outcomeLabel(outcome: string) {
   return 'Pending'
 }
 
+function planningStateLabel(state: string) {
+  if (state === 'overloaded') return 'Over'
+  if (state === 'partial') return 'Partly known'
+  if (state === 'unavailable') return 'Unavailable'
+  if (state === 'tight') return 'Tight'
+  return 'Open'
+}
+
+function planningStateClass(state: string) {
+  if (state === 'overloaded') return 'bg-rose-400'
+  if (state === 'tight') return 'bg-amber-400'
+  if (state === 'partial' || state === 'unavailable') return 'bg-slate-400'
+  return 'bg-emerald-400'
+}
+
 export default function WeekViewPage() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   const { settings, isLoading: settingsLoading } = useSettings()
   const [searchParams, setSearchParams] = useSearchParams()
   const today = useMemo(() => new Date(), [])
@@ -142,6 +161,8 @@ export default function WeekViewPage() {
   const [domain, setDomain] = useState<WeekDomainFilter>('all')
   const [expandedHabitId, setExpandedHabitId] = useState<string | null>(null)
   const [habitCheckIn, setHabitCheckIn] = useState<{ habit: HabitItem; date: string } | null>(null)
+  const [dismissedDecisionIds, setDismissedDecisionIds] = useState<string[]>([])
+  const [decisionIndex, setDecisionIndex] = useState(0)
   const dayButtonRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   useEffect(() => {
@@ -219,7 +240,29 @@ export default function WeekViewPage() {
     },
     onError: () => toast.error('Failed to update Calendar event'),
   })
-  const mutationPending = completeMutation.isPending || calendarMutation.isPending
+  const planningMutation = useMutation({
+    mutationFn: async (action: Extract<WeekPlanningDecision['actions'][number], { kind: 'update_item' }>) => {
+      const fresh = await summaryService.getWeeklySummary(anchorDate)
+      const revalidated = fresh.planning.decisions
+        .flatMap((decision) => decision.actions)
+        .find((candidate) => candidate.id === action.id)
+      if (
+        !revalidated ||
+        revalidated.kind !== 'update_item' ||
+        revalidated.itemId !== action.itemId ||
+        JSON.stringify(revalidated.changes) !== JSON.stringify(action.changes)
+      ) {
+        throw new Error('Planning decision is stale')
+      }
+      return taskService.updateTask(revalidated.itemId, revalidated.changes)
+    },
+    onSuccess: () => {
+      toast.success('Weekly plan updated')
+      invalidatePlanning()
+    },
+    onError: () => toast.error('The planning change could not be applied'),
+  })
+  const mutationPending = completeMutation.isPending || calendarMutation.isPending || planningMutation.isPending
   const isTodayPlanning = scope.kind === 'day' && scope.date === todayKey
 
   const agenda = useMemo(
@@ -245,7 +288,6 @@ export default function WeekViewPage() {
       </div>
     )
   }
-
   const selectedDay = scope.kind === 'day'
     ? summary.days.find((day) => day.date === scope.date) ?? summary.days[0]
     : null
@@ -258,6 +300,12 @@ export default function WeekViewPage() {
   const weekLabel = weekStartDate.getMonth() === weekEndDate.getMonth()
     ? `${format(weekStartDate, 'MMM d')} – ${format(weekEndDate, 'd, yyyy')}`
     : `${format(weekStartDate, 'MMM d')} – ${format(weekEndDate, 'MMM d, yyyy')}`
+  const openDecisions = summary.planning.decisions.filter(
+    (decision) => !dismissedDecisionIds.includes(decision.id)
+  )
+  const activeDecision = openDecisions.length > 0
+    ? openDecisions[decisionIndex % openDecisions.length]
+    : null
 
   const selectDay = (date: string) => {
     setSearchParams(date === todayKey ? {} : { date })
@@ -301,6 +349,21 @@ export default function WeekViewPage() {
       setHabitCheckIn({ habit: found.item as unknown as HabitItem, date: found.date })
     }
   }
+  const handlePlanningAction = (action: WeekPlanningDecision['actions'][number]) => {
+    if (action.kind === 'select_day') {
+      selectDay(action.date)
+      return
+    }
+    if (action.kind === 'open_settings') {
+      navigate('/app/settings')
+      return
+    }
+    planningMutation.mutate(action)
+  }
+  const dismissDecision = (decision: WeekPlanningDecision) => {
+    setDismissedDecisionIds((current) => [...current, decision.id])
+    setDecisionIndex(0)
+  }
 
   return (
     <main className="week-workspace space-y-5 text-ink">
@@ -336,29 +399,119 @@ export default function WeekViewPage() {
           {summary.days.map((day, index) => {
             const date = parseISO(day.date)
             const selected = scope.kind === 'day' && day.date === scope.date
+            const planningDay = summary.planning.days[index]
             return (
               <button
                 key={day.date}
                 ref={(button) => { dayButtonRefs.current[index] = button }}
                 type="button"
-                className={`week-focus relative flex min-h-[88px] min-w-0 flex-col items-center justify-center rounded-2xl border px-1 py-2 ${
+                className={`week-focus relative flex min-h-[76px] min-w-0 flex-col items-center justify-center rounded-2xl border px-1 py-2 sm:min-h-[88px] ${
                   selected ? 'border-cyan-400 bg-cyan-400/12 text-cyan-300' : 'border-line bg-card/40 text-ink-soft'
                 }`}
                 data-rail-date={day.date}
                 aria-current={selected ? 'date' : undefined}
                 aria-pressed={selected}
-                aria-label={`${format(date, 'EEEE, MMMM d')}, ${day.completion.addressed ?? day.completion.completed} addressed of ${day.completion.total}`}
+                aria-label={`${format(date, 'EEEE, MMMM d')}, ${planningStateLabel(planningDay.state)}, ${day.completion.addressed ?? day.completion.completed} addressed of ${day.completion.total}`}
                 tabIndex={selected || (scope.kind === 'all' && index === 0) ? 0 : -1}
                 onClick={() => selectDay(day.date)}
                 onKeyDown={(event) => handleDayKeyDown(event, index)}
               >
-                <span className="text-[10px] font-semibold uppercase">{format(date, 'EEE')}</span>
+                <span className="text-[10px] font-semibold uppercase"><span className="sm:hidden">{format(date, 'EEEEE')}</span><span className="hidden sm:inline">{format(date, 'EEE')}</span></span>
                 <time dateTime={day.date} className="mt-1 text-xl font-bold">{format(date, 'd')}</time>
-                <span className="mt-1 text-[10px] text-ink-muted">{day.completion.addressed ?? day.completion.completed}/{day.completion.total}</span>
+                <span className="mt-1 flex items-center gap-1 text-[9px] text-ink-muted">
+                  <span className={`h-1.5 w-1.5 rounded-full ${planningStateClass(planningDay.state)}`} />
+                  <span className="hidden md:inline">{planningStateLabel(planningDay.state)}</span>
+                </span>
               </button>
             )
           })}
         </div>
+      </section>
+
+      <section
+        aria-labelledby="planning-decision-heading"
+        className={`overflow-hidden rounded-3xl border ${
+          activeDecision?.severity === 'high'
+            ? 'border-amber-400/40 bg-amber-400/[0.07]'
+            : 'border-cyan-400/35 bg-cyan-400/[0.06]'
+        }`}
+      >
+        {activeDecision ? (
+          <div className="p-4 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-300">
+                  <Sparkles className="h-4 w-4" />
+                  Planning decision
+                </p>
+                <h2 id="planning-decision-heading" className="mt-3 text-xl font-bold tracking-tight sm:text-2xl">
+                  {activeDecision.title}
+                </h2>
+              </div>
+              <span className="rounded-full border border-line bg-card/50 px-3 py-1 text-xs text-ink-muted">
+                {(decisionIndex % openDecisions.length) + 1} of {openDecisions.length}
+              </span>
+            </div>
+
+            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-ink-soft">{activeDecision.rationale}</p>
+            <dl className="mt-4 grid gap-2 sm:grid-cols-2">
+              {activeDecision.evidence.map((evidence) => (
+                <div key={evidence.label} className="rounded-xl border border-line/80 bg-card/35 px-3 py-2">
+                  <dt className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">{evidence.label}</dt>
+                  <dd className="mt-1 text-sm font-medium">{evidence.value}</dd>
+                </div>
+              ))}
+            </dl>
+
+            <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              {activeDecision.actions.map((action, index) => (
+                <button
+                  type="button"
+                  key={action.id}
+                  disabled={mutationPending}
+                  className={`week-focus inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold ${
+                    index === 0
+                      ? 'bg-cyan-400 text-slate-950'
+                      : 'border border-line bg-card/50 text-ink-soft'
+                  }`}
+                  onClick={() => handlePlanningAction(action)}
+                >
+                  {action.label}
+                  {index === 0 && <MoveRight className="h-4 w-4" />}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-4 border-t border-line/70 pt-4 text-sm">
+              {openDecisions.length > 1 && (
+                <button
+                  type="button"
+                  className="week-focus min-h-11 text-ink-soft"
+                  onClick={() => setDecisionIndex((current) => (current + 1) % openDecisions.length)}
+                >
+                  Next decision
+                </button>
+              )}
+              <button
+                type="button"
+                className="week-focus min-h-11 text-ink-muted"
+                onClick={() => dismissDecision(activeDecision)}
+              >
+                Dismiss for now
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex min-h-32 items-center gap-4 p-5 sm:p-6">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-300">
+              <Check className="h-6 w-6" />
+            </span>
+            <div>
+              <h2 id="planning-decision-heading" className="text-lg font-semibold">This week looks balanced</h2>
+              <p className="mt-1 text-sm text-ink-muted">No capacity, estimate, rollover, or scheduling decision needs attention.</p>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="flex flex-wrap items-center gap-2" aria-label="Agenda filters">

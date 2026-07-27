@@ -3,7 +3,8 @@ import type {
   DaySummaryCapacity,
   DaySummaryItem,
   WeekDomain,
-  WeekSummary,
+  WeekPlanningDecision,
+  WeekPlanningSummary,
 } from '../../../backend/src/day-summary-schema'
 
 const addressed = (item: DaySummaryItem) => item.completed || (
@@ -22,12 +23,14 @@ export function weekSummaryFixture({
   itemsByDate = {},
   eventsByDate = {},
   capacityByDate = {},
+  planningDecisions,
 }: {
   startDate: string
   itemsByDate?: Record<string, DaySummaryItem[]>
   eventsByDate?: Record<string, DaySummaryCalendarEvent[]>
   capacityByDate?: Record<string, DaySummaryCapacity>
-}): WeekSummary {
+  planningDecisions?: WeekPlanningDecision[]
+}): WeekPlanningSummary {
   const dates = Array.from({ length: 7 }, (_, index) => addDate(startDate, index))
   const days = dates.map((date) => {
     const items = itemsByDate[date] ?? []
@@ -73,7 +76,7 @@ export function weekSummaryFixture({
   uniqueItems.forEach((item) => addContribution(item.type, item.completed, addressed(item)))
   days.flatMap((day) => day.calendar.events)
     .forEach((event) => addContribution('calendar', event.completed, event.completed))
-  const cadence = new Map<string, WeekSummary['habitCadence'][number]>()
+  const cadence = new Map<string, WeekPlanningSummary['habitCadence'][number]>()
   days.forEach((day, index) => day.items.filter((item) => item.type === 'habit').forEach((item) => {
     const id = item.originalHabitId ?? item.id
     if (!cadence.has(id)) {
@@ -97,6 +100,51 @@ export function weekSummaryFixture({
   const completed = uniqueItems.filter((item) => item.completed).length
   const addressedCount = uniqueItems.filter(addressed).length
   const obligations = days.flatMap((day) => day.calendar.events)
+  const planningDays: WeekPlanningSummary['planning']['days'] = days.map((day) => {
+    const flexible = day.items.filter((item) => item.type !== 'habit' && !addressed(item) && !item.startTime)
+    const knownDemandMinutes = flexible.reduce((total, item) => total + (item.duration && item.duration > 0 ? item.duration : 0), 0)
+    const unknownDurationItemCount = flexible.filter((item) => item.duration == null || item.duration <= 0).length
+    const availableMinutes = day.capacity.status === 'complete'
+      ? day.capacity.availableMinutes
+      : day.capacity.status === 'partial'
+        ? day.capacity.availableUpperBoundMinutes
+        : null
+    const remainingMinutes = availableMinutes == null ? null : availableMinutes - knownDemandMinutes
+    return {
+      date: day.date,
+      state: day.capacity.status === 'unavailable'
+        ? 'unavailable'
+        : day.capacity.status === 'partial' || unknownDurationItemCount > 0
+          ? 'partial'
+          : remainingMinutes != null && remainingMinutes < 0
+            ? 'overloaded'
+            : remainingMinutes != null && remainingMinutes <= 30
+              ? 'tight'
+              : 'open',
+      knownDemandMinutes,
+      unknownDurationItemCount,
+      availableMinutes,
+      remainingMinutes,
+    }
+  })
+  const unavailableDays = days.filter((day) => day.capacity.status === 'unavailable')
+  const decisions = planningDecisions ?? (unavailableDays.length > 0
+    ? [{
+        id: `capacity-unavailable:${startDate}`,
+        type: 'capacity_unavailable' as const,
+        severity: 'high' as const,
+        score: 110,
+        title: 'Finish capacity setup for an honest weekly plan',
+        rationale: 'HealthyFlow cannot compare workload with available time until the planning window and timezone are usable.',
+        date: null,
+        itemIds: [],
+        evidence: [
+          { label: 'Affected days', value: `${unavailableDays.length} of 7` },
+          { label: 'Missing input', value: 'planning window missing' },
+        ],
+        actions: [{ id: 'open-planning-settings', kind: 'open_settings' as const, label: 'Open planning settings' }],
+      }]
+    : [])
 
   return {
     version: 1,
@@ -120,5 +168,9 @@ export function weekSummaryFixture({
     },
     contributions: Array.from(contributionMap, ([domain, value]) => ({ domain, ...value })),
     habitCadence: Array.from(cadence.values()),
+    planning: {
+      days: planningDays,
+      decisions,
+    },
   }
 }

@@ -16,7 +16,10 @@ import {
   PlanningWindowSchema,
   type DaySummary,
   type WeekDomain,
+  type WeekPlanningDecision,
+  type WeekPlanningSummary,
   type WeekSummary,
+  WeekPlanningSummarySchema,
   WeekSummarySchema,
 } from './day-summary-schema'
 import { Rollover } from './rollover'
@@ -840,18 +843,277 @@ function weekContributions(
     .map((domain) => ({ domain, ...counts.get(domain)! }))
 }
 
+function dayDistance(from: string, to: string) {
+  return Math.max(0, Math.round(
+    (Date.parse(`${to}T00:00:00.000Z`) - Date.parse(`${from}T00:00:00.000Z`)) / 86_400_000
+  ))
+}
+
+function deriveWeekPlanning(summary: WeekSummary): WeekPlanningSummary['planning'] {
+  const seenItems = new Set<string>()
+  const assigned = new Map<string, DaySummaryItem[]>()
+  for (const day of summary.days) {
+    assigned.set(day.date, day.items.filter((item) => {
+      if (item.type === 'habit' || isDaySummaryItemAddressed(item) || seenItems.has(item.id)) return false
+      seenItems.add(item.id)
+      return true
+    }))
+  }
+
+  const planningDays: WeekPlanningSummary['planning']['days'] = summary.days.map((day) => {
+    const items = assigned.get(day.date) ?? []
+    const flexible = items.filter((item) => !item.startTime)
+    const knownDemandMinutes = flexible.reduce(
+      (total, item) => total + (item.duration != null && item.duration > 0 ? Math.round(item.duration) : 0),
+      0
+    )
+    const unknownDurationItemCount = flexible.filter(
+      (item) => item.duration == null || item.duration <= 0
+    ).length
+    const availableMinutes = day.capacity.status === 'complete'
+      ? day.capacity.availableMinutes
+      : day.capacity.status === 'partial'
+        ? day.capacity.availableUpperBoundMinutes
+        : null
+    const remainingMinutes = availableMinutes == null ? null : availableMinutes - knownDemandMinutes
+    const state = day.capacity.status === 'unavailable'
+      ? 'unavailable' as const
+      : day.capacity.status === 'partial' || unknownDurationItemCount > 0
+        ? 'partial' as const
+        : remainingMinutes != null && remainingMinutes < 0
+          ? 'overloaded' as const
+          : remainingMinutes != null && remainingMinutes <= 30
+            ? 'tight' as const
+            : 'open' as const
+    return {
+      date: day.date,
+      state,
+      knownDemandMinutes,
+      unknownDurationItemCount,
+      availableMinutes,
+      remainingMinutes,
+    }
+  })
+
+  const decisions: WeekPlanningDecision[] = []
+  const unavailableDays = summary.days.filter((day) => day.capacity.status === 'unavailable')
+  if (unavailableDays.length > 0) {
+    const reasons = Array.from(new Set(unavailableDays.flatMap((day) => day.capacity.reasonCodes)))
+    decisions.push({
+      id: `capacity-unavailable:${summary.week.startDate}`,
+      type: 'capacity_unavailable',
+      severity: 'high',
+      score: 110,
+      title: 'Finish capacity setup for an honest weekly plan',
+      rationale: 'HealthyFlow cannot compare workload with available time until the planning window and timezone are usable.',
+      date: null,
+      itemIds: [],
+      evidence: [
+        { label: 'Affected days', value: `${unavailableDays.length} of 7` },
+        { label: 'Missing input', value: reasons.join(', ').replace(/_/g, ' ') },
+      ],
+      actions: [
+        { id: 'open-planning-settings', kind: 'open_settings', label: 'Open planning settings' },
+      ],
+    })
+  }
+
+  for (const day of summary.days) {
+    const items = assigned.get(day.date) ?? []
+    for (const item of items) {
+      if (item.duration == null || item.duration <= 0) {
+        decisions.push({
+          id: `missing-duration:${item.id}:${day.date}`,
+          type: 'missing_duration',
+          severity: 'high',
+          score: 100,
+          title: `"${item.title}" needs a time estimate`,
+          rationale: 'Until this Item has a duration, the day’s capacity is only partly known.',
+          date: day.date,
+          itemIds: [item.id],
+          evidence: [
+            { label: 'Day', value: day.date },
+            { label: 'Current estimate', value: 'Unknown' },
+          ],
+          actions: [
+            { id: `duration-30:${item.id}`, kind: 'update_item', label: 'Set 30 minutes', itemId: item.id, changes: { duration: 30 } },
+            { id: `duration-60:${item.id}`, kind: 'update_item', label: 'Set 60 minutes', itemId: item.id, changes: { duration: 60 } },
+            { id: `inspect:${day.date}`, kind: 'select_day', label: 'Review the day', date: day.date },
+          ],
+        })
+      }
+
+      if (
+        item.rolledOverFromTaskId &&
+        item.scheduledDate &&
+        item.scheduledDate < day.date
+      ) {
+        const carriedDays = dayDistance(item.scheduledDate, day.date)
+        decisions.push({
+          id: `rollover:${item.id}:${day.date}`,
+          type: 'rollover',
+          severity: carriedDays >= 3 ? 'high' : 'medium',
+          score: 70 + Math.min(carriedDays, 20),
+          title: `"${item.title}" has carried forward ${carriedDays} ${carriedDays === 1 ? 'day' : 'days'}`,
+          rationale: 'Give the Item an intentional date so it stops silently following the plan.',
+          date: day.date,
+          itemIds: [item.id],
+          evidence: [
+            { label: 'Originally planned', value: item.scheduledDate },
+            { label: 'First visible this week', value: day.date },
+          ],
+          actions: [
+            {
+              id: `commit-date:${item.id}:${day.date}`,
+              kind: 'update_item',
+              label: `Commit to ${day.date}`,
+              itemId: item.id,
+              changes: { scheduledDate: day.date, startTime: null },
+            },
+            { id: `inspect:${day.date}`, kind: 'select_day', label: 'Review the day', date: day.date },
+          ],
+        })
+      }
+    }
+  }
+
+  for (const [index, fact] of planningDays.entries()) {
+    if (fact.state !== 'overloaded' || fact.remainingMinutes == null) continue
+    const items = (assigned.get(fact.date) ?? [])
+      .filter((item) => !item.startTime && item.duration != null && item.duration > 0)
+      .sort((a, b) => (b.duration ?? 0) - (a.duration ?? 0) || a.id.localeCompare(b.id))
+    const candidate = items[0]
+    if (!candidate) continue
+    const target = planningDays.find((day, targetIndex) =>
+      targetIndex !== index &&
+      summary.days[targetIndex].dateMode !== 'past' &&
+      day.state === 'open' &&
+      day.remainingMinutes != null &&
+      day.remainingMinutes >= (candidate.duration ?? 0)
+    )
+    decisions.push({
+      id: `overload:${fact.date}`,
+      type: 'capacity_overload',
+      severity: 'high',
+      score: 90 + Math.min(Math.abs(fact.remainingMinutes), 60),
+      title: `${fact.date} has ${Math.abs(fact.remainingMinutes)} minutes more work than capacity`,
+      rationale: target
+        ? `"${candidate.title}" fits on ${target.date} without overloading it.`
+        : 'No other day has enough confirmed room, so this day needs a manual tradeoff.',
+      date: fact.date,
+      itemIds: items.map((item) => item.id),
+      evidence: [
+        { label: 'Flexible demand', value: `${fact.knownDemandMinutes} min` },
+        { label: 'Usable capacity', value: `${fact.availableMinutes ?? 0} min` },
+      ],
+      actions: target
+        ? [
+            {
+              id: `move:${candidate.id}:${target.date}`,
+              kind: 'update_item',
+              label: `Move "${candidate.title}" to ${target.date}`,
+              itemId: candidate.id,
+              changes: { scheduledDate: target.date, startTime: null },
+            },
+            { id: `inspect:${fact.date}`, kind: 'select_day', label: 'Review overloaded day', date: fact.date },
+          ]
+        : [{ id: `inspect:${fact.date}`, kind: 'select_day', label: 'Review overloaded day', date: fact.date }],
+    })
+  }
+
+  for (const day of summary.days) {
+    const intervals: Array<{
+      id: string
+      title: string
+      itemId: string | null
+      start: number
+      end: number
+    }> = []
+    for (const item of assigned.get(day.date) ?? []) {
+      const start = timeToMinutes(item.startTime)
+      if (start == null || item.duration == null || item.duration <= 0) continue
+      intervals.push({ id: `item:${item.id}`, title: item.title, itemId: item.id, start, end: start + item.duration })
+    }
+    for (const event of day.calendar.events) {
+      if (event.completed || event.status === 'cancelled') continue
+      const start = timeToMinutes(event.localStartTime)
+      const end = timeToMinutes(event.localEndTime)
+      if (start == null || end == null || end <= start) continue
+      intervals.push({ id: `calendar:${event.id}`, title: event.title, itemId: null, start, end })
+    }
+    intervals.sort((a, b) => a.start - b.start || a.id.localeCompare(b.id))
+    const reported = new Set<string>()
+    for (let leftIndex = 0; leftIndex < intervals.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < intervals.length; rightIndex += 1) {
+        const left = intervals[leftIndex]
+        const right = intervals[rightIndex]
+        if (right.start >= left.end) break
+        const movable = right.itemId ? right : left.itemId ? left : null
+        if (!movable?.itemId || reported.has(movable.itemId)) continue
+        reported.add(movable.itemId)
+        decisions.push({
+          id: `conflict:${day.date}:${left.id}:${right.id}`,
+          type: 'schedule_conflict',
+          severity: 'high',
+          score: 95,
+          title: `"${left.title}" overlaps "${right.title}"`,
+          rationale: 'Two obligations occupy the same time. Moving the Item to Anytime preserves it without guessing a new start time.',
+          date: day.date,
+          itemIds: [movable.itemId],
+          evidence: [
+            { label: 'Day', value: day.date },
+            { label: 'Overlap', value: `${minutesToTime(Math.max(left.start, right.start))}–${minutesToTime(Math.min(left.end, right.end))}` },
+          ],
+          actions: [
+            {
+              id: `anytime:${movable.itemId}`,
+              kind: 'update_item',
+              label: `Move "${movable.title}" to Anytime`,
+              itemId: movable.itemId,
+              changes: { startTime: null },
+            },
+            { id: `inspect:${day.date}`, kind: 'select_day', label: 'Review the day', date: day.date },
+          ],
+        })
+      }
+    }
+  }
+
+  decisions.sort((a, b) =>
+    b.score - a.score ||
+    (a.date ?? '').localeCompare(b.date ?? '') ||
+    a.id.localeCompare(b.id)
+  )
+  return { days: planningDays, decisions }
+}
+
+type WeekSummaryOptions = {
+  now?: Date
+  includePlanning?: boolean
+  dependencies?: Partial<Pick<
+    DaySummaryDependencies,
+    'itemsForDay' | 'getSettings' | 'getCalendarStatus' | 'getCalendarEvents'
+  >>
+}
+
+export function buildWeekSummary(
+  userId: string,
+  anchorDate: string,
+  timeZone: string | null | undefined,
+  options: WeekSummaryOptions & { includePlanning: true }
+): Promise<WeekPlanningSummary>
+export function buildWeekSummary(
+  userId: string,
+  anchorDate: string,
+  timeZone: string | null | undefined,
+  options?: WeekSummaryOptions
+): Promise<WeekSummary>
 export async function buildWeekSummary(
   userId: string,
   anchorDate: string,
   timeZone: string | null | undefined,
-  options: {
-    now?: Date
-    dependencies?: Partial<Pick<
-      DaySummaryDependencies,
-      'itemsForDay' | 'getSettings' | 'getCalendarStatus' | 'getCalendarEvents'
-    >>
-  } = {}
-): Promise<WeekSummary> {
+  options: WeekSummaryOptions = {}
+): Promise<WeekSummary | WeekPlanningSummary> {
   const now = options.now ?? new Date()
   const dependencies = { ...defaultDependencies, ...options.dependencies }
   const settings = await dependencies.getSettings(userId)
@@ -914,7 +1176,7 @@ export async function buildWeekSummary(
   const completion = completionFor(items)
   const calendarEvents = days.flatMap((day) => day.calendar.events)
 
-  return WeekSummarySchema.parse({
+  const summary = WeekSummarySchema.parse({
     version: 1,
     generatedAt: now.toISOString(),
     timeZone: validTimeZone(timeZone) ? timeZone : timeZone ?? null,
@@ -941,4 +1203,7 @@ export async function buildWeekSummary(
     contributions: weekContributions(items, days),
     habitCadence: habitCadence(days),
   })
+  return options.includePlanning
+    ? WeekPlanningSummarySchema.parse({ ...summary, planning: deriveWeekPlanning(summary) })
+    : summary
 }

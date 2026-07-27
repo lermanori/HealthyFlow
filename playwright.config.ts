@@ -61,6 +61,7 @@ export default defineConfig({
       port: webPort,
       reuseExistingServer,
       timeout: 30_000,
+      env: { VITE_WEEK_VIEW_ENABLED: 'true' },
     },
   ],
 })

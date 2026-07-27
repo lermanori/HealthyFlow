@@ -355,6 +355,66 @@ export const WeekHabitCadenceSchema = z.object({
   days: z.array(WeekHabitCadenceCellSchema.nullable()).length(7),
 }).strict()
 
+export const WeekPlanningDaySchema = z.object({
+  date: IsoDateSchema,
+  state: z.enum(['open', 'tight', 'overloaded', 'partial', 'unavailable']),
+  knownDemandMinutes: z.number().int().nonnegative(),
+  unknownDurationItemCount: z.number().int().nonnegative(),
+  availableMinutes: z.number().int().nonnegative().nullable(),
+  remainingMinutes: z.number().int().nullable(),
+}).strict()
+
+const WeekPlanningItemChangesSchema = z.object({
+  duration: z.number().int().positive().optional(),
+  startTime: ClockTimeSchema.nullable().optional(),
+  scheduledDate: IsoDateSchema.optional(),
+}).strict().refine(
+  (changes) => Object.keys(changes).length > 0,
+  { message: 'At least one Item change is required' }
+)
+
+export const WeekPlanningActionSchema = z.discriminatedUnion('kind', [
+  z.object({
+    id: z.string(),
+    kind: z.literal('update_item'),
+    label: z.string(),
+    itemId: z.string(),
+    changes: WeekPlanningItemChangesSchema,
+  }).strict(),
+  z.object({
+    id: z.string(),
+    kind: z.literal('select_day'),
+    label: z.string(),
+    date: IsoDateSchema,
+  }).strict(),
+  z.object({
+    id: z.string(),
+    kind: z.literal('open_settings'),
+    label: z.string(),
+  }).strict(),
+])
+
+export const WeekPlanningDecisionSchema = z.object({
+  id: z.string(),
+  type: z.enum(['capacity_unavailable', 'missing_duration', 'capacity_overload', 'schedule_conflict', 'rollover']),
+  severity: z.enum(['high', 'medium', 'low']),
+  score: z.number().int().nonnegative(),
+  title: z.string(),
+  rationale: z.string(),
+  date: IsoDateSchema.nullable(),
+  itemIds: z.array(z.string()),
+  evidence: z.array(z.object({
+    label: z.string(),
+    value: z.string(),
+  }).strict()),
+  actions: z.array(WeekPlanningActionSchema).min(1).max(3),
+}).strict()
+
+export const WeekPlanningSchema = z.object({
+  days: z.array(WeekPlanningDaySchema).length(7),
+  decisions: z.array(WeekPlanningDecisionSchema),
+}).strict()
+
 export const WeekSummaryDaySchema = z.object({
   date: IsoDateSchema,
   dateMode: z.enum(['past', 'today', 'future', 'unknown']),
@@ -392,6 +452,10 @@ export const WeekSummarySchema = z.object({
   habitCadence: z.array(WeekHabitCadenceSchema),
 }).strict()
 
+export const WeekPlanningSummarySchema = WeekSummarySchema.extend({
+  planning: WeekPlanningSchema,
+}).strict()
+
 export type PlanningWindow = z.infer<typeof PlanningWindowSchema>
 export type DaySummaryItem = z.infer<typeof DaySummaryItemSchema>
 export type DaySummaryCalendarEvent = z.infer<typeof DaySummaryCalendarEventSchema>
@@ -400,6 +464,8 @@ export type DaySummaryWeightEntry = z.infer<typeof DaySummaryWeightEntrySchema>
 export type DaySummaryCapacity = z.infer<typeof DaySummaryCapacitySchema>
 export type DaySummary = z.infer<typeof DaySummarySchema>
 export type WeekSummary = z.infer<typeof WeekSummarySchema>
+export type WeekPlanningSummary = z.infer<typeof WeekPlanningSummarySchema>
+export type WeekPlanningDecision = z.infer<typeof WeekPlanningDecisionSchema>
 export type WeekSummaryDay = z.infer<typeof WeekSummaryDaySchema>
 export type WeekDomain = z.infer<typeof WeekDomainSchema>
 

@@ -128,4 +128,23 @@ describe('WeekSummary API', () => {
 
     expect(invalid.status).toBe(400)
   })
+
+  it('opts into the backward-safe planning contract', async () => {
+    mockedBuildWeekSummary.mockResolvedValue({
+      version: 1,
+      planning: { days: [], decisions: [] },
+    } as any)
+
+    const response = await request(app)
+      .get('/api/week-summary?date=2026-07-29&includePlanning=1')
+      .set('Authorization', TOKEN)
+
+    expect(response.status).toBe(200)
+    expect(mockedBuildWeekSummary).toHaveBeenCalledWith(
+      USER_ID,
+      '2026-07-29',
+      null,
+      { includePlanning: true }
+    )
+  })
 })

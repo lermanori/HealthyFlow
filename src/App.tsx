@@ -19,6 +19,7 @@ import TermsOfServicePage from './pages/TermsOfServicePage'
 import LoadingSpinner from './components/LoadingSpinner'
 import OfflineNotification from './components/OfflineNotification'
 import { ModuleAvailability, OptionalModule, useSettings } from './hooks/useSettings'
+import { WEEK_VIEW_ENABLED } from './featureFlags'
 
 export interface ModuleNoticeState {
   moduleNotice: {
@@ -111,7 +112,7 @@ function App() {
         <Routes>
           <Route path="/" element={<TodayPage />} />
           <Route path="/add" element={<AddItemPage />} />
-          <Route path="/week" element={<WeekViewPage />} />
+          <Route path="/week" element={WEEK_VIEW_ENABLED ? <WeekViewPage /> : <Navigate to="/" replace />} />
           <Route path="/talk" element={<AssistantPage />} />
           <Route path="/demo" element={<DemoPage />} />
           <Route path="/assistant" element={<AssistantRedirect />} />

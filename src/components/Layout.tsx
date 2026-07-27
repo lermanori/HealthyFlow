@@ -24,6 +24,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useSettings } from '../hooks/useSettings'
 import type { ModuleNoticeState } from '../App'
 import { useModalFocus } from '../hooks/useModalFocus'
+import { WEEK_VIEW_ENABLED } from '../featureFlags'
 
 interface LayoutProps {
   children: ReactNode
@@ -84,7 +85,7 @@ export default function Layout({ children }: LayoutProps) {
   const navigation = [
     { name: 'Today', href: '/', icon: Home },
     { name: 'Talk', href: '/talk', icon: MessageCircle },
-    { name: 'Week View', href: '/week', icon: Calendar },
+    ...(WEEK_VIEW_ENABLED ? [{ name: 'Week View', href: '/week', icon: Calendar }] : []),
     ...(modules.calories === 'enabled' ? [{ name: 'Calories', href: '/calories', icon: Utensils }] : []),
     ...(modules.achievements === 'enabled' ? [{ name: 'Achievements', href: '/achievements', icon: Award }] : []),
     ...(modules.workouts === 'enabled' ? [{ name: 'Workouts', href: '/workouts', icon: Dumbbell }] : []),

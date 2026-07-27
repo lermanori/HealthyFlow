@@ -16,14 +16,16 @@ import {
 } from '../../backend/src/daily-context-schema'
 import {
   DaySummarySchema,
-  WeekSummarySchema,
+  WeekPlanningSummarySchema,
   isDaySummaryItemAddressed,
   type DaySummary,
   type PlanningWindow,
+  type WeekPlanningDecision,
+  type WeekPlanningSummary,
   type WeekSummary,
 } from '../../backend/src/day-summary-schema'
 
-export type { DailyContext, DailySignal, DailySignalType, DaySummary, PlanningWindow, WeekSummary }
+export type { DailyContext, DailySignal, DailySignalType, DaySummary, PlanningWindow, WeekPlanningDecision, WeekPlanningSummary, WeekSummary }
 export { isDaySummaryItemAddressed }
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 // const API_BASE_URL = 'https://healthyflow-production.up.railway.app/api'
@@ -521,9 +523,9 @@ export const taskService = {
 
 // Summary Service
 export const summaryService = {
-  getWeeklySummary: async (date: string): Promise<WeekSummary> => {
-    const response = await api.get('/week-summary', { params: { date } })
-    return WeekSummarySchema.parse(response.data)
+  getWeeklySummary: async (date: string): Promise<WeekPlanningSummary> => {
+    const response = await api.get('/week-summary', { params: { date, includePlanning: '1' } })
+    return WeekPlanningSummarySchema.parse(response.data)
   },
 }
 

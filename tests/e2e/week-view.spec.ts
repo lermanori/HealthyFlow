@@ -367,3 +367,61 @@ test('All Week communicates complete, partial, and unavailable capacity without 
   await expect(page.getByText('Capacity unavailable').first()).toBeVisible()
   await expect(page.getByText(/weekly capacity/i)).toHaveCount(0)
 })
+
+test('decision-first planning applies an exact Item change', async ({ page }) => {
+  const startDate = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const itemId = 'needs-estimate'
+  const item = daySummaryItem({
+    id: itemId,
+    title: 'Draft proposal',
+    scheduledDate: startDate,
+    duration: null,
+  })
+  const summary = weekSummaryFixture({
+    startDate,
+    itemsByDate: { [startDate]: [item] },
+    planningDecisions: [{
+      id: `missing-duration:${itemId}:${startDate}`,
+      type: 'missing_duration',
+      severity: 'high',
+      score: 100,
+      title: '"Draft proposal" needs a time estimate',
+      rationale: 'Until this Item has a duration, the day’s capacity is only partly known.',
+      date: startDate,
+      itemIds: [itemId],
+      evidence: [
+        { label: 'Day', value: startDate },
+        { label: 'Current estimate', value: 'Unknown' },
+      ],
+      actions: [{
+        id: `duration-30:${itemId}`,
+        kind: 'update_item',
+        label: 'Set 30 minutes',
+        itemId,
+        changes: { duration: 30 },
+      }],
+    }],
+  })
+  let updateBody: unknown = null
+
+  await page.route('**/api/week-summary?*', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify(summary),
+  }))
+  await page.route(`**/api/tasks/${itemId}`, async (route) => {
+    updateBody = route.request().postDataJSON()
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ ...item, duration: 30 }),
+    })
+  })
+
+  await page.goto('/app/week')
+  await expect(page.getByRole('heading', { name: /needs a time estimate/i })).toBeVisible()
+  await page.getByRole('button', { name: 'Set 30 minutes' }).click()
+
+  await expect.poll(() => updateBody).toEqual({ duration: 30 })
+  await expect(page.getByText('Weekly plan updated')).toBeVisible()
+})

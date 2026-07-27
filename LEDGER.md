@@ -1,3 +1,9 @@
+### 2026-07-27 13:59 — `codex/148-week-planning-workspace`
+
+Built the decision-first Week planner from the approved Variant B direction. WeekSummary can now opt into deterministic capacity, estimate, rollover, and collision decisions with evidence and revalidated Item actions; the real Week workspace presents one decision at a time above the selected-day agenda across desktop and mobile. The completed surface is temporarily hidden behind `VITE_WEEK_VIEW_ENABLED`, removing it from navigation and redirecting direct visits to Today while preserving implementation and regression coverage for later re-enablement.
+
+---
+
 ### 2026-07-27 12:08 — `codex/148-week-planning-workspace`
 
 Clarified the boundary between Today and Week after preview review. Selecting Today in Week now shows a compact, read-only planning handoff containing only unresolved non-Habit Items and Calendar obligations, keeps Habits in cadence, omits completed execution history, and links directly to the full Today workspace. Selector, interaction, and six responsive theme baselines cover the distinction.
