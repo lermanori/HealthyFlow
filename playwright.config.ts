@@ -61,9 +61,12 @@ export default defineConfig({
       port: webPort,
       reuseExistingServer,
       timeout: 30_000,
-      // Production keeps Week hidden by default. E2E explicitly enables the
-      // mature route so its existing behavior remains covered behind the flag.
-      env: { VITE_WEEK_VIEW_ENABLED: 'true' },
+      // Production keeps opt-in features hidden by default. E2E enables them
+      // so their existing behavior remains covered behind the release flags.
+      env: {
+        VITE_WEEK_VIEW_ENABLED: 'true',
+        VITE_DAILY_SIGNALS_ENABLED: 'true',
+      },
     },
   ],
 })
