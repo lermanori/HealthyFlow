@@ -81,7 +81,7 @@ test('Week loading state visual', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await mockWeek(page, 'midnight', 'loading')
   await page.goto('/app/week', { waitUntil: 'domcontentloaded' })
-  await expect(page.getByRole('status', { name: 'Loading' })).toBeVisible()
+  await expect(page.getByRole('status', { name: 'Loading week' })).toBeVisible()
   await expect(page.locator('#loading-screen')).toBeHidden()
   await expect(page).toHaveScreenshot('week-midnight-mobile-loading.png', { animations: 'disabled', fullPage: true })
 })

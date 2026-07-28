@@ -62,13 +62,26 @@
   --surface-overlay: 255 255 255;
   --text-primary: 15 23 42;
   --text-secondary: 51 65 85;
-  --text-muted: 100 116 139;
+  /* Was 100 116 139 (slate-500), which lands at 4.38:1 on the light panel
+     surfaces — just under AA, and muted text is mostly 12px so the large-text
+     allowance never applies. Darkened just enough for headroom (5.01:1) rather
+     than dropped to slate-600, which would visibly flatten the muted/secondary
+     distinction. */
+  --text-muted: 92 107 128;
   --text-disabled: 148 163 184;
   --border-default: 226 232 240;
   --border-strong: 203 213 225;
   --action-primary: 8 112 140;
   --action-primary-hover: 14 116 144;
-  --action-accent: 8 112 140;
+  /* Darker than --action-primary on purpose. `accent` is the only token used as
+     BOTH the text colour and the tint behind it (bg-accent/5..20 + text-accent),
+     and on a light ground those two converge: at the old 8 112 140, accent text
+     on bg-accent/15 measured 4.31:1 — under the 4.5 AA floor. Darkening the text
+     side wins more than the tint loses, so every tint step now clears AA
+     (5.32:1 at bg-accent/20, 6.79:1 at bg-accent/5).
+     Solid accent buttons are unaffected in the safe direction: white
+     --action-on-primary gains contrast against a darker fill. */
+  --action-accent: 6 90 112;
   --action-on-primary: 255 255 255;
   --focus-ring: 8 112 140;
   --state-success: 4 120 87;

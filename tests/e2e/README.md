@@ -11,34 +11,109 @@ npx playwright install chromium
 ## Running
 
 ```sh
-npm run test:e2e         # headless (default; 12 tests in ~47s)
+npm run test:e2e         # headless (default; 114 tests, serial, ~6.5 min)
 npm run test:e2e:headed  # visible browser
 OPENAI_API_KEY= npm run test:e2e  # confirm suite works without OpenAI key
 ```
 
+### Run one subject instead of the whole suite
+
+The suite is partitioned into subject projects, so a change to one area can be
+verified against that area alone rather than waiting 6.5 minutes for one result.
+
+```sh
+npm run test:e2e -- --project=today
+```
+
+| Project | Tests | Specs |
+|---|---:|---|
+| `auth` | 5 | auth, onboarding |
+| `today` | 37 | today-workspace, today-anytime-drag, today-date-navigation, day-summary |
+| `items` | 17 | items-add, items-lifecycle, rollover |
+| `habits` | 3 | habits, habit-progress |
+| `health` | 12 | health-workflow, calories-quick-insert, workouts, module-presentation |
+| `talk` | 4 | assistant |
+| `week` | 13 | week-view, week-theme-visual |
+| `platform` | 11 | phase0-reliability, settings-subscription |
+| `visual` | 12 | responsive-visual-system |
+
+114 in total, excluding the `setup` project every subject depends on. Counts come
+from `--list`, not from counting `test(` calls, because several specs parameterise
+over viewports and themes.
+
+The subjects are a strict **partition** — every spec belongs to exactly one, so
+running all projects still runs each test exactly once. `src/utils/e2eProjectPartition.test.ts`
+fails the unit suite if a spec is added without a subject (it would silently stop
+running) or listed under two (it would run twice).
+
+### Parallel workers
+
+`workers: 1` is deliberate — see below. Only these specs mock every response they
+need and never touch the shared test user, so only they are safe to parallelise:
+
+`assistant`, `module-presentation`, `responsive-visual-system`, `today-workspace`,
+`week-theme-visual` (the `HERMETIC` list in `playwright.config.ts`).
+
+```sh
+npm run test:e2e -- --project=visual --workers=4
+```
+
+Running the DB-backed subjects with `--workers>1` produces failures that look like
+real bugs but are workers clobbering one another's test user.
+
+### Ports
+
+`reuseExistingServer` is true unless `HF_TEST_MODE=1` is set **in your shell**, so a
+plain run silently reuses whatever is on 5173/3001 — possibly another checkout's
+code, or a backend not in test mode, in which case `POST /test/reset` 404s and most
+specs fail for reasons unrelated to your change. To get isolated servers:
+
+```sh
+HF_TEST_MODE=1 HF_E2E_WEB_PORT=5299 HF_E2E_API_PORT=3199 npx playwright test
+```
+
+Interrupting a run can leave those servers alive and block the next one:
+
+```sh
+for p in 5299 3199; do lsof -ti tcp:$p | xargs -r kill; done
+```
+
 ## What the suite covers
 
-Six spec files, 12 golden-path tests:
+20 spec files, 87 tests. Listed per spec rather than per test — enumerating every
+test here guarantees the list goes stale.
 
-| Spec | Test | Purpose |
-|------|------|---------|
-| `auth.spec.ts` | Login with seeded credentials | Unauthenticated → authenticated flow |
-| `auth.spec.ts` | Logout persists | Session state cleared correctly |
-| `auth.spec.ts` | Session persists across reload | storageState survives page reload |
-| `habits.spec.ts` | Habit completion isolation | Per-day completion does not bleed to tomorrow |
-| `items-add.spec.ts` | Add task via UI | Task creation works end-to-end |
-| `items-add.spec.ts` | Category options closed set | Categories match CONTEXT.md definition |
-| `items-lifecycle.spec.ts` | Complete task persists | Completion state survives reload |
-| `items-lifecycle.spec.ts` | Edit task | Title edits appear on Today |
-| `items-lifecycle.spec.ts` | Delete task | Deletion removes from UI |
-| `rollover.spec.ts` | Untimed rollover | Incomplete tasks carry forward to today |
-| `week-view.spec.ts` | Week view task placement | Tasks appear under correct day columns |
+| Spec | Tests | Purpose |
+|------|------:|---------|
+| `auth.spec.ts` | 3 | Login, logout, session persistence across reload |
+| `onboarding.spec.ts` | 2 | First-run onboarding complete / skip |
+| `items-add.spec.ts` | 3 | Add an Item; categories match the closed set in CONTEXT.md |
+| `items-lifecycle.spec.ts` | 13 | Complete, edit, delete, reschedule — persisted across reload |
+| `today-workspace.spec.ts` | 15 | The Today surface: timeline, records, summary strip |
+| `today-anytime-drag.spec.ts` | 6 | Anytime backlog ↔ clock drag, and its persistence |
+| `today-date-navigation.spec.ts` | 4 | Moving across days keeps the right day's data |
+| `day-summary.spec.ts` | 2 | `/day-summary` shape against full fixtures |
+| `rollover.spec.ts` | 1 | Incomplete untimed Tasks carry forward |
+| `habits.spec.ts` | 2 | Per-day completion does not bleed into tomorrow |
+| `habit-progress.spec.ts` | 1 | Target-based Habits and progress chunks |
+| `health-workflow.spec.ts` | 6 | The Health workspace end to end |
+| `calories-quick-insert.spec.ts` | 1 | Quick-insert into the Calorie log |
+| `workouts.spec.ts` | 3 | Workout sessions, plans, history |
+| `module-presentation.spec.ts` | 2 | Hiding a Health section removes nav / Add targets, keeps data |
+| `assistant.spec.ts` | 4 | Talk: parse, confirm, cancel, conversations |
+| `settings-subscription.spec.ts` | 1 | Credits and the subscribe / top-up contact flow |
+| `phase0-reliability.spec.ts` | 10 | Error states, empty states, a11y smoke |
+| `week-view.spec.ts` | 5 | Week placement and habit consistency (flag forced on) |
+| `week-theme-visual.spec.ts` | 3 | Screenshot diffs for Midnight / White themes |
+
+Week is off in production (`VITE_WEEK_VIEW_ENABLED` unset). `playwright.config.ts`
+forces the flag on for the suite so the route stays covered while it is hidden.
 
 ## What the suite intentionally does NOT cover
 
 - **AI correctness**: AI call outputs are stubbed (see below); this suite does not test OpenAI API calls or prompt quality. That belongs in the `ai-harness` layer.
 - **Performance**: No load testing, no timing assertions.
-- **Visual regression**: No screenshot diffs, no CSS assertion.
+- **Visual regression beyond theming**: only `week-theme-visual.spec.ts` and the `today-workspace` snapshots do screenshot diffs; there is no general visual-regression net.
 - **Parallelism**: All specs run serially (workers: 1) because they share one test user and reset it, so concurrent workers clobber each other. A follow-up to re-enable parallelism is per-worker test users.
 
 ## Test infrastructure
