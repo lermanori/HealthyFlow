@@ -5,6 +5,7 @@ import {
   formatRelativeDate,
   formatScheduleHeading,
   formatSelectedDateAnnouncement,
+  getDaySwipeDirection,
   getDateRelation,
   getWeekDates,
   getWeekNavigationIndex,
@@ -73,5 +74,18 @@ describe('shared week policy', () => {
     assert.equal(getWeekNavigationIndex(4, 'Home'), 0)
     assert.equal(getWeekNavigationIndex(1, 'End'), 6)
     assert.equal(getWeekNavigationIndex(2, 'Enter'), null)
+  })
+})
+
+describe('mobile day swipe intent', () => {
+  it('maps deliberate horizontal gestures to adjacent days', () => {
+    assert.equal(getDaySwipeDirection(-90, 8), 'next')
+    assert.equal(getDaySwipeDirection(90, -8), 'previous')
+  })
+
+  it('rejects short, vertical, and diagonal gestures', () => {
+    assert.equal(getDaySwipeDirection(-60, 0), null)
+    assert.equal(getDaySwipeDirection(20, 100), null)
+    assert.equal(getDaySwipeDirection(80, 70), null)
   })
 })
