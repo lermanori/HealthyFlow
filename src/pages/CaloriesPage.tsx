@@ -335,7 +335,7 @@ export default function CaloriesPage() {
             <Activity className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-ink">Calorie Log</h1>
+            <h1 className="text-2xl font-semibold tracking-tight text-ink">Nutrition</h1>
             <p className="mt-1 max-w-xl text-sm text-ink-muted">
               Understand the selected day first, then log or correct the details.
             </p>

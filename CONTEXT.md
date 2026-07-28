@@ -51,6 +51,16 @@ A positive amount recorded against one materialized Habit instance, with an opti
 
 The closed set of category values the UI offers when creating items: `health`, `work`, `personal`, `fitness`, `grocery`, `nutrition`. AI-generated items must pick from this set; other values get rejected at the parser boundary.
 
+### Module presentation
+
+**Health**:
+The presentation parent for the optional Nutrition, Workouts, and Progress sections. Health appears in global navigation when at least one section is enabled and disappears when all three are hidden. Hiding a section removes its navigation, Add targets, and summaries but never deletes its records; re-enabling restores the same data.
+
+**Module status semantics**:
+Presentation metadata declares a section as a `tracker`, `goal`, or `hybrid`. Nutrition and Workouts are trackers, so an unrecorded day is neutral rather than a failed goal. Progress is hybrid: measurements can be tracked without targets, while individual definitions may optionally include a target.
+
+Today and Talk remain the primary daily destinations. Week remains the `/week` planning view behind its release flag; there is no user-facing Time module. Existing Health routes remain `/calories`, `/workouts`, and `/achievements` even though their display labels are Nutrition, Workouts, and Progress.
+
 ### Calorie tracking
 
 **Calorie entry**:
@@ -63,7 +73,7 @@ Shorthand for protein, carbs, and fat (all in grams) on a calorie entry. All thr
 **Weight entry**:
 A kg-only body-weight measurement for a specific `date`. Users may skip days, but can record at most one weight entry per date; the UI emphasizes the latest entry, latest-vs-previous delta, and a trend graph of recent recorded entries. Its own concern, not an `Item`/`Task`/`Habit` — lives in the `weight_entries` table and is surfaced inside the `/calories` page.
 
-The `/calories` page and its nav entry are gated on the `calorieIntake` user setting (see #47); when off, neither the route nor the nav item appears.
+The `/calories` Nutrition section is gated on the `calorieIntake` user setting. When hidden, its Health tab, Add target, and Today summary disappear while existing Calorie entries and Weight entries remain stored.
 
 ### Workout tracking
 
@@ -75,6 +85,11 @@ A reusable, named template containing an ordered list of exercises with optional
 
 **Exercise history**:
 The Recent / Most-used exercise picker built from previously logged Workout sessions. Choosing an exercise from history pre-fills an exercise draft; it does not create a Workout session until the user saves the session.
+
+### Progress tracking
+
+**Achievement definition**:
+A named measurement shown to users in the Progress section. It defines the metric, unit, improvement direction, and an optional target. The internal API and `/achievements` route keep the established Achievement identity even though the presentation label is Progress.
 
 ### AI surfaces
 

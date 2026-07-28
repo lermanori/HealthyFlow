@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import type {
   BeforeCapture,
@@ -9,18 +9,30 @@ import type {
   MovementMode,
   ResponderProvided,
 } from '@hello-pangea/dnd'
-import { CalendarDays, Check, Clock, Flame, GripVertical, MapPin } from 'lucide-react'
+import { Award, CalendarDays, Check, Clock, Dumbbell, Flame, GripVertical, MapPin, RotateCcw, Scale } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { ExternalCalendarEvent, Task, CalorieEntry, HabitItem } from '../services/api'
+import { ExternalCalendarEvent, Task, HabitItem } from '../services/api'
 import TaskCard from './TaskCard'
 import { taskService } from '../services/api'
+import {
+  isSettled,
+  isStamped,
+  timelineClock,
+  timelineHour,
+  type RecordKind,
+  type TimelineRecord,
+} from '../timelineRecords'
 
 interface DayTimelineProps {
   heading?: string
   dateKey: string
   tasks: Task[]
   calendarEvents?: ExternalCalendarEvent[]
-  calorieEntries?: CalorieEntry[]
+  /** Everything on the day that isn't an Item: nutrition, weight, workouts, progress. */
+  records?: TimelineRecord[]
+  /** Current hour (0–23) when viewing today, else null. Drives the now-line. */
+  nowHour?: number | null
   onTasksReorder: (tasks: Task[]) => void
   onTasksPersisted: () => void
   onCompleteTask: (id: string) => void
@@ -37,6 +49,17 @@ interface DragSnapshot {
   tasks: Task[]
   anytimeIds: string[]
   mode: MovementMode
+}
+
+/** A single row inside one hour, before draggable indices are assigned. */
+interface SlotRow {
+  key: string
+  /** Wall-clock time used to order rows within the hour. */
+  clock: string
+  /** True for rows that belong above the now-line in the current hour. */
+  settled: boolean
+  draggable: boolean
+  render: (dragIndex: number) => ReactNode
 }
 
 // ponytail: age badge for the anytime shelf — how stale is this untimed item.
@@ -122,13 +145,13 @@ function timedTaskBlockHeight(task: Task): number {
   return task.type === 'habit' ? Math.max(height, MIN_TIMED_HABIT_HEIGHT_PX) : height
 }
 
-function slotHeightForContent(tasks: Task[], events: ExternalCalendarEvent[], calories: CalorieEntry[], isCompacted: boolean): number {
+function slotHeightForContent(tasks: Task[], events: ExternalCalendarEvent[], records: TimelineRecord[], isCompacted: boolean): number {
   if (isCompacted) return COMPACT_EMPTY_SLOT_HEIGHT_PX
 
   const taskHeights = tasks.map(timedTaskBlockHeight)
   const eventHeights = events.map(event => timedBlockHeight(eventDurationMinutes(event)))
-  const calorieHeights = calories.map(() => MIN_TIMED_TASK_HEIGHT_PX)
-  const itemHeights = [...eventHeights, ...taskHeights, ...calorieHeights]
+  const recordHeights = records.map(() => MIN_TIMED_TASK_HEIGHT_PX)
+  const itemHeights = [...eventHeights, ...taskHeights, ...recordHeights]
   if (itemHeights.length === 0) return HOUR_SLOT_HEIGHT_PX
 
   const contentHeight =
@@ -162,6 +185,16 @@ function localDateKey(date = new Date()): string {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+/**
+ * The Anytime backlog holds only what still needs a decision. An Item leaves it
+ * the moment it earns an hour — by being scheduled, or by being settled. Drag
+ * persistence must use this exact predicate or the drop indices desync from what
+ * is rendered.
+ */
+function isAnytime(task: Task): boolean {
+  return timelineHour(task) === null
 }
 
 function taskDemoId(task: Task): string {
@@ -234,26 +267,102 @@ function CalendarEventBlock({
   )
 }
 
-// ponytail: read-only body row (calorie entry). Second accent hue (rose) so body
-// facts read as distinct from plan rows. Not draggable, not completable.
-function CalorieEntryBlock({ entry }: { entry: CalorieEntry }) {
+// Read-only record rows. Each module gets its own accent hue so the day reads as
+// colour-coded at a glance; habit progress reuses the plan hue (cyan) because a
+// chunk is you doing the thing you planned, not a measurement of your body.
+const RECORD_STYLE: Record<RecordKind, { icon: typeof Flame; accent: string; chip: string }> = {
+  nutrition: {
+    icon: Flame,
+    accent: 'border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20',
+    chip: 'border-rose-500/30 bg-rose-500/20 text-rose-300',
+  },
+  weight: {
+    icon: Scale,
+    accent: 'border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20',
+    chip: 'border-sky-500/30 bg-sky-500/20 text-sky-300',
+  },
+  workout: {
+    icon: Dumbbell,
+    accent: 'border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20',
+    chip: 'border-violet-500/30 bg-violet-500/20 text-violet-300',
+  },
+  progress: {
+    icon: Award,
+    accent: 'border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20',
+    chip: 'border-amber-500/30 bg-amber-500/20 text-amber-300',
+  },
+  'habit-progress': {
+    icon: RotateCcw,
+    accent: 'border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20',
+    chip: 'border-cyan-500/30 bg-cyan-500/20 text-cyan-300',
+  },
+}
+
+function TimelineRecordBlock({
+  record,
+  onHabitSelect,
+}: {
+  record: TimelineRecord
+  onHabitSelect?: (habitId: string) => void
+}) {
+  const style = RECORD_STYLE[record.kind]
+  const Icon = style.icon
+  const className = `group flex w-full min-w-0 items-center gap-2 overflow-hidden rounded-lg border p-2.5 text-left transition-colors ${style.accent}`
+
+  const body = (
+    <>
+      <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border ${style.chip}`}>
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span className="truncate text-sm font-medium text-ink">{record.title}</span>
+          <span className="inline-flex shrink-0 items-center gap-1 text-[10px] tabular-nums text-ink-muted">
+            <Clock className="h-3 w-3" />
+            {record.time}
+            {record.stamped && <span className="opacity-60">logged</span>}
+          </span>
+        </span>
+        <span className="block truncate text-xs text-ink-muted">{record.detail}</span>
+      </span>
+    </>
+  )
+
+  // A progress chunk has no module page to go to — it reopens its Habit's
+  // check-in sheet, which is where the rest would be logged.
+  if (record.habitId) {
+    return (
+      <button
+        type="button"
+        onClick={() => onHabitSelect?.(record.habitId as string)}
+        data-testid="timeline-record"
+        data-record-kind={record.kind}
+        className={className}
+      >
+        {body}
+      </button>
+    )
+  }
+
   return (
-    <div className="group relative flex min-w-0 items-center gap-2 overflow-hidden rounded-lg border border-rose-500/30 bg-rose-500/10 p-2.5">
-      <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border border-rose-500/30 bg-rose-500/20 text-rose-300">
-        <Flame className="h-3.5 w-3.5" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <h3 className="truncate text-sm font-medium text-rose-100">{entry.name}</h3>
-        <div className="flex items-center gap-2 text-xs text-rose-300/80">
-          {entry.time && (
-            <span className="inline-flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              {entry.time}
-            </span>
-          )}
-          <span>{entry.calories} cal</span>
-        </div>
-      </div>
+    <Link
+      to={record.href ?? '#'}
+      data-testid="timeline-record"
+      data-record-kind={record.kind}
+      className={className}
+    >
+      {body}
+    </Link>
+  )
+}
+
+function NowMarker() {
+  return (
+    <div className="relative flex items-center gap-2 py-0.5" data-testid="timeline-now-marker">
+      <span className="rounded-full bg-cyan-400 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-black">
+        Now
+      </span>
+      <span className="h-px flex-1 bg-cyan-400/60" />
     </div>
   )
 }
@@ -287,7 +396,8 @@ export default function DayTimeline({
   dateKey,
   tasks,
   calendarEvents = [],
-  calorieEntries = [],
+  records = [],
+  nowHour = null,
   onTasksReorder,
   onTasksPersisted,
   onCompleteTask,
@@ -307,9 +417,9 @@ export default function DayTimeline({
   const planGridRef = useRef<HTMLDivElement | null>(null)
   const dragSnapshotRef = useRef<DragSnapshot | null>(null)
 
-  // Split: scheduled tasks go into hour-slot buckets, untimed go into anytime
-  const scheduled = tasks.filter(t => t.startTime)
-  const anytime = tasks.filter(t => !t.startTime)
+  // Split: anything with an hour goes into the clock, the rest into Anytime.
+  const scheduled = tasks.filter(task => !isAnytime(task))
+  const anytime = tasks.filter(isAnytime)
   const incompleteAnytime = anytime.filter(task => !task.completed)
   const anytimeWithKnownDuration = incompleteAnytime.filter(
     task => Number.isFinite(task.duration) && (task.duration ?? 0) > 0
@@ -341,11 +451,14 @@ export default function DayTimeline({
   const slotBuckets: Record<string, Task[]> = {}
   for (const slot of HOUR_SLOTS) slotBuckets[slot] = []
   for (const t of scheduled) {
-    const hour = Math.min(23, Math.max(6, parseInt(t.startTime as string, 10)))
-    slotBuckets[`${String(hour).padStart(2, '0')}:00`].push(t)
+    slotBuckets[timelineHour(t) as string].push(t)
   }
   for (const slot of HOUR_SLOTS) {
-    slotBuckets[slot].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    // Order within an hour is by minute, not by kind or creation order — a 07:05
+    // record must read above a 07:45 habit.
+    slotBuckets[slot].sort((a, b) =>
+      timelineClock(a).localeCompare(timelineClock(b)) || a.createdAt.localeCompare(b.createdAt)
+    )
   }
 
   const calendarBuckets: Record<string, ExternalCalendarEvent[]> = {}
@@ -357,18 +470,23 @@ export default function DayTimeline({
     const clampedHour = Math.min(23, Math.max(6, hour))
     calendarBuckets[`${String(clampedHour).padStart(2, '0')}:00`].push(event)
   }
-  // Read-only calorie rows bucket by their logged hour. Entries without a time are dropped
-  // (nowhere to place them on a clock); degrade gracefully rather than inventing a slot.
-  const calorieBuckets: Record<string, CalorieEntry[]> = {}
-  for (const slot of HOUR_SLOTS) calorieBuckets[slot] = []
-  for (const entry of calorieEntries) {
-    if (!entry.time) continue
-    const hour = Math.min(23, Math.max(6, parseInt(entry.time, 10)))
-    calorieBuckets[`${String(hour).padStart(2, '0')}:00`].push(entry)
+  // Read-only record rows bucket by their (server-resolved) logged hour.
+  const recordBuckets: Record<string, TimelineRecord[]> = {}
+  for (const slot of HOUR_SLOTS) recordBuckets[slot] = []
+  for (const record of records) {
+    recordBuckets[record.hour]?.push(record)
+  }
+  for (const slot of HOUR_SLOTS) {
+    recordBuckets[slot].sort((a, b) => a.time.localeCompare(b.time))
   }
 
-  const hasSlotContent = (slot: string) => slotBuckets[slot].length > 0 || calendarBuckets[slot].length > 0 || calorieBuckets[slot].length > 0
-  const compactedEmptySlots = compactableEmptySlots(HOUR_SLOTS, hasSlotContent)
+  const hasSlotContent = (slot: string) => slotBuckets[slot].length > 0 || calendarBuckets[slot].length > 0 || recordBuckets[slot].length > 0
+  // The current hour never collapses — the now-line has to stay findable on a
+  // quiet afternoon.
+  const compactedEmptySlots = compactableEmptySlots(
+    HOUR_SLOTS,
+    slot => hasSlotContent(slot) || parseInt(slot, 10) === nowHour
+  )
 
   useEffect(() => {
     window.__healthyFlowDemo = {
@@ -396,6 +514,74 @@ export default function DayTimeline({
       delete window.__healthyFlowDemo.moveRolloverTaskToToday
     }
   }, [onTasksPersisted, onTasksReorder, tasks])
+
+  // Reopen a Habit's check-in sheet from one of its progress chunks — a chunk has
+  // no module page to navigate to, and the sheet is where the rest gets logged.
+  const handleHabitSelect = (habitId: string) => {
+    const habit = tasks.find(task => task.id === habitId)
+    if (habit?.type === 'habit') onHabitCheckIn(habit)
+  }
+
+  const renderCalendarRow = (event: ExternalCalendarEvent, index: number) => (
+    <Draggable draggableId={`calendar:${event.id}`} index={index}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+          data-timeline-drag-handle="true"
+          data-timeline-drag-id={`calendar:${event.id}`}
+          className={`min-w-0 ${snapshot.isDragging ? 'opacity-90' : ''}`}
+          style={{
+            ...provided.draggableProps.style,
+            height: timedBlockHeight(eventDurationMinutes(event)),
+          }}
+        >
+          <CalendarEventBlock event={event} onComplete={onCalendarEventComplete} />
+        </div>
+      )}
+    </Draggable>
+  )
+
+  const renderTaskRow = (task: Task, index: number) => (
+    <Draggable draggableId={task.id} index={index}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          data-testid="timeline-draggable-task"
+          data-demo-id={taskDemoId(task)}
+          data-timeline-drag-id={task.id}
+          data-stamped={isStamped(task) ? 'true' : 'false'}
+          className="relative flex min-h-0 min-w-0 gap-1.5"
+          style={{
+            ...provided.draggableProps.style,
+            height: timedTaskBlockHeight(task),
+          }}
+        >
+          <TaskDragGrip dragHandleProps={provided.dragHandleProps} label={`Move ${task.title}`} compact />
+          <TaskCard
+            task={task}
+            onComplete={onCompleteTask}
+            onUncomplete={onUncompleteTask}
+            onEdit={onEditTask}
+            onDelete={onDeleteTask}
+            onHabitCheckIn={onHabitCheckIn}
+            isDragging={snapshot.isDragging || draggedTaskId === task.id}
+            compact
+            className="h-full min-w-0 flex-1"
+          />
+          {isStamped(task) && (
+            // An untimed Item only has an hour because it was settled — say when,
+            // or the timeline asserts a time the Item never actually had.
+            <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-cyan-500/30 bg-cyan-500/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-cyan-300">
+              logged {timelineClock(task)}
+            </span>
+          )}
+        </div>
+      )}
+    </Draggable>
+  )
 
   const findDraggable = (id: string): HTMLElement | null => {
     const root = planGridRef.current
@@ -520,8 +706,9 @@ export default function DayTimeline({
       return
     }
 
-    const originalScheduled = originalTasks.filter(item => item.startTime)
-    const originalAnytime = originalTasks.filter(item => !item.startTime)
+    // Must match how the Anytime list is rendered, or drop indices desync.
+    const originalScheduled = originalTasks.filter(item => !isAnytime(item))
+    const originalAnytime = originalTasks.filter(isAnytime)
     const zone = destination.droppableId
     let updated: Task | null = null
     let focusId = taskId
@@ -778,10 +965,53 @@ export default function DayTimeline({
               {HOUR_SLOTS.map(slot => {
                 const slotTasks = slotBuckets[slot]
                 const slotCalendarEvents = calendarBuckets[slot]
-                const slotCalories = calorieBuckets[slot]
-                const hasContent = slotTasks.length > 0 || slotCalendarEvents.length > 0 || slotCalories.length > 0
+                const slotRecords = recordBuckets[slot]
+                const hasContent = slotTasks.length > 0 || slotCalendarEvents.length > 0 || slotRecords.length > 0
                 const isCompacted = compactedEmptySlots.has(slot)
-                const slotHeight = slotHeightForContent(slotTasks, slotCalendarEvents, slotCalories, isCompacted)
+                const isCurrentHour = parseInt(slot, 10) === nowHour
+                const slotHeight = slotHeightForContent(slotTasks, slotCalendarEvents, slotRecords, isCompacted)
+
+                // One ordered list per hour, interleaved by minute so a 07:05
+                // record reads above a 07:45 habit. Draggable rows must receive
+                // contiguous indices, so they are numbered after ordering.
+                const slotRows: SlotRow[] = [
+                  ...slotCalendarEvents.map((event): SlotRow => ({
+                    key: `calendar:${event.id}`,
+                    clock: event.localStartTime ?? slot,
+                    settled: false,
+                    draggable: true,
+                    render: (index) => renderCalendarRow(event, index),
+                  })),
+                  ...slotTasks.map((task): SlotRow => ({
+                    key: task.id,
+                    clock: timelineClock(task),
+                    // In the current hour, what is already settled belongs above
+                    // the now-line even though its minute may be later.
+                    settled: isStamped(task) || isSettled(task),
+                    draggable: true,
+                    render: (index) => renderTaskRow(task, index),
+                  })),
+                  ...slotRecords.map((record): SlotRow => ({
+                    key: record.id,
+                    clock: record.time,
+                    settled: true,
+                    draggable: false,
+                    render: () => <TimelineRecordBlock record={record} onHabitSelect={handleHabitSelect} />,
+                  })),
+                ].sort((a, b) => a.clock.localeCompare(b.clock))
+
+                // The now-line cuts *through* the current hour rather than sitting
+                // between hours, so a thing done at 10:05 reads as behind you at 10:30.
+                const settledCount = slotRows.filter(row => row.settled).length
+                const ordered = isCurrentHour
+                  ? [...slotRows.filter(row => row.settled), ...slotRows.filter(row => !row.settled)]
+                  : slotRows
+
+                let dragCursor = 0
+                const renderedRows = ordered.map(row => {
+                  const index = row.draggable ? dragCursor++ : -1
+                  return <Fragment key={row.key}>{row.render(index)}</Fragment>
+                })
 
                 return (
                   <Droppable droppableId={slot} key={slot}>
@@ -809,58 +1039,9 @@ export default function DayTimeline({
                         </span>
 
                         <div className="relative z-10 min-w-0 flex-1 space-y-1 overflow-visible">
-                          {slotCalendarEvents.map((event, index) => (
-                            <Draggable key={event.id} draggableId={`calendar:${event.id}`} index={index}>
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  {...provided.dragHandleProps}
-                                  data-timeline-drag-handle="true"
-                                  data-timeline-drag-id={`calendar:${event.id}`}
-                                  className={`min-w-0 ${snapshot.isDragging ? 'opacity-90' : ''}`}
-                                  style={{
-                                    ...provided.draggableProps.style,
-                                    height: timedBlockHeight(eventDurationMinutes(event)),
-                                  }}
-                                >
-                                  <CalendarEventBlock event={event} onComplete={onCalendarEventComplete} />
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {slotTasks.map((task, index) => (
-                            <Draggable key={task.id} draggableId={task.id} index={slotCalendarEvents.length + index}>
-                              {(provided, snapshot) => (
-                                <div
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  data-testid="timeline-draggable-task"
-                                  data-demo-id={taskDemoId(task)}
-                                  data-timeline-drag-id={task.id}
-                                  className="flex min-h-0 min-w-0 gap-1.5"
-                                  style={{
-                                    ...provided.draggableProps.style,
-                                    height: timedTaskBlockHeight(task),
-                                  }}
-                                >
-                                  <TaskDragGrip dragHandleProps={provided.dragHandleProps} label={`Move ${task.title}`} compact />
-                                  <TaskCard
-                                    task={task}
-                                    onComplete={onCompleteTask}
-                                    onUncomplete={onUncompleteTask}
-                                    onEdit={onEditTask}
-                                    onDelete={onDeleteTask}
-                                    onHabitCheckIn={onHabitCheckIn}
-                                    isDragging={snapshot.isDragging || draggedTaskId === task.id}
-                                    compact
-                                    className="h-full min-w-0 flex-1"
-                                  />
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
-                          {slotCalories.map(entry => <CalorieEntryBlock key={entry.id} entry={entry} />)}
+                          {isCurrentHour ? renderedRows.slice(0, settledCount) : renderedRows}
+                          {isCurrentHour && <NowMarker />}
+                          {isCurrentHour && renderedRows.slice(settledCount)}
                           {provided.placeholder}
                           {snapshot.isDraggingOver && slotTasks.length === 0 && (
                             <div className="px-1 py-1 text-xs text-blue-400">Drop to schedule at {formatHour(slot)}</div>

@@ -17,10 +17,23 @@ export const HabitTargetSchema = z.object({
   unit: z.enum(['minutes', 'reps', 'count']),
 }).strict()
 
+/**
+ * One recorded chunk of progress against a Habit instance. `loggedTime` is the
+ * chunk's creation time resolved to the user's timezone — a partial Habit has no
+ * `completed_at`, so its chunks are the only honest record of when it happened.
+ */
+export const HabitProgressChunkSchema = z.object({
+  id: z.string(),
+  amount: z.number().positive(),
+  note: z.string().nullable(),
+  loggedTime: ClockTimeSchema.nullable(),
+}).strict()
+
 export const HabitInfoSchema = z.object({
   target: HabitTargetSchema.nullable(),
   outcome: z.enum(['pending', 'partial', 'completed', 'failed']),
   progressTotal: z.number().nonnegative(),
+  chunks: z.array(HabitProgressChunkSchema).default([]),
 }).strict()
 
 export const DaySummaryItemSchema = z.object({
@@ -45,6 +58,13 @@ export const DaySummaryItemSchema = z.object({
   googleEventId: z.string().nullable(),
   syncedToGoogle: z.boolean(),
   googleSyncStatus: z.enum(['pending', 'synced', 'skipped', 'failed']),
+  /**
+   * Local wall-clock time at which this item was settled, or null while it is
+   * still open. Derived from `completed_at ?? updated_at`, because `completed_at`
+   * is only written for a `completed` outcome — a Habit marked Not done has none.
+   * This is what lets an untimed item earn a place on the clock.
+   */
+  resolvedTime: ClockTimeSchema.nullable().default(null),
   habitInfo: HabitInfoSchema.optional(),
 }).strict()
 
@@ -79,6 +99,8 @@ export const DaySummaryCalorieEntrySchema = z.object({
   quantity: z.string().nullable(),
   createdAt: z.string().nullable(),
   updatedAt: z.string().nullable(),
+  /** Local time this was recorded. Falls back for entries with no explicit `time`. */
+  loggedTime: ClockTimeSchema.nullable().default(null),
 }).strict()
 
 export const DaySummaryWeightEntrySchema = z.object({
@@ -87,6 +109,8 @@ export const DaySummaryWeightEntrySchema = z.object({
   weightKg: z.number().positive(),
   createdAt: z.string().nullable(),
   updatedAt: z.string().nullable(),
+  /** Weight entries carry a date only, so the clock position is always inferred. */
+  loggedTime: ClockTimeSchema.nullable().default(null),
 }).strict()
 
 export const DaySummaryWorkoutExerciseSchema = z.object({
@@ -111,6 +135,8 @@ export const DaySummaryWorkoutSessionSchema = z.object({
   exercises: z.array(DaySummaryWorkoutExerciseSchema),
   createdAt: z.string(),
   updatedAt: z.string(),
+  /** Workout sessions carry a date only, so the clock position is always inferred. */
+  loggedTime: ClockTimeSchema.nullable().default(null),
 }).strict()
 
 export const CapacityReasonCodeSchema = z.enum([
@@ -289,6 +315,27 @@ export const WorkoutSummarySchema = z.object({
   sessions: z.array(DaySummaryWorkoutSessionSchema),
 }).strict()
 
+/** An Achievement measurement recorded on this date, flattened with the bits of
+ *  its definition needed to render it without a second lookup. */
+export const DaySummaryAchievementEntrySchema = z.object({
+  id: z.string(),
+  achievementId: z.string(),
+  name: z.string(),
+  unit: z.string(),
+  value: z.number(),
+  supportingValue: z.number().nullable(),
+  supportingUnit: z.string().nullable(),
+  notes: z.string().nullable(),
+  createdAt: z.string().nullable(),
+  /** Achievement entries carry a date only, so the clock position is inferred. */
+  loggedTime: ClockTimeSchema.nullable().default(null),
+}).strict()
+
+export const ProgressSummarySchema = z.object({
+  status: z.enum(['recorded', 'not_recorded', 'disabled', 'unavailable']),
+  entries: z.array(DaySummaryAchievementEntrySchema),
+}).strict()
+
 export const DaySummarySchema = z.object({
   version: z.literal(1),
   date: IsoDateSchema,
@@ -303,6 +350,7 @@ export const DaySummarySchema = z.object({
     habits: z.literal('enabled'),
     nutrition: ModuleAvailabilitySchema,
     workouts: ModuleAvailabilitySchema,
+    achievements: ModuleAvailabilitySchema.default('unavailable'),
   }).strict(),
   items: z.array(DaySummaryItemSchema),
   calendar: CalendarSourceSchema,
@@ -320,6 +368,7 @@ export const DaySummarySchema = z.object({
     habits: HabitSummarySchema,
     nutrition: NutritionSummarySchema,
     workouts: WorkoutSummarySchema,
+    progress: ProgressSummarySchema.default({ status: 'unavailable', entries: [] }),
   }).strict(),
 }).strict()
 
@@ -328,6 +377,8 @@ export type DaySummaryItem = z.infer<typeof DaySummaryItemSchema>
 export type DaySummaryCalendarEvent = z.infer<typeof DaySummaryCalendarEventSchema>
 export type DaySummaryCalorieEntry = z.infer<typeof DaySummaryCalorieEntrySchema>
 export type DaySummaryWeightEntry = z.infer<typeof DaySummaryWeightEntrySchema>
+export type DaySummaryAchievementEntry = z.infer<typeof DaySummaryAchievementEntrySchema>
+export type HabitProgressChunk = z.infer<typeof HabitProgressChunkSchema>
 export type DaySummaryCapacity = z.infer<typeof DaySummaryCapacitySchema>
 export type DaySummary = z.infer<typeof DaySummarySchema>
 

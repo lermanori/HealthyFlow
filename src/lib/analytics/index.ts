@@ -64,8 +64,8 @@ class AnalyticsService {
     this.safely(p => p.capture(event, args[0] as Record<string, unknown> | undefined))
   }
 
-  page(path: string): void {
-    this.safely(p => p.page(path))
+  page(path: string, properties?: Record<string, unknown>): void {
+    this.safely(p => p.page(path, properties))
   }
 
   /** Clear identity on logout so the next session starts anonymous. */

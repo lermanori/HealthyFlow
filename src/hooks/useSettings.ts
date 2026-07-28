@@ -1,28 +1,14 @@
 import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { DAILY_SIGNALS_QUERY_KEY, DAY_SUMMARY_QUERY_KEY, settingsService, UserSettings } from '../services/api'
+import {
+  resolveModuleAvailabilities,
+  type SettingsResolution,
+} from '../modulePresentation'
 
 const QUERY_KEY = ['settings']
 
-export type SettingsResolution = 'loading' | 'ready' | 'error'
-export type ModuleAvailability = 'loading' | 'enabled' | 'disabled' | 'error'
-export type OptionalModule = 'calories' | 'achievements' | 'workouts'
-
-const moduleSetting: Record<OptionalModule, keyof Pick<UserSettings, 'calorieIntake' | 'achievementTracker' | 'workoutTracker'>> = {
-  calories: 'calorieIntake',
-  achievements: 'achievementTracker',
-  workouts: 'workoutTracker',
-}
-
-export function resolveModuleAvailability(
-  settings: UserSettings | undefined,
-  resolution: SettingsResolution,
-  module: OptionalModule
-): ModuleAvailability {
-  if (resolution === 'loading') return 'loading'
-  if (resolution === 'error' || !settings) return 'error'
-  return settings[moduleSetting[module]] ? 'enabled' : 'disabled'
-}
+export type { ModuleAvailability, OptionalModule, SettingsResolution } from '../modulePresentation'
 
 // Source of truth is the settings record; mirror to localStorage + <html> so the
 // theme applies pre-fetch (see inline snippet in index.html) with no flash.
@@ -88,11 +74,7 @@ export function useSettings(enabled = true) {
     isLoading: resolution === 'loading',
     error: settingsQuery.error,
     retry: settingsQuery.refetch,
-    modules: {
-      calories: resolveModuleAvailability(settings, resolution, 'calories'),
-      achievements: resolveModuleAvailability(settings, resolution, 'achievements'),
-      workouts: resolveModuleAvailability(settings, resolution, 'workouts'),
-    } satisfies Record<OptionalModule, ModuleAvailability>,
+    modules: resolveModuleAvailabilities(settings, resolution),
     updateSetting,
   }
 }

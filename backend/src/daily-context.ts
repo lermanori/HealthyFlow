@@ -89,7 +89,7 @@ async function tasksForDay(userId: string, date: string) {
 
 async function caloriesForDay(userId: string, date: string) {
   const rows = await db.getCalorieEntriesByDay(userId, date)
-  return (rows ?? []).map(calorieRowToClient)
+  return (rows ?? []).map((row: any) => calorieRowToClient(row))
 }
 
 async function workoutSessionsForDay(userId: string, date: string) {

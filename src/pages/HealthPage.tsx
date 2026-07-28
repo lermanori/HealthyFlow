@@ -8,6 +8,7 @@ import { useCalorieEntries } from '../hooks/useCalorieEntries'
 import { useSettings } from '../hooks/useSettings'
 import { useWeightTracking } from '../hooks/useWeightTracking'
 import { achievementService, workoutsService } from '../services/api'
+import { getModulePresentation, moduleHealthHref } from '../modulePresentation'
 
 const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 const formatKg = (value: number) => `${Math.round(value * 10) / 10} kg`
@@ -23,6 +24,9 @@ export default function HealthPage() {
     setSearchParams(nextParams)
   }
   const { modules } = useSettings()
+  const nutritionPresentation = getModulePresentation('calories')
+  const workoutPresentation = getModulePresentation('workouts')
+  const progressPresentation = getModulePresentation('achievements')
   const caloriesEnabled = modules.calories === 'enabled'
   const workoutsEnabled = modules.workouts === 'enabled'
   const achievementsEnabled = modules.achievements === 'enabled'
@@ -38,8 +42,8 @@ export default function HealthPage() {
     queryFn: () => achievementService.list({ entryLimit: 1 }),
     enabled: achievementsEnabled,
   })
-  const nutritionHref = `/calories?date=${encodeURIComponent(date)}`
-  const workoutsHref = `/workouts?date=${encodeURIComponent(date)}&mode=session`
+  const nutritionHref = moduleHealthHref(nutritionPresentation, date)
+  const workoutsHref = moduleHealthHref(workoutPresentation, date)
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 pb-28 md:pb-0">
@@ -77,7 +81,7 @@ export default function HealthPage() {
               <Link to={nutritionHref} className="group border-b border-line/70 p-4 transition hover:bg-cyan-400/5 sm:border-r xl:border-b-0">
                 <div className="flex items-center gap-2">
                   <Utensils className="h-4 w-4 text-orange-300" />
-                  <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Nutrition</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">{nutritionPresentation.label}</p>
                 </div>
                 <p className="mt-3 text-xl font-semibold text-ink">
                   {areCaloriesLoading ? 'Loading…' : `${totals.calories.toLocaleString()} kcal`}
@@ -118,7 +122,7 @@ export default function HealthPage() {
             <Link to={workoutsHref} className="group border-b border-line/70 p-4 transition hover:bg-cyan-400/5 xl:border-b-0 xl:border-r">
               <div className="flex items-center gap-2">
                 <Dumbbell className="h-4 w-4 text-violet-300" />
-                <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Workout</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">{workoutPresentation.label}</p>
               </div>
               <p className="mt-3 text-xl font-semibold text-ink">
                 {areWorkoutsLoading ? 'Loading…' : `${workoutSessions.length} logged`}
@@ -127,10 +131,10 @@ export default function HealthPage() {
             </Link>
           )}
           {achievementsEnabled && (
-            <Link to="/achievements" className="group p-4 transition hover:bg-cyan-400/5">
+            <Link to={moduleHealthHref(progressPresentation)} className="group p-4 transition hover:bg-cyan-400/5">
               <div className="flex items-center gap-2">
                 <Award className="h-4 w-4 text-amber-300" />
-                <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Progress</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">{progressPresentation.label}</p>
               </div>
               <p className="mt-3 text-xl font-semibold text-ink">
                 {areAchievementsLoading ? 'Loading…' : `${achievements.length} tracked`}

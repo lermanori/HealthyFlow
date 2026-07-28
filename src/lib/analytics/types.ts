@@ -76,7 +76,7 @@ export interface AnalyticsProvider {
   identify(userId: string, props?: Record<string, unknown>): void
   setUserProperties(props: Record<string, unknown>, setOnce?: Record<string, unknown>): void
   capture(event: string, props?: Record<string, unknown>): void
-  page(path: string): void
+  page(path: string, properties?: Record<string, unknown>): void
   reset(): void
   isFeatureEnabled(flag: string): boolean
   /** Subscribe to flag availability; returns an unsubscribe function. */

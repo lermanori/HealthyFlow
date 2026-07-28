@@ -35,10 +35,10 @@ import {
   HabitItem,
   TouchpointType,
   UserRhythm,
-  type CalorieEntry,
   type DaySummary,
 } from '../services/api'
 import DayTimeline from '../components/DayTimeline'
+import { buildTimelineRecords } from '../timelineRecords'
 import AIRecommendationsBox from '../components/AIRecommendationsBox'
 import TaskEditModal from '../components/TaskEditModal'
 import ConfettiAnimation from '../components/ConfettiAnimation'
@@ -59,6 +59,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { useSettings } from '../hooks/useSettings'
 import HabitOutcomeSheet from '../components/HabitOutcomeSheet'
+import { enabledModulePresentations } from '../modulePresentation'
 
 const touchpointCtas: Record<TouchpointType, { title: string; body: string; button: string }> = {
   morning: {
@@ -605,7 +606,13 @@ function DecisionBand({ summary }: { summary: DaySummary }) {
   )
 }
 
-function DayContextSummary({ summary }: { summary: DaySummary }) {
+function DayContextSummary({
+  summary,
+  enabledSummaries,
+}: {
+  summary: DaySummary
+  enabledSummaries: ReadonlySet<string>
+}) {
   const habits = summary.supporting.habits
   const nutrition = summary.supporting.nutrition
   const workouts = summary.supporting.workouts
@@ -700,7 +707,7 @@ function DayContextSummary({ summary }: { summary: DaySummary }) {
           )}
         </DayContextDisclosure>
 
-        {summary.modules.nutrition !== 'disabled' && (
+        {enabledSummaries.has('nutrition') && summary.modules.nutrition !== 'disabled' && (
           <DayContextDisclosure
             dateKey={summary.date}
             id="nutrition"
@@ -758,7 +765,7 @@ function DayContextSummary({ summary }: { summary: DaySummary }) {
           </DayContextDisclosure>
         )}
 
-        {summary.modules.workouts !== 'disabled' && (
+        {enabledSummaries.has('workouts') && summary.modules.workouts !== 'disabled' && (
           <DayContextDisclosure
             dateKey={summary.date}
             id="workouts"
@@ -846,7 +853,12 @@ export default function TodayPage() {
   const queryClient = useQueryClient()
   const { showNotification } = useNotifications()
   const location = useLocation()
-  const { settings } = useSettings()
+  const { settings, modules } = useSettings()
+  const enabledTodaySummaries = new Set(
+    enabledModulePresentations(modules)
+      .map((presentation) => presentation.todaySummary)
+      .filter((summary): summary is NonNullable<typeof summary> => summary !== null)
+  )
   const selectedDateKey = format(selectedDate, 'yyyy-MM-dd')
 
   // Check for AI parameter in URL
@@ -883,8 +895,14 @@ export default function TodayPage() {
     [daySummary?.items]
   )
   const calendarEvents = daySummary?.calendar.events ?? []
-  const calorieEntries = (daySummary?.calorieEntries ?? []) as unknown as CalorieEntry[]
   const weekStartsOn = (daySummary?.week.weekStartsOn ?? settings?.weekStartsOn ?? 1) as WeekStartsOn
+
+  // Records are everything on the day that isn't an Item. All wall-clock times
+  // arrive pre-resolved from the server so they reflect the user's timezone.
+  const timelineRecords = useMemo(
+    () => (daySummary ? buildTimelineRecords(daySummary, tasksData) : []),
+    [daySummary, tasksData]
+  )
 
   const { data: rhythm } = useQuery({
     queryKey: ['user-rhythm'],
@@ -1463,7 +1481,8 @@ export default function TodayPage() {
         dateKey={selectedDateKey}
         tasks={tasksData}
         calendarEvents={calendarEvents}
-        calorieEntries={calorieEntries}
+        records={timelineRecords}
+        nowHour={isSameDay(selectedDate, now) ? now.getHours() : null}
         onTasksReorder={handleTasksReorder}
         onTasksPersisted={() => {
           queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(selectedDateKey) })
@@ -1477,7 +1496,9 @@ export default function TodayPage() {
         onEditTask={handleEditTask}
         onDeleteTask={handleDeleteTask}
         onHabitCheckIn={setHabitCheckIn}
-        supportingContent={daySummary ? <DayContextSummary summary={daySummary} /> : null}
+        supportingContent={daySummary ? (
+          <DayContextSummary summary={daySummary} enabledSummaries={enabledTodaySummaries} />
+        ) : null}
       />
 
       <SmartReminders />

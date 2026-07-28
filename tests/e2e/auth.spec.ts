@@ -11,7 +11,7 @@ test.describe('unauthenticated flows', () => {
 
     await page.locator('#email').fill(TEST_EMAIL)
     await page.locator('#password').fill(TEST_PASSWORD)
-    await page.locator('button[type="submit"]').click()
+    await page.getByRole('button', { name: 'Login', exact: true }).click()
 
     // Today shows a date heading (h1) once authenticated
     await expect(page.locator('h1').first()).toBeVisible({ timeout: 10_000 })
@@ -22,7 +22,7 @@ test.describe('unauthenticated flows', () => {
     await page.goto('/app')
     await page.locator('#email').fill(TEST_EMAIL)
     await page.locator('#password').fill(TEST_PASSWORD)
-    await page.locator('button[type="submit"]').click()
+    await page.getByRole('button', { name: 'Login', exact: true }).click()
 
     // Wait for Today (authenticated state)
     await expect(page.locator('h1').first()).toBeVisible({ timeout: 10_000 })

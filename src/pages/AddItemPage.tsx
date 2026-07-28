@@ -35,6 +35,11 @@ import ProjectSelector from '../components/ProjectSelector'
 import VoiceInput from '../components/VoiceInput'
 import { useSettings } from '../hooks/useSettings'
 import type { ModuleNoticeState } from '../App'
+import {
+  MODULE_PRESENTATIONS,
+  getModulePresentation,
+  type ModulePresentation,
+} from '../modulePresentation'
 
 const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 
@@ -54,14 +59,26 @@ const quickDates = [
   { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
 ]
 
-type DomainTab = 'today' | 'calories' | 'achievements'
+type ModuleAddTarget = Exclude<ModulePresentation['addTarget'], null>
+type DomainTab = 'today' | ModuleAddTarget
 type TodayType = 'task' | 'habit'
 type CalorieMode = 'entry' | 'weight'
 
-const tabs: Array<{ id: DomainTab; label: string; icon: any }> = [
+const addIcon = {
+  calories: Utensils,
+  achievements: Award,
+}
+
+const tabs: Array<{ id: DomainTab; label: string; icon: typeof CalendarDays }> = [
   { id: 'today', label: 'Today', icon: CalendarDays },
-  { id: 'calories', label: 'Calories', icon: Utensils },
-  { id: 'achievements', label: 'Achievements', icon: Award },
+  ...MODULE_PRESENTATIONS.flatMap((presentation) => presentation.addTarget
+    ? [{
+        id: presentation.addTarget,
+        label: presentation.label,
+        icon: addIcon[presentation.addTarget],
+      }]
+    : []
+  ),
 ]
 
 function numericOrNull(value: string) {
@@ -115,7 +132,7 @@ export default function AddItemPage() {
   const achievementsQuery = useQuery({
     queryKey: ['achievements'],
     queryFn: () => achievementService.list({ entryLimit: 5 }),
-    enabled: activeTab === 'achievements',
+    enabled: activeTab === 'achievements' && achievementAvailability === 'enabled',
   })
 
   const selectedAchievement = useMemo(
@@ -134,11 +151,11 @@ export default function AddItemPage() {
       if (availability === 'enabled') {
         setActiveTab(tab)
       } else if (availability === 'disabled') {
-        const label = tab === 'calories' ? 'Calories' : 'Achievements'
+        const label = getModulePresentation(tab).label
         setActiveTab('today')
         navigate('/add?tab=today', {
           replace: true,
-          state: { moduleNotice: { module: tab, label, message: `${label} is disabled for this account.` } } satisfies ModuleNoticeState,
+          state: { moduleNotice: { module: tab, label, message: `${label} is hidden for this account.` } } satisfies ModuleNoticeState,
         })
       }
     }
@@ -190,10 +207,10 @@ export default function AddItemPage() {
       achievementService.addEntry(id, entry),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['achievements'] })
-      toast.success('Achievement entry added')
+      toast.success('Progress entry added')
       navigate('/achievements')
     },
-    onError: () => toast.error('Failed to add achievement entry'),
+    onError: () => toast.error('Failed to add Progress entry'),
   })
 
   const submitToday = (event: React.FormEvent) => {
@@ -260,7 +277,7 @@ export default function AddItemPage() {
     const extraUnit = supportingUnit.trim()
 
     if (!achievement || !value || value <= 0) {
-      toast.error('Please choose an achievement and enter a value')
+      toast.error('Please choose a Progress measure and enter a value')
       return
     }
     if ((extraValue == null) !== (extraUnit === '')) {
@@ -314,7 +331,7 @@ export default function AddItemPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-ink neon-text">Add Item</h1>
-            <p className="text-sm text-ink-muted">Today, calories, and achievements</p>
+            <p className="text-sm text-ink-muted">{tabs.map((tab) => tab.label).join(', ')}</p>
           </div>
         </div>
 
@@ -540,7 +557,7 @@ export default function AddItemPage() {
         {activeTab === 'achievements' && (
           <form onSubmit={submitAchievement} className="space-y-6">
             <label className="block space-y-2">
-              <span className="text-sm font-medium text-ink-soft">Achievement</span>
+              <span className="text-sm font-medium text-ink-soft">Progress measure</span>
               <select className="input-field" value={achievementId || selectedAchievement?.definition.id || ''} onChange={(event) => setAchievementId(event.target.value)}>
                 {(achievementsQuery.data ?? []).map((achievement) => (
                   <option key={achievement.definition.id} value={achievement.definition.id}>
@@ -554,7 +571,7 @@ export default function AddItemPage() {
               <p className="text-sm text-ink-muted">Loading...</p>
             ) : !selectedAchievement ? (
               <div className="rounded-lg border border-dashed border-line/80 bg-sunken/20 p-4 text-sm text-gray-500">
-                Create an achievement on the Achievements page first.
+                Create a measure on the Progress page first.
               </div>
             ) : (
               <>
@@ -587,7 +604,7 @@ export default function AddItemPage() {
 
             <button type="submit" disabled={!selectedAchievement || addAchievementEntryMutation.isPending} className="btn-primary inline-flex w-full items-center justify-center gap-2 py-3">
               <Target className="h-5 w-5" />
-              Add Achievement Entry
+              Add Progress Entry
             </button>
           </form>
         )}
