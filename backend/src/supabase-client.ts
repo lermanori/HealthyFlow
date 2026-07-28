@@ -887,19 +887,30 @@ export const db = {
   },
 
   // ponytail: test-mode only — deletes all task rows for the given user
+  // Must clear every table that can put a row on a day. Once the timeline became
+  // the day's record (ADR-0002 era), Calorie entries, weight, Progress results and
+  // Habit progress chunks started earning hour slots too — but this reset still
+  // only cleared tasks and workouts. The leftovers silently broke specs in other
+  // subjects: items-lifecycle's schedule-compaction assertions fail when a stray
+  // Calorie entry from the health specs occupies an hour that should be empty.
   async resetTestUser(userId: string) {
-    await supabase
-      .from('workout_plans')
-      .delete()
-      .eq('user_id', userId)
-    await supabase
-      .from('workout_sessions')
-      .delete()
-      .eq('user_id', userId)
-    await supabase
-      .from('workout_exercise_items')
-      .delete()
-      .eq('user_id', userId)
+    const userScoped = [
+      'workout_plans',
+      'workout_sessions',
+      'workout_exercise_items',
+      'calorie_entries',
+      'calorie_items',
+      'weight_entries',
+      'achievement_entries',
+      'achievement_definitions',
+      'habit_progress_entries',
+    ]
+    for (const table of userScoped) {
+      const { error } = await supabase.from(table).delete().eq('user_id', userId)
+      // Deliberately loud: a silently failing reset leaks state into the next
+      // spec, which is far harder to debug than a failed reset call.
+      if (error) throw new Error(`resetTestUser: ${table}: ${error.message}`)
+    }
 
     const { error } = await supabase
       .from('tasks')

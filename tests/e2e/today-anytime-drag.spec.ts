@@ -303,7 +303,7 @@ test('keyboard drag expands all hours, reorders Anytime, restores focus, and per
   await expect(page.locator('[data-slot="06:00"]')).toHaveCSS('height', '72px')
 
   await handle.press('ArrowDown')
-  await expect(page.getByRole('status')).toContainText('Anytime, position 2')
+  await expect(page.getByRole('status', { name: 'Schedule changes' })).toContainText('Anytime, position 2')
   await handle.press('Space')
 
   await expect(page.locator('.today-plan-grid')).not.toHaveAttribute('data-drag-layout', 'expanded')
@@ -319,7 +319,7 @@ test('keyboard drag expands all hours, reorders Anytime, restores focus, and per
 
   await handle.press('Space')
   await handle.press('Escape')
-  await expect(page.getByRole('status')).toContainText('move cancelled')
+  await expect(page.getByRole('status', { name: 'Schedule changes' })).toContainText('move cancelled')
   await expect(handle).toBeFocused()
 })
 

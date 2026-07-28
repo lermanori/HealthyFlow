@@ -93,11 +93,15 @@ test('cached Settings remain usable during a failed background refresh', async (
     if (backgroundFails) return route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"unavailable"}' })
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify(settings) })
   })
-  await page.goto('/app/settings/appearance')
-  await expect(page.getByRole('switch', { name: /Completion Sounds/ })).toBeVisible()
+  // Health tools, not Appearance: #151 removed the Completion Sounds switch when
+  // it made completion feedback silent, and Appearance is now only the theme
+  // toggle — it has no switch left to exercise. Any real settings control serves
+  // this test; the subject is the failed background refresh, not this control.
+  await page.goto('/app/settings/health-tools')
+  await expect(page.getByRole('switch', { name: /Nutrition/ })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Health', exact: true })).toBeVisible()
   backgroundFails = true
-  await page.getByRole('switch', { name: /Completion Sounds/ }).click()
+  await page.getByRole('switch', { name: /Nutrition/ }).click()
   await page.getByRole('link', { name: 'Health', exact: true }).click()
   await expect(page).toHaveURL('/app/health')
   await expect(page.getByRole('heading', { name: 'Health', exact: true })).toBeVisible()
@@ -117,13 +121,28 @@ test('changed Settings switches expose state and pass targeted Axe checks', asyn
 })
 
 test('calorie dialog traps focus, inerts the app, closes with Escape, and restores Add Entry', async ({ page }) => {
+  // Seed one entry so the quick-insert list actually renders. With no item
+  // history the dialog shows "No saved item history yet" and the accent-styled
+  // item buttons never mount — which silently voids the Axe check below, since
+  // those buttons are exactly where the contrast violation lives. This test used
+  // to pass only because earlier specs happened to leave Calorie entries behind.
   await page.goto('/app/calories')
+  const token = await page.evaluate(() => localStorage.getItem('token'))
+  expect(token).toBeTruthy()
+  const seeded = await page.request.post(`${API_ORIGIN}/api/calories`, {
+    headers: { Authorization: `Bearer ${token}` },
+    data: { date: new Date().toISOString().slice(0, 10), name: 'Axe fixture oats', calories: 320 },
+  })
+  expect(seeded.ok()).toBeTruthy()
+  await page.reload()
   const opener = page.getByRole('button', { name: 'Add Entry' })
   await opener.click()
   const dialog = page.getByTestId('calorie-quick-insert-dialog')
   await expect(dialog).toBeVisible()
   await expect(page.getByTestId('calorie-quick-insert-search')).toBeFocused()
   expect(await page.locator('#root').evaluate((element) => (element as HTMLElement).inert)).toBe(true)
+  // The assertion above is meaningless unless the list rendered.
+  await expect(page.getByTestId('calorie-quick-insert-item').first()).toBeVisible()
 
   const results = await new AxeBuilder({ page }).include('[data-testid="calorie-quick-insert-dialog"]').analyze()
   expect(results.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))).toEqual([])

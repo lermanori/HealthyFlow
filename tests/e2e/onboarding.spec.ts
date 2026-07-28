@@ -45,7 +45,7 @@ test('new signup sees brain-dump onboarding, parses a day, and completion stays 
   await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toBeVisible({ timeout: 10_000 })
 
   await page.getByRole('button', { name: 'Start', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'AI Task Analyzer' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Turn notes into Items' })).toBeVisible()
 
   await page.getByPlaceholder(/Describe what you want to accomplish/).fill(
     'Gym at 7am, finish the quarterly report, and grab groceries after work.'

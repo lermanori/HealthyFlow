@@ -6,6 +6,20 @@ import { daySummaryFixture } from './fixtures/day-summary'
 
 // Each test fully independent: reset, add task, perform action, assert persistence
 
+// Schedule compaction folds runs of 4+ empty hours, but DayTimeline deliberately
+// never collapses the current hour (the now-line has to stay findable). That makes
+// any assertion about which hours compact depend on the wall clock: with a task at
+// 10:00, the 11:00 slot compacts in the morning and evening but NOT between roughly
+// 11:00 and 14:00, when nowHour splits 11:00-23:00 into a run shorter than 4.
+//
+// So pin the hour. Today's date is kept so the task the test creates through the
+// real backend still belongs to the day being viewed; only the time of day is fixed.
+async function freezeToQuietEvening(page: import('@playwright/test').Page) {
+  const evening = new Date()
+  evening.setHours(20, 0, 0, 0)
+  await page.clock.setFixedTime(evening)
+}
+
 test('Complete Task: marking complete persists across reload', async ({ page }) => {
   // Reset test user state via backend (React Router catch-all blocks GET /test/reset)
   const reset1 = await page.request.post(`${API_ORIGIN}/test/reset`)
@@ -376,6 +390,7 @@ test('Compact timeline card does not clip content or overflow menu', async ({ pa
 })
 
 test('Schedule compacts empty four-hour windows around timed tasks', async ({ page }) => {
+  await freezeToQuietEvening(page)
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
   await page.goto('/app/add')
@@ -444,6 +459,7 @@ test('Schedule expands occupied hours to fit multiple timed items', async ({ pag
 })
 
 test('Drag start expands compacted hours before capture and restores them after cancel', async ({ page }) => {
+  await freezeToQuietEvening(page)
   await page.goto('/test/reset', { waitUntil: 'networkidle' })
 
   await page.goto('/app/add')

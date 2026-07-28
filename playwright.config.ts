@@ -69,6 +69,23 @@ export default defineConfig({
   workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: 'list',
+  // Snapshot names deliberately exclude {projectName}. The same spec renders the
+  // same pixels whichever subject project runs it, and the default template bakes
+  // the project into the filename — so splitting the suite into subjects would
+  // otherwise orphan every committed baseline (they were all written as
+  // "-chromium-darwin.png") and silently ask for 68 new ones.
+  snapshotPathTemplate: '{snapshotDir}/{testFileDir}/{testFileName}-snapshots/{arg}-{platform}{ext}',
+  expect: {
+    toHaveScreenshot: {
+      // Measured, not guessed: baselines written on one machine reproduce on
+      // another at a diff ratio of ~0.01 (font smoothing / GPU rasterisation),
+      // while the genuine layout changes we have seen came in at 0.02-0.04 AND
+      // changed the image dimensions. A size mismatch fails regardless of this
+      // threshold, so real layout regressions are still caught; this only stops
+      // the suite failing because it ran on a different Mac.
+      maxDiffPixelRatio: 0.015,
+    },
+  },
   use: {
     baseURL: `http://localhost:${webPort}`,
     trace: 'on-first-retry',
