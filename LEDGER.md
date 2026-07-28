@@ -1,3 +1,9 @@
+### 2026-07-28 20:11 — `codex/launch-pricing`
+
+Made the landing page’s image and icon references relative so its fresh product captures load both in production and when `public/landing.html` is opened directly for review. Confirmed all 24 referenced assets exist and the production build succeeds; the deployed screenshot files already matched the current local captures byte for byte.
+
+---
+
 ### 2026-07-28 19:29 — `codex/launch-pricing`
 
 Established the launch commercial model across signup, credits, pricing surfaces, acquisition messaging, and funnel analytics: the first 100 real accounts receive 250 onboarding credits and retain the $9 founding plan while continuously subscribed, followed by 50-credit onboarding and the $19 standard plan. Added an atomic, idempotent Supabase grant ledger plus the $5 / 250-credit non-expiring top-up contract, and applied the migration to production before the backend rollout. The rebased release passes 434 backend tests, 43 frontend tests, production builds, typechecks, and lint without errors.
