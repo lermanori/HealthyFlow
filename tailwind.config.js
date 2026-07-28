@@ -15,11 +15,34 @@ export default {
         raised: 'rgb(var(--surface-raised) / <alpha-value>)',
         sunken: 'rgb(var(--surface-sunken) / <alpha-value>)',
         field: 'rgb(var(--surface-input) / <alpha-value>)',
+        overlay: 'rgb(var(--surface-overlay) / <alpha-value>)',
         ink: 'rgb(var(--text-primary) / <alpha-value>)',
         'ink-soft': 'rgb(var(--text-secondary) / <alpha-value>)',
         'ink-muted': 'rgb(var(--text-muted) / <alpha-value>)',
+        'ink-disabled': 'rgb(var(--text-disabled) / <alpha-value>)',
         line: 'rgb(var(--border-default) / <alpha-value>)',
         'line-strong': 'rgb(var(--border-strong) / <alpha-value>)',
+        action: 'rgb(var(--action-primary) / <alpha-value>)',
+        'action-hover': 'rgb(var(--action-primary-hover) / <alpha-value>)',
+        'on-action': 'rgb(var(--action-on-primary) / <alpha-value>)',
+        accent: 'rgb(var(--action-accent) / <alpha-value>)',
+        'accent-hover': 'rgb(var(--action-primary-hover) / <alpha-value>)',
+        'on-accent': 'rgb(var(--action-on-primary) / <alpha-value>)',
+        focus: 'rgb(var(--focus-ring) / <alpha-value>)',
+        state: {
+          success: 'rgb(var(--state-success) / <alpha-value>)',
+          warning: 'rgb(var(--state-warning) / <alpha-value>)',
+          danger: 'rgb(var(--state-danger) / <alpha-value>)',
+          info: 'rgb(var(--state-info) / <alpha-value>)',
+        },
+        category: {
+          health: 'rgb(var(--category-health) / <alpha-value>)',
+          work: 'rgb(var(--category-work) / <alpha-value>)',
+          personal: 'rgb(var(--category-personal) / <alpha-value>)',
+          fitness: 'rgb(var(--category-fitness) / <alpha-value>)',
+          grocery: 'rgb(var(--category-grocery) / <alpha-value>)',
+          nutrition: 'rgb(var(--category-nutrition) / <alpha-value>)',
+        },
         primary: {
           50: '#ecfeff',
           100: '#cffafe',
@@ -49,10 +72,6 @@ export default {
       animation: {
         'bounce-in': 'bounceIn 0.6s ease-out',
         'slide-up': 'slideUp 0.3s ease-out',
-        'float': 'float 3s ease-in-out infinite',
-        'neon-flicker': 'neon-flicker 2s ease-in-out infinite',
-        'holographic-shift': 'holographic-shift 3s ease-in-out infinite',
-        'ai-pulse': 'ai-pulse 2s ease-in-out infinite alternate',
       },
       keyframes: {
         bounceIn: {
@@ -65,25 +84,18 @@ export default {
           '0%': { transform: 'translateY(10px)', opacity: '0' },
           '100%': { transform: 'translateY(0)', opacity: '1' },
         },
-        float: {
-          '0%, 100%': { transform: 'translateY(0px)' },
-          '50%': { transform: 'translateY(-10px)' },
-        },
-        'neon-flicker': {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.8' },
-        },
-        'holographic-shift': {
-          '0%, 100%': { backgroundPosition: '0% 50%' },
-          '50%': { backgroundPosition: '100% 50%' },
-        },
-        'ai-pulse': {
-          '0%': { opacity: '0.4', transform: 'scale(1)' },
-          '100%': { opacity: '0.8', transform: 'scale(1.02)' },
-        }
       },
       backdropBlur: {
         xs: '2px',
+      },
+      boxShadow: {
+        section: 'var(--shadow-section)',
+        overlay: 'var(--shadow-overlay)',
+      },
+      borderRadius: {
+        control: 'var(--radius-control)',
+        section: 'var(--radius-section)',
+        overlay: 'var(--radius-overlay)',
       },
       spacing: {
         'safe-area-inset-top': 'env(safe-area-inset-top)',

@@ -191,7 +191,7 @@ function MarkdownMessage({ content }: { content: string }) {
     if (bullet) {
       return (
         <div key={index} className="flex gap-2">
-          <span className="mt-[0.62rem] h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-300/80" />
+          <span className="mt-[0.62rem] h-1.5 w-1.5 shrink-0 rounded-full bg-accent/80" />
           <p className="min-w-0">{renderInlineMarkdown(bullet[1])}</p>
         </div>
       )
@@ -201,7 +201,7 @@ function MarkdownMessage({ content }: { content: string }) {
     if (numbered) {
       return (
         <div key={index} className="flex gap-2">
-          <span className="shrink-0 font-semibold text-cyan-300">{numbered[1]}.</span>
+          <span className="shrink-0 font-semibold text-accent">{numbered[1]}.</span>
           <p className="min-w-0">{renderInlineMarkdown(numbered[2])}</p>
         </div>
       )
@@ -354,7 +354,7 @@ function AssistantReasoningStages({ events }: { events: AssistantToolEvent[] }) 
       <button
         type="button"
         onClick={() => setIsOpen((value) => !value)}
-        className="inline-flex items-center gap-2 rounded-md border border-card bg-sunken px-2.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
+        className="inline-flex items-center gap-2 rounded-md border border-card bg-sunken px-2.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent/50 hover:text-accent"
         aria-expanded={isOpen}
       >
         <Wrench className="h-3.5 w-3.5" />
@@ -368,14 +368,14 @@ function AssistantReasoningStages({ events }: { events: AssistantToolEvent[] }) 
           {events.map((event, index) => (
             <div key={`${event.name}-${index}`} className="rounded-md border border-card bg-page/60 p-3">
               <div className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md bg-cyan-500/10 text-[11px] font-semibold text-cyan-200">
+                <span className="mt-0.5 flex h-6 w-6 flex-none items-center justify-center rounded-md bg-accent/10 text-[11px] font-semibold text-accent">
                   {index + 1}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-semibold text-ink">{compactToolName(event.name)}</span>
                     {summarizeArgs(event.args) && (
-                      <span className="truncate text-xs text-gray-500">{summarizeArgs(event.args)}</span>
+                      <span className="truncate text-xs text-ink-muted">{summarizeArgs(event.args)}</span>
                     )}
                   </div>
                   <p className="mt-1 text-xs leading-5 text-ink-soft">{summarizeResult(event.result)}</p>
@@ -383,7 +383,7 @@ function AssistantReasoningStages({ events }: { events: AssistantToolEvent[] }) 
                 <button
                   type="button"
                   onClick={() => setExpandedEvent((value) => (value === index ? null : index))}
-                  className="flex-none rounded border border-card px-2 py-1 text-[11px] text-gray-500 transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
+                  className="flex-none rounded border border-card px-2 py-1 text-[11px] text-ink-muted transition-colors hover:border-accent/50 hover:text-accent"
                 >
                   {expandedEvent === index ? 'Hide' : 'Details'}
                 </button>
@@ -850,7 +850,7 @@ export default function AssistantPage() {
         </div>
         <div className="flex-1 overflow-y-auto p-2">
           {conversations.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-card p-4 text-sm text-gray-500">
+            <div className="rounded-lg border border-dashed border-card p-4 text-sm text-ink-muted">
               Your saved chats will appear here.
             </div>
           ) : (
@@ -863,15 +863,15 @@ export default function AssistantPage() {
                   disabled={isSending}
                   className={`w-full rounded-lg border px-3 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                     conversation.id === activeConversationId
-                      ? 'border-cyan-500/60 bg-cyan-500/10 text-cyan-100'
-                      : 'border-card bg-page/70 text-ink-soft hover:border-cyan-500/40 hover:text-cyan-100'
+                      ? 'border-accent/60 bg-accent/10 text-accent'
+                      : 'border-card bg-page/70 text-ink-soft hover:border-accent/40 hover:text-accent'
                   }`}
                 >
                   <div className="flex items-start gap-2">
                     <MessageSquare className="mt-0.5 h-4 w-4 flex-none" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{conversation.title}</p>
-                      <p className="mt-1 text-xs text-gray-500">
+                      <p className="mt-1 text-xs text-ink-muted">
                         {formatConversationTime(conversation.updatedAt)} · {conversation.messages.length} messages
                       </p>
                     </div>
@@ -886,7 +886,7 @@ export default function AssistantPage() {
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-lg border border-card bg-sunken/70">
       <div className="flex items-center justify-between gap-3 border-b border-card px-3 py-2.5 md:px-4 md:py-3">
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-300">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accent">
             <Bot className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
@@ -899,7 +899,7 @@ export default function AssistantPage() {
                   if (conversation) openConversation(conversation)
                 }}
                 disabled={isSending}
-                className="mt-1 block w-full truncate rounded-md border border-card bg-page px-2 py-1 text-xs text-ink outline-none transition-colors focus:border-cyan-500 disabled:opacity-60 md:hidden"
+                className="mt-1 block w-full truncate rounded-md border border-card bg-page px-2 py-1 text-xs text-ink outline-none transition-colors focus:border-accent disabled:opacity-60 md:hidden"
                 aria-label="Chat history"
               >
                 {!conversations.some((conversation) => conversation.id === activeConversationId) && (
@@ -914,7 +914,7 @@ export default function AssistantPage() {
                 ))}
               </select>
             ) : (
-              <p className="text-xs text-gray-500 md:hidden">{conversations.length} saved chats</p>
+              <p className="text-xs text-ink-muted md:hidden">{conversations.length} saved chats</p>
             )}
           </div>
         </div>
@@ -923,12 +923,12 @@ export default function AssistantPage() {
             type="button"
             onClick={startNewChat}
             disabled={isSending}
-            className="flex h-9 w-9 items-center justify-center rounded-md border border-card bg-page text-ink-soft transition-colors hover:border-cyan-500/50 hover:text-cyan-200 disabled:cursor-not-allowed disabled:opacity-60 md:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-md border border-card bg-page text-ink-soft transition-colors hover:border-accent/50 hover:text-accent disabled:cursor-not-allowed disabled:opacity-60 md:hidden"
             aria-label="New Chat"
           >
             <Plus className="h-4 w-4" />
           </button>
-          {isSending && <span className="text-sm text-cyan-300">Thinking</span>}
+          {isSending && <span className="text-sm text-accent">Thinking</span>}
         </div>
       </div>
 
@@ -939,7 +939,7 @@ export default function AssistantPage() {
               <button
                 key={prompt}
                 onClick={() => sendMessage(prompt)}
-                className="rounded-lg border border-card bg-page/80 px-3 py-3 text-left text-sm text-ink-soft transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
+                className="rounded-lg border border-card bg-page/80 px-3 py-3 text-left text-sm text-ink-soft transition-colors hover:border-accent/50 hover:text-accent"
               >
                 {prompt}
               </button>
@@ -952,7 +952,7 @@ export default function AssistantPage() {
               className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               {message.role === 'assistant' && (
-                <div className="mt-1 flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-300">
+                <div className="mt-1 flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-accent/15 text-accent">
                   <Bot className="h-4 w-4" />
                 </div>
               )}
@@ -960,9 +960,9 @@ export default function AssistantPage() {
                 <div
                   className={`rounded-lg px-4 py-3 text-sm leading-6 ${
                     message.role === 'user'
-                      ? 'bg-cyan-500 text-gray-950'
+                      ? 'bg-action text-on-action'
                       : message.error
-                        ? 'border border-red-500/40 bg-red-950/40 text-red-100'
+                        ? 'border border-state-danger/40 bg-state-danger/40 text-state-danger'
                         : 'border border-card bg-page text-ink'
                   }`}
                 >
@@ -973,7 +973,7 @@ export default function AssistantPage() {
                   )}
                   {message.attachment && (
                     <div className={`mt-2 inline-flex max-w-full items-center gap-2 rounded-md px-2 py-1 text-xs ${
-                      message.role === 'user' ? 'bg-sunken/15 text-gray-900' : 'bg-sunken text-ink-soft'
+                      message.role === 'user' ? 'bg-sunken/15 text-on-accent' : 'bg-sunken text-ink-soft'
                     }`}>
                       {message.attachment.kind === 'image' ? <ImageIcon className="h-3.5 w-3.5 flex-none" /> : <Paperclip className="h-3.5 w-3.5 flex-none" />}
                       <span className="truncate">{message.attachment.name}</span>
@@ -999,7 +999,7 @@ export default function AssistantPage() {
 
       <form onSubmit={submit} className="assistant-composer-form fixed left-0 right-0 z-20 border-t border-card bg-sunken/95 px-2.5 pt-2.5 backdrop-blur-xl md:static md:bg-transparent md:p-3 md:backdrop-blur-none">
         {signalContext && (
-          <div className="mb-2 flex min-h-11 items-center justify-between gap-3 rounded-lg border border-cyan-500/25 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">
+          <div className="mb-2 flex min-h-11 items-center justify-between gap-3 rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-xs text-accent">
             <span className="min-w-0 truncate">
               From Today · {signalContext.date}{signalContext.type ? ` · ${signalContext.type.replace(/_/g, ' ')}` : ''}
             </span>
@@ -1007,7 +1007,7 @@ export default function AssistantPage() {
               type="button"
               onClick={() => setSignalContext(null)}
               aria-label="Remove Daily Signal context"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md hover:bg-cyan-500/15"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md hover:bg-accent/15"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -1025,21 +1025,21 @@ export default function AssistantPage() {
               )}
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-ink">{attachment.name}</p>
-                <p className="text-xs text-gray-500">{attachment.mimeType}</p>
+                <p className="text-xs text-ink-muted">{attachment.mimeType}</p>
               </div>
             </div>
             <button
               type="button"
               onClick={() => setAttachment(null)}
-              className="flex h-8 w-8 flex-none items-center justify-center rounded-md border border-line text-ink-muted hover:border-red-500/60 hover:text-red-300"
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-md border border-line text-ink-muted hover:border-state-danger/60 hover:text-state-danger"
               aria-label="Remove attachment"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
         )}
-        {dictationError && <p className="mb-2 text-xs text-red-300">{dictationError}</p>}
-        <div className="assistant-composer rounded-[1.5rem] border border-line-strong bg-raised/70 px-3 py-2.5 shadow-inner shadow-black/20 transition-colors focus-within:border-cyan-500/70 focus-within:bg-raised sm:rounded-[1.75rem] sm:p-3">
+        {dictationError && <p className="mb-2 text-xs text-state-danger">{dictationError}</p>}
+        <div className="assistant-composer rounded-[1.5rem] border border-line-strong bg-raised/70 px-3 py-2.5 shadow-inner shadow-black/20 transition-colors focus-within:border-accent/70 focus-within:bg-raised sm:rounded-[1.75rem] sm:p-3">
           <div className="min-w-0">
             <textarea
               ref={inputRef}
@@ -1072,7 +1072,7 @@ export default function AssistantPage() {
               value={model}
               onChange={(event) => setModel(event.target.value as AssistantChatModel)}
               disabled={isSending}
-              className="h-8 min-w-0 max-w-[9.5rem] rounded-full border border-transparent bg-sunken px-3 text-xs font-medium text-ink outline-none transition-colors hover:bg-card focus:border-cyan-500 disabled:opacity-60 sm:h-11 sm:max-w-56 sm:px-4 sm:text-base"
+              className="h-8 min-w-0 max-w-[9.5rem] rounded-full border border-transparent bg-sunken px-3 text-xs font-medium text-ink outline-none transition-colors hover:bg-card focus:border-accent disabled:opacity-60 sm:h-11 sm:max-w-56 sm:px-4 sm:text-base"
               aria-label="Assistant model"
             >
               {assistantModels.map((option) => (
@@ -1086,7 +1086,7 @@ export default function AssistantPage() {
               type="button"
               onClick={toggleDictation}
               disabled={isSending || !isDictationSupported}
-              className={`flex h-11 w-11 flex-none items-center justify-center rounded-full bg-sunken text-ink-soft transition-colors hover:bg-card hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 ${isListening ? 'bg-cyan-500/20 text-cyan-200' : ''}`}
+              className={`flex h-11 w-11 flex-none items-center justify-center rounded-full bg-sunken text-ink-soft transition-colors hover:bg-card hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 ${isListening ? 'bg-accent/20 text-accent' : ''}`}
               aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
             >
               <Mic size={20} className="flex-none" />
@@ -1095,7 +1095,7 @@ export default function AssistantPage() {
               type="submit"
               data-demo-id="talk-send-button"
               disabled={isSending || (!draft.trim() && !attachment)}
-              className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/20 transition-all hover:from-cyan-400 hover:to-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-action text-on-action transition-colors hover:bg-action-hover disabled:cursor-not-allowed disabled:opacity-50"
               aria-label="Send"
             >
               <Send size={20} className="flex-none" />
@@ -1110,7 +1110,7 @@ export default function AssistantPage() {
           />
         </div>
         <div className="mt-2 hidden text-right sm:block">
-          <Link to="/add" className="text-xs text-gray-500 hover:text-ink-soft">
+          <Link to="/add" className="text-xs text-ink-muted hover:text-ink-soft">
             Add manually
           </Link>
         </div>

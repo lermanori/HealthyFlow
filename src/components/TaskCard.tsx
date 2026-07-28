@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { HabitItem, Task } from '../services/api'
 import { format, parseISO } from 'date-fns'
+import { getCategoryPresentation } from '../categoryPresentation'
 
 interface TaskCardProps {
   task: Task
@@ -52,28 +53,15 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
     }
   }
 
-  const getCategoryColor = (category: string) => {
-    const colors = {
-      health: 'bg-green-500/20 text-green-400 border-green-500/30',
-      work: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-      personal: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-      fitness: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-      // New categories for unified items
-      grocery: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-      nutrition: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
-      workout: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-      default: 'bg-gray-500/20 text-ink-muted border-gray-500/30'
-    }
-    return colors[category as keyof typeof colors] || colors.default
-  }
+  const getCategoryColor = (category: unknown) => getCategoryPresentation(category).className
 
   const getTypeColor = (type: string) => {
     const colors = {
-      habit: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-      task: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
-      grocery: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-      meal: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
-      workout: 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+      habit: 'bg-accent/20 text-accent border-accent/30',
+      task: 'bg-accent/20 text-accent border-accent/30',
+      grocery: 'bg-state-success/20 text-state-success border-state-success/30',
+      meal: 'bg-state-danger/20 text-state-danger border-state-danger/30',
+      workout: 'bg-state-warning/20 text-state-warning border-state-warning/30'
     }
     return colors[type as keyof typeof colors] || colors.task
   }
@@ -84,7 +72,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
         const info = task.habitInfo ?? { target: null, outcome: task.completed ? 'completed' as const : 'pending' as const, progressTotal: 0 }
         const label = info.outcome === 'failed' ? 'Not done' : info.outcome[0].toUpperCase() + info.outcome.slice(1)
         return (
-          <div className={`mt-1 flex min-w-0 items-center gap-2 text-xs ${info.outcome === 'failed' ? 'text-rose-300' : info.outcome === 'partial' ? 'text-amber-300' : info.outcome === 'completed' ? 'text-emerald-300' : 'text-ink-muted'}`}>
+          <div className={`mt-1 flex min-w-0 items-center gap-2 text-xs ${info.outcome === 'failed' ? 'text-state-danger' : info.outcome === 'partial' ? 'text-state-warning' : info.outcome === 'completed' ? 'text-state-success' : 'text-ink-muted'}`}>
             {info.target && <span className="truncate">{info.progressTotal} / {info.target.value} {info.target.unit === 'minutes' ? 'min' : info.target.unit}</span>}
             <span className="shrink-0">{label}</span>
           </div>
@@ -106,7 +94,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
               </span>
             )}
             {task.groceryInfo?.groceryCategory && (
-              <span className={`px-2 py-1 rounded-full text-xs ${getCategoryColor(task.groceryInfo.groceryCategory)}`}>
+                <span className={`px-2 py-1 rounded-full text-xs ${getCategoryColor('grocery')}`}>
                 {task.groceryInfo.groceryCategory}
               </span>
             )}
@@ -130,7 +118,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
               )}
             </div>
             {task.mealInfo?.ingredients && task.mealInfo.ingredients.length > 0 && (
-              <div className="text-xs text-gray-500 truncate">
+              <div className="text-xs text-ink-muted truncate">
                 {task.mealInfo.ingredients.slice(0, 3).map(ing => ing.name).join(', ')}
                 {task.mealInfo.ingredients.length > 3 && '...'}
               </div>
@@ -143,22 +131,22 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
           <div className="space-y-1 mt-2">
             <div className="flex items-center space-x-2 text-xs text-ink-muted">
               {task.workoutInfo?.workoutType && (
-                <span className={`px-2 py-1 rounded-full text-xs ${getCategoryColor('workout')}`}>
+                <span className={`px-2 py-1 rounded-full text-xs ${getCategoryColor('fitness')}`}>
                   {task.workoutInfo.workoutType}
                 </span>
               )}
               {task.workoutInfo?.intensity && (
                 <span className={`px-2 py-1 rounded-full text-xs ${
-                  task.workoutInfo.intensity === 'high' ? 'bg-red-500/20 text-red-400' :
-                  task.workoutInfo.intensity === 'medium' ? 'bg-yellow-500/20 text-yellow-400' :
-                  'bg-green-500/20 text-green-400'
+                  task.workoutInfo.intensity === 'high' ? 'bg-state-danger/20 text-state-danger' :
+                  task.workoutInfo.intensity === 'medium' ? 'bg-state-warning/20 text-state-warning' :
+                  'bg-state-success/20 text-state-success'
                 }`}>
                   {task.workoutInfo.intensity}
                 </span>
               )}
             </div>
             {task.workoutInfo?.exercises && task.workoutInfo.exercises.length > 0 && (
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-ink-muted">
                 {task.workoutInfo.exercises.length} exercise{task.workoutInfo.exercises.length !== 1 ? 's' : ''}
               </div>
             )}
@@ -175,7 +163,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
 
     if (task.syncedToGoogle && task.googleSyncStatus === 'synced') {
       return (
-        <span className={`flex items-center space-x-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 text-xs text-emerald-300 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
+        <span className={`flex items-center space-x-1 rounded-full border border-state-success/30 bg-state-success/15 text-xs text-state-success ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
           <Calendar className="w-3 h-3" />
           <span>Synced</span>
         </span>
@@ -184,7 +172,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
 
     if (task.googleSyncStatus === 'failed') {
       return (
-        <span className={`flex items-center space-x-1 rounded-full border border-red-500/30 bg-red-500/15 text-xs text-red-300 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
+        <span className={`flex items-center space-x-1 rounded-full border border-state-danger/30 bg-state-danger/15 text-xs text-state-danger ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
           <AlertTriangle className="w-3 h-3" />
           <span>Sync failed</span>
         </span>
@@ -193,7 +181,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
 
     if (task.googleSyncStatus === 'pending') {
       return (
-        <span className={`flex items-center space-x-1 rounded-full border border-cyan-500/30 bg-cyan-500/15 text-xs text-cyan-300 ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
+        <span className={`flex items-center space-x-1 rounded-full border border-accent/30 bg-accent/15 text-xs text-accent ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
           <RefreshCw className="w-3 h-3" />
           <span>Syncing</span>
         </span>
@@ -234,9 +222,9 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
           type="button"
           onClick={(event) => { event.stopPropagation(); handleComplete() }}
           aria-label={task.type === 'habit' ? `Check in ${task.title}` : task.completed ? 'Uncheck task' : 'Check task'}
-          className="-m-3 flex h-11 w-11 flex-shrink-0 cursor-pointer items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+          className="-m-3 flex h-11 w-11 flex-shrink-0 cursor-pointer items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
-          <span aria-hidden="true" className={`flex items-center justify-center rounded-full border-2 transition-all duration-300 ${compact ? 'h-4 w-4 sm:h-5 sm:w-5' : 'h-5 w-5'} ${task.completed ? 'border-green-500 bg-gradient-to-r from-green-500 to-emerald-600 text-white' : 'border-line-strong group-hover:border-cyan-400'}`}>
+          <span aria-hidden="true" className={`flex items-center justify-center rounded-full border-2 transition-colors ${compact ? 'h-4 w-4 sm:h-5 sm:w-5' : 'h-5 w-5'} ${task.completed ? 'border-state-success bg-state-success text-white' : 'border-line-strong group-hover:border-accent'}`}>
             {task.type === 'habit' ? <RotateCcw className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} /> : task.completed && <Check className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />}
           </span>
         </button>
@@ -251,7 +239,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                 </div>
               )}
               <h3 className={`truncate font-medium ${compact ? 'text-sm leading-4' : ''} ${
-                task.completed ? 'line-through text-gray-500' : 'text-ink'
+                task.completed ? 'line-through text-ink-muted' : 'text-ink'
               }`}>
                 {task.title}
               </h3>
@@ -262,7 +250,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
               <button
                 onClick={(event) => { event.stopPropagation(); setShowMenu(!showMenu) }}
                 aria-label={`${task.title} actions`}
-                className={`${compact ? 'absolute -right-2 -top-2 !h-11 !min-h-0 !w-11 !min-w-0 p-0.5 sm:static sm:!h-7 sm:!w-7' : 'h-11 w-11 p-1 sm:h-auto sm:w-auto'} flex items-center justify-center rounded-lg hover:bg-gray-700 cursor-pointer transition-all duration-200 ${showMenu ? 'opacity-100 bg-gray-700' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100'}`}
+                className={`${compact ? 'absolute -right-2 -top-2 !h-11 !min-h-0 !w-11 !min-w-0 p-0.5 sm:static sm:!h-7 sm:!w-7' : 'h-11 w-11 p-1 sm:h-auto sm:w-auto'} flex items-center justify-center rounded-lg hover:bg-raised cursor-pointer transition-all duration-200 ${showMenu ? 'opacity-100 bg-raised' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100'}`}
               >
                 <MoreVertical className="w-4 h-4 text-ink-muted" />
               </button>
@@ -276,7 +264,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                       onEdit(task)
                       setShowMenu(false)
                     }}
-                    className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-ink-soft hover:bg-gray-700 cursor-pointer rounded-t-lg"
+                    className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-ink-soft hover:bg-raised cursor-pointer rounded-t-lg"
                   >
                     <Edit className="w-4 h-4" />
                     <span>Edit</span>
@@ -287,7 +275,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                       onDelete(task)
                       setShowMenu(false)
                     }}
-                    className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-red-400 hover:bg-gray-700 cursor-pointer rounded-b-lg"
+                    className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-state-danger hover:bg-raised cursor-pointer rounded-b-lg"
                   >
                     <Trash2 className="w-4 h-4" />
                     <span>Delete</span>
@@ -300,7 +288,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                      {/* Category, Project, and Time Info */}
            <div className={`flex min-w-0 items-center overflow-hidden ${compact ? 'mt-0.5 gap-1 whitespace-nowrap leading-4' : 'mt-2 flex-wrap gap-2'}`}>
              <span className={`shrink-0 rounded-full border text-xs ${compact ? 'px-1 py-0 leading-4' : 'px-2 py-1'} ${getCategoryColor(task.category)}`}>
-               {task.category}
+               {getCategoryPresentation(task.category).label}
              </span>
              
              {task.project && (
@@ -338,7 +326,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
             )}
 
             {task.type === 'habit' && (
-              <span className="flex items-center space-x-1 text-xs text-purple-400">
+              <span className="flex items-center space-x-1 text-xs text-accent">
                 <Zap className="w-3 h-3" />
                 <span>Daily</span>
               </span>
@@ -352,7 +340,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
 
           {/* Rollover indicator */}
           {isRolledOver && task.originalCreatedAt && (
-            <div className="flex items-center space-x-1 text-xs text-amber-400 mt-2 bg-amber-500/10 px-2 py-1 rounded-md">
+            <div className="flex items-center space-x-1 text-xs text-state-warning mt-2 bg-state-warning/10 px-2 py-1 rounded-md">
               <Calendar className="w-3 h-3" />
               <span>
                 Rolled over from {format(parseISO(task.originalCreatedAt), 'MMM d')}

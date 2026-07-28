@@ -128,7 +128,7 @@ function AchievementSparkline({ summary }: { summary: AchievementSummary }) {
   const entries = summary.entries
   if (entries.length < 2) {
     return (
-      <div className="flex h-32 items-center justify-center rounded-lg border border-line/70 bg-sunken/20 px-4 text-center text-sm text-gray-500">
+      <div className="flex h-32 items-center justify-center rounded-lg border border-line/70 bg-sunken/20 px-4 text-center text-sm text-ink-muted">
         Add another entry to see your trend.
       </div>
     )
@@ -165,8 +165,8 @@ function AchievementSparkline({ summary }: { summary: AchievementSummary }) {
 function StatTile({ icon: Icon, label, value, sub }: { icon: LucideIcon; label: string; value: string; sub?: string }) {
   return (
     <div className="min-w-0 rounded-lg border border-line/80 bg-sunken/20 p-3 sm:p-4">
-      <div className="mb-2 flex items-center gap-2 text-xs uppercase text-gray-500">
-        <Icon className="h-4 w-4 shrink-0 text-cyan-400" />
+      <div className="mb-2 flex items-center gap-2 text-xs uppercase text-ink-muted">
+        <Icon className="h-4 w-4 shrink-0 text-accent" />
         <span>{label}</span>
       </div>
       <p className="truncate text-xl font-bold text-ink sm:text-2xl">{value}</p>
@@ -191,18 +191,18 @@ function AchievementPill({
       aria-label={`${achievement.definition.name} ${formatValue(achievement.latest?.value, achievement.definition.unit)}${active ? ', selected' : ''}`}
       className={`min-w-[11rem] max-w-[14rem] shrink-0 rounded-lg border p-3 text-left transition-all ${
         active
-          ? 'border-cyan-500/50 bg-cyan-500/12 shadow-lg shadow-cyan-500/10'
+          ? 'border-accent/50 bg-accent/10'
           : 'border-line/70 bg-sunken/20 hover:border-line-strong'
       }`}
     >
       <div className="flex items-center justify-between gap-2">
         <span className="truncate text-sm font-medium text-ink">{achievement.definition.name}</span>
-        {active && <span className="h-2 w-2 shrink-0 rounded-full bg-cyan-400" />}
+        {active && <span className="h-2 w-2 shrink-0 rounded-full bg-accent" />}
       </div>
-      <p className="mt-1 text-lg font-bold text-cyan-200">
+      <p className="mt-1 text-lg font-bold text-accent">
         {formatValue(achievement.latest?.value, achievement.definition.unit)}
       </p>
-      <p className="mt-1 truncate text-xs text-gray-500">
+      <p className="mt-1 truncate text-xs text-ink-muted">
         {achievement.definition.category || achievement.definition.metricType}
       </p>
     </button>
@@ -327,8 +327,8 @@ export default function AchievementsPage() {
         onClick={() => setShowCreate((value) => !value)}
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/15">
-            <Plus className="h-4 w-4 text-cyan-300" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-accent/30 bg-accent/15">
+            <Plus className="h-4 w-4 text-accent" />
           </div>
           <div>
             <h2 className="text-lg font-semibold text-ink">New Achievement</h2>
@@ -426,11 +426,11 @@ export default function AchievementsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center space-x-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600">
+          <div className="flex h-9 w-9 items-center justify-center rounded-control bg-action">
             <Award className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-ink neon-text">Progress</h1>
+            <h1 className="text-2xl font-bold text-ink">Progress</h1>
             <p className="text-sm text-ink-muted">Personal bests and progress over recorded dates.</p>
           </div>
         </div>
@@ -480,7 +480,7 @@ export default function AchievementsPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <h2 className="truncate text-xl font-semibold text-ink">{selected.definition.name}</h2>
                       {selected.definition.category && (
-                        <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-1 text-xs text-cyan-200">
+                        <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-1 text-xs text-accent">
                           {selected.definition.category}
                         </span>
                       )}
@@ -491,7 +491,7 @@ export default function AchievementsPage() {
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70 hover:text-cyan-300"
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70 hover:text-accent"
                       onClick={() => {
                         setEditDefinitionForm(summaryToDefinitionForm(selected))
                         setEditingDefinition((value) => !value)
@@ -502,7 +502,7 @@ export default function AchievementsPage() {
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button
-                      className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70 hover:text-cyan-300"
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70 hover:text-accent"
                       onClick={() => updateAchievement({ id: selected.definition.id, patch: { archived: true } })}
                       title="Archive"
                       aria-label={`Archive ${selected.definition.name}`}
@@ -510,7 +510,7 @@ export default function AchievementsPage() {
                       <Archive className="h-4 w-4" />
                     </button>
                     <button
-                      className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-red-500/10 hover:text-red-400"
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-state-danger/10 hover:text-state-danger"
                       onClick={() => {
                         if (window.confirm(`Delete ${selected.definition.name} and all of its recorded results?`)) {
                           deleteAchievement(selected.definition.id)
@@ -525,7 +525,7 @@ export default function AchievementsPage() {
                 </div>
 
                 {editingDefinition && (
-                  <div className="mb-4 rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-3">
+                  <div className="mb-4 rounded-lg border border-accent/30 bg-accent/10 p-3">
                     <div className="grid gap-3 sm:grid-cols-2">
                       <label className="space-y-1">
                         <span className="text-xs text-ink-muted">Name</span>
@@ -601,7 +601,7 @@ export default function AchievementsPage() {
                     <div className="mt-3 flex justify-end gap-2">
                       <button
                         aria-label={`Save changes to ${selected.definition.name}`}
-                        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-cyan-400 hover:bg-cyan-500/10"
+                        className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-accent hover:bg-accent/10"
                         onClick={submitDefinitionEdit}
                       >
                         <Check className="h-4 w-4" />
@@ -676,7 +676,7 @@ export default function AchievementsPage() {
                       value={entryForm.value}
                       onChange={(event) => setEntryForm({ ...entryForm, value: event.target.value })}
                     />
-                    <div className="flex min-w-[4rem] items-center justify-center rounded-lg border border-line/80 bg-sunken/20 px-3 text-sm font-medium text-cyan-200">
+                    <div className="flex min-w-[4rem] items-center justify-center rounded-lg border border-line/80 bg-sunken/20 px-3 text-sm font-medium text-accent">
                       {selected.definition.unit}
                     </div>
                   </div>
@@ -810,7 +810,7 @@ export default function AchievementsPage() {
                             aria-label={`Save ${selected.definition.name} result from ${formatDateLabel(entry.date)}`}
                             onClick={submitEntryEdit}
                             disabled={!isValidEntryForm(editEntryForm)}
-                            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-cyan-400 hover:bg-cyan-500/10 disabled:opacity-40"
+                            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-accent hover:bg-accent/10 disabled:opacity-40"
                           >
                             <Check className="h-4 w-4" />
                           </button>
@@ -834,7 +834,7 @@ export default function AchievementsPage() {
                         <div className="flex shrink-0 items-center gap-1">
                           <button
                             aria-label={`Edit ${selected.definition.name} result from ${formatDateLabel(entry.date)}`}
-                            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70 hover:text-cyan-300"
+                            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-card/70 hover:text-accent"
                             onClick={() => {
                               setEditingEntryId(entry.id)
                               setEditEntryForm(entryToForm(entry))
@@ -844,7 +844,7 @@ export default function AchievementsPage() {
                           </button>
                           <button
                             aria-label={`Delete ${selected.definition.name} result from ${formatDateLabel(entry.date)}`}
-                            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-red-500/10 hover:text-red-400"
+                            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-muted hover:bg-state-danger/10 hover:text-state-danger"
                             onClick={() => {
                               deleteEntry(entry.id, {
                                 onSuccess: () => showUndoToast(

@@ -1,6 +1,10 @@
 import type { ReactNode, SyntheticEvent } from 'react'
 import { Calendar, Check, Clock, Pencil, Repeat, Timer, Volume2 } from 'lucide-react'
 import { format, addDays } from 'date-fns'
+import {
+  CATEGORY_IDS,
+  getCategoryPresentation,
+} from '../categoryPresentation'
 
 export type TaskDraftCardValue = {
   title: string
@@ -32,30 +36,21 @@ type TaskDraftCardProps = {
   onSpeakDetails?: () => void
 }
 
-const categories = ['health', 'work', 'personal', 'fitness', 'grocery', 'nutrition']
 const priorities = ['high', 'medium', 'low']
 const itemTypes = ['task', 'habit']
 const repeatOptions = ['daily', 'weekly']
 
 function getPriorityColor(priority?: string) {
   switch (priority) {
-    case 'high': return 'text-red-300 bg-red-500/15 border-red-500/30'
-    case 'medium': return 'text-yellow-200 bg-yellow-500/15 border-yellow-500/30'
-    case 'low': return 'text-green-300 bg-green-500/15 border-green-500/30'
-    default: return 'text-gray-300 bg-gray-500/15 border-gray-500/30'
+    case 'high': return 'text-state-danger bg-state-danger/15 border-state-danger/30'
+    case 'medium': return 'text-state-warning bg-state-warning/15 border-state-warning/30'
+    case 'low': return 'text-state-success bg-state-success/15 border-state-success/30'
+    default: return 'border-line bg-raised text-ink-soft'
   }
 }
 
 function getCategoryColor(category: string) {
-  const colors: Record<string, string> = {
-    health: 'bg-green-500/15 text-green-300 border-green-500/30',
-    work: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-    personal: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
-    fitness: 'bg-orange-500/15 text-orange-300 border-orange-500/30',
-    grocery: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-    nutrition: 'bg-rose-500/15 text-rose-300 border-rose-500/30',
-  }
-  return colors[category] ?? colors.personal
+  return getCategoryPresentation(category).className
 }
 
 function getDateLabel(date?: string) {
@@ -70,17 +65,17 @@ function getDateLabel(date?: string) {
 function getDateColor(date?: string) {
   const today = format(new Date(), 'yyyy-MM-dd')
   const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd')
-  if (date === today) return 'bg-cyan-500/15 text-cyan-200 border-cyan-500/30'
-  if (date === tomorrow) return 'bg-blue-500/15 text-blue-200 border-blue-500/30'
-  return 'bg-gray-500/15 text-gray-300 border-gray-500/30'
+  if (date === today) return 'bg-accent/15 text-accent border-accent/30'
+  if (date === tomorrow) return 'bg-state-info/15 text-state-info border-state-info/30'
+  return 'border-line bg-raised text-ink-soft'
 }
 
 function statusClasses(tone: TaskDraftCardProps['statusTone']) {
   switch (tone) {
-    case 'confirmed': return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+    case 'confirmed': return 'border-state-success/30 bg-state-success/10 text-state-success'
     case 'canceled': return 'border-line bg-page/70 text-ink-soft'
-    case 'error': return 'border-red-500/35 bg-red-500/10 text-red-100'
-    default: return 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+    case 'error': return 'border-state-danger/35 bg-state-danger/10 text-state-danger'
+    default: return 'border-state-warning/30 bg-state-warning/10 text-state-warning'
   }
 }
 
@@ -107,9 +102,13 @@ function PillSelect({
       value={value}
       onClick={stopControlClick}
       onChange={(event) => onChange?.(event.target.value)}
-      className={`h-8 max-w-full rounded-full border px-2.5 text-xs font-medium outline-none transition-colors focus:border-cyan-400 ${className}`}
+      className={`h-8 max-w-full rounded-full border px-2.5 text-xs font-medium outline-none transition-colors focus:border-accent ${className}`}
     >
-      {options.map((option) => <option key={option} value={option}>{option}</option>)}
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {ariaLabel === 'Category' ? getCategoryPresentation(option).label : option}
+        </option>
+      ))}
     </select>
   )
 }
@@ -163,9 +162,9 @@ export default function TaskDraftCard({
 
   return (
     <div
-      className={`task-suggestion box-border w-full max-w-full overflow-hidden rounded-xl border border-cyan-500/25 bg-sunken/55 p-3 shadow-lg shadow-black/15 transition-all sm:p-4 ${
+      className={`task-suggestion box-border w-full max-w-full overflow-hidden rounded-xl border border-accent/25 bg-sunken/55 p-3 shadow-lg shadow-black/15 transition-all sm:p-4 ${
         selectable ? 'cursor-pointer' : ''
-      } ${selected ? 'ring-2 ring-cyan-400' : 'hover:border-cyan-400/45'}`}
+      } ${selected ? 'ring-2 ring-focus' : 'hover:border-accent/45'}`}
       onClick={selectable ? onToggle : undefined}
     >
       <div className="flex min-w-0 items-start gap-3">
@@ -177,7 +176,7 @@ export default function TaskDraftCard({
               onToggle?.()
             }}
             className={`mt-1 flex h-6 w-6 flex-none items-center justify-center rounded-full border-2 transition-all ${
-              selected ? 'border-cyan-400 bg-cyan-500 text-white' : 'border-gray-500 hover:border-cyan-400'
+              selected ? 'border-action bg-action text-on-action' : 'border-line-strong hover:border-accent'
             }`}
             aria-label={selected ? 'Deselect draft' : 'Select draft'}
           >
@@ -192,14 +191,14 @@ export default function TaskDraftCard({
                 value={value.title}
                 onClick={stopControlClick}
                 onChange={(event) => update({ title: event.target.value })}
-                className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-base font-semibold text-ink outline-none transition-colors focus:border-cyan-500/60 focus:bg-page/60"
+                className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-base font-semibold text-ink outline-none transition-colors focus:border-accent/60 focus:bg-page/60"
                 dir="auto"
                 aria-label="Draft title"
               />
             ) : (
               <h4 className="min-w-0 flex-1 break-words text-base font-semibold text-ink" dir="auto">{value.title}</h4>
             )}
-            <span className="inline-flex flex-none items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/15 px-2 py-1 text-[11px] font-medium text-cyan-200">
+            <span className="inline-flex flex-none items-center gap-1 rounded-full border border-accent/30 bg-accent/15 px-2 py-1 text-[11px] font-medium text-accent">
               <Pencil className="h-3 w-3" />
               <span className="hidden sm:inline">Draft</span>
             </span>
@@ -215,13 +214,15 @@ export default function TaskDraftCard({
             {canEdit ? (
               <PillSelect
                 value={value.category || 'personal'}
-                options={categories}
+                options={CATEGORY_IDS}
                 className={getCategoryColor(value.category || 'personal')}
                 onChange={(category) => update({ category })}
                 ariaLabel="Category"
               />
             ) : (
-              <span className={`rounded-full border px-2.5 py-1.5 text-xs font-medium ${getCategoryColor(value.category)}`}>{value.category}</span>
+              <span className={`rounded-full border px-2.5 py-1.5 text-xs font-medium ${getCategoryColor(value.category)}`}>
+                {getCategoryPresentation(value.category).label}
+              </span>
             )}
 
             {value.priority && (canEdit ? (
@@ -240,13 +241,13 @@ export default function TaskDraftCard({
               <PillInput
                 value={value.duration}
                 type="number"
-                className="border-gray-500/30 bg-gray-500/15 text-gray-200"
+                className="border-line bg-raised text-ink-soft"
                 onChange={(duration) => update({ duration })}
                 ariaLabel="Duration"
                 suffix="min"
               />
             ) : (
-              <span className="inline-flex items-center gap-1 rounded-full border border-gray-500/30 bg-gray-500/15 px-2.5 py-1.5 text-xs font-medium text-gray-200">
+              <span className="inline-flex items-center gap-1 rounded-full border border-line bg-raised px-2.5 py-1.5 text-xs font-medium text-ink-soft">
                 <Timer className="h-3 w-3" />
                 {value.duration}min
               </span>
@@ -256,12 +257,12 @@ export default function TaskDraftCard({
               <PillSelect
                 value={value.type || 'task'}
                 options={itemTypes}
-                className="border-purple-500/30 bg-purple-500/15 text-purple-200"
+                className="border-accent/30 bg-accent/15 text-accent"
                 onChange={(type) => update({ type })}
                 ariaLabel="Type"
               />
             ) : (
-              <span className="rounded-full border border-purple-500/30 bg-purple-500/15 px-2.5 py-1.5 text-xs font-medium text-purple-200">{value.type}</span>
+              <span className="rounded-full border border-accent/30 bg-accent/15 px-2.5 py-1.5 text-xs font-medium text-accent">{value.type}</span>
             )}
 
             {value.type === 'habit' && (
@@ -269,12 +270,12 @@ export default function TaskDraftCard({
                 <PillSelect
                   value={value.repeat || 'daily'}
                   options={repeatOptions}
-                  className="border-emerald-500/30 bg-emerald-500/15 text-emerald-200"
+                  className="border-state-success/30 bg-state-success/15 text-state-success"
                   onChange={(repeat) => update({ repeat })}
                   ariaLabel="Repeat"
                 />
               ) : (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1.5 text-xs font-medium text-emerald-200">
+                <span className="inline-flex items-center gap-1 rounded-full border border-state-success/30 bg-state-success/15 px-2.5 py-1.5 text-xs font-medium text-state-success">
                   <Repeat className="h-3 w-3" />
                   {value.repeat || 'daily'}
                 </span>
@@ -285,12 +286,12 @@ export default function TaskDraftCard({
               <PillInput
                 value={value.startTime ?? ''}
                 type="time"
-                className="border-blue-500/30 bg-blue-500/15 text-blue-200"
+                className="border-state-info/30 bg-state-info/15 text-state-info"
                 onChange={(startTime) => update({ startTime })}
                 ariaLabel="Start time"
               />
             ) : value.startTime ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/15 px-2.5 py-1.5 text-xs font-medium text-blue-200">
+              <span className="inline-flex items-center gap-1 rounded-full border border-state-info/30 bg-state-info/15 px-2.5 py-1.5 text-xs font-medium text-state-info">
                 <Clock className="h-3 w-3" />
                 {value.startTime}
               </span>
@@ -326,8 +327,8 @@ export default function TaskDraftCard({
                     }}
                     className={`rounded-md border px-3 py-2 text-xs font-medium transition-colors ${
                       dateValue === date.value
-                        ? 'border-cyan-400 bg-cyan-500 text-white'
-                        : 'border-card bg-page/70 text-ink-soft hover:border-cyan-500/60 hover:text-cyan-200'
+                        ? 'border-action bg-action text-on-action'
+                        : 'border-card bg-page/70 text-ink-soft hover:border-accent/60 hover:text-accent'
                     }`}
                   >
                     {date.label}
@@ -346,7 +347,7 @@ export default function TaskDraftCard({
                     event.stopPropagation()
                     onSpeakDetails()
                   }}
-                  className="inline-flex items-center gap-1 rounded-md border border-card px-2.5 py-1.5 text-xs text-cyan-300 transition-colors hover:border-cyan-500/60 hover:text-cyan-100"
+                  className="inline-flex items-center gap-1 rounded-md border border-card px-2.5 py-1.5 text-xs text-accent transition-colors hover:border-accent/60 hover:text-accent"
                 >
                   <Volume2 className="h-3.5 w-3.5" />
                   Speak

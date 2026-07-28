@@ -98,7 +98,7 @@ export default function ProjectSelector({
                 key={project.id}
                 type="button"
                 onClick={() => onProjectSelect(project.id)}
-                className="w-full flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-700/50 transition-colors text-left"
+                className="w-full flex items-center space-x-3 p-2 rounded-lg hover:bg-raised/50 transition-colors text-left"
                 style={{ borderLeft: `3px solid ${project.color}` }}
               >
                 <Folder className="w-4 h-4 text-ink-muted flex-shrink-0" />
@@ -137,7 +137,7 @@ export default function ProjectSelector({
                       className={`w-6 h-6 rounded-full border-2 transition-all ${
                         newProjectColor === color 
                           ? 'border-white scale-110' 
-                          : 'border-line-strong hover:border-gray-400'
+                          : 'border-line-strong hover:border-line-strong'
                       }`}
                       style={{ backgroundColor: color }}
                     />
@@ -150,7 +150,7 @@ export default function ProjectSelector({
                   type="button"
                   onClick={handleCreateProject}
                   disabled={!newProjectName.trim()}
-                  className="flex-1 px-3 py-2 bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-lg text-sm hover:bg-cyan-500/30 transition-colors disabled:opacity-50"
+                  className="flex-1 px-3 py-2 bg-accent/20 text-accent border border-accent/30 rounded-lg text-sm hover:bg-accent/30 transition-colors disabled:opacity-50"
                 >
                   Create
                 </button>
@@ -160,7 +160,7 @@ export default function ProjectSelector({
                     setShowCreateForm(false)
                     setNewProjectName('')
                   }}
-                  className="flex-1 px-3 py-2 bg-gray-700/50 text-ink-soft border border-line-strong rounded-lg text-sm hover:bg-gray-700 transition-colors"
+                  className="flex-1 px-3 py-2 bg-raised/50 text-ink-soft border border-line-strong rounded-lg text-sm hover:bg-raised transition-colors"
                 >
                   Cancel
                 </button>
@@ -170,7 +170,7 @@ export default function ProjectSelector({
             <button
               type="button"
               onClick={() => setShowCreateForm(true)}
-              className="w-full flex items-center justify-center space-x-2 p-2 text-ink-muted hover:text-cyan-400 border border-dashed border-line-strong hover:border-cyan-500/50 rounded-lg transition-colors"
+              className="w-full flex items-center justify-center space-x-2 p-2 text-ink-muted hover:text-accent border border-dashed border-line-strong hover:border-accent/50 rounded-lg transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span className="text-sm">Create New Project</span>

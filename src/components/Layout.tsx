@@ -7,7 +7,6 @@ import {
   Settings,
   LogOut,
   Brain,
-  Sparkles,
   Menu,
   X,
   Coins,
@@ -185,15 +184,12 @@ export default function Layout({ children }: LayoutProps) {
               {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-line/50">
                 <div className="flex items-center space-x-3">
-                  <div className="relative">
-                    <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl animate-float">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-control bg-action">
                       <Brain className="w-6 h-6 text-white" />
-                    </div>
-                    <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-cyan-400 animate-neon-flicker" />
                   </div>
                   <div>
-                    <h1 id="mobile-navigation-title" className="text-xl font-bold text-ink neon-text">HealthyFlow navigation</h1>
-                    <p className="text-xs text-cyan-400">AI-Powered Planner</p>
+                    <h1 id="mobile-navigation-title" className="text-xl font-bold text-ink">HealthyFlow navigation</h1>
+                    <p className="text-xs text-ink-muted">Plan your day. Track what matters.</p>
                   </div>
                 </div>
                 
@@ -218,7 +214,7 @@ export default function Layout({ children }: LayoutProps) {
                         <div
                           id={`mobile-nav-group-${group.id}`}
                           className={`mb-2 px-4 text-[11px] font-bold uppercase tracking-[0.18em] ${
-                            groupActive ? 'text-cyan-300' : 'text-ink-muted'
+                            groupActive ? 'text-accent' : 'text-ink-muted'
                           }`}
                         >
                           {group.label}
@@ -233,17 +229,16 @@ export default function Layout({ children }: LayoutProps) {
                                   aria-current={isActive ? 'page' : undefined}
                                   data-demo={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
                                   data-demo-id={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                                  className={`flex items-center space-x-3 rounded-xl border px-4 py-3 transition-all duration-300 group ${
+                                  className={`group flex items-center space-x-3 rounded-control border px-4 py-3 transition-colors ${
                                     isActive
-                                      ? 'border-cyan-500/30 bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400 shadow-lg shadow-cyan-500/20'
-                                      : 'border-transparent text-ink-muted hover:border-line-strong/50 hover:bg-card/50 hover:text-ink-soft'
+                                      ? 'border-accent/40 bg-accent/10 text-accent'
+                                      : 'border-transparent text-ink-muted hover:border-line hover:bg-raised hover:text-ink'
                                   }`}
                                 >
-                                  <item.icon className={`h-5 w-5 transition-all duration-300 ${
-                                    isActive ? 'text-cyan-400' : 'group-hover:text-ink-soft'
+                                  <item.icon className={`h-5 w-5 transition-colors ${
+                                    isActive ? 'text-accent' : 'group-hover:text-ink'
                                   }`} />
                                   <span className="font-medium">{item.name}</span>
-                                  {isActive && <span className="ml-auto h-2 w-2 rounded-full bg-cyan-400" />}
                                 </Link>
                               </li>
                             )
@@ -254,23 +249,12 @@ export default function Layout({ children }: LayoutProps) {
                   })}
                 </div>
 
-                {/* AI Status Indicator */}
-                <div className="mt-8 p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Brain className="w-4 h-4 text-purple-400" />
-                    <span className="text-sm font-medium text-purple-400">Talk</span>
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  </div>
-                  <p className="text-xs text-ink-muted">
-                    Ready to analyze your tasks and provide intelligent suggestions
-                  </p>
-                </div>
               </nav>
 
               {/* User Info & Logout */}
               <div className="shrink-0 p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] border-t border-line/50">
                 <div className="flex items-center space-x-3 mb-4">
-                  <div className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full flex items-center justify-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-action">
                     <span className="text-white font-semibold text-sm">
                       {user?.name?.charAt(0).toUpperCase()}
                     </span>
@@ -302,13 +286,6 @@ export default function Layout({ children }: LayoutProps) {
       {/* PWA Install Prompt */}
       <PWAInstallPrompt suppressed={isDemo} />
       
-      {/* Futuristic background effects */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse delay-2000"></div>
-      </div>
-
       {/* Mobile Header */}
       {isMobile && (
         <header className="pwa-mobile-header fixed left-0 right-0 top-0 z-30 border-b border-line/50 lg:hidden">
@@ -324,13 +301,10 @@ export default function Layout({ children }: LayoutProps) {
             </button>
             
             <div className="flex items-center space-x-2">
-              <div className="relative">
-                <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg animate-float">
+              <div className="flex h-8 w-8 items-center justify-center rounded-control bg-action">
                   <Brain className="w-4 h-4 text-white" />
-                </div>
-                <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-cyan-400 animate-neon-flicker" />
               </div>
-              <h1 className="text-lg font-bold text-ink neon-text">HealthyFlow</h1>
+              <h1 className="text-lg font-bold text-ink">HealthyFlow</h1>
             </div>
             
             {/* Mobile User Menu Button */}
@@ -339,7 +313,7 @@ export default function Layout({ children }: LayoutProps) {
               aria-label="Open account navigation"
               onClick={() => setIsMobileMenuOpen(true)}
               data-demo-id="account-menu"
-              className="w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-full flex items-center justify-center"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-action"
             >
               <span className="text-white font-semibold text-sm">
                 {user?.name?.charAt(0).toUpperCase()}
@@ -355,22 +329,19 @@ export default function Layout({ children }: LayoutProps) {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl animate-float">
+                <div className="flex h-10 w-10 items-center justify-center rounded-control bg-action">
                     <Brain className="w-6 h-6 text-white" />
-                  </div>
-                  <Sparkles className="absolute -top-1 -right-1 w-4 h-4 text-cyan-400 animate-neon-flicker" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-ink neon-text">HealthyFlow</h1>
-                  <p className="text-xs text-cyan-400">AI-Powered Future Planner</p>
+                  <h1 className="text-xl font-bold text-ink">HealthyFlow</h1>
+                  <p className="text-xs text-ink-muted">Plan your day. Track what matters.</p>
                 </div>
               </div>
               
               <div data-demo-id="account-menu" className="flex items-center space-x-4">
                 <div className="text-right">
                   <span className="text-sm text-ink-soft">Welcome back,</span>
-                  <p className="text-sm font-medium text-cyan-400">{user?.name}</p>
+                  <p className="text-sm font-medium text-ink">{user?.name}</p>
                 </div>
                 <button
                   onClick={logout}
@@ -399,7 +370,7 @@ export default function Layout({ children }: LayoutProps) {
                       <div
                         id={`desktop-nav-group-${group.id}`}
                         className={`mb-2 px-4 text-[10px] font-bold uppercase tracking-[0.18em] ${
-                          groupActive ? 'text-cyan-300' : 'text-ink-muted'
+                          groupActive ? 'text-accent' : 'text-ink-muted'
                         }`}
                       >
                         {group.label}
@@ -414,17 +385,16 @@ export default function Layout({ children }: LayoutProps) {
                                 aria-current={isActive ? 'page' : undefined}
                                 data-demo={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
                                 data-demo-id={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                                className={`flex items-center space-x-3 rounded-xl border px-4 py-3 transition-all duration-300 group ${
+                                className={`group flex items-center space-x-3 rounded-control border px-4 py-3 transition-colors ${
                                   isActive
-                                    ? 'border-cyan-500/30 bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400 shadow-lg shadow-cyan-500/20'
-                                    : 'border-transparent text-ink-muted hover:border-line-strong/50 hover:bg-card/50 hover:text-ink-soft'
+                                    ? 'border-accent/40 bg-accent/10 text-accent'
+                                    : 'border-transparent text-ink-muted hover:border-line hover:bg-raised hover:text-ink'
                                 }`}
                               >
-                                <item.icon className={`h-5 w-5 transition-all duration-300 ${
-                                  isActive ? 'text-cyan-400' : 'group-hover:text-ink-soft'
+                                <item.icon className={`h-5 w-5 transition-colors ${
+                                  isActive ? 'text-accent' : 'group-hover:text-ink'
                                 }`} />
                                 <span className="font-medium">{item.name}</span>
-                                {isActive && <span className="ml-auto h-2 w-2 rounded-full bg-cyan-400" />}
                               </Link>
                             </li>
                           )
@@ -435,17 +405,6 @@ export default function Layout({ children }: LayoutProps) {
                 })}
               </div>
 
-              {/* AI Status Indicator */}
-              <div className="mt-8 p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Brain className="w-4 h-4 text-purple-400" />
-                  <span className="text-sm font-medium text-purple-400">Talk</span>
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                </div>
-                <p className="text-xs text-ink-muted">
-                  Ready to analyze your tasks and provide intelligent suggestions
-                </p>
-              </div>
             </div>
           </nav>
         )}
@@ -466,31 +425,31 @@ export default function Layout({ children }: LayoutProps) {
         >
           <div className={`min-w-0 ${isMobile ? `max-w-full ${isTalkPage ? 'h-full' : ''}` : 'max-w-6xl'} mx-auto`}>
             {moduleNotice && (
-              <div className="mb-4 flex items-start justify-between gap-4 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm" role="status">
+              <div className="mb-4 flex items-start justify-between gap-4 rounded-section border border-state-warning/40 bg-state-warning/10 p-4 text-sm" role="status">
                 <div>
                   <p className="font-medium text-ink">{moduleNotice.message}</p>
-                  <Link className="mt-1 inline-block font-medium text-cyan-400 underline underline-offset-2" to="/settings/health-tools">
+                  <Link className="mt-1 inline-block font-medium text-accent underline underline-offset-2" to="/settings/health-tools">
                     Enable in Settings
                   </Link>
                 </div>
-                <button type="button" aria-label="Dismiss module notice" className="rounded-lg p-2 text-ink-muted hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400" onClick={dismissModuleNotice}>
+                <button type="button" aria-label="Dismiss module notice" className="rounded-control p-2 text-ink-muted hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus" onClick={dismissModuleNotice}>
                   <X className="h-5 w-5" />
                 </button>
               </div>
             )}
             {resolution === 'error' && !moduleNotice && (
-              <div className="mb-4 flex items-center justify-between gap-4 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm" role="status">
+              <div className="mb-4 flex items-center justify-between gap-4 rounded-section border border-state-warning/40 bg-state-warning/10 p-4 text-sm" role="status">
                 <p className="text-ink">Optional modules could not be checked.</p>
-                <button type="button" className="font-medium text-cyan-400 underline underline-offset-2" onClick={() => void retry()}>Retry</button>
+                <button type="button" className="font-medium text-accent underline underline-offset-2" onClick={() => void retry()}>Retry</button>
               </div>
             )}
             {children}
             {!(isMobile && isTalkPage) && (
-              <footer className="mt-10 flex flex-wrap justify-center gap-4 text-xs text-gray-500">
-                <Link to="/privacy" className="transition-colors hover:text-cyan-400">
+              <footer className="mt-10 flex flex-wrap justify-center gap-4 text-xs text-ink-muted">
+                <Link to="/privacy" className="transition-colors hover:text-accent">
                   Privacy Policy
                 </Link>
-                <Link to="/terms" className="transition-colors hover:text-cyan-400">
+                <Link to="/terms" className="transition-colors hover:text-accent">
                   Terms of Service
                 </Link>
               </footer>
@@ -505,28 +464,22 @@ export default function Layout({ children }: LayoutProps) {
           <div className="grid grid-cols-2 gap-2 p-2">
             {primaryMobileNavigation.map((item) => {
               const isActive = isNavigationActive(item)
-              const isPrimary = item.href === '/talk'
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   aria-label={item.name}
                   data-demo-id={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                  className={`mobile-dock-link flex min-w-0 flex-col items-center space-y-1 rounded-xl p-2 transition-all duration-300 xs:p-3 ${
-                    isPrimary
-                      ? `bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/30 ${isActive ? 'ring-2 ring-cyan-300/60' : ''}`
-                      : isActive
-                        ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400'
-                        : 'text-ink-muted hover:text-ink-soft hover:bg-card/50'
+                  className={`mobile-dock-link flex min-w-0 flex-col items-center space-y-1 rounded-control border p-2 transition-colors xs:p-3 ${
+                    isActive
+                      ? 'border-accent/40 bg-accent/10 text-accent'
+                      : 'border-transparent text-ink-muted hover:bg-raised hover:text-ink'
                   }`}
                 >
-                  <item.icon className={`w-5 h-5 ${isActive && !isPrimary ? 'text-cyan-400' : ''}`} />
+                  <item.icon className={`h-5 w-5 ${isActive ? 'text-accent' : ''}`} />
                   <span className="mobile-nav-label max-w-full truncate text-[10px] font-medium leading-tight xs:text-xs">
                     {item.name}
                   </span>
-                  {isActive && !isPrimary && (
-                    <div className="w-1 h-1 bg-cyan-400 rounded-full"></div>
-                  )}
                 </Link>
               )
             })}

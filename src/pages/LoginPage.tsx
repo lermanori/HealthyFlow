@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Brain, Mail, Lock, User, Sparkles, Zap } from 'lucide-react'
+import { Brain, Mail, Lock, User } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { waitlistService, type SignupStatus } from '../services/api'
@@ -91,9 +91,6 @@ export default function LoginPage() {
       } else {
         await signup(email, password, name, inviteToken)
       }
-      if ('navigator' in window && 'vibrate' in navigator) {
-        navigator.vibrate([100, 50, 200])
-      }
     } catch (err: any) {
       // Surface inline error for "email already taken" and similar
       const msg = err?.response?.data?.error
@@ -104,64 +101,34 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-page flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Futuristic background effects */}
-      <div className="absolute inset-0">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-pulse delay-2000"></div>
-      </div>
-
-      {/* Animated grid background */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute inset-0" style={{
-          backgroundImage: `
-            linear-gradient(rgba(6, 182, 212, 0.3) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(6, 182, 212, 0.3) 1px, transparent 1px)
-          `,
-          backgroundSize: '50px 50px'
-        }}></div>
-      </div>
-
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-page p-4">
       <motion.div
-        initial={{ opacity: 0, y: 20, scale: 0.95 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.5 }}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.2 }}
         className="w-full max-w-md relative z-10"
       >
-        <div className="card ai-glow">
+        <div className="card">
           <div className="text-center mb-8">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-              className="relative mx-auto mb-4"
-            >
-              <div className="flex items-center justify-center w-20 h-20 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-2xl animate-float">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-section bg-action">
                 <Brain className="w-10 h-10 text-white" />
-              </div>
-              <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-cyan-400 animate-neon-flicker" />
-              <Zap className="absolute -bottom-1 -left-1 w-5 h-5 text-blue-400 animate-pulse" />
-            </motion.div>
+            </div>
 
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-            >
-              <h1 className="text-2xl md:text-3xl font-bold text-ink neon-text mb-2">
+            <div>
+              <h1 className="mb-2 text-2xl font-bold text-ink md:text-3xl">
                 Welcome to HealthyFlow
               </h1>
-              <p className="text-cyan-400 font-medium">AI-Powered Future Planner</p>
-              <p className="text-ink-muted text-sm mt-1">Neural networks ready to optimize your life</p>
-            </motion.div>
+              <p className="font-medium text-ink-soft">Plan your day. Track what matters.</p>
+              <p className="mt-1 text-sm text-ink-muted">Tasks, habits, health, and workouts in one place.</p>
+            </div>
 
             {/* Mode toggle — the signup tab only exists when signup can succeed */}
             <div className="flex mt-4 rounded-xl overflow-hidden border border-line">
               <button
                 type="button"
                 onClick={() => switchMode('login')}
-                className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === 'login' ? 'bg-cyan-600 text-white' : 'bg-card text-ink-muted hover:text-ink-soft'}`}
+                aria-pressed={mode === 'login'}
+                className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === 'login' ? 'bg-action text-on-action' : 'bg-card text-ink-muted hover:bg-raised hover:text-ink'}`}
               >
                 Sign in
               </button>
@@ -169,7 +136,8 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => switchMode('signup')}
-                  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === 'signup' ? 'bg-cyan-600 text-white' : 'bg-card text-ink-muted hover:text-ink-soft'}`}
+                  aria-pressed={mode === 'signup'}
+                  className={`flex-1 py-2 text-sm font-medium transition-colors ${mode === 'signup' ? 'bg-action text-on-action' : 'bg-card text-ink-muted hover:bg-raised hover:text-ink'}`}
                 >
                   Create account
                 </button>
@@ -177,13 +145,13 @@ export default function LoginPage() {
             </div>
 
             {inviteToken && (
-              <p className="mt-3 text-sm text-cyan-400">
+              <p className="mt-3 text-sm text-accent">
                 You've been invited — create your account below.
               </p>
             )}
 
             {!inviteToken && signupStatus?.mode === 'open' && (
-              <p className="mt-3 text-sm text-cyan-400">
+              <p className="mt-3 text-sm text-accent">
                 {signupStatus.remaining} {signupStatus.remaining === 1 ? 'spot' : 'spots'} left
               </p>
             )}
@@ -191,7 +159,7 @@ export default function LoginPage() {
             {!inviteToken && signupStatus?.mode === 'waitlist' && (
               <div className="mt-4 rounded-xl border border-line p-4 text-left">
                 {waitlistJoined ? (
-                  <p className="text-sm text-cyan-400">
+                  <p className="text-sm text-state-success">
                     You're on the list. We'll email you when a spot opens.
                   </p>
                 ) : (
@@ -209,7 +177,7 @@ export default function LoginPage() {
                       placeholder="you@example.com"
                       autoComplete="email"
                     />
-                    {waitlistError && <p className="mt-2 text-sm text-red-400">{waitlistError}</p>}
+                    {waitlistError && <p className="mt-2 text-sm text-state-danger">{waitlistError}</p>}
                     <button type="submit" disabled={waitlistSubmitting} className="btn-primary mt-3 w-full">
                       {waitlistSubmitting ? 'Joining…' : 'Join the waitlist'}
                     </button>
@@ -302,12 +270,10 @@ export default function LoginPage() {
 
             {/* Inline error */}
             {error && (
-              <p className="text-red-400 text-sm text-center">{error}</p>
+              <p role="alert" className="text-center text-sm text-state-danger">{error}</p>
             )}
 
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={loading}
               className="w-full btn-primary flex items-center justify-center space-x-2 py-4 mt-2"
@@ -321,7 +287,6 @@ export default function LoginPage() {
                 <>
                   <Brain className="w-5 h-5" />
                   <span>{mode === 'login' ? 'Login' : 'Create Account'}</span>
-                  <Sparkles className="w-4 h-4 animate-neon-flicker" />
                 </>
               )}
             </motion.button>
@@ -332,19 +297,19 @@ export default function LoginPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.7 }}
-              className="mt-6 p-4 rounded-xl bg-gradient-to-r from-card/50 to-gray-700/50 border border-line-strong/50"
+              className="mt-6 rounded-section border border-line bg-raised/55 p-4"
             >
               <div className="text-center">
                 <p className="text-sm text-ink-soft font-medium mb-2">
-                  🚀 Demo Access Credentials
+                  Demo access
                 </p>
                 <div className="space-y-1 text-xs text-ink-muted">
-                  <p><strong className="text-cyan-400">Email:</strong> demo@healthyflow.com</p>
-                  <p><strong className="text-cyan-400">Password:</strong> demo123</p>
+                  <p><strong className="text-ink-soft">Email:</strong> demo@healthyflow.com</p>
+                  <p><strong className="text-ink-soft">Password:</strong> demo123</p>
                 </div>
                 <Link
                   to="/demo"
-                  className="mt-4 inline-flex items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-200 transition hover:border-cyan-400/50 hover:bg-cyan-500/15"
+                  className="mt-4 inline-flex items-center justify-center rounded-control border border-accent/35 bg-accent/10 px-3 py-2 text-xs font-semibold text-accent transition-colors hover:border-accent hover:bg-accent/15"
                 >
                   Watch the guided demo
                 </Link>
@@ -358,25 +323,24 @@ export default function LoginPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.8 }}
-              className="mt-4 p-3 rounded-xl bg-gradient-to-r from-cyan-500/10 to-blue-500/10 border border-cyan-500/30"
+              className="mt-4 rounded-section border border-line bg-raised/55 p-3"
             >
               <div className="flex items-center justify-center space-x-2">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
-                <p className="text-xs text-cyan-400">Running as installed app</p>
+                <p className="text-xs text-ink-muted">Running as installed app</p>
               </div>
             </motion.div>
           )}
 
-          <div className="mt-6 flex items-center justify-center gap-4 text-xs text-gray-500">
-            <a href="/" className="transition-colors hover:text-cyan-400">
+          <div className="mt-6 flex items-center justify-center gap-4 text-xs text-ink-muted">
+            <a href="/" className="transition-colors hover:text-accent">
               What is HealthyFlow?
             </a>
             <span aria-hidden="true">|</span>
-            <Link to="/privacy" className="transition-colors hover:text-cyan-400">
+            <Link to="/privacy" className="transition-colors hover:text-accent">
               Privacy Policy
             </Link>
             <span aria-hidden="true">|</span>
-            <Link to="/terms" className="transition-colors hover:text-cyan-400">
+            <Link to="/terms" className="transition-colors hover:text-accent">
               Terms of Service
             </Link>
           </div>

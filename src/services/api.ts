@@ -5,7 +5,10 @@ import { z } from 'zod'
 import { analytics } from '../lib/analytics'
 import type { DemoPersonaId } from '../demoPersonas'
 import type { ItemSource, ItemType } from '../lib/analytics/types'
-import type { RollbackDragMaterializationInput } from '../../backend/src/task-contracts'
+import type {
+  Category,
+  RollbackDragMaterializationInput,
+} from '../../backend/src/task-contracts'
 import {
   DailyContextSchema,
   DailySignalSchema,
@@ -24,7 +27,15 @@ import SettingsContracts, { type Settings as UserSettings } from '../../backend/
 
 const { SettingsSchema } = SettingsContracts
 
-export type { DailyContext, DailySignal, DailySignalType, DaySummary, PlanningWindow, UserSettings }
+export type {
+  Category,
+  DailyContext,
+  DailySignal,
+  DailySignalType,
+  DaySummary,
+  PlanningWindow,
+  UserSettings,
+}
 export { isDaySummaryItemAddressed }
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 // const API_BASE_URL = 'https://healthyflow-production.up.railway.app/api'
@@ -76,7 +87,7 @@ export interface Project {
 interface ItemBase {
   id: string
   title: string
-  category: string
+  category: Category
   startTime?: string | null
   location?: string | null
   duration?: number
@@ -728,7 +739,7 @@ export interface ParsedMeal {
 export interface ParsedItem {
   title: string
   type: 'task' | 'habit'
-  category: 'health' | 'work' | 'personal' | 'fitness' | 'grocery' | 'nutrition'
+  category: Category
   duration: number
   priority: 'high' | 'medium' | 'low'
   startTime: string | null

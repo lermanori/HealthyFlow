@@ -1,3 +1,9 @@
+### 2026-07-28 13:01 — `codex/151-responsive-visual-system`
+
+Normalized HealthyFlow around a semantic, contrast-safe visual system shared by Midnight and White themes across Login, Today, Talk, Add, Health, Nutrition, Workouts, Progress, and Settings. Shared category presentation now follows the canonical six-value Zod contract, completion feedback is quiet and undoable, text selection and reduced-motion behavior are preserved, and the hidden Week View remains untouched. Responsive baselines cover every visible primary surface at desktop, compact, and mobile widths, with focused accessibility and interaction regressions alongside them.
+
+---
+
 ### 2026-07-28 12:15 — `claude/app-launch-readiness-164e9d`
 
 Realigned the marketing page and the docs with the app as it now is. The landing page had drifted badly: it sold Week View (flag-off for every production user), showed Calories and Workouts as separate destinations that the Health workspace replaced, and pointed four "Start Free" CTAs at a login form with no Create-account tab, because public signup slots default to 0. The waitlist is now the shipped default and JS upgrades it to "Start Free" only when slots are genuinely open — the fail direction is inverted, matching LoginPage. Every screenshot was stale (old flat sidebar), so regeneration is now scripted rather than manual via `scripts/capture-landing-shots.mjs`. On the docs side, PRD.md was archived — its v1 sprint shipped, so it read as false — and FEATURES.md was rewritten as a verified inventory that names what is behind a flag and what is not built at all, dropping claims the code contradicts (no Supabase realtime, no offline data).

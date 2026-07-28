@@ -4,21 +4,44 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Theme tokens: :root = midnight (default, pixel-identical to legacy dark).
-   [data-theme='white'] overrides for the clean light theme. */
-/* Tokens are space-separated RGB channels so Tailwind's rgb(var(--x) / <alpha>)
-   pattern preserves alpha utilities (bg-card/50 etc.) — keeps midnight identical. */
+/* Semantic visual system. Tokens are RGB channels so Tailwind alpha utilities
+   work in both themes without page-specific color branches. */
 :root {
-  --surface-page: 16 24 40;    /* #101828 */
-  --surface-card: 31 41 55;    /* gray-800 #1f2937 */
-  --surface-raised: 31 41 55;  /* gray-800 #1f2937 */
-  --surface-input: 31 41 55;   /* gray-800 */
-  --surface-sunken: 3 7 18;    /* gray-950 #030712 */
-  --text-primary: 243 244 246; /* gray-100 #f3f4f6 */
-  --text-secondary: 229 231 235;/* gray-200 #e5e7eb */
-  --text-muted: 156 163 175;   /* gray-400 #9ca3af */
-  --border-default: 55 65 81;  /* gray-700 #374151 */
-  --border-strong: 75 85 99;   /* gray-600 #4b5563 */
+  color-scheme: dark;
+  --surface-page: 15 23 42;
+  --surface-card: 17 24 39;
+  --surface-raised: 30 41 59;
+  --surface-input: 15 23 42;
+  --surface-sunken: 2 6 23;
+  --surface-overlay: 17 24 39;
+  --text-primary: 248 250 252;
+  --text-secondary: 203 213 225;
+  --text-muted: 148 163 184;
+  --text-disabled: 100 116 139;
+  --border-default: 51 65 85;
+  --border-strong: 71 85 105;
+  --action-primary: 14 116 144;
+  --action-primary-hover: 21 94 117;
+  --action-accent: 34 211 238;
+  --action-on-primary: 255 255 255;
+  --focus-ring: 34 211 238;
+  --state-success: 52 211 153;
+  --state-warning: 251 191 36;
+  --state-danger: 251 113 133;
+  --state-info: 56 189 248;
+  --category-health: 52 211 153;
+  --category-work: 56 189 248;
+  --category-personal: 192 132 252;
+  --category-fitness: 251 191 36;
+  --category-grocery: 45 212 191;
+  --category-nutrition: 251 113 133;
+  --shadow-section: 0 1px 2px rgb(2 6 23 / 0.28);
+  --shadow-overlay: 0 18px 45px rgb(2 6 23 / 0.42);
+  --radius-control: 0.625rem;
+  --radius-section: 0.875rem;
+  --radius-overlay: 1rem;
+  --motion-fast: 140ms;
+  --motion-standard: 200ms;
   --week-task: 34 211 238;
   --week-habit: 192 132 252;
   --week-grocery: 52 211 153;
@@ -30,16 +53,36 @@
 }
 
 [data-theme='white'] {
-  --surface-page: 248 250 252;  /* slate-50 #f8fafc */
-  --surface-card: 255 255 255;  /* #ffffff */
-  --surface-raised: 241 245 249; /* slate-100 #f1f5f9 */
+  color-scheme: light;
+  --surface-page: 248 250 252;
+  --surface-card: 255 255 255;
+  --surface-raised: 241 245 249;
   --surface-input: 255 255 255;
-  --surface-sunken: 241 245 249; /* slate-100 */
-  --text-primary: 15 23 42;     /* slate-900 #0f172a */
-  --text-secondary: 51 65 85;   /* slate-700 #334155 */
-  --text-muted: 100 116 139;    /* slate-500 #64748b */
-  --border-default: 226 232 240;/* slate-200 #e2e8f0 */
-  --border-strong: 203 213 225; /* slate-300 #cbd5e1 */
+  --surface-sunken: 241 245 249;
+  --surface-overlay: 255 255 255;
+  --text-primary: 15 23 42;
+  --text-secondary: 51 65 85;
+  --text-muted: 100 116 139;
+  --text-disabled: 148 163 184;
+  --border-default: 226 232 240;
+  --border-strong: 203 213 225;
+  --action-primary: 8 112 140;
+  --action-primary-hover: 14 116 144;
+  --action-accent: 8 112 140;
+  --action-on-primary: 255 255 255;
+  --focus-ring: 8 112 140;
+  --state-success: 4 120 87;
+  --state-warning: 180 83 9;
+  --state-danger: 190 18 60;
+  --state-info: 3 105 161;
+  --category-health: 4 120 87;
+  --category-work: 3 105 161;
+  --category-personal: 126 34 206;
+  --category-fitness: 180 83 9;
+  --category-grocery: 15 118 110;
+  --category-nutrition: 190 18 60;
+  --shadow-section: 0 1px 2px rgb(15 23 42 / 0.07);
+  --shadow-overlay: 0 18px 45px rgb(15 23 42 / 0.16);
   --week-task: 8 112 140;
   --week-habit: 126 34 206;
   --week-grocery: 4 120 87;
@@ -49,6 +92,10 @@
 }
 
 @layer base {
+  html {
+    background: rgb(var(--surface-page));
+  }
+
   * {
     border-color: rgb(var(--border-default));
   }
@@ -60,64 +107,55 @@
     background: rgb(var(--surface-page));
     min-height: 100dvh;
     box-sizing: border-box;
-    /* Mobile optimizations */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    /* Prevent zoom on iOS */
     -webkit-text-size-adjust: 100%;
-    /* Prevent pull-to-refresh */
     overscroll-behavior-y: contain;
-    /* Keep ordinary content selectable; controls opt out where interaction requires it. */
-    -webkit-touch-callout: none;
     -webkit-user-select: text;
     -moz-user-select: text;
     user-select: text;
   }
 
-  /* Allow text selection for inputs and content areas */
   input, textarea, [contenteditable] {
     -webkit-user-select: text;
     -moz-user-select: text;
     user-select: text;
   }
 
-  /* Ensure all text has proper contrast */
+  ::selection {
+    background: rgb(var(--action-accent) / 0.28);
+    color: rgb(var(--text-primary));
+  }
+
   h1, h2, h3, h4, h5, h6 {
     color: rgb(var(--text-primary));
   }
 
-  p, span, div {
-    color: rgb(var(--text-secondary));
-  }
-
   .week-focus:focus-visible {
-    outline: 2px solid rgb(34 211 238);
+    outline: 2px solid rgb(var(--focus-ring));
     outline-offset: 3px;
   }
 
-  /* Futuristic scrollbar */
   ::-webkit-scrollbar {
     width: 8px;
+    height: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    background: rgba(15, 15, 35, 0.5);
+    background: rgb(var(--surface-sunken) / 0.55);
     border-radius: 4px;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: linear-gradient(45deg, #00d4ff, #0099cc);
+    background: rgb(var(--border-strong));
     border-radius: 4px;
-    box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(45deg, #00ffff, #00d4ff);
-    box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+    background: rgb(var(--text-muted));
   }
 
-  /* Mobile touch improvements */
   button, [role="button"], a {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
@@ -128,9 +166,14 @@
     cursor: not-allowed;
   }
 
-  /* Improve touch targets on mobile */
+  :focus-visible {
+    outline: 2px solid rgb(var(--focus-ring));
+    outline-offset: 2px;
+    border-radius: var(--radius-control);
+  }
+
   @media (max-width: 768px) {
-    button, [role="button"], a {
+    button, [role="button"], .touch-target {
       min-height: 44px;
       min-width: 44px;
     }
@@ -139,37 +182,63 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium py-3 px-6 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-gray-900 transform hover:scale-105 shadow-lg hover:shadow-cyan-500/25;
-    box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
-    /* Mobile optimizations */
-    @apply active:scale-95;
+    @apply bg-action text-on-action font-semibold py-3 px-5 transition-colors focus:outline-none focus:ring-2 focus:ring-focus focus:ring-offset-2 focus:ring-offset-page;
+    border-radius: var(--radius-control);
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: rgb(var(--action-primary-hover));
   }
   
   .btn-secondary {
-    @apply bg-gray-800 hover:bg-gray-700 text-gray-100 font-medium py-3 px-6 rounded-xl transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 focus:ring-offset-gray-900 border border-gray-600 hover:border-gray-500 transform hover:scale-105;
-    /* Mobile optimizations */
-    @apply active:scale-95;
+    @apply border border-line-strong bg-raised text-ink font-semibold py-3 px-5 transition-colors focus:outline-none focus:ring-2 focus:ring-focus focus:ring-offset-2 focus:ring-offset-page;
+    border-radius: var(--radius-control);
     -webkit-tap-highlight-color: transparent;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: rgb(var(--surface-card));
+    border-color: rgb(var(--text-muted));
+  }
+
+  .btn-primary:disabled,
+  .btn-secondary:disabled {
+    @apply cursor-not-allowed opacity-55;
   }
   
   .card {
-    @apply bg-gray-800/50 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-700/50 p-6 transition-all duration-300 hover:shadow-2xl hover:shadow-cyan-500/10 hover:border-cyan-500/30;
-    background: linear-gradient(135deg, rgba(31, 41, 55, 0.8) 0%, rgba(17, 24, 39, 0.9) 100%);
-    /* Mobile optimizations */
-    @apply active:scale-[0.98];
+    @apply border border-line bg-card p-5;
+    border-radius: var(--radius-section);
+    box-shadow: var(--shadow-section);
   }
   
   .input-field {
-    @apply w-full px-4 py-3 bg-gray-800/70 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all duration-300 text-gray-100 placeholder-gray-400 backdrop-blur-sm;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
-    /* Mobile optimizations */
+    @apply w-full border border-line-strong bg-field px-4 py-3 text-ink placeholder-ink-muted transition-colors focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/30;
+    border-radius: var(--radius-control);
     font-size: 16px; /* Prevents zoom on iOS */
     -webkit-appearance: none;
   }
 
-  .input-field:focus {
-    box-shadow: 0 0 20px rgba(6, 182, 212, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.3);
+  .surface-section {
+    @apply border border-line bg-card;
+    border-radius: var(--radius-section);
+    box-shadow: var(--shadow-section);
+  }
+
+  .surface-overlay {
+    @apply border border-line-strong bg-overlay;
+    border-radius: var(--radius-overlay);
+    box-shadow: var(--shadow-overlay);
+  }
+
+  .interactive-row {
+    @apply border border-transparent transition-colors hover:border-line hover:bg-raised/70;
+    border-radius: var(--radius-control);
+  }
+
+  .state-selected {
+    @apply border-accent/45 bg-accent/10 text-ink;
   }
 
   .ai-glow {
@@ -177,52 +246,40 @@
   }
 
   .ai-glow::before {
-    content: '';
-    position: absolute;
-    top: -2px;
-    left: -2px;
-    right: -2px;
-    bottom: -2px;
-    background: linear-gradient(45deg, #00d4ff, #0099cc, #00ffff, #00d4ff);
-    border-radius: inherit;
-    z-index: -1;
-    animation: ai-pulse 2s ease-in-out infinite alternate;
+    content: none;
   }
 
   .neon-text {
-    text-shadow: 0 0 10px rgba(0, 212, 255, 0.8), 0 0 20px rgba(0, 212, 255, 0.6), 0 0 30px rgba(0, 212, 255, 0.4);
-    @apply text-gray-100;
+    text-shadow: none;
+    @apply text-ink;
   }
 
   .glass-effect {
-    background: rgba(31, 41, 55, 0.1);
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgb(var(--surface-card) / 0.96);
+    border-color: rgb(var(--border-default));
   }
 
-  /* Task card mobile optimizations */
   .task-card {
-    background: rgba(17, 24, 39, 0.98) !important;
-    border: 2px solid rgba(55, 65, 81, 0.9) !important;
-    backdrop-filter: blur(20px) !important;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3) !important;
-    /* Mobile touch improvements */
-    @apply active:scale-[0.98];
+    background: rgb(var(--surface-card)) !important;
+    border: 1px solid rgb(var(--border-default)) !important;
+    border-radius: var(--radius-section) !important;
+    box-shadow: var(--shadow-section) !important;
+    backdrop-filter: none !important;
     -webkit-tap-highlight-color: transparent;
   }
 
   .task-card-completed {
-    background: rgba(55, 65, 81, 0.95) !important;
-    border: 2px solid rgba(75, 85, 99, 0.8) !important;
+    background: rgb(var(--surface-raised)) !important;
+    border-color: rgb(var(--border-default)) !important;
   }
 
-  /* High z-index for menus */
   .task-menu {
     z-index: 9999 !important;
     position: absolute !important;
-    background: rgba(17, 24, 39, 0.98) !important;
-    border: 2px solid rgba(75, 85, 99, 0.8) !important;
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(6, 182, 212, 0.3) !important;
+    background: rgb(var(--surface-overlay)) !important;
+    border: 1px solid rgb(var(--border-strong)) !important;
+    border-radius: var(--radius-control) !important;
+    box-shadow: var(--shadow-overlay) !important;
   }
 
   .timeline-slot:has(.task-menu) {
@@ -231,120 +288,40 @@
 
   /* Task suggestion styles */
   .task-suggestion {
-    @apply p-4 rounded-xl border border-gray-700/50 bg-gray-800/30 transition-all duration-300;
+    @apply border border-line bg-card p-4 transition-colors;
+    border-radius: var(--radius-control);
   }
 
   .task-suggestion:hover {
-    @apply border-cyan-500/30 bg-cyan-500/10 shadow-lg shadow-cyan-500/10;
+    @apply border-line-strong bg-raised;
   }
 }
 
-/* White theme: repaint baked-in dark surfaces + neutralize glow/shadows.
-   Component classes carry their own gradients/glow for midnight; overriding
-   here keeps midnight pixel-identical while making white legible. */
-[data-theme='white'] {
-  .card {
-    background: rgb(var(--surface-card)) !important;
-    border-color: rgb(var(--border-default)) !important;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08) !important;
-    backdrop-filter: none !important;
-  }
-  .card:hover {
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1) !important;
-  }
-  .btn-secondary {
-    background: rgb(var(--surface-raised));
-    color: rgb(var(--text-primary));
-    border-color: rgb(var(--border-strong));
-  }
-  .btn-secondary:hover {
-    background: rgb(var(--border-default));
-  }
-  .input-field {
-    background: rgb(var(--surface-input)) !important;
-    border-color: rgb(var(--border-strong)) !important;
-    color: rgb(var(--text-primary));
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-  }
-  .input-field:focus {
-    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.25) !important;
-    border-color: #06b6d4 !important;
-  }
-  .task-card {
-    background: rgb(var(--surface-card)) !important;
-    border-color: rgb(var(--border-default)) !important;
-    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1) !important;
-    backdrop-filter: none !important;
-  }
-  .task-card-completed {
-    background: rgb(var(--surface-raised)) !important;
-    border-color: rgb(var(--border-default)) !important;
-  }
-  .task-menu {
-    background: rgb(var(--surface-card)) !important;
-    border-color: rgb(var(--border-strong)) !important;
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18) !important;
-  }
-  .task-suggestion {
-    background: rgb(var(--surface-raised));
-    border-color: rgb(var(--border-default));
-  }
-  /* Neutralize neon/glow text and shadows */
-  .neon-text {
-    text-shadow: none !important;
-    color: rgb(var(--text-primary)) !important;
-  }
-  .pwa-mobile-header {
-    background: rgb(var(--surface-card));
-  }
-}
-
-/* Futuristic animations */
-@keyframes ai-pulse {
-  0% {
-    opacity: 0.4;
-    transform: scale(1);
-  }
-  100% {
-    opacity: 0.8;
-    transform: scale(1.02);
-  }
-}
-
-@keyframes neon-flicker {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.8; }
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-.animate-neon-flicker {
-  animation: neon-flicker 2s ease-in-out infinite;
+/* Legacy decoration helpers are intentionally inert. Existing feature markup can
+   migrate incrementally without reintroducing ambient motion or glow. */
+.animate-float,
+.animate-neon-flicker,
+.animate-ai-pulse,
+.animate-holographic-shift {
+  animation: none !important;
 }
 
 /* Drag and drop styles */
 .dragging {
-  @apply opacity-70 transform rotate-1 scale-105;
-  box-shadow: 0 20px 40px rgba(6, 182, 212, 0.3);
+  @apply opacity-80;
+  outline: 2px solid rgb(var(--focus-ring));
+  outline-offset: 2px;
+  box-shadow: var(--shadow-overlay);
 }
 
 .drop-zone {
-  @apply border-2 border-dashed border-cyan-400 bg-cyan-500/10 rounded-2xl;
-  box-shadow: inset 0 0 30px rgba(6, 182, 212, 0.2);
+  @apply rounded-section border-2 border-dashed border-accent bg-accent/10;
 }
 
 /* Loading spinner */
 .loading-spinner {
-  border: 3px solid rgba(6, 182, 212, 0.3);
-  border-top: 3px solid #06b6d4;
+  border: 3px solid rgb(var(--action-primary) / 0.24);
+  border-top-color: rgb(var(--action-primary));
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -354,22 +331,8 @@
   100% { transform: rotate(360deg); }
 }
 
-/* Holographic effects */
 .holographic {
-  background: linear-gradient(45deg, 
-    rgba(0, 212, 255, 0.1) 0%,
-    rgba(0, 255, 255, 0.05) 25%,
-    rgba(0, 153, 204, 0.1) 50%,
-    rgba(0, 255, 255, 0.05) 75%,
-    rgba(0, 212, 255, 0.1) 100%
-  );
-  background-size: 200% 200%;
-  animation: holographic-shift 3s ease-in-out infinite;
-}
-
-@keyframes holographic-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+  background: rgb(var(--surface-input));
 }
 
 /* Fix for bottom navigation bar overlap */
@@ -441,17 +404,6 @@
   }
 }
 
-/* Dark mode optimizations for OLED displays (midnight theme only) */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='white']) body {
-    background: #000000;
-  }
-
-  .oled-black {
-    background-color: #000000 !important;
-  }
-}
-
 /* Reduced motion preferences */
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -470,15 +422,6 @@
   }
 }
 
-/* Focus improvements for accessibility */
-@media (prefers-reduced-motion: no-preference) {
-  :focus-visible {
-    outline: 2px solid #06b6d4;
-    outline-offset: 2px;
-    border-radius: 4px;
-  }
-}
-
 /* Print styles */
 @media print {
   .no-print {
@@ -487,7 +430,7 @@
 }
 
 .pwa-mobile-header {
-  background: linear-gradient(135deg, rgb(15, 23, 42) 0%, rgb(15, 23, 42) 55%, rgb(8, 47, 73) 100%);
+  background: rgb(var(--surface-card) / 0.98);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -508,115 +451,12 @@
   }
 }
 
-/* PWA Standalone mode optimizations */
+/* Standalone mode keeps the same semantic system as the browser. */
 @media (display-mode: standalone) {
-  /* Adjust card backgrounds for better PWA appearance */
-  .card {
-    background: linear-gradient(135deg, rgba(31, 41, 55, 0.95) 0%, rgba(17, 24, 39, 0.98) 100%) !important;
-    border: 1px solid rgba(55, 65, 81, 0.8) !important;
-    backdrop-filter: blur(25px) !important;
-  }
-
-  /* Enhance task card visibility in PWA */
-  .task-card {
-    background: rgba(17, 24, 39, 0.99) !important;
-    border: 2px solid rgba(55, 65, 81, 0.95) !important;
-    backdrop-filter: blur(25px) !important;
-    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4) !important;
-  }
-
-  /* Improve glass effect for PWA */
-  .glass-effect {
-    background: rgba(31, 41, 55, 0.15) !important;
-    backdrop-filter: blur(15px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  }
-
-  /* Better gradient visibility in PWA */
-  .btn-primary {
-    background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%) !important;
-    box-shadow: 0 0 25px rgba(6, 182, 212, 0.4) !important;
-  }
-
-  .btn-primary:hover {
-    background: linear-gradient(135deg, #0891b2 0%, #2563eb 100%) !important;
-    box-shadow: 0 0 30px rgba(6, 182, 212, 0.5) !important;
-  }
-
-  /* Enhanced neon effects for PWA */
-  .neon-text {
-    text-shadow: 0 0 15px rgba(0, 212, 255, 0.9), 0 0 25px rgba(0, 212, 255, 0.7), 0 0 35px rgba(0, 212, 255, 0.5) !important;
-  }
-
-  /* Improve AI glow effect in PWA */
-  .ai-glow::before {
-    background: linear-gradient(45deg, #00d4ff, #0099cc, #00ffff, #00d4ff) !important;
-    animation: ai-pulse 2s ease-in-out infinite alternate !important;
-    opacity: 0.9 !important;
-  }
-
-  /* Better holographic effects in PWA */
-  .holographic {
-    background: linear-gradient(45deg, 
-      rgba(0, 212, 255, 0.15) 0%,
-      rgba(0, 255, 255, 0.08) 25%,
-      rgba(0, 153, 204, 0.15) 50%,
-      rgba(0, 255, 255, 0.08) 75%,
-      rgba(0, 212, 255, 0.15) 100%
-    ) !important;
-  }
-
-  /* Enhanced input field appearance in PWA */
-  .input-field {
-    background: rgba(31, 41, 55, 0.8) !important;
-    border: 1px solid rgba(75, 85, 99, 0.8) !important;
-    backdrop-filter: blur(20px) !important;
-  }
-
-  .input-field:focus {
-    background: rgba(31, 41, 55, 0.9) !important;
-    border: 1px solid rgba(6, 182, 212, 0.6) !important;
-    box-shadow: 0 0 25px rgba(6, 182, 212, 0.3), inset 0 2px 4px rgba(0, 0, 0, 0.3) !important;
-  }
-
-  /* Better task menu visibility in PWA */
-  .task-menu {
-    background: rgba(17, 24, 39, 0.99) !important;
-    border: 2px solid rgba(75, 85, 99, 0.9) !important;
-    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), 0 0 35px rgba(6, 182, 212, 0.4) !important;
-    backdrop-filter: blur(25px) !important;
-  }
-
-  /* Improve mobile bottom navigation in PWA */
   .mobile-bottom-dock,
   .assistant-composer-form {
-    background: rgba(17, 24, 39, 0.98) !important;
-    backdrop-filter: blur(25px) !important;
-    border-top: 1px solid rgba(75, 85, 99, 0.8) !important;
-  }
-
-  /* Enhanced scrollbar for PWA */
-  ::-webkit-scrollbar-thumb {
-    background: linear-gradient(45deg, #00d4ff, #0099cc) !important;
-    box-shadow: 0 0 15px rgba(0, 212, 255, 0.4) !important;
-  }
-
-  /* Better background effects for PWA */
-  .min-h-screen {
-    background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%) !important;
-  }
-
-  /* Enhance loading screen for PWA */
-  #loading-screen {
-    background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%) !important;
-  }
-
-  /* Better animation performance in PWA */
-  .animate-float,
-  .animate-neon-flicker,
-  .animate-pulse {
-    will-change: transform, opacity !important;
-    transform: translateZ(0) !important;
+    background: rgb(var(--surface-card) / 0.98) !important;
+    border-color: rgb(var(--border-default)) !important;
   }
 }
 
@@ -649,14 +489,7 @@
   }
 }
 
-/* Android PWA specific optimizations */
 @media (display-mode: standalone) and (not (-webkit-touch-callout: none)) {
-  /* Android specific improvements */
-  .card {
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3), 0 0 20px rgba(6, 182, 212, 0.1) !important;
-  }
-
-  /* Better Android PWA navigation */
   .mobile-bottom-dock {
     padding-bottom: max(env(safe-area-inset-bottom), 16px) !important;
   }

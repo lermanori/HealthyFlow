@@ -131,29 +131,29 @@ export default function PWAInstallPrompt({ suppressed = false }: PWAInstallPromp
       
       <div className="space-y-3 text-sm text-ink-soft">
         <div className="flex items-start space-x-3">
-          <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
+          <div className="w-6 h-6 bg-state-info rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
             1
           </div>
           <p>Tap the <strong>Share</strong> button in Safari (bottom of screen)</p>
         </div>
         
         <div className="flex items-start space-x-3">
-          <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
+          <div className="w-6 h-6 bg-state-info rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
             2
           </div>
           <p>Scroll down and tap <strong>"Add to Home Screen"</strong></p>
         </div>
         
         <div className="flex items-start space-x-3">
-          <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
+          <div className="w-6 h-6 bg-state-info rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
             3
           </div>
           <p>Tap <strong>"Add"</strong> to install HealthyFlow</p>
         </div>
       </div>
       
-      <div className="bg-cyan-500/10 border border-cyan-500/30 rounded-lg p-3">
-        <p className="text-xs text-cyan-300">
+      <div className="bg-accent/10 border border-accent/30 rounded-lg p-3">
+        <p className="text-xs text-accent">
           Once installed, HealthyFlow opens like a native app and keeps the app shell available offline.
         </p>
       </div>
@@ -167,7 +167,7 @@ export default function PWAInstallPrompt({ suppressed = false }: PWAInstallPromp
           initial={{ opacity: 0, y: -100 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -100 }}
-          className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg"
+          className="fixed left-0 right-0 top-0 z-50 bg-action text-on-action shadow-section"
         >
           <div className="max-w-md mx-auto p-4">
             {isIOS ? (
@@ -250,7 +250,7 @@ export default function PWAInstallPrompt({ suppressed = false }: PWAInstallPromp
               </button>
               <button
                 onClick={handleDismiss}
-                className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-colors"
+                className="rounded-lg bg-action px-4 py-2 text-on-action transition-colors hover:bg-action-hover"
               >
                 Got It
               </button>

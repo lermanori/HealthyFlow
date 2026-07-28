@@ -61,6 +61,23 @@ beforeEach(() => {
 })
 
 describe('task location API', () => {
+  it('rejects a non-canonical category when creating a task', async () => {
+    const res = await request(app)
+      .post('/api/tasks')
+      .set('Authorization', TOKEN)
+      .send({
+        title: 'Meet Sam',
+        type: 'task',
+        category: 'errands',
+        duration: 30,
+        repeat: 'none',
+        scheduledDate: '2026-06-24',
+      })
+
+    expect(res.status).toBe(400)
+    expect(mockDb.createTask).not.toHaveBeenCalled()
+  })
+
   it('normalizes blank location to null when creating a task', async () => {
     mockDb.createTask.mockResolvedValue(row({ location: null }))
 
@@ -110,6 +127,16 @@ describe('task location API', () => {
       .put('/api/tasks/task-1')
       .set('Authorization', TOKEN)
       .send({ location: 'Gym' })
+
+    expect(res.status).toBe(400)
+    expect(mockDb.updateTask).not.toHaveBeenCalled()
+  })
+
+  it('rejects a non-canonical category when updating a task', async () => {
+    const res = await request(app)
+      .put('/api/tasks/task-1')
+      .set('Authorization', TOKEN)
+      .send({ category: 'errands' })
 
     expect(res.status).toBe(400)
     expect(mockDb.updateTask).not.toHaveBeenCalled()
