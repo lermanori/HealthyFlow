@@ -68,7 +68,7 @@ Ordered. P0 blocks any outreach; P1 blocks scaling past friends; P2 is polish.
 ### P1 — first-session credibility (what a stranger sees in minutes 0–10)
 5. **Kill visible errors on the happy path**: [#125](https://github.com/lermanori/HealthyFlow/issues/125) Google-sync "sync failed" on task items (an error toast in the first session = instant churn), [#127](https://github.com/lermanori/HealthyFlow/issues/127) calorie quantity handling.
 6. **Re-verify the old QA bugs** (timeline ordering after noon, drag-and-drop persistence, habit bar visibility) — the list is from July 2025 and may be stale; confirm fixed or fix.
-7. **Landing page refresh** (`public/landing.html`): current screenshots (regenerate via the demo-account + Playwright flow), the one-liner, founding-member pricing, one CTA. This is the only "funnel" needed for 10 customers.
+7. ~~**Landing page refresh**~~ — **done 2026-07-28.** Screenshots are recaptured from the real app by `scripts/capture-landing-shots.mjs`; the page now shows the Health workspace and the timeline-as-record story, drops the flagged-off Week view, and leads with the waitlist rather than a "Start Free" CTA that dead-ends while public slots are 0.
 8. **Custom domain** ([#19](https://github.com/lermanori/HealthyFlow/issues/19)) — asking strangers to pay on a `netlify.app` URL costs trust.
 9. **Privacy policy + ToS pages** — minimum legal hygiene once money changes hands (template-grade is fine).
 
@@ -77,8 +77,8 @@ Ordered. P0 blocks any outreach; P1 blocks scaling past friends; P2 is polish.
 11. **Mobile/PWA pass on the golden path** — the ADHD/habit audience lives on phones; Structured wins on mobile feel alone.
 12. **Product-shape items from the packaging design** (spec: `docs/superpowers/specs/2026-07-05-product-packaging-design.md`):
     - Feature-flag off the unwired grocery/meal/workout surfaces — sell the unified model only when it's real.
-    - Make calories/weight **on by default** (currently gated behind the `calorieIntake` setting) — it's half the story.
-    - Consolidate Ask + Assistant into one AI surface ([#124](https://github.com/lermanori/HealthyFlow/issues/124)).
+    - ~~Make calories/weight **on by default**~~ — **done.** `calorieIntake`, `workoutTracker` and `achievementTracker` all default to `true` in `backend/src/settings-schema.ts`, and the three sections now sit under one Health workspace.
+    - ~~Consolidate Ask + Assistant into one AI surface~~ ([#124](https://github.com/lermanori/HealthyFlow/issues/124)) — **done.** One surface, **Talk**, at `/talk`; `/assistant` redirects to it.
     - Onboarding first screen = one brain-dump question ("Tell me about your day tomorrow") → populated timeline. This moment is also the demo GIF and the landing hero.
     - Expenses (#97) and ideas dump (#96) are out of the product story — not day-shaped.
 

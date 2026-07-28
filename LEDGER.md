@@ -1,3 +1,9 @@
+### 2026-07-28 12:15 — `claude/app-launch-readiness-164e9d`
+
+Realigned the marketing page and the docs with the app as it now is. The landing page had drifted badly: it sold Week View (flag-off for every production user), showed Calories and Workouts as separate destinations that the Health workspace replaced, and pointed four "Start Free" CTAs at a login form with no Create-account tab, because public signup slots default to 0. The waitlist is now the shipped default and JS upgrades it to "Start Free" only when slots are genuinely open — the fail direction is inverted, matching LoginPage. Every screenshot was stale (old flat sidebar), so regeneration is now scripted rather than manual via `scripts/capture-landing-shots.mjs`. On the docs side, PRD.md was archived — its v1 sprint shipped, so it read as false — and FEATURES.md was rewritten as a verified inventory that names what is behind a flag and what is not built at all, dropping claims the code contradicts (no Supabase realtime, no offline data).
+
+---
+
 ### 2026-07-28 11:05 — `codex/timeline-day-record`
 
 Turned the Today timeline into the day's record rather than only its plan: every data type now earns a place on the clock, and the Anytime backlog holds only what still needs a decision. `/day-summary` grew `resolvedTime`, per-chunk Habit progress times, `loggedTime` on dateless records, and a `supporting.progress` block for Achievements — all resolved against the user's timezone server-side. Partial Habits stay in the backlog while their progress chunks appear on the clock, which is the case that drove the design. Ships alongside the module-presentation work (#150) that had been sitting uncommitted, since the timeline imports it.

@@ -11,34 +11,47 @@ npx playwright install chromium
 ## Running
 
 ```sh
-npm run test:e2e         # headless (default; 12 tests in ~47s)
+npm run test:e2e         # headless (default; 87 tests, serial)
 npm run test:e2e:headed  # visible browser
 OPENAI_API_KEY= npm run test:e2e  # confirm suite works without OpenAI key
 ```
 
 ## What the suite covers
 
-Six spec files, 12 golden-path tests:
+20 spec files, 87 tests. Listed per spec rather than per test — enumerating every
+test here guarantees the list goes stale.
 
-| Spec | Test | Purpose |
-|------|------|---------|
-| `auth.spec.ts` | Login with seeded credentials | Unauthenticated → authenticated flow |
-| `auth.spec.ts` | Logout persists | Session state cleared correctly |
-| `auth.spec.ts` | Session persists across reload | storageState survives page reload |
-| `habits.spec.ts` | Habit completion isolation | Per-day completion does not bleed to tomorrow |
-| `items-add.spec.ts` | Add task via UI | Task creation works end-to-end |
-| `items-add.spec.ts` | Category options closed set | Categories match CONTEXT.md definition |
-| `items-lifecycle.spec.ts` | Complete task persists | Completion state survives reload |
-| `items-lifecycle.spec.ts` | Edit task | Title edits appear on Today |
-| `items-lifecycle.spec.ts` | Delete task | Deletion removes from UI |
-| `rollover.spec.ts` | Untimed rollover | Incomplete tasks carry forward to today |
-| `week-view.spec.ts` | Week view task placement | Tasks appear under correct day columns |
+| Spec | Tests | Purpose |
+|------|------:|---------|
+| `auth.spec.ts` | 3 | Login, logout, session persistence across reload |
+| `onboarding.spec.ts` | 2 | First-run onboarding complete / skip |
+| `items-add.spec.ts` | 3 | Add an Item; categories match the closed set in CONTEXT.md |
+| `items-lifecycle.spec.ts` | 13 | Complete, edit, delete, reschedule — persisted across reload |
+| `today-workspace.spec.ts` | 15 | The Today surface: timeline, records, summary strip |
+| `today-anytime-drag.spec.ts` | 6 | Anytime backlog ↔ clock drag, and its persistence |
+| `today-date-navigation.spec.ts` | 4 | Moving across days keeps the right day's data |
+| `day-summary.spec.ts` | 2 | `/day-summary` shape against full fixtures |
+| `rollover.spec.ts` | 1 | Incomplete untimed Tasks carry forward |
+| `habits.spec.ts` | 2 | Per-day completion does not bleed into tomorrow |
+| `habit-progress.spec.ts` | 1 | Target-based Habits and progress chunks |
+| `health-workflow.spec.ts` | 6 | The Health workspace end to end |
+| `calories-quick-insert.spec.ts` | 1 | Quick-insert into the Calorie log |
+| `workouts.spec.ts` | 3 | Workout sessions, plans, history |
+| `module-presentation.spec.ts` | 2 | Hiding a Health section removes nav / Add targets, keeps data |
+| `assistant.spec.ts` | 4 | Talk: parse, confirm, cancel, conversations |
+| `settings-subscription.spec.ts` | 1 | Credits and the subscribe / top-up contact flow |
+| `phase0-reliability.spec.ts` | 10 | Error states, empty states, a11y smoke |
+| `week-view.spec.ts` | 5 | Week placement and habit consistency (flag forced on) |
+| `week-theme-visual.spec.ts` | 3 | Screenshot diffs for Midnight / White themes |
+
+Week is off in production (`VITE_WEEK_VIEW_ENABLED` unset). `playwright.config.ts`
+forces the flag on for the suite so the route stays covered while it is hidden.
 
 ## What the suite intentionally does NOT cover
 
 - **AI correctness**: AI call outputs are stubbed (see below); this suite does not test OpenAI API calls or prompt quality. That belongs in the `ai-harness` layer.
 - **Performance**: No load testing, no timing assertions.
-- **Visual regression**: No screenshot diffs, no CSS assertion.
+- **Visual regression beyond theming**: only `week-theme-visual.spec.ts` and the `today-workspace` snapshots do screenshot diffs; there is no general visual-regression net.
 - **Parallelism**: All specs run serially (workers: 1) because they share one test user and reset it, so concurrent workers clobber each other. A follow-up to re-enable parallelism is per-worker test users.
 
 ## Test infrastructure

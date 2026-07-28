@@ -1,3 +1,10 @@
+> **Archived 2026-07-28 — historical.** This PRD described the state of the app on
+> 2026-06-19. Its v1 sprint has shipped and several of its claims (no signup, no
+> nutrition/workout backend, no calendar sync, unfixed timeline ordering) are now
+> false. It is kept for the reasoning behind those decisions. For what HealthyFlow
+> actually does today, see `FEATURES.md` and `CONTEXT.md` at the repo root.
+
+
 # HealthyFlow — Product Requirements Document
 
 **Owner:** Ori Lerman
