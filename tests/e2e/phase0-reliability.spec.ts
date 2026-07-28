@@ -120,7 +120,20 @@ test('changed Settings switches expose state and pass targeted Axe checks', asyn
   expect(results.violations.filter((violation) => ['serious', 'critical'].includes(violation.impact ?? ''))).toEqual([])
 })
 
-test('calorie dialog traps focus, inerts the app, closes with Escape, and restores Add Entry', async ({ page }) => {
+// Both themes, because the contrast bug this catches only ever failed in one of
+// them. `accent` is used as both the text colour and the tint behind it, so the
+// two themes fail independently — running midnight alone reported 2 of the 9
+// real violations and let the 7 white-theme ones ship.
+for (const theme of ['midnight', 'white'] as const) {
+test(`calorie dialog traps focus, inerts the app, closes with Escape, and restores Add Entry (${theme})`, async ({ page }) => {
+  // Both are needed: localStorage paints before hydration, and useSettings then
+  // re-applies whatever the server says — so mocking only one lets the other win.
+  await page.addInitScript((t) => localStorage.setItem('hf-theme', t), theme)
+  await page.route('**/api/settings', (route) => (
+    route.request().method() === 'GET'
+      ? route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ...settings, theme }) })
+      : route.continue()
+  ))
   // Seed one entry so the quick-insert list actually renders. With no item
   // history the dialog shows "No saved item history yet" and the accent-styled
   // item buttons never mount — which silently voids the Axe check below, since
@@ -151,6 +164,7 @@ test('calorie dialog traps focus, inerts the app, closes with Escape, and restor
   await expect(dialog).toBeHidden()
   await expect(opener).toBeFocused()
 })
+}
 
 test('mobile drawer is labelled modal navigation and restores the exact opener', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })

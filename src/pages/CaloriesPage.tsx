@@ -736,12 +736,12 @@ export default function CaloriesPage() {
                           <div className="flex items-center justify-between gap-3">
                             <div>
                               <p className="font-medium">{item.name}</p>
-                              <p className="text-xs text-accent/70">
+                              <p className="text-xs text-accent">
                                 {quickInsertSort === 'most-used' ? `${item.usageCount} uses` : `Last used ${formatLastUsedLabel(item.lastUsedAt)}`}
                               </p>
-                              {item.quantity && <p className="text-xs text-accent/75">{item.quantity}</p>}
+                              {item.quantity && <p className="text-xs text-accent">{item.quantity}</p>}
                             </div>
-                            <span className="text-sm text-accent/80">{item.calories} cal</span>
+                            <span className="text-sm text-accent">{item.calories} cal</span>
                           </div>
                         </button>
                       ))}

@@ -477,7 +477,7 @@ export default function WorkoutsPage() {
             }`}
           >
             <span className={`block text-sm font-semibold ${mode === value ? 'text-white' : 'text-ink'}`}>{label}</span>
-            <span className={`hidden text-[11px] sm:block ${mode === value ? 'text-accent/80' : 'text-ink-muted'}`}>{detail}</span>
+            <span className={`hidden text-[11px] sm:block ${mode === value ? 'text-accent' : 'text-ink-muted'}`}>{detail}</span>
           </button>
         ))}
       </nav>
@@ -752,7 +752,7 @@ export default function WorkoutsPage() {
                     onClick={() => applyQuickInsert(item)}
                   >
                     <span className="block truncate text-sm font-medium text-accent">{item.name}</span>
-                    <span className="text-xs text-accent/70">
+                    <span className="text-xs text-accent">
                       {quickInsertSort === 'most-used' ? `${item.usageCount} uses` : `Last used ${formatLastUsedLabel(item.lastUsedAt)}`}
                     </span>
                   </button>
