@@ -1,3 +1,9 @@
+### 2026-07-28 13:20 — `claude/app-launch-readiness-164e9d`
+
+Merged main (the #151 responsive visual system) into the launch-readiness branch and recaptured the landing screenshots against it. #151 rewrote Layout, DayTimeline and TaskCard, so the shots taken an hour earlier were already stale — the new tagline, the retired sidebar AI box and the capitalised category chips all show now. Re-verified the FEATURES.md claims that could have been invalidated by the merge: the settings schema still matches, there are still no Supabase realtime channels, and the service worker still returns 503 for API calls. Week View remains flag-off in production, so the landing page correctly still says nothing about it.
+
+---
+
 ### 2026-07-28 13:01 — `codex/151-responsive-visual-system`
 
 Normalized HealthyFlow around a semantic, contrast-safe visual system shared by Midnight and White themes across Login, Today, Talk, Add, Health, Nutrition, Workouts, Progress, and Settings. Shared category presentation now follows the canonical six-value Zod contract, completion feedback is quiet and undoable, text selection and reduced-motion behavior are preserved, and the hidden Week View remains untouched. Responsive baselines cover every visible primary surface at desktop, compact, and mobile widths, with focused accessibility and interaction regressions alongside them.
