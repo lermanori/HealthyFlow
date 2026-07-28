@@ -1,13 +1,19 @@
 import { db } from './supabase-client'
 import type { TokenUsage } from './openai'
+import { z } from 'zod'
 
 export const APP_TOKENS_PER_USD = 1000
 export const MARKUP_RATE = 0.25
 export const MIN_MARKUP_TOKENS = 5
 export const MIN_RESERVE_TOKENS = 5
 export const SUBSCRIPTION_MONTHLY_CREDITS = 500
-export const PROMO_PRICE_USD = 1
-export const REGULAR_PRICE_USD = 2
+export const PROMO_PRICE_USD = 9
+export const REGULAR_PRICE_USD = 19
+export const TOP_UP_PRICE_USD = 5
+export const TOP_UP_CREDITS = 250
+export const FOUNDING_MEMBER_LIMIT = 100
+export const FOUNDING_SIGNUP_CREDITS = 250
+export const STANDARD_SIGNUP_CREDITS = 50
 // ponytail: flat heuristic, biased HIGH on purpose. gpt-4o-mini bills images at
 // a large multiplier (a high-detail image can run ~25k tokens), so we over-reserve
 // here; settle refunds the unused estimate. Better to over-hold than to underfund
@@ -79,8 +85,27 @@ export class UnpricedModelError extends Error {
   }
 }
 
-// 0 = new users start empty; top up manually (see admin grant / SQL).
-export const FREE_SIGNUP_CREDITS = 0
+export const SignupCreditGrantSchema = z.object({
+  credits: z.number().int().nonnegative(),
+  cohort: z.enum(['founding', 'standard']),
+  balance: z.number().int().nonnegative(),
+  alreadyGranted: z.boolean(),
+})
+export type SignupCreditGrant = z.infer<typeof SignupCreditGrantSchema>
+
+export const LaunchOfferSchema = z.object({
+  foundingMemberLimit: z.number().int().positive(),
+  foundingMembersRemaining: z.number().int().nonnegative(),
+  onboardingCredits: z.number().int().positive(),
+  foundingOnboardingCredits: z.number().int().positive(),
+  standardOnboardingCredits: z.number().int().positive(),
+  foundingPriceUsd: z.number().positive(),
+  regularPriceUsd: z.number().positive(),
+  monthlyCredits: z.number().int().positive(),
+  topUpPriceUsd: z.number().positive(),
+  topUpCredits: z.number().int().positive(),
+})
+export type LaunchOffer = z.infer<typeof LaunchOfferSchema>
 
 type BillingUsage = {
   promptTokens: number
@@ -102,6 +127,9 @@ export type SubscriptionPricing = {
   priceUsd: number
   monthlyCredits: number
   sellCreditsPerUsd: number
+  topUpPriceUsd: number
+  topUpCredits: number
+  foundingMemberLimit: number
   updatedAt?: string | null
 }
 
@@ -211,15 +239,18 @@ function normalizeBillingSettings(row: any): BillingSettings {
   }
 }
 
-function normalizeSubscriptionPricing(row: any): SubscriptionPricing {
-  const promoActive = row?.promo_active ?? true
+function normalizeSubscriptionPricing(row: any, promoActiveOverride?: boolean): SubscriptionPricing {
+  const promoActive = promoActiveOverride ?? row?.promo_active ?? true
   const priceUsd = promoActive ? PROMO_PRICE_USD : REGULAR_PRICE_USD
   return {
     promoActive,
     phase: promoActive ? 'promo' : 'regular',
     priceUsd,
     monthlyCredits: SUBSCRIPTION_MONTHLY_CREDITS,
-    sellCreditsPerUsd: SUBSCRIPTION_MONTHLY_CREDITS / priceUsd,
+    sellCreditsPerUsd: TOP_UP_CREDITS / TOP_UP_PRICE_USD,
+    topUpPriceUsd: TOP_UP_PRICE_USD,
+    topUpCredits: TOP_UP_CREDITS,
+    foundingMemberLimit: FOUNDING_MEMBER_LIMIT,
     updatedAt: row?.updated_at ?? null,
   }
 }
@@ -327,18 +358,65 @@ export const Credits = {
   SUBSCRIPTION_MONTHLY_CREDITS,
   PROMO_PRICE_USD,
   REGULAR_PRICE_USD,
+  TOP_UP_PRICE_USD,
+  TOP_UP_CREDITS,
+  FOUNDING_MEMBER_LIMIT,
+  FOUNDING_SIGNUP_CREDITS,
+  STANDARD_SIGNUP_CREDITS,
   async getBillingSettings(): Promise<BillingSettings> {
     return normalizeBillingSettings(await db.getBillingSettings())
   },
 
-  async getSubscriptionPricing(): Promise<SubscriptionPricing> {
-    return normalizeSubscriptionPricing(await db.getCreditSubscriptionSettings())
+  async getSubscriptionPricing(userId?: string): Promise<SubscriptionPricing> {
+    const [settings, signupGrant, foundingMembersClaimed] = await Promise.all([
+      db.getCreditSubscriptionSettings(),
+      userId ? db.getSignupCreditGrant(userId) : Promise.resolve(null),
+      db.getFoundingSignupCreditGrantCount(),
+    ])
+
+    const foundingOfferAvailable =
+      (settings?.promo_active ?? true) &&
+      foundingMembersClaimed < FOUNDING_MEMBER_LIMIT
+    const promoActive = signupGrant
+      ? signupGrant.cohort === 'founding'
+      : foundingOfferAvailable
+
+    return normalizeSubscriptionPricing(settings, promoActive)
+  },
+
+  async getLaunchOffer(): Promise<LaunchOffer> {
+    const foundingMembersClaimed = await db.getFoundingSignupCreditGrantCount()
+    const foundingMembersRemaining = Math.max(FOUNDING_MEMBER_LIMIT - foundingMembersClaimed, 0)
+    return LaunchOfferSchema.parse({
+      foundingMemberLimit: FOUNDING_MEMBER_LIMIT,
+      foundingMembersRemaining,
+      onboardingCredits: foundingMembersRemaining > 0
+        ? FOUNDING_SIGNUP_CREDITS
+        : STANDARD_SIGNUP_CREDITS,
+      foundingOnboardingCredits: FOUNDING_SIGNUP_CREDITS,
+      standardOnboardingCredits: STANDARD_SIGNUP_CREDITS,
+      foundingPriceUsd: PROMO_PRICE_USD,
+      regularPriceUsd: REGULAR_PRICE_USD,
+      monthlyCredits: SUBSCRIPTION_MONTHLY_CREDITS,
+      topUpPriceUsd: TOP_UP_PRICE_USD,
+      topUpCredits: TOP_UP_CREDITS,
+    })
+  },
+
+  async grantSignupCredits(userId: string): Promise<SignupCreditGrant> {
+    const result = await db.claimSignupCreditGrant(userId, {
+      foundingMemberLimit: FOUNDING_MEMBER_LIMIT,
+      foundingCredits: FOUNDING_SIGNUP_CREDITS,
+      standardCredits: STANDARD_SIGNUP_CREDITS,
+    })
+    return SignupCreditGrantSchema.parse(result)
   },
 
   async updateSubscriptionPricing(input: { promoActive: boolean }): Promise<SubscriptionPricing> {
-    return normalizeSubscriptionPricing(await db.updateCreditSubscriptionSettings({
+    await db.updateCreditSubscriptionSettings({
       promo_active: input.promoActive,
-    }))
+    })
+    return this.getSubscriptionPricing()
   },
 
   async updateBillingSettings(input: { markupRate: number; minMarkupTokens: number }): Promise<BillingSettings> {
@@ -364,7 +442,7 @@ export const Credits = {
       db.getCreditBalance(userId),
       db.getCreditBuckets(userId),
       db.getUserCreditSubscription(userId),
-      this.getSubscriptionPricing(),
+      this.getSubscriptionPricing(userId),
       db.getUsageLogsSince(rangeStarts().thisMonth),
     ])
     const usedThisMonth = monthLogs
@@ -372,6 +450,21 @@ export const Credits = {
       .reduce((sum: number, log: any) => sum + Math.abs(Number(log.credits_delta ?? 0)), 0)
     const subscriptionBalance = Number(buckets?.subscription_balance ?? 0)
     const monthlyCredits = Number(subscription?.monthly_credits ?? SUBSCRIPTION_MONTHLY_CREDITS)
+    const effectivePricing = subscription
+      ? subscription.active
+        ? {
+            ...pricing,
+            promoActive: subscription.price_phase === 'promo',
+            phase: subscription.price_phase as SubscriptionPhase,
+            priceUsd: subscription.price_phase === 'promo' ? PROMO_PRICE_USD : REGULAR_PRICE_USD,
+          }
+        : {
+            ...pricing,
+            promoActive: false,
+            phase: 'regular' as const,
+            priceUsd: REGULAR_PRICE_USD,
+          }
+      : pricing
 
     return {
       balance,
@@ -379,7 +472,7 @@ export const Credits = {
       topupBalance: Number(buckets?.topup_balance ?? Math.max(balance - subscriptionBalance, 0)),
       usedThisMonth,
       monthlyGrantUsed: Math.max(0, monthlyCredits - subscriptionBalance),
-      pricing,
+      pricing: effectivePricing,
       subscription: subscriptionToClient(subscription),
     }
   },
@@ -472,7 +565,16 @@ export const Credits = {
   },
 
   async activateSubscription(userId: string, input: { active: boolean; grantMonthlyCredits: boolean }) {
-    const pricing = await this.getSubscriptionPricing()
+    const [eligiblePricing, existingSubscription] = await Promise.all([
+      this.getSubscriptionPricing(userId),
+      db.getUserCreditSubscription(userId),
+    ])
+    // The founding price remains locked while continuously subscribed. Once a
+    // subscription has been deactivated, a later reactivation uses the regular
+    // price even if the account originally belonged to the founding cohort.
+    const pricing = input.active && existingSubscription && !existingSubscription.active
+      ? normalizeSubscriptionPricing(null, false)
+      : eligiblePricing
     const renewalDate = input.active ? nextRenewalDate() : null
     const previousBalance = await db.getCreditBalance(userId)
 

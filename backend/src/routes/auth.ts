@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs'
 import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
 import { db } from '../supabase-client'
-import { Credits, FREE_SIGNUP_CREDITS } from '../credits'
+import { Credits } from '../credits'
 import { Onboarding } from '../onboarding'
 import { Waitlist } from '../waitlist'
 import { DEMO_PERSONAS, getDemoPersonaUser } from '../demo-personas'
@@ -39,7 +39,11 @@ const signupLimiter = rateLimit({
 // the waitlist form. Deliberately exposes no invite tokens or waitlist contents.
 router.get('/signup-status', async (_req, res) => {
   try {
-    return res.json(await Waitlist.getSignupStatus())
+    const [status, offer] = await Promise.all([
+      Waitlist.getSignupStatus(),
+      Credits.getLaunchOffer(),
+    ])
+    return res.json({ ...status, offer })
   } catch (error) {
     console.error('Signup status error:', error)
     return res.status(500).json({ error: 'Could not read signup status' })
@@ -78,11 +82,15 @@ router.post('/signup', signupLimiter, async (req, res) => {
       await Waitlist.completeInviteSignup(authorization.inviteToken, user.id)
     }
 
-    await Credits.grant(user.id, FREE_SIGNUP_CREDITS, 'signup_bonus')
+    const signupCredits = await Credits.grantSignupCredits(user.id)
     await Onboarding.seedNewUser(user.id)
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' })
-    return res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role ?? 'user' }, token })
+    return res.json({
+      user: { id: user.id, email: user.email, name: user.name, role: user.role ?? 'user' },
+      token,
+      signupCredits,
+    })
   } catch (error) {
     console.error('Signup error:', error)
     return res.status(500).json({ error: 'Database error' })

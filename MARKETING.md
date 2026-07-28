@@ -61,7 +61,7 @@ Ordered. P0 blocks any outreach; P1 blocks scaling past friends; P2 is polish.
 
 ### P0 — revenue correctness & the paywall path
 1. **Implement the sell-rate split in `backend/src/credits.ts`.** Verified 2026-07-05: only `APP_TOKENS_PER_USD = 1000` + `MARKUP_RATE = 0.25` exist — granting "$1 = 500 credits" through the same constant used for cost metering means ~20% margin or a cosmetic price change (the documented margin trap). Add a separate purchase/sell rate used **only when granting credits** (500/$1 promo, 250/$1 regular); leave `APP_TOKENS_PER_USD` untouched.
-2. **A trial taste of the AI.** `FREE_SIGNUP_CREDITS = 0` means a stranger can sign up and never experience the aha moment (first AI dump → structured plan) without paying first. That kills cold conversion. Grant a small one-time trial (~25–50 credits ≈ a few parses) — this is *not* freemium (#105 stays closed), it's a demo.
+2. **A trial taste of the AI.** The first 100 launch accounts receive 250 one-time onboarding credits; later accounts receive 50. This lets every new user experience the first AI dump → structured plan moment before deciding whether to subscribe.
 3. **A visible "get the plan" path in-app**: when credits run out or on the pricing surface, a clear CTA → payment link (Stripe Payment Link / PayPal / Bit — no full billing integration needed) or "message me" flow. Manual fulfillment is fine for 10 customers; invisible fulfillment is not.
 4. **Smoke-test the paid path end-to-end as a fresh user**: signup → onboarding (#106) → trial parse → run out → pay → credits granted → parse again. Fix whatever breaks.
 

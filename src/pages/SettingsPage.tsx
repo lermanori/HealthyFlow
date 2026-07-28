@@ -79,13 +79,21 @@ export default function SettingsPage() {
   const { user, completeAccountDeletion } = useAuth()
   const { permission, requestPermission } = useNotifications()
   const { balance, summary: creditSummary, isLoading: creditsLoading } = useCredits()
+  const planPrice = creditSummary?.pricing.priceUsd ?? 9
+  const monthlyCredits = creditSummary?.pricing.monthlyCredits ?? 500
+  const topUpPrice = creditSummary?.pricing.topUpPriceUsd ?? 5
+  const topUpCredits = creditSummary?.pricing.topUpCredits ?? 250
   const { settings, updateSetting, resolution, retry: retrySettings } = useSettings()
   const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
   const [calendarLoading, setCalendarLoading] = useState(true)
   const [calendarActionLoading, setCalendarActionLoading] = useState(false)
   const [contactFlow, setContactFlow] = useState<'subscribe' | 'topup' | null>(null)
   const openContactFlow = (kind: 'subscribe' | 'topup') => {
-    analytics.capture('upgrade_cta_clicked', { kind })
+    analytics.capture('upgrade_cta_clicked', {
+      kind,
+      price_usd: kind === 'subscribe' ? planPrice : topUpPrice,
+      credits: kind === 'subscribe' ? monthlyCredits : topUpCredits,
+    })
     setContactFlow(kind)
   }
   const [apiTokens, setApiTokens] = useState<ApiTokenRecord[]>([])
@@ -343,15 +351,15 @@ export default function SettingsPage() {
   }
 
   const contactSubject = contactFlow === 'topup' ? 'HealthyFlow credit top-up' : 'HealthyFlow monthly credits'
-  const contactBody = `Hi Ori, I want to ${contactFlow === 'topup' ? 'buy more HealthyFlow credits' : 'subscribe to HealthyFlow credits'} for ${user?.email ?? 'my account'}.`
+  const contactBody = contactFlow === 'topup'
+    ? `Hi Ori, I want to buy ${topUpCredits} non-expiring HealthyFlow AI credits for $${topUpPrice} for ${user?.email ?? 'my account'}.`
+    : `Hi Ori, I want to subscribe to HealthyFlow for $${planPrice}/month with ${monthlyCredits} monthly AI credits for ${user?.email ?? 'my account'}.`
   const encodedSubject = encodeURIComponent(contactSubject)
   const encodedBody = encodeURIComponent(contactBody)
   const whatsappUrl = `https://wa.me/972523221702?text=${encodedBody}`
   const smsUrl = `sms:+972523221702?&body=${encodedBody}`
   const isOutOfCredits = !creditsLoading && balance <= 0
   const isLowOnCredits = !creditsLoading && balance > 0 && balance < 25
-  const planPrice = creditSummary?.pricing.priceUsd ?? 1
-  const monthlyCredits = creditSummary?.pricing.monthlyCredits ?? 500
   const connectionPrompt = newToken
     ? `Connect HealthyFlow as an MCP server.
 
@@ -368,6 +376,8 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
     mutationFn: () => contactMessagesService.create({
       kind: contactFlow ?? 'subscribe',
       message: contactBody,
+      priceUsd: contactFlow === 'topup' ? topUpPrice : planPrice,
+      credits: contactFlow === 'topup' ? topUpCredits : monthlyCredits,
     }),
     onSuccess: () => {
       toast.success('Message sent to admin')
@@ -579,14 +589,14 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                 {isOutOfCredits ? 'You are out of AI credits' : 'You are running low on AI credits'}
               </p>
               <p className="mt-1 text-sm text-ink-soft">
-                Subscribe for {monthlyCredits} credits each month, or buy a quick top-up when you only need a little more.
+                Subscribe for {monthlyCredits} credits each month, or buy {topUpCredits} non-expiring credits for ${topUpPrice}.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('subscribe')}>
                   Subscribe
                 </button>
                 <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('topup')}>
-                  Buy More
+                  Buy {topUpCredits} · ${topUpPrice}
                 </button>
               </div>
             </div>
@@ -637,14 +647,21 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                     ${planPrice} / month
                   </p>
                   <p className="text-sm text-ink-soft">{monthlyCredits} credits / month, refreshed monthly with no rollover.</p>
-                  <p className="mt-1 text-xs text-ink-muted">Pick the plan when you want AI available without watching each action.</p>
+                  <p className="mt-1 text-xs text-ink-muted">
+                    {creditSummary.pricing.promoActive
+                      ? 'Founding price stays locked while your subscription remains active.'
+                      : 'Standard monthly AI plan.'}
+                  </p>
+                  <p className="mt-1 text-xs text-ink-muted">
+                    Top up with {topUpCredits} non-expiring credits for ${topUpPrice}.
+                  </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('subscribe')}>
                     Subscribe
                   </button>
                   <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('topup')}>
-                    Buy More
+                    Buy {topUpCredits} · ${topUpPrice}
                   </button>
                 </div>
               </div>
@@ -668,7 +685,9 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                   {contactFlow === 'topup' ? 'Buy more credits' : 'Subscribe'}
                 </h2>
                 <p className="text-sm text-ink-muted">
-                  Manual fulfillment for now. Reach out through any channel.
+                  {contactFlow === 'topup'
+                    ? `$${topUpPrice} for ${topUpCredits} non-expiring AI credits. Manual fulfillment for now.`
+                    : `$${planPrice}/month for ${monthlyCredits} AI credits, refreshed monthly with no rollover. Manual fulfillment for now.`}
                 </p>
               </div>
               <button type="button" className="text-ink-muted hover:text-ink-soft" onClick={() => setContactFlow(null)} aria-label="Close">

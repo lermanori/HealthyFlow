@@ -15,7 +15,6 @@ jest.mock('../../src/credits', () => ({
     grant: jest.fn().mockResolvedValue(undefined),
     getBalance: jest.fn(),
   },
-  FREE_SIGNUP_CREDITS: 50,
   UnpricedModelError: class UnpricedModelError extends Error {},
 }))
 

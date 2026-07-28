@@ -78,9 +78,12 @@ describe('admin token-manager API', () => {
       subscriptionPricing: {
         promoActive: true,
         phase: 'promo',
-        priceUsd: 1,
+        priceUsd: 9,
         monthlyCredits: 500,
-        sellCreditsPerUsd: 500,
+        sellCreditsPerUsd: 50,
+        topUpPriceUsd: 5,
+        topUpCredits: 250,
+        foundingMemberLimit: 100,
       },
       totals: {
         today: {
@@ -240,9 +243,12 @@ describe('admin token-manager API', () => {
     mockCredits.updateSubscriptionPricing.mockResolvedValue({
       promoActive: false,
       phase: 'regular',
-      priceUsd: 2,
+      priceUsd: 19,
       monthlyCredits: 500,
-      sellCreditsPerUsd: 250,
+      sellCreditsPerUsd: 50,
+      topUpPriceUsd: 5,
+      topUpCredits: 250,
+      foundingMemberLimit: 100,
     })
 
     const res = await request(app)
@@ -254,9 +260,12 @@ describe('admin token-manager API', () => {
     expect(res.body).toEqual({
       promoActive: false,
       phase: 'regular',
-      priceUsd: 2,
+      priceUsd: 19,
       monthlyCredits: 500,
-      sellCreditsPerUsd: 250,
+      sellCreditsPerUsd: 50,
+      topUpPriceUsd: 5,
+      topUpCredits: 250,
+      foundingMemberLimit: 100,
     })
     expect(mockCredits.updateSubscriptionPricing).toHaveBeenCalledWith({ promoActive: false })
   })
@@ -273,9 +282,12 @@ describe('admin token-manager API', () => {
       pricing: {
         promoActive: true,
         phase: 'promo',
-        priceUsd: 1,
+        priceUsd: 9,
         monthlyCredits: 500,
-        sellCreditsPerUsd: 500,
+        sellCreditsPerUsd: 50,
+        topUpPriceUsd: 5,
+        topUpCredits: 250,
+        foundingMemberLimit: 100,
       },
       subscription: {
         active: true,
@@ -309,25 +321,28 @@ describe('admin token-manager API', () => {
       role: 'admin',
     })
     mockCredits.grantTopUp.mockResolvedValue({
-      balance: 1025,
-      credits: 1000,
-      dollars: 2,
+      balance: 275,
+      credits: 250,
+      dollars: 5,
       pricing: {
         promoActive: true,
         phase: 'promo',
-        priceUsd: 1,
+        priceUsd: 9,
         monthlyCredits: 500,
-        sellCreditsPerUsd: 500,
+        sellCreditsPerUsd: 50,
+        topUpPriceUsd: 5,
+        topUpCredits: 250,
+        foundingMemberLimit: 100,
       },
     })
 
     const res = await request(app)
       .post('/api/admin/token-manager/users/user-1/top-up')
       .set('Authorization', authHeader('admin-1'))
-      .send({ dollars: 2 })
+      .send({ dollars: 5 })
 
     expect(res.status).toBe(201)
-    expect(res.body).toEqual(expect.objectContaining({ balance: 1025, credits: 1000, dollars: 2 }))
-    expect(mockCredits.grantTopUp).toHaveBeenCalledWith('user-1', 2)
+    expect(res.body).toEqual(expect.objectContaining({ balance: 275, credits: 250, dollars: 5 }))
+    expect(mockCredits.grantTopUp).toHaveBeenCalledWith('user-1', 5)
   })
 })

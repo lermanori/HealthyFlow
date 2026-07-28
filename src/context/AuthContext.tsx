@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = async (email: string, password: string, name: string, invite?: string) => {
     try {
-      const { user: userData, token } = await authService.signup(email, password, name, invite)
+      const { user: userData, token, signupCredits } = await authService.signup(email, password, name, invite)
       queryClient.clear()
       clearDemoState()
       localStorage.setItem('token', token)
@@ -99,10 +99,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: userData.role,
         is_demo: isDemoEmail(userData.email),
         onboarding_status: 'active',
+        signup_credit_cohort: signupCredits.cohort,
+        onboarding_credit_grant: signupCredits.credits,
       }, { signed_up_at: new Date().toISOString() })
-      analytics.capture('signed_up', { method: 'password' })
+      analytics.capture('signed_up', {
+        method: 'password',
+        credit_cohort: signupCredits.cohort,
+        onboarding_credits: signupCredits.credits,
+      })
       setUser(userData)
-      toast.success('Account created! Welcome to HealthyFlow.')
+      toast.success(`Account created with ${signupCredits.credits} AI credits. Welcome to HealthyFlow.`)
     } catch (error: any) {
       const msg = error?.response?.data?.error || 'Signup failed'
       toast.error(msg)

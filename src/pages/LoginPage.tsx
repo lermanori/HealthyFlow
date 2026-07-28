@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { waitlistService, type SignupStatus } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import { analytics } from '../lib/analytics'
 
 export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login')
@@ -51,6 +52,7 @@ export default function LoginPage() {
     setWaitlistSubmitting(true)
     try {
       await waitlistService.join({ email: waitlistEmail, source: 'login-page' })
+      analytics.capture('waitlist_submitted', { source: 'login' })
       setWaitlistJoined(true)
     } catch (_err) {
       setWaitlistError('Something went wrong — please try again.')
@@ -145,15 +147,19 @@ export default function LoginPage() {
             </div>
 
             {inviteToken && (
-              <p className="mt-3 text-sm text-accent">
-                You've been invited — create your account below.
-              </p>
+              <div className="mt-3 space-y-1 text-sm text-accent">
+                <p>You've been invited — create your account below.</p>
+                {signupStatus?.offer && (
+                  <p>{signupStatus.offer.onboardingCredits} AI credits are included for onboarding.</p>
+                )}
+              </div>
             )}
 
             {!inviteToken && signupStatus?.mode === 'open' && (
-              <p className="mt-3 text-sm text-accent">
-                {signupStatus.remaining} {signupStatus.remaining === 1 ? 'spot' : 'spots'} left
-              </p>
+              <div className="mt-3 space-y-1 text-sm text-accent">
+                <p>{signupStatus.remaining} {signupStatus.remaining === 1 ? 'spot' : 'spots'} left</p>
+                <p>{signupStatus.offer.onboardingCredits} AI credits are included for onboarding.</p>
+              </div>
             )}
 
             {!inviteToken && signupStatus?.mode === 'waitlist' && (
@@ -165,8 +171,12 @@ export default function LoginPage() {
                 ) : (
                   <form onSubmit={handleWaitlistSubmit}>
                     <label htmlFor="waitlist-email" className="block text-sm font-medium text-ink-soft mb-2">
-                      Registration is closed — join the waitlist
+                      Registration is invite-only — join the waitlist
                     </label>
+                    <p className="mb-3 text-xs text-ink-muted">
+                      The first {signupStatus.offer.foundingMemberLimit} accounts receive{' '}
+                      {signupStatus.offer.foundingOnboardingCredits} AI credits for onboarding.
+                    </p>
                     <input
                       id="waitlist-email"
                       type="email"
