@@ -430,7 +430,7 @@ export default function AchievementsPage() {
             <Award className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-ink neon-text">Achievements</h1>
+            <h1 className="text-2xl font-bold text-ink neon-text">Progress</h1>
             <p className="text-sm text-ink-muted">Personal bests and progress over recorded dates.</p>
           </div>
         </div>

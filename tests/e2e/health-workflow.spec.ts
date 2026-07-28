@@ -129,7 +129,7 @@ test('Health owns the cross-domain overview while Nutrition keeps the detailed l
 
   await page.getByRole('navigation', { name: 'Health' }).getByRole('link', { name: 'Nutrition' }).click()
   await expect(page).toHaveURL(new RegExp(`/app/calories\\?date=${tomorrow()}`))
-  await expect(page.getByRole('heading', { name: 'Calorie Log' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Nutrition', exact: true })).toBeVisible()
   const nutritionOverview = page.locator('[data-demo-id="nutrition-daily-overview"]')
   await expect(nutritionOverview.getByText('Workout', { exact: true })).toHaveCount(0)
   await expect(nutritionOverview.getByText('Progress', { exact: true })).toHaveCount(0)
@@ -193,6 +193,41 @@ test('an individual Calorie entry can be deleted and restored without losing the
 
   await expect(detailedLog.getByText(entryName, { exact: true })).toBeVisible()
   await expect(page).toHaveURL(new RegExp(`date=${today()}`))
+})
+
+test('hiding and re-enabling Nutrition preserves existing Calorie entries', async ({ page }) => {
+  const reset = await page.request.post(`${API_ORIGIN}/test/reset`)
+  expect(reset.ok()).toBeTruthy()
+  await enableHealthModules(page)
+  const entryName = `Preserved snack ${Date.now()}`
+  const authorization = { Authorization: `Bearer ${getAuthTokenFromStorageState()}` }
+
+  const created = await page.request.post(`${API_ORIGIN}/api/calories`, {
+    headers: authorization,
+    data: {
+      date: today(),
+      name: entryName,
+      calories: 210,
+    },
+  })
+  expect(created.ok()).toBeTruthy()
+
+  const hidden = await page.request.patch(`${API_ORIGIN}/api/settings`, {
+    headers: authorization,
+    data: { calorieIntake: false },
+  })
+  expect(hidden.ok()).toBeTruthy()
+  await page.goto('/app/calories')
+  await expect(page).toHaveURL('/app/health')
+  await expect(page.getByText('Nutrition is hidden for this account.')).toBeVisible()
+
+  const shown = await page.request.patch(`${API_ORIGIN}/api/settings`, {
+    headers: authorization,
+    data: { calorieIntake: true },
+  })
+  expect(shown.ok()).toBeTruthy()
+  await page.goto(`/app/calories?date=${today()}`)
+  await expect(page.getByRole('region', { name: 'Detailed log' }).getByText(entryName, { exact: true })).toBeVisible()
 })
 
 test('Achievement selection and target progress are programmatic', async ({ page }) => {
@@ -282,9 +317,9 @@ test('health surfaces remain contained at desktop, compact, and mobile widths', 
 
   const surfaces = [
     { path: `/app/health?date=${today()}`, heading: 'Health' },
-    { path: `/app/calories?date=${today()}`, heading: 'Calorie Log' },
-    { path: `/app/workouts?date=${today()}&mode=session`, heading: 'Workout Tracker' },
-    { path: '/app/achievements', heading: 'Achievements' },
+    { path: `/app/calories?date=${today()}`, heading: 'Nutrition' },
+    { path: `/app/workouts?date=${today()}&mode=session`, heading: 'Workouts' },
+    { path: '/app/achievements', heading: 'Progress' },
   ]
 
   for (const viewport of [

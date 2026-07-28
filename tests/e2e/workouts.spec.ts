@@ -22,7 +22,7 @@ test('Workout Tracker logs mixed metrics, persists history, edits, and deletes',
   expect(reset.ok()).toBeTruthy()
 
   await page.goto('/app/workouts')
-  await expect(page.getByRole('heading', { name: 'Workout Tracker' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Workouts', exact: true })).toBeVisible()
   await expect(page.getByTestId('workout-session-empty')).toBeVisible()
   await page.getByRole('button', { name: 'Log without plan' }).click()
   await expect(page.getByText('Add at least one named exercise before saving.')).toBeVisible()

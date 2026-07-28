@@ -218,7 +218,7 @@ const linaScript: DemoScriptStep[] = [
     route: '/calories',
     target: 'calorie-entries',
     action: 'spotlight',
-    narration: 'Calories is a real tracker, not a mock module. Breakfast and lunch are logged with calories, macros, quantities, and times.',
+    narration: 'Nutrition is a real tracker, not a mock module. Breakfast and lunch are logged with calories, macros, quantities, and times.',
     placement: 'top',
   },
   {
@@ -254,7 +254,7 @@ const linaScript: DemoScriptStep[] = [
     route: '/achievements',
     target: 'achievement-detail',
     action: 'spotlight',
-    narration: 'Achievements tracks personal metrics like 5K time. Lina can see latest progress and trend without turning it into another task list.',
+    narration: 'Progress tracks personal metrics like 5K time. Lina can see latest progress and trend without turning it into another task list.',
     placement: 'top',
   },
   {

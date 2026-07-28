@@ -9,6 +9,8 @@ import {
   DaySummaryItem,
   DaySummaryItemSchema,
   DaySummarySchema,
+  DaySummaryAchievementEntry,
+  DaySummaryAchievementEntrySchema,
   DaySummaryWeightEntry,
   DaySummaryWeightEntrySchema,
   isDaySummaryItemAddressed,
@@ -16,6 +18,7 @@ import {
   PlanningWindowSchema,
   type DaySummary,
 } from './day-summary-schema'
+import { Achievements } from './achievements'
 import { Rollover } from './rollover'
 import { db } from './supabase-client'
 import { parseHabitInstanceId } from './utils/parseHabitInstanceId'
@@ -40,7 +43,14 @@ const numberOrNull = (value: unknown): number | null => {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-export function itemRowToClient(row: any, progressTotal = 0): DaySummaryItem {
+/** Extra context the timeline needs but the raw row can't supply on its own. */
+type ItemContext = {
+  timeZone?: string | null
+  /** Raw `habit_progress_entries` rows for this instance, oldest first. */
+  chunkRows?: any[]
+}
+
+export function itemRowToClient(row: any, progressTotal = 0, context: ItemContext = {}): DaySummaryItem {
   const parsedVirtual = typeof row.id === 'string' ? parseHabitInstanceId(row.id) : null
   const originalHabitId = row.original_habit_id ?? row.originalHabitId ?? parsedVirtual?.originalHabitId ?? null
   const type = ['task', 'habit', 'grocery', 'meal', 'workout'].includes(row.type) ? row.type : 'task'
@@ -49,6 +59,17 @@ export function itemRowToClient(row: any, progressTotal = 0): DaySummaryItem {
     : null
   const targetValue = numberOrNull(row.habit_target_value ?? row.habitInfo?.target?.value)
   const targetUnit = row.habit_target_unit ?? row.habitInfo?.target?.unit
+
+  const outcome = row.habit_outcome ?? row.habitInfo?.outcome ?? (row.completed ? 'completed' : 'pending')
+  // Settled means nothing further is owed today. `partial` is deliberately absent:
+  // a Habit at 1/2 is the most open thing on the board, so it keeps no resolvedTime
+  // and stays in the Anytime backlog. Its chunks carry the record instead.
+  const settled = Boolean(row.completed) || outcome === 'completed' || outcome === 'failed'
+  // completed_at is only written for a `completed` outcome, so a Habit marked
+  // Not done would otherwise have no timestamp at all.
+  const resolvedAt = settled
+    ? (row.completed_at ?? row.completedAt ?? row.updated_at ?? row.updatedAt ?? null)
+    : null
 
   return DaySummaryItemSchema.parse({
     id: String(row.id),
@@ -77,19 +98,31 @@ export function itemRowToClient(row: any, progressTotal = 0): DaySummaryItem {
     googleEventId: row.google_event_id ?? row.googleEventId ?? null,
     syncedToGoogle: Boolean(row.synced_to_google ?? row.syncedToGoogle),
     googleSyncStatus: row.google_sync_status ?? row.googleSyncStatus ?? 'pending',
+    resolvedTime: localClockTime(resolvedAt, context.timeZone),
     ...(type === 'habit' ? {
       habitInfo: {
         target: targetValue != null && ['minutes', 'reps', 'count'].includes(targetUnit)
           ? { value: targetValue, unit: targetUnit }
           : null,
-        outcome: row.habit_outcome ?? row.habitInfo?.outcome ?? (row.completed ? 'completed' : 'pending'),
+        outcome,
         progressTotal: numberOrNull(row.habitInfo?.progressTotal) ?? progressTotal,
+        chunks: (context.chunkRows ?? row.habitInfo?.chunks ?? []).map((chunk: any) => ({
+          id: String(chunk.id),
+          amount: Number(chunk.amount),
+          note: chunk.note ?? null,
+          loggedTime: chunk.loggedTime !== undefined
+            ? chunk.loggedTime
+            : localClockTime(chunk.created_at ?? chunk.createdAt, context.timeZone),
+        })),
       },
     } : {}),
   })
 }
 
-export async function normalizeItemRows(rows: any[]): Promise<DaySummaryItem[]> {
+export async function normalizeItemRows(
+  rows: any[],
+  timeZone?: string | null
+): Promise<DaySummaryItem[]> {
   const materializedHabitIds = rows
     .filter((row) => (
       row.type === 'habit' &&
@@ -97,20 +130,31 @@ export async function normalizeItemRows(rows: any[]): Promise<DaySummaryItem[]> 
       !parseHabitInstanceId(String(row.id))
     ))
     .map((row) => String(row.id))
-  const progressTotals = typeof db.getHabitProgressTotals === 'function'
-    ? await db.getHabitProgressTotals(materializedHabitIds)
+
+  // One batched fetch supplies both the total and the per-chunk timestamps.
+  const chunksByInstance: Record<string, any[]> = typeof db.getHabitProgressEntriesForInstances === 'function'
+    ? await db.getHabitProgressEntriesForInstances(materializedHabitIds)
     : {}
 
-  return rows.map((row) => itemRowToClient(row, progressTotals[row.id] ?? 0))
+  return rows.map((row) => {
+    const chunkRows = chunksByInstance[row.id] ?? []
+    const progressTotal = chunkRows.reduce((sum: number, chunk: any) => sum + Number(chunk.amount), 0)
+    return itemRowToClient(row, progressTotal, { timeZone, chunkRows })
+  })
 }
 
-export async function getItemsForDay(userId: string, date: string): Promise<DaySummaryItem[]> {
+export async function getItemsForDay(
+  userId: string,
+  date: string,
+  timeZone?: string | null
+): Promise<DaySummaryItem[]> {
   const datedRows = await db.getTasksWithRecurringHabits(userId, date)
   const rows = await Rollover.addCarryForwardRows(userId, date, datedRows)
-  return normalizeItemRows(rows)
+  return normalizeItemRows(rows, timeZone)
 }
 
-export function calorieRowToClient(row: any): DaySummaryCalorieEntry {
+export function calorieRowToClient(row: any, timeZone?: string | null): DaySummaryCalorieEntry {
+  const createdAt = row.created_at ?? row.createdAt ?? null
   return DaySummaryCalorieEntrySchema.parse({
     id: String(row.id),
     date: String(row.date),
@@ -121,18 +165,42 @@ export function calorieRowToClient(row: any): DaySummaryCalorieEntry {
     carbs: numberOrNull(row.carbs),
     fat: numberOrNull(row.fat),
     quantity: row.quantity ?? null,
-    createdAt: row.created_at ?? row.createdAt ?? null,
+    createdAt,
     updatedAt: row.updated_at ?? row.updatedAt ?? null,
+    // An explicit `time` wins; otherwise the entry is placed by when it was logged
+    // rather than being dropped off the timeline for lacking a clock time.
+    loggedTime: normalizeClockTime(row.time) ?? localClockTime(createdAt, timeZone),
   })
 }
 
-export function weightRowToClient(row: any): DaySummaryWeightEntry {
+export function weightRowToClient(row: any, timeZone?: string | null): DaySummaryWeightEntry {
+  const createdAt = row.created_at ?? row.createdAt ?? null
   return DaySummaryWeightEntrySchema.parse({
     id: String(row.id),
     date: String(row.date),
     weightKg: Number(row.weight_kg ?? row.weightKg),
-    createdAt: row.created_at ?? row.createdAt ?? null,
+    createdAt,
     updatedAt: row.updated_at ?? row.updatedAt ?? null,
+    loggedTime: localClockTime(createdAt, timeZone),
+  })
+}
+
+export function achievementEntryToDaySummary(
+  entry: any,
+  definition: any,
+  timeZone?: string | null
+): DaySummaryAchievementEntry {
+  return DaySummaryAchievementEntrySchema.parse({
+    id: String(entry.id),
+    achievementId: String(entry.achievementId ?? entry.achievement_id),
+    name: String(definition.name ?? ''),
+    unit: String(definition.unit ?? ''),
+    value: Number(entry.value),
+    supportingValue: numberOrNull(entry.supportingValue ?? entry.supporting_value),
+    supportingUnit: entry.supportingUnit ?? entry.supporting_unit ?? null,
+    notes: entry.notes ?? null,
+    createdAt: entry.createdAt ?? entry.created_at ?? null,
+    loggedTime: localClockTime(entry.createdAt ?? entry.created_at, timeZone),
   })
 }
 
@@ -192,6 +260,26 @@ function localDateAndMinutes(now: Date, timeZone: string) {
     date,
     minutes: Number(part('hour')) * 60 + Number(part('minute')),
   }
+}
+
+/**
+ * An ISO timestamp as wall-clock time in the user's timezone.
+ *
+ * The timeline places dateless records (weight, workout sessions, Achievement
+ * entries) and settled untimed items by when they were logged, so this has to be
+ * resolved server-side where the timezone is known — deriving it in the browser
+ * would place a record by the *viewer's* clock, not the user's.
+ */
+export function localClockTime(
+  iso: string | null | undefined,
+  timeZone: string | null | undefined
+): string | null {
+  if (!iso) return null
+  const parsed = new Date(iso)
+  if (Number.isNaN(parsed.getTime())) return null
+  if (!validTimeZone(timeZone)) return null
+  const minutes = localDateAndMinutes(parsed, timeZone).minutes
+  return minutesToTime(minutes)
 }
 
 export function deriveDateMode(date: string, timeZone: string | null | undefined, now: Date): DateMode {
@@ -554,6 +642,7 @@ type DaySummaryDependencies = {
   getCalorieEntries: typeof db.getCalorieEntriesByDay
   getWeightEntry: typeof db.getWeightEntryByDay
   getWorkoutSessions: typeof Workouts.listSessions
+  getAchievements: typeof Achievements.list
 }
 
 const defaultDependencies: DaySummaryDependencies = {
@@ -564,6 +653,7 @@ const defaultDependencies: DaySummaryDependencies = {
   getCalorieEntries: (userId, date) => db.getCalorieEntriesByDay(userId, date),
   getWeightEntry: (userId, date) => db.getWeightEntryByDay(userId, date),
   getWorkoutSessions: (userId, date) => Workouts.listSessions(userId, date),
+  getAchievements: (userId, options) => Achievements.list(userId, options),
 }
 
 export async function buildDaySummary(
@@ -578,7 +668,7 @@ export async function buildDaySummary(
   const now = options.now ?? new Date()
   const dependencies = { ...defaultDependencies, ...options.dependencies }
   const [items, settingsResult] = await Promise.all([
-    dependencies.itemsForDay(userId, date),
+    dependencies.itemsForDay(userId, date, timeZone),
     dependencies.getSettings(userId).then(
       (settings) => ({ status: 'available' as const, settings }),
       () => ({ status: 'unavailable' as const, settings: {} as Record<string, unknown> })
@@ -600,6 +690,9 @@ export async function buildDaySummary(
     : null
   const workoutsEnabled = settingsResult.status === 'available'
     ? rawSettings.workoutTracker !== false
+    : null
+  const achievementsEnabled = settingsResult.status === 'available'
+    ? rawSettings.achievementTracker !== false
     : null
   const dates = weekDates(date, weekStartsOn)
   const weekItems = await Promise.all(dates.map((weekDate) =>
@@ -635,10 +728,17 @@ export async function buildDaySummary(
         () => ({ status: 'unavailable' as const, sessions: [] })
       )
     : Promise.resolve(null)
-  const [calendar, nutritionRows, workoutRows] = await Promise.all([
+  const achievementsPromise = achievementsEnabled === true
+    ? dependencies.getAchievements(userId, { includeArchived: false, entryLimit: 60 }).then(
+        (summaries) => ({ status: 'available' as const, summaries }),
+        () => ({ status: 'unavailable' as const, summaries: [] as any[] })
+      )
+    : Promise.resolve(null)
+  const [calendar, nutritionRows, workoutRows, achievementRows] = await Promise.all([
     calendarPromise,
     nutritionPromise,
     workoutsPromise,
+    achievementsPromise,
   ])
 
   let calorieEntries: DaySummaryCalorieEntry[] = []
@@ -665,10 +765,10 @@ export async function buildDaySummary(
     }
   } else {
     calorieEntries = nutritionRows[0].status === 'fulfilled'
-      ? nutritionRows[0].value.map(calorieRowToClient)
+      ? nutritionRows[0].value.map((row: any) => calorieRowToClient(row, timeZone))
       : []
     const weight = nutritionRows[1].status === 'fulfilled' && nutritionRows[1].value
-      ? weightRowToClient(nutritionRows[1].value)
+      ? weightRowToClient(nutritionRows[1].value, timeZone)
       : null
     nutrition = {
       status: nutritionRows[0].status === 'rejected'
@@ -703,8 +803,29 @@ export async function buildDaySummary(
       ? { status: 'unavailable', sessions: [] }
       : {
           status: workoutRows.sessions.length > 0 ? 'logged' : 'not_logged',
-          sessions: workoutRows.sessions,
+          sessions: workoutRows.sessions.map((session: any) => ({
+            ...session,
+            loggedTime: localClockTime(session.createdAt ?? session.created_at, timeZone),
+          })),
         }
+  // Only entries recorded on this date belong on this day's timeline; the list
+  // endpoint returns each definition's recent history.
+  const progress: DaySummary['supporting']['progress'] = achievementsEnabled === false
+    ? { status: 'disabled', entries: [] }
+    : achievementsEnabled == null || !achievementRows || achievementRows.status === 'unavailable'
+      ? { status: 'unavailable', entries: [] }
+      : (() => {
+          const entries = achievementRows.summaries.flatMap((summary: any) =>
+            (summary.entries ?? [])
+              .filter((entry: any) => entry.date === date)
+              .map((entry: any) => achievementEntryToDaySummary(entry, summary.definition, timeZone))
+          )
+          return {
+            status: entries.length > 0 ? 'recorded' as const : 'not_recorded' as const,
+            entries,
+          }
+        })()
+
   const dateMode = deriveDateMode(date, timeZone, now)
   const currentMinutes = dateMode === 'today' && validTimeZone(timeZone)
     ? localDateAndMinutes(now, timeZone).minutes
@@ -739,6 +860,7 @@ export async function buildDaySummary(
       habits: 'enabled',
       nutrition: nutritionEnabled == null ? 'unavailable' : nutritionEnabled ? 'enabled' : 'disabled',
       workouts: workoutsEnabled == null ? 'unavailable' : workoutsEnabled ? 'enabled' : 'disabled',
+      achievements: achievementsEnabled == null ? 'unavailable' : achievementsEnabled ? 'enabled' : 'disabled',
     },
     items,
     calendar,
@@ -761,6 +883,7 @@ export async function buildDaySummary(
       habits: habitSummary(items),
       nutrition,
       workouts,
+      progress,
     },
   })
 }

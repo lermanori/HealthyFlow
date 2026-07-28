@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { CalendarDays, CheckCircle2, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Unplug, Sparkles, Mail, Instagram, MessageCircle, Copy, X, KeyRound, Trash2 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Unplug, Sparkles, Mail, Instagram, MessageCircle, Copy, X, KeyRound, Trash2, HeartPulse } from 'lucide-react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
 import { useCredits } from '../hooks/useCredits'
@@ -12,6 +12,12 @@ import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
 import Switch from '../components/Switch'
 import DeleteAccountDialog from '../components/DeleteAccountDialog'
+import { MODULE_PRESENTATIONS } from '../modulePresentation'
+import {
+  SETTINGS_CATEGORIES,
+  parseSettingsCategory,
+  type SettingsCategoryId,
+} from '../settingsPresentation'
 
 function mcpEndpoint() {
   const apiBase = api.defaults.baseURL ?? 'http://localhost:3001/api'
@@ -30,6 +36,16 @@ const dayOptions: Array<{ value: DayIndex; label: string }> = [
   { value: 5, label: 'Fri' },
   { value: 6, label: 'Sat' },
 ]
+
+const settingsCategoryIcon = {
+  user: User,
+  calendar: CalendarDays,
+  bell: Bell,
+  health: HeartPulse,
+  appearance: Sparkles,
+  connection: KeyRound,
+  shield: Shield,
+}
 
 const touchpointCopy: Record<TouchpointType, { label: string; description: string }> = {
   morning: {
@@ -58,11 +74,12 @@ function mergeRhythm(current: UserRhythm, patch: UserRhythmPatch): UserRhythm {
 
 export default function SettingsPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const { user, completeAccountDeletion } = useAuth()
   const { permission, requestPermission } = useNotifications()
   const { balance, summary: creditSummary, isLoading: creditsLoading } = useCredits()
-  const { settings, updateSetting } = useSettings()
+  const { settings, updateSetting, resolution, retry: retrySettings } = useSettings()
   const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
   const [calendarLoading, setCalendarLoading] = useState(true)
   const [calendarActionLoading, setCalendarActionLoading] = useState(false)
@@ -81,6 +98,18 @@ export default function SettingsPage() {
   const [rhythmSaving, setRhythmSaving] = useState<TouchpointType | 'timezone' | null>(null)
   const [exportingAccount, setExportingAccount] = useState(false)
   const [showDeleteAccount, setShowDeleteAccount] = useState(false)
+  const requestedCategory = parseSettingsCategory(location.pathname)
+  const activeCategory: SettingsCategoryId = requestedCategory ?? 'account-billing'
+
+  useEffect(() => {
+    if (location.pathname !== '/settings' && requestedCategory === null) {
+      navigate('/settings', { replace: true })
+      return
+    }
+    if (location.pathname === '/settings' && location.hash === '#features') {
+      navigate('/settings/health-tools', { replace: true })
+    }
+  }, [location.hash, location.pathname, navigate, requestedCategory])
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -97,9 +126,9 @@ export default function SettingsPage() {
     }
 
     if (calendarResult) {
-      window.history.replaceState({}, '', window.location.pathname)
+      navigate('/settings/connections-advanced', { replace: true })
     }
-  }, [])
+  }, [navigate])
 
   useEffect(() => {
     loadCalendarStatus()
@@ -389,8 +418,42 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
     </div>
   )
 
+  const enabledHealthTools = settings
+    ? MODULE_PRESENTATIONS.filter((presentation) => settings[presentation.settingKey]).length
+    : null
+  const enabledNotifications = settings
+    ? [settings.notifications, settings.dailyReminders, settings.smartReminders, settings.weeklyReports].filter(Boolean).length
+    : null
+  const enabledTouchpoints = rhythm
+    ? [rhythm.morning.enabled, rhythm.midday.enabled, rhythm.weekly.enabled].filter(Boolean).length
+    : null
+  const settingsSummary = (category: SettingsCategoryId): string => {
+    switch (category) {
+      case 'account-billing':
+        return creditsLoading ? user?.email ?? 'Loading account' : `${user?.email ?? 'Account'} · ${balance} AI credits`
+      case 'planning':
+        return enabledTouchpoints == null
+          ? 'Loading planning status'
+          : `${enabledTouchpoints} of 3 planning touchpoints on`
+      case 'notifications':
+        return enabledNotifications == null
+          ? 'Loading notification status'
+          : `${enabledNotifications} of 4 notification options on`
+      case 'health-tools':
+        return enabledHealthTools == null
+          ? 'Loading Health tools'
+          : `${enabledHealthTools} of ${MODULE_PRESENTATIONS.length} Health tools shown`
+      case 'appearance':
+        return `${settings?.theme === 'white' ? 'White' : 'Midnight'} theme`
+      case 'connections-advanced':
+        return `${calendarStatus?.connected ? 'Calendar connected' : 'Calendar not connected'} · ${apiTokens.filter((token) => !token.revokedAt).length} active tokens`
+      case 'data-privacy':
+        return 'Export data or manage destructive actions'
+    }
+  }
+
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-28 md:pb-0">
+    <div className="mx-auto max-w-6xl space-y-6 pb-28 md:pb-0">
       {/* Header */}
       <div className="flex items-center space-x-3">
         <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center animate-float">
@@ -399,6 +462,73 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         <h1 className="text-2xl font-bold text-ink neon-text">Settings</h1>
       </div>
 
+      <div className="min-w-0 xl:grid xl:grid-cols-[15rem_minmax(0,1fr)] xl:items-start xl:gap-6">
+        <aside className={requestedCategory ? 'hidden xl:block' : 'block'}>
+          <nav aria-label="Settings categories" className="space-y-2 xl:sticky xl:top-6">
+            {SETTINGS_CATEGORIES
+              .slice()
+              .sort((a, b) => a.order - b.order)
+              .map((category) => {
+                const Icon = settingsCategoryIcon[category.icon]
+                const isActive = activeCategory === category.id
+                return (
+                  <Link
+                    key={category.id}
+                    to={`/settings/${category.id}`}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={`group flex min-h-16 items-center gap-3 rounded-xl border p-3 transition ${
+                      isActive
+                        ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-200'
+                        : 'border-line/70 bg-card/40 text-ink-soft hover:border-line-strong hover:bg-card/70'
+                    }`}
+                  >
+                    <Icon className="h-5 w-5 shrink-0" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-semibold">{category.label}</span>
+                      {category.classification !== 'routine' && (
+                        <span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                          category.classification === 'destructive'
+                            ? 'border-rose-500/30 text-rose-300'
+                            : 'border-amber-500/30 text-amber-300'
+                        }`}>
+                          {category.classification}
+                        </span>
+                      )}
+                      <span className="mt-0.5 block text-xs leading-snug text-ink-muted">
+                        {settingsSummary(category.id)}
+                      </span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-ink-muted transition group-hover:translate-x-0.5" />
+                  </Link>
+                )
+              })}
+          </nav>
+        </aside>
+
+        <section
+          aria-label="Settings category"
+          className={`min-w-0 space-y-6 ${requestedCategory ? 'block' : 'hidden xl:block'}`}
+        >
+          <div className="flex items-start gap-3 xl:hidden">
+            <Link
+              to="/settings"
+              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/10"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Settings
+            </Link>
+            <div className="min-w-0 pt-2">
+              <h2 className="font-semibold text-ink">
+                {SETTINGS_CATEGORIES.find((category) => category.id === activeCategory)?.label}
+              </h2>
+              <p className="mt-0.5 text-sm text-ink-muted">
+                {SETTINGS_CATEGORIES.find((category) => category.id === activeCategory)?.description}
+              </p>
+            </div>
+          </div>
+
+      {activeCategory === 'account-billing' && (
+        <>
       {/* Profile Section */}
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
@@ -580,7 +710,11 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           </div>
         </div>
       )}
+        </>
+      )}
 
+      {activeCategory === 'notifications' && (
+        <>
       {/* Notifications */}
       <div className="card">
         <div className="flex items-center justify-between mb-4">
@@ -659,7 +793,11 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           />
         </div>
       </div>
+        </>
+      )}
 
+      {activeCategory === 'planning' && (
+        <>
       {/* Planning Rhythm */}
       <div className="card">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -911,51 +1049,141 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           </div>
         )}
       </div>
+        </>
+      )}
 
-      {/* AI & Sync */}
-      <div className="card" id="features">
-        <div className="flex items-center space-x-3 mb-4">
-          <Sync className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-ink">Features</h2>
-        </div>
-        
-        <div className="divide-y divide-gray-700/50">
+      {activeCategory === 'planning' && (
+        <div className="card">
+          <div className="mb-4 flex items-center space-x-3">
+            <Sparkles className="h-5 w-5 text-cyan-400" />
+            <h2 className="text-lg font-semibold text-ink">Planning preferences</h2>
+          </div>
           <Switch
             label="AI Suggestions"
-            description="Get personalized recommendations based on your habits"
+            description="Get personalized recommendations based on your Items and Habits"
             checked={settings?.aiSuggestions ?? true}
             onChange={(checked) => handleSettingChange('aiSuggestions', checked)}
           />
+          <div className="flex flex-col gap-3 border-t border-line/60 py-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-ink-soft">First Day of Week</h3>
+              <p className="text-sm text-ink-muted">Used by weekly date ranges</p>
+            </div>
+            <select
+              aria-label="First Day of Week"
+              value={settings?.weekStartsOn ?? 1}
+              onChange={(event) => handleWeekStartChange(Number(event.target.value) as UserSettings['weekStartsOn'])}
+              className="input-field w-full sm:w-44"
+            >
+              <option value={0}>Sunday</option>
+              <option value={1}>Monday</option>
+              <option value={2}>Tuesday</option>
+              <option value={3}>Wednesday</option>
+              <option value={4}>Thursday</option>
+              <option value={5}>Friday</option>
+              <option value={6}>Saturday</option>
+            </select>
+          </div>
+        </div>
+      )}
 
-          <Switch
-            label="Completion Sounds"
-            description="Play celebratory sounds when completing tasks"
-            checked={settings?.completionSounds ?? true}
-            onChange={(checked) => handleSettingChange('completionSounds', checked)}
-          />
+      {activeCategory === 'health-tools' && (
+        <div className="card" id="features">
+          <div className="mb-4 flex items-center space-x-3">
+            <HeartPulse className="h-5 w-5 text-cyan-400" />
+            <div>
+              <h2 className="text-lg font-semibold text-ink">Health tools</h2>
+              <p className="text-sm text-ink-muted">Hiding a tool changes presentation only; existing records stay intact.</p>
+            </div>
+          </div>
+          {resolution === 'loading' && (
+            <div className="mb-3 flex items-center gap-2 rounded-lg border border-line/70 bg-sunken/30 p-3 text-sm text-ink-muted" role="status">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Checking Health tool settings
+            </div>
+          )}
+          {resolution === 'error' && (
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm" role="alert">
+              <span className="text-ink">Health tool settings could not be loaded.</span>
+              <button className="font-semibold text-cyan-300 underline" type="button" onClick={() => void retrySettings()}>
+                Retry
+              </button>
+            </div>
+          )}
+          <div className="divide-y divide-line/60">
+            {MODULE_PRESENTATIONS
+              .slice()
+              .sort((a, b) => a.healthNavigation.order - b.healthNavigation.order)
+              .map((presentation) => (
+                <div key={presentation.id}>
+                  <Switch
+                    label={presentation.label}
+                    description={presentation.description}
+                    checked={settings?.[presentation.settingKey] ?? presentation.defaultEnabled}
+                    onChange={(checked) => handleSettingChange(presentation.settingKey, checked)}
+                    disabled={resolution !== 'ready'}
+                  />
+                  <p className="-mt-2 pb-4 pl-0 text-xs text-ink-muted">
+                    {presentation.statusSemantics === 'tracker'
+                      ? 'Tracker · missing data stays neutral'
+                      : presentation.statusSemantics === 'hybrid'
+                        ? 'Hybrid · targets are optional'
+                        : 'Goal · measured against a target'}
+                  </p>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
 
-          <Switch
-            label="Calorie Intake"
-            description="Track calorie intake alongside your tasks and habits"
-            checked={settings?.calorieIntake ?? true}
-            onChange={(checked) => handleSettingChange('calorieIntake', checked)}
-          />
+      {activeCategory === 'appearance' && (
+        <div className="card">
+          <div className="mb-4 flex items-center space-x-3">
+            <Sparkles className="h-5 w-5 text-cyan-400" />
+            <h2 className="text-lg font-semibold text-ink">Appearance</h2>
+          </div>
+          <div className="flex flex-col gap-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-ink-soft">Theme</h3>
+              <p className="text-sm text-ink-muted">Choose the app's look</p>
+            </div>
+            <div className="inline-flex rounded-lg border border-line-strong p-1">
+              {(['midnight', 'white'] as const).map((theme) => (
+                <button
+                  key={theme}
+                  onClick={() => handleThemeChange(theme)}
+                  className={`rounded-md px-4 py-1.5 text-sm font-medium capitalize transition-colors ${
+                    (settings?.theme ?? 'midnight') === theme
+                      ? 'bg-cyan-500 text-white'
+                      : 'text-ink-soft hover:text-ink'
+                  }`}
+                >
+                  {theme}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="border-t border-line/60">
+            <Switch
+              label="Completion Sounds"
+              description="Play celebratory sounds when completing Items"
+              checked={settings?.completionSounds ?? true}
+              onChange={(checked) => handleSettingChange('completionSounds', checked)}
+            />
+          </div>
+        </div>
+      )}
 
-          <Switch
-            label="Achievement Tracker"
-            description="Track personal bests and measurable progress over time"
-            checked={settings?.achievementTracker ?? false}
-            onChange={(checked) => handleSettingChange('achievementTracker', checked)}
-          />
-
-          <Switch
-            label="Workout Tracker"
-            description="Log workout sessions and reusable exercises"
-            checked={settings?.workoutTracker ?? true}
-            onChange={(checked) => handleSettingChange('workoutTracker', checked)}
-          />
-
-          <div className="py-5">
+      {activeCategory === 'connections-advanced' && (
+        <>
+          <div className="card">
+            <div className="mb-4 flex items-center space-x-3">
+              <Sync className="h-5 w-5 text-cyan-400" />
+              <div>
+                <h2 className="text-lg font-semibold text-ink">Calendar connection</h2>
+                <p className="text-sm text-ink-muted">Connect external Calendar obligations to planning.</p>
+              </div>
+            </div>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
                 <CalendarSyncLed connected={Boolean(calendarStatus?.connected)} />
@@ -1000,13 +1228,19 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
       <div className="card">
         <div className="mb-4 flex items-center space-x-3">
           <KeyRound className="h-5 w-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-ink">Connections</h2>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-ink">Developer API tokens</h2>
+              <span className="rounded-full border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+                Advanced
+              </span>
+            </div>
+            <p className="text-sm text-ink-muted">Create scoped credentials for explicit external access.</p>
+          </div>
         </div>
 
         {newToken && (
@@ -1084,58 +1318,11 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           ))}
         </div>
       </div>
+        </>
+      )}
 
-      {/* Preferences */}
-      <div className="card">
-        <div className="flex items-center space-x-3 mb-4">
-          <CalendarDays className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-ink">Preferences</h2>
-        </div>
-
-        <div className="flex flex-col gap-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="text-sm font-medium text-ink-soft">Theme</h3>
-            <p className="text-sm text-ink-muted">Choose the app's look</p>
-          </div>
-          <div className="inline-flex rounded-lg border border-line-strong p-1">
-            {(['midnight', 'white'] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => handleThemeChange(t)}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md capitalize transition-colors ${
-                  (settings?.theme ?? 'midnight') === t
-                    ? 'bg-cyan-500 text-white'
-                    : 'text-ink-soft hover:text-ink'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 py-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="text-sm font-medium text-ink-soft">First Day of Week</h3>
-            <p className="text-sm text-ink-muted">Used by weekly date ranges</p>
-          </div>
-          <select
-            aria-label="First Day of Week"
-            value={settings?.weekStartsOn ?? 1}
-            onChange={(event) => handleWeekStartChange(Number(event.target.value) as UserSettings['weekStartsOn'])}
-            className="input-field w-full sm:w-44"
-          >
-            <option value={0}>Sunday</option>
-            <option value={1}>Monday</option>
-            <option value={2}>Tuesday</option>
-            <option value={3}>Wednesday</option>
-            <option value={4}>Thursday</option>
-            <option value={5}>Friday</option>
-            <option value={6}>Saturday</option>
-          </select>
-        </div>
-      </div>
-
+      {activeCategory === 'data-privacy' && (
+        <>
       {/* Privacy */}
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
@@ -1178,6 +1365,10 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           }}
         />
       )}
+        </>
+      )}
+        </section>
+      </div>
     </div>
   )
 }

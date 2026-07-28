@@ -24,7 +24,7 @@ test('module routes wait for Settings and render every enabled destination', asy
     await route.fulfill({ contentType: 'application/json', body: JSON.stringify(settings) })
   })
 
-  for (const [path, heading] of [['/app/health', 'Health'], ['/app/calories', 'Calorie Log'], ['/app/achievements', 'Achievements'], ['/app/workouts', 'Workout Tracker']] as const) {
+  for (const [path, heading] of [['/app/health', 'Health'], ['/app/calories', 'Nutrition'], ['/app/achievements', 'Progress'], ['/app/workouts', 'Workouts']] as const) {
     const navigation = page.goto(path)
     await expect(page).toHaveURL(path)
     await navigation
@@ -40,19 +40,34 @@ test('confirmed-disabled routes and Add tabs use one persistent notice', async (
 
   await page.goto('/app/calories')
   await expect(page).toHaveURL('/app')
-  await expect(page.getByText('Calories is disabled for this account.')).toBeVisible()
+  await expect(page.getByText('Nutrition is hidden for this account.')).toBeVisible()
   await expect(page.getByRole('link', { name: 'Enable in Settings' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Health' })).toHaveCount(0)
 
   await page.goto('/app/health')
   await expect(page).toHaveURL('/app')
-  await expect(page.getByText('Health is disabled for this account.')).toBeVisible()
+  await expect(page.getByText('Health is hidden for this account.')).toBeVisible()
 
   await page.goto('/app/add?tab=achievements')
   await expect(page).toHaveURL('/app/add?tab=today')
-  await expect(page.getByText('Achievements is disabled for this account.')).toBeVisible()
-  await expect(page.getByRole('tab', { name: 'Achievements' })).toHaveCount(0)
-  await expect(page.getByRole('tab', { name: 'Calories' })).toHaveCount(0)
+  await expect(page.getByText('Progress is hidden for this account.')).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Progress' })).toHaveCount(0)
+  await expect(page.getByRole('tab', { name: 'Nutrition' })).toHaveCount(0)
+})
+
+test('an individually hidden Health tool redirects to the remaining Health overview', async ({ page }) => {
+  await page.route('**/api/settings', async (route) => {
+    if (route.request().method() !== 'GET') return route.continue()
+    await route.fulfill({
+      contentType: 'application/json',
+      body: JSON.stringify({ ...settings, calorieIntake: false }),
+    })
+  })
+
+  await page.goto('/app/calories')
+  await expect(page).toHaveURL('/app/health')
+  await expect(page.getByText('Nutrition is hidden for this account.')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Health', exact: true })).toBeVisible()
 })
 
 test('settings failure stays on the requested module URL and Retry recovers', async ({ page }) => {
@@ -65,10 +80,10 @@ test('settings failure stays on the requested module URL and Retry recovers', as
 
   await page.goto('/app/achievements')
   await expect(page).toHaveURL('/app/achievements')
-  await expect(page.getByRole('heading', { name: 'Could not check Achievements' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Could not check Progress' })).toBeVisible()
   recover = true
   await page.getByRole('button', { name: 'Retry' }).first().click()
-  await expect(page.getByRole('heading', { name: 'Achievements', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Progress', exact: true })).toBeVisible()
 })
 
 test('cached Settings remain usable during a failed background refresh', async ({ page }) => {
@@ -78,21 +93,22 @@ test('cached Settings remain usable during a failed background refresh', async (
     if (backgroundFails) return route.fulfill({ status: 503, contentType: 'application/json', body: '{"error":"unavailable"}' })
     return route.fulfill({ contentType: 'application/json', body: JSON.stringify(settings) })
   })
-  await page.goto('/app/settings#features')
+  await page.goto('/app/settings/appearance')
   await expect(page.getByRole('switch', { name: /Completion Sounds/ })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Health' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Health', exact: true })).toBeVisible()
   backgroundFails = true
   await page.getByRole('switch', { name: /Completion Sounds/ }).click()
-  await page.getByRole('link', { name: 'Health' }).click()
+  await page.getByRole('link', { name: 'Health', exact: true }).click()
   await expect(page).toHaveURL('/app/health')
   await expect(page.getByRole('heading', { name: 'Health', exact: true })).toBeVisible()
 })
 
 test('changed Settings switches expose state and pass targeted Axe checks', async ({ page }) => {
-  await page.goto('/app/settings#features')
-  const calorieSwitch = page.getByRole('switch', { name: /Calorie Intake/ })
+  await page.goto('/app/settings/health-tools')
+  const calorieSwitch = page.getByRole('switch', { name: /Nutrition/ })
   await expect(calorieSwitch).toBeVisible()
   await expect(calorieSwitch).toHaveAttribute('aria-checked', /true|false/)
+  await expect(calorieSwitch).toBeEnabled()
   await calorieSwitch.focus()
   await expect(calorieSwitch).toBeFocused()
 
@@ -125,6 +141,9 @@ test('mobile drawer is labelled modal navigation and restores the exact opener',
   const drawer = page.getByRole('dialog', { name: 'HealthyFlow navigation' })
   await expect(drawer).toBeVisible()
   await expect(page.getByRole('button', { name: 'Close navigation drawer' }).last()).toBeFocused()
+  for (const group of ['Today', 'Health tools', 'Utility']) {
+    await expect(drawer.getByRole('region', { name: group })).toBeVisible()
+  }
   expect(await page.locator('#root').evaluate((element) => (element as HTMLElement).inert)).toBe(true)
   await page.keyboard.press('Escape')
   await expect(drawer).toBeHidden()
@@ -142,7 +161,7 @@ test('export downloads the authenticated portable JSON filename and content', as
     },
     body: JSON.stringify({ version: 1, exportedAt: `${exportDate}T12:00:00.000Z`, account: { id: 'user-1' } }),
   }))
-  await page.goto('/app/settings')
+  await page.goto('/app/settings/data-privacy')
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: /Export Data/ }).click()
   const download = await downloadPromise

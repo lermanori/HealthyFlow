@@ -20,8 +20,11 @@ import {
   type DaySummary,
   type PlanningWindow,
 } from '../../backend/src/day-summary-schema'
+import SettingsContracts, { type Settings as UserSettings } from '../../backend/src/settings-schema'
 
-export type { DailyContext, DailySignal, DailySignalType, DaySummary, PlanningWindow }
+const { SettingsSchema } = SettingsContracts
+
+export type { DailyContext, DailySignal, DailySignalType, DaySummary, PlanningWindow, UserSettings }
 export { isDaySummaryItemAddressed }
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 // const API_BASE_URL = 'https://healthyflow-production.up.railway.app/api'
@@ -84,6 +87,8 @@ interface ItemBase {
   rolledOverFromTaskId?: string
   originalCreatedAt?: string
   completedAt?: string
+  /** Local wall-clock time this item was settled, or null while it is still open. */
+  resolvedTime?: string | null
   projectId?: string
   project?: Project
   position?: number | null
@@ -109,7 +114,13 @@ export interface HabitItem extends ItemBase {
 export type HabitOutcome = 'pending' | 'partial' | 'completed' | 'failed'
 export type HabitTargetUnit = 'minutes' | 'reps' | 'count'
 export type HabitTarget = { value: number; unit: HabitTargetUnit }
-export type HabitInfo = { target: HabitTarget | null; outcome: HabitOutcome; progressTotal: number }
+export type HabitProgressChunk = { id: string; amount: number; note: string | null; loggedTime: string | null }
+export type HabitInfo = {
+  target: HabitTarget | null
+  outcome: HabitOutcome
+  progressTotal: number
+  chunks?: HabitProgressChunk[]
+}
 export type HabitProgressEntry = { id: string; amount: number; note: string | null; createdAt: string; updatedAt: string }
 export type HabitProgressDetail = { habit: HabitItem; entries: HabitProgressEntry[] }
 
@@ -873,31 +884,15 @@ export const contactMessagesService = {
   },
 }
 
-export interface UserSettings {
-  notifications: boolean
-  dailyReminders: boolean
-  weeklyReports: boolean
-  aiSuggestions: boolean
-  smartReminders: boolean
-  completionSounds: boolean
-  calorieIntake: boolean
-  achievementTracker: boolean
-  workoutTracker: boolean
-  weekStartsOn: 0 | 1 | 2 | 3 | 4 | 5 | 6
-  planningWindow: PlanningWindow | null
-  onboardingStatus: 'active' | 'completed' | 'skipped'
-  theme: 'midnight' | 'white'
-}
-
 export const settingsService = {
   getSettings: async (): Promise<UserSettings> => {
     const response = await api.get('/settings')
-    return response.data
+    return SettingsSchema.parse(response.data)
   },
 
   updateSettings: async (partial: Partial<UserSettings>): Promise<UserSettings> => {
     const response = await api.patch('/settings', partial)
-    return response.data
+    return SettingsSchema.parse(response.data)
   },
 }
 

@@ -639,15 +639,26 @@ export const db = {
     if (error) throw error
   },
 
-  async getHabitProgressTotals(instanceIds: string[]) {
-    if (instanceIds.length === 0) return {} as Record<string, number>
+  // One batched fetch serves both the per-instance total and the per-chunk
+  // timestamps the timeline needs. Ordered so chunks read chronologically.
+  async getHabitProgressEntriesForInstances(instanceIds: string[]) {
+    if (instanceIds.length === 0) return {} as Record<string, any[]>
     const { data, error } = await supabase
       .from('habit_progress_entries')
-      .select('habit_instance_id, amount')
+      .select('id, habit_instance_id, amount, note, created_at')
       .in('habit_instance_id', instanceIds)
+      .order('created_at', { ascending: true })
     if (error) throw error
-    return (data ?? []).reduce((totals: Record<string, number>, row: any) => {
-      totals[row.habit_instance_id] = (totals[row.habit_instance_id] ?? 0) + Number(row.amount)
+    return (data ?? []).reduce((grouped: Record<string, any[]>, row: any) => {
+      ;(grouped[row.habit_instance_id] ??= []).push(row)
+      return grouped
+    }, {})
+  },
+
+  async getHabitProgressTotals(instanceIds: string[]) {
+    const grouped = await this.getHabitProgressEntriesForInstances(instanceIds)
+    return Object.entries(grouped).reduce((totals: Record<string, number>, [id, rows]) => {
+      totals[id] = rows.reduce((sum: number, row: any) => sum + Number(row.amount), 0)
       return totals
     }, {})
   },

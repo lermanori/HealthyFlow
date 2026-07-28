@@ -3,43 +3,7 @@ import { z } from 'zod'
 import { ApiTokenAudienceSchema, ApiTokens, ApiTokenScopeSchema } from '../api-tokens'
 import { db } from '../supabase-client'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
-import { PlanningWindowSchema } from '../day-summary-schema'
-
-// Zod as single source of truth: schema defines shape + defaults for settings
-export const SettingsSchema = z.object({
-  notifications: z.boolean().default(true),
-  dailyReminders: z.boolean().default(true),
-  weeklyReports: z.boolean().default(true),
-  aiSuggestions: z.boolean().default(true),
-  smartReminders: z.boolean().default(true),
-  completionSounds: z.boolean().default(true),
-  calorieIntake: z.boolean().default(true),
-  achievementTracker: z.boolean().default(false),
-  workoutTracker: z.boolean().default(true),
-  weekStartsOn: z.number().int().min(0).max(6).default(1),
-  planningWindow: PlanningWindowSchema.nullable().default(null),
-  onboardingStatus: z.enum(['active', 'completed', 'skipped']).default('completed'),
-  theme: z.enum(['midnight', 'white']).default('midnight'),
-})
-export type Settings = z.infer<typeof SettingsSchema>
-
-// .partial() on a schema with .default() still fills in defaults for omitted keys,
-// so the PATCH contract is defined separately on plain booleans (no defaults).
-const PatchBody = z.object({
-  notifications: z.boolean(),
-  dailyReminders: z.boolean(),
-  weeklyReports: z.boolean(),
-  aiSuggestions: z.boolean(),
-  smartReminders: z.boolean(),
-  completionSounds: z.boolean(),
-  calorieIntake: z.boolean(),
-  achievementTracker: z.boolean(),
-  workoutTracker: z.boolean(),
-  weekStartsOn: z.number().int().min(0).max(6),
-  planningWindow: PlanningWindowSchema.nullable(),
-  onboardingStatus: z.enum(['active', 'completed', 'skipped']),
-  theme: z.enum(['midnight', 'white']),
-}).partial().strict()
+import { SettingsPatchSchema, SettingsSchema } from '../settings-schema'
 
 const router = express.Router()
 
@@ -61,7 +25,7 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
 
 // PATCH /api/settings
 router.patch('/', authenticateToken, async (req: AuthRequest, res) => {
-  const parsed = PatchBody.safeParse(req.body)
+  const parsed = SettingsPatchSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues })
 
   try {

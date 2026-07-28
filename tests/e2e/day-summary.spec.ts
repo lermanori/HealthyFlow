@@ -56,7 +56,7 @@ test('Today composes its selected-day regions through one DaySummary request', a
 })
 
 test('usable-day settings stay opt-in and produce an honest non-unavailable capacity state', async ({ page }) => {
-  await page.goto('/app/settings')
+  await page.goto('/app/settings/planning')
   const capacitySwitch = page.getByRole('switch', { name: 'Calculate daily capacity' })
   await expect(capacitySwitch).toHaveAttribute('aria-checked', 'false')
 

@@ -36,7 +36,7 @@ describe('settings API', () => {
       smartReminders: true,
       completionSounds: true,
       calorieIntake: true,
-      achievementTracker: false,
+      achievementTracker: true,
       workoutTracker: true,
       weekStartsOn: 1,
       planningWindow: null,
@@ -99,24 +99,24 @@ describe('settings API', () => {
     expect(res.body.calorieIntake).toBe(false)
   })
 
-  it('defaults achievementTracker to false and allows enabling it', async () => {
+  it('defaults achievementTracker to true and preserves an explicit opt-out', async () => {
     mockDb.getUserSettings.mockResolvedValue({})
-    mockDb.upsertUserSettings.mockResolvedValue({ achievementTracker: true })
+    mockDb.upsertUserSettings.mockResolvedValue({ achievementTracker: false })
 
     const getRes = await request(app)
       .get('/api/settings')
       .set('Authorization', TOKEN)
 
-    expect(getRes.body.achievementTracker).toBe(false)
+    expect(getRes.body.achievementTracker).toBe(true)
 
     const patchRes = await request(app)
       .patch('/api/settings')
       .set('Authorization', TOKEN)
-      .send({ achievementTracker: true })
+      .send({ achievementTracker: false })
 
     expect(patchRes.status).toBe(200)
-    expect(mockDb.upsertUserSettings).toHaveBeenCalledWith(USER_ID, { achievementTracker: true })
-    expect(patchRes.body.achievementTracker).toBe(true)
+    expect(mockDb.upsertUserSettings).toHaveBeenCalledWith(USER_ID, { achievementTracker: false })
+    expect(patchRes.body.achievementTracker).toBe(false)
   })
 
   it('defaults workoutTracker to true and allows disabling it', async () => {

@@ -2,12 +2,18 @@ import { Activity, Award, Dumbbell, HeartPulse } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { format } from 'date-fns'
 import { useSettings } from '../hooks/useSettings'
+import { enabledModulePresentations, moduleHealthHref } from '../modulePresentation'
 
 interface HealthNavigationProps {
   date?: string
 }
 
 const todayStr = () => format(new Date(), 'yyyy-MM-dd')
+const iconByName = {
+  activity: Activity,
+  dumbbell: Dumbbell,
+  award: Award,
+}
 
 export default function HealthNavigation({ date }: HealthNavigationProps) {
   const location = useLocation()
@@ -18,15 +24,14 @@ export default function HealthNavigation({ date }: HealthNavigationProps) {
   const encodedDate = encodeURIComponent(selectedDate)
   const items = [
     { name: 'Overview', href: `/health?date=${encodedDate}`, path: '/health', icon: HeartPulse },
-    ...(modules.calories === 'enabled'
-      ? [{ name: 'Nutrition', href: `/calories?date=${encodedDate}`, path: '/calories', icon: Activity }]
-      : []),
-    ...(modules.workouts === 'enabled'
-      ? [{ name: 'Workouts', href: `/workouts?date=${encodedDate}&mode=session`, path: '/workouts', icon: Dumbbell }]
-      : []),
-    ...(modules.achievements === 'enabled'
-      ? [{ name: 'Progress', href: '/achievements', path: '/achievements', icon: Award }]
-      : []),
+    ...enabledModulePresentations(modules)
+      .sort((a, b) => a.healthNavigation.order - b.healthNavigation.order)
+      .map((presentation) => ({
+        name: presentation.label,
+        href: moduleHealthHref(presentation, selectedDate),
+        path: presentation.route.path,
+        icon: iconByName[presentation.healthNavigation.icon],
+      })),
   ]
 
   return (

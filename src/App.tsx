@@ -19,7 +19,13 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsOfServicePage from './pages/TermsOfServicePage'
 import LoadingSpinner from './components/LoadingSpinner'
 import OfflineNotification from './components/OfflineNotification'
-import { ModuleAvailability, OptionalModule, useSettings } from './hooks/useSettings'
+import { useSettings } from './hooks/useSettings'
+import {
+  MODULE_PRESENTATIONS,
+  resolveHealthAvailability,
+  type ModuleAvailability,
+  type OptionalModule,
+} from './modulePresentation'
 import { WEEK_VIEW_ENABLED } from './featureFlags'
 
 export interface ModuleNoticeState {
@@ -30,20 +36,26 @@ export interface ModuleNoticeState {
   }
 }
 
-function ModuleGate({ availability, module, label, children, retry }: {
+function ModuleGate({ availability, module, label, children, retry, disabledRedirect }: {
   availability: ModuleAvailability
   module: OptionalModule | 'health'
   label: string
   children: ReactNode
   retry: () => unknown
+  disabledRedirect: string
 }) {
+  const location = useLocation()
   if (availability === 'enabled') return <>{children}</>
   if (availability === 'disabled') {
+    const date = new URLSearchParams(location.search).get('date')
+    const redirect = disabledRedirect === '/health' && date
+      ? `/health?date=${encodeURIComponent(date)}`
+      : disabledRedirect
     return (
       <Navigate
-        to="/"
+        to={redirect}
         replace
-        state={{ moduleNotice: { module, label, message: `${label} is disabled for this account.` } } satisfies ModuleNoticeState}
+        state={{ moduleNotice: { module, label, message: `${label} is hidden for this account.` } } satisfies ModuleNoticeState}
       />
     )
   }
@@ -68,18 +80,15 @@ function AssistantRedirect() {
   return <Navigate to={`/talk${location.search}`} replace />
 }
 
-function resolveHealthAvailability(modules: Record<OptionalModule, ModuleAvailability>): ModuleAvailability {
-  const availability = Object.values(modules)
-  if (availability.includes('enabled')) return 'enabled'
-  if (availability.includes('loading')) return 'loading'
-  if (availability.includes('error')) return 'error'
-  return 'disabled'
-}
-
 function App() {
   const { user, loading } = useAuth()
   const { modules, retry } = useSettings(!!user)
   const healthAvailability = resolveHealthAvailability(modules)
+  const modulePages: Record<OptionalModule, ReactNode> = {
+    calories: <CaloriesPage />,
+    workouts: <WorkoutsPage />,
+    achievements: <AchievementsPage />,
+  }
 
   // Handle app visibility changes
   useEffect(() => {
@@ -126,13 +135,40 @@ function App() {
           <Route path="/talk" element={<AssistantPage />} />
           <Route path="/demo" element={<DemoPage />} />
           <Route path="/assistant" element={<AssistantRedirect />} />
-          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/*" element={<SettingsPage />} />
           <Route path="/token-manager" element={user.role === 'admin' ? <TokenManagerPage /> : <Navigate to="/" replace />} />
           <Route path="/meal-ocr-lab" element={user.role === 'admin' ? <MealParserLabPage /> : <Navigate to="/" replace />} />
-          <Route path="/health" element={<ModuleGate availability={healthAvailability} module="health" label="Health" retry={retry}><HealthPage /></ModuleGate>} />
-          <Route path="/calories" element={<ModuleGate availability={modules.calories} module="calories" label="Calories" retry={retry}><CaloriesPage /></ModuleGate>} />
-          <Route path="/achievements" element={<ModuleGate availability={modules.achievements} module="achievements" label="Achievements" retry={retry}><AchievementsPage /></ModuleGate>} />
-          <Route path="/workouts" element={<ModuleGate availability={modules.workouts} module="workouts" label="Workouts" retry={retry}><WorkoutsPage /></ModuleGate>} />
+          <Route
+            path="/health"
+            element={(
+              <ModuleGate
+                availability={healthAvailability}
+                module="health"
+                label="Health"
+                retry={retry}
+                disabledRedirect="/"
+              >
+                <HealthPage />
+              </ModuleGate>
+            )}
+          />
+          {MODULE_PRESENTATIONS.map((presentation) => (
+            <Route
+              key={presentation.id}
+              path={presentation.route.path}
+              element={(
+                <ModuleGate
+                  availability={modules[presentation.id]}
+                  module={presentation.id}
+                  label={presentation.label}
+                  retry={retry}
+                  disabledRedirect={healthAvailability === 'enabled' ? '/health' : '/'}
+                >
+                  {modulePages[presentation.id]}
+                </ModuleGate>
+              )}
+            />
+          ))}
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -42,8 +42,8 @@ export class PostHogProvider implements AnalyticsProvider {
     posthog.capture(event, props)
   }
 
-  page(path: string): void {
-    posthog.capture('$pageview', { $current_url: window.location.origin + path })
+  page(path: string, properties?: Record<string, unknown>): void {
+    posthog.capture('$pageview', { $current_url: window.location.origin + path, ...properties })
   }
 
   reset(): void {

@@ -80,11 +80,11 @@ test('Add Item domain tabs create calorie and achievement entries through existi
 
   await page.goto('/app/add')
   await expect(page.getByRole('tab', { name: 'Today' })).toBeVisible()
-  await expect(page.getByRole('tab', { name: 'Calories' })).toBeVisible()
-  await expect(page.getByRole('tab', { name: 'Achievements' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Nutrition' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Progress' })).toBeVisible()
 
   const foodName = `Tab Yogurt ${unique}`
-  await page.getByRole('tab', { name: 'Calories' }).click()
+  await page.getByRole('tab', { name: 'Nutrition' }).click()
   await page.getByLabel('Name').fill(foodName)
   await page.getByLabel('Calories').fill('180')
   await page.getByLabel('Protein').fill('20')
@@ -93,10 +93,10 @@ test('Add Item domain tabs create calorie and achievement entries through existi
   await expect(page.getByRole('region', { name: 'Detailed log' }).getByText(foodName, { exact: true })).toBeVisible()
 
   await page.goto('/app/add')
-  await page.getByRole('tab', { name: 'Achievements' }).click()
-  await page.getByLabel('Achievement').selectOption({ label: achievementName })
+  await page.getByRole('tab', { name: 'Progress' }).click()
+  await page.getByLabel('Progress measure').selectOption({ label: achievementName })
   await page.getByRole('spinbutton', { name: 'Value (reps)' }).fill('12')
-  await page.getByRole('button', { name: 'Add Achievement Entry' }).click()
+  await page.getByRole('button', { name: 'Add Progress Entry' }).click()
   await expect(page).toHaveURL('/app/achievements', { timeout: 10_000 })
   await expect(page.getByRole('heading', { name: achievementName })).toBeVisible()
   await expect(page.getByRole('button', { name: new RegExp(`${achievementName} 12`) })).toBeVisible()

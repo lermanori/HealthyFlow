@@ -24,6 +24,7 @@ import { useSettings } from '../hooks/useSettings'
 import type { ModuleNoticeState } from '../App'
 import { useModalFocus } from '../hooks/useModalFocus'
 import { WEEK_VIEW_ENABLED } from '../featureFlags'
+import { MODULE_PRESENTATIONS } from '../modulePresentation'
 
 interface LayoutProps {
   children: ReactNode
@@ -34,6 +35,12 @@ interface NavigationItem {
   href: string
   icon: LucideIcon
   activePaths?: string[]
+}
+
+interface NavigationGroup {
+  id: 'today' | 'plan' | 'health' | 'utility'
+  label: string
+  items: NavigationItem[]
 }
 
 export default function Layout({ children }: LayoutProps) {
@@ -89,22 +96,48 @@ export default function Layout({ children }: LayoutProps) {
   const isDemo = location.pathname === '/demo' || Boolean(searchParams.get('demo')) || Boolean(localStorage.getItem('demoPersona'))
 
   const healthEnabled = Object.values(modules).includes('enabled')
-  const navigation: NavigationItem[] = [
-    { name: 'Today', href: '/', icon: Home },
-    { name: 'Talk', href: '/talk', icon: MessageCircle },
-    ...(WEEK_VIEW_ENABLED ? [{ name: 'Week View', href: '/week', icon: Calendar }] : []),
-    ...(healthEnabled ? [{
-      name: 'Health',
-      href: '/health',
-      icon: HeartPulse,
-      activePaths: ['/health', '/calories', '/workouts', '/achievements'],
-    }] : []),
-    { name: 'Settings', href: '/settings', icon: Settings },
-    ...(user?.role === 'admin' ? [{ name: 'OCR Lab', href: '/meal-ocr-lab', icon: Microscope }] : []),
-    ...(user?.role === 'admin' ? [{ name: 'Token Manager', href: '/token-manager', icon: Coins }] : []),
-  ]
+  const navigationGroups = ([
+    {
+      id: 'today',
+      label: 'Today',
+      items: [
+        { name: 'Today', href: '/', icon: Home },
+        { name: 'Talk', href: '/talk', icon: MessageCircle },
+      ],
+    },
+    {
+      id: 'plan',
+      label: 'Plan',
+      items: WEEK_VIEW_ENABLED
+        ? [{ name: 'Week', href: '/week', icon: Calendar }]
+        : [],
+    },
+    {
+      id: 'health',
+      label: 'Health tools',
+      items: healthEnabled
+        ? [{
+            name: 'Health',
+            href: '/health',
+            icon: HeartPulse,
+            activePaths: ['/health', ...MODULE_PRESENTATIONS.flatMap((presentation) => presentation.route.activePaths)],
+          }]
+        : [],
+    },
+    {
+      id: 'utility',
+      label: 'Utility',
+      items: [
+        { name: 'Settings', href: '/settings', icon: Settings },
+        ...(user?.role === 'admin' ? [{ name: 'OCR Lab', href: '/meal-ocr-lab', icon: Microscope }] : []),
+        ...(user?.role === 'admin' ? [{ name: 'Token Manager', href: '/token-manager', icon: Coins }] : []),
+      ],
+    },
+  ] satisfies NavigationGroup[]).filter((group) => group.items.length > 0)
+  const navigation = navigationGroups.flatMap((group) => group.items)
   const isNavigationActive = (item: NavigationItem) => (
-    item.activePaths?.includes(location.pathname) ?? location.pathname === item.href
+    item.activePaths?.includes(location.pathname)
+      ?? (location.pathname === item.href || (item.href !== '/' && location.pathname.startsWith(`${item.href}/`)))
   )
   const moduleNotice = (location.state as ModuleNoticeState | null)?.moduleNotice
 
@@ -177,33 +210,49 @@ export default function Layout({ children }: LayoutProps) {
 
               {/* Navigation */}
               <nav aria-label="Application" className="flex-1 overflow-y-auto p-6">
-                <ul className="space-y-2">
-                  {navigation.map((item) => {
-                    const isActive = isNavigationActive(item)
+                <div className="space-y-6">
+                  {navigationGroups.map((group) => {
+                    const groupActive = group.items.some(isNavigationActive)
                     return (
-                      <li key={item.name}>
-                        <Link
-                          to={item.href}
-                          data-demo={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                          data-demo-id={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                          className={`flex items-center space-x-3 px-4 py-4 rounded-xl transition-all duration-300 group ${
-                            isActive
-                              ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/20'
-                              : 'text-ink-muted hover:bg-card/50 hover:text-ink-soft hover:border-line-strong/50 border border-transparent'
+                      <section key={group.id} aria-labelledby={`mobile-nav-group-${group.id}`}>
+                        <div
+                          id={`mobile-nav-group-${group.id}`}
+                          className={`mb-2 px-4 text-[11px] font-bold uppercase tracking-[0.18em] ${
+                            groupActive ? 'text-cyan-300' : 'text-ink-muted'
                           }`}
                         >
-                          <item.icon className={`w-6 h-6 transition-all duration-300 ${
-                            isActive ? 'text-cyan-400' : 'group-hover:text-ink-soft'
-                          }`} />
-                          <span className="font-medium text-lg">{item.name}</span>
-                          {isActive && (
-                            <div className="ml-auto w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-                          )}
-                        </Link>
-                      </li>
+                          {group.label}
+                        </div>
+                        <ul className="space-y-1.5">
+                          {group.items.map((item) => {
+                            const isActive = isNavigationActive(item)
+                            return (
+                              <li key={item.name}>
+                                <Link
+                                  to={item.href}
+                                  aria-current={isActive ? 'page' : undefined}
+                                  data-demo={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                                  data-demo-id={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                                  className={`flex items-center space-x-3 rounded-xl border px-4 py-3 transition-all duration-300 group ${
+                                    isActive
+                                      ? 'border-cyan-500/30 bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400 shadow-lg shadow-cyan-500/20'
+                                      : 'border-transparent text-ink-muted hover:border-line-strong/50 hover:bg-card/50 hover:text-ink-soft'
+                                  }`}
+                                >
+                                  <item.icon className={`h-5 w-5 transition-all duration-300 ${
+                                    isActive ? 'text-cyan-400' : 'group-hover:text-ink-soft'
+                                  }`} />
+                                  <span className="font-medium">{item.name}</span>
+                                  {isActive && <span className="ml-auto h-2 w-2 rounded-full bg-cyan-400" />}
+                                </Link>
+                              </li>
+                            )
+                          })}
+                        </ul>
+                      </section>
                     )
                   })}
-                </ul>
+                </div>
 
                 {/* AI Status Indicator */}
                 <div className="mt-8 p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
@@ -340,35 +389,51 @@ export default function Layout({ children }: LayoutProps) {
       <div className="flex relative z-10">
         {/* Desktop Sidebar */}
         {!isMobile && (
-          <nav className="w-64 glass-effect min-h-screen border-r border-line/50">
+          <nav aria-label="Application" className="w-64 glass-effect min-h-screen border-r border-line/50">
             <div className="p-4">
-              <ul className="space-y-2">
-                {navigation.map((item) => {
-                  const isActive = isNavigationActive(item)
+              <div className="space-y-6">
+                {navigationGroups.map((group) => {
+                  const groupActive = group.items.some(isNavigationActive)
                   return (
-                    <li key={item.name}>
-                        <Link
-                        to={item.href}
-                        data-demo={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                        data-demo-id={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                        className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-300 group ${
-                          isActive
-                            ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400 border border-cyan-500/30 shadow-lg shadow-cyan-500/20'
-                            : 'text-ink-muted hover:bg-card/50 hover:text-ink-soft hover:border-line-strong/50 border border-transparent'
+                    <section key={group.id} aria-labelledby={`desktop-nav-group-${group.id}`}>
+                      <div
+                        id={`desktop-nav-group-${group.id}`}
+                        className={`mb-2 px-4 text-[10px] font-bold uppercase tracking-[0.18em] ${
+                          groupActive ? 'text-cyan-300' : 'text-ink-muted'
                         }`}
                       >
-                        <item.icon className={`w-5 h-5 transition-all duration-300 ${
-                          isActive ? 'text-cyan-400' : 'group-hover:text-ink-soft'
-                        }`} />
-                        <span className="font-medium">{item.name}</span>
-                        {isActive && (
-                          <div className="ml-auto w-2 h-2 bg-cyan-400 rounded-full animate-pulse"></div>
-                        )}
-                      </Link>
-                    </li>
+                        {group.label}
+                      </div>
+                      <ul className="space-y-1">
+                        {group.items.map((item) => {
+                          const isActive = isNavigationActive(item)
+                          return (
+                            <li key={item.name}>
+                              <Link
+                                to={item.href}
+                                aria-current={isActive ? 'page' : undefined}
+                                data-demo={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                                data-demo-id={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
+                                className={`flex items-center space-x-3 rounded-xl border px-4 py-3 transition-all duration-300 group ${
+                                  isActive
+                                    ? 'border-cyan-500/30 bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-400 shadow-lg shadow-cyan-500/20'
+                                    : 'border-transparent text-ink-muted hover:border-line-strong/50 hover:bg-card/50 hover:text-ink-soft'
+                                }`}
+                              >
+                                <item.icon className={`h-5 w-5 transition-all duration-300 ${
+                                  isActive ? 'text-cyan-400' : 'group-hover:text-ink-soft'
+                                }`} />
+                                <span className="font-medium">{item.name}</span>
+                                {isActive && <span className="ml-auto h-2 w-2 rounded-full bg-cyan-400" />}
+                              </Link>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </section>
                   )
                 })}
-              </ul>
+              </div>
 
               {/* AI Status Indicator */}
               <div className="mt-8 p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20">
@@ -404,7 +469,7 @@ export default function Layout({ children }: LayoutProps) {
               <div className="mb-4 flex items-start justify-between gap-4 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm" role="status">
                 <div>
                   <p className="font-medium text-ink">{moduleNotice.message}</p>
-                  <Link className="mt-1 inline-block font-medium text-cyan-400 underline underline-offset-2" to="/settings#features">
+                  <Link className="mt-1 inline-block font-medium text-cyan-400 underline underline-offset-2" to="/settings/health-tools">
                     Enable in Settings
                   </Link>
                 </div>

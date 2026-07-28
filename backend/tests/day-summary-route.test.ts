@@ -79,10 +79,12 @@ describe('DaySummary API', () => {
       googleEventId: null,
       syncedToGoogle: false,
       googleSyncStatus: 'skipped',
+      resolvedTime: null,
       habitInfo: {
         target: { value: 30, unit: 'minutes' },
         outcome: 'partial',
         progressTotal: 10,
+        chunks: [],
       },
     }]
     mockedGetItemsForDay.mockResolvedValue(canonicalItems)

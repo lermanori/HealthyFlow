@@ -33,6 +33,7 @@ const item = (overrides: Partial<DaySummaryItem> = {}): DaySummaryItem => ({
   googleEventId: null,
   syncedToGoogle: false,
   googleSyncStatus: 'pending',
+  resolvedTime: null,
   ...overrides,
 })
 
@@ -354,6 +355,7 @@ describe('DaySummary attention derivation', () => {
             target: null,
             outcome: 'failed',
             progressTotal: 0,
+            chunks: [],
           },
         }),
         item({ id: 'pending-task', title: 'Pending Task', startTime: null }),
@@ -396,6 +398,7 @@ describe('DaySummary composition', () => {
         target: null,
         outcome: 'failed',
         progressTotal: 0,
+        chunks: [],
       },
     })
     const pendingTask = item({ id: 'pending-task', title: 'Pending Task' })
@@ -435,6 +438,7 @@ describe('DaySummary composition', () => {
           target: { value: 20, unit: 'minutes' },
           outcome: 'partial',
           progressTotal: 10,
+          chunks: [],
         },
       }),
     ]
@@ -573,6 +577,7 @@ describe('DaySummary composition', () => {
       habits: 'enabled',
       nutrition: 'disabled',
       workouts: 'disabled',
+      achievements: 'enabled',
     })
     expect(disabledSummary.supporting.nutrition.status).toBe('disabled')
     expect(disabledSummary.supporting.workouts.status).toBe('disabled')
@@ -591,6 +596,7 @@ describe('DaySummary composition', () => {
       habits: 'enabled',
       nutrition: 'unavailable',
       workouts: 'unavailable',
+      achievements: 'unavailable',
     })
     expect(unavailableSummary.supporting.nutrition.status).toBe('unavailable')
     expect(unavailableSummary.supporting.workouts.status).toBe('unavailable')
@@ -617,6 +623,7 @@ describe('DaySummary composition', () => {
         target: index === 0 ? null : { value: 10, unit: 'count' },
         outcome: outcome as 'pending' | 'partial' | 'completed' | 'failed',
         progressTotal: progressTotal as number,
+        chunks: [],
       },
     }))
     const session = {

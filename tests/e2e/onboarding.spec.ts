@@ -1,13 +1,38 @@
 import { test, expect } from './fixtures/ai-stubs'
+import { randomUUID } from 'node:crypto'
+import { createClient } from '@supabase/supabase-js'
 
 test.use({ storageState: undefined })
+
+const supabase = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+)
+
+async function createSignupInvite(email: string) {
+  const { data: entry, error: waitlistError } = await supabase
+    .from('waitlist')
+    .insert({ email, status: 'pending', source: 'e2e-onboarding' })
+    .select('id')
+    .single()
+  if (waitlistError) throw waitlistError
+
+  const token = `e2e-${randomUUID()}`
+  const { error: inviteError } = await supabase
+    .from('invites')
+    .insert({ token, waitlist_id: entry.id })
+  if (inviteError) throw inviteError
+  return token
+}
 
 test('new signup sees brain-dump onboarding, parses a day, and completion stays dismissed', async ({ page }) => {
   const unique = Date.now()
   const email = `onboarding-${unique}@test.healthyflow.local`
   const password = 'onboarding-pw-42!'
+  const invite = await createSignupInvite(email)
 
-  await page.goto('/app')
+  await page.goto(`/app?invite=${encodeURIComponent(invite)}`)
   await page.evaluate(() => localStorage.removeItem('token'))
   await page.reload()
   await page.getByRole('button', { name: 'Create account' }).click()
@@ -42,8 +67,9 @@ test('skip link completes onboarding without parsing', async ({ page }) => {
   const unique = Date.now()
   const email = `onboarding-skip-${unique}@test.healthyflow.local`
   const password = 'onboarding-pw-42!'
+  const invite = await createSignupInvite(email)
 
-  await page.goto('/app')
+  await page.goto(`/app?invite=${encodeURIComponent(invite)}`)
   await page.evaluate(() => localStorage.removeItem('token'))
   await page.reload()
   await page.getByRole('button', { name: 'Create account' }).click()
