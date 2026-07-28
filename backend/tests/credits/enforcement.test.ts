@@ -5,7 +5,7 @@
  *   parse-tasks happy path  → reserves estimated AI tokens, OpenAI call settles actual usage
  *   insufficient AI tokens  → 402 before OpenAI is ever called
  *   AI failure               → refund (grant) before returning an explicit error response
- *   signup                   → seeds FREE_SIGNUP_CREDITS via Credits.grant
+ *   signup                   → claims the first-100-aware onboarding credit grant
  *   balance endpoint          → returns Credits.getBalance for the authed user
  */
 import request from 'supertest'
@@ -13,7 +13,7 @@ import nock from 'nock'
 import jwt from 'jsonwebtoken'
 import { app } from '../../src/index'
 import { db } from '../../src/supabase-client'
-import { Credits, FREE_SIGNUP_CREDITS } from '../../src/credits'
+import { Credits } from '../../src/credits'
 import { Onboarding } from '../../src/onboarding'
 
 jest.mock('../../src/supabase-client', () => ({
@@ -31,9 +31,10 @@ jest.mock('../../src/credits', () => ({
     settleReserved: jest.fn(),
     refundReserve: jest.fn(),
     grant: jest.fn(),
+    grantSignupCredits: jest.fn(),
+    getLaunchOffer: jest.fn(),
     getBalance: jest.fn(),
   },
-  FREE_SIGNUP_CREDITS: 50,
 }))
 
 jest.mock('../../src/onboarding', () => ({
@@ -87,6 +88,12 @@ beforeEach(() => {
   jest.clearAllMocks()
   mockCredits.estimateReserve.mockResolvedValue(10)
   mockCredits.settleReserved.mockResolvedValue({ ok: true, chargeTokens: 6, adjustmentTokens: 4 })
+  mockCredits.grantSignupCredits.mockResolvedValue({
+    credits: 250,
+    cohort: 'founding',
+    balance: 250,
+    alreadyGranted: false,
+  })
 })
 
 afterEach(() => {
@@ -261,7 +268,7 @@ describe('POST /api/ai/query-tasks — credit enforcement', () => {
 })
 
 describe('POST /api/auth/signup — credit seeding', () => {
-  it('grants FREE_SIGNUP_CREDITS to the new user', async () => {
+  it('claims the launch onboarding credits for the new user', async () => {
     mockDb.getUserByEmail.mockResolvedValue(null)
     mockDb.createUser.mockResolvedValue({
       id: 'new-user-id',
@@ -275,7 +282,13 @@ describe('POST /api/auth/signup — credit seeding', () => {
       .send({ email: 'new@example.com', password: 'password123', name: 'New User' })
 
     expect(res.status).toBe(200)
-    expect(mockCredits.grant).toHaveBeenCalledWith('new-user-id', FREE_SIGNUP_CREDITS, 'signup_bonus')
+    expect(mockCredits.grantSignupCredits).toHaveBeenCalledWith('new-user-id')
+    expect(res.body.signupCredits).toEqual({
+      credits: 250,
+      cohort: 'founding',
+      balance: 250,
+      alreadyGranted: false,
+    })
     expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('new-user-id')
   })
 })

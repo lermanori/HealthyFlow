@@ -7,28 +7,34 @@ const landing = readFileSync('public/landing.html', 'utf8')
 describe('Landing header', () => {
   it('keeps the mobile navigation actions compact and on one line', () => {
     // nowrap + a shrinkable brand is what keeps this on one line down to 320px;
-    // measured, the full label clears the header at every width.
+    // the live CTA keeps its label short rather than adding a scarcity count.
     assert.match(landing, /\.nav-cta \.btn-sm\s*\{[\s\S]*?white-space:\s*nowrap;/)
-    assert.match(landing, /class="btn btn-primary btn-sm nav-primary"[^>]*>Join the waitlist<\/a>/)
-  })
-
-  it('does not inject scarcity copy into the compact navigation CTA', () => {
-    // The swap targets data-signup-cta only, and the nav CTA does not carry it.
-    assert.match(landing, /querySelectorAll\('a\[data-signup-cta\]'\)/)
-    assert.doesNotMatch(landing, /nav-primary"\s+data-signup-cta/)
+    assert.match(
+      landing,
+      /class="btn btn-primary btn-sm nav-primary"[^>]*data-access-cta[^>]*>Join the waitlist<\/a>/
+    )
   })
 })
 
 describe('Landing signup CTA', () => {
-  it('ships pointing at the waitlist so a failed status call cannot dead-end', () => {
-    // Public signup slots default to 0 (backend/src/waitlist.ts), so the static
-    // markup must never promise an account the login page cannot create.
-    for (const cta of landing.match(/<a[^>]*data-signup-cta[^>]*>/g) ?? []) {
+  it('uses one live access state for every acquisition CTA', () => {
+    assert.match(landing, /querySelectorAll\('\[data-access-cta\]'\)/)
+    assert.match(landing, /el\.textContent = 'Start Free'/)
+    assert.match(landing, /el\.textContent = 'Join the waitlist'/)
+  })
+
+  it('ships every acquisition CTA pointing at the waitlist', () => {
+    for (const cta of landing.match(/<a[^>]*data-access-cta[^>]*>/g) ?? []) {
       assert.match(cta, /href="#waitlist-form"/)
     }
   })
 
-  it('upgrades to Start Free only when slots are genuinely open', () => {
-    assert.match(landing, /if \(status\.mode !== 'open' \|\| !\(status\.remaining > 0\)\) return;/)
+  it('publishes the agreed founding and top-up offers', () => {
+    assert.match(landing, /\$<span data-offer-founding-price>9<\/span>\/month/)
+    assert.match(landing, /data-offer-onboarding-credits>250<\/span> AI credits/)
+    assert.match(landing, /data-offer-monthly-credits>500<\/span> AI credits each month/)
+    assert.match(landing, /data-offer-topup-credits>250<\/span> non-expiring credits for \$/)
+    assert.match(landing, /foundingMembersRemaining/)
+    assert.match(landing, /Every new account receives/)
   })
 })

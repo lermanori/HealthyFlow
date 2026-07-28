@@ -12,7 +12,6 @@ jest.mock('../../src/credits', () => ({
     grant: jest.fn().mockResolvedValue(undefined),
     getBalance: jest.fn(),
   },
-  FREE_SIGNUP_CREDITS: 50,
 }))
 
 const DEFAULT_MULLER_PHOTO_PATH =

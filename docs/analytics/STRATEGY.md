@@ -13,7 +13,7 @@ Naming note: the codebase already has an "analytics" concept — `backend/src/ro
 
 ```
 Landing (public/landing.html, static)
-  │  "Start Free" CTA → /
+  │  invite-only: "Join the waitlist" · public signup: "Start Free"
   ▼
 Login / Signup (LoginPage)
   │  demo account is prominent → many "visitors" are demo sessions, must be segmentable
@@ -29,7 +29,8 @@ AI value moment (credit-metered)
   │  parse-tasks / parse-meals / Ask AI — every call burns credits
   ▼
 Monetization (Settings page)
-     low/out-of-credits banner → subscribe or top-up intent → contact message
+     $9/month founding plan (500 monthly credits) or $5 top-up (250 credits)
+     → low/out-of-credits banner → subscribe or top-up intent → contact message
      → admin activates subscription in Token Manager (human-in-the-loop, no Stripe)
 ```
 
@@ -56,7 +57,9 @@ The rule for inclusion: an event earns its place only if a named KPI or funnel s
 | Event | Fired when | Why it matters |
 |---|---|---|
 | `$pageview` (manual, via router) | route change | feature usage by surface; entry points; DAU basis |
-| `signed_up` | signup succeeds | top of registered funnel; cohort anchor |
+| `signup_cta_clicked` | landing acquisition CTA is clicked | invite-only waitlist conversion versus open-signup conversion by placement |
+| `waitlist_submitted` | landing or login waitlist form succeeds | waitlist funnel conversion |
+| `signed_up` | signup succeeds, with credit cohort and grant | top of registered funnel; founding-versus-standard cohort anchor |
 | `logged_in` | login succeeds (`is_demo` prop) | return visits; demo-vs-real segmentation |
 | `onboarding_completed` | user clicks Finish | onboarding conversion numerator |
 | `onboarding_skipped` | user clicks Skip | distinguishes "rejected onboarding" from "abandoned app" |
@@ -95,8 +98,8 @@ AI-parse **acceptance** is derived, not a separate event: `item_created(source: 
 | Event | Properties | Why |
 |---|---|---|
 | `credits_exhausted` | — | paywall moment (once per session); denominator for upgrade conversion |
-| `upgrade_cta_clicked` | `kind` (`subscribe`/`topup`) | intent opened |
-| `upgrade_request_sent` | `kind` | conversion event (contact message created) |
+| `upgrade_cta_clicked` | `kind`, `price_usd`, `credits` | exact offer whose intent flow was opened |
+| `upgrade_request_sent` | `kind`, `price_usd`, `credits` | exact offer requested through an in-app contact message |
 
 Subscription **activation** is admin-performed (Token Manager), so "is paying" is a **user property** (`subscription_active`, refreshed from the credit summary), not a client event. When Stripe replaces the manual flow, `subscription_activated` becomes a server-side event.
 
@@ -111,7 +114,7 @@ Subscription **activation** is admin-performed (Token Manager), so "is paying" i
 | Question | Derivation |
 |---|---|
 | Where do users come from? | UTM/referrer on landing + first `$pageview` (PostHog captures these automatically) |
-| Visitor → signup conversion | landing `$pageview` → `signed_up` funnel |
+| Visitor → signup conversion | landing `$pageview` → `signup_cta_clicked` → (`waitlist_submitted` for invite-only or `signed_up` for open signup) |
 | Onboarding abandonment | `signed_up` → (`onboarding_completed` \| `onboarding_skipped`) funnel; the gap is abandonment |
 | Activation rate | `signed_up` → `item_created` → `item_completed` within 3 days |
 | Retention & its correlates | week-N retention cohorts on `item_completed`; correlate with `ai_parse_requested`, `pwa_installed`, `google_calendar_connected` |

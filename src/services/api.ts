@@ -342,14 +342,18 @@ export interface TokenManagerOverview {
   activity: TokenManagerActivity[]
 }
 
-export interface CreditSubscriptionPricing {
-  promoActive: boolean
-  phase: 'promo' | 'regular'
-  priceUsd: number
-  monthlyCredits: number
-  sellCreditsPerUsd: number
-  updatedAt?: string | null
-}
+export const CreditSubscriptionPricingSchema = z.object({
+  promoActive: z.boolean(),
+  phase: z.enum(['promo', 'regular']),
+  priceUsd: z.number().positive(),
+  monthlyCredits: z.number().int().positive(),
+  sellCreditsPerUsd: z.number().positive(),
+  topUpPriceUsd: z.number().positive(),
+  topUpCredits: z.number().int().positive(),
+  foundingMemberLimit: z.number().int().positive(),
+  updatedAt: z.string().nullable().optional(),
+})
+export type CreditSubscriptionPricing = z.infer<typeof CreditSubscriptionPricingSchema>
 
 export interface CreditSubscriptionState {
   active: boolean
@@ -370,6 +374,46 @@ export interface CreditSummary {
   subscription: CreditSubscriptionState
 }
 
+export const SignupCreditGrantSchema = z.object({
+  credits: z.number().int().nonnegative(),
+  cohort: z.enum(['founding', 'standard']),
+  balance: z.number().int().nonnegative(),
+  alreadyGranted: z.boolean(),
+})
+export type SignupCreditGrant = z.infer<typeof SignupCreditGrantSchema>
+
+export const LaunchOfferSchema = z.object({
+  foundingMemberLimit: z.number().int().positive(),
+  foundingMembersRemaining: z.number().int().nonnegative(),
+  onboardingCredits: z.number().int().positive(),
+  foundingOnboardingCredits: z.number().int().positive(),
+  standardOnboardingCredits: z.number().int().positive(),
+  foundingPriceUsd: z.number().positive(),
+  regularPriceUsd: z.number().positive(),
+  monthlyCredits: z.number().int().positive(),
+  topUpPriceUsd: z.number().positive(),
+  topUpCredits: z.number().int().positive(),
+})
+export type LaunchOffer = z.infer<typeof LaunchOfferSchema>
+
+export const SignupStatusSchema = z.object({
+  mode: z.enum(['open', 'waitlist']),
+  remaining: z.number().int().nonnegative(),
+  offer: LaunchOfferSchema,
+})
+export type SignupStatus = z.infer<typeof SignupStatusSchema>
+
+const SignupResponseSchema = z.object({
+  user: z.object({
+    id: z.string(),
+    email: z.string().email(),
+    name: z.string(),
+    role: z.enum(['admin', 'user']),
+  }),
+  token: z.string().min(1),
+  signupCredits: SignupCreditGrantSchema,
+})
+
 // Auth Service
 export const authService = {
   login: async (email: string, password: string) => {
@@ -379,7 +423,7 @@ export const authService = {
 
   signup: async (email: string, password: string, name: string, invite?: string) => {
     const response = await api.post('/auth/signup', { email, password, name, invite })
-    return response.data
+    return SignupResponseSchema.parse(response.data)
   },
 
   startDemoSession: async (persona: DemoPersonaId) => {
@@ -392,8 +436,6 @@ export const authService = {
     return response.data
   },
 }
-
-export type SignupStatus = { mode: 'open' | 'waitlist'; remaining: number }
 
 export type WaitlistEntry = {
   id: string
@@ -420,7 +462,7 @@ export const waitlistService = {
 
   signupStatus: async () => {
     const response = await api.get('/auth/signup-status')
-    return response.data as SignupStatus
+    return SignupStatusSchema.parse(response.data)
   },
 
   adminEntries: async (status?: string) => {
@@ -888,9 +930,21 @@ export const creditsService = {
 }
 
 export const contactMessagesService = {
-  create: async (input: { kind: 'subscribe' | 'topup'; message: string }): Promise<ContactMessage> => {
-    const response = await api.post('/contact-messages', input)
-    analytics.capture('upgrade_request_sent', { kind: input.kind })
+  create: async (input: {
+    kind: 'subscribe' | 'topup'
+    message: string
+    priceUsd: number
+    credits: number
+  }): Promise<ContactMessage> => {
+    const response = await api.post('/contact-messages', {
+      kind: input.kind,
+      message: input.message,
+    })
+    analytics.capture('upgrade_request_sent', {
+      kind: input.kind,
+      price_usd: input.priceUsd,
+      credits: input.credits,
+    })
     return response.data
   },
 }

@@ -66,10 +66,12 @@ runs never send events.
 ## User identification & properties
 
 - `analytics.identify(userId, props, setOnce?)` is called from `AuthContext`
-  on signup, login, and token verification; `analytics.reset()` on logout.
+  on signup, login, and token verification; signup also records the founding or
+  standard onboarding-credit cohort. `analytics.reset()` runs on logout.
 - Person properties are typed in `UserProperties` (`types.ts`):
   `email`, `name`, `role`, `is_demo`, `onboarding_status`,
-  `subscription_active`, `credit_balance_bucket`; plus set-once
+  `subscription_active`, `credit_balance_bucket`, `signup_credit_cohort`,
+  `onboarding_credit_grant`; plus set-once
   `signed_up_at`.
 - `analytics.setUserProperties()` deduplicates — it only sends keys whose
   values changed this session, so it's safe to call from frequently-run code

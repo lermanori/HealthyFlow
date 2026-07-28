@@ -950,6 +950,40 @@ export const db = {
     return data
   },
 
+  async claimSignupCreditGrant(userId: string, offer: {
+    foundingMemberLimit: number
+    foundingCredits: number
+    standardCredits: number
+  }) {
+    const { data, error } = await supabase.rpc('claim_signup_credit_grant', {
+      p_user_id: userId,
+      p_founding_limit: offer.foundingMemberLimit,
+      p_founding_credits: offer.foundingCredits,
+      p_standard_credits: offer.standardCredits,
+    })
+    if (error) throw error
+    return data
+  },
+
+  async getFoundingSignupCreditGrantCount(): Promise<number> {
+    const { count, error } = await supabase
+      .from('signup_credit_grants')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('cohort', 'founding')
+    if (error) throw error
+    return count ?? 0
+  },
+
+  async getSignupCreditGrant(userId: string) {
+    const { data, error } = await supabase
+      .from('signup_credit_grants')
+      .select('user_id, cohort, credits, balance_after, created_at')
+      .eq('user_id', userId)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
   async grantSubscriptionCredits(userId: string, amount: number): Promise<number> {
     const { data, error } = await supabase.rpc('grant_subscription_credits', {
       p_user_id: userId,

@@ -1,3 +1,9 @@
+### 2026-07-28 19:29 — `codex/launch-pricing`
+
+Established the launch commercial model across signup, credits, pricing surfaces, acquisition messaging, and funnel analytics: the first 100 real accounts receive 250 onboarding credits and retain the $9 founding plan while continuously subscribed, followed by 50-credit onboarding and the $19 standard plan. Added an atomic, idempotent Supabase grant ledger plus the $5 / 250-credit non-expiring top-up contract, and applied the migration to production before the backend rollout. The rebased release passes 434 backend tests, 43 frontend tests, production builds, typechecks, and lint without errors.
+
+---
+
 ### 2026-07-28 18:07 — `codex/hide-daily-signals`
 
 Daily Signals are now hidden from Today by default behind an opt-in release flag while the product behavior matures. The existing implementation remains intact, and browser tests explicitly enable the flag so its review, recovery, and safety coverage stays active for eventual re-release.

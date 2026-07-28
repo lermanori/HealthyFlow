@@ -312,14 +312,14 @@ export default function TokenManagerPage() {
                   : 'border-line bg-sunken/30 text-ink-soft'
               }`}
             >
-              <span>{promoActive ? 'Promo: $1 / month' : 'Regular: $2 / month'}</span>
+              <span>{promoActive ? 'Founding: $9 / month' : 'Regular: $19 / month'}</span>
               <span className="text-xs text-ink-muted">Toggle</span>
             </button>
           </div>
           <div className="rounded-lg border border-line/70 bg-sunken/30 p-3 text-sm">
-            <p className="text-ink-muted">Sell rate</p>
+            <p className="text-ink-muted">Top-up offer</p>
             <p className="mt-1 text-lg font-semibold text-ink">
-              {formatNumber(overview.subscriptionPricing.sellCreditsPerUsd)} credits / $1
+              ${overview.subscriptionPricing.topUpPriceUsd} for {formatNumber(overview.subscriptionPricing.topUpCredits)} credits
             </p>
             <p className="mt-1 text-xs text-gray-500">AI cost metering remains {overview.settings.appTokensPerUsd} tokens / $1.</p>
           </div>
@@ -479,7 +479,11 @@ export default function TokenManagerPage() {
                         className="btn-secondary inline-flex items-center space-x-2 text-xs"
                       >
                         <Gift className="h-3.5 w-3.5" />
-                        <span>{user.subscription?.active ? 'Deactivate' : 'Subscribe +500'}</span>
+                        <span>
+                          {user.subscription?.active
+                            ? 'Deactivate'
+                            : `Subscribe +${overview.subscriptionPricing.monthlyCredits}`}
+                        </span>
                       </button>
                     </div>
                   </td>
@@ -490,7 +494,7 @@ export default function TokenManagerPage() {
                         min="1"
                         step="1"
                         className="input-field w-20"
-                        value={topUpDrafts[user.id] ?? '1'}
+                        value={topUpDrafts[user.id] ?? String(overview.subscriptionPricing.topUpPriceUsd)}
                         onChange={(event) => setTopUpDrafts(prev => ({ ...prev, [user.id]: event.target.value }))}
                       />
                       <button

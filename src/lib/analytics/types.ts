@@ -11,7 +11,17 @@ export type ItemSource = 'manual' | 'ai_parse'
 /** Event name → property payload. `void` means the event carries no properties. */
 export type AnalyticsEvents = {
   // Lifecycle & identity
-  signed_up: { method: 'password' }
+  signup_cta_clicked: {
+    destination: 'signup' | 'waitlist'
+    placement: 'navigation' | 'hero' | 'free_plan' | 'founding_plan' | 'final'
+    access_mode: 'open' | 'waitlist'
+  }
+  waitlist_submitted: { source: 'landing' | 'login' }
+  signed_up: {
+    method: 'password'
+    credit_cohort: 'founding' | 'standard'
+    onboarding_credits: number
+  }
   logged_in: { is_demo: boolean }
   demo_started: { persona: 'maya' | 'noam' | 'lina' | 'amir' }
   onboarding_completed: void
@@ -46,8 +56,8 @@ export type AnalyticsEvents = {
 
   // Monetization
   credits_exhausted: void
-  upgrade_cta_clicked: { kind: 'subscribe' | 'topup' }
-  upgrade_request_sent: { kind: 'subscribe' | 'topup' }
+  upgrade_cta_clicked: { kind: 'subscribe' | 'topup'; price_usd: number; credits: number }
+  upgrade_request_sent: { kind: 'subscribe' | 'topup'; price_usd: number; credits: number }
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvents
@@ -61,6 +71,8 @@ export type UserProperties = {
   onboarding_status?: 'active' | 'completed' | 'skipped'
   subscription_active?: boolean
   credit_balance_bucket?: 'none' | 'low' | 'ok'
+  signup_credit_cohort?: 'founding' | 'standard'
+  onboarding_credit_grant?: number
 }
 
 export type UserPropertiesOnce = {

@@ -83,9 +83,12 @@ async function mockStableSurfaceData(page: Page, theme: 'midnight' | 'white') {
       pricing: {
         promoActive: false,
         phase: 'regular',
-        priceUsd: 10,
+        priceUsd: 19,
         monthlyCredits: 500,
         sellCreditsPerUsd: 50,
+        topUpPriceUsd: 5,
+        topUpCredits: 250,
+        foundingMemberLimit: 100,
       },
       subscription: {
         active: true,
@@ -148,7 +151,22 @@ for (const theme of ['midnight', 'white'] as const) {
         localStorage.setItem('hf-theme', selectedTheme)
       }, theme)
       await page.route('**/api/auth/signup-status', (route) => route.fulfill({
-        json: { mode: 'waitlist', remaining: 0 },
+        json: {
+          mode: 'waitlist',
+          remaining: 0,
+          offer: {
+            foundingMemberLimit: 100,
+            foundingMembersRemaining: 100,
+            onboardingCredits: 250,
+            foundingOnboardingCredits: 250,
+            standardOnboardingCredits: 50,
+            foundingPriceUsd: 9,
+            regularPriceUsd: 19,
+            monthlyCredits: 500,
+            topUpPriceUsd: 5,
+            topUpCredits: 250,
+          },
+        },
       }))
       await page.goto('/app')
 
