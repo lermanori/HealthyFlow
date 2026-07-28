@@ -48,6 +48,7 @@ import {
 import DayTimeline from '../components/DayTimeline'
 import { buildTimelineRecords } from '../timelineRecords'
 import AIRecommendationsBox from '../components/AIRecommendationsBox'
+import { DAILY_SIGNALS_ENABLED } from '../featureFlags'
 import TaskEditModal from '../components/TaskEditModal'
 import SmartReminders from '../components/SmartReminders'
 import AITextAnalyzer from '../components/AITextAnalyzer'
@@ -1497,7 +1498,7 @@ export default function TodayPage() {
       </div>
 
       {daySummary && <DecisionBand summary={daySummary} />}
-      <AIRecommendationsBox date={selectedDateKey} />
+      {DAILY_SIGNALS_ENABLED && <AIRecommendationsBox date={selectedDateKey} />}
       {isViewingToday && dueKickoff && <RhythmKickoffRow kickoff={dueKickoff} />}
 
       {settings?.onboardingStatus === 'active' && (

@@ -1,3 +1,9 @@
+### 2026-07-28 18:07 — `codex/hide-daily-signals`
+
+Daily Signals are now hidden from Today by default behind an opt-in release flag while the product behavior matures. The existing implementation remains intact, and browser tests explicitly enable the flag so its review, recovery, and safety coverage stays active for eventual re-release.
+
+---
+
 ### 2026-07-28 17:15 — `codex/137-mobile-day-swipe`
 
 Added a mobile-only Today gesture that moves left or right between adjacent days while preserving the existing visible date controls and navigation contract. Deliberate swipes follow the finger with restrained directional feedback, while vertical scroll, interactive controls, Item dragging, modals, and reduced-motion preferences remain protected. Focused unit and browser regressions cover successful navigation, rejected gestures, and the existing touch-drag workflow.
