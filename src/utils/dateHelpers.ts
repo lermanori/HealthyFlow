@@ -2,6 +2,7 @@ import { addDays, differenceInCalendarDays, format, isSameYear, startOfWeek } fr
 
 export type WeekStartsOn = 0 | 1 | 2 | 3 | 4 | 5 | 6
 export type DateRelation = 'past' | 'yesterday' | 'today' | 'tomorrow' | 'future'
+export type DaySwipeDirection = 'previous' | 'next'
 
 const DAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 const DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
@@ -58,6 +59,18 @@ export function getWeekNavigationIndex(currentIndex: number, key: string): numbe
   if (key === 'ArrowLeft' || key === 'ArrowUp') return (currentIndex + 6) % 7
   if (key === 'ArrowRight' || key === 'ArrowDown') return (currentIndex + 1) % 7
   return null
+}
+
+export function getDaySwipeDirection(
+  deltaX: number,
+  deltaY: number,
+  minimumDistance = 72
+): DaySwipeDirection | null {
+  const horizontalDistance = Math.abs(deltaX)
+  const verticalDistance = Math.abs(deltaY)
+  if (horizontalDistance < minimumDistance) return null
+  if (horizontalDistance < verticalDistance * 1.25) return null
+  return deltaX < 0 ? 'next' : 'previous'
 }
 
 export function formatTimeRange(startTime: string, duration: number): string {

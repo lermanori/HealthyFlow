@@ -415,6 +415,46 @@ async function mockToday(page: Page, options?: {
   })
 }
 
+async function dispatchSwipe(
+  page: Page,
+  sourceSelector: string,
+  start: { x: number; y: number },
+  end: { x: number; y: number }
+) {
+  await page.evaluate(({ selector, startPoint, endPoint }) => {
+    const source = document.querySelector(selector)
+    if (!(source instanceof HTMLElement)) throw new Error(`Swipe source not found: ${selector}`)
+
+    const dispatch = (
+      type: 'touchstart' | 'touchmove' | 'touchend',
+      point: { x: number; y: number }
+    ) => {
+      const touch = new Touch({
+        identifier: 137,
+        target: source,
+        clientX: point.x,
+        clientY: point.y,
+        pageX: point.x + window.scrollX,
+        pageY: point.y + window.scrollY,
+        screenX: point.x,
+        screenY: point.y,
+      })
+      const activeTouches = type === 'touchend' ? [] : [touch]
+      source.dispatchEvent(new TouchEvent(type, {
+        bubbles: true,
+        cancelable: true,
+        touches: activeTouches,
+        targetTouches: activeTouches,
+        changedTouches: [touch],
+      }))
+    }
+
+    dispatch('touchstart', startPoint)
+    dispatch('touchmove', endPoint)
+    dispatch('touchend', endPoint)
+  }, { selector: sourceSelector, startPoint: start, endPoint: end })
+}
+
 for (const viewport of viewports) {
   test(`expanded Daily Signals at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport)
@@ -1035,6 +1075,27 @@ test('empty, completed, past, and future focus states use explicit language', as
 
   await page.getByRole('button', { name: 'Next day' }).first().click()
   await expect(page.getByText('Day complete')).toBeVisible()
+})
+
+test('mobile Today swipe changes one day while vertical and interactive gestures stay put', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await mockToday(page)
+  await page.goto('/app')
+
+  const swipeSurface = '[data-testid="today-swipe-surface"]'
+  await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible()
+
+  await dispatchSwipe(page, swipeSurface, { x: 320, y: 240 }, { x: 180, y: 248 })
+  await expect(page.getByRole('heading', { name: 'Tomorrow', exact: true })).toBeVisible()
+
+  await dispatchSwipe(page, swipeSurface, { x: 90, y: 240 }, { x: 230, y: 232 })
+  await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible()
+
+  await dispatchSwipe(page, swipeSurface, { x: 220, y: 220 }, { x: 230, y: 360 })
+  await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible()
+
+  await dispatchSwipe(page, '[data-demo-id="talk-button"]', { x: 320, y: 40 }, { x: 160, y: 45 })
+  await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible()
 })
 
 test('frequent controls meet touch size and disclosures preserve keyboard focus', async ({ page }) => {
