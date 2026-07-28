@@ -18,6 +18,47 @@ const reuseExistingServer = process.env.HF_TEST_MODE !== '1'
 const webPort = Number(process.env.HF_E2E_WEB_PORT ?? 5173)
 const apiPort = Number(process.env.HF_E2E_API_PORT ?? 3001)
 
+// Specs that mock every response they need and never write through the API. They
+// do not touch the one seeded Supabase test user, so they are the only ones safe
+// to run with more than one worker (see the workers: 1 note below).
+const HERMETIC = [
+  'assistant',
+  'module-presentation',
+  'responsive-visual-system',
+  'today-workspace',
+  'week-theme-visual',
+] as const
+
+// Subjects, so a change to one area can be verified against that area alone
+// instead of waiting 6.5 minutes for the whole suite to report one result.
+//
+// These are a strict PARTITION: every spec belongs to exactly one subject, so
+// running all projects runs every test exactly once. If a spec appeared twice,
+// a default run would execute it twice and the totals would silently inflate.
+const SUBJECTS: Record<string, readonly string[]> = {
+  auth: ['auth', 'onboarding'],
+  today: ['today-workspace', 'today-anytime-drag', 'today-date-navigation', 'day-summary'],
+  items: ['items-add', 'items-lifecycle', 'rollover'],
+  habits: ['habits', 'habit-progress'],
+  health: ['health-workflow', 'calories-quick-insert', 'workouts', 'module-presentation'],
+  talk: ['assistant'],
+  week: ['week-view', 'week-theme-visual'],
+  platform: ['phase0-reliability', 'settings-subscription'],
+  visual: ['responsive-visual-system'],
+}
+
+const subjectProjects = Object.entries(SUBJECTS).map(([name, specs]) => ({
+  name,
+  testMatch: specs.map((spec) => `**/${spec}.spec.ts`),
+  use: {
+    ...devices['Desktop Chrome'],
+    storageState: 'tests/e2e/.auth/user.json',
+  },
+  dependencies: ['setup'],
+}))
+
+export const hermeticSpecs = HERMETIC
+
 export default defineConfig({
   testDir: './tests/e2e',
   globalSetup: './tests/e2e/globalSetup.ts',
@@ -39,14 +80,10 @@ export default defineConfig({
       testMatch: /auth\.setup\.ts/,
       use: { ...devices['Desktop Chrome'] },
     },
-    {
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        storageState: 'tests/e2e/.auth/user.json',
-      },
-      dependencies: ['setup'],
-    },
+    // The subjects partition the suite, so `npx playwright test` still runs every
+    // spec exactly once — it just reports them under a subject name instead of
+    // one undifferentiated "chromium". `--project=<subject>` runs one area.
+    ...subjectProjects,
   ],
   webServer: [
     {

@@ -11,9 +11,71 @@ npx playwright install chromium
 ## Running
 
 ```sh
-npm run test:e2e         # headless (default; 87 tests, serial)
+npm run test:e2e         # headless (default; 114 tests, serial, ~6.5 min)
 npm run test:e2e:headed  # visible browser
 OPENAI_API_KEY= npm run test:e2e  # confirm suite works without OpenAI key
+```
+
+### Run one subject instead of the whole suite
+
+The suite is partitioned into subject projects, so a change to one area can be
+verified against that area alone rather than waiting 6.5 minutes for one result.
+
+```sh
+npm run test:e2e -- --project=today
+```
+
+| Project | Tests | Specs |
+|---|---:|---|
+| `auth` | 5 | auth, onboarding |
+| `today` | 37 | today-workspace, today-anytime-drag, today-date-navigation, day-summary |
+| `items` | 17 | items-add, items-lifecycle, rollover |
+| `habits` | 3 | habits, habit-progress |
+| `health` | 12 | health-workflow, calories-quick-insert, workouts, module-presentation |
+| `talk` | 4 | assistant |
+| `week` | 13 | week-view, week-theme-visual |
+| `platform` | 11 | phase0-reliability, settings-subscription |
+| `visual` | 12 | responsive-visual-system |
+
+114 in total, excluding the `setup` project every subject depends on. Counts come
+from `--list`, not from counting `test(` calls, because several specs parameterise
+over viewports and themes.
+
+The subjects are a strict **partition** — every spec belongs to exactly one, so
+running all projects still runs each test exactly once. `src/utils/e2eProjectPartition.test.ts`
+fails the unit suite if a spec is added without a subject (it would silently stop
+running) or listed under two (it would run twice).
+
+### Parallel workers
+
+`workers: 1` is deliberate — see below. Only these specs mock every response they
+need and never touch the shared test user, so only they are safe to parallelise:
+
+`assistant`, `module-presentation`, `responsive-visual-system`, `today-workspace`,
+`week-theme-visual` (the `HERMETIC` list in `playwright.config.ts`).
+
+```sh
+npm run test:e2e -- --project=visual --workers=4
+```
+
+Running the DB-backed subjects with `--workers>1` produces failures that look like
+real bugs but are workers clobbering one another's test user.
+
+### Ports
+
+`reuseExistingServer` is true unless `HF_TEST_MODE=1` is set **in your shell**, so a
+plain run silently reuses whatever is on 5173/3001 — possibly another checkout's
+code, or a backend not in test mode, in which case `POST /test/reset` 404s and most
+specs fail for reasons unrelated to your change. To get isolated servers:
+
+```sh
+HF_TEST_MODE=1 HF_E2E_WEB_PORT=5299 HF_E2E_API_PORT=3199 npx playwright test
+```
+
+Interrupting a run can leave those servers alive and block the next one:
+
+```sh
+for p in 5299 3199; do lsof -ti tcp:$p | xargs -r kill; done
 ```
 
 ## What the suite covers

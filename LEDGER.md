@@ -1,3 +1,9 @@
+### 2026-07-28 14:20 — `claude/app-launch-readiness-164e9d`
+
+Split the e2e suite into nine subject projects so one area can be checked without waiting 6.5 minutes for the whole run — `--project=talk` reports in 37s, `--project=habits` in 49s. The subjects are a strict partition rather than overlapping views: an earlier overlapping draft turned a default run into 262 tests instead of 114, because specs matched several projects at once. `src/utils/e2eProjectPartition.test.ts` now fails the unit suite if a spec is added with no subject (it would silently stop running) or listed under two, and the guard was verified by actually introducing an unregistered spec. Also recorded the real state of the suite: 114 ran, 90 passed, 24 failed — not the 60 we were working from, which was almost certainly the reuseExistingServer cascade.
+
+---
+
 ### 2026-07-28 13:20 — `claude/app-launch-readiness-164e9d`
 
 Merged main (the #151 responsive visual system) into the launch-readiness branch and recaptured the landing screenshots against it. #151 rewrote Layout, DayTimeline and TaskCard, so the shots taken an hour earlier were already stale — the new tagline, the retired sidebar AI box and the capitalised category chips all show now. Re-verified the FEATURES.md claims that could have been invalidated by the merge: the settings schema still matches, there are still no Supabase realtime channels, and the service worker still returns 503 for API calls. Week View remains flag-off in production, so the landing page correctly still says nothing about it.
