@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from 'react-hot-toast'
+import { MotionConfig } from 'framer-motion'
 import App from './App.tsx'
 import { AuthProvider } from './context/AuthContext.tsx'
 import { analytics } from './lib/analytics'
@@ -26,17 +27,22 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <BrowserRouter basename="/app">
         <PageViewTracker />
         <AuthProvider>
-          <App />
-          <Toaster 
-            position="top-right"
-            toastOptions={{
-              duration: 3000,
-              style: {
-                background: '#363636',
-                color: '#fff',
-              },
-            }}
-          />
+          <MotionConfig reducedMotion="user">
+            <App />
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                duration: 3000,
+                style: {
+                  background: 'rgb(var(--surface-overlay))',
+                  color: 'rgb(var(--text-primary))',
+                  border: '1px solid rgb(var(--border-default))',
+                  borderRadius: 'var(--radius-control)',
+                  boxShadow: 'var(--shadow-overlay)',
+                },
+              }}
+            />
+          </MotionConfig>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

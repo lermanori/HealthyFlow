@@ -405,16 +405,12 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
 
 
   const CalendarSyncLed = ({ connected }: { connected: boolean }) => (
-    <div className="relative h-16 w-16 shrink-0 rounded-full bg-gradient-to-br from-sunken via-card to-sunken p-2 shadow-inner shadow-black/80 border border-line">
-      <div className={`absolute inset-1 rounded-full blur-md transition-opacity duration-500 ${connected ? 'bg-emerald-400/50 opacity-100' : 'bg-gray-700/20 opacity-40'}`} />
-      <div className={`relative h-full w-full rounded-full border transition-all duration-500 ${
-        connected
-          ? 'border-emerald-200 bg-gradient-to-br from-emerald-200 via-emerald-500 to-green-800 shadow-[0_0_24px_rgba(52,211,153,0.75),inset_0_0_12px_rgba(255,255,255,0.45)]'
-          : 'border-line-strong bg-gradient-to-br from-gray-500 via-gray-700 to-sunken shadow-[inset_0_0_12px_rgba(0,0,0,0.75)]'
-      }`}>
-        <div className="absolute left-3 top-2 h-4 w-6 rounded-full bg-white/30 blur-sm" />
-        {connected && <div className="absolute inset-0 rounded-full animate-pulse bg-emerald-300/15" />}
-      </div>
+    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full border ${
+      connected
+        ? 'border-state-success/40 bg-state-success/10 text-state-success'
+        : 'border-line bg-raised text-ink-muted'
+    }`}>
+      <Sync className="h-5 w-5" aria-hidden="true" />
     </div>
   )
 
@@ -456,10 +452,10 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
     <div className="mx-auto max-w-6xl space-y-6 pb-28 md:pb-0">
       {/* Header */}
       <div className="flex items-center space-x-3">
-        <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center animate-float">
+        <div className="flex h-8 w-8 items-center justify-center rounded-control bg-action">
           <Settings className="w-4 h-4 text-white" />
         </div>
-        <h1 className="text-2xl font-bold text-ink neon-text">Settings</h1>
+        <h1 className="text-2xl font-bold text-ink">Settings</h1>
       </div>
 
       <div className="min-w-0 xl:grid xl:grid-cols-[15rem_minmax(0,1fr)] xl:items-start xl:gap-6">
@@ -478,7 +474,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                     aria-current={isActive ? 'page' : undefined}
                     className={`group flex min-h-16 items-center gap-3 rounded-xl border p-3 transition ${
                       isActive
-                        ? 'border-cyan-500/40 bg-cyan-500/10 text-cyan-200'
+                        ? 'border-accent/40 bg-accent/10 text-accent'
                         : 'border-line/70 bg-card/40 text-ink-soft hover:border-line-strong hover:bg-card/70'
                     }`}
                   >
@@ -488,8 +484,8 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                       {category.classification !== 'routine' && (
                         <span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                           category.classification === 'destructive'
-                            ? 'border-rose-500/30 text-rose-300'
-                            : 'border-amber-500/30 text-amber-300'
+                            ? 'border-state-danger/30 text-state-danger'
+                            : 'border-state-warning/30 text-state-warning'
                         }`}>
                           {category.classification}
                         </span>
@@ -512,7 +508,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           <div className="flex items-start gap-3 xl:hidden">
             <Link
               to="/settings"
-              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/10"
+              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-2 text-sm font-semibold text-accent hover:bg-accent/10"
             >
               <ArrowLeft className="h-4 w-4" />
               Settings
@@ -532,7 +528,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       {/* Profile Section */}
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
-          <User className="w-5 h-5 text-cyan-400" />
+          <User className="w-5 h-5 text-accent" />
           <h2 className="text-lg font-semibold text-ink">Profile</h2>
         </div>
 
@@ -561,14 +557,14 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       {/* AI Tokens */}
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
-          <Sparkles className="w-5 h-5 text-cyan-400" />
+          <Sparkles className="w-5 h-5 text-accent" />
           <h2 className="text-lg font-semibold text-ink">AI Credits</h2>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <span className="text-sm text-ink-soft">Available credits</span>
-            <span className="text-2xl font-bold text-cyan-400">
+            <span className="text-2xl font-bold text-accent">
               {creditsLoading ? '...' : balance}
             </span>
           </div>
@@ -576,8 +572,8 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           {(isOutOfCredits || isLowOnCredits) && (
             <div className={`rounded-lg border p-4 ${
               isOutOfCredits
-                ? 'border-rose-500/35 bg-rose-500/10'
-                : 'border-amber-500/35 bg-amber-500/10'
+                ? 'border-state-danger/35 bg-state-danger/10'
+                : 'border-state-warning/35 bg-state-warning/10'
             }`}>
               <p className="font-semibold text-ink">
                 {isOutOfCredits ? 'You are out of AI credits' : 'You are running low on AI credits'}
@@ -603,23 +599,23 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                 <p className="mt-1 font-semibold text-ink">
                   {creditSummary.subscription.active ? `${creditSummary.subscription.pricePhase} plan` : 'Inactive'}
                 </p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-ink-muted">
                   Refresh {creditSummary.subscription.renewalDate ?? '-'}
                 </p>
               </div>
               <div className="rounded-lg border border-line/70 bg-sunken/25 p-3">
                 <p className="text-ink-muted">Used this month</p>
                 <p className="mt-1 font-semibold text-ink">{creditSummary.usedThisMonth}</p>
-                <p className="mt-1 text-xs text-gray-500">
+                <p className="mt-1 text-xs text-ink-muted">
                   {creditSummary.subscriptionBalance} monthly · {creditSummary.topupBalance} top-up credits left
                 </p>
               </div>
             </div>
           )}
 
-          <div className="w-full bg-gray-700 rounded-full h-3 overflow-hidden">
+          <div className="h-3 w-full overflow-hidden rounded-full bg-raised">
             <div
-              className="bg-gradient-to-r from-cyan-500 to-blue-600 h-full transition-all duration-300"
+              className="h-full bg-accent transition-[width] duration-300"
               style={{ width: `${Math.min((balance / 50) * 100, 100)}%` }}
             />
           </div>
@@ -634,10 +630,10 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           </div>
 
           {creditSummary && (
-            <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/8 p-4">
+            <div className="rounded-lg border border-accent/25 bg-accent/10 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="font-semibold text-cyan-100">
+                  <p className="font-semibold text-accent">
                     ${planPrice} / month
                   </p>
                   <p className="text-sm text-ink-soft">{monthlyCredits} credits / month, refreshed monthly with no rollover.</p>
@@ -665,7 +661,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
             aria-label="Close contact flow"
             onClick={() => setContactFlow(null)}
           />
-          <div className="relative z-10 w-full max-w-lg rounded-lg border border-cyan-500/25 bg-page p-5 shadow-2xl">
+          <div className="surface-overlay relative z-10 w-full max-w-lg p-5">
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-ink">
@@ -719,7 +715,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       <div className="card">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
-            <Bell className="w-5 h-5 text-cyan-400" />
+            <Bell className="w-5 h-5 text-accent" />
             <h2 className="text-lg font-semibold text-ink">Notifications</h2>
           </div>
           <button
@@ -733,11 +729,11 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
 
         {/* Browser Permission */}
         {permission.default && (
-          <div className="mb-4 p-4 bg-gradient-to-r from-blue-500/10 to-cyan-500/10 border border-blue-500/30 rounded-xl">
+          <div className="mb-4 rounded-section border border-state-info/30 bg-state-info/10 p-4">
             <div className="flex items-center space-x-3">
-              <Smartphone className="w-5 h-5 text-blue-400" />
+              <Smartphone className="w-5 h-5 text-state-info" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-blue-300">Enable Browser Notifications</p>
+                <p className="text-sm font-medium text-state-info">Enable Browser Notifications</p>
                 <p className="text-sm text-ink-soft">Allow HealthyFlow to send you reminders and updates</p>
               </div>
               <button
@@ -751,11 +747,11 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         )}
 
         {permission.denied && (
-          <div className="mb-4 p-4 bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/30 rounded-xl">
+          <div className="mb-4 rounded-section border border-state-danger/30 bg-state-danger/10 p-4">
             <div className="flex items-center space-x-3">
-              <Bell className="w-5 h-5 text-red-400" />
+              <Bell className="w-5 h-5 text-state-danger" />
               <div>
-                <p className="text-sm font-medium text-red-300">Notifications Blocked</p>
+                <p className="text-sm font-medium text-state-danger">Notifications Blocked</p>
                 <p className="text-sm text-ink-soft">Please enable notifications in your browser settings to receive reminders</p>
               </div>
             </div>
@@ -802,11 +798,11 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       <div className="card">
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center space-x-3">
-            <CalendarDays className="w-5 h-5 text-cyan-400" />
+            <CalendarDays className="w-5 h-5 text-accent" />
             <h2 className="text-lg font-semibold text-ink">Planning Rhythm</h2>
           </div>
           {permission.granted ? (
-            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+            <span className="rounded-full border border-state-success/30 bg-state-success/10 px-3 py-1 text-xs font-medium text-state-success">
               Push ready
             </span>
           ) : (
@@ -841,7 +837,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                     onBlur={() => updateRhythm({ timezone: rhythm.timezone.trim() || 'UTC' }, 'timezone')}
                     disabled={rhythmSaving !== null}
                   />
-                  {rhythmSaving === 'timezone' && <Loader2 className="h-4 w-4 animate-spin text-cyan-300" />}
+                  {rhythmSaving === 'timezone' && <Loader2 className="h-4 w-4 animate-spin text-accent" />}
                 </div>
               </div>
             </div>
@@ -871,7 +867,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                           disabled={rhythmSaving !== null}
                           className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                             touchpoint.enabled
-                              ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-200'
+                              ? 'border-accent/40 bg-accent/15 text-accent'
                               : 'border-line bg-page/60 text-ink-muted hover:text-ink-soft'
                           }`}
                         >
@@ -905,7 +901,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                               disabled={rhythmSaving !== null || (selected && touchpoint.days.length === 1)}
                               className={`rounded-lg border px-2 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                                 selected
-                                  ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-100'
+                                  ? 'border-accent/40 bg-accent/15 text-accent'
                                   : 'border-line bg-page/60 text-ink-muted hover:text-ink-soft'
                               }`}
                             >
@@ -941,7 +937,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                       disabled={rhythmSaving !== null}
                       className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                         rhythm.weekly.enabled
-                          ? 'border-cyan-500/40 bg-cyan-500/15 text-cyan-200'
+                          ? 'border-accent/40 bg-accent/15 text-accent'
                           : 'border-line bg-page/60 text-ink-muted hover:text-ink-soft'
                       }`}
                     >
@@ -982,7 +978,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
             </div>
           </div>
         ) : (
-          <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
+          <div className="rounded-lg border border-state-danger/30 bg-state-danger/10 p-4 text-sm text-state-danger">
             Planning rhythm is unavailable.
           </div>
         )}
@@ -991,7 +987,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       {/* Capacity planning window */}
       <div className="card">
         <div className="mb-2 flex items-center space-x-3">
-          <CalendarDays className="h-5 w-5 text-cyan-400" />
+          <CalendarDays className="h-5 w-5 text-accent" />
           <div>
             <h2 className="text-lg font-semibold text-ink">Usable Day</h2>
             <p className="text-sm text-ink-muted">
@@ -1055,7 +1051,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       {activeCategory === 'planning' && (
         <div className="card">
           <div className="mb-4 flex items-center space-x-3">
-            <Sparkles className="h-5 w-5 text-cyan-400" />
+            <Sparkles className="h-5 w-5 text-accent" />
             <h2 className="text-lg font-semibold text-ink">Planning preferences</h2>
           </div>
           <Switch
@@ -1090,7 +1086,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       {activeCategory === 'health-tools' && (
         <div className="card" id="features">
           <div className="mb-4 flex items-center space-x-3">
-            <HeartPulse className="h-5 w-5 text-cyan-400" />
+            <HeartPulse className="h-5 w-5 text-accent" />
             <div>
               <h2 className="text-lg font-semibold text-ink">Health tools</h2>
               <p className="text-sm text-ink-muted">Hiding a tool changes presentation only; existing records stay intact.</p>
@@ -1103,9 +1099,9 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
             </div>
           )}
           {resolution === 'error' && (
-            <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm" role="alert">
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-lg border border-state-warning/30 bg-state-warning/10 p-3 text-sm" role="alert">
               <span className="text-ink">Health tool settings could not be loaded.</span>
-              <button className="font-semibold text-cyan-300 underline" type="button" onClick={() => void retrySettings()}>
+              <button className="font-semibold text-accent underline" type="button" onClick={() => void retrySettings()}>
                 Retry
               </button>
             </div>
@@ -1139,7 +1135,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       {activeCategory === 'appearance' && (
         <div className="card">
           <div className="mb-4 flex items-center space-x-3">
-            <Sparkles className="h-5 w-5 text-cyan-400" />
+            <Sparkles className="h-5 w-5 text-accent" />
             <h2 className="text-lg font-semibold text-ink">Appearance</h2>
           </div>
           <div className="flex flex-col gap-3 py-2 sm:flex-row sm:items-center sm:justify-between">
@@ -1154,7 +1150,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                   onClick={() => handleThemeChange(theme)}
                   className={`rounded-md px-4 py-1.5 text-sm font-medium capitalize transition-colors ${
                     (settings?.theme ?? 'midnight') === theme
-                      ? 'bg-cyan-500 text-white'
+                      ? 'bg-action text-on-action'
                       : 'text-ink-soft hover:text-ink'
                   }`}
                 >
@@ -1163,14 +1159,6 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
               ))}
             </div>
           </div>
-          <div className="border-t border-line/60">
-            <Switch
-              label="Completion Sounds"
-              description="Play celebratory sounds when completing Items"
-              checked={settings?.completionSounds ?? true}
-              onChange={(checked) => handleSettingChange('completionSounds', checked)}
-            />
-          </div>
         </div>
       )}
 
@@ -1178,7 +1166,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         <>
           <div className="card">
             <div className="mb-4 flex items-center space-x-3">
-              <Sync className="h-5 w-5 text-cyan-400" />
+              <Sync className="h-5 w-5 text-accent" />
               <div>
                 <h2 className="text-lg font-semibold text-ink">Calendar connection</h2>
                 <p className="text-sm text-ink-muted">Connect external Calendar obligations to planning.</p>
@@ -1190,7 +1178,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="text-sm font-medium text-ink-soft">Calendar Sync</h3>
-                    {calendarStatus?.connected && <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
+                    {calendarStatus?.connected && <CheckCircle2 className="h-4 w-4 text-state-success" />}
                   </div>
                   <p className="text-sm text-ink-muted">
                     {calendarStatus?.connected
@@ -1210,7 +1198,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                   <button
                     onClick={handleDisconnectGoogleCalendar}
                     disabled={calendarActionLoading}
-                    className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 px-3 py-2 text-sm font-medium text-red-300 transition-colors hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex items-center gap-2 rounded-lg border border-state-danger/30 px-3 py-2 text-sm font-medium text-state-danger transition-colors hover:bg-state-danger/10 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {calendarActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unplug className="h-4 w-4" />}
                     Disconnect
@@ -1231,11 +1219,11 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
 
       <div className="card">
         <div className="mb-4 flex items-center space-x-3">
-          <KeyRound className="h-5 w-5 text-cyan-400" />
+          <KeyRound className="h-5 w-5 text-accent" />
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold text-ink">Developer API tokens</h2>
-              <span className="rounded-full border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-300">
+              <span className="rounded-full border border-state-warning/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-state-warning">
                 Advanced
               </span>
             </div>
@@ -1244,8 +1232,8 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         </div>
 
         {newToken && (
-          <div className="mb-4 rounded-lg border border-amber-500/35 bg-amber-500/10 p-3">
-            <p className="text-sm font-medium text-amber-100">Copy this token now</p>
+          <div className="mb-4 rounded-lg border border-state-warning/35 bg-state-warning/10 p-3">
+            <p className="text-sm font-medium text-state-warning">Copy this token now</p>
             <div className="mt-2 flex gap-2">
               <input className="input-field min-w-0 flex-1 font-mono text-xs" value={newToken} readOnly />
               <button
@@ -1259,7 +1247,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
               </button>
             </div>
             <div className="mt-3">
-              <p className="text-sm font-medium text-amber-100">Connection prompt</p>
+              <p className="text-sm font-medium text-state-warning">Connection prompt</p>
               <textarea className="input-field mt-2 min-h-[150px] font-mono text-xs" value={connectionPrompt} readOnly />
               <button
                 className="btn-secondary mt-2 inline-flex items-center gap-2 px-3 py-2 text-sm"
@@ -1301,13 +1289,13 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-ink">{token.name}</p>
                 <p className="text-xs text-ink-muted">{token.scopes.join(', ')}</p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-ink-muted">
                   Last used {token.lastUsedAt ?? '-'} {token.revokedAt ? ` · revoked ${token.revokedAt}` : ''}
                 </p>
               </div>
               {!token.revokedAt && (
                 <button
-                  className="rounded-lg border border-red-500/30 p-2 text-red-300 hover:bg-red-500/10"
+                  className="rounded-lg border border-state-danger/30 p-2 text-state-danger hover:bg-state-danger/10"
                   onClick={() => revokeTokenMutation.mutate(token.id)}
                   aria-label="Revoke token"
                 >
@@ -1326,7 +1314,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       {/* Privacy */}
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
-          <Shield className="w-5 h-5 text-cyan-400" />
+          <Shield className="w-5 h-5 text-accent" />
           <h2 className="text-lg font-semibold text-ink">Privacy & Security</h2>
         </div>
         
@@ -1339,15 +1327,15 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           {/* Clear All Tasks Button */}
           <button 
             onClick={handleClearAllTasks}
-            className="w-full text-left p-3 rounded-lg border border-red-500/30 hover:bg-red-500/10 transition-colors"
+            className="w-full text-left p-3 rounded-lg border border-state-danger/30 hover:bg-state-danger/10 transition-colors"
           >
-            <div className="font-medium text-red-400">Clear All Tasks</div>
-            <div className="text-sm text-red-300">Delete all your tasks from the database (cannot be undone)</div>
+            <div className="font-medium text-state-danger">Clear All Tasks</div>
+            <div className="text-sm text-state-danger">Delete all your tasks from the database (cannot be undone)</div>
           </button>
           
-          <button disabled={deletionBlocked} onClick={() => setShowDeleteAccount(true)} className="w-full text-left p-3 rounded-lg border border-red-500/30 hover:bg-red-500/10 transition-colors disabled:cursor-not-allowed disabled:opacity-55">
-            <div className="font-medium text-red-400">Delete Account</div>
-            <div className="text-sm text-red-300">{deletionBlocked ? 'Demo and administrator accounts cannot be deleted here' : 'Permanently delete your account and data'}</div>
+          <button disabled={deletionBlocked} onClick={() => setShowDeleteAccount(true)} className="w-full text-left p-3 rounded-lg border border-state-danger/30 hover:bg-state-danger/10 transition-colors disabled:cursor-not-allowed disabled:opacity-55">
+            <div className="font-medium text-state-danger">Delete Account</div>
+            <div className="text-sm text-state-danger">{deletionBlocked ? 'Demo and administrator accounts cannot be deleted here' : 'Permanently delete your account and data'}</div>
           </button>
         </div>
       </div>

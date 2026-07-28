@@ -23,10 +23,10 @@ type CalorieEntryDraftCardProps = {
 
 function statusClasses(tone: CalorieEntryDraftCardProps['statusTone']) {
   switch (tone) {
-    case 'confirmed': return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+    case 'confirmed': return 'border-state-success/30 bg-state-success/10 text-state-success'
     case 'canceled': return 'border-line bg-page/70 text-ink-soft'
-    case 'error': return 'border-red-500/35 bg-red-500/10 text-red-100'
-    default: return 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+    case 'error': return 'border-state-danger/35 bg-state-danger/10 text-state-danger'
+    default: return 'border-state-warning/30 bg-state-warning/10 text-state-warning'
   }
 }
 
@@ -40,15 +40,15 @@ function macroLabel(label: string, value: unknown) {
 }
 
 function inputClass() {
-  return 'h-9 min-w-0 rounded-md border border-line bg-sunken px-2.5 text-sm text-ink outline-none transition-colors focus:border-cyan-500'
+  return 'h-9 min-w-0 rounded-md border border-line bg-sunken px-2.5 text-sm text-ink outline-none transition-colors focus:border-accent'
 }
 
 function StatPill({ children, accent = false }: { children: ReactNode; accent?: boolean }) {
   return (
     <span className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-xs font-medium ${
       accent
-        ? 'border-cyan-500/30 bg-cyan-500/15 text-cyan-200'
-        : 'border-gray-500/30 bg-gray-500/15 text-gray-200'
+        ? 'border-accent/30 bg-accent/15 text-accent'
+        : 'border-line bg-raised text-ink-soft'
     }`}>
       {children}
     </span>
@@ -71,11 +71,11 @@ export default function CalorieEntryDraftCard({
   }, 0)
 
   return (
-    <div className="box-border w-full max-w-full overflow-hidden rounded-xl border border-cyan-500/25 bg-sunken/55 p-3 shadow-lg shadow-black/15 sm:p-4">
+    <div className="box-border w-full max-w-full overflow-hidden rounded-xl border border-accent/25 bg-sunken/55 p-3 shadow-lg shadow-black/15 sm:p-4">
       <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <span className={`flex h-8 w-8 flex-none items-center justify-center rounded-md ${
-            statusTone === 'confirmed' ? 'bg-emerald-500/15 text-emerald-200' : 'bg-cyan-500/15 text-cyan-200'
+            statusTone === 'confirmed' ? 'bg-state-success/15 text-state-success' : 'bg-accent/15 text-accent'
           }`}>
             {statusTone === 'confirmed' ? <CheckCircle2 className="h-4 w-4" /> : <Flame className="h-4 w-4" />}
           </span>
@@ -87,7 +87,7 @@ export default function CalorieEntryDraftCard({
           </div>
         </div>
         {!canEdit && (
-          <span className="inline-flex flex-none items-center gap-1 rounded-full border border-cyan-500/30 bg-cyan-500/15 px-2 py-1 text-[11px] font-medium text-cyan-200">
+          <span className="inline-flex flex-none items-center gap-1 rounded-full border border-accent/30 bg-accent/15 px-2 py-1 text-[11px] font-medium text-accent">
             <Pencil className="h-3 w-3" />
             <span className="hidden sm:inline">Preview</span>
           </span>

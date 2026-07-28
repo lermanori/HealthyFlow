@@ -62,9 +62,9 @@ export default function VoiceInput({
   }
 
   const getConfidenceColor = (conf: number) => {
-    if (conf > 0.8) return 'text-green-400'
-    if (conf > 0.6) return 'text-yellow-400'
-    return 'text-red-400'
+    if (conf > 0.8) return 'text-state-success'
+    if (conf > 0.6) return 'text-state-warning'
+    return 'text-state-danger'
   }
 
   const getConfidenceText = (conf: number) => {
@@ -76,10 +76,10 @@ export default function VoiceInput({
 
   if (!isSupported) {
     return (
-      <div className={`p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/30 ${className}`}>
+      <div className={`p-4 rounded-xl bg-state-warning/10 border border-state-warning/30 ${className}`}>
         <div className="flex items-center space-x-2">
-          <MicOff className="w-4 h-4 text-yellow-400" />
-          <span className="text-sm text-yellow-400 font-medium">Voice Input Not Supported</span>
+          <MicOff className="w-4 h-4 text-state-warning" />
+          <span className="text-sm text-state-warning font-medium">Voice Input Not Supported</span>
         </div>
         <p className="text-xs text-ink-soft mt-1">
           Speech recognition is not supported in your browser. Try using Chrome, Safari, or Edge.
@@ -97,14 +97,14 @@ export default function VoiceInput({
             value={transcript || interimTranscript}
             onChange={(e) => onTranscriptChange(e.target.value)}
             placeholder={placeholder}
-            className={`input-field resize-none holographic text-ink placeholder-ink-muted pr-20 ${compact ? 'min-h-24' : 'min-h-32'}`}
+            className={`input-field resize-none pr-20 text-ink placeholder-ink-muted ${compact ? 'min-h-24' : 'min-h-32'}`}
             disabled={disabled || isListening}
           />
           
           {/* Voice Controls Overlay */}
           <div className="absolute bottom-3 right-3 flex items-center space-x-2">
             {error && (
-              <div className="text-xs text-red-400 bg-red-500/20 px-2 py-1 rounded">
+              <div className="text-xs text-state-danger bg-state-danger/20 px-2 py-1 rounded">
                 {error}
               </div>
             )}
@@ -117,7 +117,7 @@ export default function VoiceInput({
             
             <button
               onClick={() => setShowSettings(!showSettings)}
-              className="p-1 rounded hover:bg-gray-700 transition-colors text-ink-muted hover:text-ink-soft"
+              className="p-1 rounded hover:bg-raised transition-colors text-ink-muted hover:text-ink-soft"
             >
               <Settings className="w-4 h-4" />
             </button>
@@ -140,11 +140,11 @@ export default function VoiceInput({
                 </motion.button>
                 
                 <motion.div
-                  className="flex items-center space-x-2 text-cyan-400"
+                  className="flex items-center space-x-2 text-accent"
                   animate={{ opacity: [1, 0.5, 1] }}
                   transition={{ duration: 1, repeat: Infinity }}
                 >
-                  <div className="w-2 h-2 bg-cyan-400 rounded-full" />
+                  <div className="w-2 h-2 bg-accent rounded-full" />
                   <span className="text-sm">{compact ? 'Listening' : 'Listening...'}</span>
                 </motion.div>
               </>
@@ -181,7 +181,7 @@ export default function VoiceInput({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-card/50 rounded-xl p-4 border border-cyan-500/30"
+            className="bg-card/50 rounded-xl p-4 border border-accent/30"
           >
             <div className="space-y-3">
               <h4 className="text-sm font-medium text-ink-soft flex items-center space-x-2">
@@ -262,11 +262,11 @@ export default function VoiceInput({
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-3 rounded-lg bg-cyan-500/10 border border-cyan-500/30"
+          className="p-3 rounded-lg bg-accent/10 border border-accent/30"
         >
           <div className="flex items-center space-x-2 mb-2">
-            <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
-            <span className="text-xs text-cyan-400 font-medium">Listening...</span>
+            <div className="w-2 h-2 bg-accent rounded-full animate-pulse" />
+            <span className="text-xs text-accent font-medium">Listening...</span>
           </div>
           <p className="text-sm text-ink-soft italic">
             "{interimTranscript}"

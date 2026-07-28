@@ -112,7 +112,6 @@ export default function AIRecommendationsBox({ date }: AIRecommendationsBoxProps
   const dismissLocally = (signal: DailySignal, message = 'Daily Signal dismissed.') => {
     setDismissedIds((previous) => previous.includes(signal.id) ? previous : [...previous, signal.id])
     setAnnouncement(message)
-    if ('navigator' in window && 'vibrate' in navigator) navigator.vibrate(50)
     focusReview()
   }
 
@@ -226,7 +225,7 @@ export default function AIRecommendationsBox({ date }: AIRecommendationsBoxProps
     >
       <p className="sr-only" aria-live="polite">{announcement}</p>
       <div className="flex min-h-12 items-center gap-3 px-3 py-2 sm:px-4">
-        <Brain className="h-4 w-4 shrink-0 text-cyan-400" aria-hidden="true" />
+        <Brain className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <h2 id={`${detailsId}-title`} className="sr-only">Daily Signals</h2>
           {isLoading ? (
@@ -257,7 +256,7 @@ export default function AIRecommendationsBox({ date }: AIRecommendationsBoxProps
             <button
               type="button"
               onClick={() => void refetch()}
-              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-cyan-300 hover:bg-cyan-500/10"
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-accent hover:bg-accent/10"
             >
               <RefreshCw className="h-4 w-4" aria-hidden="true" />
               <span className="hidden sm:inline">Retry</span>
@@ -277,7 +276,7 @@ export default function AIRecommendationsBox({ date }: AIRecommendationsBoxProps
             aria-expanded={isExpanded}
             aria-controls={detailsId}
             onClick={() => setIsExpanded((expanded) => !expanded)}
-            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-cyan-300 hover:bg-cyan-500/10"
+            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-accent hover:bg-accent/10"
           >
             {isExpanded ? 'Close' : 'Review'}
             <ChevronDown
@@ -327,8 +326,8 @@ export default function AIRecommendationsBox({ date }: AIRecommendationsBoxProps
                     </dl>
 
                     {signal.kind === 'actionable' && (
-                      <div className="mt-3 border-l-2 border-cyan-400/50 pl-3">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider text-cyan-300">Proposed change</p>
+                      <div className="mt-3 border-l-2 border-accent/50 pl-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-accent">Proposed change</p>
                         <p className="mt-1 text-sm font-medium text-ink">{signal.proposal.label}</p>
                         <ul className="mt-2 space-y-1.5">
                           {signal.proposal.affectedRecords.map((record) => (
@@ -354,14 +353,14 @@ export default function AIRecommendationsBox({ date }: AIRecommendationsBoxProps
                               type="button"
                               onClick={() => void prepareSignal(signal)}
                               disabled={isBusy}
-                              className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/10 disabled:cursor-wait disabled:opacity-60"
+                              className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-semibold text-accent hover:bg-accent/10 disabled:cursor-wait disabled:opacity-60"
                             >
                               {isBusy ? 'Preparing…' : preparationError ? 'Retry review' : 'Review change'}
                             </button>
                           </div>
                         )}
                         {preparationError && !action && (
-                          <p className="mt-2 text-xs leading-relaxed text-red-200" role="alert">{preparationError}</p>
+                          <p className="mt-2 text-xs leading-relaxed text-state-danger" role="alert">{preparationError}</p>
                         )}
                         {action && (
                           <PendingActionCard

@@ -1,7 +1,9 @@
+import type { Category } from '../../../backend/src/task-contracts'
+
 export interface TaskSuggestion {
   id: string
   title: string
-  category: string
+  category: Category
   estimatedDuration: number
   priority: 'high' | 'medium' | 'low'
   type: 'task' | 'habit'

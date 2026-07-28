@@ -18,6 +18,7 @@ import {
   DailyContextSchema,
   type DailySignal,
 } from './daily-context'
+import { CategorySchema } from './task-contracts'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -39,12 +40,11 @@ type LimitInputValue = z.infer<typeof LimitInput>
 type RecentLimitInputValue = z.infer<typeof RecentLimitInput>
 
 const RequestId = z.string().trim().min(1).max(120).optional()
-const Category = z.enum(['health', 'work', 'personal', 'fitness', 'grocery', 'nutrition'])
 const TaskOutput = z.object({ item: z.unknown(), duplicated: z.boolean().optional() })
 
 const AddTaskInput = z.object({
   title: z.string().trim().min(1).max(200),
-  category: Category.default('personal'),
+  category: CategorySchema.default('personal'),
   duration: z.number().int().positive().default(15),
   startTime: z.string().regex(TIME_RE).nullable().optional(),
   scheduledDate: z.string().regex(DATE_RE).optional(),
@@ -53,7 +53,7 @@ const AddTaskInput = z.object({
 
 const AddHabitInput = z.object({
   title: z.string().trim().min(1).max(200),
-  category: Category.default('health'),
+  category: CategorySchema.default('health'),
   duration: z.number().int().positive().default(15),
   startTime: z.string().regex(TIME_RE).nullable().optional(),
   repeat: z.enum(['daily', 'weekly']).default('daily'),
@@ -140,7 +140,7 @@ const AddWorkoutSessionInput = WorkoutSessionCreateSchema.extend({
 const UpdateItemInput = z.object({
   itemId: z.string().min(1),
   title: z.string().trim().min(1).max(200).optional(),
-  category: Category.optional(),
+  category: CategorySchema.optional(),
   duration: z.number().int().positive().optional(),
   startTime: z.string().regex(TIME_RE).nullable().optional(),
   scheduledDate: z.string().regex(DATE_RE).optional(),

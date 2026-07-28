@@ -20,7 +20,7 @@ export function applyTheme(theme: UserSettings['theme']) {
     document.documentElement.removeAttribute('data-theme')
   }
   const meta = document.querySelector('meta[name="theme-color"]')
-  if (meta) meta.setAttribute('content', theme === 'white' ? '#f8fafc' : '#101828')
+  if (meta) meta.setAttribute('content', theme === 'white' ? '#f8fafc' : '#0f172a')
 }
 
 export function useSettings(enabled = true) {

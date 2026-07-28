@@ -28,6 +28,7 @@ import {
   DAY_SUMMARY_QUERY_KEY,
   taskService,
   weightService,
+  type Category,
 } from '../services/api'
 import AITextAnalyzer from '../components/AITextAnalyzer'
 import MealAnalyzer from '../components/MealAnalyzer'
@@ -40,17 +41,9 @@ import {
   getModulePresentation,
   type ModulePresentation,
 } from '../modulePresentation'
+import { CATEGORY_PRESENTATIONS } from '../categoryPresentation'
 
 const todayStr = () => format(new Date(), 'yyyy-MM-dd')
-
-const categories = [
-  { value: 'health', label: 'Health', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
-  { value: 'work', label: 'Work', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-  { value: 'personal', label: 'Personal', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
-  { value: 'fitness', label: 'Fitness', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
-  { value: 'grocery', label: 'Grocery', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' },
-  { value: 'nutrition', label: 'Nutrition', color: 'bg-rose-500/20 text-rose-400 border-rose-500/30' },
-]
 
 const quickDates = [
   { label: 'Today', value: todayStr() },
@@ -101,7 +94,7 @@ export default function AddItemPage() {
   const [todayType, setTodayType] = useState<TodayType>('task')
   const [todayInputMode, setTodayInputMode] = useState<'form' | 'voice'>('form')
   const [title, setTitle] = useState('')
-  const [category, setCategory] = useState('personal')
+  const [category, setCategory] = useState<Category>('personal')
   const [startTime, setStartTime] = useState('')
   const [location, setLocation] = useState('')
   const [duration, setDuration] = useState('30')
@@ -326,11 +319,11 @@ export default function AddItemPage() {
 
       <div className="card">
         <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600">
+          <div className="flex h-12 w-12 items-center justify-center rounded-control bg-action">
             <Plus className="h-6 w-6 text-white" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-ink neon-text">Add Item</h1>
+            <h1 className="text-2xl font-bold text-ink">Add Item</h1>
             <p className="text-sm text-ink-muted">{tabs.map((tab) => tab.label).join(', ')}</p>
           </div>
         </div>
@@ -348,7 +341,7 @@ export default function AddItemPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition ${
                   active
-                    ? 'border-cyan-500/50 bg-cyan-500/20 text-cyan-200'
+                    ? 'border-accent/50 bg-accent/20 text-accent'
                     : 'border-line/80 bg-sunken/20 text-ink-muted hover:border-line-strong hover:text-ink-soft'
                 }`}
               >
@@ -363,9 +356,9 @@ export default function AddItemPage() {
           <p className="mb-6 text-sm text-ink-muted" role="status">Checking optional Add destinations…</p>
         )}
         {resolution === 'error' && (
-          <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-amber-400/40 bg-amber-400/10 p-3 text-sm" role="status">
+          <div className="mb-6 flex items-center justify-between gap-4 rounded-lg border border-state-warning/40 bg-state-warning/10 p-3 text-sm" role="status">
             <span className="text-ink">Optional Add destinations are temporarily unavailable.</span>
-            <button type="button" className="font-medium text-cyan-400 underline underline-offset-2" onClick={() => void retry()}>Retry</button>
+            <button type="button" className="font-medium text-accent underline underline-offset-2" onClick={() => void retry()}>Retry</button>
           </div>
         )}
 
@@ -380,7 +373,7 @@ export default function AddItemPage() {
                     type="button"
                     onClick={() => setTodayType(type)}
                     className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition ${
-                      todayType === type ? 'border-cyan-500/50 bg-cyan-500/20 text-cyan-200' : 'border-line text-ink-muted hover:border-line-strong'
+                      todayType === type ? 'border-accent/50 bg-accent/20 text-accent' : 'border-line text-ink-muted hover:border-line-strong'
                     }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -396,13 +389,13 @@ export default function AddItemPage() {
                 {todayInputMode === 'voice' ? (
                   <VoiceInput onTranscriptChange={setTitle} placeholder={`Speak to add ${todayType}...`} />
                 ) : (
-                  <input className="input-field holographic pr-10" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={`Enter ${todayType} name...`} required />
+                  <input className="input-field pr-10" value={title} onChange={(event) => setTitle(event.target.value)} placeholder={`Enter ${todayType} name...`} required />
                 )}
                 <button
                   type="button"
                   aria-label="Toggle voice input"
                   onClick={() => setTodayInputMode(todayInputMode === 'voice' ? 'form' : 'voice')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-cyan-400"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-accent"
                 >
                   <Mic className="h-4 w-4" />
                 </button>
@@ -412,14 +405,19 @@ export default function AddItemPage() {
             <div>
               <label className="mb-2 block text-sm font-medium text-ink-soft">Category</label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {categories.map((cat) => (
+                {CATEGORY_PRESENTATIONS.map((categoryOption) => (
                   <button
-                    key={cat.value}
+                    key={categoryOption.id}
                     type="button"
-                    onClick={() => setCategory(cat.value)}
-                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition ${category === cat.value ? cat.color : 'border-line-strong text-ink-muted hover:border-gray-500'}`}
+                    onClick={() => setCategory(categoryOption.id)}
+                    aria-pressed={category === categoryOption.id}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                      category === categoryOption.id
+                        ? categoryOption.className
+                        : 'border-line text-ink-muted hover:border-line-strong hover:bg-raised'
+                    }`}
                   >
-                    {cat.label}
+                    {categoryOption.label}
                   </button>
                 ))}
               </div>
@@ -432,7 +430,7 @@ export default function AddItemPage() {
                 <span className="text-sm font-medium text-ink-soft">Location</span>
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-                  <input className="input-field pl-10 holographic" value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Add a place or address..." />
+                  <input className="input-field pl-10" value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Add a place or address..." />
                 </div>
               </label>
             )}
@@ -440,10 +438,10 @@ export default function AddItemPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-2 block text-sm font-medium text-ink-soft">Date</label>
-                <input type="date" value={scheduledDate} onChange={(event) => setScheduledDate(event.target.value)} className="input-field holographic" />
+                <input type="date" value={scheduledDate} onChange={(event) => setScheduledDate(event.target.value)} className="input-field" />
                 <div className="mt-2 flex flex-wrap gap-2">
                   {quickDates.map((quick) => (
-                    <button key={quick.label} type="button" onClick={() => setScheduledDate(quick.value)} className="rounded bg-gray-700 px-2 py-1 text-xs text-ink-soft transition hover:bg-gray-600">
+                    <button key={quick.label} type="button" onClick={() => setScheduledDate(quick.value)} className="rounded bg-raised px-2 py-1 text-xs text-ink-soft transition hover:bg-raised">
                       {quick.label}
                     </button>
                   ))}
@@ -453,20 +451,20 @@ export default function AddItemPage() {
                 <span className="text-sm font-medium text-ink-soft">Time</span>
                 <div className="relative">
                   <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-                  <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className="input-field pl-10 holographic" />
+                  <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className="input-field pl-10" />
                 </div>
               </label>
             </div>
 
-            {todayType === 'habit' && <div className="space-y-3 rounded-xl border border-purple-500/25 bg-purple-500/5 p-4">
+            {todayType === 'habit' && <div className="space-y-3 rounded-xl border border-accent/25 bg-accent/5 p-4">
               <div><p className="text-sm font-medium text-ink-soft">How will you track it?</p><p className="mt-1 text-xs text-ink-muted">Binary Habits are Done or Not done. Target Habits accumulate progress.</p></div>
-              <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setHabitTracking('binary')} className={`rounded-lg border px-3 py-2 text-sm ${habitTracking === 'binary' ? 'border-purple-400/50 bg-purple-400/15 text-purple-200' : 'border-line text-ink-muted'}`}>Binary</button><button type="button" onClick={() => setHabitTracking('target')} className={`rounded-lg border px-3 py-2 text-sm ${habitTracking === 'target' ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200' : 'border-line text-ink-muted'}`}>Target</button></div>
+              <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setHabitTracking('binary')} className={`rounded-lg border px-3 py-2 text-sm ${habitTracking === 'binary' ? 'border-accent/50 bg-accent/15 text-accent' : 'border-line text-ink-muted'}`}>Binary</button><button type="button" onClick={() => setHabitTracking('target')} className={`rounded-lg border px-3 py-2 text-sm ${habitTracking === 'target' ? 'border-accent/50 bg-accent/15 text-accent' : 'border-line text-ink-muted'}`}>Target</button></div>
               {habitTracking === 'target' && <div className="grid grid-cols-[1fr_1.2fr] gap-2"><input type="text" inputMode="decimal" value={habitTargetValue} onChange={event => setHabitTargetValue(event.target.value)} className="input-field" aria-label="Habit target value" /><select value={habitTargetUnit} onChange={event => setHabitTargetUnit(event.target.value as typeof habitTargetUnit)} className="input-field" aria-label="Habit target unit"><option value="minutes">Minutes</option><option value="reps">Repetitions</option><option value="count">Count</option></select></div>}
             </div>}
 
             <label className="block space-y-2">
               <span className="text-sm font-medium text-ink-soft">Scheduled duration</span>
-              <input type="number" min="1" value={duration} onChange={(event) => setDuration(event.target.value)} className="input-field holographic" />
+              <input type="number" min="1" value={duration} onChange={(event) => setDuration(event.target.value)} className="input-field" />
             </label>
 
             <button type="submit" disabled={addTodayMutation.isPending} className="btn-primary inline-flex w-full items-center justify-center gap-2 py-3">
@@ -487,7 +485,7 @@ export default function AddItemPage() {
                     type="button"
                     onClick={() => setCalorieMode(mode)}
                     className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition ${
-                      calorieMode === mode ? 'border-cyan-500/50 bg-cyan-500/20 text-cyan-200' : 'border-line text-ink-muted hover:border-line-strong'
+                      calorieMode === mode ? 'border-accent/50 bg-accent/20 text-accent' : 'border-line text-ink-muted hover:border-line-strong'
                     }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -512,7 +510,7 @@ export default function AddItemPage() {
                     ) : (
                       <input className="input-field pr-10" value={calorieName} onChange={(event) => setCalorieName(event.target.value)} placeholder="Greek yogurt" />
                     )}
-                    <button type="button" aria-label="Toggle calorie voice input" onClick={() => setCalorieVoice(!calorieVoice)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-cyan-400">
+                    <button type="button" aria-label="Toggle calorie voice input" onClick={() => setCalorieVoice(!calorieVoice)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-accent">
                       <Mic className="h-4 w-4" />
                     </button>
                   </div>
@@ -570,7 +568,7 @@ export default function AddItemPage() {
             {achievementsQuery.isLoading ? (
               <p className="text-sm text-ink-muted">Loading...</p>
             ) : !selectedAchievement ? (
-              <div className="rounded-lg border border-dashed border-line/80 bg-sunken/20 p-4 text-sm text-gray-500">
+              <div className="rounded-lg border border-dashed border-line/80 bg-sunken/20 p-4 text-sm text-ink-muted">
                 Create a measure on the Progress page first.
               </div>
             ) : (

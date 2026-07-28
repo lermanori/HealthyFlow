@@ -6,7 +6,7 @@ export function showUndoToast(message: string, onUndo: () => void, undoLabel: st
       <div
         role="status"
         aria-live="polite"
-        className={`flex max-w-sm items-center gap-4 rounded-xl border border-line bg-card px-4 py-3 text-sm text-ink shadow-xl transition ${
+        className={`flex max-w-sm items-center gap-4 rounded-section border border-line bg-overlay px-4 py-3 text-sm text-ink shadow-overlay transition ${
           currentToast.visible ? 'opacity-100' : 'opacity-0'
         }`}
       >
@@ -14,7 +14,7 @@ export function showUndoToast(message: string, onUndo: () => void, undoLabel: st
         <button
           type="button"
           aria-label={undoLabel}
-          className="min-h-11 shrink-0 rounded-lg px-3 font-semibold text-cyan-300 transition hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+          className="min-h-11 shrink-0 rounded-control px-3 font-semibold text-accent transition-colors hover:bg-raised focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           onClick={() => {
             toast.dismiss(currentToast.id)
             onUndo()

@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import type { AssistantPendingAction } from '../services/api'
 import CalorieEntryDraftCard, { type CalorieEntryDraftValue } from './CalorieEntryDraftCard'
 import TaskDraftCard, { type TaskDraftCardValue } from './TaskDraftCard'
+import { CATEGORY_IDS } from '../categoryPresentation'
 
 export type PendingActionView = AssistantPendingAction & {
   status?: 'pending' | 'confirmed' | 'canceled'
@@ -25,7 +26,7 @@ type PendingActionCardProps = {
   isBusy?: boolean
 }
 
-const categories = ['health', 'work', 'personal', 'fitness', 'grocery', 'nutrition']
+const categories = CATEGORY_IDS
 
 function compactToolName(name: string) {
   return name.replace(/_/g, ' ')
@@ -104,7 +105,7 @@ function iconForCapability(capability: string) {
 }
 
 function inputClass() {
-  return 'h-11 rounded-md border border-line bg-sunken px-3 text-sm text-ink outline-none transition-colors focus:border-cyan-500'
+  return 'h-11 rounded-md border border-line bg-sunken px-3 text-sm text-ink outline-none transition-colors focus:border-accent'
 }
 
 function TextField({
@@ -311,10 +312,10 @@ function pendingStatusTone(action: PendingActionView): 'pending' | 'confirmed' |
 
 function statusToneClasses(tone: 'pending' | 'confirmed' | 'canceled' | 'error') {
   switch (tone) {
-    case 'confirmed': return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+    case 'confirmed': return 'border-state-success/30 bg-state-success/10 text-state-success'
     case 'canceled': return 'border-line bg-page/70 text-ink-soft'
-    case 'error': return 'border-red-500/35 bg-red-500/10 text-red-100'
-    default: return 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+    case 'error': return 'border-state-danger/35 bg-state-danger/10 text-state-danger'
+    default: return 'border-state-warning/30 bg-state-warning/10 text-state-warning'
   }
 }
 
@@ -415,32 +416,32 @@ export default function PendingActionCard({
       aria-live="polite"
       className={`mt-3 box-border w-full max-w-full overflow-hidden rounded-lg border bg-sunken p-3 shadow-lg shadow-black/20 outline-none sm:p-4 ${
         action.error
-          ? 'border-red-500/50'
+          ? 'border-state-danger/50'
           : status === 'confirmed'
-            ? 'border-emerald-500/50'
+            ? 'border-state-success/50'
             : status === 'canceled'
               ? 'border-line'
-              : 'border-amber-500/40'
+              : 'border-state-warning/40'
       }`}
     >
       <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
         <div className={`flex min-w-0 items-center gap-2 text-sm font-semibold ${
           action.error
-            ? 'text-red-100'
+            ? 'text-state-danger'
             : status === 'confirmed'
-              ? 'text-emerald-100'
+              ? 'text-state-success'
               : status === 'canceled'
                 ? 'text-ink-soft'
-                : 'text-amber-100'
+                : 'text-state-warning'
         }`}>
           <span className={`flex h-8 w-8 items-center justify-center rounded-md ${
             action.error
-              ? 'bg-red-500/15 text-red-200'
+              ? 'bg-state-danger/15 text-state-danger'
               : status === 'confirmed'
-                ? 'bg-emerald-500/15 text-emerald-200'
+                ? 'bg-state-success/15 text-state-success'
                 : status === 'canceled'
                   ? 'bg-card text-ink-soft'
-                  : 'bg-amber-500/15 text-amber-200'
+                  : 'bg-state-warning/15 text-state-warning'
           }`}>
             {iconForCapability(action.capability)}
           </span>
@@ -449,7 +450,7 @@ export default function PendingActionCard({
         {isPending && (
           <button
             type="button"
-            className="inline-flex min-h-11 items-center rounded-md border border-line px-3 text-xs text-ink-soft hover:border-cyan-500 hover:text-cyan-200"
+            className="inline-flex min-h-11 items-center rounded-md border border-line px-3 text-xs text-ink-soft hover:border-accent hover:text-accent"
             onClick={() => setIsEditing((value) => !value)}
           >
             {isEditing ? 'Preview' : 'Edit'}
@@ -537,7 +538,7 @@ export default function PendingActionCard({
               <TextField label="Notes" value={draft.notes} onChange={(value) => setField('notes', value)} />
               <label className="grid gap-1 text-xs font-medium text-ink-muted sm:col-span-2">
                 <span>Exercises JSON</span>
-                <textarea className="min-h-28 rounded-md border border-line bg-sunken px-3 py-2 font-mono text-sm text-ink outline-none transition-colors focus:border-cyan-500" value={fieldValue(draft.exercises)} onChange={(event) => setField('exercises', event.target.value)} />
+                <textarea className="min-h-28 rounded-md border border-line bg-sunken px-3 py-2 font-mono text-sm text-ink outline-none transition-colors focus:border-accent" value={fieldValue(draft.exercises)} onChange={(event) => setField('exercises', event.target.value)} />
               </label>
             </>
           )}

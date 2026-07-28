@@ -60,7 +60,7 @@ export function useAddItems(onSuccess?: () => void) {
         successMessage += `Added ${regularTasks.length} task${regularTasks.length > 1 ? 's' : ''} (${dateInfo})`
       }
 
-      toast.success(`${successMessage} 🚀`)
+      toast.success(successMessage)
       onSuccess?.()
     },
     onError: () => {

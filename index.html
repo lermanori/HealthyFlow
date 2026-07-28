@@ -3,8 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>HealthyFlow - Smart Daily Planner</title>
+    <meta name="theme-color" content="#0f172a" />
     
     <!-- Apply saved theme before render to avoid flash-of-wrong-theme -->
     <script>
@@ -13,12 +14,13 @@
         if (t === 'white') {
           document.documentElement.setAttribute('data-theme', 'white');
         }
+        var themeMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeMeta) themeMeta.setAttribute('content', t === 'white' ? '#f8fafc' : '#0f172a');
       })();
     </script>
 
     <!-- PWA Meta Tags -->
-    <meta name="description" content="AI-powered daily planner with smart recommendations and voice features" />
-    <meta name="theme-color" content="#101828" />
+    <meta name="description" content="Plan tasks, habits, health, and workouts in one calm daily workspace." />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="HealthyFlow" />
@@ -38,19 +40,19 @@
     <link rel="dns-prefetch" href="//fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     
-    <!-- Prevent zoom on iOS -->
     <style>
       html {
         -webkit-text-size-adjust: 100%;
-        -webkit-touch-callout: none;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        user-select: none;
-        background: #101828;
+        background: #0f172a;
       }
 
       body {
-        background: #101828;
+        background: #0f172a;
+      }
+
+      html[data-theme='white'],
+      html[data-theme='white'] body {
+        background: #f8fafc;
       }
       
       /* Prevent pull-to-refresh */
@@ -65,38 +67,40 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+        background: #0f172a;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         z-index: 9999;
-        transition: opacity 0.5s ease-out;
+        transition: opacity 160ms ease-out;
+      }
+
+      html[data-theme='white'] #loading-screen {
+        background: #f8fafc;
       }
       
       .loading-logo {
         width: 80px;
         height: 80px;
-        background: linear-gradient(135deg, #06b6d4, #3b82f6);
-        border-radius: 20px;
+        background: #08708c;
+        border-radius: 14px;
         display: flex;
         align-items: center;
         justify-content: center;
         margin-bottom: 20px;
-        animation: float 2s ease-in-out infinite;
       }
       
       .loading-text {
-        color: #06b6d4;
+        color: #f8fafc;
         font-family: system-ui, -apple-system, sans-serif;
         font-size: 24px;
         font-weight: 700;
         margin-bottom: 10px;
-        text-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
       }
       
       .loading-subtitle {
-        color: #9ca3af;
+        color: #94a3b8;
         font-family: system-ui, -apple-system, sans-serif;
         font-size: 14px;
         margin-bottom: 30px;
@@ -105,27 +109,45 @@
       .loading-spinner {
         width: 40px;
         height: 40px;
-        border: 3px solid rgba(6, 182, 212, 0.3);
-        border-top: 3px solid #06b6d4;
+        border: 3px solid rgba(34, 211, 238, 0.22);
+        border-top: 3px solid #22d3ee;
         border-radius: 50%;
         animation: spin 1s linear infinite;
       }
       
-      @keyframes float {
-        0%, 100% { transform: translateY(0px); }
-        50% { transform: translateY(-10px); }
+      html[data-theme='white'] .loading-text {
+        color: #0f172a;
+      }
+
+      html[data-theme='white'] .loading-subtitle {
+        color: #64748b;
+      }
+
+      html[data-theme='white'] .loading-spinner {
+        border-color: rgba(8, 112, 140, 0.18);
+        border-top-color: #08708c;
       }
       
       @keyframes spin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
       }
+
+      @media (prefers-reduced-motion: reduce) {
+        #loading-screen {
+          transition: none;
+        }
+
+        .loading-spinner {
+          animation-duration: 1.8s;
+        }
+      }
     </style>
   </head>
   <body>
     <!-- Loading Screen -->
-    <div id="loading-screen">
-      <div class="loading-logo">
+    <div id="loading-screen" role="status" aria-live="polite" aria-label="Loading HealthyFlow">
+      <div class="loading-logo" aria-hidden="true">
         <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M9.5 2C8.67157 2 8 2.67157 8 3.5V4.5C8 5.32843 8.67157 6 9.5 6H14.5C15.3284 6 16 5.32843 16 4.5V3.5C16 2.67157 15.3284 2 14.5 2H9.5Z" fill="white"/>
           <path d="M12 8C8.68629 8 6 10.6863 6 14C6 17.3137 8.68629 20 12 20C15.3137 20 18 17.3137 18 14C18 10.6863 15.3137 8 12 8Z" fill="white"/>
@@ -133,8 +155,8 @@
         </svg>
       </div>
       <div class="loading-text">HealthyFlow</div>
-      <div class="loading-subtitle">AI-Powered Daily Planner</div>
-      <div class="loading-spinner"></div>
+      <div class="loading-subtitle">Plan your day. Track what matters.</div>
+      <div class="loading-spinner" aria-hidden="true"></div>
     </div>
     
     <div id="root"></div>
@@ -149,9 +171,9 @@
             loadingScreen.style.opacity = '0';
             setTimeout(() => {
               loadingScreen.style.display = 'none';
-            }, 500);
+            }, 180);
           }
-        }, 1000);
+        }, 80);
       });
 
       // Handle app shortcuts
