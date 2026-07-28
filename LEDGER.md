@@ -1,3 +1,9 @@
+### 2026-07-28 17:39 — `codex/hide-disabled-capacity`
+
+Today no longer presents an unavailable-capacity warning when daily capacity calculation is switched off. The decision band collapses cleanly around Focus and Next obligation, while enabled complete, partial, and unavailable capacity states remain honest and visible. Focused browser coverage now distinguishes the disabled presentation from genuine enabled-source failures.
+
+---
+
 ### 2026-07-28 17:15 — `codex/137-mobile-day-swipe`
 
 Added a mobile-only Today gesture that moves left or right between adjacent days while preserving the existing visible date controls and navigation contract. Deliberate swipes follow the finger with restrained directional feedback, while vertical scroll, interactive controls, Item dragging, modals, and reduced-motion preferences remain protected. Focused unit and browser regressions cover successful navigation, rejected gestures, and the existing touch-drag workflow.

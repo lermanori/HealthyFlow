@@ -620,6 +620,26 @@
   }
 }
 
+.today-decision-grid[data-capacity-enabled='false'] .today-decision-secondary {
+  border-bottom: 0;
+}
+
+@container today (min-width: 44rem) {
+  .today-decision-grid[data-capacity-enabled='false'] {
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  }
+
+  .today-decision-grid[data-capacity-enabled='false'] .today-decision-primary {
+    grid-column: auto;
+    border-right: 1px solid rgb(var(--border-default) / 0.6);
+    border-bottom: 0;
+  }
+
+  .today-decision-grid[data-capacity-enabled='false'] .today-decision-secondary {
+    border-right: 0;
+  }
+}
+
 /* White theme: override PWA-standalone dark background gradients. */
 [data-theme='white'] .min-h-screen,
 [data-theme='white'] #loading-screen {

@@ -177,6 +177,11 @@ function denseDay(date: string): DaySummary {
     availableMinutes: 270,
     reasonCodes: [],
   }
+  summary.settings.planningWindow = {
+    startTime: '08:00',
+    endTime: '20:00',
+    transitionBufferMinutes: 10,
+  }
   summary.modules = { habits: 'enabled', nutrition: 'enabled', workouts: 'enabled' }
   summary.calorieEntries = [
     {
@@ -1030,6 +1035,21 @@ test('capacity and Daily Signals failures stay explicit without blocking the pla
   await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Open Talk' })).toBeVisible()
   await expect(page.locator('[data-demo-id="schedule-section"]')).toBeVisible()
+})
+
+test('disabled capacity stays out of the Today decision band', async ({ page }) => {
+  await mockToday(page, {
+    summary: (date) => daySummaryFixture({
+      date,
+      items: [{ id: 'task-open', title: 'Plan the next step', scheduledDate: date }],
+    }),
+  })
+  await page.goto('/app')
+
+  const decisionBand = page.locator('[data-demo-id="decision-band"]')
+  await expect(decisionBand.getByText('Capacity', { exact: true })).toHaveCount(0)
+  await expect(decisionBand.getByText('Usable time unavailable')).toHaveCount(0)
+  await expect(page.getByText('0 of 1 addressed')).toBeVisible()
 })
 
 test('empty, completed, past, and future focus states use explicit language', async ({ page }) => {
