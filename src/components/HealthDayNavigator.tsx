@@ -23,24 +23,24 @@ export default function HealthDayNavigator({ date, onChange, label }: HealthDayN
 
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label={`${label} date navigation`}>
-      <div className="flex min-h-11 items-center rounded-xl border border-line bg-sunken/35 p-1">
+      <div className="flex min-h-11 items-center rounded-control border border-line bg-sunken/35 p-1">
         <button
           type="button"
           aria-label="Previous day"
           onClick={() => shift(-1)}
-          className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-muted transition hover:bg-raised hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+          className="flex h-11 w-11 items-center justify-center rounded-control text-ink-muted transition-colors hover:bg-raised hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
         <div className="min-w-[9rem] px-2 text-center" aria-live="polite">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-300">{relativeLabel}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-accent">{relativeLabel}</p>
           <p className="mt-0.5 text-sm font-medium text-ink">{fullLabel}</p>
         </div>
         <button
           type="button"
           aria-label="Next day"
           onClick={() => shift(1)}
-          className="flex h-11 w-11 items-center justify-center rounded-lg text-ink-muted transition hover:bg-raised hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+          className="flex h-11 w-11 items-center justify-center rounded-control text-ink-muted transition-colors hover:bg-raised hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
           <ChevronRight className="h-5 w-5" />
         </button>
@@ -50,12 +50,12 @@ export default function HealthDayNavigator({ date, onChange, label }: HealthDayN
         type="button"
         onClick={() => onChange(today)}
         disabled={isToday}
-        className="min-h-11 rounded-xl border border-line bg-card px-4 text-sm font-medium text-ink-soft transition hover:border-cyan-400/40 hover:text-cyan-200 disabled:cursor-default disabled:opacity-50"
+        className="min-h-11 rounded-control border border-line bg-card px-4 text-sm font-medium text-ink-soft transition-colors hover:border-accent/40 hover:text-accent disabled:cursor-default disabled:opacity-50"
       >
         Today
       </button>
 
-      <label className="relative flex min-h-11 items-center rounded-xl border border-line bg-card pl-10 pr-3 text-sm text-ink-soft transition focus-within:border-cyan-400/50">
+      <label className="relative flex min-h-11 items-center rounded-control border border-line bg-card pl-10 pr-3 text-sm text-ink-soft transition-colors focus-within:border-focus">
         <CalendarDays className="pointer-events-none absolute left-3 h-4 w-4 text-ink-muted" />
         <span className="sr-only">Jump to date</span>
         <input

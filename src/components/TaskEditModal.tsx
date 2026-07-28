@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Clock, Sparkles, Calendar, MapPin } from 'lucide-react'
 import { format, addDays } from 'date-fns'
-import { Task } from '../services/api'
+import { Task, type Category } from '../services/api'
+import { CATEGORY_PRESENTATIONS } from '../categoryPresentation'
 
 interface TaskEditModalProps {
   task: Task | null
@@ -12,7 +13,14 @@ interface TaskEditModalProps {
 }
 
 export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEditModalProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    title: string
+    category: Category
+    startTime: string
+    location: string
+    duration: number
+    scheduledDate: string
+  }>({
     title: '',
     category: 'personal',
     startTime: '',
@@ -74,13 +82,6 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
     }
   }
 
-  const categories = [
-    { value: 'health', label: 'Health', color: 'bg-green-500/20 text-green-400 border-green-500/30' },
-    { value: 'work', label: 'Work', color: 'bg-blue-500/20 text-blue-400 border-blue-500/30' },
-    { value: 'personal', label: 'Personal', color: 'bg-purple-500/20 text-purple-400 border-purple-500/30' },
-    { value: 'fitness', label: 'Fitness', color: 'bg-orange-500/20 text-orange-400 border-orange-500/30' },
-  ]
-
   // Quick date options
   const quickDates = [
     { label: 'Today', value: format(new Date(), 'yyyy-MM-dd') },
@@ -107,19 +108,19 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative card ai-glow w-full max-w-md mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+            className="surface-overlay relative mx-4 flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden"
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center space-x-3">
-                <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center animate-float">
+                <div className="flex h-8 w-8 items-center justify-center rounded-control bg-action">
                   <Sparkles className="w-4 h-4 text-white" />
                 </div>
-                <h2 className="text-lg font-semibold text-ink neon-text">Edit Task</h2>
+                <h2 className="text-lg font-semibold text-ink">Edit Task</h2>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 rounded-lg hover:bg-gray-700 transition-colors text-ink-muted hover:text-ink-soft"
+                className="rounded-control p-2 text-ink-muted transition-colors hover:bg-raised hover:text-ink"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
@@ -137,7 +138,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className={`w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${isMobile ? 'text-base' : ''}`}
+                    className={`w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-focus0 focus:border-transparent ${isMobile ? 'text-base' : ''}`}
                     placeholder="Enter task title..."
                     required
                   />
@@ -147,18 +148,19 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                   <label className="block text-sm font-medium text-ink-soft mb-2">
                     Category
                   </label>
-                  <div className={`grid ${isMobile ? 'grid-cols-2 gap-2' : 'grid-cols-4 gap-3'}`}>
-                    {categories.map((category) => (
+                  <div className={`grid ${isMobile ? 'grid-cols-2 gap-2' : 'grid-cols-3 gap-3'}`}>
+                    {CATEGORY_PRESENTATIONS.map((categoryOption) => (
                       <button
-                        key={category.value}
+                        key={categoryOption.id}
                         type="button"
-                        onClick={() => setFormData({ ...formData, category: category.value })}
-                        className={`p-3 rounded-lg border-2 transition-all ${formData.category === category.value 
-                          ? `${category.color} border-current` 
-                          : 'border-line-strong text-ink-muted hover:border-gray-500 hover:text-ink-soft'
+                        onClick={() => setFormData({ ...formData, category: categoryOption.id })}
+                        aria-pressed={formData.category === categoryOption.id}
+                        className={`rounded-lg border p-3 transition-colors ${formData.category === categoryOption.id
+                          ? categoryOption.className
+                          : 'border-line text-ink-muted hover:border-line-strong hover:bg-raised hover:text-ink-soft'
                         } ${isMobile ? 'text-sm' : ''}`}
                       >
-                        {category.label}
+                        {categoryOption.label}
                       </button>
                     ))}
                   </div>
@@ -174,7 +176,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                       type="text"
                       value={formData.location}
                       onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                      className={`w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent ${isMobile ? 'text-base' : ''}`}
+                      className={`w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink placeholder-ink-muted focus:outline-none focus:ring-2 focus:ring-focus0 focus:border-transparent ${isMobile ? 'text-base' : ''}`}
                       placeholder="Add a place or address..."
                     />
                   </div>
@@ -190,7 +192,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                       type="time"
                       value={formData.startTime}
                       onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                      className="w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-focus0 focus:border-transparent"
                     />
                   </div>
 
@@ -204,7 +206,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                       onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 30 })}
                       min="5"
                       max="480"
-                      className="w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-focus0 focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -219,7 +221,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                       type="date"
                       value={formData.scheduledDate}
                       onChange={(e) => setFormData({ ...formData, scheduledDate: e.target.value })}
-                      className="w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent"
+                      className="w-full px-4 py-3 bg-card/50 border border-line-strong rounded-lg text-ink focus:outline-none focus:ring-2 focus:ring-focus0 focus:border-transparent"
                     />
                     
                     {/* Quick date options */}
@@ -231,8 +233,8 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                           onClick={() => setFormData({ ...formData, scheduledDate: dateOption.value })}
                           className={`px-3 py-2 text-xs rounded-lg border transition-colors ${
                             formData.scheduledDate === dateOption.value
-                              ? 'border-cyan-500 text-cyan-400 bg-cyan-500/20'
-                              : 'border-line-strong text-ink-muted hover:border-gray-500 hover:text-ink-soft'
+                              ? 'border-accent text-accent bg-accent/20'
+                              : 'border-line-strong text-ink-muted hover:border-line-strong hover:bg-raised hover:text-ink-soft'
                           }`}
                         >
                           {dateOption.label}
@@ -254,8 +256,8 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                         onClick={() => setEditScope('instance')}
                         className={`p-3 rounded-lg border-2 text-sm transition-all ${
                           editScope === 'instance'
-                            ? 'border-cyan-500 text-cyan-400 bg-cyan-500/20'
-                            : 'border-line-strong text-ink-muted hover:border-gray-500 hover:text-ink-soft'
+                            ? 'border-accent text-accent bg-accent/20'
+                            : 'border-line-strong text-ink-muted hover:border-line-strong hover:bg-raised hover:text-ink-soft'
                         }`}
                       >
                         This day only
@@ -265,14 +267,14 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                         onClick={() => setEditScope('habit')}
                         className={`p-3 rounded-lg border-2 text-sm transition-all ${
                           editScope === 'habit'
-                            ? 'border-cyan-500 text-cyan-400 bg-cyan-500/20'
-                            : 'border-line-strong text-ink-muted hover:border-gray-500 hover:text-ink-soft'
+                            ? 'border-accent text-accent bg-accent/20'
+                            : 'border-line-strong text-ink-muted hover:border-line-strong hover:bg-raised hover:text-ink-soft'
                         }`}
                       >
                         The whole habit
                       </button>
                     </div>
-                    <p className="mt-2 text-xs text-gray-500">
+                    <p className="mt-2 text-xs text-ink-muted">
                       {editScope === 'instance'
                         ? 'Changes affect only this date.'
                         : 'Changes apply from today forward; past days keep their saved values.'}
@@ -280,9 +282,9 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                   </div>
                 )}
 
-                {isHabit && editScope === 'habit' && <div className="space-y-3 rounded-xl border border-purple-500/25 bg-purple-500/5 p-4">
+                {isHabit && editScope === 'habit' && <div className="space-y-3 rounded-xl border border-accent/25 bg-accent/5 p-4">
                   <div><p className="text-sm font-medium text-ink-soft">Habit tracking</p><p className="mt-1 text-xs text-ink-muted">Changes apply to this day and future unrecorded days.</p></div>
-                  <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setHabitTracking('binary')} className={`rounded-lg border px-3 py-2 text-sm ${habitTracking === 'binary' ? 'border-purple-400/50 bg-purple-400/15 text-purple-200' : 'border-line text-ink-muted'}`}>Binary</button><button type="button" onClick={() => setHabitTracking('target')} className={`rounded-lg border px-3 py-2 text-sm ${habitTracking === 'target' ? 'border-cyan-400/50 bg-cyan-400/15 text-cyan-200' : 'border-line text-ink-muted'}`}>Target</button></div>
+                  <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setHabitTracking('binary')} className={`rounded-lg border px-3 py-2 text-sm ${habitTracking === 'binary' ? 'border-accent/50 bg-accent/15 text-accent' : 'border-line text-ink-muted'}`}>Binary</button><button type="button" onClick={() => setHabitTracking('target')} className={`rounded-lg border px-3 py-2 text-sm ${habitTracking === 'target' ? 'border-accent/50 bg-accent/15 text-accent' : 'border-line text-ink-muted'}`}>Target</button></div>
                   {habitTracking === 'target' && <div className="grid grid-cols-2 gap-2"><input type="text" inputMode="decimal" value={habitTargetValue} onChange={event => setHabitTargetValue(event.target.value)} className="input-field" aria-label="Habit target value" /><select value={habitTargetUnit} onChange={event => setHabitTargetUnit(event.target.value as typeof habitTargetUnit)} className="input-field" aria-label="Habit target unit"><option value="minutes">Minutes</option><option value="reps">Repetitions</option><option value="count">Count</option></select></div>}
                 </div>}
 
@@ -292,7 +294,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                     <button
                       type="button"
                       onClick={onClose}
-                      className={`px-4 py-2 rounded-lg border border-line-strong text-ink-soft hover:bg-gray-700/50 transition-colors ${isMobile ? 'flex-1' : ''}`}
+                      className={`rounded-control border border-line-strong px-4 py-2 text-ink-soft transition-colors hover:bg-raised ${isMobile ? 'flex-1' : ''}`}
                     >
                       Cancel
                     </button>

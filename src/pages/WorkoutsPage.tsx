@@ -96,7 +96,7 @@ function MetricChip({ icon: Icon, label, value }: { icon: LucideIcon; label: str
   if (value == null || value === '') return null
   return (
     <span className="inline-flex items-center gap-1 rounded-md border border-line/80 bg-sunken/35 px-2 py-1 text-xs text-ink-soft">
-      <Icon className="h-3.5 w-3.5 text-cyan-400" />
+      <Icon className="h-3.5 w-3.5 text-accent" />
       {value} {label}
     </span>
   )
@@ -447,7 +447,7 @@ export default function WorkoutsPage() {
 
       <header className="flex flex-col gap-4 border-b border-line/70 pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-600">
+          <div className="flex h-10 w-10 items-center justify-center rounded-control bg-action">
             <Dumbbell className="h-5 w-5 text-white" />
           </div>
           <div>
@@ -458,7 +458,7 @@ export default function WorkoutsPage() {
         <HealthDayNavigator date={date} onChange={(nextDate) => setRouteState({ date: nextDate })} label="Workout" />
       </header>
 
-      <nav className="grid grid-cols-3 rounded-2xl border border-line/80 bg-card/60 p-1.5" aria-label="Workout mode">
+      <nav className="grid grid-cols-3 rounded-section border border-line bg-card p-1.5" aria-label="Workout mode">
         {([
           ['plan', 'Plan', 'Reusable Workout plans'],
           ['session', 'Session', sessionDraftOpen ? 'Draft in progress' : 'Start or log training'],
@@ -472,12 +472,12 @@ export default function WorkoutsPage() {
             onClick={() => switchMode(value)}
             className={`min-h-12 min-w-0 rounded-xl px-2 text-center transition sm:px-4 sm:text-left ${
               mode === value
-                ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20'
+                ? 'bg-action text-on-action'
                 : 'text-ink-muted hover:bg-raised/60 hover:text-ink'
             }`}
           >
             <span className={`block text-sm font-semibold ${mode === value ? 'text-white' : 'text-ink'}`}>{label}</span>
-            <span className={`hidden text-[11px] sm:block ${mode === value ? 'text-cyan-50/80' : 'text-ink-muted'}`}>{detail}</span>
+            <span className={`hidden text-[11px] sm:block ${mode === value ? 'text-accent/80' : 'text-ink-muted'}`}>{detail}</span>
           </button>
         ))}
       </nav>
@@ -498,7 +498,7 @@ export default function WorkoutsPage() {
         {arePlansLoading ? (
           <p className="text-sm text-ink-muted">Loading plans...</p>
         ) : plans.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-line/80 bg-sunken/20 p-4 text-sm text-gray-500">No workout plans yet.</p>
+          <p className="rounded-lg border border-dashed border-line/80 bg-sunken/20 p-4 text-sm text-ink-muted">No workout plans yet.</p>
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
             {plans.map((plan) => (
@@ -515,7 +515,7 @@ export default function WorkoutsPage() {
                     <button type="button" className="btn-secondary inline-flex min-h-11 items-center gap-2 px-3 py-2 text-sm" onClick={() => startPlanEdit(plan)} aria-label={`Edit ${plan.name}`}><Pencil className="h-4 w-4" /><span>Edit</span></button>
                     <button
                       type="button"
-                      className="btn-secondary inline-flex min-h-11 items-center gap-2 px-3 py-2 text-sm text-red-300"
+                      className="btn-secondary inline-flex min-h-11 items-center gap-2 px-3 py-2 text-sm text-state-danger"
                       onClick={() => {
                         if (window.confirm(`Delete the ${plan.name} Workout plan? Existing Workout sessions will remain.`)) deletePlan(plan.id)
                       }}
@@ -542,15 +542,15 @@ export default function WorkoutsPage() {
         )}
 
         {showPlanEditor && (
-          <div className="space-y-4 rounded-lg border border-cyan-500/30 bg-cyan-500/5 p-4" data-testid="workout-plan-editor">
+          <div className="space-y-4 rounded-lg border border-accent/30 bg-accent/5 p-4" data-testid="workout-plan-editor">
             <div className="flex items-center justify-between gap-3">
               <h3 className="font-semibold text-ink">{editingPlanId ? 'Edit Plan' : 'Create Plan'}</h3>
               <IconButton label="Close plan editor" onClick={resetPlanEditor} className="text-ink-muted hover:text-ink"><X className="h-4 w-4" /></IconButton>
             </div>
 
-            <div className="rounded-lg border border-purple-500/30 bg-purple-500/5 p-3">
+            <div className="rounded-lg border border-accent/30 bg-accent/5 p-3">
               <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-purple-300" />
+                <Sparkles className="h-4 w-4 text-accent" />
                 <h4 className="text-sm font-semibold text-ink">Generate with AI</h4>
               </div>
               <p className="mt-1 text-xs text-ink-muted">Describe any training style. Review and edit the generated draft before saving.</p>
@@ -591,23 +591,23 @@ export default function WorkoutsPage() {
             </div>
 
             <div className="grid gap-4 lg:grid-cols-[18rem_1fr]">
-              <div className="rounded-lg border border-cyan-500/20 bg-sunken/25 p-3">
+              <div className="rounded-lg border border-accent/20 bg-sunken/25 p-3">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <h4 className="text-sm font-semibold text-ink">Add from history</h4>
                   <div className="inline-flex rounded-lg border border-line/80 bg-sunken/30 p-1 text-xs">
-                    <button type="button" className={`rounded-md px-2 py-1.5 ${quickInsertSort === 'recent' ? 'bg-cyan-500/20 text-cyan-200' : 'text-ink-muted'}`} onClick={() => setQuickInsertSort('recent')}>Recent</button>
-                    <button type="button" className={`rounded-md px-2 py-1.5 ${quickInsertSort === 'most-used' ? 'bg-cyan-500/20 text-cyan-200' : 'text-ink-muted'}`} onClick={() => setQuickInsertSort('most-used')}>Most Used</button>
+                    <button type="button" className={`rounded-md px-2 py-1.5 ${quickInsertSort === 'recent' ? 'bg-accent/20 text-accent' : 'text-ink-muted'}`} onClick={() => setQuickInsertSort('recent')}>Recent</button>
+                    <button type="button" className={`rounded-md px-2 py-1.5 ${quickInsertSort === 'most-used' ? 'bg-accent/20 text-accent' : 'text-ink-muted'}`} onClick={() => setQuickInsertSort('most-used')}>Most Used</button>
                   </div>
                 </div>
                 <input data-testid="workout-plan-exercise-search" className="input-field mb-3" placeholder="Filter exercises" value={planFilter} onChange={(event) => setPlanFilter(event.target.value)} />
                 {isQuickInsertLoading ? (
                   <p className="text-sm text-ink-muted">Loading...</p>
                 ) : filteredPlanItems.length === 0 ? (
-                  <p className="text-sm text-gray-500">No exercise history yet.</p>
+                  <p className="text-sm text-ink-muted">No exercise history yet.</p>
                 ) : (
                   <div className="space-y-2">
                     {filteredPlanItems.map((item) => (
-                      <button key={item.id} type="button" className="w-full rounded-lg border border-cyan-500/20 px-3 py-2 text-left text-sm text-cyan-100 hover:bg-cyan-500/10" onClick={() => setPlanExerciseForm(itemToForm(item))}>
+                      <button key={item.id} type="button" className="w-full rounded-lg border border-accent/20 px-3 py-2 text-left text-sm text-accent hover:bg-accent/10" onClick={() => setPlanExerciseForm(itemToForm(item))}>
                         {item.name}
                       </button>
                     ))}
@@ -637,8 +637,8 @@ export default function WorkoutsPage() {
                     <div className="mt-2 flex flex-wrap justify-end gap-1">
                       <IconButton label={`Move ${exercise.name} up`} disabled={index === 0} onClick={() => movePlanExercise(index, -1)} className="text-ink-muted"><ArrowUp className="h-4 w-4" /></IconButton>
                       <IconButton label={`Move ${exercise.name} down`} disabled={index === planExercises.length - 1} onClick={() => movePlanExercise(index, 1)} className="text-ink-muted"><ArrowDown className="h-4 w-4" /></IconButton>
-                      <IconButton label={`Edit ${exercise.name}`} onClick={() => editPlanExercise(index)} className="text-ink-muted hover:text-cyan-400"><Pencil className="h-4 w-4" /></IconButton>
-                      <IconButton label={`Remove ${exercise.name}`} onClick={() => setPlanExercises((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="text-ink-muted hover:text-red-400"><Trash2 className="h-4 w-4" /></IconButton>
+                      <IconButton label={`Edit ${exercise.name}`} onClick={() => editPlanExercise(index)} className="text-ink-muted hover:text-accent"><Pencil className="h-4 w-4" /></IconButton>
+                      <IconButton label={`Remove ${exercise.name}`} onClick={() => setPlanExercises((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="text-ink-muted hover:text-state-danger"><Trash2 className="h-4 w-4" /></IconButton>
                     </div>
                   </div>
                 ))}
@@ -708,7 +708,7 @@ export default function WorkoutsPage() {
                   </div>
                   <div className="mt-2 flex flex-wrap justify-end gap-2">
                     <button type="button" className="btn-secondary inline-flex min-h-11 items-center gap-2 px-3 py-2 text-sm" onClick={() => editDraftExercise(index)} aria-label={`Edit draft ${exercise.name}`}><Pencil className="h-4 w-4" />Edit</button>
-                    <button type="button" className="btn-secondary inline-flex min-h-11 items-center gap-2 px-3 py-2 text-sm text-red-300" onClick={() => setDraftExercises((current) => current.filter((_, i) => i !== index))} aria-label={`Remove draft ${exercise.name}`}><Trash2 className="h-4 w-4" />Remove</button>
+                    <button type="button" className="btn-secondary inline-flex min-h-11 items-center gap-2 px-3 py-2 text-sm text-state-danger" onClick={() => setDraftExercises((current) => current.filter((_, i) => i !== index))} aria-label={`Remove draft ${exercise.name}`}><Trash2 className="h-4 w-4" />Remove</button>
                   </div>
                 </div>
               ))}
@@ -717,14 +717,14 @@ export default function WorkoutsPage() {
         </section>
 
         {showExerciseComposer && <div ref={exerciseComposerRef} className="grid scroll-mt-28 gap-4 lg:grid-cols-[18rem_1fr]">
-          <div className="order-2 rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3 lg:order-1" data-demo-id="workout-quick-insert">
+          <div className="order-2 rounded-lg border border-accent/20 bg-accent/5 p-3 lg:order-1" data-demo-id="workout-quick-insert">
             <div className="mb-3 flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-ink">Quick Insert</h3>
               <div className="inline-flex rounded-lg border border-line/80 bg-sunken/30 p-1 text-xs">
-                <button type="button" className={`rounded-md px-2 py-1.5 ${quickInsertSort === 'recent' ? 'bg-cyan-500/20 text-cyan-200' : 'text-ink-muted'}`} onClick={() => setQuickInsertSort('recent')}>
+                <button type="button" className={`rounded-md px-2 py-1.5 ${quickInsertSort === 'recent' ? 'bg-accent/20 text-accent' : 'text-ink-muted'}`} onClick={() => setQuickInsertSort('recent')}>
                   Recent
                 </button>
-                <button type="button" className={`rounded-md px-2 py-1.5 ${quickInsertSort === 'most-used' ? 'bg-cyan-500/20 text-cyan-200' : 'text-ink-muted'}`} onClick={() => setQuickInsertSort('most-used')}>
+                <button type="button" className={`rounded-md px-2 py-1.5 ${quickInsertSort === 'most-used' ? 'bg-accent/20 text-accent' : 'text-ink-muted'}`} onClick={() => setQuickInsertSort('most-used')}>
                   Most Used
                 </button>
               </div>
@@ -740,7 +740,7 @@ export default function WorkoutsPage() {
             {isQuickInsertLoading ? (
               <p className="text-sm text-ink-muted">Loading...</p>
             ) : filteredItems.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-line/80 bg-sunken/20 p-3 text-sm text-gray-500">No exercise history yet.</p>
+              <p className="rounded-lg border border-dashed border-line/80 bg-sunken/20 p-3 text-sm text-ink-muted">No exercise history yet.</p>
             ) : (
               <div className="space-y-2" data-testid="workout-quick-insert-list">
                 {filteredItems.map((item) => (
@@ -748,11 +748,11 @@ export default function WorkoutsPage() {
                     key={item.id}
                     type="button"
                     data-testid="workout-quick-insert-item"
-                    className="w-full rounded-lg border border-cyan-500/20 bg-cyan-500/5 px-3 py-2 text-left transition hover:border-cyan-400/40 hover:bg-cyan-500/10"
+                    className="w-full rounded-lg border border-accent/20 bg-accent/5 px-3 py-2 text-left transition hover:border-accent/40 hover:bg-accent/10"
                     onClick={() => applyQuickInsert(item)}
                   >
-                    <span className="block truncate text-sm font-medium text-cyan-100">{item.name}</span>
-                    <span className="text-xs text-cyan-200/70">
+                    <span className="block truncate text-sm font-medium text-accent">{item.name}</span>
+                    <span className="text-xs text-accent/70">
                       {quickInsertSort === 'most-used' ? `${item.usageCount} uses` : `Last used ${formatLastUsedLabel(item.lastUsedAt)}`}
                     </span>
                   </button>
@@ -787,10 +787,10 @@ export default function WorkoutsPage() {
       </div>
       ) : (
         <div className="card" data-testid="workout-session-empty">
-          <div className="flex min-h-[20rem] items-center justify-center rounded-2xl border border-dashed border-line bg-sunken/20 p-6 text-center">
+          <div className="flex min-h-[20rem] items-center justify-center rounded-section border border-dashed border-line bg-sunken/20 p-6 text-center">
             <div className="max-w-md">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-400/25 bg-violet-400/10">
-                <Dumbbell className="h-6 w-6 text-violet-300" />
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-section border border-accent/25 bg-accent/10">
+                <Dumbbell className="h-6 w-6 text-accent" />
               </div>
               <h2 className="mt-4 text-xl font-semibold text-ink">No active Workout session</h2>
               <p className="mt-2 text-sm leading-6 text-ink-muted">
@@ -822,7 +822,7 @@ export default function WorkoutsPage() {
         {isLoading ? (
           <p className="text-sm text-ink-muted">Loading...</p>
         ) : sessions.length === 0 ? (
-          <p className="py-6 text-center text-sm text-gray-500">No workout sessions for this day yet.</p>
+          <p className="py-6 text-center text-sm text-ink-muted">No workout sessions for this day yet.</p>
         ) : (
           <div className="space-y-4" data-testid="workout-history">
             {sessions.map((session) => (
@@ -833,7 +833,7 @@ export default function WorkoutsPage() {
                       <input className="input-field" value={editingTitle} onChange={(event) => setEditingTitle(event.target.value)} />
                       <input className="input-field" value={editingNotes} onChange={(event) => setEditingNotes(event.target.value)} />
                       <div className="flex items-center gap-2">
-                        <IconButton label={`Save changes to ${session.title || 'Workout session'}`} onClick={submitSessionEdit} className="text-cyan-400"><Check className="h-4 w-4" /></IconButton>
+                        <IconButton label={`Save changes to ${session.title || 'Workout session'}`} onClick={submitSessionEdit} className="text-accent"><Check className="h-4 w-4" /></IconButton>
                         <IconButton label={`Cancel editing ${session.title || 'Workout session'}`} onClick={() => setEditingSessionId(null)} className="text-ink-muted"><X className="h-4 w-4" /></IconButton>
                       </div>
                     </div>
@@ -844,11 +844,11 @@ export default function WorkoutsPage() {
                         {session.notes && <p className="mt-1 text-sm text-ink-muted">{session.notes}</p>}
                       </div>
                       <div className="flex shrink-0 gap-2">
-                        <IconButton label={`Edit ${session.title || 'Workout session'}`} data-testid="edit-workout-session" className="text-ink-muted hover:text-cyan-400" onClick={() => startSessionEdit(session)}><Pencil className="h-4 w-4" /></IconButton>
+                        <IconButton label={`Edit ${session.title || 'Workout session'}`} data-testid="edit-workout-session" className="text-ink-muted hover:text-accent" onClick={() => startSessionEdit(session)}><Pencil className="h-4 w-4" /></IconButton>
                         <IconButton
                           label={`Delete ${session.title || 'Workout session'}`}
                           data-testid="delete-workout-session"
-                          className="text-ink-muted hover:text-red-400"
+                          className="text-ink-muted hover:text-state-danger"
                           onClick={() => {
                             deleteSession(session.id, {
                               onSuccess: () => showUndoToast(
@@ -887,7 +887,7 @@ export default function WorkoutsPage() {
                         <div className="space-y-3">
                           <ExerciseFields form={editingExerciseForm} setForm={setEditingExerciseForm} />
                           <div className="flex justify-end gap-2">
-                            <IconButton label={`Save changes to ${exercise.name}`} onClick={submitExerciseEdit} className="text-cyan-400"><Check className="h-4 w-4" /></IconButton>
+                            <IconButton label={`Save changes to ${exercise.name}`} onClick={submitExerciseEdit} className="text-accent"><Check className="h-4 w-4" /></IconButton>
                             <IconButton label={`Cancel editing ${exercise.name}`} onClick={() => setEditingExerciseId(null)} className="text-ink-muted"><X className="h-4 w-4" /></IconButton>
                           </div>
                         </div>
@@ -901,16 +901,16 @@ export default function WorkoutsPage() {
                               <MetricChip icon={Weight} label="kg" value={exercise.weightKg} />
                               <MetricChip icon={Timer} label="min" value={exercise.durationMinutes} />
                               <MetricChip icon={Ruler} label="km" value={exercise.distanceKm} />
-                              {metricParts(exercise).length === 0 && <span className="text-xs text-gray-500">No metrics</span>}
+                              {metricParts(exercise).length === 0 && <span className="text-xs text-ink-muted">No metrics</span>}
                             </div>
                             {exercise.notes && <p className="mt-2 text-sm text-ink-muted">{exercise.notes}</p>}
                           </div>
                           <div className="flex shrink-0 gap-2">
-                            <IconButton label={`Edit ${exercise.name}`} data-testid="edit-workout-exercise" className="text-ink-muted hover:text-cyan-400" onClick={() => startExerciseEdit(exercise)}><Pencil className="h-4 w-4" /></IconButton>
+                            <IconButton label={`Edit ${exercise.name}`} data-testid="edit-workout-exercise" className="text-ink-muted hover:text-accent" onClick={() => startExerciseEdit(exercise)}><Pencil className="h-4 w-4" /></IconButton>
                             <IconButton
                               label={`Delete ${exercise.name}`}
                               data-testid="delete-workout-exercise"
-                              className="text-ink-muted hover:text-red-400"
+                              className="text-ink-muted hover:text-state-danger"
                               onClick={() => {
                                 deleteExercise(exercise.id, {
                                   onSuccess: () => showUndoToast(

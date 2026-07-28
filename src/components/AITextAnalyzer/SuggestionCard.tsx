@@ -1,5 +1,6 @@
 import type { TaskSuggestion } from '../../lib/ai/parseTasksSchema'
 import TaskDraftCard, { TaskDraftCardValue } from '../TaskDraftCard'
+import { CategorySchema } from '../../../backend/src/task-contracts'
 
 interface SuggestionCardProps {
   suggestion: TaskSuggestion
@@ -27,7 +28,10 @@ function toDraftValue(suggestion: TaskSuggestion): TaskDraftCardValue {
 function toSuggestionPatch(patch: Partial<TaskDraftCardValue>): Partial<TaskSuggestion> {
   const next: Partial<TaskSuggestion> = {}
   if (patch.title != null) next.title = String(patch.title)
-  if (patch.category != null) next.category = String(patch.category)
+  if (patch.category != null) {
+    const parsedCategory = CategorySchema.safeParse(patch.category)
+    if (parsedCategory.success) next.category = parsedCategory.data
+  }
   if (patch.duration != null) {
     const parsed = Number(patch.duration)
     next.estimatedDuration = Number.isFinite(parsed) ? parsed : 0

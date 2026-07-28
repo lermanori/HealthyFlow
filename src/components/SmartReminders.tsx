@@ -109,37 +109,37 @@ export default function SmartReminders() {
         {visibleReminders.map((reminder) => (
           <motion.div
             key={reminder.id}
-            initial={{ opacity: 0, x: 300, scale: 0.8 }}
-            animate={{ opacity: 1, x: 0, scale: 1 }}
-            exit={{ opacity: 0, x: 300, scale: 0.8 }}
-            className={`p-4 rounded-lg shadow-lg border-l-4 bg-white max-w-sm ${
+            initial={{ opacity: 0, x: 24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 24 }}
+            className={`surface-overlay max-w-sm border-l-4 p-4 ${
               reminder.type === 'upcoming' 
-                ? 'border-l-blue-500' 
-                : 'border-l-red-500'
+                ? 'border-l-state-info'
+                : 'border-l-state-danger'
             }`}
           >
             <div className="flex items-start justify-between">
               <div className="flex items-start space-x-3">
                 <div className={`p-2 rounded-full ${
                   reminder.type === 'upcoming' 
-                    ? 'bg-blue-100 text-blue-600' 
-                    : 'bg-red-100 text-red-600'
+                    ? 'bg-state-info/10 text-state-info'
+                    : 'bg-state-danger/10 text-state-danger'
                 }`}>
                   {reminder.type === 'upcoming' ? <Bell className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
                 </div>
                 <div>
-                  <p className="font-medium text-gray-900 text-sm">
+                  <p className="text-sm font-medium text-ink">
                     {reminder.type === 'upcoming' ? 'Coming Up' : 'Overdue'}
                   </p>
-                  <p className="text-gray-700 text-sm">{reminder.taskTitle}</p>
-                  <p className="text-gray-500 text-xs mt-1">
+                  <p className="text-sm text-ink-soft">{reminder.taskTitle}</p>
+                  <p className="mt-1 text-xs text-ink-muted">
                     Scheduled for {reminder.time}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => handleDismiss(reminder.id)}
-                className="p-1 rounded-full hover:bg-gray-100 transition-colors"
+                className="rounded-full p-1 transition-colors hover:bg-raised"
               >
                 <X className="w-4 h-4 text-ink-muted" />
               </button>

@@ -85,9 +85,9 @@ function formatLastUsedLabel(value: string) {
 
 function MacroStat({ label, value, accent = false }: { label: string; value: number | null; accent?: boolean }) {
   return (
-    <div className={`rounded-lg border px-3 py-2 ${accent ? 'border-cyan-500/30 bg-cyan-500/10' : 'border-line/70 bg-sunken/25'}`}>
+    <div className={`rounded-lg border px-3 py-2 ${accent ? 'border-accent/30 bg-accent/10' : 'border-line/70 bg-sunken/25'}`}>
       <p className="text-xs font-medium uppercase tracking-wide text-ink-muted">{label}</p>
-      <p className={`mt-0.5 text-sm font-semibold ${accent ? 'text-cyan-200' : 'text-ink'}`}>
+      <p className={`mt-0.5 text-sm font-semibold ${accent ? 'text-accent' : 'text-ink'}`}>
         {value ?? '-'}
         {label !== 'Calories' && value != null ? 'g' : ''}
       </p>
@@ -98,7 +98,7 @@ function MacroStat({ label, value, accent = false }: { label: string; value: num
 function WeightSparkline({ entries }: { entries: WeightEntry[] }) {
   if (entries.length < 2) {
     return (
-      <div className="flex h-32 items-center justify-center rounded-lg border border-line/70 bg-sunken/20 text-sm text-gray-500">
+      <div className="flex h-32 items-center justify-center rounded-lg border border-line/70 bg-sunken/20 text-sm text-ink-muted">
         Add another entry to see a trend.
       </div>
     )
@@ -331,7 +331,7 @@ export default function CaloriesPage() {
 
       <header className="flex flex-col gap-4 border-b border-line/70 pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="flex items-start gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-control bg-action">
             <Activity className="h-5 w-5 text-white" />
           </div>
           <div>
@@ -364,7 +364,7 @@ export default function CaloriesPage() {
         )}
       </AnimatePresence>
 
-      <section className="overflow-hidden rounded-3xl border border-line/80 bg-card/60 shadow-xl shadow-black/10" data-demo-id="nutrition-daily-overview">
+      <section className="overflow-hidden rounded-section border border-line bg-card shadow-section" data-demo-id="nutrition-daily-overview">
         <div className="flex flex-col gap-4 border-b border-line/70 p-4 lg:flex-row lg:items-center lg:justify-between lg:p-5">
           <HealthDayNavigator date={date} onChange={setDate} label="Calorie log" />
           <p className="max-w-sm text-sm leading-6 text-ink-muted">
@@ -374,7 +374,7 @@ export default function CaloriesPage() {
         <div className="grid sm:grid-cols-2 xl:grid-cols-3">
           <div className="border-b border-line/70 p-4 sm:border-r xl:border-b-0">
             <div className="flex items-center gap-2">
-              <Utensils className="h-4 w-4 text-orange-300" />
+              <Utensils className="h-4 w-4 text-state-warning" />
               <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Nutrition</p>
             </div>
             <p className="mt-3 text-xl font-semibold text-ink">{totals.calories.toLocaleString()} kcal</p>
@@ -382,7 +382,7 @@ export default function CaloriesPage() {
           </div>
           <div className="border-b border-line/70 p-4 sm:border-r-0 xl:border-b-0 xl:border-r">
             <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4 text-cyan-300" />
+              <Activity className="h-4 w-4 text-accent" />
               <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Macros</p>
             </div>
             <p className="mt-3 text-xl font-semibold text-ink">{totals.protein}g protein</p>
@@ -390,7 +390,7 @@ export default function CaloriesPage() {
           </div>
           <div className="border-b border-line/70 p-4 sm:border-r xl:border-b-0">
             <div className="flex items-center gap-2">
-              <Scale className="h-4 w-4 text-emerald-300" />
+              <Scale className="h-4 w-4 text-state-success" />
               <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">Weight</p>
             </div>
             <p className="mt-3 text-xl font-semibold text-ink">{weightEntry ? formatKg(weightEntry.weightKg) : 'Not recorded'}</p>
@@ -400,7 +400,7 @@ export default function CaloriesPage() {
       </section>
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,.55fr)]">
-        <section className="rounded-3xl border border-line/80 bg-card/60 p-4 md:p-5" aria-labelledby="calorie-entries-heading">
+        <section className="rounded-section border border-line bg-card p-4 shadow-section md:p-5" aria-labelledby="calorie-entries-heading">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 id="calorie-entries-heading" className="text-lg font-semibold text-ink">Detailed log</h2>
@@ -414,7 +414,7 @@ export default function CaloriesPage() {
           {isLoading ? (
             <p className="text-sm text-ink-muted">Loading...</p>
           ) : entries.length === 0 ? (
-            <div className="flex min-h-56 items-center justify-center rounded-2xl border border-dashed border-line bg-sunken/20 p-6 text-center">
+            <div className="flex min-h-56 items-center justify-center rounded-section border border-dashed border-line bg-sunken/20 p-6 text-center">
               <div>
                 <Utensils className="mx-auto h-7 w-7 text-ink-muted" />
                 <p className="mt-3 text-sm font-medium text-ink">No Calorie entries for this day</p>
@@ -427,7 +427,7 @@ export default function CaloriesPage() {
                 <div key={time} className="overflow-hidden rounded-xl border border-line/80 bg-sunken/20">
                   <div className="flex items-center justify-between border-b border-line/70 bg-page/45 px-3 py-2">
                     <div className="flex items-center gap-2 text-sm font-medium text-ink">
-                      <Clock className="h-4 w-4 text-cyan-400" />
+                      <Clock className="h-4 w-4 text-accent" />
                       <span>{time === 'no-time' ? 'No time recorded' : time}</span>
                     </div>
                     <span className="text-xs text-ink-muted">{group.length} entr{group.length === 1 ? 'y' : 'ies'}</span>
@@ -464,10 +464,10 @@ export default function CaloriesPage() {
                             ))}
                           </div>
                           {editForm.quantity && hasNutritionValues(editForm) && (
-                            <p className="text-xs text-amber-300">Nutrition numbers are totals for this quantity. Review them if the quantity changes.</p>
+                            <p className="text-xs text-state-warning">Nutrition numbers are totals for this quantity. Review them if the quantity changes.</p>
                           )}
                           <div className="flex justify-end gap-2">
-                            <IconButton label="Save calorie entry edit" onClick={submitEdit} className="text-cyan-400"><Check className="h-4 w-4" /></IconButton>
+                            <IconButton label="Save calorie entry edit" onClick={submitEdit} className="text-accent"><Check className="h-4 w-4" /></IconButton>
                             <IconButton label="Cancel calorie entry edit" onClick={() => setEditingId(null)} className="text-ink-muted"><X className="h-4 w-4" /></IconButton>
                           </div>
                         </div>
@@ -484,7 +484,7 @@ export default function CaloriesPage() {
                             <MacroStat label="Fat" value={entry.fat} />
                           </div>
                           <div className="flex justify-end gap-1">
-                            <IconButton label={`Edit ${entry.name} calorie entry`} onClick={() => startEdit(entry)} className="text-ink-muted hover:text-cyan-400"><Pencil className="h-4 w-4" /></IconButton>
+                            <IconButton label={`Edit ${entry.name} calorie entry`} onClick={() => startEdit(entry)} className="text-ink-muted hover:text-accent"><Pencil className="h-4 w-4" /></IconButton>
                             <IconButton
                               label={`Delete ${entry.name} calorie entry`}
                               onClick={() => {
@@ -505,7 +505,7 @@ export default function CaloriesPage() {
                                   ),
                                 })
                               }}
-                              className="text-ink-muted hover:text-red-400"
+                              className="text-ink-muted hover:text-state-danger"
                             >
                               <Trash2 className="h-4 w-4" />
                             </IconButton>
@@ -521,11 +521,11 @@ export default function CaloriesPage() {
         </section>
 
         <aside className="space-y-5">
-          <section className="rounded-3xl border border-line/80 bg-card/60 p-4 md:p-5" data-demo-id="weight-card" aria-labelledby="weight-heading">
+          <section className="rounded-section border border-line bg-card p-4 shadow-section md:p-5" data-demo-id="weight-card" aria-labelledby="weight-heading">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-400/25 bg-emerald-400/10">
-                  <Scale className="h-4 w-4 text-emerald-300" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-state-success/25 bg-state-success/10">
+                  <Scale className="h-4 w-4 text-state-success" />
                 </div>
                 <div>
                   <h2 id="weight-heading" className="font-semibold text-ink">Weight</h2>
@@ -551,14 +551,14 @@ export default function CaloriesPage() {
                     {weightTrend.latest ? formatDateLabel(weightTrend.latest.date) : 'Add a first Weight entry when useful.'}
                   </p>
                   <div className="mt-3 flex items-center gap-2 text-sm text-ink-soft">
-                    <DeltaIcon className="h-4 w-4 text-emerald-300" />
+                    <DeltaIcon className="h-4 w-4 text-state-success" />
                     <span>{deltaText}</span>
                   </div>
                 </div>
                 <WeightSparkline entries={weightTrend.entries} />
 
                 {isEditingWeight && (
-                  <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/5 p-3">
+                  <div className="rounded-xl border border-accent/30 bg-accent/5 p-3">
                     <label className="space-y-1">
                       <span className="text-xs text-ink-muted">Weight for {formatDateLabel(date)} (kg)</span>
                       <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
@@ -574,7 +574,7 @@ export default function CaloriesPage() {
                           onChange={(event) => setWeightDraft(event.target.value)}
                         />
                         <div className="flex items-center gap-1">
-                          <IconButton label="Save Weight entry" onClick={submitWeight} className="text-cyan-400"><Check className="h-4 w-4" /></IconButton>
+                          <IconButton label="Save Weight entry" onClick={submitWeight} className="text-accent"><Check className="h-4 w-4" /></IconButton>
                           <IconButton label="Cancel Weight entry" onClick={cancelWeight} className="text-ink-muted"><X className="h-4 w-4" /></IconButton>
                           {weightEntry && (
                             <IconButton
@@ -589,7 +589,7 @@ export default function CaloriesPage() {
                                 })
                                 cancelWeight()
                               }}
-                              className="text-ink-muted hover:text-red-400"
+                              className="text-ink-muted hover:text-state-danger"
                             >
                               <Trash2 className="h-4 w-4" />
                             </IconButton>
@@ -603,7 +603,7 @@ export default function CaloriesPage() {
             )}
           </section>
 
-          <section className="rounded-3xl border border-line/80 bg-card/60 p-4 md:p-5" aria-labelledby="quick-repeat-heading">
+          <section className="rounded-section border border-line bg-card p-4 shadow-section md:p-5" aria-labelledby="quick-repeat-heading">
             <div>
               <h2 id="quick-repeat-heading" className="font-semibold text-ink">Quick repeat</h2>
               <p className="mt-1 text-xs text-ink-muted">Reuse recent Calorie entries without scanning history.</p>
@@ -619,7 +619,7 @@ export default function CaloriesPage() {
                     key={item.id}
                     type="button"
                     onClick={() => applyQuickInsert(item)}
-                    className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-line bg-sunken/25 px-3 text-left transition hover:border-cyan-400/40 hover:bg-cyan-400/5"
+                    className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-line bg-sunken/25 px-3 text-left transition hover:border-accent/40 hover:bg-accent/5"
                   >
                     <span className="min-w-0 truncate text-sm font-medium text-ink">{item.name}</span>
                     <span className="shrink-0 text-xs text-ink-muted">{item.calories} kcal</span>
@@ -646,7 +646,7 @@ export default function CaloriesPage() {
               aria-modal="true"
               aria-labelledby="calorie-quick-insert-title"
               data-testid="calorie-quick-insert-dialog"
-              className="relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-cyan-500/20 bg-page shadow-2xl"
+              className="surface-overlay relative z-10 flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden"
             >
               <div className="flex items-center justify-between border-b border-card px-5 py-4">
                 <div>
@@ -664,7 +664,7 @@ export default function CaloriesPage() {
               </div>
 
               <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
-                <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-4">
+                <div className="rounded-xl border border-accent/20 bg-accent/5 p-4">
                   <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h3 className="text-sm font-semibold text-ink">Quick Insert</h3>
@@ -673,14 +673,14 @@ export default function CaloriesPage() {
                     <div className="inline-flex rounded-lg border border-line/80 bg-sunken/30 p-1 text-xs">
                       <button
                         type="button"
-                        className={`rounded-md px-3 py-1.5 ${quickInsertSort === 'recent' ? 'bg-cyan-500/20 text-cyan-200' : 'text-ink-muted'}`}
+                        className={`rounded-md px-3 py-1.5 ${quickInsertSort === 'recent' ? 'bg-accent/20 text-accent' : 'text-ink-muted'}`}
                         onClick={() => setQuickInsertSort('recent')}
                       >
                         Recent
                       </button>
                       <button
                         type="button"
-                        className={`rounded-md px-3 py-1.5 ${quickInsertSort === 'most-used' ? 'bg-cyan-500/20 text-cyan-200' : 'text-ink-muted'}`}
+                        className={`rounded-md px-3 py-1.5 ${quickInsertSort === 'most-used' ? 'bg-accent/20 text-accent' : 'text-ink-muted'}`}
                         onClick={() => setQuickInsertSort('most-used')}
                       >
                         Most Used
@@ -707,11 +707,11 @@ export default function CaloriesPage() {
                   {isQuickInsertLoading ? (
                     <p className="text-sm text-ink-muted">Loading...</p>
                   ) : quickInsertItems.length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-line/80 bg-sunken/20 px-4 py-5 text-sm text-gray-500">
+                    <p className="rounded-lg border border-dashed border-line/80 bg-sunken/20 px-4 py-5 text-sm text-ink-muted">
                       No saved item history yet. Use the form below and your recent items will appear here.
                     </p>
                   ) : filteredQuickInsertItems.length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-line/80 bg-sunken/20 px-4 py-5 text-sm text-gray-500">
+                    <p className="rounded-lg border border-dashed border-line/80 bg-sunken/20 px-4 py-5 text-sm text-ink-muted">
                       No items match this filter in the current tab.
                     </p>
                   ) : (
@@ -726,8 +726,8 @@ export default function CaloriesPage() {
                           data-testid="calorie-quick-insert-item"
                           className={`rounded-xl border px-3 py-3 text-left transition ${
                             index === highlightedQuickInsertIndex
-                              ? 'border-cyan-400/60 bg-cyan-500/15 text-cyan-50'
-                              : 'border-cyan-500/20 bg-cyan-500/5 text-cyan-100 hover:border-cyan-400/40 hover:bg-cyan-500/10'
+                              ? 'border-accent/60 bg-accent/15 text-accent'
+                              : 'border-accent/20 bg-accent/5 text-accent hover:border-accent/40 hover:bg-accent/10'
                           }`}
                           onClick={() => applyQuickInsert(item)}
                           onFocus={() => setHighlightedQuickInsertIndex(index)}
@@ -736,12 +736,12 @@ export default function CaloriesPage() {
                           <div className="flex items-center justify-between gap-3">
                             <div>
                               <p className="font-medium">{item.name}</p>
-                              <p className="text-xs text-cyan-200/70">
+                              <p className="text-xs text-accent/70">
                                 {quickInsertSort === 'most-used' ? `${item.usageCount} uses` : `Last used ${formatLastUsedLabel(item.lastUsedAt)}`}
                               </p>
-                              {item.quantity && <p className="text-xs text-cyan-100/75">{item.quantity}</p>}
+                              {item.quantity && <p className="text-xs text-accent/75">{item.quantity}</p>}
                             </div>
-                            <span className="text-sm text-cyan-200/80">{item.calories} cal</span>
+                            <span className="text-sm text-accent/80">{item.calories} cal</span>
                           </div>
                         </button>
                       ))}

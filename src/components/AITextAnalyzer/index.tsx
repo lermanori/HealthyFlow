@@ -184,7 +184,7 @@ export default function AITextAnalyzer({ onClose, onConfirmed, enableTTS = false
     <button
       onClick={handleAnalyzeText}
       disabled={isAnalyzing || (!inputText.trim() && !photo)}
-      className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25 transition-all duration-300 hover:from-cyan-400 hover:to-blue-500 hover:shadow-cyan-500/40 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-offset-2 focus:ring-offset-gray-900 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+      className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-control bg-action text-on-action transition-colors hover:bg-action-hover focus:outline-none focus:ring-2 focus:ring-focus focus:ring-offset-2 focus:ring-offset-page disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
       aria-label="Analyze and generate tasks"
     >
       {isAnalyzing ? (
@@ -200,23 +200,23 @@ export default function AITextAnalyzer({ onClose, onConfirmed, enableTTS = false
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="card ai-glow mx-auto flex h-[calc(100dvh-6rem)] max-h-[calc(100dvh-6rem)] w-full max-w-4xl flex-col overflow-hidden rounded-xl p-0 sm:h-auto sm:max-h-[90vh] sm:rounded-2xl sm:p-6"
+      className="surface-overlay mx-auto flex h-[calc(100dvh-6rem)] max-h-[calc(100dvh-6rem)] w-full max-w-4xl flex-col overflow-hidden p-0 sm:h-auto sm:max-h-[90vh] sm:p-6"
     >
       {/* Header */}
       <div className="flex flex-shrink-0 items-center justify-between px-4 pt-4 pb-3 sm:mb-6 sm:px-0 sm:pt-0 sm:pb-0">
         <div className="flex items-center space-x-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 sm:h-12 sm:w-12 sm:animate-float">
+          <div className="flex h-10 w-10 items-center justify-center rounded-control bg-action sm:h-12 sm:w-12">
             <Brain className="h-5 w-5 text-white sm:h-6 sm:w-6" />
           </div>
           <div className="min-w-0">
-            <h2 className="truncate text-lg font-bold text-ink neon-text sm:text-xl">AI Task Analyzer</h2>
+            <h2 className="truncate text-lg font-bold text-ink sm:text-xl">Turn notes into Items</h2>
             <p className="hidden text-sm text-ink-soft sm:block">Transform your thoughts into structured tasks</p>
           </div>
         </div>
         {onClose && (
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-700 transition-colors text-ink-muted hover:text-ink-soft"
+            className="p-2 rounded-lg hover:bg-raised transition-colors text-ink-muted hover:text-ink-soft"
           >
             <X className="w-5 h-5" />
           </button>
@@ -227,10 +227,10 @@ export default function AITextAnalyzer({ onClose, onConfirmed, enableTTS = false
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-4 sm:space-y-5 sm:px-0 sm:pb-0">
         <div className={`rounded-xl border px-4 py-3 text-sm ${
           balance <= 0
-            ? 'border-rose-500/35 bg-rose-500/10 text-rose-100'
+            ? 'border-state-danger/35 bg-state-danger/10 text-state-danger'
             : balance < 25
-              ? 'border-amber-500/35 bg-amber-500/10 text-amber-100'
-              : 'border-cyan-500/25 bg-cyan-500/8 text-ink-soft'
+              ? 'border-state-warning/35 bg-state-warning/10 text-state-warning'
+              : 'border-accent/25 bg-accent/8 text-ink-soft'
         }`}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p>
@@ -239,7 +239,7 @@ export default function AITextAnalyzer({ onClose, onConfirmed, enableTTS = false
                 : `You have ${balance} AI credits. Most quick task analyses use about 5-15 credits.`}
             </p>
             {balance < 25 && (
-              <a href="/settings" className="font-medium text-cyan-200 underline decoration-cyan-400/50 underline-offset-4 hover:text-cyan-100">
+              <a href="/settings" className="font-medium text-accent underline decoration-cyan-400/50 underline-offset-4 hover:text-accent">
                 Open Settings
               </a>
             )}
@@ -247,9 +247,9 @@ export default function AITextAnalyzer({ onClose, onConfirmed, enableTTS = false
         </div>
 
         <div className="space-y-4">
-          <div className="rounded-2xl border border-cyan-300/70 bg-sunken/45 p-4 shadow-2xl shadow-cyan-500/20 ring-1 ring-cyan-400/20 sm:p-5">
+          <div className="rounded-section border border-accent/40 bg-sunken/45 p-4 sm:p-5">
             {photo && (
-              <div className="mb-3 inline-flex max-w-full items-center gap-3 rounded-xl bg-gray-700/90 p-2 pr-3">
+              <div className="mb-3 inline-flex max-w-full items-center gap-3 rounded-xl bg-raised/90 p-2 pr-3">
                 <img
                   src={photo.previewUrl}
                   alt=""
@@ -260,7 +260,7 @@ export default function AITextAnalyzer({ onClose, onConfirmed, enableTTS = false
                   type="button"
                   onClick={removePhoto}
                   disabled={isAnalyzing}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-gray-300 text-gray-900 hover:bg-gray-100 disabled:opacity-50"
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-raised text-ink hover:bg-card disabled:opacity-50"
                   aria-label="Remove photo"
                 >
                   <X className="w-4 h-4" />
@@ -283,18 +283,18 @@ Examples:
               disabled={isAnalyzing}
               maxLength={500}
             />
-            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-cyan-300/10 pt-3">
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-accent/10 pt-3">
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={isAnalyzing}
-                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/25 bg-page/25 text-ink-soft transition-colors hover:bg-gray-700 disabled:opacity-50"
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent/25 bg-page/25 text-ink-soft transition-colors hover:bg-raised disabled:opacity-50"
                   aria-label={photo ? 'Replace photo' : 'Upload photo'}
                 >
                   <Plus className="w-6 h-6" />
                 </button>
-                {photo && <ImageIcon className="w-4 h-4 text-cyan-400" />}
+                {photo && <ImageIcon className="w-4 h-4 text-accent" />}
               </div>
               <button
                 type="button"
@@ -302,8 +302,8 @@ Examples:
                 disabled={isAnalyzing || !isDictationSupported}
                 className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                   isListening
-                    ? 'border-cyan-400 bg-cyan-500/20 text-cyan-200'
-                    : 'border-cyan-500/25 bg-page/25 text-ink-soft hover:bg-gray-700'
+                    ? 'border-accent bg-accent/20 text-accent'
+                    : 'border-accent/25 bg-page/25 text-ink-soft hover:bg-raised'
                 }`}
                 aria-label={isListening ? 'Stop dictation' : 'Dictate'}
               >
@@ -322,8 +322,8 @@ Examples:
                 compact
                 embedded
               />
-              <label className="relative flex h-10 items-center gap-1.5 rounded-xl border border-cyan-500/25 bg-page/25 px-3 text-ink-soft transition-colors hover:bg-gray-700">
-                <Calendar className="h-4 w-4 text-cyan-400" />
+              <label className="relative flex h-10 items-center gap-1.5 rounded-xl border border-accent/25 bg-page/25 px-3 text-ink-soft transition-colors hover:bg-raised">
+                <Calendar className="h-4 w-4 text-accent" />
                 <span className="sr-only">Default Schedule Date</span>
                 <select
                   value={selectedQuickDate ? defaultScheduleDate : 'custom'}
@@ -340,10 +340,10 @@ Examples:
                 </select>
               </label>
               <div className="ml-auto flex items-center justify-end gap-2">
-                {isListening && <span className="text-xs text-cyan-300">Listening</span>}
-                {dictationError && <span className="max-w-32 truncate text-xs text-red-300">{dictationError}</span>}
+                {isListening && <span className="text-xs text-accent">Listening</span>}
+                {dictationError && <span className="max-w-32 truncate text-xs text-state-danger">{dictationError}</span>}
                 <span className="text-xs text-ink-muted">{inputText.length}/500</span>
-                <Sparkles className="w-4 h-4 text-cyan-400 animate-neon-flicker" />
+                <Sparkles className="h-4 w-4 text-accent" />
                 {renderAnalyzeButton()}
               </div>
             </div>
@@ -369,7 +369,7 @@ Examples:
             >
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-ink flex items-center space-x-2">
-                  <Sparkles className="w-5 h-5 text-cyan-400" />
+                  <Sparkles className="w-5 h-5 text-accent" />
                   <span>AI Generated Tasks</span>
                 </h3>
                 <div className="flex items-center space-x-3">
@@ -421,13 +421,13 @@ Examples:
           onClick={() => setIsCustomDateOpen(false)}
         >
           <div
-            className="w-full max-w-sm rounded-2xl border border-cyan-500/30 bg-page p-5 shadow-2xl shadow-cyan-500/20"
+            className="surface-overlay w-full max-w-sm p-5"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between gap-3">
               <div className="flex items-center space-x-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/15">
-                  <Calendar className="h-4 w-4 text-cyan-400" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15">
+                  <Calendar className="h-4 w-4 text-accent" />
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-ink">Default Schedule Date</h3>

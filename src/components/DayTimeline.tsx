@@ -223,10 +223,10 @@ function CalendarEventBlock({
         <button
           type="button"
           onClick={() => onComplete(event.id, !event.completed)}
-          className="-m-3 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+          className="-m-3 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           aria-label={event.completed ? 'Uncheck calendar event' : 'Check calendar event'}
         >
-          <span aria-hidden="true" className={`flex h-4 w-4 items-center justify-center rounded-full border-2 transition-all duration-300 sm:h-5 sm:w-5 ${event.completed ? 'border-green-500 bg-gradient-to-r from-green-500 to-emerald-600 text-white' : 'border-line-strong'}`}>
+          <span aria-hidden="true" className={`flex h-4 w-4 items-center justify-center rounded-full border-2 transition-colors sm:h-5 sm:w-5 ${event.completed ? 'border-state-success bg-state-success text-white' : 'border-line-strong'}`}>
             {event.completed && <Check className="h-3 w-3" />}
           </span>
         </button>
@@ -234,17 +234,17 @@ function CalendarEventBlock({
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex min-w-0 flex-1 items-center gap-2">
-              <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border border-emerald-500/30 bg-emerald-500/20 text-emerald-300">
+              <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border border-state-success/30 bg-state-success/20 text-state-success">
                 <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               </div>
               <h3 className={`truncate text-sm font-medium sm:text-base ${
-                event.completed ? 'line-through text-gray-500' : 'text-ink'
+                event.completed ? 'line-through text-ink-muted' : 'text-ink'
               }`}>
                 {event.title}
               </h3>
             </div>
 
-            <span className="hidden shrink-0 rounded-full border border-emerald-500/30 bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300 sm:inline-flex">
+            <span className="hidden shrink-0 rounded-full border border-state-success/30 bg-state-success/15 px-2 py-1 text-xs text-state-success sm:inline-flex">
               Calendar
             </span>
           </div>
@@ -273,28 +273,28 @@ function CalendarEventBlock({
 const RECORD_STYLE: Record<RecordKind, { icon: typeof Flame; accent: string; chip: string }> = {
   nutrition: {
     icon: Flame,
-    accent: 'border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/20',
-    chip: 'border-rose-500/30 bg-rose-500/20 text-rose-300',
+    accent: 'border-state-danger/30 bg-state-danger/10 hover:bg-state-danger/20',
+    chip: 'border-state-danger/30 bg-state-danger/20 text-state-danger',
   },
   weight: {
     icon: Scale,
-    accent: 'border-sky-500/30 bg-sky-500/10 hover:bg-sky-500/20',
-    chip: 'border-sky-500/30 bg-sky-500/20 text-sky-300',
+    accent: 'border-state-info/30 bg-state-info/10 hover:bg-state-info/20',
+    chip: 'border-state-info/30 bg-state-info/20 text-state-info',
   },
   workout: {
     icon: Dumbbell,
-    accent: 'border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20',
-    chip: 'border-violet-500/30 bg-violet-500/20 text-violet-300',
+    accent: 'border-category-fitness/30 bg-category-fitness/10 hover:bg-category-fitness/20',
+    chip: 'border-category-fitness/30 bg-category-fitness/20 text-category-fitness',
   },
   progress: {
     icon: Award,
-    accent: 'border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20',
-    chip: 'border-amber-500/30 bg-amber-500/20 text-amber-300',
+    accent: 'border-state-warning/30 bg-state-warning/10 hover:bg-state-warning/20',
+    chip: 'border-state-warning/30 bg-state-warning/20 text-state-warning',
   },
   'habit-progress': {
     icon: RotateCcw,
-    accent: 'border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20',
-    chip: 'border-cyan-500/30 bg-cyan-500/20 text-cyan-300',
+    accent: 'border-accent/30 bg-accent/10 hover:bg-accent/20',
+    chip: 'border-accent/30 bg-accent/20 text-accent',
   },
 }
 
@@ -359,10 +359,10 @@ function TimelineRecordBlock({
 function NowMarker() {
   return (
     <div className="relative flex items-center gap-2 py-0.5" data-testid="timeline-now-marker">
-      <span className="rounded-full bg-cyan-400 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-black">
+      <span className="rounded-full bg-accent px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-black">
         Now
       </span>
-      <span className="h-px flex-1 bg-cyan-400/60" />
+      <span className="h-px flex-1 bg-accent/60" />
     </div>
   )
 }
@@ -384,7 +384,7 @@ function TaskDragGrip({
       data-testid="timeline-task-drag-grip"
       data-timeline-drag-handle="true"
       aria-label={label}
-      className="flex h-11 min-h-11 w-11 min-w-11 shrink-0 cursor-grab touch-none select-none items-center justify-center self-center rounded-md border border-line/70 bg-page/60 text-gray-500 transition-colors hover:border-cyan-500/50 hover:text-cyan-300 active:cursor-grabbing"
+      className="flex h-11 min-h-11 w-11 min-w-11 shrink-0 cursor-grab touch-none select-none items-center justify-center self-center rounded-md border border-line/70 bg-page/60 text-ink-muted transition-colors hover:border-accent/50 hover:text-accent active:cursor-grabbing"
     >
       <GripVertical className={compact ? 'h-4 w-4' : 'h-5 w-5'} />
     </div>
@@ -574,7 +574,7 @@ export default function DayTimeline({
           {isStamped(task) && (
             // An untimed Item only has an hour because it was settled — say when,
             // or the timeline asserts a time the Item never actually had.
-            <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-cyan-500/30 bg-cyan-500/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-cyan-300">
+            <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-accent/30 bg-accent/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-accent">
               logged {timelineClock(task)}
             </span>
           )}
@@ -893,7 +893,7 @@ export default function DayTimeline({
                   aria-expanded={isAnytimeExpanded}
                   aria-controls="anytime-items"
                   onClick={() => setIsAnytimeExpanded((expanded) => !expanded)}
-                  className="today-anytime-disclosure inline-flex h-11 min-h-11 shrink-0 items-center whitespace-nowrap rounded-lg px-3 text-sm font-medium text-cyan-300 hover:bg-cyan-500/10"
+                  className="today-anytime-disclosure inline-flex h-11 min-h-11 shrink-0 items-center whitespace-nowrap rounded-lg px-3 text-sm font-medium text-accent hover:bg-accent/10"
                 >
                   {isAnytimeExpanded ? 'Show less' : `Show all ${anytime.length}`}
                 </button>
@@ -935,7 +935,7 @@ export default function DayTimeline({
                               className="min-w-0"
                             />
                             {ageBadge(task.scheduledDate) && (
-                              <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-300">
+                              <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-state-warning/30 bg-state-warning/15 px-2 py-0.5 text-[10px] font-medium text-state-warning">
                                 {ageBadge(task.scheduledDate)}
                               </span>
                             )}
@@ -1025,7 +1025,7 @@ export default function DayTimeline({
                         data-compacted={isCompacted ? 'true' : 'false'}
                         className={`timeline-slot relative flex min-w-0 gap-1 overflow-visible rounded px-1 py-2 transition-colors sm:gap-2 sm:px-2 ${hasContent ? 'z-20' : ''} ${isCompacted ? 'pointer-events-none' : ''} ${
                           snapshot.isDraggingOver
-                            ? 'bg-blue-900/40 drop-zone'
+                            ? 'bg-state-info/10 drop-zone'
                             : hasContent
                               ? 'bg-card/30'
                               : isCompacted
@@ -1034,7 +1034,7 @@ export default function DayTimeline({
                         }`}
                         style={{ height: slotHeight }}
                       >
-                        <span className={`w-10 flex-shrink-0 text-xs sm:w-12 ${isCompacted ? 'pt-0 text-[11px]' : 'pt-2'} ${hasContent || snapshot.isDraggingOver ? 'text-ink-muted' : 'text-gray-600'}`}>
+                        <span className={`w-10 flex-shrink-0 text-xs sm:w-12 ${isCompacted ? 'pt-0 text-[11px]' : 'pt-2'} ${hasContent || snapshot.isDraggingOver ? 'text-ink-muted' : 'text-ink-muted'}`}>
                           {formatHour(slot)}
                         </span>
 
@@ -1044,7 +1044,7 @@ export default function DayTimeline({
                           {isCurrentHour && renderedRows.slice(settledCount)}
                           {provided.placeholder}
                           {snapshot.isDraggingOver && slotTasks.length === 0 && (
-                            <div className="px-1 py-1 text-xs text-blue-400">Drop to schedule at {formatHour(slot)}</div>
+                            <div className="px-1 py-1 text-xs text-state-info">Drop to schedule at {formatHour(slot)}</div>
                           )}
                         </div>
                       </div>

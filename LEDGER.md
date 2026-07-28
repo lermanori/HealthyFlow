@@ -1,3 +1,9 @@
+### 2026-07-28 13:01 — `codex/151-responsive-visual-system`
+
+Normalized HealthyFlow around a semantic, contrast-safe visual system shared by Midnight and White themes across Login, Today, Talk, Add, Health, Nutrition, Workouts, Progress, and Settings. Shared category presentation now follows the canonical six-value Zod contract, completion feedback is quiet and undoable, text selection and reduced-motion behavior are preserved, and the hidden Week View remains untouched. Responsive baselines cover every visible primary surface at desktop, compact, and mobile widths, with focused accessibility and interaction regressions alongside them.
+
+---
+
 ### 2026-07-28 11:05 — `codex/timeline-day-record`
 
 Turned the Today timeline into the day's record rather than only its plan: every data type now earns a place on the clock, and the Anytime backlog holds only what still needs a decision. `/day-summary` grew `resolvedTime`, per-chunk Habit progress times, `loggedTime` on dateless records, and a `supporting.progress` block for Achievements — all resolved against the user's timezone server-side. Partial Habits stay in the backlog while their progress chunks appear on the clock, which is the case that drove the design. Ships alongside the module-presentation work (#150) that had been sitting uncommitted, since the timeline imports it.

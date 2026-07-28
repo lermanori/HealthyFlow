@@ -36,7 +36,7 @@ export default function HealthNavigation({ date }: HealthNavigationProps) {
 
   return (
     <nav
-      className={`grid gap-1.5 rounded-2xl border border-line/80 bg-card/60 p-1.5 ${
+      className={`grid gap-1.5 rounded-section border border-line bg-card p-1.5 ${
         items.length === 1
           ? 'grid-cols-1'
           : items.length === 2
@@ -54,10 +54,10 @@ export default function HealthNavigation({ date }: HealthNavigationProps) {
             key={item.name}
             to={item.href}
             aria-current={isActive ? 'page' : undefined}
-            className={`flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-xl px-2 text-sm font-semibold transition sm:px-3 ${
+            className={`flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-control border px-2 text-sm font-semibold transition-colors sm:px-3 ${
               isActive
-                ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20'
-                : 'text-ink-muted hover:bg-raised/60 hover:text-ink'
+                ? 'border-accent/40 bg-accent/10 text-accent'
+                : 'border-transparent text-ink-muted hover:bg-raised hover:text-ink'
             }`}
           >
             <item.icon className="h-4 w-4 shrink-0" />

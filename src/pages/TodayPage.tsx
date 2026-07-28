@@ -41,11 +41,10 @@ import DayTimeline from '../components/DayTimeline'
 import { buildTimelineRecords } from '../timelineRecords'
 import AIRecommendationsBox from '../components/AIRecommendationsBox'
 import TaskEditModal from '../components/TaskEditModal'
-import ConfettiAnimation from '../components/ConfettiAnimation'
 import SmartReminders from '../components/SmartReminders'
 import AITextAnalyzer from '../components/AITextAnalyzer'
 import LoadingSpinner from '../components/LoadingSpinner'
-import { useNotifications } from '../hooks/useNotifications'
+import { showUndoToast } from '../components/UndoToast'
 import {
   formatRelativeDate,
   formatScheduleHeading,
@@ -240,8 +239,8 @@ function WeekRibbon({
             data-demo-id={isSelected ? 'week-tab' : undefined}
             className={`flex flex-col overflow-hidden rounded-xl border transition-all ${
               isSelected
-                ? 'border-cyan-400/50 bg-cyan-500/[.12] shadow-lg shadow-cyan-500/10'
-                : 'border-line/50 bg-card/[.35] hover:border-cyan-500/30'
+                ? 'border-accent/50 bg-accent/[.12]'
+                : 'border-line/50 bg-card/[.35] hover:border-accent/30'
             }`}
           >
             {/* content: stacked on mobile, row on desktop */}
@@ -249,7 +248,7 @@ function WeekRibbon({
               <time dateTime={key} className="flex flex-col items-center gap-1 lg:flex-row lg:items-baseline lg:gap-1.5">
                 <span
                   className={`text-[10px] tracking-wide lg:uppercase lg:tracking-widest ${
-                    isSelected ? 'font-semibold text-cyan-300' : 'text-ink-muted'
+                    isSelected ? 'font-semibold text-accent' : 'text-ink-muted'
                   }`}
                 >
                   <span className="lg:hidden">{format(day, 'EEEEE')}</span>
@@ -258,7 +257,7 @@ function WeekRibbon({
                 <span
                   className={`text-[15px] leading-none lg:text-lg ${
                     isSelected
-                      ? 'font-bold text-cyan-100'
+                      ? 'font-bold text-accent'
                       : isFuture
                         ? 'font-semibold text-ink-muted'
                         : 'font-semibold text-ink-soft'
@@ -271,9 +270,9 @@ function WeekRibbon({
               <span
                 className={`text-[10px] font-semibold lg:text-[11px] ${
                   allDone && !isSelected
-                    ? 'text-green-400'
+                    ? 'text-state-success'
                     : isSelected
-                      ? 'text-cyan-200'
+                      ? 'text-accent'
                       : 'text-ink-muted'
                 }`}
               >
@@ -292,7 +291,7 @@ function WeekRibbon({
             {/* fill bar */}
             <span
               className={`mt-1 block h-[3px] w-full lg:mt-0 ${
-                isSelected ? 'bg-cyan-400/15' : 'bg-[#1c2739]'
+                isSelected ? 'bg-accent/15' : 'bg-[#1c2739]'
               }`}
             >
               {!isFuture && load.total > 0 && (
@@ -389,7 +388,7 @@ function DayContextDisclosure({
         aria-expanded={expanded}
         aria-controls={panelId}
         onClick={() => setExpanded((current) => !current)}
-        className="group flex min-h-11 w-full items-start gap-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-cyan-400"
+        className="group flex min-h-11 w-full items-start gap-3 py-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus"
       >
         <span className="mt-0.5 shrink-0" aria-hidden="true">{icon}</span>
         <span className="min-w-0 flex-1">
@@ -503,11 +502,11 @@ function DecisionBand({ summary }: { summary: DaySummary }) {
       <h2 id="daily-decisions-heading" className="sr-only">Daily decisions</h2>
       <div className="today-decision-grid">
         <div className="today-decision-primary min-w-0 border-b border-line/60 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-400">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
             Focus now
           </p>
           <div className="mt-2 flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-cyan-500/15 text-cyan-300">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent">
               {focus.state === 'completed_day'
                 ? <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                 : <Clock className="h-4 w-4" aria-hidden="true" />}
@@ -576,8 +575,8 @@ function DecisionBand({ summary }: { summary: DaySummary }) {
               <p className="mt-2 text-base font-semibold text-ink">{capacityTitle}</p>
             </div>
             {capacity.status === 'partial' || capacity.status === 'unavailable'
-              ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" aria-label="Incomplete capacity data" />
-              : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-400" aria-label="Capacity data complete" />}
+              ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-state-warning" aria-label="Incomplete capacity data" />
+              : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-state-success" aria-label="Capacity data complete" />}
           </div>
           <p className="mt-1 text-xs leading-relaxed text-ink-muted">{capacityDetail}</p>
           <div className="mt-3 flex items-center gap-2 text-xs text-ink-soft">
@@ -594,7 +593,7 @@ function DecisionBand({ summary }: { summary: DaySummary }) {
                 className="h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-raised"
               >
                 <span
-                  className="block h-full bg-cyan-400"
+                  className="block h-full bg-accent"
                   style={{ width: `${summary.completion.percent}%` }}
                 />
               </span>
@@ -650,7 +649,7 @@ function DayContextSummary({
         <DayContextDisclosure
           dateKey={summary.date}
           id="habits"
-          icon={<HeartPulse className="h-4 w-4 text-cyan-400" />}
+          icon={<HeartPulse className="h-4 w-4 text-accent" />}
           title="Habits"
           summary={habitSummaryCopy}
         >
@@ -692,7 +691,7 @@ function DayContextSummary({
                           className="mt-1.5 h-1 overflow-hidden rounded-full bg-raised"
                         >
                           <span
-                            className="block h-full bg-cyan-400"
+                            className="block h-full bg-accent"
                             style={{ width: `${progressPercent}%` }}
                           />
                         </div>
@@ -711,7 +710,7 @@ function DayContextSummary({
           <DayContextDisclosure
             dateKey={summary.date}
             id="nutrition"
-            icon={<Utensils className="h-4 w-4 text-rose-400" />}
+            icon={<Utensils className="h-4 w-4 text-state-danger" />}
             title="Nutrition and Weight"
             summary={nutritionSummaryCopy}
           >
@@ -769,7 +768,7 @@ function DayContextSummary({
           <DayContextDisclosure
             dateKey={summary.date}
             id="workouts"
-            icon={<Dumbbell className="h-4 w-4 text-amber-400" />}
+            icon={<Dumbbell className="h-4 w-4 text-state-warning" />}
             title="Workout"
             summary={workoutSessionCopy}
           >
@@ -826,7 +825,7 @@ function RhythmKickoffRow({ kickoff }: { kickoff: DueKickoff }) {
   return (
     <div data-demo-id="morning-planning-card" className="flex min-h-12 flex-col gap-2 border-y border-line/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4">
       <div className="flex min-w-0 items-center gap-2">
-        <Sparkles className="h-4 w-4 shrink-0 text-cyan-400" aria-hidden="true" />
+        <Sparkles className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
         <p className="truncate text-sm text-ink-soft">
           <span className="font-semibold text-ink">{kickoff.title}.</span>{' '}
           {kickoff.body}
@@ -834,7 +833,7 @@ function RhythmKickoffRow({ kickoff }: { kickoff: DueKickoff }) {
       </div>
       <Link
         to={`/talk?kickoff=${kickoff.type}`}
-        className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-3 text-sm font-semibold text-cyan-300 hover:bg-cyan-500/10"
+        className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-3 text-sm font-semibold text-accent hover:bg-accent/10"
       >
         <span>{kickoff.button}</span>
       </Link>
@@ -846,12 +845,10 @@ export default function TodayPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [now, setNow] = useState(new Date())
   const [editingTask, setEditingTask] = useState<Task | null>(null)
-  const [showConfetti, setShowConfetti] = useState(false)
   const [showAIAnalyzer, setShowAIAnalyzer] = useState(false)
   const [habitDeleteCandidate, setHabitDeleteCandidate] = useState<Task | null>(null)
   const [habitCheckIn, setHabitCheckIn] = useState<HabitItem | null>(null)
   const queryClient = useQueryClient()
-  const { showNotification } = useNotifications()
   const location = useLocation()
   const { settings, modules } = useSettings()
   const enabledTodaySummaries = new Set(
@@ -875,9 +872,6 @@ export default function TodayPage() {
     const intervalId = window.setInterval(() => setNow(new Date()), 60_000)
     return () => window.clearInterval(intervalId)
   }, [])
-
-  // Register for vibration feedback if available
-  const hasVibration = 'navigator' in window && 'vibrate' in navigator
 
   const {
     data: daySummary,
@@ -971,18 +965,19 @@ export default function TodayPage() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
-      setShowConfetti(true)
-      
-      // Vibrate on task completion if supported
-      if (hasVibration) {
-        navigator.vibrate([100, 50, 100])
-      }
-      
-      showNotification('Task Completed! 🚀', {
-        body: `Excellent work completing "${completedTask.title}"!`,
-        tag: 'task-completion'
-      })
-      toast.success('Task completed! 🚀')
+      showUndoToast(
+        `"${completedTask.title}" completed.`,
+        () => {
+          void taskService.updateTask(completedTask.id, { completed: false })
+            .then(() => {
+              queryClient.invalidateQueries({ queryKey: ['tasks'] })
+              queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+              queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
+            })
+            .catch(() => toast.error('Could not undo completion'))
+        },
+        `Undo completion of ${completedTask.title}`,
+      )
     },
   })
 
@@ -1125,11 +1120,6 @@ export default function TodayPage() {
       queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
       setHabitDeleteCandidate(null)
       toast.success('Task deleted')
-      
-      // Vibrate on delete if supported
-      if (hasVibration) {
-        navigator.vibrate(200)
-      }
     },
   })
 
@@ -1231,7 +1221,7 @@ export default function TodayPage() {
 
   if (isDaySummaryError) {
     return (
-      <div className="mx-auto max-w-lg rounded-xl border border-red-500/30 bg-red-500/10 p-5 text-center">
+      <div className="mx-auto max-w-lg rounded-xl border border-state-danger/30 bg-state-danger/10 p-5 text-center">
         <h1 className="text-lg font-semibold text-ink">Could not load this daily plan</h1>
         <p className="mt-1 text-sm text-ink-muted">
           Your Items were not changed. Retry the selected date.
@@ -1249,12 +1239,6 @@ export default function TodayPage() {
 
   return (
     <div className="today-workspace space-y-4 pb-4 md:space-y-5 md:pb-0">
-      {/* Confetti Animation */}
-      <ConfettiAnimation 
-        show={showConfetti} 
-        onComplete={() => setShowConfetti(false)} 
-      />
-
       {/* Day-first header: title row + week ribbon */}
       <div className="space-y-3">
         {/* Title + actions */}
@@ -1273,7 +1257,7 @@ export default function TodayPage() {
               {!isSameDay(selectedDate, new Date()) && (
                 <button
                   onClick={handleToday}
-                  className="ml-2 text-xs font-medium text-cyan-400 transition-colors hover:text-cyan-300"
+                  className="ml-2 text-xs font-medium text-accent transition-colors hover:text-accent"
                 >
                   Today
                 </button>
@@ -1291,7 +1275,7 @@ export default function TodayPage() {
                 type="button"
                 onClick={handlePreviousDay}
                 aria-label="Previous day"
-                className="flex h-11 w-11 items-center justify-center border-r border-line/60 text-ink-muted transition-colors hover:text-cyan-400"
+                className="flex h-11 w-11 items-center justify-center border-r border-line/60 text-ink-muted transition-colors hover:text-accent"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -1299,7 +1283,7 @@ export default function TodayPage() {
                 type="button"
                 onClick={handleNextDay}
                 aria-label="Next day"
-                className="flex h-11 w-11 items-center justify-center text-ink-muted transition-colors hover:text-cyan-400"
+                className="flex h-11 w-11 items-center justify-center text-ink-muted transition-colors hover:text-accent"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -1308,7 +1292,7 @@ export default function TodayPage() {
             <Link
               to="/talk"
               data-demo-id="talk-button"
-              className="flex min-h-11 items-center gap-1.5 rounded-xl bg-cyan-400 px-4 py-2 text-sm font-semibold text-cyan-950 transition-colors hover:bg-cyan-300"
+              className="flex min-h-11 items-center gap-1.5 rounded-xl bg-action px-4 py-2 text-sm font-semibold text-on-action transition-colors hover:bg-action-hover"
             >
               <Sparkles className="h-4 w-4" />
               <span>Talk</span>
@@ -1335,7 +1319,7 @@ export default function TodayPage() {
               type="button"
               onClick={handlePreviousDay}
               aria-label="Previous day"
-              className="flex h-11 w-11 items-center justify-center rounded-lg border border-line/60 bg-card/40 text-ink-muted transition-colors hover:text-cyan-400"
+              className="flex h-11 w-11 items-center justify-center rounded-lg border border-line/60 bg-card/40 text-ink-muted transition-colors hover:text-accent"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
@@ -1343,7 +1327,7 @@ export default function TodayPage() {
               type="button"
               onClick={handleNextDay}
               aria-label="Next day"
-              className="flex h-11 w-11 items-center justify-center rounded-lg border border-line/60 bg-card/40 text-ink-muted transition-colors hover:text-cyan-400"
+              className="flex h-11 w-11 items-center justify-center rounded-lg border border-line/60 bg-card/40 text-ink-muted transition-colors hover:text-accent"
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
@@ -1363,7 +1347,7 @@ export default function TodayPage() {
       {isViewingToday && dueKickoff && <RhythmKickoffRow kickoff={dueKickoff} />}
 
       {settings?.onboardingStatus === 'active' && (
-        <section className="flex flex-col gap-3 rounded-xl border border-cyan-500/30 bg-cyan-500/[.06] p-4 sm:flex-row sm:items-center sm:justify-between">
+        <section className="flex flex-col gap-3 rounded-xl border border-accent/30 bg-accent/[.06] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-ink">Tell HealthyFlow about your day</h2>
             <p className="mt-1 text-sm text-ink-muted">
@@ -1382,7 +1366,7 @@ export default function TodayPage() {
             <button
               type="button"
               onClick={() => setShowAIAnalyzer(true)}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-cyan-400 px-4 text-sm font-semibold text-cyan-950 hover:bg-cyan-300"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-action px-4 text-sm font-semibold text-on-action hover:bg-action-hover"
             >
               <Brain className="h-4 w-4" aria-hidden="true" />
               Start
@@ -1431,10 +1415,10 @@ export default function TodayPage() {
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.96, y: 16 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md rounded-xl border border-line bg-page p-5 shadow-2xl"
+              className="surface-overlay w-full max-w-md p-5"
             >
               <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-red-500/30 bg-red-500/15 text-red-300">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-state-danger/30 bg-state-danger/15 text-state-danger">
                   <Trash2 className="h-5 w-5" />
                 </div>
                 <div className="min-w-0">
@@ -1449,7 +1433,7 @@ export default function TodayPage() {
                 <button
                   type="button"
                   onClick={() => confirmHabitDelete('instance')}
-                  className="flex items-center justify-center gap-2 rounded-lg border border-line bg-card px-4 py-3 text-sm font-medium text-ink transition-colors hover:bg-gray-700"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-line bg-card px-4 py-3 text-sm font-medium text-ink transition-colors hover:bg-raised"
                 >
                   <Calendar className="h-4 w-4" />
                   This day
@@ -1457,7 +1441,7 @@ export default function TodayPage() {
                 <button
                   type="button"
                   onClick={() => confirmHabitDelete('habit')}
-                  className="flex items-center justify-center gap-2 rounded-lg border border-red-500/40 bg-red-500/15 px-4 py-3 text-sm font-medium text-red-200 transition-colors hover:bg-red-500/25"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-state-danger/40 bg-state-danger/15 px-4 py-3 text-sm font-medium text-state-danger transition-colors hover:bg-state-danger/25"
                 >
                   <RotateCcw className="h-4 w-4" />
                   Whole habit

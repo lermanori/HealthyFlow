@@ -14,7 +14,7 @@ export default function LoadingSpinner({ size = 'md', className = '', label = 'L
 
   return (
     <span className="inline-flex" role={decorative ? undefined : 'status'} aria-label={decorative ? undefined : label} aria-hidden={decorative || undefined}>
-      <span className={`animate-spin rounded-full border-2 border-line-strong border-t-cyan-500 ${sizeClasses[size]} ${className}`} />
+      <span className={`animate-spin rounded-full border-2 border-line-strong border-t-accent ${sizeClasses[size]} ${className}`} />
     </span>
   )
 }

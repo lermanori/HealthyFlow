@@ -10,7 +10,7 @@ import { isPureDragUpdate } from '../utils/isPureDragUpdate'
 import { deleteGoogleCalendarEvent, isGoogleCalendarNotConnectedError, syncTaskToGoogleCalendar } from '../calendar'
 import { HabitOutcomeInputSchema, HabitProgress, HabitProgressInputSchema, HabitProgressUpdateSchema } from '../habit-progress'
 import { getItemsForDay, normalizeItemRows } from '../day-summary'
-import { RollbackDragMaterializationInputSchema } from '../task-contracts'
+import { CategorySchema, RollbackDragMaterializationInputSchema } from '../task-contracts'
 
 const router = express.Router()
 
@@ -212,6 +212,10 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
 router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
   const { title, type, category, startTime, duration, repeat } = req.body
+  const parsedCategory = CategorySchema.safeParse(category)
+  if (!parsedCategory.success) {
+    return res.status(400).json({ error: parsedCategory.error.issues })
+  }
   const location = type === 'task' ? normalizeLocation(req.body.location) : null
   const parsedTarget = type === 'habit' ? HabitTargetSchema.safeParse(req.body.habitTarget ?? null) : null
   if (parsedTarget && !parsedTarget.success) return res.status(400).json({ error: parsedTarget.error.issues })
@@ -237,7 +241,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       user_id: userId,
       title,
       type,
-      category,
+      category: parsedCategory.data,
       start_time: startTime,
       location,
       duration,
@@ -306,7 +310,11 @@ router.put('/:id', authenticateToken, async (req: AuthRequest, res) => {
     updateData.duration = updates.duration
   }
   if (updates.category !== undefined) {
-    updateData.category = updates.category
+    const parsedCategory = CategorySchema.safeParse(updates.category)
+    if (!parsedCategory.success) {
+      return res.status(400).json({ error: parsedCategory.error.issues })
+    }
+    updateData.category = parsedCategory.data
   }
   if (updates.location !== undefined) {
     updateData.location = normalizeLocation(updates.location)

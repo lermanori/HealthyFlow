@@ -349,14 +349,28 @@ function dayContextState(date: string, state: DayContextState): DaySummary {
 }
 
 async function mockToday(page: Page, options?: {
+  theme?: 'midnight' | 'white'
   summary?: (date: string) => DaySummary
   summaryError?: () => boolean
   signalError?: boolean
   signals?: (date: string) => DailySignal[]
   onSummaryRequest?: () => void
 }) {
+  await page.addInitScript(() => {
+    localStorage.setItem('token', 'today-workspace-token')
+  })
   await page.clock.setFixedTime(fixedNow)
-  await page.route('**/api/settings', (route) => route.fulfill({ json: settings }))
+  await page.route('**/api/auth/verify', (route) => route.fulfill({
+    json: {
+      id: 'today-workspace-user',
+      email: 'today@healthyflow.local',
+      name: 'Today Review',
+      role: 'user',
+    },
+  }))
+  await page.route('**/api/settings', (route) => route.fulfill({
+    json: { ...settings, theme: options?.theme ?? settings.theme },
+  }))
   await page.route('**/api/proactivity/rhythm', (route) => route.fulfill({
     json: {
       timezone: 'UTC',
@@ -727,6 +741,75 @@ test('Daily Signals render an explicit no-signal state', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Review', exact: true })).toHaveCount(0)
 })
 
+test('completion feedback is undoable, silent, and preserves text selection', async ({ page }) => {
+  await page.addInitScript(() => {
+    const state = window as Window & { __healthyFlowVibrationCalls: VibratePattern[] }
+    state.__healthyFlowVibrationCalls = []
+    Object.defineProperty(navigator, 'vibrate', {
+      configurable: true,
+      value: (pattern: VibratePattern) => {
+        state.__healthyFlowVibrationCalls.push(pattern)
+        return true
+      },
+    })
+  })
+  await mockToday(page)
+
+  let undoRequested = false
+  await page.route('**/api/tasks/complete/task-focus', (route) => route.fulfill({
+    json: {
+      id: 'task-focus',
+      userId: 'today-workspace-user',
+      title: 'Finish the product brief',
+      type: 'task',
+      category: 'work',
+      completed: true,
+      scheduledDate: '2026-07-15',
+      startTime: '09:30',
+      duration: 60,
+      repeat: 'none',
+      position: null,
+      createdAt: '2026-07-15T08:00:00.000Z',
+    },
+  }))
+  await page.route('**/api/tasks/task-focus', async (route) => {
+    undoRequested = true
+    await route.fulfill({
+      json: {
+        id: 'task-focus',
+        userId: 'today-workspace-user',
+        title: 'Finish the product brief',
+        type: 'task',
+        category: 'work',
+        completed: false,
+        scheduledDate: '2026-07-15',
+        startTime: '09:30',
+        duration: 60,
+        repeat: 'none',
+        position: null,
+        createdAt: '2026-07-15T08:00:00.000Z',
+      },
+    })
+  })
+  await page.goto('/app')
+
+  const task = page.locator('[data-testid="timeline-draggable-task"]').filter({
+    hasText: 'Finish the product brief',
+  }).first()
+  const title = task.getByRole('heading', { name: 'Finish the product brief' })
+  expect(await title.evaluate((element) => getComputedStyle(element).userSelect)).not.toBe('none')
+
+  await task.getByRole('button', { name: 'Check task' }).click()
+  const undo = page.getByRole('button', { name: 'Undo completion of Finish the product brief' })
+  await expect(undo).toBeVisible()
+  expect(await page.evaluate(() => (
+    window as Window & { __healthyFlowVibrationCalls: VibratePattern[] }
+  ).__healthyFlowVibrationCalls)).toEqual([])
+
+  await undo.click()
+  await expect.poll(() => undoRequested).toBe(true)
+})
+
 for (const viewport of viewports) {
   test(`dense Today decision workspace at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport)
@@ -741,6 +824,25 @@ for (const viewport of viewports) {
     await expect(page.locator('[data-demo-id="anytime-backlog"]')).toBeVisible()
     await expect(page.locator('[data-demo-id="schedule-section"]')).toBeVisible()
     await expect(page).toHaveScreenshot(`today-workspace-${viewport.name}.png`, {
+      animations: 'disabled',
+      fullPage: true,
+    })
+  })
+}
+
+for (const viewport of viewports) {
+  test(`dense Today white-theme workspace at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+    await page.setViewportSize(viewport)
+    await mockToday(page, { theme: 'white' })
+    await page.goto('/app')
+
+    await expect(page.locator('#loading-screen')).toBeHidden()
+    await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible()
+    await expect(page.locator('[data-demo-id="decision-band"]')).toBeVisible()
+    await expect(page.locator('[data-demo-id="daily-signals-summary"]')).toBeVisible()
+    await expect(page.locator('[data-demo-id="anytime-backlog"]')).toBeVisible()
+    await expect(page.locator('[data-demo-id="schedule-section"]')).toBeVisible()
+    await expect(page).toHaveScreenshot(`today-workspace-white-${viewport.name}.png`, {
       animations: 'disabled',
       fullPage: true,
     })

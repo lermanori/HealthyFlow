@@ -20,6 +20,7 @@ import {
 } from '../openai'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 import { isDemoPersonaEmail } from '../demo-personas'
+import { CategorySchema } from '../task-contracts'
 
 const QUERY_TASKS_MODEL = 'gpt-3.5-turbo'
 const QUERY_TASKS_MAX_TOKENS = 500
@@ -502,7 +503,7 @@ router.post('/query-tasks', authenticateToken, async (req: AuthRequest, res) => 
 const ParsedItem = z.object({
   title: z.string().min(1),
   type: z.enum(['task', 'habit']),
-  category: z.enum(['health', 'work', 'personal', 'fitness', 'grocery', 'nutrition']),
+  category: CategorySchema,
   duration: z.number().int().positive(),
   priority: z.enum(['high', 'medium', 'low']),
   startTime: z.string().regex(/^\d{2}:\d{2}$/).nullable(),
