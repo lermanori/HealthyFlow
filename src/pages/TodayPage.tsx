@@ -1,4 +1,12 @@
-import { useState, useEffect, useMemo, useRef, type KeyboardEvent, type ReactNode } from 'react'
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useRef,
+  type KeyboardEvent,
+  type ReactNode,
+  type TouchEvent,
+} from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays, isSameDay, isBefore } from 'date-fns'
 import {
@@ -40,6 +48,7 @@ import {
 import DayTimeline from '../components/DayTimeline'
 import { buildTimelineRecords } from '../timelineRecords'
 import AIRecommendationsBox from '../components/AIRecommendationsBox'
+import { DAILY_SIGNALS_ENABLED } from '../featureFlags'
 import TaskEditModal from '../components/TaskEditModal'
 import SmartReminders from '../components/SmartReminders'
 import AITextAnalyzer from '../components/AITextAnalyzer'
@@ -49,6 +58,7 @@ import {
   formatRelativeDate,
   formatScheduleHeading,
   formatSelectedDateAnnouncement,
+  getDaySwipeDirection,
   getWeekDates,
   getWeekNavigationIndex,
   type WeekStartsOn,
@@ -104,6 +114,31 @@ const touchpointWindowMinutes: Record<TouchpointType, number> = {
 const daytimeCutoffs = {
   morningEnds: 12 * 60,
   middayEnds: 18 * 60,
+}
+
+const DAY_SWIPE_IGNORED_TARGETS = [
+  'a',
+  'button',
+  'input',
+  'select',
+  'textarea',
+  '[contenteditable="true"]',
+  '[role="button"]',
+  '[role="dialog"]',
+  '[aria-modal="true"]',
+  '[data-timeline-drag-handle="true"]',
+  '[data-timeline-drag-id]',
+  '[data-testid="timeline-draggable-task"]',
+  '[data-no-day-swipe="true"]',
+].join(',')
+
+type DaySwipeGesture = {
+  identifier: number
+  startX: number
+  startY: number
+  currentX: number
+  currentY: number
+  cancelled: boolean
 }
 
 function parseTimeToMinutes(time: string) {
@@ -848,6 +883,9 @@ export default function TodayPage() {
   const [showAIAnalyzer, setShowAIAnalyzer] = useState(false)
   const [habitDeleteCandidate, setHabitDeleteCandidate] = useState<Task | null>(null)
   const [habitCheckIn, setHabitCheckIn] = useState<HabitItem | null>(null)
+  const [daySwipeOffset, setDaySwipeOffset] = useState(0)
+  const [isDaySwipeTracking, setIsDaySwipeTracking] = useState(false)
+  const daySwipeGesture = useRef<DaySwipeGesture | null>(null)
   const queryClient = useQueryClient()
   const location = useLocation()
   const { settings, modules } = useSettings()
@@ -1207,6 +1245,85 @@ export default function TodayPage() {
     setSelectedDate(new Date())
   }
 
+  const resetDaySwipe = () => {
+    daySwipeGesture.current = null
+    setIsDaySwipeTracking(false)
+    setDaySwipeOffset(0)
+  }
+
+  const handleDaySwipeStart = (event: TouchEvent<HTMLDivElement>) => {
+    if (!window.matchMedia('(max-width: 639px)').matches || event.touches.length !== 1) {
+      resetDaySwipe()
+      return
+    }
+    if (showAIAnalyzer || habitDeleteCandidate || editingTask || habitCheckIn) {
+      resetDaySwipe()
+      return
+    }
+    const target = event.target
+    if (target instanceof Element && target.closest(DAY_SWIPE_IGNORED_TARGETS)) {
+      resetDaySwipe()
+      return
+    }
+
+    const touch = event.touches[0]
+    daySwipeGesture.current = {
+      identifier: touch.identifier,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      currentX: touch.clientX,
+      currentY: touch.clientY,
+      cancelled: false,
+    }
+    setIsDaySwipeTracking(true)
+    setDaySwipeOffset(0)
+  }
+
+  const handleDaySwipeMove = (event: TouchEvent<HTMLDivElement>) => {
+    const gesture = daySwipeGesture.current
+    if (!gesture || event.touches.length !== 1) {
+      resetDaySwipe()
+      return
+    }
+    const touch = Array.from(event.touches).find(({ identifier }) => identifier === gesture.identifier)
+    if (!touch) {
+      resetDaySwipe()
+      return
+    }
+
+    gesture.currentX = touch.clientX
+    gesture.currentY = touch.clientY
+    const deltaX = gesture.currentX - gesture.startX
+    const deltaY = gesture.currentY - gesture.startY
+    if (Math.abs(deltaY) > 16 && Math.abs(deltaY) >= Math.abs(deltaX)) {
+      gesture.cancelled = true
+      setIsDaySwipeTracking(false)
+      setDaySwipeOffset(0)
+      return
+    }
+    if (
+      Math.abs(deltaX) > Math.abs(deltaY) &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      setDaySwipeOffset(Math.max(-36, Math.min(36, deltaX * 0.32)))
+    }
+  }
+
+  const handleDaySwipeEnd = (event: TouchEvent<HTMLDivElement>) => {
+    const gesture = daySwipeGesture.current
+    resetDaySwipe()
+    if (!gesture || gesture.cancelled) return
+
+    const touch = Array.from(event.changedTouches).find(
+      ({ identifier }) => identifier === gesture.identifier
+    )
+    const endX = touch?.clientX ?? gesture.currentX
+    const endY = touch?.clientY ?? gesture.currentY
+    const direction = getDaySwipeDirection(endX - gesture.startX, endY - gesture.startY)
+    if (direction === 'next') handleNextDay()
+    if (direction === 'previous') handlePreviousDay()
+  }
+
   // Carry-forward is now query-time (ADR-0002): incomplete untimed tasks with
   // scheduled_date NULL or < the viewed day surface automatically on GET. No
   // client-side rollover trigger needed.
@@ -1238,7 +1355,45 @@ export default function TodayPage() {
   }
 
   return (
-    <div className="today-workspace space-y-4 pb-4 md:space-y-5 md:pb-0">
+    <div
+      className="today-workspace relative space-y-4 pb-4 md:space-y-5 md:pb-0"
+      data-testid="today-swipe-surface"
+      data-swipe-active={isDaySwipeTracking ? 'true' : 'false'}
+      onTouchStart={handleDaySwipeStart}
+      onTouchMove={handleDaySwipeMove}
+      onTouchEnd={handleDaySwipeEnd}
+      onTouchCancel={resetDaySwipe}
+      style={{
+        touchAction: 'pan-y',
+        transform: daySwipeOffset ? `translate3d(${daySwipeOffset}px, 0, 0)` : undefined,
+        transition: isDaySwipeTracking
+          ? 'none'
+          : 'transform var(--motion-fast) ease-out',
+        willChange: isDaySwipeTracking ? 'transform' : undefined,
+      }}
+    >
+      <div
+        aria-hidden="true"
+        className={`pointer-events-none fixed top-1/2 z-40 hidden -translate-y-1/2 items-center gap-1 rounded-full border border-accent/30 bg-raised/95 px-2.5 py-1.5 text-xs font-semibold text-accent shadow-overlay max-sm:flex ${
+          daySwipeOffset < 0 ? 'right-3' : 'left-3'
+        }`}
+        style={{
+          opacity: Math.min(1, Math.abs(daySwipeOffset) / 24),
+          transform: `translateY(-50%) scale(${0.88 + Math.min(1, Math.abs(daySwipeOffset) / 24) * 0.12})`,
+        }}
+      >
+        {daySwipeOffset < 0 ? (
+          <>
+            <span>Next day</span>
+            <ChevronRight className="h-3.5 w-3.5" />
+          </>
+        ) : (
+          <>
+            <ChevronLeft className="h-3.5 w-3.5" />
+            <span>Previous day</span>
+          </>
+        )}
+      </div>
       {/* Day-first header: title row + week ribbon */}
       <div className="space-y-3">
         {/* Title + actions */}
@@ -1343,7 +1498,7 @@ export default function TodayPage() {
       </div>
 
       {daySummary && <DecisionBand summary={daySummary} />}
-      <AIRecommendationsBox date={selectedDateKey} />
+      {DAILY_SIGNALS_ENABLED && <AIRecommendationsBox date={selectedDateKey} />}
       {isViewingToday && dueKickoff && <RhythmKickoffRow kickoff={dueKickoff} />}
 
       {settings?.onboardingStatus === 'active' && (

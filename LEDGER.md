@@ -1,3 +1,15 @@
+### 2026-07-28 18:07 — `codex/hide-daily-signals`
+
+Daily Signals are now hidden from Today by default behind an opt-in release flag while the product behavior matures. The existing implementation remains intact, and browser tests explicitly enable the flag so its review, recovery, and safety coverage stays active for eventual re-release.
+
+---
+
+### 2026-07-28 17:15 — `codex/137-mobile-day-swipe`
+
+Added a mobile-only Today gesture that moves left or right between adjacent days while preserving the existing visible date controls and navigation contract. Deliberate swipes follow the finger with restrained directional feedback, while vertical scroll, interactive controls, Item dragging, modals, and reduced-motion preferences remain protected. Focused unit and browser regressions cover successful navigation, rejected gestures, and the existing touch-drag workflow.
+
+---
+
 ### 2026-07-28 15:40 — `claude/app-launch-readiness-164e9d`
 
 Fixed the WCAG AA contrast failures the e2e suite had surfaced. The cause was `accent` doing double duty as both the text colour and the tint behind it: at reduced opacity the two converge, so `text-accent/70` on `bg-accent/15` measured 4.07:1 in midnight and 2.67:1 in white. Midnight needed no token change at all — dropping the opacity modifiers took its worst row from 4.07 to 6.52. White needed the accent darkened as well (8 112 140 to 6 90 112), taking its worst row from 2.67 to 5.67. The Axe dialog check now runs in both themes, which is what let seven white-theme violations ship in the first place, and it immediately caught a second unrelated one: `--text-muted` at 4.38:1, nudged to 5.01:1 without flattening the muted/secondary distinction.

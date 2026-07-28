@@ -50,8 +50,6 @@ The React app is served under `/app`; `/` serves the marketing page
   an hour to place it; dragging materialises a real row (ADR-0001).
 - Date navigation across days, with per-day counts for the surrounding week.
 - Focus Now / Next Obligation / Capacity summary strip.
-- **Daily Signals** — reviewable observations about the day (e.g. a habit missed
-  several recent days and due today).
 - Morning planning prompt.
 
 ### Rollover
@@ -153,12 +151,18 @@ founder, and fulfilment is manual by design at this stage.
 
 ## Behind a flag
 
+Both flags live in `src/featureFlags.ts` and are set in neither `.env.production`
+nor `netlify.toml`, so both features are invisible to every production user.
+Do not market either until its flag is on.
+
 - **Week** (`/week`) — a weekly plan with per-day completion and habit
-  consistency. Implemented and covered by tests, but `VITE_WEEK_VIEW_ENABLED` is
-  set in neither `.env.production` nor `netlify.toml`, so the route redirects to
-  Today for every production user and the nav entry is hidden. Do not market it
-  until the flag is on. Tracked by
+  consistency. `VITE_WEEK_VIEW_ENABLED`. The route redirects to Today and the nav
+  entry is hidden. Tracked by
   [#148](https://github.com/lermanori/HealthyFlow/issues/148).
+- **Daily Signals** — reviewable observations about the day (e.g. a habit missed
+  several recent days and due today). `VITE_DAILY_SIGNALS_ENABLED`. Hidden from
+  Today by default while the behaviour matures; the implementation is intact and
+  the e2e suite forces the flag on so its coverage stays live.
 
 ---
 
