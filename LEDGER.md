@@ -1,3 +1,9 @@
+### 2026-07-29 00:20 — `claude/suspicious-lewin-befb56`
+
+Closed the loop on landing-page screenshots being real product shots rather than whatever the capturing developer's environment happened to render. Vite inlines `VITE_*` at build time, so the capture had twice published features no production user could reach — Week view, then Daily Signals, whose "3 signals" row was live in the committed hero image. `scripts/capture-landing-shots.mjs` now starts its own Vite with every flag in `src/featureFlags.ts` blanked, pins the theme to Midnight server-side (the shared demo account had drifted to White, which would have put light screenshots on a dark page), and refuses to write if a flagged-off surface renders anyway. Also fixed a live pricing defect: the sold-out card read "$19 / month" and "$9 locked in" at once, because `.plan li { display: flex }` silently beat the UA's `[hidden] { display: none }`.
+
+---
+
 ### 2026-07-28 20:11 — `codex/launch-pricing`
 
 Made the landing page’s image and icon references relative so its fresh product captures load both in production and when `public/landing.html` is opened directly for review. Confirmed all 24 referenced assets exist and the production build succeeds; the deployed screenshot files already matched the current local captures byte for byte.

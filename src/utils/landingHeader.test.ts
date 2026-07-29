@@ -29,6 +29,15 @@ describe('Landing signup CTA', () => {
     }
   })
 
+  it('can actually hide the sold-out offer copy', () => {
+    // The script hides founding-only copy with `el.hidden = true`. The UA rule
+    // `[hidden] { display: none }` loses to any author rule that sets display,
+    // and `.plan li { display: flex }` did exactly that — the card shipped
+    // reading "$19 / month" and "$9 locked in" at the same time. Without this
+    // rule the hiding is silently a no-op inside the plan list.
+    assert.match(landing, /\[hidden\]\s*\{\s*display:\s*none\s*!important;\s*\}/)
+  })
+
   it('publishes the agreed founding and top-up offers', () => {
     assert.match(landing, /\$<span data-offer-founding-price>9<\/span>\/month/)
     assert.match(landing, /data-offer-onboarding-credits>250<\/span> AI credits/)

@@ -54,11 +54,22 @@ npm run test:unit
 ## Landing page
 
 `public/landing.html` is static and hand-maintained. Its screenshots are real
-captures of the app — regenerate them whenever navigation or a surface changes,
-with the dev server and API running:
+captures of the app — regenerate them whenever navigation or a surface changes.
+Only the API needs to be running (`npm run server`); the script starts its own
+Vite on :5199 so that it, not your shell, controls the build:
 
 ```sh
 node scripts/capture-landing-shots.mjs
+```
+
+It pins the feature flags to production's values (every `VITE_*` in
+`src/featureFlags.ts` blanked) and the theme to Midnight, then refuses to write if
+a flagged-off surface rendered anyway. That guard exists because Week and then
+Daily Signals both reached the landing page as screenshots of features no
+production user could see. To shoot a flag deliberately on:
+
+```sh
+HF_SHOT_FLAGS=VITE_WEEK_VIEW_ENABLED node scripts/capture-landing-shots.mjs
 ```
 
 ## Ledger
