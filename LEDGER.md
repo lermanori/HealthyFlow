@@ -1,3 +1,9 @@
+### 2026-07-29 14:31 — `codex/reuse-e2e-user`
+
+Reworked the browser harness around one pre-provisioned, protected `e2e@test.healthyflow.local` identity: setup now fails if it is missing, onboarding resets it in place, and test-mode auth routes refuse every account-creation path. Signup is covered through an intercepted happy-path contract plus a real non-persistence probe, while isolated local servers prevent E2E from inheriting production API URLs or reusing an unsafe backend. The sole durable fixture was provisioned once outside automation; focused browser coverage, 474 backend tests, 50 frontend unit tests, typechecks, lint, and the production build pass.
+
+---
+
 ### 2026-07-29 13:45 — `codex/admin-user-management`
 
 Turned the existing Token Manager into a safe account-control surface with explicit test/live classification, immediate account disabling, search and filters, batch actions, deletion previews, typed confirmation, protected administrator/demo accounts, subscription blockers, and a durable audit trail. Authentication now enforces disabled or deleted status across active API sessions as well as password and Google sign-in, while the destructive path removes linked Supabase Auth identities and reports partial cleanup failures. The additive production migration is applied, no real users were deleted, and the flow passes the full frontend/backend suites plus mocked desktop and mobile browser walkthroughs.

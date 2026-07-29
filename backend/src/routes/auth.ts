@@ -25,6 +25,12 @@ const DemoSessionSchema = z.object({
   persona: z.enum(DEMO_PERSONAS),
 })
 
+const accountCreationBlockedInTestMode = () => process.env.HF_TEST_MODE === '1'
+const testModeAccountCreationResponse = {
+  error: 'Account creation is disabled in automated test mode.',
+  reason: 'test_account_creation_disabled',
+} as const
+
 // ponytail: scoped to /signup only — don't rate-limit login or admin routes
 const signupLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
@@ -74,6 +80,9 @@ router.post('/signup', signupLimiter, async (req, res) => {
   const parsed = SignupSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message })
+  }
+  if (accountCreationBlockedInTestMode()) {
+    return res.status(403).json(testModeAccountCreationResponse)
   }
   const { email, password, name } = parsed.data
 
@@ -130,6 +139,9 @@ router.post('/google', googleSessionLimiter, async (req, res) => {
   if (!parsed.success) {
     return res.status(400).json({ error: 'Google sign-in data is missing.' })
   }
+  if (accountCreationBlockedInTestMode()) {
+    return res.status(403).json(testModeAccountCreationResponse)
+  }
 
   try {
     const session = await Auth.exchangeGoogleSession(parsed.data)
@@ -150,6 +162,9 @@ router.post('/demo-session', async (req, res) => {
   const parsed = DemoSessionSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: 'Unknown demo persona' })
+  }
+  if (accountCreationBlockedInTestMode()) {
+    return res.status(403).json(testModeAccountCreationResponse)
   }
 
   try {
@@ -251,6 +266,9 @@ router.post('/register', async (req, res) => {
   // Check admin token
   if (adminToken !== process.env.ADMIN_TOKEN) {
     return res.status(403).json({ error: 'Unauthorized' })
+  }
+  if (accountCreationBlockedInTestMode()) {
+    return res.status(403).json(testModeAccountCreationResponse)
   }
 
   try {

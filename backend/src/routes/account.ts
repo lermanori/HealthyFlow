@@ -3,7 +3,11 @@ import bcrypt from 'bcryptjs'
 import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
-import { buildAccountExport, getAccountCredentials } from '../account-data'
+import {
+  buildAccountExport,
+  DURABLE_E2E_USER_EMAIL,
+  getAccountCredentials,
+} from '../account-data'
 import { db, supabase } from '../supabase-client'
 import { revokeGoogleAuthorization } from '../calendar'
 
@@ -44,8 +48,16 @@ router.delete('/', deleteLimiter, async (req: AuthRequest, res) => {
 
   try {
     const user = await getAccountCredentials(req.user.userId)
-    if (user.role === 'admin' || user.email === 'demo@healthyflow.com' || user.email.startsWith('demo-')) {
-      return res.status(403).json({ error: 'Demo and administrator accounts cannot be deleted here.' })
+    const normalizedEmail = user.email.trim().toLowerCase()
+    if (
+      user.role === 'admin' ||
+      normalizedEmail === DURABLE_E2E_USER_EMAIL ||
+      normalizedEmail === 'demo@healthyflow.com' ||
+      normalizedEmail.startsWith('demo-')
+    ) {
+      return res.status(403).json({
+        error: 'Administrator, demo, and durable test accounts cannot be deleted here.',
+      })
     }
     if (user.signup_method !== 'google') {
       if (!parsed.data.password) {

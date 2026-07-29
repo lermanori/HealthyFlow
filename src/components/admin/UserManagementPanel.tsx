@@ -34,12 +34,14 @@ const protectionLabels: Record<NonNullable<ManagedUser['protection']>, string> =
   current_admin: 'Your administrator account',
   administrator: 'Administrator',
   demo_account: 'Demo account',
+  test_fixture: 'Automated test fixture',
 }
 
 const blockerLabels: Record<AdminUserDeletionPreview['users'][number]['blockers'][number], string> = {
   current_admin: 'current administrator',
   administrator: 'administrator account',
   demo_account: 'demo account',
+  test_fixture: 'automated test fixture',
   not_test: 'not marked as test',
   active_subscription: 'active subscription',
 }

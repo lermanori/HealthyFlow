@@ -201,19 +201,18 @@ test('export downloads the authenticated portable JSON filename and content', as
   expect(download.suggestedFilename()).toBe(`healthyflow-export-${exportDate}.json`)
 })
 
-test('deletes only a disposable account in destructive E2E mode', async ({ request }) => {
-  test.skip(process.env.HF_RUN_DESTRUCTIVE_ACCOUNT_E2E !== '1', 'Opt-in destructive coverage uses a newly created disposable account only')
-  const email = `phase0-disposable-${Date.now()}@test.healthyflow.local`
-  const password = `Disposable-${Date.now()}!`
-  const signup = await request.post(`${API_ORIGIN}/api/auth/signup`, { data: { email, password, name: 'Disposable Phase 0' } })
-  expect(signup.ok()).toBeTruthy()
-  const { token } = await signup.json()
-  const deletion = await request.delete(`${API_ORIGIN}/api/account`, {
-    headers: { Authorization: `Bearer ${token}` },
-    data: { password, confirmation: 'DELETE' },
+test('test mode validates signup input but blocks account persistence', async ({ request }) => {
+  const email = `signup-probe-${Date.now()}@test.healthyflow.local`
+  const password = 'Signup-probe-42!'
+  const signup = await request.post(`${API_ORIGIN}/api/auth/signup`, {
+    data: { email, password, name: 'Non-persistent signup probe' },
   })
-  expect(deletion.ok()).toBeTruthy()
-  expect(await deletion.json()).toEqual({ deleted: true, warnings: [] })
-  const verify = await request.get(`${API_ORIGIN}/api/auth/verify`, { headers: { Authorization: `Bearer ${token}` } })
-  expect(verify.status()).toBe(401)
+  expect(signup.status()).toBe(403)
+  expect(await signup.json()).toEqual({
+    error: 'Account creation is disabled in automated test mode.',
+    reason: 'test_account_creation_disabled',
+  })
+
+  const login = await request.post(`${API_ORIGIN}/api/auth/login`, { data: { email, password } })
+  expect(login.status()).toBe(401)
 })

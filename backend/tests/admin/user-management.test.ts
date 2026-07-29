@@ -34,7 +34,7 @@ describe('admin user protections', () => {
     role: 'user' as const,
   }
 
-  it('protects the current administrator, every administrator, and demo accounts', () => {
+  it('protects the current administrator, every administrator, demos, and the durable test fixture', () => {
     expect(adminUserProtectionFor('admin-1', {
       ...regularUser,
       id: 'admin-1',
@@ -52,6 +52,10 @@ describe('admin user protections', () => {
       ...regularUser,
       email: 'demo@healthyflow.com',
     })).toBe('demo_account')
+    expect(adminUserProtectionFor('admin-1', {
+      ...regularUser,
+      email: 'e2e@test.healthyflow.local',
+    })).toBe('test_fixture')
   })
 
   it('does not infer test status from an ordinary email address', () => {

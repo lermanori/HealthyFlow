@@ -10,16 +10,14 @@ const backendEnv = {
   PORT: String(process.env.HF_E2E_API_PORT ?? 3001),
 }
 
-const reuseExistingServer = process.env.HF_TEST_MODE !== '1'
-
 // Overridable so the suite can run from a git worktree without colliding with (or
-// silently reusing) a dev server started from the main checkout, which would test
-// the wrong code. Defaults to the normal ports.
+// touching) a dev server started from the main checkout. E2E never reuses an
+// existing backend because it must guarantee HF_TEST_MODE=1 account safeguards.
 const webPort = Number(process.env.HF_E2E_WEB_PORT ?? 5173)
 const apiPort = Number(process.env.HF_E2E_API_PORT ?? 3001)
 
 // Specs that mock every response they need and never write through the API. They
-// do not touch the one seeded Supabase test user, so they are the only ones safe
+// do not touch the one durable Supabase test user, so they are the only ones safe
 // to run with more than one worker (see the workers: 1 note below).
 const HERMETIC = [
   'assistant',
@@ -106,18 +104,20 @@ export default defineConfig({
     {
       command: 'npx tsx backend/src/index.ts',
       port: apiPort,
-      reuseExistingServer,
+      reuseExistingServer: false,
       timeout: 30_000,
       env: backendEnv,
     },
     {
       command: `npx vite --port ${webPort} --strictPort`,
       port: webPort,
-      reuseExistingServer,
+      reuseExistingServer: false,
       timeout: 30_000,
       // Production keeps opt-in features hidden by default. E2E enables them
       // so their existing behavior remains covered behind the release flags.
       env: {
+        // Never inherit a production VITE_API_URL from the developer's shell.
+        VITE_API_URL: `http://localhost:${apiPort}/api`,
         VITE_WEEK_VIEW_ENABLED: 'true',
         VITE_DAILY_SIGNALS_ENABLED: 'true',
         VITE_SUPABASE_URL: `http://localhost:${webPort}/supabase-auth`,

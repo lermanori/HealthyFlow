@@ -64,7 +64,28 @@ describe('POST /test/reset — HF_TEST_MODE guard', () => {
   it('returns 200 when HF_TEST_MODE=1', async () => {
     process.env.HF_TEST_MODE = '1'
     const { app } = await import('../src/index')
-    const res = await request(app).post('/test/reset')
+    const { db } = await import('../src/supabase-client')
+    ;(db.getUserByEmail as jest.Mock).mockResolvedValue({
+      id: 'durable-e2e-user',
+      email: 'e2e@test.healthyflow.local',
+    })
+    const res = await request(app)
+      .post('/test/reset')
+      .send({ onboardingStatus: 'active' })
     expect(res.status).toBe(200)
+    expect(db.resetTestUser).toHaveBeenCalledWith('durable-e2e-user', {
+      onboardingStatus: 'active',
+    })
+  })
+
+  it('returns 503 rather than creating a missing test user', async () => {
+    process.env.HF_TEST_MODE = '1'
+    const { app } = await import('../src/index')
+    const { db } = await import('../src/supabase-client')
+    ;(db.getUserByEmail as jest.Mock).mockResolvedValue(null)
+    const res = await request(app).post('/test/reset')
+    expect(res.status).toBe(503)
+    expect(db.createUser).not.toHaveBeenCalled()
+    expect(db.resetTestUser).not.toHaveBeenCalled()
   })
 })
