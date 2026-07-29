@@ -86,6 +86,8 @@ router.post('/signup', signupLimiter, async (req, res) => {
   }
   const { email, password, name } = parsed.data
 
+  let publicSlotReserved = false
+  let accountCreated = false
   try {
     const existing = await db.getUserByEmail(email)
     if (existing) {
@@ -102,9 +104,17 @@ router.post('/signup', signupLimiter, async (req, res) => {
         reason: authorization.reason,
       })
     }
+    publicSlotReserved = authorization.via === 'public'
 
     const password_hash = await bcrypt.hash(password, 10)
-    const user = await db.createUser({ email, name, password_hash })
+    const user = await db.createUser({
+      email,
+      name,
+      password_hash,
+      claimed_public_signup_slot: publicSlotReserved,
+    })
+    if (!user) throw new Error('Account insert returned no user')
+    accountCreated = true
 
     if (authorization.via === 'invite') {
       await Waitlist.completeInviteSignup(authorization.inviteToken, user.id)
@@ -127,6 +137,13 @@ router.post('/signup', signupLimiter, async (req, res) => {
       signupCredits,
     })
   } catch (error) {
+    if (publicSlotReserved && !accountCreated) {
+      try {
+        await db.releasePublicSignupSlot()
+      } catch (releaseError) {
+        console.error('Could not release failed signup slot reservation:', releaseError)
+      }
+    }
     console.error('Signup error:', error)
     return res.status(500).json({ error: 'Database error' })
   }

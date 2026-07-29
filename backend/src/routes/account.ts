@@ -74,7 +74,7 @@ router.delete('/', deleteLimiter, async (req: AuthRequest, res) => {
       console.warn('Google authorization revocation failed during deletion:', error)
       warnings.push('google-revocation-failed')
     }
-    await db.deleteUser(user.id)
+    await db.deleteUserWithSignupCleanup(user.id)
     if (user.google_auth_subject) {
       try {
         const { error } = await supabase.auth.admin.deleteUser(user.google_auth_subject)

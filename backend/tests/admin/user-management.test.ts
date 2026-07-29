@@ -27,6 +27,32 @@ describe('admin user-management migration', () => {
   })
 })
 
+describe('signup seat accounting migration', () => {
+  const migration = fs.readFileSync(
+    path.join(__dirname, '../../../supabase/migrations/20260729170000_reconcile_signup_seats.sql'),
+    'utf8',
+  )
+
+  it('tracks public seat ownership and cleans account access state transactionally', () => {
+    expect(migration).toContain('claimed_public_signup_slot BOOLEAN NOT NULL DEFAULT FALSE')
+    expect(migration).toContain("WHERE status = 'registered'")
+    expect(migration).toContain('CREATE OR REPLACE FUNCTION delete_user_with_signup_cleanup')
+    expect(migration).toContain('DELETE FROM waitlist')
+    expect(migration).toContain('public_slots_claimed = public_slots_claimed - 1')
+  })
+
+  it('limits destructive cleanup helpers to the service role', () => {
+    expect(migration).toContain('REVOKE ALL ON FUNCTION delete_user_with_signup_cleanup(UUID) FROM authenticated')
+    expect(migration).toContain('GRANT EXECUTE ON FUNCTION delete_user_with_signup_cleanup(UUID) TO service_role')
+    expect(migration).toContain('REVOKE ALL ON FUNCTION release_public_signup_slot() FROM authenticated')
+  })
+
+  it('adds waitlist records and public seats to the deletion preview', () => {
+    expect(migration).toContain('waitlist BIGINT')
+    expect(migration).toContain('public_signup_seats BIGINT')
+  })
+})
+
 describe('admin user protections', () => {
   const regularUser = {
     id: 'user-1',
