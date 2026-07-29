@@ -307,7 +307,10 @@ export default function WeekViewPage() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <LoadingSpinner size="lg" />
+        {/* Distinct from the app-boot spinner's default "Loading": two live
+            regions announcing the same bare word tell a screen-reader user
+            nothing about which one is busy. */}
+        <LoadingSpinner size="lg" label="Loading week" />
       </div>
     )
   }

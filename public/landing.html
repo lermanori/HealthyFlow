@@ -58,6 +58,12 @@
     a { color: inherit; text-decoration: none; }
     img { display: block; max-width: 100%; }
 
+    /* The offer script hides sold-out copy with `el.hidden = true`, but the UA's
+       `[hidden] { display: none }` loses to any author rule that sets display —
+       `.plan li { display: flex }` kept the "$9 locked in" bullet on screen next
+       to the $19 price. Author-level and !important so hiding always wins. */
+    [hidden] { display: none !important; }
+
     .wrap { max-width: 1140px; margin: 0 auto; padding: 0 24px; }
 
     /* ---------- ambient background ---------- */
@@ -661,7 +667,7 @@
        pasted here directly — PostHog keys are public ingestion-only keys. Keep it
        in sync with VITE_POSTHOG_KEY; leave empty to disable. The landing pageview
        captures UTM/referrer, and the same-domain cookie links this visit to the
-       account created after "Start Free". See docs/analytics/README.md. -->
+       account created after the acquisition CTA. See docs/analytics/README.md. -->
   <script>
     (function () {
       var POSTHOG_KEY = 'phc_AyiQtTFu7EyXVf6ogoTqxCH5fmNTmE3sCEZgt4EgCMRh'
@@ -687,7 +693,7 @@
   <header class="nav" id="nav">
     <div class="wrap nav-inner">
       <a class="brand" href="#top">
-        <img src="/icons/icon-192x192.png" alt="HealthyFlow logo" />
+        <img src="./icons/icon-192x192.png" alt="HealthyFlow logo" />
         <span class="brand-name">HealthyFlow</span>
       </a>
       <nav class="nav-links">
@@ -698,7 +704,7 @@
       </nav>
       <div class="nav-cta">
         <a class="btn btn-ghost btn-sm" href="/app">Log in</a>
-        <a class="btn btn-primary btn-sm nav-primary" href="/app">Start Free</a>
+        <a class="btn btn-primary btn-sm nav-primary" data-access-cta data-placement="navigation" href="#waitlist-form">Join the waitlist</a>
       </div>
     </div>
   </header>
@@ -709,17 +715,20 @@
     <div class="orb orb-2"></div>
     <div class="wrap hero-grid">
       <div>
-        <div class="pill"><span class="dot"></span> Invite-only beta · First 100 members</div>
+        <div class="pill"><span class="dot"></span> <span data-access-message>Invite-only beta · First 100 members</span></div>
         <h1>Your whole day,<br /><span class="grad-text">in one place.</span></h1>
         <p class="lede">
           Tasks, food, training, weight — on one timeline that rolls itself forward.
           Every other app makes you manage things. HealthyFlow manages the day.
         </p>
         <div class="hero-ctas">
-          <a class="btn btn-primary" href="/app">Start Free</a>
+          <a class="btn btn-primary" data-access-cta data-placement="hero" href="#waitlist-form">Join the waitlist</a>
           <a class="btn btn-ghost" href="/app/demo">Watch Demo</a>
         </div>
-        <div class="hero-note">$9/month for the first 100 members · Locked in for good</div>
+        <div class="hero-note" data-hero-offer>
+          $<span data-offer-founding-price>9</span>/month for the first 100 members ·
+          <span data-offer-founding-credits>250</span> AI credits free at signup
+        </div>
       </div>
       <div class="mockups">
         <div class="browser">
@@ -727,10 +736,10 @@
             <span class="r"></span><span class="y"></span><span class="g"></span>
             <div class="browser-url">healthyflow.app</div>
           </div>
-          <picture><source type="image/webp" srcset="/landing/today-desktop-800.webp 800w, /landing/today-desktop-1400.webp 1400w, /landing/today-desktop.webp 2880w" sizes="(max-width: 900px) 92vw, 520px" /><img src="/landing/today-desktop.jpg" alt="HealthyFlow Today view — AI-planned daily timeline with tasks, habits, and progress" fetchpriority="high" /></picture>
+          <picture><source type="image/webp" srcset="./landing/today-desktop-800.webp 800w, ./landing/today-desktop-1400.webp 1400w, ./landing/today-desktop.webp 2880w" sizes="(max-width: 900px) 92vw, 520px" /><img src="./landing/today-desktop.jpg" alt="HealthyFlow Today view — AI-planned daily timeline with tasks, habits, and progress" fetchpriority="high" /></picture>
         </div>
         <div class="phone">
-          <picture><source srcset="/landing/today-mobile.webp" type="image/webp" /><img src="/landing/today-mobile.jpg" alt="HealthyFlow on mobile" loading="lazy" /></picture>
+          <picture><source srcset="./landing/today-mobile.webp" type="image/webp" /><img src="./landing/today-mobile.jpg" alt="HealthyFlow on mobile" loading="lazy" /></picture>
         </div>
       </div>
     </div>
@@ -785,71 +794,57 @@
       <div class="showcase-row reveal">
         <div class="showcase-text">
           <div class="kicker">Today's Timeline</div>
-          <h3>Your whole day on one timeline</h3>
-          <p>Tasks, habits, and meals live on a single schedule — not scattered across apps. Drag anything into a time slot, check things off, and watch progress fill in by life area.</p>
+          <h3>The timeline is the day's record</h3>
+          <p>Everything that belongs to a day earns a place on the clock. Tasks and habits sit at their planned time; the meal you logged, the weigh-in, the workout, each bit of habit progress get stamped at the hour they actually happened. What's left in the Anytime backlog is only what still needs a decision from you.</p>
           <ul>
-            <li>Drag & drop scheduling with an Anytime backlog</li>
-            <li>Live progress by category — health, work, fitness, and more</li>
-            <li>Incomplete items roll forward automatically</li>
+            <li>Plans and records on one clock, in real order</li>
+            <li>Anytime backlog holds just the undecided — drag it onto an hour</li>
+            <li>Incomplete items roll forward on their own</li>
           </ul>
         </div>
-        <div class="showcase-media"><div class="shot"><picture><source type="image/webp" srcset="/landing/today-desktop-800.webp 800w, /landing/today-desktop-1400.webp 1400w, /landing/today-desktop.webp 2880w" sizes="(max-width: 900px) 92vw, 520px" /><img src="/landing/today-desktop.jpg" alt="Today's Timeline in HealthyFlow" loading="lazy" /></picture></div></div>
+        <div class="showcase-media"><div class="shot"><picture><source type="image/webp" srcset="./landing/today-desktop-800.webp 800w, ./landing/today-desktop-1400.webp 1400w, ./landing/today-desktop.webp 2880w" sizes="(max-width: 900px) 92vw, 520px" /><img src="./landing/today-desktop.jpg" alt="Today's Timeline in HealthyFlow" loading="lazy" /></picture></div></div>
       </div>
 
       <div class="showcase-row flip reveal">
         <div class="showcase-text">
-          <div class="kicker">AI Task Assistant</div>
+          <div class="kicker">Talk</div>
           <h3>Speak it. It's planned.</h3>
-          <p>Type or dictate what's ahead of you, and the AI analyzer turns it into structured, scheduled items — with the right category, time, and duration. Then Ask AI anything about your own schedule.</p>
+          <p>Type or dictate what's ahead of you, and the analyzer turns it into structured, scheduled items — with the right category, time, and duration. Then keep talking: Talk answers questions about your own day.</p>
           <ul>
             <li>Natural language in, structured plan out</li>
             <li>Voice input for hands-free capture</li>
-            <li>Ask AI questions about your tasks and day</li>
+            <li>Ask about today, this week, or how a habit is going</li>
           </ul>
         </div>
-        <div class="showcase-media"><div class="shot"><picture><source type="image/webp" srcset="/landing/add-ai-desktop-800.webp 800w, /landing/add-ai-desktop-1400.webp 1400w, /landing/add-ai-desktop.webp 2880w" sizes="(max-width: 900px) 92vw, 520px" /><img src="/landing/add-ai-desktop.jpg" alt="Adding items with the AI assistant in HealthyFlow" loading="lazy" /></picture></div></div>
+        <div class="showcase-media"><div class="shot"><picture><source type="image/webp" srcset="./landing/talk-desktop-800.webp 800w, ./landing/talk-desktop-1400.webp 1400w, ./landing/talk-desktop.webp 2880w" sizes="(max-width: 900px) 92vw, 520px" /><img src="./landing/talk-desktop.jpg" alt="Adding items with the AI assistant in HealthyFlow" loading="lazy" /></picture></div></div>
       </div>
 
       <div class="showcase-row reveal">
         <div class="showcase-text">
-          <div class="kicker">Week View</div>
-          <h3>Zoom out without losing the thread</h3>
-          <p>See the whole week at a glance — what's scheduled, what's done, and how consistent your habits have been. Streaks and weekly progress keep the bigger picture honest.</p>
+          <div class="kicker">Health</div>
+          <h3>One Health tab, three ways to look after yourself</h3>
+          <p>Nutrition, Workouts, and Progress live together under a single Health workspace instead of three separate apps in your sidebar. Log a meal in plain language and Meal AI breaks it into calories and macros; weight charts itself; each of them lands back on today's timeline.</p>
           <ul>
-            <li>Weekly plan with per-day completion</li>
-            <li>Habit consistency grid and streaks</li>
-            <li>Up-next card so you always know what's next</li>
+            <li>Nutrition — Meal AI parses food into calories, protein, carbs & fat</li>
+            <li>Weight log with trend chart and latest-vs-previous delta</li>
+            <li>Progress — track any measurement you care about, with or without a target</li>
           </ul>
         </div>
-        <div class="showcase-media"><div class="shot"><picture><source type="image/webp" srcset="/landing/week-desktop-800.webp 800w, /landing/week-desktop-1400.webp 1400w, /landing/week-desktop.webp 2880w" sizes="(max-width: 900px) 92vw, 520px" /><img src="/landing/week-desktop.jpg" alt="Week view with habit consistency in HealthyFlow" loading="lazy" /></picture></div></div>
+        <div class="showcase-media"><div class="shot"><picture><source type="image/webp" srcset="./landing/health-desktop-800.webp 800w, ./landing/health-desktop-1400.webp 1400w, ./landing/health-desktop.webp 2880w" sizes="(max-width: 900px) 92vw, 520px" /><img src="./landing/health-desktop.jpg" alt="Calorie log and weight tracking in HealthyFlow" loading="lazy" /></picture></div></div>
       </div>
 
       <div class="showcase-row flip reveal">
         <div class="showcase-text">
-          <div class="kicker">Calories & Weight</div>
-          <h3>Health tracking in the same flow</h3>
-          <p>Log meals in plain language and let Meal AI break them into calories and macros. Weight trends chart automatically alongside your food log — no separate app needed.</p>
-          <ul>
-            <li>Meal AI parses food into calories, protein, carbs & fat</li>
-            <li>Weight log with trend chart</li>
-            <li>Daily entries organized by time</li>
-          </ul>
-        </div>
-        <div class="showcase-media"><div class="shot"><picture><source type="image/webp" srcset="/landing/calories-desktop-800.webp 800w, /landing/calories-desktop-1400.webp 1400w, /landing/calories-desktop.webp 2880w" sizes="(max-width: 900px) 92vw, 520px" /><img src="/landing/calories-desktop.jpg" alt="Calorie log and weight tracking in HealthyFlow" loading="lazy" /></picture></div></div>
-      </div>
-
-      <div class="showcase-row reveal">
-        <div class="showcase-text">
-          <div class="kicker">Workout Tracker</div>
-          <h3>Log workouts in seconds</h3>
-          <p>Sets, reps, weight, time, distance — logged fast with quick-insert from your exercise history. Your training lives next to your plan, not in another silo.</p>
+          <div class="kicker">Workouts</div>
+          <h3>Log training in seconds</h3>
+          <p>Sets, reps, weight, time, distance — logged fast with quick-insert from your exercise history. Save a session you repeat as a plan and start from it next time. Your training lives next to your plan, not in another silo.</p>
           <ul>
             <li>Quick insert from recent and most-used exercises</li>
-            <li>Strength and cardio in one log</li>
-            <li>Session history by day</li>
+            <li>Reusable plans — strength, calisthenics, running, mobility</li>
+            <li>Session history by day, and on the timeline</li>
           </ul>
         </div>
-        <div class="showcase-media"><div class="shot"><picture><source type="image/webp" srcset="/landing/workouts-desktop-800.webp 800w, /landing/workouts-desktop-1400.webp 1400w, /landing/workouts-desktop.webp 2880w" sizes="(max-width: 900px) 92vw, 520px" /><img src="/landing/workouts-desktop.jpg" alt="Workout tracker in HealthyFlow" loading="lazy" /></picture></div></div>
+        <div class="showcase-media"><div class="shot"><picture><source type="image/webp" srcset="./landing/workouts-desktop-800.webp 800w, ./landing/workouts-desktop-1400.webp 1400w, ./landing/workouts-desktop.webp 2880w" sizes="(max-width: 900px) 92vw, 520px" /><img src="./landing/workouts-desktop.jpg" alt="Workout tracker in HealthyFlow" loading="lazy" /></picture></div></div>
       </div>
     </div>
   </section>
@@ -868,11 +863,11 @@
         <div class="ai-item"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Plans your day</div>
         <div class="ai-item"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Parses meals into macros</div>
         <div class="ai-item"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Understands natural language</div>
-        <div class="ai-item"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Answers questions about your schedule</div>
+        <div class="ai-item"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Answers questions about your day</div>
         <div class="ai-item"><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Keeps your context, day after day</div>
       </div>
       <div class="token-note reveal">
-        <strong>Fair, token-based AI.</strong> AI usage runs on tokens — you spend them only when you use AI, and the core app works without them.
+        <strong>Fair, credit-based AI.</strong> AI actions use credits — you spend them only when you use AI, and the core app works without them.
       </div>
     </div>
   </section>
@@ -886,18 +881,17 @@
         <p class="section-sub">Stop stitching your day together across five different apps.</p>
       </div>
       <div class="all-grid reveal">
-        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><span>Calendar</span></div>
+        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></div><span>Google Calendar</span></div>
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><span>Tasks</span></div>
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2.1l4 4-4 4"/><path d="M3 12.2v-2a4 4 0 0 1 4-4h12.8"/><path d="M7 21.9l-4-4 4-4"/><path d="M21 11.8v2a4 4 0 0 1-4 4H4.2"/></svg></div><span>Habits</span></div>
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg></div><span>Rollover</span></div>
-        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/></svg></div><span>Meals</span></div>
+        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/></svg></div><span>Nutrition</span></div>
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div><span>Timeline</span></div>
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18h12M6 14h12M6 10h2m4 0h6"/><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2z"/></svg></div><span>Weight</span></div>
-        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.5 13l1.5 9-5-3-5 3 1.5-9"/></svg></div><span>Achievements</span></div>
-        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg></div><span>AI Assistant</span></div>
+        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.5 13l1.5 9-5-3-5 3 1.5-9"/></svg></div><span>Progress</span></div>
+        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.8a2 2 0 0 0 1.3 1.3L21 12l-5.8 1.9a2 2 0 0 0-1.3 1.3L12 21l-1.9-5.8a2 2 0 0 0-1.3-1.3L3 12l5.8-1.9a2 2 0 0 0 1.3-1.3L12 3z"/></svg></div><span>Talk</span></div>
         <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19v3"/><path d="M8 22h8"/><rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1"/></svg></div><span>Voice</span></div>
-        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11M17.5 6.5v11M3 9v6M21 9v6M6.5 12h11"/></svg></div><span>Training</span></div>
-        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10M15 10v10"/></svg></div><span>Week view</span></div>
+        <div class="all-item"><div class="icon-tile"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5v11M17.5 6.5v11M3 9v6M21 9v6M6.5 12h11"/></svg></div><span>Workouts</span></div>
       </div>
     </div>
   </section>
@@ -908,7 +902,7 @@
       <div class="center reveal">
         <div class="kicker">Pricing</div>
         <h2 class="section-title">Simple. Honest. Early.</h2>
-        <p class="section-sub">The core app is free forever. The first 100 members get everything for $9 a month — and keep that price for as long as they stay.</p>
+        <p class="section-sub" data-pricing-summary>The core app is free forever. The first 100 members get 250 AI credits at signup and can lock in the $9 monthly plan.</p>
       </div>
       <div class="plans">
         <div class="plan reveal">
@@ -916,24 +910,25 @@
           <p class="tagline">The whole day, on you.</p>
           <div class="price">$0<small> / forever</small></div>
           <ul>
-            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> The full timeline — tasks, habits, rollover, week view</li>
-            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Health on the same day — calories, weight, training</li>
-            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Add AI credits whenever you want them</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> The full timeline — tasks, habits, records, rollover</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Health on the same day — nutrition, weight, workouts, progress</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> <span data-onboarding-benefit>First 100 accounts receive <span data-offer-onboarding-credits>250</span> AI credits for onboarding</span></li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Add <span data-offer-topup-credits>250</span> non-expiring credits for $<span data-offer-topup-price>5</span></li>
           </ul>
-          <a class="btn btn-ghost" href="/app">Start Free</a>
+          <a class="btn btn-ghost" data-access-cta data-placement="free_plan" href="#waitlist-form">Join the waitlist</a>
         </div>
         <div class="plan featured reveal" style="transition-delay: 0.1s">
-          <div class="plan-badge">First 100 members only</div>
-          <h3>Founding Member</h3>
-          <p class="tagline">Everything, with the AI built in.</p>
-          <div class="price"><span class="price-was">$19</span>$9<small> / month</small></div>
+          <div class="plan-badge" data-offer-plan-badge>First 100 members only</div>
+          <h3 data-offer-plan-name>Founding Member</h3>
+          <p class="tagline">Everything, with a monthly AI credit allowance.</p>
+          <div class="price"><span class="price-was" data-offer-price-was>$<span data-offer-regular-price>19</span></span>$<span data-offer-current-price>9</span><small> / month</small></div>
           <ul>
             <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Everything in Free</li>
-            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> AI planning included — brain-dump a day, get it structured</li>
-            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> $9 locked in for as long as you stay</li>
+            <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> <span data-offer-monthly-credits>500</span> AI credits each month, refreshed with no rollover</li>
+            <li data-offer-price-lock><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> $9 locked in while your subscription stays active</li>
             <li><span class="check"><svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span> Direct line to me — you shape what gets built</li>
           </ul>
-          <a class="btn btn-primary" href="#waitlist-form">Claim a founding spot</a>
+          <a class="btn btn-primary" data-access-cta data-placement="founding_plan" href="#waitlist-form">Join the waitlist</a>
         </div>
       </div>
       <form class="waitlist-form reveal" id="waitlist-form">
@@ -969,9 +964,9 @@
     <div class="orb orb-4"></div>
     <div class="wrap">
       <h2 class="reveal">Ready to get your day back?</h2>
-      <p class="reveal">One timeline. It rolls itself forward. First 100 members get in at $9.</p>
+      <p class="reveal" data-final-offer>One timeline. It rolls itself forward. First 100 members get in at $9.</p>
       <div class="hero-ctas reveal">
-        <a class="btn btn-primary" href="/app">Start Free</a>
+        <a class="btn btn-primary" data-access-cta data-placement="final" href="#waitlist-form">Join the waitlist</a>
         <a class="btn btn-ghost" href="/app/demo">Watch Demo</a>
       </div>
     </div>
@@ -981,7 +976,7 @@
   <footer>
     <div class="wrap footer-inner">
       <a class="brand" href="#top">
-        <img src="/icons/icon-192x192.png" alt="" />
+        <img src="./icons/icon-192x192.png" alt="" />
         HealthyFlow
       </a>
       <div>© 2026 HealthyFlow · Built with care (and AI)</div>
@@ -1001,23 +996,121 @@
     const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
     const API_BASE = isLocal ? '/api' : 'https://healthyflow-production.up.railway.app/api';
 
-    // Swap CTA wording based on real availability — scarcity that is actually true.
+    let accessMode = 'waitlist';
+    const accessCtas = document.querySelectorAll('[data-access-cta]');
+
+    // Swap every acquisition CTA from the same live access state. The safe
+    // default in the HTML is invite-only; "Start Free" appears only after the
+    // backend confirms that public signup is open. The compact nav uses the
+    // same short label without adding a scarcity count.
     fetch(`${API_BASE}/auth/signup-status`)
       .then((r) => r.json())
       .then((status) => {
-        const ctas = document.querySelectorAll('a.btn-primary[href="/app"]:not(.nav-primary)');
-        if (status.mode === 'open' && status.remaining > 0) {
-          ctas.forEach((el) => {
-            el.textContent = `Start Free — ${status.remaining} left`;
-          });
+        accessMode = status.mode === 'open' && status.remaining > 0 ? 'open' : 'waitlist';
+        const offer = status.offer || {};
+
+        document.querySelectorAll('[data-offer-founding-price]').forEach((el) => {
+          if (offer.foundingPriceUsd) el.textContent = String(offer.foundingPriceUsd);
+        });
+        document.querySelectorAll('[data-offer-regular-price]').forEach((el) => {
+          if (offer.regularPriceUsd) el.textContent = String(offer.regularPriceUsd);
+        });
+        document.querySelectorAll('[data-offer-founding-credits]').forEach((el) => {
+          if (offer.foundingOnboardingCredits) el.textContent = String(offer.foundingOnboardingCredits);
+        });
+        document.querySelectorAll('[data-offer-onboarding-credits]').forEach((el) => {
+          if (offer.onboardingCredits) el.textContent = String(offer.onboardingCredits);
+        });
+        document.querySelectorAll('[data-offer-monthly-credits]').forEach((el) => {
+          if (offer.monthlyCredits) el.textContent = String(offer.monthlyCredits);
+        });
+        document.querySelectorAll('[data-offer-topup-price]').forEach((el) => {
+          if (offer.topUpPriceUsd) el.textContent = String(offer.topUpPriceUsd);
+        });
+        document.querySelectorAll('[data-offer-topup-credits]').forEach((el) => {
+          if (offer.topUpCredits) el.textContent = String(offer.topUpCredits);
+        });
+
+        const foundingAvailable = Number(offer.foundingMembersRemaining) > 0;
+        const foundingPrice = Number(offer.foundingPriceUsd) || 9;
+        const regularPrice = Number(offer.regularPriceUsd) || 19;
+        const onboardingCredits = Number(offer.onboardingCredits) || (foundingAvailable ? 250 : 50);
+        const monthlyCredits = Number(offer.monthlyCredits) || 500;
+        const remainingFoundingSpots = Number(offer.foundingMembersRemaining) || 0;
+
+        document.querySelectorAll('[data-offer-current-price]').forEach((el) => {
+          el.textContent = String(foundingAvailable ? foundingPrice : regularPrice);
+        });
+        document.querySelectorAll('[data-offer-price-was]').forEach((el) => {
+          el.hidden = !foundingAvailable;
+        });
+        document.querySelectorAll('[data-offer-price-lock]').forEach((el) => {
+          el.hidden = !foundingAvailable;
+          if (foundingAvailable) {
+            el.lastChild.textContent = ` $${foundingPrice} locked in while your subscription stays active`;
+          }
+        });
+
+        const planName = document.querySelector('[data-offer-plan-name]');
+        const planBadge = document.querySelector('[data-offer-plan-badge]');
+        const onboardingBenefit = document.querySelector('[data-onboarding-benefit]');
+        const heroOffer = document.querySelector('[data-hero-offer]');
+        const pricingSummary = document.querySelector('[data-pricing-summary]');
+        const finalOffer = document.querySelector('[data-final-offer]');
+
+        if (foundingAvailable) {
+          if (planName) planName.textContent = 'Founding Member';
+          if (planBadge) planBadge.textContent = `${remainingFoundingSpots} founding spots left`;
+          if (onboardingBenefit) onboardingBenefit.textContent = `First 100 accounts receive ${onboardingCredits} AI credits for onboarding`;
+          if (heroOffer) heroOffer.textContent = `$${foundingPrice}/month for the first 100 members · ${onboardingCredits} AI credits free at signup`;
+          if (pricingSummary) pricingSummary.textContent = `The core app is free forever. The first 100 members get ${onboardingCredits} AI credits at signup and can lock in the $${foundingPrice} monthly plan.`;
+          if (finalOffer) finalOffer.textContent = `One timeline. It rolls itself forward. ${remainingFoundingSpots} founding spots remain at $${foundingPrice}.`;
         } else {
-          ctas.forEach((el) => {
+          if (planName) planName.textContent = 'AI Monthly';
+          if (planBadge) planBadge.textContent = 'Monthly AI credits';
+          if (onboardingBenefit) onboardingBenefit.textContent = `Every new account receives ${onboardingCredits} AI credits for onboarding`;
+          if (heroOffer) heroOffer.textContent = `$${regularPrice}/month · ${onboardingCredits} AI credits free at signup`;
+          if (pricingSummary) pricingSummary.textContent = `The core app is free forever. New accounts get ${onboardingCredits} AI credits at signup; the AI plan is $${regularPrice}/month for ${monthlyCredits} credits.`;
+          if (finalOffer) finalOffer.textContent = `One timeline. It rolls itself forward. Start free with ${onboardingCredits} AI credits.`;
+        }
+
+        const accessMessage = document.querySelector('[data-access-message]');
+        if (status.mode === 'open' && status.remaining > 0) {
+          accessCtas.forEach((el) => {
+            el.textContent = 'Start Free';
+            el.setAttribute('href', '/app');
+            el.dataset.accessMode = 'open';
+          });
+          if (accessMessage) {
+            accessMessage.textContent = foundingAvailable
+              ? `Founding launch · ${remainingFoundingSpots} spots left`
+              : 'Public signup is open';
+          }
+        } else {
+          accessCtas.forEach((el) => {
             el.textContent = 'Join the waitlist';
             el.setAttribute('href', '#waitlist-form');
+            el.dataset.accessMode = 'waitlist';
           });
+          if (accessMessage) {
+            accessMessage.textContent = foundingAvailable
+              ? `Invite-only beta · ${remainingFoundingSpots} founding spots left`
+              : 'Invite-only beta';
+          }
         }
       })
-      .catch(() => { /* leave the default CTA text in place */ });
+      .catch(() => { /* leave the waitlist CTA in place */ });
+
+    accessCtas.forEach((el) => {
+      el.addEventListener('click', () => {
+        if (!window.posthog) return;
+        window.posthog.capture('signup_cta_clicked', {
+          destination: accessMode === 'open' ? 'signup' : 'waitlist',
+          placement: el.dataset.placement,
+          access_mode: accessMode,
+        });
+      });
+    });
 
     document.getElementById('waitlist-form').addEventListener('submit', async (e) => {
       e.preventDefault();

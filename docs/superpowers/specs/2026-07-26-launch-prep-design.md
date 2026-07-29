@@ -89,7 +89,7 @@ Public slot count lives in a settings row following the existing `billing_settin
 ### Endpoints
 
 - `POST /api/waitlist` — public, Zod-validated, rate-limited like signup. **A duplicate email returns 200, not 409** — an "already on the list" error leaks membership and reads badly to a genuine returning visitor.
-- `GET /auth/signup-status` — public, returns `{ mode: 'open' | 'waitlist', remaining }`. Never exposes invite tokens or waitlist contents.
+- `GET /auth/signup-status` — public, returns `{ mode: 'open' | 'waitlist', remaining, offer }`, where `offer` contains the current onboarding-credit and pricing display values. Never exposes invite tokens or waitlist contents.
 - `POST /auth/signup` — accepts three cases:
   1. Valid unredeemed invite token → allow; mark token redeemed; set the waitlist row to `registered`.
   2. No token, slots remaining → allow; **atomically** decrement the slot counter.
@@ -98,7 +98,7 @@ Public slot count lives in a settings row following the existing `billing_settin
 
 **Concurrency.** Case 2 must be an atomic check-and-decrement (unique constraint or transactional update), not read-then-write. Two people submitting against the last slot must not both succeed. This is the failure that only appears under real launch traffic.
 
-**Counter correctness.** The slot counter must count public signups only. The owner's account and the demo persona users already exist and must never consume slots. `FREE_SIGNUP_CREDITS` is already `0`, so no credit grant needs unwinding.
+**Counter correctness.** The slot counter must count public signups only. The owner's account and the demo persona users already exist and must never consume slots. Launch signup grants use a separate, idempotent ledger: the first 100 real signups receive 250 non-expiring onboarding credits, and later signups receive 50.
 
 ### Admin panel
 
@@ -126,7 +126,7 @@ Per the committed thesis (2026-07-05): the unit is **the day**, and the founder'
 
 - **Hero** → the committed one-liner: *"Your whole day in one place. Tasks, food, training, weight — one timeline that rolls itself forward."*
 - **Section order** leads with timeline + rollover; AI is demoted to the capture step rather than the identity.
-- **Pricing** (`public/landing.html:846`): keep the **Free** tier; replace the `$1/month` Launch Plan card with **$9/mo — first 100 members, locked in**. Delete the "access is enabled manually for early adopters" note; the CTA is the waitlist or signup depending on `signup-status`.
+- **Pricing** (`public/landing.html:846`): keep the **Free** tier; replace the `$1/month` Launch Plan card with **$9/mo — first 100 members, locked in while continuously subscribed**. The plan grants 500 monthly credits with no rollover; the standard price after the founding cohort is $19/month, and the fixed top-up is $5 for 250 non-expiring credits. Delete the "access is enabled manually for early adopters" note; the CTA is the waitlist or signup depending on `signup-status`.
 - **Feature grid** ("Everything in one place") is filtered through the day-razor — anything that doesn't live on the day comes out of the story.
 - `<title>`, `og:title`, and `og:description` (`public/landing.html:6-10`) all still carry the old line and must be rewritten with it.
 - Landing CTAs swap between "Start Free" and "Join the waitlist" based on `GET /auth/signup-status`, putting real scarcity in front of ad traffic.

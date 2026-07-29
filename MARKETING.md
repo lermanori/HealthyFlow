@@ -61,14 +61,14 @@ Ordered. P0 blocks any outreach; P1 blocks scaling past friends; P2 is polish.
 
 ### P0 — revenue correctness & the paywall path
 1. **Implement the sell-rate split in `backend/src/credits.ts`.** Verified 2026-07-05: only `APP_TOKENS_PER_USD = 1000` + `MARKUP_RATE = 0.25` exist — granting "$1 = 500 credits" through the same constant used for cost metering means ~20% margin or a cosmetic price change (the documented margin trap). Add a separate purchase/sell rate used **only when granting credits** (500/$1 promo, 250/$1 regular); leave `APP_TOKENS_PER_USD` untouched.
-2. **A trial taste of the AI.** `FREE_SIGNUP_CREDITS = 0` means a stranger can sign up and never experience the aha moment (first AI dump → structured plan) without paying first. That kills cold conversion. Grant a small one-time trial (~25–50 credits ≈ a few parses) — this is *not* freemium (#105 stays closed), it's a demo.
+2. **A trial taste of the AI.** The first 100 launch accounts receive 250 one-time onboarding credits; later accounts receive 50. This lets every new user experience the first AI dump → structured plan moment before deciding whether to subscribe.
 3. **A visible "get the plan" path in-app**: when credits run out or on the pricing surface, a clear CTA → payment link (Stripe Payment Link / PayPal / Bit — no full billing integration needed) or "message me" flow. Manual fulfillment is fine for 10 customers; invisible fulfillment is not.
 4. **Smoke-test the paid path end-to-end as a fresh user**: signup → onboarding (#106) → trial parse → run out → pay → credits granted → parse again. Fix whatever breaks.
 
 ### P1 — first-session credibility (what a stranger sees in minutes 0–10)
 5. **Kill visible errors on the happy path**: [#125](https://github.com/lermanori/HealthyFlow/issues/125) Google-sync "sync failed" on task items (an error toast in the first session = instant churn), [#127](https://github.com/lermanori/HealthyFlow/issues/127) calorie quantity handling.
 6. **Re-verify the old QA bugs** (timeline ordering after noon, drag-and-drop persistence, habit bar visibility) — the list is from July 2025 and may be stale; confirm fixed or fix.
-7. **Landing page refresh** (`public/landing.html`): current screenshots (regenerate via the demo-account + Playwright flow), the one-liner, founding-member pricing, one CTA. This is the only "funnel" needed for 10 customers.
+7. ~~**Landing page refresh**~~ — **done 2026-07-28.** Screenshots are recaptured from the real app by `scripts/capture-landing-shots.mjs`; the page now shows the Health workspace and the timeline-as-record story, drops the flagged-off Week view, and leads with the waitlist rather than a "Start Free" CTA that dead-ends while public slots are 0.
 8. **Custom domain** ([#19](https://github.com/lermanori/HealthyFlow/issues/19)) — asking strangers to pay on a `netlify.app` URL costs trust.
 9. **Privacy policy + ToS pages** — minimum legal hygiene once money changes hands (template-grade is fine).
 
@@ -77,8 +77,8 @@ Ordered. P0 blocks any outreach; P1 blocks scaling past friends; P2 is polish.
 11. **Mobile/PWA pass on the golden path** — the ADHD/habit audience lives on phones; Structured wins on mobile feel alone.
 12. **Product-shape items from the packaging design** (spec: `docs/superpowers/specs/2026-07-05-product-packaging-design.md`):
     - Feature-flag off the unwired grocery/meal/workout surfaces — sell the unified model only when it's real.
-    - Make calories/weight **on by default** (currently gated behind the `calorieIntake` setting) — it's half the story.
-    - Consolidate Ask + Assistant into one AI surface ([#124](https://github.com/lermanori/HealthyFlow/issues/124)).
+    - ~~Make calories/weight **on by default**~~ — **done.** `calorieIntake`, `workoutTracker` and `achievementTracker` all default to `true` in `backend/src/settings-schema.ts`, and the three sections now sit under one Health workspace.
+    - ~~Consolidate Ask + Assistant into one AI surface~~ ([#124](https://github.com/lermanori/HealthyFlow/issues/124)) — **done.** One surface, **Talk**, at `/talk`; `/assistant` redirects to it.
     - Onboarding first screen = one brain-dump question ("Tell me about your day tomorrow") → populated timeline. This moment is also the demo GIF and the landing hero.
     - Expenses (#97) and ideas dump (#96) are out of the product story — not day-shaped.
 

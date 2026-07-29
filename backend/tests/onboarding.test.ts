@@ -24,6 +24,7 @@ const mockAchievements = Achievements as jest.Mocked<typeof Achievements>
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockDb.getUserSettings.mockResolvedValue({})
 })
 
 describe('Onboarding', () => {
@@ -39,6 +40,17 @@ describe('Onboarding', () => {
     })
     expect(mockDb.createTask).not.toHaveBeenCalled()
   })
+
+  it.each(['completed', 'skipped'] as const)(
+    'does not reopen %s onboarding when an interrupted signup retries',
+    async (onboardingStatus) => {
+      mockDb.getUserSettings.mockResolvedValue({ onboardingStatus })
+
+      await Onboarding.seedNewUser('user-1')
+
+      expect(mockDb.upsertUserSettings).not.toHaveBeenCalled()
+    },
+  )
 
   it('completes onboarding by awarding an achievement and hiding the flow', async () => {
     mockDb.getUserSettings.mockResolvedValue({ onboardingStatus: 'active' })

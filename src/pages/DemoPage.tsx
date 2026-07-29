@@ -147,13 +147,13 @@ export default function DemoPage() {
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-line/70 bg-sunken/35 p-4">
                 <Clock className="mb-3 h-5 w-5 text-cyan-300" />
-                <p className="text-sm font-semibold text-ink">Guided narration</p>
-                <p className="mt-1 text-sm text-ink-muted">Subtitles and browser voiceover walk through the real app.</p>
+                <p className="text-sm font-semibold text-ink">Guided walkthrough</p>
+                <p className="mt-1 text-sm text-ink-muted">On-screen guidance walks through the real app step by step.</p>
               </div>
               <div className="rounded-xl border border-line/70 bg-sunken/35 p-4">
                 <CalendarClock className="mb-3 h-5 w-5 text-cyan-300" />
                 <p className="text-sm font-semibold text-ink">Always current</p>
-                <p className="mt-1 text-sm text-ink-muted">Maya's workspace is seeded relative to today's date.</p>
+                <p className="mt-1 text-sm text-ink-muted">{selected.name}'s workspace is seeded relative to today's date.</p>
               </div>
             </div>
           </motion.div>

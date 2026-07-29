@@ -35,17 +35,17 @@ test('new signup sees brain-dump onboarding, parses a day, and completion stays 
   await page.goto(`/app?invite=${encodeURIComponent(invite)}`)
   await page.evaluate(() => localStorage.removeItem('token'))
   await page.reload()
-  await page.getByRole('button', { name: 'Create account' }).click()
+  await expect(page.getByRole('heading', { name: "You're invited" })).toBeVisible()
   await page.getByLabel('Full Name').fill('Onboarding Test')
   await page.getByLabel('Email Address').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByLabel('Confirm Password').fill(password)
-  await page.getByRole('button', { name: 'Create Account', exact: true }).click()
+  await page.getByRole('button', { name: 'Create account', exact: true }).click()
 
   await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toBeVisible({ timeout: 10_000 })
 
   await page.getByRole('button', { name: 'Start', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'AI Task Analyzer' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Turn notes into Items' })).toBeVisible()
 
   await page.getByPlaceholder(/Describe what you want to accomplish/).fill(
     'Gym at 7am, finish the quarterly report, and grab groceries after work.'
@@ -72,12 +72,12 @@ test('skip link completes onboarding without parsing', async ({ page }) => {
   await page.goto(`/app?invite=${encodeURIComponent(invite)}`)
   await page.evaluate(() => localStorage.removeItem('token'))
   await page.reload()
-  await page.getByRole('button', { name: 'Create account' }).click()
+  await expect(page.getByRole('heading', { name: "You're invited" })).toBeVisible()
   await page.getByLabel('Full Name').fill('Onboarding Skip Test')
   await page.getByLabel('Email Address').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByLabel('Confirm Password').fill(password)
-  await page.getByRole('button', { name: 'Create Account', exact: true }).click()
+  await page.getByRole('button', { name: 'Create account', exact: true }).click()
 
   await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toBeVisible({ timeout: 10_000 })
   await page.getByRole('button', { name: 'Later', exact: true }).click()

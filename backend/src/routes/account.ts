@@ -4,13 +4,13 @@ import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 import { buildAccountExport, getAccountCredentials } from '../account-data'
-import { db } from '../supabase-client'
+import { db, supabase } from '../supabase-client'
 import { revokeGoogleAuthorization } from '../calendar'
 
 const router = express.Router()
 
 const DeleteAccountSchema = z.object({
-  password: z.string().min(1),
+  password: z.string().optional().default(''),
   confirmation: z.literal('DELETE'),
 })
 
@@ -40,15 +40,20 @@ router.get('/export', async (req: AuthRequest, res) => {
 
 router.delete('/', deleteLimiter, async (req: AuthRequest, res) => {
   const parsed = DeleteAccountSchema.safeParse(req.body)
-  if (!parsed.success) return res.status(400).json({ error: 'Enter your password and type DELETE exactly.' })
+  if (!parsed.success) return res.status(400).json({ error: 'Type DELETE exactly.' })
 
   try {
     const user = await getAccountCredentials(req.user.userId)
     if (user.role === 'admin' || user.email === 'demo@healthyflow.com' || user.email.startsWith('demo-')) {
       return res.status(403).json({ error: 'Demo and administrator accounts cannot be deleted here.' })
     }
-    const passwordMatches = await bcrypt.compare(parsed.data.password, user.password_hash)
-    if (!passwordMatches) return res.status(401).json({ error: 'Current password is incorrect.' })
+    if (user.signup_method !== 'google') {
+      if (!parsed.data.password) {
+        return res.status(400).json({ error: 'Enter your password and type DELETE exactly.' })
+      }
+      const passwordMatches = await bcrypt.compare(parsed.data.password, user.password_hash)
+      if (!passwordMatches) return res.status(401).json({ error: 'Current password is incorrect.' })
+    }
 
     const warnings: string[] = []
     try {
@@ -58,6 +63,15 @@ router.delete('/', deleteLimiter, async (req: AuthRequest, res) => {
       warnings.push('google-revocation-failed')
     }
     await db.deleteUser(user.id)
+    if (user.google_auth_subject) {
+      try {
+        const { error } = await supabase.auth.admin.deleteUser(user.google_auth_subject)
+        if (error) throw error
+      } catch (error) {
+        console.warn('Supabase Auth deletion failed during account deletion:', error)
+        warnings.push('supabase-auth-deletion-failed')
+      }
+    }
     return res.json({ deleted: true, warnings })
   } catch (error) {
     console.error('Account deletion failed:', error)

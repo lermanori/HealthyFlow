@@ -4,10 +4,11 @@ import bcrypt from 'bcryptjs'
 import rateLimit from 'express-rate-limit'
 import { z } from 'zod'
 import { db } from '../supabase-client'
-import { Credits, FREE_SIGNUP_CREDITS } from '../credits'
+import { Credits } from '../credits'
 import { Onboarding } from '../onboarding'
 import { Waitlist } from '../waitlist'
 import { DEMO_PERSONAS, getDemoPersonaUser } from '../demo-personas'
+import { Auth, AuthFlowError, GoogleSessionSchema } from '../auth'
 
 const router = express.Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
@@ -35,11 +36,23 @@ const signupLimiter = rateLimit({
   message: { error: 'Too many signup attempts, please try again later.' },
 })
 
+const googleSessionLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many Google sign-in attempts. Please try again later.' },
+})
+
 // Public: lets the landing page and LoginPage choose between the signup form and
 // the waitlist form. Deliberately exposes no invite tokens or waitlist contents.
 router.get('/signup-status', async (_req, res) => {
   try {
-    return res.json(await Waitlist.getSignupStatus())
+    const [status, offer] = await Promise.all([
+      Waitlist.getSignupStatus(),
+      Credits.getLaunchOffer(),
+    ])
+    return res.json({ ...status, offer })
   } catch (error) {
     console.error('Signup status error:', error)
     return res.status(500).json({ error: 'Could not read signup status' })
@@ -78,14 +91,43 @@ router.post('/signup', signupLimiter, async (req, res) => {
       await Waitlist.completeInviteSignup(authorization.inviteToken, user.id)
     }
 
-    await Credits.grant(user.id, FREE_SIGNUP_CREDITS, 'signup_bonus')
+    const signupCredits = await Credits.grantSignupCredits(user.id)
     await Onboarding.seedNewUser(user.id)
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' })
-    return res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role ?? 'user' }, token })
+    return res.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role ?? 'user',
+        authMethod: user.signup_method ?? 'password',
+      },
+      token,
+      signupCredits,
+    })
   } catch (error) {
     console.error('Signup error:', error)
     return res.status(500).json({ error: 'Database error' })
+  }
+})
+
+// Supabase Auth verifies the Google identity; HealthyFlow then applies its own
+// access gate and returns the same app JWT used by password login.
+router.post('/google', googleSessionLimiter, async (req, res) => {
+  const parsed = GoogleSessionSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Google sign-in data is missing.' })
+  }
+
+  try {
+    return res.json(await Auth.exchangeGoogleSession(parsed.data))
+  } catch (error) {
+    if (error instanceof AuthFlowError) {
+      return res.status(error.status).json({ error: error.message, reason: error.reason })
+    }
+    console.error('Google sign-in error:', error)
+    return res.status(500).json({ error: 'Could not finish Google sign-in.' })
   }
 })
 
@@ -106,6 +148,7 @@ router.post('/demo-session', async (req, res) => {
         email: user.email,
         name: user.name,
         role: user.role ?? 'user',
+        authMethod: user.signup_method ?? 'password',
       },
       token,
       persona: parsed.data.persona,
@@ -141,7 +184,8 @@ router.post('/login', async (req, res) => {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role ?? 'user'
+        role: user.role ?? 'user',
+        authMethod: user.signup_method ?? 'password',
       },
       token
     })
@@ -172,6 +216,7 @@ router.get('/verify', async (req, res) => {
       email: user.email,
       name: user.name,
       role: user.role ?? 'user',
+      authMethod: user.signup_method ?? 'password',
     })
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' })

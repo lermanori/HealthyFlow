@@ -13,3 +13,13 @@ describe('Week View release flag', () => {
     assert.match(layout, /items:\s*WEEK_VIEW_ENABLED[\s\S]*?\{ name: 'Week'/)
   })
 })
+
+describe('Daily Signals release flag', () => {
+  it('is opt-in on Today', () => {
+    const featureFlags = readFileSync('src/featureFlags.ts', 'utf8')
+    const today = readFileSync('src/pages/TodayPage.tsx', 'utf8')
+
+    assert.match(featureFlags, /VITE_DAILY_SIGNALS_ENABLED === 'true'/)
+    assert.match(today, /DAILY_SIGNALS_ENABLED && <AIRecommendationsBox date=\{selectedDateKey\} \/>/)
+  })
+})

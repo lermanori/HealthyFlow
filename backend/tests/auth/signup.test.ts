@@ -9,8 +9,8 @@ jest.mock('../../src/supabase-client', () => ({
   db: {
     getUserByEmail: jest.fn(),
     createUser: jest.fn(),
-    grantCredits: jest.fn(),
-    insertUsageLog: jest.fn(),
+    claimSignupCreditGrant: jest.fn(),
+    getFoundingSignupCreditGrantCount: jest.fn(),
   },
 }))
 
@@ -34,9 +34,13 @@ const mockWaitlist = Waitlist as jest.Mocked<typeof Waitlist>
 
 beforeEach(() => {
   jest.clearAllMocks()
-  // signup grants FREE_SIGNUP_CREDITS via Credits.grant → db.grantCredits + db.insertUsageLog
-  mockDb.grantCredits.mockResolvedValue(50)
-  mockDb.insertUsageLog.mockResolvedValue(undefined)
+  mockDb.claimSignupCreditGrant.mockResolvedValue({
+    credits: 250,
+    cohort: 'founding',
+    balance: 250,
+    alreadyGranted: false,
+  })
+  mockDb.getFoundingSignupCreditGrantCount.mockResolvedValue(0)
   // Default to an open public slot so the pre-existing tests below still exercise
   // the happy path; the gating tests override this per case.
   mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: true, via: 'public' })
@@ -54,6 +58,12 @@ describe('POST /api/auth/signup', () => {
     expect(res.status).toBe(200)
     expect(res.body.token).toBeDefined()
     expect(res.body.user.email).toBe('new@example.com')
+    expect(res.body.signupCredits).toEqual({
+      credits: 250,
+      cohort: 'founding',
+      balance: 250,
+      alreadyGranted: false,
+    })
     expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('user-1')
   })
 
@@ -181,7 +191,22 @@ describe('GET /api/auth/signup-status', () => {
     const res = await request(app).get('/api/auth/signup-status')
 
     expect(res.status).toBe(200)
-    expect(res.body).toEqual({ mode: 'open', remaining: 7 })
+    expect(res.body).toEqual({
+      mode: 'open',
+      remaining: 7,
+      offer: {
+        foundingMemberLimit: 100,
+        foundingMembersRemaining: 100,
+        onboardingCredits: 250,
+        foundingOnboardingCredits: 250,
+        standardOnboardingCredits: 50,
+        foundingPriceUsd: 9,
+        regularPriceUsd: 19,
+        monthlyCredits: 500,
+        topUpPriceUsd: 5,
+        topUpCredits: 250,
+      },
+    })
   })
 })
 

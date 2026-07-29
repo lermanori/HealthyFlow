@@ -507,11 +507,13 @@ export default function DayTimeline({
         onTasksReorder(tasks.map(item => (item.id === task.id ? ({ ...item, ...updated } as Task) : item)))
         onTasksPersisted()
       },
+      expandAnytime: () => setIsAnytimeExpanded(true),
     }
 
     return () => {
       if (!window.__healthyFlowDemo) return
       delete window.__healthyFlowDemo.moveRolloverTaskToToday
+      delete window.__healthyFlowDemo.expandAnytime
     }
   }, [onTasksPersisted, onTasksReorder, tasks])
 
@@ -851,7 +853,10 @@ export default function DayTimeline({
     <div className="space-y-3 md:space-y-4">
       <h2 className="text-xl font-semibold text-ink">{heading}</h2>
 
-      <p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+      {/* Named so it is distinguishable from the other role="status" regions on
+          the page (Layout's module notices, LoadingSpinner) — both for assistive
+          tech and for tests, which otherwise match several live regions at once. */}
+      <p className="sr-only" role="status" aria-label="Schedule changes" aria-live="polite" aria-atomic="true">
         {dragStatus}
       </p>
 

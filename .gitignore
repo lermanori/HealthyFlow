@@ -38,4 +38,6 @@ tests/e2e/.auth/
 
 # Playwright run artifacts
 test-results/
+e2e-results.json
+e2e-errors.txt
 .board-harness/

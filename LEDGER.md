@@ -1,3 +1,45 @@
+### 2026-07-29 12:44 — `main`
+
+Repaired the persona demos and guided tours against the current product UI: stale selectors and routes now point at live surfaces, disabled Week steps are filtered, collapsed rollover Items are revealed before use, and route transitions no longer skip steps. Demo Talk is deterministic without consuming credits, access guidance matches the invitation/waitlist flow, stale seed helpers and demo copy are corrected, and the orphaned legacy video is removed. The updated tours pass frontend and backend typechecks, 47 unit tests, lint with no errors, a production build, and mocked desktop/mobile walkthroughs.
+
+---
+
+### 2026-07-29 11:59 — `codex/google-signin-production`
+
+Added production-grade Google sign-in through Supabase Auth while preserving HealthyFlow’s existing JWT sessions, invitation/public-slot gate, account linking, first-100 credit grant, and onboarding rules. OAuth callback recovery, invitation expiry and idempotent redemption, Google-account deletion, inline failure states, deployment documentation, and responsive login coverage now travel together as one flow. The production schema and public Netlify configuration are in place; enabling the provider awaits the Google Cloud callback URI being saved.
+
+---
+
+### 2026-07-29 11:08 — `codex/login-page-hierarchy`
+
+Reworked the authentication entry into a state-aware flow: returning users get a blank, focused sign-in form; invite links open directly into account creation; and the waitlist stays secondary until requested. Removed exposed demo credentials in favor of one guided-demo action, added inline validation and password visibility controls, and kept the full primary experience within a mobile viewport. Updated the auth coverage and all six login visual baselines across Midnight, White, desktop, compact, and mobile.
+
+---
+
+### 2026-07-29 00:20 — `claude/suspicious-lewin-befb56`
+
+Closed the loop on landing-page screenshots being real product shots rather than whatever the capturing developer's environment happened to render. Vite inlines `VITE_*` at build time, so the capture had twice published features no production user could reach — Week view, then Daily Signals, whose "3 signals" row was live in the committed hero image. `scripts/capture-landing-shots.mjs` now starts its own Vite with every flag in `src/featureFlags.ts` blanked, pins the theme to Midnight server-side (the shared demo account had drifted to White, which would have put light screenshots on a dark page), and refuses to write if a flagged-off surface renders anyway. Also fixed a live pricing defect: the sold-out card read "$19 / month" and "$9 locked in" at once, because `.plan li { display: flex }` silently beat the UA's `[hidden] { display: none }`.
+
+---
+
+### 2026-07-28 20:11 — `codex/launch-pricing`
+
+Made the landing page’s image and icon references relative so its fresh product captures load both in production and when `public/landing.html` is opened directly for review. Confirmed all 24 referenced assets exist and the production build succeeds; the deployed screenshot files already matched the current local captures byte for byte.
+
+---
+
+### 2026-07-28 19:29 — `codex/launch-pricing`
+
+Established the launch commercial model across signup, credits, pricing surfaces, acquisition messaging, and funnel analytics: the first 100 real accounts receive 250 onboarding credits and retain the $9 founding plan while continuously subscribed, followed by 50-credit onboarding and the $19 standard plan. Added an atomic, idempotent Supabase grant ledger plus the $5 / 250-credit non-expiring top-up contract, and applied the migration to production before the backend rollout. The rebased release passes 434 backend tests, 43 frontend tests, production builds, typechecks, and lint without errors.
+
+---
+
+### 2026-07-28 18:07 — `codex/hide-daily-signals`
+
+Daily Signals are now hidden from Today by default behind an opt-in release flag while the product behavior matures. The existing implementation remains intact, and browser tests explicitly enable the flag so its review, recovery, and safety coverage stays active for eventual re-release.
+
+---
+
 ### 2026-07-28 17:39 — `codex/hide-disabled-capacity`
 
 Today no longer presents an unavailable-capacity warning when daily capacity calculation is switched off. The decision band collapses cleanly around Focus and Next obligation, while enabled complete, partial, and unavailable capacity states remain honest and visible. Focused browser coverage now distinguishes the disabled presentation from genuine enabled-source failures.
@@ -10,9 +52,39 @@ Added a mobile-only Today gesture that moves left or right between adjacent days
 
 ---
 
+### 2026-07-28 15:40 — `claude/app-launch-readiness-164e9d`
+
+Fixed the WCAG AA contrast failures the e2e suite had surfaced. The cause was `accent` doing double duty as both the text colour and the tint behind it: at reduced opacity the two converge, so `text-accent/70` on `bg-accent/15` measured 4.07:1 in midnight and 2.67:1 in white. Midnight needed no token change at all — dropping the opacity modifiers took its worst row from 4.07 to 6.52. White needed the accent darkened as well (8 112 140 to 6 90 112), taking its worst row from 2.67 to 5.67. The Axe dialog check now runs in both themes, which is what let seven white-theme violations ship in the first place, and it immediately caught a second unrelated one: `--text-muted` at 4.38:1, nudged to 5.01:1 without flattening the muted/secondary distinction.
+
+---
+
+### 2026-07-28 15:05 — `claude/app-launch-readiness-164e9d`
+
+Took the e2e suite from 24 failures to 1, and the one that remains is a real bug the suite should be reporting. Most of the 24 were the suite lying rather than the app breaking: specs pinned to copy and CSS #151 had changed, two `getByRole('status')` locators that matched several live regions at once, and — the interesting one — `/test/reset` clearing only tasks and workouts. Once the timeline became the day's record, stray Calorie entries from the health specs started occupying hours that items-lifecycle expected to be empty, so specs in one subject were silently breaking specs in another. Reset now clears every table that can put a row on a day. The subject split had also quietly orphaned all 68 visual baselines, because Playwright bakes the project name into snapshot filenames; snapshots are now project-independent and carry a measured 0.015 diff threshold so they stop failing on a different Mac. The last failure is a genuine WCAG AA contrast violation in the calorie quick-insert dialog (4.06:1 against 4.5:1 required) that #151 shipped under the banner of a "contrast-safe" visual system — and it had been passing only because leftover fixture data happened to render the offending buttons.
+
+---
+
+### 2026-07-28 14:20 — `claude/app-launch-readiness-164e9d`
+
+Split the e2e suite into nine subject projects so one area can be checked without waiting 6.5 minutes for the whole run — `--project=talk` reports in 37s, `--project=habits` in 49s. The subjects are a strict partition rather than overlapping views: an earlier overlapping draft turned a default run into 262 tests instead of 114, because specs matched several projects at once. `src/utils/e2eProjectPartition.test.ts` now fails the unit suite if a spec is added with no subject (it would silently stop running) or listed under two, and the guard was verified by actually introducing an unregistered spec. Also recorded the real state of the suite: 114 ran, 90 passed, 24 failed — not the 60 we were working from, which was almost certainly the reuseExistingServer cascade.
+
+---
+
+### 2026-07-28 13:20 — `claude/app-launch-readiness-164e9d`
+
+Merged main (the #151 responsive visual system) into the launch-readiness branch and recaptured the landing screenshots against it. #151 rewrote Layout, DayTimeline and TaskCard, so the shots taken an hour earlier were already stale — the new tagline, the retired sidebar AI box and the capitalised category chips all show now. Re-verified the FEATURES.md claims that could have been invalidated by the merge: the settings schema still matches, there are still no Supabase realtime channels, and the service worker still returns 503 for API calls. Week View remains flag-off in production, so the landing page correctly still says nothing about it.
+
+---
+
 ### 2026-07-28 13:01 — `codex/151-responsive-visual-system`
 
 Normalized HealthyFlow around a semantic, contrast-safe visual system shared by Midnight and White themes across Login, Today, Talk, Add, Health, Nutrition, Workouts, Progress, and Settings. Shared category presentation now follows the canonical six-value Zod contract, completion feedback is quiet and undoable, text selection and reduced-motion behavior are preserved, and the hidden Week View remains untouched. Responsive baselines cover every visible primary surface at desktop, compact, and mobile widths, with focused accessibility and interaction regressions alongside them.
+
+---
+
+### 2026-07-28 12:15 — `claude/app-launch-readiness-164e9d`
+
+Realigned the marketing page and the docs with the app as it now is. The landing page had drifted badly: it sold Week View (flag-off for every production user), showed Calories and Workouts as separate destinations that the Health workspace replaced, and pointed four "Start Free" CTAs at a login form with no Create-account tab, because public signup slots default to 0. The waitlist is now the shipped default and JS upgrades it to "Start Free" only when slots are genuinely open — the fail direction is inverted, matching LoginPage. Every screenshot was stale (old flat sidebar), so regeneration is now scripted rather than manual via `scripts/capture-landing-shots.mjs`. On the docs side, PRD.md was archived — its v1 sprint shipped, so it read as false — and FEATURES.md was rewritten as a verified inventory that names what is behind a flag and what is not built at all, dropping claims the code contradicts (no Supabase realtime, no offline data).
 
 ---
 

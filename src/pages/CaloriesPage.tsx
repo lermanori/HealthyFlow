@@ -603,7 +603,11 @@ export default function CaloriesPage() {
             )}
           </section>
 
-          <section className="rounded-section border border-line bg-card p-4 shadow-section md:p-5" aria-labelledby="quick-repeat-heading">
+          <section
+            className="rounded-section border border-line bg-card p-4 shadow-section md:p-5"
+            data-demo-id="calorie-quick-repeat"
+            aria-labelledby="quick-repeat-heading"
+          >
             <div>
               <h2 id="quick-repeat-heading" className="font-semibold text-ink">Quick repeat</h2>
               <p className="mt-1 text-xs text-ink-muted">Reuse recent Calorie entries without scanning history.</p>
@@ -736,12 +740,12 @@ export default function CaloriesPage() {
                           <div className="flex items-center justify-between gap-3">
                             <div>
                               <p className="font-medium">{item.name}</p>
-                              <p className="text-xs text-accent/70">
+                              <p className="text-xs text-accent">
                                 {quickInsertSort === 'most-used' ? `${item.usageCount} uses` : `Last used ${formatLastUsedLabel(item.lastUsedAt)}`}
                               </p>
-                              {item.quantity && <p className="text-xs text-accent/75">{item.quantity}</p>}
+                              {item.quantity && <p className="text-xs text-accent">{item.quantity}</p>}
                             </div>
-                            <span className="text-sm text-accent/80">{item.calories} cal</span>
+                            <span className="text-sm text-accent">{item.calories} cal</span>
                           </div>
                         </button>
                       ))}

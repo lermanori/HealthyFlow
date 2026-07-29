@@ -6,13 +6,20 @@ const mockGetAccountCredentials = jest.fn()
 const mockDeleteUser = jest.fn()
 const mockRevokeGoogleAuthorization = jest.fn()
 const mockCompare = jest.fn()
+const mockDeleteSupabaseAuthUser = jest.fn()
 
 jest.mock('../src/account-data', () => ({
   buildAccountExport: (...args: unknown[]) => mockBuildAccountExport(...args),
   getAccountCredentials: (...args: unknown[]) => mockGetAccountCredentials(...args),
 }))
 jest.mock('../src/supabase-client', () => ({
-  supabase: {},
+  supabase: {
+    auth: {
+      admin: {
+        deleteUser: (...args: unknown[]) => mockDeleteSupabaseAuthUser(...args),
+      },
+    },
+  },
   db: {
     getUserById: jest.fn(),
     getUserByEmail: jest.fn(),
@@ -38,10 +45,13 @@ beforeEach(() => {
     name: 'User',
     role: 'user',
     password_hash: 'hash',
+    google_auth_subject: null,
+    signup_method: 'password',
   }))
   mockCompare.mockResolvedValue(true)
   mockRevokeGoogleAuthorization.mockResolvedValue(undefined)
   mockDeleteUser.mockResolvedValue(undefined)
+  mockDeleteSupabaseAuthUser.mockResolvedValue({ error: null })
 })
 
 test('exports a no-store, dated JSON attachment for the authenticated owner', async () => {
@@ -107,6 +117,28 @@ test('deletes after verification and returns no warnings when revocation succeed
   expect(response.body).toEqual({ deleted: true, warnings: [] })
   expect(mockRevokeGoogleAuthorization).toHaveBeenCalledWith('user-delete')
   expect(mockDeleteUser).toHaveBeenCalledWith('user-delete')
+})
+
+test('deletes a Google-created account without asking for a password and removes its auth identity', async () => {
+  mockGetAccountCredentials.mockResolvedValueOnce({
+    id: 'google-user',
+    role: 'user',
+    email: 'google@example.com',
+    password_hash: 'random-unusable-hash',
+    google_auth_subject: 'google-subject',
+    signup_method: 'google',
+  })
+
+  const response = await request(app)
+    .delete('/api/account')
+    .set('Authorization', `Bearer ${tokenFor('google-user')}`)
+    .send({ confirmation: 'DELETE' })
+
+  expect(response.status).toBe(200)
+  expect(response.body).toEqual({ deleted: true, warnings: [] })
+  expect(mockCompare).not.toHaveBeenCalled()
+  expect(mockDeleteUser).toHaveBeenCalledWith('google-user')
+  expect(mockDeleteSupabaseAuthUser).toHaveBeenCalledWith('google-subject')
 })
 
 test('continues deletion and reports a Google revocation warning', async () => {

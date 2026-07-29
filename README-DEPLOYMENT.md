@@ -3,6 +3,61 @@
 ## Frontend (Already Deployed)
 ✅ **Deployed to Netlify**: https://keen-monstera-82e39e.netlify.app
 
+Production domain: https://healthyflow.app
+
+## Google sign-in
+
+HealthyFlow uses Supabase Auth for the Google identity and exchanges that
+verified identity for the existing HealthyFlow JWT. No Google or Supabase secret
+belongs in the frontend bundle.
+
+### Google Auth Platform
+
+Use the `healthyflow` Google Cloud project and its Web application OAuth client.
+
+- Authorized JavaScript origins:
+  - `http://localhost:5173`
+  - `https://healthyflow.app`
+- Authorized redirect URI for Supabase Auth:
+  - `https://jvdcaxdtmieedhwztdip.supabase.co/auth/v1/callback`
+- Data Access scopes:
+  - `openid`
+  - `https://www.googleapis.com/auth/userinfo.email`
+  - `https://www.googleapis.com/auth/userinfo.profile`
+
+The Google client ID and client secret are copied into Supabase Dashboard →
+Authentication → Sign In / Providers → Google. Do not put the client secret in
+Netlify, Railway frontend variables, or a committed file.
+
+### Supabase Auth
+
+In Supabase Dashboard → Authentication → URL Configuration:
+
+- Site URL: `https://healthyflow.app/app`
+- Redirect URLs:
+  - `https://healthyflow.app/app?oauth=callback`
+  - `http://localhost:5173/app?oauth=callback`
+
+Enable the Google provider only after its Google Cloud redirect URI is saved.
+Apply database migrations with:
+
+```bash
+npx supabase db push --linked
+```
+
+### Netlify public build variables
+
+Set these for production, previews, branch deploys, and local Netlify dev:
+
+```env
+VITE_SUPABASE_URL=https://jvdcaxdtmieedhwztdip.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=<Supabase publishable key or legacy anon key>
+```
+
+Both values are designed to be public browser configuration. The
+`SUPABASE_SERVICE_ROLE_KEY` remains Railway-only and must never use a `VITE_`
+prefix.
+
 ## Backend Deployment Options
 
 ### Option 1: Railway (Recommended - Free Tier Available)
