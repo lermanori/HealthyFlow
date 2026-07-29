@@ -498,6 +498,7 @@ function DecisionBand({ summary }: { summary: DaySummary }) {
   const nextPlanned = summary.attention.nextPlannedItem
   const nextCalendar = summary.attention.nextCalendarObligation
   const capacity = summary.capacity
+  const capacityEnabled = summary.settings.planningWindow !== null
 
   const addressed = summary.completion.addressed ?? summary.completion.completed
   const emptyFocusCopy = focus.state === 'completed_day'
@@ -535,7 +536,10 @@ function DecisionBand({ summary }: { summary: DaySummary }) {
       className="overflow-hidden rounded-xl border border-line/70 bg-page/45"
     >
       <h2 id="daily-decisions-heading" className="sr-only">Daily decisions</h2>
-      <div className="today-decision-grid">
+      <div
+        className="today-decision-grid"
+        data-capacity-enabled={capacityEnabled ? 'true' : 'false'}
+      >
         <div className="today-decision-primary min-w-0 border-b border-line/60 p-4">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-accent">
             Focus now
@@ -601,40 +605,42 @@ function DecisionBand({ summary }: { summary: DaySummary }) {
           </div>
         </div>
 
-        <div className="today-decision-capacity min-w-0 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
-                {capacity.status === 'partial' ? 'Capacity · partly known' : 'Capacity'}
-              </p>
-              <p className="mt-2 text-base font-semibold text-ink">{capacityTitle}</p>
+        {capacityEnabled && (
+          <div className="today-decision-capacity min-w-0 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
+                  {capacity.status === 'partial' ? 'Capacity · partly known' : 'Capacity'}
+                </p>
+                <p className="mt-2 text-base font-semibold text-ink">{capacityTitle}</p>
+              </div>
+              {capacity.status === 'partial' || capacity.status === 'unavailable'
+                ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-state-warning" aria-label="Incomplete capacity data" />
+                : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-state-success" aria-label="Capacity data complete" />}
             </div>
-            {capacity.status === 'partial' || capacity.status === 'unavailable'
-              ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-state-warning" aria-label="Incomplete capacity data" />
-              : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-state-success" aria-label="Capacity data complete" />}
-          </div>
-          <p className="mt-1 text-xs leading-relaxed text-ink-muted">{capacityDetail}</p>
-          <div className="mt-3 flex items-center gap-2 text-xs text-ink-soft">
-            <span className="font-semibold text-ink">
-              {addressed} of {summary.completion.total} addressed
-            </span>
-            {summary.completion.percent !== null && (
-              <span
-                role="progressbar"
-                aria-label="Daily Item check-in progress"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.round(summary.completion.percent)}
-                className="h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-raised"
-              >
-                <span
-                  className="block h-full bg-accent"
-                  style={{ width: `${summary.completion.percent}%` }}
-                />
+            <p className="mt-1 text-xs leading-relaxed text-ink-muted">{capacityDetail}</p>
+            <div className="mt-3 flex items-center gap-2 text-xs text-ink-soft">
+              <span className="font-semibold text-ink">
+                {addressed} of {summary.completion.total} addressed
               </span>
-            )}
+              {summary.completion.percent !== null && (
+                <span
+                  role="progressbar"
+                  aria-label="Daily Item check-in progress"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(summary.completion.percent)}
+                  className="h-1.5 min-w-16 flex-1 overflow-hidden rounded-full bg-raised"
+                >
+                  <span
+                    className="block h-full bg-accent"
+                    style={{ width: `${summary.completion.percent}%` }}
+                  />
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </section>
   )
