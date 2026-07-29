@@ -1,9 +1,8 @@
 /**
- * Reseed the demo account (demo@healthyflow.com) so the CURRENT week reads as a
- * "winning week": habits completed across the week, realistic completed tasks each
- * day, and a believable, on-track Today (a couple of items still upcoming this
- * evening). Idempotent — safe to re-run; it clears the rows it previously seeded
- * for the current week before re-inserting.
+ * Reseed the demo account (demo@healthyflow.com) with a believable, on-track
+ * Today plus seven days of tracker history. The same rows also populate Week when
+ * that optional view is enabled. Idempotent — safe to re-run; it clears the rows
+ * it previously seeded for the current week before re-inserting.
  *
  * Run from the backend dir:  npx tsx scripts/seed-demo-week.ts
  */
@@ -162,7 +161,7 @@ async function main() {
   await seedWorkouts(userId)
   await seedAchievements(userId)
 
-  console.log('Done. Demo now shows a winning current week across all trackers.')
+  console.log('Done. Demo now shows an on-track Today plus recent tracker history.')
 }
 
 // ---------------------------------------------------------------------------

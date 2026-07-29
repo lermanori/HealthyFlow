@@ -603,7 +603,11 @@ export default function CaloriesPage() {
             )}
           </section>
 
-          <section className="rounded-section border border-line bg-card p-4 shadow-section md:p-5" aria-labelledby="quick-repeat-heading">
+          <section
+            className="rounded-section border border-line bg-card p-4 shadow-section md:p-5"
+            data-demo-id="calorie-quick-repeat"
+            aria-labelledby="quick-repeat-heading"
+          >
             <div>
               <h2 id="quick-repeat-heading" className="font-semibold text-ink">Quick repeat</h2>
               <p className="mt-1 text-xs text-ink-muted">Reuse recent Calorie entries without scanning history.</p>

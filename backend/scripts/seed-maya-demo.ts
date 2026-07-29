@@ -3,9 +3,9 @@ import dotenv from 'dotenv'
 
 dotenv.config({ path: path.join(__dirname, '../../.env') })
 
-import { seedMayaDemo } from '../src/demo-personas'
+import { seedDemoPersona } from '../src/demo-personas'
 
-seedMayaDemo()
+seedDemoPersona('maya')
   .then(({ user, today }) => {
     console.log(`Maya demo refreshed for ${today}: ${user.email}`)
     process.exit(0)
@@ -14,4 +14,3 @@ seedMayaDemo()
     console.error(error)
     process.exit(1)
   })
-

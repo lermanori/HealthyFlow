@@ -2,10 +2,11 @@ import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'rea
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ACTIONS, EVENTS, Joyride, STATUS, type EventData, type Step, type TooltipRenderProps } from 'react-joyride'
 import { demoPersonaById, type DemoPersonaId } from '../demoPersonas'
+import { WEEK_VIEW_ENABLED } from '../featureFlags'
 
 type DemoAction = 'spotlight' | 'type' | 'submit-talk' | 'drag' | 'open-menu' | 'wait'
 
-type DemoScriptStep = {
+export type DemoScriptStep = {
   id: string
   scene: number
   route: string
@@ -22,6 +23,7 @@ declare global {
       setTalkDraft?: (value: string) => void
       submitTalk?: () => Promise<void> | void
       moveRolloverTaskToToday?: (startTime: string) => Promise<void> | void
+      expandAnytime?: () => void
       openAccountMenu?: () => void
       closeAccountMenu?: () => void
     }
@@ -51,9 +53,9 @@ const mayaScript: DemoScriptStep[] = [
     id: 'now-next',
     scene: 0,
     route: '/',
-    target: 'now-next-card',
+    target: 'decision-band',
     action: 'spotlight',
-    narration: "The Now and Next card turns a messy list into a simple decision. Maya can see what she is doing now and what deserves attention next.",
+    narration: "The decision band turns a messy list into a simple choice. Focus now shows what deserves attention, while Next obligation keeps the clock honest.",
     placement: 'bottom',
   },
   {
@@ -129,7 +131,7 @@ const mayaScript: DemoScriptStep[] = [
     route: '/',
     target: 'logout-button',
     action: 'open-menu',
-    narration: "Tap Logout to return to the login screen. From there, choose Create account to start your own empty HealthyFlow workspace.",
+    narration: "Logout returns to the sign-in screen. If you have an invitation you can create your own workspace; otherwise, join the waitlist from there.",
     placement: 'bottom',
   },
   {
@@ -138,7 +140,7 @@ const mayaScript: DemoScriptStep[] = [
     route: '/',
     target: 'add-task-button',
     action: 'spotlight',
-    narration: "Now you can explore Maya's demo freely: add an item, open Talk, move tasks around, or log out and create your own account when you're ready.",
+    narration: "Now you can explore Maya's demo freely: add an Item, open Talk, or move Tasks around. When you're ready to leave, log out to sign in or join the waitlist.",
     placement: 'bottom',
   },
 ]
@@ -148,9 +150,9 @@ const noamScript: DemoScriptStep[] = [
     id: 'noam-today',
     scene: 0,
     route: '/',
-    target: 'now-next-card',
+    target: 'decision-band',
     action: 'spotlight',
-    narration: 'Noam opens Today with a small, realistic plan. HealthyFlow keeps the next choice visible instead of asking him to organize everything at once.',
+    narration: 'Noam opens Today with a small, realistic plan. The decision band keeps his next choice visible instead of asking him to organize everything at once.',
     placement: 'bottom',
   },
   {
@@ -234,15 +236,15 @@ const linaScript: DemoScriptStep[] = [
     id: 'lina-quick-insert',
     scene: 1,
     route: '/calories',
-    target: 'calorie-quick-insert-trigger',
+    target: 'calorie-quick-repeat',
     action: 'spotlight',
-    narration: 'Quick Insert can repeat common meals from history, so everyday logging gets faster after the first entry.',
+    narration: 'Quick repeat reuses common meals from history, so everyday logging gets faster after the first entry.',
     placement: 'bottom',
   },
   {
     id: 'lina-workouts',
     scene: 2,
-    route: '/workouts',
+    route: '/workouts?mode=history',
     target: 'workout-history',
     action: 'spotlight',
     narration: 'Workouts stores completed sessions with exercises, sets, reps, weight, time, and distance.',
@@ -260,8 +262,8 @@ const linaScript: DemoScriptStep[] = [
   {
     id: 'lina-explore',
     scene: 4,
-    route: '/',
-    target: 'talk-button',
+    route: '/health',
+    target: 'health-daily-overview',
     action: 'spotlight',
     narration: 'Now Lina can explore the seeded Health workspace freely, with Nutrition, Workouts, and Progress together under one parent.',
     placement: 'bottom',
@@ -336,11 +338,30 @@ const amirScript: DemoScriptStep[] = [
   },
 ]
 
-const scripts: Record<DemoPersonaId, DemoScriptStep[]> = {
+const allScripts: Record<DemoPersonaId, DemoScriptStep[]> = {
   maya: mayaScript,
   noam: noamScript,
   lina: linaScript,
   amir: amirScript,
+}
+
+// Exported for regression coverage; the guide scripts intentionally remain in this deep UI module.
+// eslint-disable-next-line react-refresh/only-export-components
+export function demoScriptFor(
+  persona: DemoPersonaId,
+  options: { weekViewEnabled?: boolean } = {}
+): DemoScriptStep[] {
+  const weekViewEnabled = options.weekViewEnabled ?? WEEK_VIEW_ENABLED
+  return weekViewEnabled
+    ? allScripts[persona]
+    : allScripts[persona].filter((step) => step.route !== '/week')
+}
+
+const scripts: Record<DemoPersonaId, DemoScriptStep[]> = {
+  maya: demoScriptFor('maya'),
+  noam: demoScriptFor('noam'),
+  lina: demoScriptFor('lina'),
+  amir: demoScriptFor('amir'),
 }
 
 const audioManifest: Record<string, { file: string; duration: number }> = {
@@ -396,6 +417,17 @@ function delay(ms: number, signal: AbortSignal) {
       resolve()
     }, { once: true })
   })
+}
+
+async function waitForTarget(target: string, signal: AbortSignal, timeoutMs = 3000) {
+  const deadline = Date.now() + timeoutMs
+  while (!signal.aborted && Date.now() < deadline) {
+    const element = document.querySelector(targetSelector(target)) as HTMLElement | null
+    if (element) return element
+    await delay(100, signal)
+  }
+  if (!signal.aborted) console.warn(`[demo] Missing target after ${timeoutMs}ms: ${target}`)
+  return null
 }
 
 function playStepAudio(
@@ -608,13 +640,14 @@ export default function MayaDemoGuide() {
   const abortRef = useRef<AbortController | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const completedActionsRef = useRef<Set<string>>(new Set())
+  const targetRetryIndexesRef = useRef<Set<number>>(new Set())
   const focusedTargetRef = useRef<HTMLElement | null>(null)
   const persona = (localStorage.getItem('demoPersona') ?? 'maya') as DemoPersonaId
   const personaMeta = demoPersonaById(persona)
   const script = scripts[personaMeta.id]
   const step = script[stepIndex]
 
-  const isPersonaDemo = useMemo(() => Boolean(localStorage.getItem('demoPersona')), [location.pathname])
+  const isPersonaDemo = Boolean(localStorage.getItem('demoPersona'))
 
   const joyrideSteps = useMemo<Step[]>(() => script.map((item) => ({
     target: targetSelector(item.target),
@@ -628,6 +661,7 @@ export default function MayaDemoGuide() {
     if (!isPersonaDemo) return
     setStepIndex(0)
     completedActionsRef.current.clear()
+    targetRetryIndexesRef.current.clear()
     setRun(localStorage.getItem('mayaDemoGuide') === 'open')
   }, [isPersonaDemo, personaMeta.id])
 
@@ -645,7 +679,8 @@ export default function MayaDemoGuide() {
       focusedTargetRef.current?.removeAttribute('data-demo-active-target')
       focusedTargetRef.current = null
 
-      if (location.pathname !== step.route) {
+      const currentRoute = `${location.pathname}${location.search}`
+      if (currentRoute !== step.route) {
         navigate(step.route)
         await delay(450, controller.signal)
       }
@@ -657,15 +692,19 @@ export default function MayaDemoGuide() {
         window.__healthyFlowDemo?.closeAccountMenu?.()
       }
 
-      const target = resolveTarget(step.target)
-      if (target) {
-        target.setAttribute('data-demo-active-target', 'true')
-        focusedTargetRef.current = target
-        scrollTargetIntoDemoView(target, isMobile)
+      if (step.target === 'rollover-task') {
+        window.__healthyFlowDemo?.expandAnytime?.()
+        await delay(120, controller.signal)
       }
+
+      const target = await waitForTarget(step.target, controller.signal)
+      if (!target || controller.signal.aborted) return
+      target.setAttribute('data-demo-active-target', 'true')
+      focusedTargetRef.current = target
+      scrollTargetIntoDemoView(target, isMobile)
       await delay(isMobile ? 720 : 260, controller.signal)
       if (controller.signal.aborted) return
-      if (target && isMobile) setMobileTargetRect(target.getBoundingClientRect())
+      if (isMobile) setMobileTargetRect(target.getBoundingClientRect())
       setIsReady(true)
 
       if (!muted) playStepAudio(step, controller.signal, audioRef)
@@ -704,7 +743,7 @@ export default function MayaDemoGuide() {
       setMobileTargetRect(null)
       controller.abort()
     }
-  }, [isMobile, location.pathname, muted, navigate, run, step])
+  }, [isMobile, location.pathname, location.search, muted, navigate, run, step])
 
   useEffect(() => {
     if (!isMobile || !isReady || !step) return
@@ -755,13 +794,26 @@ export default function MayaDemoGuide() {
     }
 
     if (type === EVENTS.TARGET_NOT_FOUND) {
-      setStepIndex(Math.min(index + 1, script.length - 1))
+      const pendingStep = script[index]
+      const target = pendingStep ? resolveTarget(pendingStep.target) : null
+      targetRetryIndexesRef.current.add(index)
+      setIsReady(false)
+      if (target) {
+        scrollTargetIntoDemoView(target, isMobile)
+        window.setTimeout(() => setIsReady(true), 100)
+      }
+      window.setTimeout(() => targetRetryIndexesRef.current.delete(index), 500)
       return
     }
 
     if (isMobile) return
 
     if (type === EVENTS.STEP_AFTER) {
+      // Toggling `run` off while the next target is prepared emits a paused
+      // STEP_AFTER carrying the previous "next" action. It is lifecycle noise,
+      // not another user click, and must not skip the newly selected step.
+      if (status !== STATUS.RUNNING) return
+      if (targetRetryIndexesRef.current.has(index)) return
       const nextIndex = action === ACTIONS.PREV ? index - 1 : index + 1
       setStepIndex(Math.max(0, Math.min(nextIndex, script.length - 1)))
     }

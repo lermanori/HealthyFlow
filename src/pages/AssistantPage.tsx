@@ -595,7 +595,7 @@ export default function AssistantPage() {
     setIsSending(true)
 
     try {
-      if (options.forceMock) {
+      if (options.forceMock || demoSession) {
         await new Promise((resolve) => window.setTimeout(resolve, 900))
         setMessages((current) => [...current, demoAssistantMessage()])
         return

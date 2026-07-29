@@ -15,6 +15,28 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
+test('Demo Talk stays deterministic without calling the billable chat API', async ({ page }) => {
+  let billableChatRequests = 0
+  await page.addInitScript(() => {
+    localStorage.setItem('demoPersona', 'noam')
+    localStorage.setItem('mayaDemoGuide', 'closed')
+  })
+  await page.route('**/api/ai/chat', (route) => {
+    billableChatRequests += 1
+    return route.fulfill({
+      status: 402,
+      json: { error: 'Insufficient AI tokens', code: 'insufficient_credits' },
+    })
+  })
+
+  await page.goto('/app/talk')
+  await page.getByPlaceholder(/Add anything/).fill('Give me one more small next step.')
+  await page.getByRole('button', { name: 'Send' }).click()
+
+  await expect(page.getByText("Here's a stable reset plan for Noam:")).toBeVisible()
+  expect(billableChatRequests).toBe(0)
+})
+
 test('Migrates browser chat history without triggering a duplicate autosave', async ({ page }) => {
   const now = new Date().toISOString()
   const conversation = {

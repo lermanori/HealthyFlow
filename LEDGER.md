@@ -1,3 +1,9 @@
+### 2026-07-29 12:44 — `main`
+
+Repaired the persona demos and guided tours against the current product UI: stale selectors and routes now point at live surfaces, disabled Week steps are filtered, collapsed rollover Items are revealed before use, and route transitions no longer skip steps. Demo Talk is deterministic without consuming credits, access guidance matches the invitation/waitlist flow, stale seed helpers and demo copy are corrected, and the orphaned legacy video is removed. The updated tours pass frontend and backend typechecks, 47 unit tests, lint with no errors, a production build, and mocked desktop/mobile walkthroughs.
+
+---
+
 ### 2026-07-29 11:59 — `codex/google-signin-production`
 
 Added production-grade Google sign-in through Supabase Auth while preserving HealthyFlow’s existing JWT sessions, invitation/public-slot gate, account linking, first-100 credit grant, and onboarding rules. OAuth callback recovery, invitation expiry and idempotent redemption, Google-account deletion, inline failure states, deployment documentation, and responsive login coverage now travel together as one flow. The production schema and public Netlify configuration are in place; enabling the provider awaits the Google Cloud callback URI being saved.

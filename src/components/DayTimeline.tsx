@@ -507,11 +507,13 @@ export default function DayTimeline({
         onTasksReorder(tasks.map(item => (item.id === task.id ? ({ ...item, ...updated } as Task) : item)))
         onTasksPersisted()
       },
+      expandAnytime: () => setIsAnytimeExpanded(true),
     }
 
     return () => {
       if (!window.__healthyFlowDemo) return
       delete window.__healthyFlowDemo.moveRolloverTaskToToday
+      delete window.__healthyFlowDemo.expandAnytime
     }
   }, [onTasksPersisted, onTasksReorder, tasks])
 
