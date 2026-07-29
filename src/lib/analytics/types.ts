@@ -18,11 +18,11 @@ export type AnalyticsEvents = {
   }
   waitlist_submitted: { source: 'landing' | 'login' }
   signed_up: {
-    method: 'password'
+    method: 'password' | 'google'
     credit_cohort: 'founding' | 'standard'
     onboarding_credits: number
   }
-  logged_in: { is_demo: boolean }
+  logged_in: { is_demo: boolean; method?: 'password' | 'google' }
   demo_started: { persona: 'maya' | 'noam' | 'lina' | 'amir' }
   onboarding_completed: void
   onboarding_skipped: void

@@ -18,7 +18,7 @@ export type SignupStatus = { mode: 'open' | 'waitlist'; remaining: number }
 export type SignupAuthorization =
   | { allowed: true; via: 'invite'; inviteToken: string }
   | { allowed: true; via: 'public' }
-  | { allowed: false; reason: 'closed' | 'invite_invalid' | 'invite_used' }
+  | { allowed: false; reason: 'closed' | 'invite_invalid' | 'invite_used' | 'invite_expired' }
 
 export const Waitlist = {
   async join(input: WaitlistJoinInput) {
@@ -52,6 +52,9 @@ export const Waitlist = {
       const invite = await db.getInviteByToken(inviteToken)
       if (!invite) return { allowed: false, reason: 'invite_invalid' }
       if (invite.redeemed_at) return { allowed: false, reason: 'invite_used' }
+      if (new Date(invite.expires_at).getTime() <= Date.now()) {
+        return { allowed: false, reason: 'invite_expired' }
+      }
       return { allowed: true, via: 'invite', inviteToken }
     }
 
@@ -62,9 +65,13 @@ export const Waitlist = {
   },
 
   async completeInviteSignup(inviteToken: string, userId: string) {
-    const invite = await db.redeemInvite(inviteToken, userId)
-    // redeemInvite is guarded on redeemed_at IS NULL, so a null result means another
-    // request redeemed it first. Do not mark the waitlist row in that case.
+    let invite = await db.redeemInvite(inviteToken, userId)
+    // A response can be lost after redemption. Treat a retry by the same user as
+    // success, while continuing to reject a token redeemed by anyone else.
+    if (!invite) {
+      const existing = await db.getInviteByToken(inviteToken)
+      if (existing?.redeemed_by_user_id === userId) invite = existing
+    }
     if (!invite) return null
     await db.setWaitlistStatus(invite.waitlist_id, 'registered')
     return invite

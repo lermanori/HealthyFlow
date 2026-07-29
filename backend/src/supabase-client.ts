@@ -20,12 +20,20 @@ export const db = {
   ...pushDb,
   ...assistantConversationsDb,
   // Users
-  async createUser(userData: { email: string; name: string; password_hash: string; role?: 'admin' | 'user' }) {
+  async createUser(userData: {
+    email: string
+    name: string
+    password_hash: string
+    role?: 'admin' | 'user'
+    google_auth_subject?: string
+    signup_method?: 'password' | 'google'
+    pending_invite_token?: string
+  }) {
     const { data, error } = await supabase
       .from('users')
-      .insert(userData)
+      .insert({ ...userData, email: userData.email.trim().toLowerCase() })
       .select();
-    
+
     if (error) throw error;
     if (!data || data.length === 0) return null;
     return data[0];
@@ -35,21 +43,76 @@ export const db = {
     const { data, error } = await supabase
       .from('users')
       .select('*')
-      .eq('email', email)
+      .eq('email', email.trim().toLowerCase())
       .maybeSingle();
     if (error) throw error;
     return data;
   },
 
-  async getUserById(userId: string) {
+  async getUserByGoogleSubject(subject: string) {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, name, role')
-      .eq('id', userId)
-      .single();
-    
+      .select('*')
+      .eq('google_auth_subject', subject)
+      .maybeSingle();
     if (error) throw error;
     return data;
+  },
+
+  async linkGoogleIdentity(userId: string, subject: string) {
+    const { data: existing, error: lookupError } = await supabase
+      .from('users')
+      .select('id, google_auth_subject')
+      .eq('id', userId)
+      .single();
+    if (lookupError) throw lookupError;
+
+    if (existing.google_auth_subject && existing.google_auth_subject !== subject) {
+      const error = new Error('Google identity conflict') as Error & { code?: string }
+      error.code = 'GOOGLE_IDENTITY_CONFLICT'
+      throw error
+    }
+    if (existing.google_auth_subject === subject) return existing
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ google_auth_subject: subject })
+      .eq('id', userId)
+      .select('id, google_auth_subject')
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async clearPendingSignupInvite(userId: string) {
+    const { error } = await supabase
+      .from('users')
+      .update({ pending_invite_token: null })
+      .eq('id', userId);
+    if (error) throw error;
+  },
+
+  async getUserById(userId: string): Promise<{
+    id: string
+    email: string
+    name: string
+    role: 'admin' | 'user'
+    signup_method?: 'password' | 'google'
+  }> {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, name, role, signup_method')
+      .eq('id', userId)
+      .single();
+
+    if (error) throw error;
+    return data as {
+      id: string
+      email: string
+      name: string
+      role: 'admin' | 'user'
+      signup_method?: 'password' | 'google'
+    };
   },
 
   async getAllUsers() {

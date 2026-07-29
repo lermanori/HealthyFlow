@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowRight, Brain, Eye, EyeOff, Lock, Mail, Play, User } from 'lucide-react'
 import { Link } from 'react-router-dom'
@@ -6,9 +6,56 @@ import { useAuth } from '../context/AuthContext'
 import { waitlistService, type SignupStatus } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { analytics } from '../lib/analytics'
+import {
+  beginGoogleOAuth,
+  clearGoogleOAuth,
+  completeGoogleOAuthCallback,
+  getCurrentGoogleAccessToken,
+  getPendingGoogleInvite,
+  GoogleOAuthCallbackError,
+  isGoogleOAuthCallback,
+  replaceOAuthCallbackUrl,
+} from '../services/googleAuth'
+
+function GoogleIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
+      <path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.91h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.4Z" />
+      <path fill="#34A853" d="M12 22c2.7 0 4.98-.9 6.64-2.43l-3.24-2.54c-.9.6-2.05.96-3.4.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.62A10 10 0 0 0 12 22Z" />
+      <path fill="#FBBC05" d="M6.39 13.86A6.01 6.01 0 0 1 6.08 12c0-.65.11-1.28.31-1.86V7.52H3.04A10 10 0 0 0 2 12c0 1.61.38 3.14 1.04 4.48l3.35-2.62Z" />
+      <path fill="#EA4335" d="M12 6.01c1.47 0 2.79.5 3.83 1.5l2.88-2.88A9.66 9.66 0 0 0 12 2a10 10 0 0 0-8.96 5.52l3.35 2.62C7.18 7.77 9.39 6.01 12 6.01Z" />
+    </svg>
+  )
+}
+
+function googleExchangeMessage(error: unknown) {
+  if (error instanceof GoogleOAuthCallbackError) return error.message
+  const response = (error as {
+    response?: { status?: number; data?: { error?: unknown; reason?: unknown } }
+  })?.response
+  const reason = response?.data?.reason
+  if (reason === 'invite_expired') return 'This invitation has expired. Ask for a new invitation.'
+  if (reason === 'invite_used') return 'This invitation has already been used.'
+  if (reason === 'invite_invalid') return 'This invitation is invalid. Check the link or ask for a new invitation.'
+  if (reason === 'closed') return 'New accounts are invite-only right now. Join the waitlist or use a valid invitation.'
+  if (reason === 'identity_conflict') return 'This Google account is already linked to another HealthyFlow account.'
+  if (reason === 'provider_session_invalid' || response?.status === 401) {
+    return 'Google sign-in expired. Please try again.'
+  }
+  if (reason === 'provider_unavailable' || response?.status === 503) {
+    return 'Google sign-in is temporarily unavailable. Please try again.'
+  }
+  if (!response) return 'Network error while finishing Google sign-in. Check your connection and try again.'
+  const message = response.data?.error
+  return typeof message === 'string' ? message : 'Could not finish Google sign-in. Please try again.'
+}
 
 export default function LoginPage() {
-  const [inviteToken] = useState(() => new URLSearchParams(window.location.search).get('invite') ?? undefined)
+  const [inviteToken] = useState(() =>
+    new URLSearchParams(window.location.search).get('invite') ??
+    getPendingGoogleInvite() ??
+    undefined
+  )
   const [mode, setMode] = useState<'login' | 'signup'>(() => inviteToken ? 'signup' : 'login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,6 +65,8 @@ export default function LoginPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [googleLoading, setGoogleLoading] = useState(() => isGoogleOAuthCallback())
+  const [googleRetryAvailable, setGoogleRetryAvailable] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
   const [signupStatus, setSignupStatus] = useState<SignupStatus | null>(null)
   const [showWaitlist, setShowWaitlist] = useState(false)
@@ -25,7 +74,8 @@ export default function LoginPage() {
   const [waitlistJoined, setWaitlistJoined] = useState(false)
   const [waitlistError, setWaitlistError] = useState('')
   const [waitlistSubmitting, setWaitlistSubmitting] = useState(false)
-  const { login, signup } = useAuth()
+  const { login, loginWithGoogle, signup } = useAuth()
+  const oauthCallbackHandled = useRef(false)
 
   // An invite always opens the form; otherwise the public slot count decides.
   const signupAllowed = Boolean(inviteToken) || signupStatus?.mode === 'open'
@@ -35,6 +85,40 @@ export default function LoginPage() {
     const iosStandalone = window.navigator.standalone === true
     setIsStandalone(standalone || iosStandalone)
   }, [])
+
+  useEffect(() => {
+    if (!isGoogleOAuthCallback() || oauthCallbackHandled.current) return
+    oauthCallbackHandled.current = true
+
+    const finish = async () => {
+      setError('')
+      setGoogleLoading(true)
+      try {
+        const callback = await completeGoogleOAuthCallback()
+        await loginWithGoogle(callback.accessToken, callback.invite)
+        await clearGoogleOAuth()
+        replaceOAuthCallbackUrl()
+      } catch (callbackError) {
+        const hasProviderSession = Boolean(await getCurrentGoogleAccessToken())
+        const terminalResponse = (callbackError as { response?: { status?: number } })?.response
+        const retryable =
+          hasProviderSession &&
+          (!terminalResponse || (terminalResponse.status ?? 500) >= 500)
+        setGoogleRetryAvailable(retryable)
+        setError(googleExchangeMessage(callbackError))
+        if (!retryable) {
+          const retainedInvite = await clearGoogleOAuth({ keepInvite: true })
+          replaceOAuthCallbackUrl(retainedInvite)
+        } else {
+          replaceOAuthCallbackUrl(inviteToken)
+        }
+      } finally {
+        setGoogleLoading(false)
+      }
+    }
+
+    void finish()
+  }, [inviteToken, loginWithGoogle])
 
   useEffect(() => {
     // Fail closed: if the status call fails we leave signupStatus null, which hides
@@ -136,6 +220,39 @@ export default function LoginPage() {
     }
   }
 
+  const handleGoogleSignIn = async () => {
+    setError('')
+    setGoogleRetryAvailable(false)
+    setGoogleLoading(true)
+    try {
+      await beginGoogleOAuth(inviteToken)
+    } catch (oauthError) {
+      setError(googleExchangeMessage(oauthError))
+      setGoogleLoading(false)
+    }
+  }
+
+  const retryGoogleExchange = async () => {
+    setError('')
+    setGoogleLoading(true)
+    try {
+      const accessToken = await getCurrentGoogleAccessToken()
+      if (!accessToken) {
+        throw new GoogleOAuthCallbackError(
+          'session_invalid',
+          'Google sign-in expired. Please try again.',
+        )
+      }
+      await loginWithGoogle(accessToken, getPendingGoogleInvite() ?? inviteToken)
+      await clearGoogleOAuth()
+      replaceOAuthCallbackUrl()
+    } catch (oauthError) {
+      setError(googleExchangeMessage(oauthError))
+    } finally {
+      setGoogleLoading(false)
+    }
+  }
+
   const inviteSignup = Boolean(inviteToken) && mode === 'signup'
   const heading = inviteSignup ? "You're invited" : mode === 'signup' ? 'Create your account' : 'Welcome back'
   const supportingCopy = inviteSignup
@@ -194,6 +311,28 @@ export default function LoginPage() {
               {signupStatus.offer.onboardingCredits} onboarding credits included
             </p>
           )}
+
+          <button
+            type="button"
+            onClick={googleRetryAvailable ? retryGoogleExchange : handleGoogleSignIn}
+            disabled={googleLoading || loading}
+            className="btn-secondary flex w-full items-center justify-center gap-3 py-3.5"
+          >
+            {googleLoading ? <LoadingSpinner size="sm" /> : <GoogleIcon />}
+            <span>
+              {googleLoading
+                ? 'Finishing Google sign-in…'
+                : googleRetryAvailable
+                  ? 'Retry Google sign-in'
+                  : 'Continue with Google'}
+            </span>
+          </button>
+
+          <div className="my-5 flex items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-line" />
+            <span className="text-xs font-medium uppercase tracking-wide text-ink-muted">or</span>
+            <span className="h-px flex-1 bg-line" />
+          </div>
 
           <form onSubmit={handleSubmit} noValidate className="space-y-4">
             {mode === 'signup' && (
@@ -300,7 +439,7 @@ export default function LoginPage() {
 
             <motion.button
               type="submit"
-              disabled={loading}
+              disabled={loading || googleLoading}
               className="btn-primary mt-2 flex w-full items-center justify-center gap-2 py-3.5"
             >
               {loading ? (

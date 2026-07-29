@@ -120,6 +120,8 @@ export default defineConfig({
       env: {
         VITE_WEEK_VIEW_ENABLED: 'true',
         VITE_DAILY_SIGNALS_ENABLED: 'true',
+        VITE_SUPABASE_URL: `http://localhost:${webPort}/supabase-auth`,
+        VITE_SUPABASE_PUBLISHABLE_KEY: 'test-publishable-key',
       },
     },
   ],

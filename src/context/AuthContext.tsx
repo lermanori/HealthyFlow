@@ -10,12 +10,14 @@ interface User {
   email: string
   name: string
   role: 'admin' | 'user'
+  authMethod: 'password' | 'google'
 }
 
 interface AuthContextType {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
+  loginWithGoogle: (accessToken: string, invite?: string) => Promise<void>
   startDemoSession: (persona: DemoPersonaId) => Promise<void>
   signup: (email: string, password: string, name: string, invite?: string) => Promise<void>
   logout: () => void
@@ -87,6 +89,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const loginWithGoogle = async (accessToken: string, invite?: string) => {
+    const result = await authService.googleSession(accessToken, invite)
+    const { user: userData, token, isNewUser, signupCredits } = result
+    queryClient.clear()
+    clearDemoState()
+    localStorage.setItem('token', token)
+    identifyUser(userData)
+    if (isNewUser && signupCredits) {
+      analytics.identify(userData.id, {
+        email: userData.email,
+        name: userData.name,
+        role: userData.role,
+        is_demo: false,
+        onboarding_status: 'active',
+        signup_credit_cohort: signupCredits.cohort,
+        onboarding_credit_grant: signupCredits.credits,
+      }, { signed_up_at: new Date().toISOString() })
+      analytics.capture('signed_up', {
+        method: 'google',
+        credit_cohort: signupCredits.cohort,
+        onboarding_credits: signupCredits.credits,
+      })
+      toast.success(`Account created with ${signupCredits.credits} AI credits. Welcome to HealthyFlow.`)
+    } else {
+      analytics.capture('logged_in', { method: 'google', is_demo: false })
+      toast.success('Welcome back!')
+    }
+    setUser(userData)
+  }
+
   const signup = async (email: string, password: string, name: string, invite?: string) => {
     try {
       const { user: userData, token, signupCredits } = await authService.signup(email, password, name, invite)
@@ -155,7 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, startDemoSession, signup, logout, completeAccountDeletion }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, startDemoSession, signup, logout, completeAccountDeletion }}>
       {children}
     </AuthContext.Provider>
   )

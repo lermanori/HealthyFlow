@@ -1362,10 +1362,14 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         <DeleteAccountDialog
           onClose={() => setShowDeleteAccount(false)}
           onExport={handleExportAccount}
+          requiresPassword={user?.authMethod !== 'google'}
           onDeleted={(warnings) => {
             setShowDeleteAccount(false)
             if (warnings.includes('google-revocation-failed')) {
               toast('Google access could not be revoked automatically. Remove HealthyFlow in your Google Account permissions.', { icon: '⚠️', duration: 9000 })
+            }
+            if (warnings.includes('supabase-auth-deletion-failed')) {
+              toast('Your HealthyFlow data was deleted, but Google sign-in cleanup needs support.', { icon: '⚠️', duration: 9000 })
             }
             completeAccountDeletion()
             navigate('/login', { replace: true })

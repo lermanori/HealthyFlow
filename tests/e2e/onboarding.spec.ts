@@ -40,7 +40,7 @@ test('new signup sees brain-dump onboarding, parses a day, and completion stays 
   await page.getByLabel('Email Address').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByLabel('Confirm Password').fill(password)
-  await page.getByRole('button', { name: 'Create Account', exact: true }).click()
+  await page.getByRole('button', { name: 'Create account', exact: true }).click()
 
   await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toBeVisible({ timeout: 10_000 })
 
@@ -77,7 +77,7 @@ test('skip link completes onboarding without parsing', async ({ page }) => {
   await page.getByLabel('Email Address').fill(email)
   await page.getByLabel('Password', { exact: true }).fill(password)
   await page.getByLabel('Confirm Password').fill(password)
-  await page.getByRole('button', { name: 'Create Account', exact: true }).click()
+  await page.getByRole('button', { name: 'Create account', exact: true }).click()
 
   await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toBeVisible({ timeout: 10_000 })
   await page.getByRole('button', { name: 'Later', exact: true }).click()
