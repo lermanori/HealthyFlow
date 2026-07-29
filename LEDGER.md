@@ -1,3 +1,9 @@
+### 2026-07-29 11:59 — `codex/google-signin-production`
+
+Added production-grade Google sign-in through Supabase Auth while preserving HealthyFlow’s existing JWT sessions, invitation/public-slot gate, account linking, first-100 credit grant, and onboarding rules. OAuth callback recovery, invitation expiry and idempotent redemption, Google-account deletion, inline failure states, deployment documentation, and responsive login coverage now travel together as one flow. The production schema and public Netlify configuration are in place; enabling the provider awaits the Google Cloud callback URI being saved.
+
+---
+
 ### 2026-07-29 11:08 — `codex/login-page-hierarchy`
 
 Reworked the authentication entry into a state-aware flow: returning users get a blank, focused sign-in form; invite links open directly into account creation; and the waitlist stays secondary until requested. Removed exposed demo credentials in favor of one guided-demo action, added inline validation and password visibility controls, and kept the full primary experience within a mobile viewport. Updated the auth coverage and all six login visual baselines across Midnight, White, desktop, compact, and mobile.

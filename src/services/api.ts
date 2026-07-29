@@ -403,15 +403,25 @@ export const SignupStatusSchema = z.object({
 })
 export type SignupStatus = z.infer<typeof SignupStatusSchema>
 
+const AuthUserSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  name: z.string(),
+  role: z.enum(['admin', 'user']),
+  authMethod: z.enum(['password', 'google']).default('password'),
+})
+
 const SignupResponseSchema = z.object({
-  user: z.object({
-    id: z.string(),
-    email: z.string().email(),
-    name: z.string(),
-    role: z.enum(['admin', 'user']),
-  }),
+  user: AuthUserSchema,
   token: z.string().min(1),
   signupCredits: SignupCreditGrantSchema,
+})
+
+const GoogleSessionResponseSchema = z.object({
+  user: AuthUserSchema,
+  token: z.string().min(1),
+  isNewUser: z.boolean(),
+  signupCredits: SignupCreditGrantSchema.optional(),
 })
 
 // Auth Service
@@ -424,6 +434,11 @@ export const authService = {
   signup: async (email: string, password: string, name: string, invite?: string) => {
     const response = await api.post('/auth/signup', { email, password, name, invite })
     return SignupResponseSchema.parse(response.data)
+  },
+
+  googleSession: async (accessToken: string, invite?: string) => {
+    const response = await api.post('/auth/google', { accessToken, invite })
+    return GoogleSessionResponseSchema.parse(response.data)
   },
 
   startDemoSession: async (persona: DemoPersonaId) => {
@@ -994,7 +1009,7 @@ export const accountService = {
     URL.revokeObjectURL(url)
     return filename
   },
-  deleteAccount: async (input: { password: string; confirmation: string }): Promise<AccountDeletionResult> => {
+  deleteAccount: async (input: { password?: string; confirmation: string }): Promise<AccountDeletionResult> => {
     const response = await api.delete('/account', { data: input })
     return response.data
   },

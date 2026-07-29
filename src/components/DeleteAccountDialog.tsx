@@ -9,9 +9,10 @@ interface DeleteAccountDialogProps {
   onClose: () => void
   onDeleted: (warnings: string[]) => void
   onExport: () => Promise<void>
+  requiresPassword: boolean
 }
 
-export default function DeleteAccountDialog({ onClose, onDeleted, onExport }: DeleteAccountDialogProps) {
+export default function DeleteAccountDialog({ onClose, onDeleted, onExport, requiresPassword }: DeleteAccountDialogProps) {
   const panelRef = useRef<HTMLDivElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
   const [password, setPassword] = useState('')
@@ -64,16 +65,18 @@ export default function DeleteAccountDialog({ onClose, onDeleted, onExport }: De
         </button>
 
         <div className="mt-5 space-y-4 border-t border-line pt-5">
-          <label className="block space-y-1">
-            <span className="text-sm font-medium text-ink-soft">Current password</span>
-            <input ref={passwordRef} type="password" autoComplete="current-password" className="input-field" value={password} onChange={(event) => setPassword(event.target.value)} disabled={pending} />
-          </label>
+          {requiresPassword && (
+            <label className="block space-y-1">
+              <span className="text-sm font-medium text-ink-soft">Current password</span>
+              <input ref={passwordRef} type="password" autoComplete="current-password" className="input-field" value={password} onChange={(event) => setPassword(event.target.value)} disabled={pending} />
+            </label>
+          )}
           <label className="block space-y-1">
             <span className="text-sm font-medium text-ink-soft">Type DELETE to confirm</span>
             <input className="input-field font-mono" autoComplete="off" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} disabled={pending} />
           </label>
           {error && <p className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300" role="alert">{error}</p>}
-          <button type="button" disabled={pending || password.length === 0 || confirmation !== 'DELETE'} onClick={() => void removeAccount()} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 font-semibold text-white transition hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:cursor-not-allowed disabled:opacity-45">
+          <button type="button" disabled={pending || (requiresPassword && password.length === 0) || confirmation !== 'DELETE'} onClick={() => void removeAccount()} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-red-600 px-4 py-3 font-semibold text-white transition hover:bg-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:cursor-not-allowed disabled:opacity-45">
             {pending && <Loader2 className="h-4 w-4 animate-spin" />}
             {pending ? 'Deleting account…' : 'Delete my account'}
           </button>

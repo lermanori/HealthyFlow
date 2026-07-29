@@ -154,7 +154,7 @@ export async function buildAccountExport(userId: string): Promise<AccountExportV
 export async function getAccountCredentials(userId: string) {
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, name, role, password_hash')
+    .select('id, email, name, role, password_hash, google_auth_subject, signup_method')
     .eq('id', userId)
     .single()
   if (error) throw error

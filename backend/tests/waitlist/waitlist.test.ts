@@ -93,6 +93,19 @@ describe('Waitlist.authorizeSignup', () => {
     expect(await Waitlist.authorizeSignup('t1')).toEqual({ allowed: false, reason: 'invite_used' })
   })
 
+  it('rejects an expired invite with a distinct reason', async () => {
+    mockDb.getInviteByToken.mockResolvedValue({
+      token: 't1',
+      redeemed_at: null,
+      expires_at: '2020-01-01T00:00:00.000Z',
+    })
+
+    expect(await Waitlist.authorizeSignup('t1')).toEqual({
+      allowed: false,
+      reason: 'invite_expired',
+    })
+  })
+
   it('claims a public slot when no token is supplied', async () => {
     mockDb.claimPublicSignupSlot.mockResolvedValue(true)
 
@@ -117,9 +130,28 @@ describe('Waitlist.completeInviteSignup', () => {
 
   it('does not touch the waitlist row when another request redeemed first', async () => {
     mockDb.redeemInvite.mockResolvedValue(null)
+    mockDb.getInviteByToken.mockResolvedValue({
+      token: 't1',
+      waitlist_id: 'w1',
+      redeemed_by_user_id: 'user-2',
+    })
 
     expect(await Waitlist.completeInviteSignup('t1', 'user-1')).toBeNull()
     expect(mockDb.setWaitlistStatus).not.toHaveBeenCalled()
+  })
+
+  it('treats repeated redemption by the same user as success', async () => {
+    mockDb.redeemInvite.mockResolvedValue(null)
+    mockDb.getInviteByToken.mockResolvedValue({
+      token: 't1',
+      waitlist_id: 'w1',
+      redeemed_by_user_id: 'user-1',
+    })
+
+    expect(await Waitlist.completeInviteSignup('t1', 'user-1')).toEqual(
+      expect.objectContaining({ token: 't1' }),
+    )
+    expect(mockDb.setWaitlistStatus).toHaveBeenCalledWith('w1', 'registered')
   })
 })
 

@@ -100,6 +100,22 @@ _Avoid_: "AI parser" (too vague), "task extractor" (loses the habit case)
 **BYOK** (Bring Your Own Key):
 Pattern where the user supplies their own OpenAI API key, stored client-side. The frontend reads it from `localStorage` and sends it to the backend per request, which uses it instead of any server-side default.
 
+### Authentication
+
+**Google sign-in**:
+The browser authenticates with Google through Supabase Auth using PKCE, then
+exchanges the verified Supabase access token for the normal HealthyFlow app
+session at `POST /api/auth/google`. Protected HealthyFlow APIs continue to use
+the server-issued HealthyFlow JWT. A verified Google email links to an existing
+password account instead of creating a duplicate; genuinely new accounts still
+pass through the public-slot or Invitation gate.
+
+**Invitation**:
+A time-limited signup token tied to a Waitlist entry. Invitation state is
+retained through the Google OAuth redirect, expires after seven days, is
+redeemed once, and bypasses the public-slot count without bypassing signup
+initialization.
+
 ## Task Tracking
 
 - **GitHub Issues**: https://github.com/lermanori/HealthyFlow/issues
