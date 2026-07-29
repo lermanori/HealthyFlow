@@ -44,6 +44,16 @@ const googleSessionLimiter = rateLimit({
   message: { error: 'Too many Google sign-in attempts. Please try again later.' },
 })
 
+async function recordLogin(userId: string) {
+  try {
+    if (typeof (db as Partial<typeof db>).recordUserLogin !== 'function') return
+    await db.recordUserLogin(userId)
+  } catch (error) {
+    // Login history helps administration but must never block a valid sign-in.
+    console.warn('Could not record user login:', error)
+  }
+}
+
 // Public: lets the landing page and LoginPage choose between the signup form and
 // the waitlist form. Deliberately exposes no invite tokens or waitlist contents.
 router.get('/signup-status', async (_req, res) => {
@@ -93,6 +103,7 @@ router.post('/signup', signupLimiter, async (req, res) => {
 
     const signupCredits = await Credits.grantSignupCredits(user.id)
     await Onboarding.seedNewUser(user.id)
+    await recordLogin(user.id)
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' })
     return res.json({
@@ -121,7 +132,9 @@ router.post('/google', googleSessionLimiter, async (req, res) => {
   }
 
   try {
-    return res.json(await Auth.exchangeGoogleSession(parsed.data))
+    const session = await Auth.exchangeGoogleSession(parsed.data)
+    await recordLogin(session.user.id)
+    return res.json(session)
   } catch (error) {
     if (error instanceof AuthFlowError) {
       return res.status(error.status).json({ error: error.message, reason: error.reason })
@@ -141,6 +154,7 @@ router.post('/demo-session', async (req, res) => {
 
   try {
     const user = await getDemoPersonaUser(parsed.data.persona)
+    await recordLogin(user.id)
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '2h' })
     return res.json({
       user: {
@@ -176,7 +190,11 @@ router.post('/login', async (req, res) => {
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Invalid credentials' })
     }
+    if (user.disabled_at) {
+      return res.status(403).json({ error: 'This HealthyFlow account is disabled.', reason: 'account_disabled' })
+    }
 
+    await recordLogin(user.id)
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' })
 
     res.json({
@@ -209,6 +227,9 @@ router.get('/verify', async (req, res) => {
     
     if (!user) {
       return res.status(401).json({ error: 'Invalid token' })
+    }
+    if (user.disabled_at) {
+      return res.status(403).json({ error: 'Account is disabled.', reason: 'account_disabled' })
     }
 
     res.json({
@@ -312,22 +333,13 @@ router.post('/users/:userId/reset-password', async (req, res) => {
   }
 })
 
-// Delete user (admin only)
-router.delete('/users/:userId', async (req, res) => {
-  const { adminToken } = req.query
-  const { userId } = req.params
-
-  if (adminToken !== process.env.ADMIN_TOKEN) {
-    return res.status(403).json({ error: 'Unauthorized' })
-  }
-
-  try {
-    await db.deleteUser(userId)
-    res.json({ success: true })
-  } catch (error) {
-    console.error('Delete user error:', error)
-    res.status(500).json({ error: 'Database error' })
-  }
+// The legacy query-token deletion route bypassed previews and account
+// protections. Keep a clear response for old callers without leaving the
+// destructive path active.
+router.delete('/users/:userId', (_req, res) => {
+  return res.status(410).json({
+    error: 'Use the authenticated admin user-management flow.',
+  })
 })
 
 export { router as authRoutes }

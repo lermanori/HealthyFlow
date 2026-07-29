@@ -50,6 +50,12 @@ function googleExchangeMessage(error: unknown) {
   return typeof message === 'string' ? message : 'Could not finish Google sign-in. Please try again.'
 }
 
+function takeAuthNotice() {
+  const notice = sessionStorage.getItem('healthyflow-auth-notice') ?? ''
+  sessionStorage.removeItem('healthyflow-auth-notice')
+  return notice
+}
+
 export default function LoginPage() {
   const [inviteToken] = useState(() =>
     new URLSearchParams(window.location.search).get('invite') ??
@@ -63,7 +69,7 @@ export default function LoginPage() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState(takeAuthNotice)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(() => isGoogleOAuthCallback())
   const [googleRetryAvailable, setGoogleRetryAvailable] = useState(false)

@@ -98,10 +98,13 @@ export const db = {
     name: string
     role: 'admin' | 'user'
     signup_method?: 'password' | 'google'
+    disabled_at?: string | null
+    is_test?: boolean
+    last_login_at?: string | null
   }> {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, name, role, signup_method')
+      .select('id, email, name, role, signup_method, disabled_at, is_test, last_login_at')
       .eq('id', userId)
       .single();
 
@@ -112,17 +115,29 @@ export const db = {
       name: string
       role: 'admin' | 'user'
       signup_method?: 'password' | 'google'
+      disabled_at?: string | null
+      is_test?: boolean
+      last_login_at?: string | null
     };
   },
 
   async getAllUsers() {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, name, role, created_at')
+      .select('id, email, name, role, created_at, signup_method, disabled_at, is_test, last_login_at')
       .order('created_at', { ascending: false });
     
     if (error) throw error;
     return data;
+  },
+
+  async recordUserLogin(userId: string) {
+    const { error } = await supabase
+      .from('users')
+      .update({ last_login_at: new Date().toISOString() })
+      .eq('id', userId);
+
+    if (error) throw error;
   },
 
   async deleteUser(userId: string) {

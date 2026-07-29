@@ -1,4 +1,5 @@
 import request from 'supertest'
+import bcrypt from 'bcryptjs'
 import { app } from '../../src/index'
 import { db } from '../../src/supabase-client'
 import { Onboarding } from '../../src/onboarding'
@@ -230,5 +231,26 @@ describe('POST /api/auth/register (admin-only, regression guard)', () => {
     // Original /register returns user without JWT (existing behavior)
     expect(res.status).toBe(200)
     expect(res.body.user).toBeDefined()
+  })
+})
+
+describe('POST /api/auth/login disabled-account enforcement', () => {
+  it('checks valid credentials but does not issue a session to a disabled user', async () => {
+    mockDb.getUserByEmail.mockResolvedValue({
+      id: 'disabled-user',
+      email: 'disabled@example.com',
+      name: 'Disabled User',
+      password_hash: await bcrypt.hash('password1', 10),
+      role: 'user',
+      disabled_at: '2026-07-29T00:00:00.000Z',
+    })
+
+    const res = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'disabled@example.com', password: 'password1' })
+
+    expect(res.status).toBe(403)
+    expect(res.body.reason).toBe('account_disabled')
+    expect(res.body.token).toBeUndefined()
   })
 })
