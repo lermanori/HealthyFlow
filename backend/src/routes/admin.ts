@@ -3,6 +3,17 @@ import { z } from 'zod'
 import { db } from '../supabase-client'
 import { Credits } from '../credits'
 import { authenticateToken, requireAdminRole, AuthRequest } from '../middleware/auth'
+import {
+  AdminUserBatchActionInputSchema,
+  AdminUserControlError,
+  AdminUserDeletionInputSchema,
+  AdminUserDeletionPreviewInputSchema,
+  applyAdminUserAction,
+  deleteManagedTestUsers,
+  listAdminUserAudit,
+  listManagedUsers,
+  previewAdminUserDeletion,
+} from '../account-data'
 
 const router = express.Router()
 
@@ -155,67 +166,73 @@ router.post('/token-manager/users/:userId/top-up', authenticateToken, requireAdm
   }
 })
 
-// Get all users with their task counts
-router.get('/users', authenticateToken, requireAdminRole, async (req, res) => {
+router.get('/users', authenticateToken, requireAdminRole, async (req: AuthRequest, res) => {
   try {
-    const users = await db.getAllUsers()
-    
-    // Only return user info, not tasks
-    res.json(users.map(user => ({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      created_at: user.created_at
-    })))
+    return res.json(await listManagedUsers(req.user.userId))
   } catch (error) {
-    console.error('Get users with stats error:', error)
-    res.status(500).json({ error: 'Database error' })
+    console.error('List managed users error:', error)
+    return res.status(500).json({ error: 'Could not load users' })
   }
 })
 
-// Get user details with all their data
-router.get('/users/:userId', authenticateToken, requireAdminRole, async (req, res) => {
-  const { userId } = req.params
-  
+router.get('/users/audit', authenticateToken, requireAdminRole, async (req: AuthRequest, res) => {
   try {
-    const user = await db.getUserById(userId)
-    const tasks = await db.getTasksByUserId(userId)
-    const recommendations = await db.getRecommendationsByUserId(userId)
-    
-    res.json({
-      user,
-      tasks,
-      recommendations,
-      stats: {
-        totalTasks: tasks.length,
-        completedTasks: tasks.filter((task: any) => task.completed).length,
-        totalRecommendations: recommendations.length
-      }
-    })
+    return res.json(await listAdminUserAudit(req.user.userId))
   } catch (error) {
-    console.error('Get user details error:', error)
-    res.status(500).json({ error: 'Database error' })
+    console.error('List admin user audit error:', error)
+    return res.status(500).json({ error: 'Could not load user audit log' })
   }
 })
 
-// Delete user and all their data
-router.delete('/users/:userId', authenticateToken, requireAdminRole, async (req, res) => {
-  const { userId } = req.params
-  
+router.patch('/users', authenticateToken, requireAdminRole, async (req: AuthRequest, res) => {
+  const parsed = AdminUserBatchActionInputSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message })
+  }
+
   try {
-    // Delete user's tasks
-    await db.deleteTasksByUserId(userId)
-    
-    // Delete user's recommendations
-    await db.deleteRecommendationsByUserId(userId)
-    
-    // Delete user
-    await db.deleteUser(userId)
-    
-    res.json({ success: true })
+    return res.json(await applyAdminUserAction(req.user.userId, parsed.data))
   } catch (error) {
-    console.error('Delete user error:', error)
-    res.status(500).json({ error: 'Database error' })
+    if (error instanceof AdminUserControlError) {
+      return res.status(error.status).json({ error: error.message, reason: error.code })
+    }
+    console.error('Update managed users error:', error)
+    return res.status(500).json({ error: 'Could not update users' })
+  }
+})
+
+router.post('/users/deletion-preview', authenticateToken, requireAdminRole, async (req: AuthRequest, res) => {
+  const parsed = AdminUserDeletionPreviewInputSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message })
+  }
+
+  try {
+    return res.json(await previewAdminUserDeletion(req.user.userId, parsed.data.userIds))
+  } catch (error) {
+    if (error instanceof AdminUserControlError) {
+      return res.status(error.status).json({ error: error.message, reason: error.code })
+    }
+    console.error('Preview managed user deletion error:', error)
+    return res.status(500).json({ error: 'Could not preview user deletion' })
+  }
+})
+
+router.delete('/users', authenticateToken, requireAdminRole, async (req: AuthRequest, res) => {
+  const parsed = AdminUserDeletionInputSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message })
+  }
+
+  try {
+    const result = await deleteManagedTestUsers(req.user.userId, parsed.data)
+    return res.status(result.failures.length > 0 ? 207 : 200).json(result)
+  } catch (error) {
+    if (error instanceof AdminUserControlError) {
+      return res.status(error.status).json({ error: error.message, reason: error.code })
+    }
+    console.error('Delete managed users error:', error)
+    return res.status(500).json({ error: 'Could not delete users' })
   }
 })
 

@@ -191,6 +191,27 @@ describe('POST /api/auth/google', () => {
     expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('new-user')
   })
 
+  it('does not issue a session for a disabled Google-linked account', async () => {
+    mockDb.getUserByGoogleSubject.mockResolvedValue({
+      id: 'disabled-user',
+      email: 'person@example.com',
+      name: 'Google Person',
+      role: 'user',
+      signup_method: 'google',
+      google_auth_subject: googleUser.id,
+      disabled_at: '2026-07-29T00:00:00.000Z',
+    })
+
+    const response = await request(app)
+      .post('/api/auth/google')
+      .send({ accessToken: 'supabase-access-token' })
+
+    expect(response.status).toBe(403)
+    expect(response.body.reason).toBe('account_disabled')
+    expect(response.body.token).toBeUndefined()
+    expect(mockCredits.grantSignupCredits).not.toHaveBeenCalled()
+  })
+
   it.each([
     ['closed', 'Registration is currently closed.'],
     ['invite_invalid', 'This invitation is invalid.'],

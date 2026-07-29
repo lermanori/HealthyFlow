@@ -24,6 +24,7 @@ type AppUser = {
   signup_method?: 'password' | 'google' | null
   google_auth_subject?: string | null
   pending_invite_token?: string | null
+  disabled_at?: string | null
 }
 
 export class AuthFlowError extends Error {
@@ -88,6 +89,12 @@ function accessError(authorization: Extract<SignupAuthorization, { allowed: fals
   return new AuthFlowError(403, authorization.reason, messages[authorization.reason])
 }
 
+function requireEnabledUser(user: AppUser) {
+  if (user.disabled_at) {
+    throw new AuthFlowError(403, 'account_disabled', 'This HealthyFlow account is disabled.')
+  }
+}
+
 async function finishGoogleSignup(user: AppUser): Promise<SignupCreditGrant> {
   // Both operations are idempotent. Calling them again completes an interrupted
   // first login without granting twice or re-opening completed onboarding.
@@ -146,6 +153,7 @@ export const Auth = {
     const email = authUser.email.trim().toLowerCase()
     const bySubject = await db.getUserByGoogleSubject(authUser.id)
     if (bySubject) {
+      requireEnabledUser(bySubject)
       if (bySubject.signup_method === 'google') {
         await finishPendingInvite(bySubject)
         const signupCredits = await finishGoogleSignup(bySubject)
@@ -160,6 +168,7 @@ export const Auth = {
 
     const byEmail = await db.getUserByEmail(email)
     if (byEmail) {
+      requireEnabledUser(byEmail)
       await linkExistingUser(byEmail, authUser.id)
       return { ...appSession(byEmail), isNewUser: false }
     }

@@ -1,3 +1,9 @@
+### 2026-07-29 13:45 — `codex/admin-user-management`
+
+Turned the existing Token Manager into a safe account-control surface with explicit test/live classification, immediate account disabling, search and filters, batch actions, deletion previews, typed confirmation, protected administrator/demo accounts, subscription blockers, and a durable audit trail. Authentication now enforces disabled or deleted status across active API sessions as well as password and Google sign-in, while the destructive path removes linked Supabase Auth identities and reports partial cleanup failures. The additive production migration is applied, no real users were deleted, and the flow passes the full frontend/backend suites plus mocked desktop and mobile browser walkthroughs.
+
+---
+
 ### 2026-07-29 12:44 — `main`
 
 Repaired the persona demos and guided tours against the current product UI: stale selectors and routes now point at live surfaces, disabled Week steps are filtered, collapsed rollover Items are revealed before use, and route transitions no longer skip steps. Demo Talk is deterministic without consuming credits, access guidance matches the invitation/waitlist flow, stale seed helpers and demo copy are corrected, and the orphaned legacy video is removed. The updated tours pass frontend and backend typechecks, 47 unit tests, lint with no errors, a production build, and mocked desktop/mobile walkthroughs.

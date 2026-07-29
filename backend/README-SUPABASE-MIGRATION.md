@@ -87,20 +87,21 @@ To test the migration:
 A new admin panel has been added for user management:
 
 ### Features
-- **User Management**: Add, view, and delete users
+- **User Management**: Search, classify, disable, preview, and delete test users
 - **System Statistics**: Monitor total users, tasks, and completion rates
-- **Secure Access**: Protected by admin token
+- **Secure Access**: Protected by authenticated administrator role checks
 
 ### Setup
-1. Set `ADMIN_TOKEN` in your `.env` file
-2. Run the demo user script: `node add-demo-user.js`
-3. Open `admin.html` in your browser
-4. Enter your admin token to access the panel
+1. Apply the Supabase migrations.
+2. Give the owner account the `admin` role.
+3. Sign in and open the Token Manager from the application navigation.
 
 ### Admin Endpoints
-- `GET /api/admin/users` - Get all users with statistics
-- `GET /api/admin/users/:userId` - Get detailed user information
-- `DELETE /api/admin/users/:userId` - Delete user and all their data
+- `GET /api/admin/users` - List safe user-management summaries
+- `PATCH /api/admin/users` - Mark selected accounts as test/live or disable/enable them
+- `POST /api/admin/users/deletion-preview` - Preview cascading record counts and blockers
+- `DELETE /api/admin/users` - Permanently delete confirmed, eligible test accounts
+- `GET /api/admin/users/audit` - Read the user-management audit trail
 - `GET /api/admin/stats` - Get system statistics
 - `POST /api/auth/register` - Register new user (admin only)
 
@@ -111,4 +112,4 @@ A new admin panel has been added for user management:
 3. Configure Supabase RLS policies for production
 4. Set up monitoring and logging
 5. Consider implementing real-time features using Supabase subscriptions
-6. Test the admin panel and user management features 
+6. Test the admin panel and user management features

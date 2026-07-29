@@ -4,6 +4,7 @@ import { CheckCircle2, Coins, Loader2, Mail, RotateCcw, Save, Settings, UserCog,
 import toast from 'react-hot-toast'
 import { tokenManagerService, TokenManagerTotals } from '../services/api'
 import WaitlistPanel from '../components/admin/WaitlistPanel'
+import UserManagementPanel from '../components/admin/UserManagementPanel'
 
 type RangeKey = 'today' | 'thisWeek' | 'thisMonth'
 type ContactStatusFilter = 'pending' | 'handled' | 'all'
@@ -336,6 +337,8 @@ export default function TokenManagerPage() {
 
       <WaitlistPanel />
 
+      <UserManagementPanel />
+
       <div className="card">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
@@ -431,7 +434,7 @@ export default function TokenManagerPage() {
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
           <UserCog className="w-5 h-5 text-cyan-400" />
-          <h2 className="text-lg font-semibold text-ink">Users</h2>
+          <h2 className="text-lg font-semibold text-ink">Billing Accounts</h2>
         </div>
 
         <div className="overflow-x-auto">
