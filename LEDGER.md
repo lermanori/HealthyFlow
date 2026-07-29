@@ -1,3 +1,9 @@
+### 2026-07-29 11:08 — `codex/login-page-hierarchy`
+
+Reworked the authentication entry into a state-aware flow: returning users get a blank, focused sign-in form; invite links open directly into account creation; and the waitlist stays secondary until requested. Removed exposed demo credentials in favor of one guided-demo action, added inline validation and password visibility controls, and kept the full primary experience within a mobile viewport. Updated the auth coverage and all six login visual baselines across Midnight, White, desktop, compact, and mobile.
+
+---
+
 ### 2026-07-29 00:20 — `claude/suspicious-lewin-befb56`
 
 Closed the loop on landing-page screenshots being real product shots rather than whatever the capturing developer's environment happened to render. Vite inlines `VITE_*` at build time, so the capture had twice published features no production user could reach — Week view, then Daily Signals, whose "3 signals" row was live in the committed hero image. `scripts/capture-landing-shots.mjs` now starts its own Vite with every flag in `src/featureFlags.ts` blanked, pins the theme to Midnight server-side (the shared demo account had drifted to White, which would have put light screenshots on a dark page), and refuses to write if a flagged-off surface renders anyway. Also fixed a live pricing defect: the sold-out card read "$19 / month" and "$9 locked in" at once, because `.plan li { display: flex }` silently beat the UA's `[hidden] { display: none }`.

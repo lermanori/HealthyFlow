@@ -171,7 +171,7 @@ for (const theme of ['midnight', 'white'] as const) {
       await page.goto('/app')
 
       await expect(page.locator('#loading-screen')).toBeHidden()
-      await expect(page.getByRole('heading', { name: 'Welcome to HealthyFlow' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
       await expect(page).toHaveScreenshot(
         `surface-${theme}-${viewport.name}-login.png`,
         { animations: 'disabled', fullPage: true },

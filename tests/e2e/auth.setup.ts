@@ -13,7 +13,7 @@ setup('authenticate', async ({ page }) => {
 
   await page.locator('#email').fill(TEST_EMAIL)
   await page.locator('#password').fill(TEST_PASSWORD)
-  await page.getByRole('button', { name: 'Login', exact: true }).click()
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
 
   // Wait for the authenticated shell.
   await expect(page.getByRole('link', { name: 'Today' })).toBeVisible({ timeout: 10_000 })
