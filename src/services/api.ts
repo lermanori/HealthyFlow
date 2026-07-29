@@ -380,6 +380,7 @@ export const AdminUserDeletionCountsSchema = z.object({
   assistant: z.number().int().nonnegative(),
   billing: z.number().int().nonnegative(),
   account: z.number().int().nonnegative(),
+  waitlist: z.number().int().nonnegative(),
   total: z.number().int().nonnegative(),
 })
 
@@ -403,6 +404,7 @@ export const AdminUserDeletionPreviewSchema = z.object({
       'active_subscription',
     ])),
     counts: AdminUserDeletionCountsSchema,
+    releasesPublicSignupSeat: z.boolean(),
   })),
 })
 export type AdminUserDeletionPreview = z.infer<typeof AdminUserDeletionPreviewSchema>
@@ -583,8 +585,11 @@ export const waitlistService = {
     return response.data as { deleted: boolean }
   },
 
-  adminSetSlots: async (publicSlotsOpen: number) => {
-    const response = await api.patch('/waitlist/admin/slots', { publicSlotsOpen })
+  adminSetSlots: async (publicSlotsOpen: number, publicSlotsClaimed: number) => {
+    const response = await api.patch('/waitlist/admin/slots', {
+      publicSlotsOpen,
+      publicSlotsClaimed,
+    })
     return response.data as { access: SignupAccess }
   },
 }
@@ -1653,7 +1658,13 @@ export const tokenManagerService = {
     userIds: string[],
     confirmation: string,
   ): Promise<{
-    deleted: Array<{ id: string; email: string; warnings: string[] }>
+    deleted: Array<{
+      id: string
+      email: string
+      warnings: string[]
+      waitlistEntriesDeleted: number
+      publicSignupSeatsReleased: number
+    }>
     failures: Array<{ id: string; email: string; error: string }>
   }> => {
     const response = await api.delete('/admin/users', {
@@ -1664,6 +1675,8 @@ export const tokenManagerService = {
         id: z.string(),
         email: z.string().email(),
         warnings: z.array(z.string()),
+        waitlistEntriesDeleted: z.number().int().nonnegative(),
+        publicSignupSeatsReleased: z.number().int().nonnegative(),
       })),
       failures: z.array(z.object({
         id: z.string(),

@@ -79,6 +79,14 @@ async function removeRejectedSupabaseUser(userId: string) {
   }
 }
 
+async function releaseRejectedPublicSignup() {
+  try {
+    await db.releasePublicSignupSlot()
+  } catch (error) {
+    console.error('Could not release failed Google signup slot reservation:', error)
+  }
+}
+
 function accessError(authorization: Extract<SignupAuthorization, { allowed: false }>) {
   const messages = {
     closed: 'Registration is currently closed.',
@@ -179,16 +187,26 @@ export const Auth = {
       throw accessError(authorization)
     }
 
-    const passwordHash = await bcrypt.hash(randomBytes(32).toString('base64url'), 10)
-    const user = await db.createUser({
-      email,
-      name: displayName(authUser, email),
-      password_hash: passwordHash,
-      google_auth_subject: authUser.id,
-      signup_method: 'google',
-      pending_invite_token: authorization.via === 'invite' ? authorization.inviteToken : undefined,
-    })
+    let user: AppUser | null
+    try {
+      const passwordHash = await bcrypt.hash(randomBytes(32).toString('base64url'), 10)
+      user = await db.createUser({
+        email,
+        name: displayName(authUser, email),
+        password_hash: passwordHash,
+        google_auth_subject: authUser.id,
+        signup_method: 'google',
+        pending_invite_token: authorization.via === 'invite' ? authorization.inviteToken : undefined,
+        claimed_public_signup_slot: authorization.via === 'public',
+      })
+    } catch (error) {
+      if (authorization.via === 'public') await releaseRejectedPublicSignup()
+      await removeRejectedSupabaseUser(authUser.id)
+      throw error
+    }
     if (!user) {
+      if (authorization.via === 'public') await releaseRejectedPublicSignup()
+      await removeRejectedSupabaseUser(authUser.id)
       throw new AuthFlowError(500, 'account_creation_failed', 'Could not create your HealthyFlow account.')
     }
 

@@ -10,6 +10,7 @@ jest.mock('../../src/supabase-client', () => ({
   db: {
     getUserByEmail: jest.fn(),
     createUser: jest.fn(),
+    releasePublicSignupSlot: jest.fn(),
     claimSignupCreditGrant: jest.fn(),
     getFoundingSignupCreditGrantCount: jest.fn(),
   },
@@ -42,6 +43,7 @@ beforeEach(() => {
     alreadyGranted: false,
   })
   mockDb.getFoundingSignupCreditGrantCount.mockResolvedValue(0)
+  mockDb.releasePublicSignupSlot.mockResolvedValue(true)
   // Default to an open public slot so the pre-existing tests below still exercise
   // the happy path; the gating tests override this per case.
   mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: true, via: 'public' })
@@ -82,6 +84,9 @@ describe('POST /api/auth/signup', () => {
       balance: 250,
       alreadyGranted: false,
     })
+    expect(mockDb.createUser).toHaveBeenCalledWith(expect.objectContaining({
+      claimed_public_signup_slot: true,
+    }))
     expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('user-1')
   })
 
@@ -160,6 +165,9 @@ describe('POST /api/auth/signup — access gating', () => {
       .set('X-Forwarded-For', '10.0.0.2')
 
     expect(res.status).toBe(200)
+    expect(mockDb.createUser).toHaveBeenCalledWith(expect.objectContaining({
+      claimed_public_signup_slot: false,
+    }))
     expect(mockWaitlist.completeInviteSignup).toHaveBeenCalledWith('t1', 'user-1')
   })
 
@@ -199,6 +207,19 @@ describe('POST /api/auth/signup — access gating', () => {
 
     expect(res.status).toBe(200)
     expect(mockWaitlist.completeInviteSignup).not.toHaveBeenCalled()
+  })
+
+  it('returns a reserved public seat when account creation fails', async () => {
+    mockDb.getUserByEmail.mockResolvedValue(null)
+    mockDb.createUser.mockRejectedValue(new Error('insert failed'))
+
+    const res = await request(app)
+      .post('/api/auth/signup')
+      .send({ email: 'failed@example.com', password: 'password1', name: 'Failed' })
+      .set('X-Forwarded-For', '10.0.0.6')
+
+    expect(res.status).toBe(500)
+    expect(mockDb.releasePublicSignupSlot).toHaveBeenCalledTimes(1)
   })
 })
 

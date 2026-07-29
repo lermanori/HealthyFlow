@@ -1,3 +1,9 @@
+### 2026-07-29 14:59 — `codex/waitlist-seat-accounting`
+
+Closed the signup-capacity accounting gap: public signups now own an explicit seat, failed account creation returns the reservation, and future account deletion removes matching waitlist/invite state while releasing only seats actually consumed through public registration. The admin surface can reconcile both claimed and total seats, validates impossible combinations, and previews waitlist cleanup plus seat release before permanent deletion. Existing orphaned registered waitlist rows are repaired by the migration, and the change passes 482 backend tests, 50 frontend tests, both production builds, lint, and a mocked browser walkthrough.
+
+---
+
 ### 2026-07-29 14:31 — `codex/reuse-e2e-user`
 
 Reworked the browser harness around one pre-provisioned, protected `e2e@test.healthyflow.local` identity: setup now fails if it is missing, onboarding resets it in place, and test-mode auth routes refuse every account-creation path. Signup is covered through an intercepted happy-path contract plus a real non-persistence probe, while isolated local servers prevent E2E from inheriting production API URLs or reusing an unsafe backend. The sole durable fixture was provisioned once outside automation; focused browser coverage, 474 backend tests, 50 frontend unit tests, typechecks, lint, and the production build pass.

@@ -13,6 +13,7 @@ jest.mock('../../src/supabase-client', () => ({
     getUserByGoogleSubject: jest.fn(),
     linkGoogleIdentity: jest.fn(),
     clearPendingSignupInvite: jest.fn(),
+    releasePublicSignupSlot: jest.fn(),
   },
   supabase: {
     auth: {
@@ -77,6 +78,7 @@ beforeEach(() => {
     alreadyGranted: false,
   })
   mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: true, via: 'public' })
+  mockDb.releasePublicSignupSlot.mockResolvedValue(true)
   mockOnboarding.seedNewUser.mockResolvedValue({} as never)
 })
 
@@ -136,9 +138,42 @@ describe('POST /api/auth/google', () => {
       google_auth_subject: googleUser.id,
       signup_method: 'google',
       pending_invite_token: 'invite-1',
+      claimed_public_signup_slot: false,
     }))
     expect(mockCredits.grantSignupCredits).toHaveBeenCalledTimes(1)
     expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('new-user')
+  })
+
+  it('records ownership of a public seat for a new Google account', async () => {
+    mockDb.createUser.mockResolvedValue({
+      id: 'new-public-user',
+      email: 'person@example.com',
+      name: 'Google Person',
+      role: 'user',
+      signup_method: 'google',
+      google_auth_subject: googleUser.id,
+    })
+
+    const response = await request(app)
+      .post('/api/auth/google')
+      .send({ accessToken: 'supabase-access-token' })
+
+    expect(response.status).toBe(200)
+    expect(mockDb.createUser).toHaveBeenCalledWith(expect.objectContaining({
+      claimed_public_signup_slot: true,
+    }))
+  })
+
+  it('returns a reserved public seat when Google account creation fails', async () => {
+    mockDb.createUser.mockRejectedValue(new Error('insert failed'))
+
+    const response = await request(app)
+      .post('/api/auth/google')
+      .send({ accessToken: 'supabase-access-token' })
+
+    expect(response.status).toBe(500)
+    expect(mockDb.releasePublicSignupSlot).toHaveBeenCalledTimes(1)
+    expect(mockAuth.admin.deleteUser).toHaveBeenCalledWith(googleUser.id)
   })
 
   it('redeems the persisted invitation before completing an interrupted signup', async () => {

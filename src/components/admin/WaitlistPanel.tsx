@@ -14,7 +14,8 @@ const STATUS_STYLES: Record<WaitlistEntry['status'], string> = {
 export default function WaitlistPanel() {
   const queryClient = useQueryClient()
   const [newEmail, setNewEmail] = useState('')
-  const [slotsDraft, setSlotsDraft] = useState<number | null>(null)
+  const [totalSlotsDraft, setTotalSlotsDraft] = useState<number | null>(null)
+  const [claimedSlotsDraft, setClaimedSlotsDraft] = useState<number | null>(null)
   const [statusFilter, setStatusFilter] = useState('')
 
   const { data, isLoading, isError } = useQuery({
@@ -53,12 +54,15 @@ export default function WaitlistPanel() {
   })
 
   const saveSlots = useMutation({
-    mutationFn: () => waitlistService.adminSetSlots(slotsDraft ?? 0),
+    mutationFn: ({ total, claimed }: { total: number; claimed: number }) =>
+      waitlistService.adminSetSlots(total, claimed),
     onSuccess: () => {
-      toast.success('Slots updated')
+      setTotalSlotsDraft(null)
+      setClaimedSlotsDraft(null)
+      toast.success('Signup seats updated')
       invalidate()
     },
-    onError: () => toast.error('Could not update slots'),
+    onError: () => toast.error('Could not update signup seats'),
   })
 
   if (isLoading) {
@@ -83,30 +87,60 @@ export default function WaitlistPanel() {
   const open = access?.public_slots_open ?? 0
   const claimed = access?.public_slots_claimed ?? 0
   const remaining = Math.max(open - claimed, 0)
+  const totalDraft = totalSlotsDraft ?? open
+  const claimedDraft = claimedSlotsDraft ?? claimed
+  const invalidSeatDraft =
+    !Number.isInteger(totalDraft) ||
+    !Number.isInteger(claimedDraft) ||
+    totalDraft < 0 ||
+    claimedDraft < 0 ||
+    claimedDraft > totalDraft
   const entries = data?.entries ?? []
 
   return (
     <div className="card">
       <h2 className="text-lg font-semibold text-ink">Waitlist</h2>
 
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <label htmlFor="public-slots" className="text-sm text-ink-soft">
-          Public slots open
-        </label>
-        <input
-          id="public-slots"
-          type="number"
-          min={0}
-          className="input-field w-24"
-          value={slotsDraft ?? open}
-          onChange={(e) => setSlotsDraft(Number(e.target.value))}
-        />
-        <button className="btn-primary" onClick={() => saveSlots.mutate()} disabled={saveSlots.isPending}>
-          Save
-        </button>
-        <span className="text-sm text-ink-muted">
-          {claimed} claimed · {remaining} remaining
-        </span>
+      <div className="mt-4 rounded-control border border-line bg-sunken/35 p-4">
+        <p className="text-sm font-medium text-ink">Public registration seats</p>
+        <p className="mt-1 text-sm text-ink-muted">
+          {claimed} of {open} claimed · {remaining} available
+        </p>
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <label htmlFor="claimed-public-slots" className="text-sm text-ink-soft">
+            Claimed seats
+            <input
+              id="claimed-public-slots"
+              type="number"
+              min={0}
+              max={totalDraft}
+              className="input-field mt-1 block w-32"
+              value={claimedDraft}
+              onChange={(e) => setClaimedSlotsDraft(Number(e.target.value))}
+            />
+          </label>
+          <label htmlFor="total-public-slots" className="text-sm text-ink-soft">
+            Total seats
+            <input
+              id="total-public-slots"
+              type="number"
+              min={0}
+              className="input-field mt-1 block w-32"
+              value={totalDraft}
+              onChange={(e) => setTotalSlotsDraft(Number(e.target.value))}
+            />
+          </label>
+          <button
+            className="btn-primary"
+            onClick={() => saveSlots.mutate({ total: totalDraft, claimed: claimedDraft })}
+            disabled={saveSlots.isPending || invalidSeatDraft}
+          >
+            Save
+          </button>
+        </div>
+        {claimedDraft > totalDraft && (
+          <p className="mt-2 text-sm text-red-400">Claimed seats cannot exceed total seats.</p>
+        )}
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3">

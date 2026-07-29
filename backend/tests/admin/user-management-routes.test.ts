@@ -151,7 +151,7 @@ describe('admin user-management routes', () => {
     mockPreviewDeletion.mockResolvedValue({
       canDelete: true,
       confirmationPhrase: 'DELETE 1 TEST USER',
-      totalRecords: 12,
+      totalRecords: 13,
       users: [{
         id: 'user-1',
         email: 'test@example.com',
@@ -167,8 +167,10 @@ describe('admin user-management routes', () => {
           assistant: 2,
           billing: 1,
           account: 1,
-          total: 12,
+          waitlist: 1,
+          total: 13,
         },
+        releasesPublicSignupSeat: true,
       }],
     })
 
@@ -179,12 +181,18 @@ describe('admin user-management routes', () => {
 
     expect(response.status).toBe(200)
     expect(response.body.confirmationPhrase).toBe('DELETE 1 TEST USER')
-    expect(response.body.totalRecords).toBe(12)
+    expect(response.body.totalRecords).toBe(13)
   })
 
   it('passes the exact confirmation to the destructive service', async () => {
     mockDeleteUsers.mockResolvedValue({
-      deleted: [{ id: 'user-1', email: 'test@example.com', warnings: [] }],
+      deleted: [{
+        id: 'user-1',
+        email: 'test@example.com',
+        warnings: [],
+        waitlistEntriesDeleted: 1,
+        publicSignupSeatsReleased: 1,
+      }],
       failures: [],
     })
 

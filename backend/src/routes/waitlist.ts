@@ -35,7 +35,16 @@ router.post('/', joinLimiter, async (req, res) => {
 
 // ---- Admin ----
 
-const SlotsSchema = z.object({ publicSlotsOpen: z.number().int().min(0).max(10_000) })
+export const SignupSeatSettingsSchema = z.object({
+  publicSlotsOpen: z.number().int().min(0).max(10_000),
+  publicSlotsClaimed: z.number().int().min(0).max(10_000),
+}).refine(
+  value => value.publicSlotsClaimed <= value.publicSlotsOpen,
+  {
+    message: 'Claimed seats cannot exceed the total public signup seats.',
+    path: ['publicSlotsClaimed'],
+  },
+)
 const AddEmailSchema = z.object({ email: z.string().email(), name: z.string().max(80).optional() })
 
 router.get('/admin/entries', authenticateToken, requireAdminRole, async (req, res) => {
@@ -86,10 +95,13 @@ router.delete('/admin/entries/:id', authenticateToken, requireAdminRole, async (
 })
 
 router.patch('/admin/slots', authenticateToken, requireAdminRole, async (req, res) => {
-  const parsed = SlotsSchema.safeParse(req.body)
+  const parsed = SignupSeatSettingsSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues[0].message })
   try {
-    const access = await db.updateSignupAccess({ public_slots_open: parsed.data.publicSlotsOpen })
+    const access = await db.updateSignupAccess({
+      public_slots_open: parsed.data.publicSlotsOpen,
+      public_slots_claimed: parsed.data.publicSlotsClaimed,
+    })
     res.json({ access })
   } catch (error) {
     console.error('Waitlist slots error:', error)

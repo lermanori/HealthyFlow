@@ -119,7 +119,7 @@ function DeletionDialog({
                   </span>
                 )}
               </div>
-              <div className="mt-3 grid grid-cols-3 gap-2 text-xs sm:grid-cols-6">
+              <div className="mt-3 grid grid-cols-3 gap-2 text-xs sm:grid-cols-7">
                 {([
                   ['Items', user.counts.items],
                   ['Health', user.counts.health],
@@ -127,6 +127,7 @@ function DeletionDialog({
                   ['Assistant', user.counts.assistant],
                   ['Billing', user.counts.billing],
                   ['Account', user.counts.account],
+                  ['Waitlist', user.counts.waitlist],
                 ] as const).map(([label, value]) => (
                   <div key={label} className="rounded-lg bg-page/70 px-2 py-2">
                     <p className="text-ink-muted">{label}</p>
@@ -134,6 +135,11 @@ function DeletionDialog({
                   </div>
                 ))}
               </div>
+              {user.releasesPublicSignupSeat && (
+                <p className="mt-3 text-xs font-medium text-emerald-300">
+                  1 public signup seat will be returned.
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -225,6 +231,7 @@ export default function UserManagementPanel() {
     queryClient.invalidateQueries({ queryKey: USER_QUERY_KEY }),
     queryClient.invalidateQueries({ queryKey: AUDIT_QUERY_KEY }),
     queryClient.invalidateQueries({ queryKey: ['token-manager-overview'] }),
+    queryClient.invalidateQueries({ queryKey: ['admin', 'waitlist'] }),
   ])
 
   const actionMutation = useMutation({
@@ -253,10 +260,17 @@ export default function UserManagementPanel() {
       confirmation,
     ),
     onSuccess: async result => {
+      const seatsReleased = result.deleted.reduce(
+        (sum, user) => sum + user.publicSignupSeatsReleased,
+        0,
+      )
       if (result.failures.length > 0) {
         toast.error(`${result.deleted.length} deleted; ${result.failures.length} failed`)
       } else {
-        toast.success(`${result.deleted.length} test ${result.deleted.length === 1 ? 'user' : 'users'} deleted`)
+        toast.success(
+          `${result.deleted.length} test ${result.deleted.length === 1 ? 'user' : 'users'} deleted` +
+          (seatsReleased > 0 ? ` · ${seatsReleased} signup ${seatsReleased === 1 ? 'seat' : 'seats'} freed` : ''),
+        )
       }
       const warningCount = result.deleted.reduce((sum, user) => sum + user.warnings.length, 0)
       if (warningCount > 0) toast.error(`${warningCount} linked authentication cleanup warning${warningCount === 1 ? '' : 's'}`)

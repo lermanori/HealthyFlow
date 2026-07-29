@@ -24,7 +24,7 @@ jest.mock('../src/supabase-client', () => ({
   db: {
     getUserById: jest.fn(),
     getUserByEmail: jest.fn(),
-    deleteUser: (...args: unknown[]) => mockDeleteUser(...args),
+    deleteUserWithSignupCleanup: (...args: unknown[]) => mockDeleteUser(...args),
   },
 }))
 jest.mock('../src/calendar', () => {
