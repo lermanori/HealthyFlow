@@ -1,11 +1,12 @@
 import { test, expect } from './fixtures/ai-stubs'
-import { TEST_EMAIL, TEST_PASSWORD } from './globalSetup'
+import { TEST_EMAIL, TEST_NAME, TEST_PASSWORD } from './globalSetup'
+import { API_ORIGIN } from './apiBase'
 
 test.describe('unauthenticated flows', () => {
   // ponytail: clear storageState so tests in this block start unauthenticated
   test.use({ storageState: { cookies: [], origins: [] } })
 
-  test('login with seeded credentials lands on Today', async ({ page }) => {
+  test('login with durable test credentials lands on Today', async ({ page }) => {
     // unauthenticated root renders the Login page
     await page.goto('/app')
 
@@ -15,6 +16,78 @@ test.describe('unauthenticated flows', () => {
 
     // Today shows a date heading (h1) once authenticated
     await expect(page.locator('h1').first()).toBeVisible({ timeout: 10_000 })
+  })
+
+  test('signup submits the full contract without creating another user', async ({ page }) => {
+    await page.route('**/api/auth/signup-status', (route) => route.fulfill({
+      json: {
+        mode: 'open',
+        remaining: 100,
+        offer: {
+          foundingMemberLimit: 100,
+          foundingMembersRemaining: 100,
+          onboardingCredits: 250,
+          foundingOnboardingCredits: 250,
+          standardOnboardingCredits: 50,
+          foundingPriceUsd: 9,
+          regularPriceUsd: 19,
+          monthlyCredits: 500,
+          topUpPriceUsd: 5,
+          topUpCredits: 250,
+        },
+      },
+    }))
+
+    const sharedLogin = await page.request.post(`${API_ORIGIN}/api/auth/login`, {
+      data: { email: TEST_EMAIL, password: TEST_PASSWORD },
+    })
+    expect(sharedLogin.ok()).toBeTruthy()
+    const sharedSession = await sharedLogin.json()
+    const candidateEmail = `signup-probe-${Date.now()}@test.healthyflow.local`
+    let submitted: Record<string, unknown> | null = null
+
+    await page.route('**/api/auth/signup', async (route) => {
+      submitted = route.request().postDataJSON()
+      await route.fulfill({
+        json: {
+          user: sharedSession.user,
+          token: sharedSession.token,
+          signupCredits: {
+            credits: 250,
+            cohort: 'founding',
+            balance: 250,
+            alreadyGranted: false,
+          },
+        },
+      })
+    })
+
+    await page.goto('/app')
+    await page.locator('[aria-label="Authentication mode"]')
+      .getByRole('button', { name: 'Create account', exact: true })
+      .click()
+    await page.locator('#name').fill(TEST_NAME)
+    await page.locator('#email').fill(candidateEmail)
+    await page.locator('#password').fill(TEST_PASSWORD)
+    await page.locator('#confirmPassword').fill(TEST_PASSWORD)
+    await page.locator('form')
+      .getByRole('button', { name: 'Create account', exact: true })
+      .click()
+
+    await expect(page.getByText('Account created with 250 AI credits. Welcome to HealthyFlow.')).toBeVisible()
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('token'))).toBe(sharedSession.token)
+    expect(submitted).toEqual({
+      email: candidateEmail,
+      password: TEST_PASSWORD,
+      name: TEST_NAME,
+    })
+
+    // The browser exercised the happy-path response with the shared identity,
+    // while the candidate email never reached the backend.
+    const candidateLogin = await page.request.post(`${API_ORIGIN}/api/auth/login`, {
+      data: { email: candidateEmail, password: TEST_PASSWORD },
+    })
+    expect(candidateLogin.status()).toBe(401)
   })
 
   test('logout after login returns to LoginPage and persists on navigation', async ({ page }) => {

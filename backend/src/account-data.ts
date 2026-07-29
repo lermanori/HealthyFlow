@@ -4,6 +4,8 @@ import { supabase } from './supabase-client'
 const ExportRowSchema = z.record(z.string(), z.unknown())
 const ExportRowsSchema = z.array(ExportRowSchema)
 
+export const DURABLE_E2E_USER_EMAIL = 'e2e@test.healthyflow.local'
+
 export const AccountExportV1Schema = z.object({
   version: z.literal(1),
   exportedAt: z.string().datetime(),
@@ -161,7 +163,12 @@ export async function getAccountCredentials(userId: string) {
   return data
 }
 
-const AdminUserProtectionSchema = z.enum(['current_admin', 'administrator', 'demo_account'])
+const AdminUserProtectionSchema = z.enum([
+  'current_admin',
+  'administrator',
+  'demo_account',
+  'test_fixture',
+])
 const AdminUserActionSchema = z.enum(['mark_test', 'mark_live', 'disable', 'enable'])
 
 export const AdminUserBatchActionInputSchema = z.object({
@@ -218,6 +225,7 @@ export const AdminUserDeletionTargetSchema = z.object({
     'current_admin',
     'administrator',
     'demo_account',
+    'test_fixture',
     'not_test',
     'active_subscription',
   ])),
@@ -281,6 +289,7 @@ export function adminUserProtectionFor(
   if (user.id === actorId) return 'current_admin' as const
   if (user.role === 'admin') return 'administrator' as const
   const email = user.email.trim().toLowerCase()
+  if (email === DURABLE_E2E_USER_EMAIL) return 'test_fixture' as const
   if (email === 'demo@healthyflow.com' || email.startsWith('demo-')) {
     return 'demo_account' as const
   }
@@ -293,7 +302,7 @@ export function adminDeletionBlockers(input: {
   subscriptionActive: boolean
 }) {
   const blockers: Array<
-    'current_admin' | 'administrator' | 'demo_account' | 'not_test' | 'active_subscription'
+    'current_admin' | 'administrator' | 'demo_account' | 'test_fixture' | 'not_test' | 'active_subscription'
   > = []
   if (input.protection) blockers.push(input.protection)
   if (!input.isTest) blockers.push('not_test')

@@ -1,9 +1,8 @@
 /**
- * Playwright globalSetup: seed e2e test user (idempotent) then reset their tasks.
- * Runs once before the whole test suite, not per-test.
+ * Playwright globalSetup: verify the one pre-provisioned E2E user, then reset
+ * their mutable data. Automated tests must never create user accounts.
  */
 import { createClient } from '@supabase/supabase-js'
-import bcrypt from 'bcryptjs'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import path from 'path'
@@ -13,7 +12,7 @@ dotenv.config({ path: path.join(__dirname, '../../.env') })
 
 export const TEST_EMAIL = 'e2e@test.healthyflow.local'
 export const TEST_PASSWORD = 'e2e-test-pw-42!'
-const TEST_NAME = 'E2E Test User'
+export const TEST_NAME = 'E2E Test User'
 
 export default async function globalSetup() {
   const supabase = createClient(
@@ -22,32 +21,60 @@ export default async function globalSetup() {
     { auth: { autoRefreshToken: false, persistSession: false } }
   )
 
-  // Idempotent upsert of the test user
-  const { data: existing } = await supabase
+  const { data: user, error: userError } = await supabase
     .from('users')
-    .select('id')
+    .select('id, is_test, disabled_at')
     .eq('email', TEST_EMAIL)
     .maybeSingle()
 
-  if (!existing) {
-    const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10)
-    const { error } = await supabase
-      .from('users')
-      .insert({ email: TEST_EMAIL, name: TEST_NAME, password_hash: passwordHash })
-    if (error) throw new Error(`Failed to seed test user: ${error.message}`)
+  if (userError) {
+    throw new Error(`Failed to verify the pre-provisioned E2E user: ${userError.message}`)
+  }
+  if (!user) {
+    throw new Error(
+      `Missing ${TEST_EMAIL}. Provision this durable test account outside the automated test suite before running Playwright.`
+    )
+  }
+  if (user.is_test !== true) {
+    throw new Error(`${TEST_EMAIL} must be explicitly marked as a test user before Playwright can use it.`)
+  }
+  if (user.disabled_at) {
+    throw new Error(`${TEST_EMAIL} is disabled. Re-enable the durable test account before running Playwright.`)
   }
 
-  // Reset the test user's tasks so each run starts clean
-  const { data: user } = await supabase
-    .from('users')
-    .select('id')
-    .eq('email', TEST_EMAIL)
-    .single()
+  const userScopedTables = [
+    'workout_plans',
+    'workout_sessions',
+    'workout_exercise_items',
+    'calorie_entries',
+    'calorie_items',
+    'weight_entries',
+    'achievement_entries',
+    'achievement_definitions',
+    'habit_progress_entries',
+    'tasks',
+  ]
+  for (const table of userScopedTables) {
+    const { error } = await supabase.from(table).delete().eq('user_id', user.id)
+    if (error) throw new Error(`Failed to reset ${TEST_EMAIL} table ${table}: ${error.message}`)
+  }
 
-  if (user) {
-    await supabase.from('workout_plans').delete().eq('user_id', user.id)
-    await supabase.from('workout_sessions').delete().eq('user_id', user.id)
-    await supabase.from('workout_exercise_items').delete().eq('user_id', user.id)
-    await supabase.from('tasks').delete().eq('user_id', user.id)
+  const { data: settingsRow, error: settingsError } = await supabase
+    .from('user_settings')
+    .select('settings')
+    .eq('user_id', user.id)
+    .maybeSingle()
+  if (settingsError) throw new Error(`Failed to read ${TEST_EMAIL} settings: ${settingsError.message}`)
+
+  const settings = (settingsRow?.settings as Record<string, unknown> | null) ?? {}
+  const { error: resetSettingsError } = await supabase
+    .from('user_settings')
+    .upsert({
+      user_id: user.id,
+      settings: { ...settings, onboardingStatus: 'completed' },
+      updated_at: new Date().toISOString(),
+    })
+  if (resetSettingsError) {
+    throw new Error(`Failed to reset ${TEST_EMAIL} settings: ${resetSettingsError.message}`)
   }
 }

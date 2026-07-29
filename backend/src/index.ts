@@ -3,6 +3,7 @@ import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import path from 'path'
+import { z } from 'zod'
 import { authRoutes } from './routes/auth'
 import { taskRoutes } from './routes/tasks'
 import { summaryRoutes } from './routes/summary'
@@ -27,6 +28,7 @@ import { waitlistRoutes } from './routes/waitlist'
 import { initDatabase } from './db/database'
 import { db } from './supabase-client'
 import { startProactivityScheduler } from './proactivity'
+import { DURABLE_E2E_USER_EMAIL } from './account-data'
 
 // Load .env from parent directory
 dotenv.config({ path: path.join(__dirname, '../.env') })
@@ -95,11 +97,22 @@ app.use('/api/waitlist', waitlistRoutes)
 
 // Test-mode reset route — 404 in production, mounted only when HF_TEST_MODE=1
 if (process.env.HF_TEST_MODE === '1') {
-  const TEST_USER_EMAIL = 'e2e@test.healthyflow.local'
+  const TestResetSchema = z.object({
+    onboardingStatus: z.enum(['active', 'completed', 'skipped']).optional(),
+  })
   app.post('/test/reset', async (req, res) => {
+    const parsed = TestResetSchema.safeParse(req.body ?? {})
+    if (!parsed.success) {
+      return res.status(400).json({ error: 'Invalid test reset request' })
+    }
     try {
-      const user = await db.getUserByEmail(TEST_USER_EMAIL)
-      if (user) await db.resetTestUser(user.id)
+      const user = await db.getUserByEmail(DURABLE_E2E_USER_EMAIL)
+      if (!user) {
+        return res.status(503).json({
+          error: `Missing pre-provisioned test user ${DURABLE_E2E_USER_EMAIL}`,
+        })
+      }
+      await db.resetTestUser(user.id, parsed.data)
       res.json({ ok: true })
     } catch (err: any) {
       res.status(500).json({ error: err.message })

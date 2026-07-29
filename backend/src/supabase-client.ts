@@ -971,7 +971,10 @@ export const db = {
   // only cleared tasks and workouts. The leftovers silently broke specs in other
   // subjects: items-lifecycle's schedule-compaction assertions fail when a stray
   // Calorie entry from the health specs occupies an hour that should be empty.
-  async resetTestUser(userId: string) {
+  async resetTestUser(
+    userId: string,
+    options: { onboardingStatus?: 'active' | 'completed' | 'skipped' } = {}
+  ) {
     const userScoped = [
       'workout_plans',
       'workout_sessions',
@@ -995,6 +998,12 @@ export const db = {
       .delete()
       .eq('user_id', userId)
     if (error) throw error
+
+    if (options.onboardingStatus) {
+      await this.upsertUserSettings(userId, {
+        onboardingStatus: options.onboardingStatus,
+      })
+    }
   },
 
   // Credits

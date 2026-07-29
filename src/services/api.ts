@@ -369,7 +369,7 @@ export const ManagedUserSchema = z.object({
   isTest: z.boolean(),
   balance: z.number().int().nonnegative(),
   subscriptionActive: z.boolean(),
-  protection: z.enum(['current_admin', 'administrator', 'demo_account']).nullable(),
+  protection: z.enum(['current_admin', 'administrator', 'demo_account', 'test_fixture']).nullable(),
 })
 export type ManagedUser = z.infer<typeof ManagedUserSchema>
 
@@ -393,11 +393,12 @@ export const AdminUserDeletionPreviewSchema = z.object({
     name: z.string(),
     isTest: z.boolean(),
     subscriptionActive: z.boolean(),
-    protection: z.enum(['current_admin', 'administrator', 'demo_account']).nullable(),
+    protection: z.enum(['current_admin', 'administrator', 'demo_account', 'test_fixture']).nullable(),
     blockers: z.array(z.enum([
       'current_admin',
       'administrator',
       'demo_account',
+      'test_fixture',
       'not_test',
       'active_subscription',
     ])),

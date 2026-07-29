@@ -1,47 +1,26 @@
 import { test, expect } from './fixtures/ai-stubs'
-import { randomUUID } from 'node:crypto'
-import { createClient } from '@supabase/supabase-js'
+import { API_ORIGIN } from './apiBase'
 
-test.use({ storageState: undefined })
-
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-)
-
-async function createSignupInvite(email: string) {
-  const { data: entry, error: waitlistError } = await supabase
-    .from('waitlist')
-    .insert({ email, status: 'pending', source: 'e2e-onboarding' })
-    .select('id')
-    .single()
-  if (waitlistError) throw waitlistError
-
-  const token = `e2e-${randomUUID()}`
-  const { error: inviteError } = await supabase
-    .from('invites')
-    .insert({ token, waitlist_id: entry.id })
-  if (inviteError) throw inviteError
-  return token
+async function resetSharedUser(
+  request: import('@playwright/test').APIRequestContext,
+  onboardingStatus: 'active' | 'completed'
+) {
+  const response = await request.post(`${API_ORIGIN}/test/reset`, {
+    data: { onboardingStatus },
+  })
+  expect(response.ok()).toBeTruthy()
 }
 
-test('new signup sees brain-dump onboarding, parses a day, and completion stays dismissed', async ({ page }) => {
-  const unique = Date.now()
-  const email = `onboarding-${unique}@test.healthyflow.local`
-  const password = 'onboarding-pw-42!'
-  const invite = await createSignupInvite(email)
+test.beforeEach(async ({ request }) => {
+  await resetSharedUser(request, 'active')
+})
 
-  await page.goto(`/app?invite=${encodeURIComponent(invite)}`)
-  await page.evaluate(() => localStorage.removeItem('token'))
-  await page.reload()
-  await expect(page.getByRole('heading', { name: "You're invited" })).toBeVisible()
-  await page.getByLabel('Full Name').fill('Onboarding Test')
-  await page.getByLabel('Email Address').fill(email)
-  await page.getByLabel('Password', { exact: true }).fill(password)
-  await page.getByLabel('Confirm Password').fill(password)
-  await page.getByRole('button', { name: 'Create account', exact: true }).click()
+test.afterEach(async ({ request }) => {
+  await resetSharedUser(request, 'completed')
+})
 
+test('shared test user sees brain-dump onboarding, parses a day, and completion stays dismissed', async ({ page }) => {
+  await page.goto('/app')
   await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toBeVisible({ timeout: 10_000 })
 
   await page.getByRole('button', { name: 'Start', exact: true }).click()
@@ -64,21 +43,7 @@ test('new signup sees brain-dump onboarding, parses a day, and completion stays 
 })
 
 test('skip link completes onboarding without parsing', async ({ page }) => {
-  const unique = Date.now()
-  const email = `onboarding-skip-${unique}@test.healthyflow.local`
-  const password = 'onboarding-pw-42!'
-  const invite = await createSignupInvite(email)
-
-  await page.goto(`/app?invite=${encodeURIComponent(invite)}`)
-  await page.evaluate(() => localStorage.removeItem('token'))
-  await page.reload()
-  await expect(page.getByRole('heading', { name: "You're invited" })).toBeVisible()
-  await page.getByLabel('Full Name').fill('Onboarding Skip Test')
-  await page.getByLabel('Email Address').fill(email)
-  await page.getByLabel('Password', { exact: true }).fill(password)
-  await page.getByLabel('Confirm Password').fill(password)
-  await page.getByRole('button', { name: 'Create account', exact: true }).click()
-
+  await page.goto('/app')
   await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toBeVisible({ timeout: 10_000 })
   await page.getByRole('button', { name: 'Later', exact: true }).click()
   await expect(page.getByText('Onboarding skipped')).toBeVisible()
