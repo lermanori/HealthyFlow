@@ -1,3 +1,9 @@
+### 2026-07-30 14:45 — `main`
+
+Made the MCP transport accept ChatGPT's connector bootstrap format, which sends JSON as `application/octet-stream` while advertising a generic `Accept` header. Added a stable `/mcp/chatgpt` resource alias and matching OAuth discovery metadata so ChatGPT can refresh connector metadata without changing the existing MCP endpoint; regression coverage now exercises the exact request shape observed in production.
+
+---
+
 ### 2026-07-30 13:52 — `main`
 
 Fixed the ChatGPT connection popup stalling on `about:blank`: the browser-origin OAuth bootstrap was being rejected by HealthyFlow's global CORS policy before it reached discovery or authorization. ChatGPT browser access is now allowed only for MCP, OAuth, and OAuth discovery paths while general HealthyFlow APIs retain their existing origin restrictions; the new regression passes with all 489 backend tests.

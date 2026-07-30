@@ -361,6 +361,36 @@ describe('mixed-auth MCP discovery', () => {
     'MCP-Protocol-Version': '2025-03-26',
   }
 
+  it('accepts ChatGPT connector bootstrap requests sent as raw bytes', async () => {
+    const initialize = Buffer.from(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2025-11-25',
+          capabilities: {},
+          clientInfo: { name: 'ChatGPT', version: '1.0' },
+        },
+      })
+    )
+
+    const response = await request(app)
+      .post('/mcp/chatgpt')
+      .set('Content-Type', 'application/octet-stream')
+      .set('Accept', '*/*')
+      .send(initialize)
+
+    expect(response.status).toBe(200)
+    expect(response.text).toContain('"name":"healthyflow"')
+
+    const metadata = await request(app).get(
+      '/.well-known/oauth-protected-resource/mcp/chatgpt'
+    )
+    expect(metadata.status).toBe(200)
+    expect(metadata.body.resource).toBe(RESOURCE)
+  })
+
   it('lists tools before login and returns an OAuth challenge on use', async () => {
     const list = await request(app)
       .post('/mcp')

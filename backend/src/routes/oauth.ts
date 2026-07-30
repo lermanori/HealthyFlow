@@ -32,6 +32,10 @@ router.get(
   '/.well-known/oauth-protected-resource/mcp',
   (_req, res) => sendMetadata(res, mcpOAuthProtectedResourceMetadata(config))
 )
+router.get(
+  '/.well-known/oauth-protected-resource/mcp/chatgpt',
+  (_req, res) => sendMetadata(res, mcpOAuthProtectedResourceMetadata(config))
+)
 router.get('/.well-known/oauth-authorization-server', (_req, res) =>
   sendMetadata(res, mcpOAuthAuthorizationServerMetadata(config))
 )

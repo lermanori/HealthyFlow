@@ -83,6 +83,47 @@ app.use((req, res, next) =>
     ? mcpOAuthCors(req, res, next)
     : appCors(req, res, next)
 )
+
+app.use(
+  '/mcp',
+  express.raw({ type: 'application/octet-stream', limit: '1mb' }),
+  (req, res, next) => {
+    if (req.method !== 'POST') return next()
+
+    const overrideHeader = (name: string, value: string) => {
+      const normalizedName = name.toLowerCase()
+      req.headers[normalizedName] = value
+      const rawIndex = req.rawHeaders.findIndex(
+        (header, index) =>
+          index % 2 === 0 && header.toLowerCase() === normalizedName
+      )
+      if (rawIndex >= 0) req.rawHeaders[rawIndex + 1] = value
+      else req.rawHeaders.push(name, value)
+    }
+
+    if (Buffer.isBuffer(req.body)) {
+      try {
+        req.body = JSON.parse(req.body.toString('utf8'))
+        overrideHeader('Content-Type', 'application/json')
+      } catch {
+        return res.status(400).json({
+          jsonrpc: '2.0',
+          error: { code: -32700, message: 'Parse error' },
+          id: null,
+        })
+      }
+    }
+
+    const accept = req.header('accept')
+    if (
+      !accept?.includes('application/json') ||
+      !accept.includes('text/event-stream')
+    ) {
+      overrideHeader('Accept', 'application/json, text/event-stream')
+    }
+    next()
+  }
+)
 app.use(express.json({ limit: '6mb' }))
 
 // Initialize database (disabled - using Supabase instead)
@@ -106,6 +147,7 @@ app.use('/api/achievements', achievementRoutes)
 app.use('/api/workouts', workoutRoutes)
 app.use('/api/onboarding', onboardingRoutes)
 app.use('/api/contact-messages', contactMessageRoutes)
+app.use('/mcp/chatgpt', mcpRoutes)
 app.use('/mcp', mcpRoutes)
 app.use('/api/proactivity', proactivityRoutes)
 app.use('/api/account', accountRoutes)
