@@ -1,3 +1,9 @@
+### 2026-07-30 11:25 — `claude/app-mark-brand-surfaces`
+
+Carried the new "2a Core" mark from the app icon into the product itself (option B: brand surfaces adopt the design palette, the rest of the app keeps its teal). Added `src/components/AppMark.tsx` as the single source for the in-app mark, driven by new `--mark-*` tokens that flip Ink/Paper with the theme, and pointed the three Layout headers, the login card, and the demo header at it. The pre-React splash in index.html carries a hand-duplicated copy since the bundle's tokens load too late, and admin.html finally has a favicon. The lucide `Brain` icon stays where it means "AI feature" — only the five brand placements changed.
+
+---
+
 ### 2026-07-30 10:35 — `claude/healthyflow-icon-theme-variants-62d802`
 
 Replaced the app icon with the "2a Core" mark from the Claude Design project — a day arc enclosing a centred now-dot — in two theme variants: Paper on light, Ink on dark. Both ship as hand-written SVG sources plus a full rasterized PNG set (regenerable via `scripts/generate-icons.sh`), with the dark variant keeping the canonical filenames since the app defaults to dark. Favicons switch on `prefers-color-scheme` in both the app shell and the landing page, and the service worker cache was bumped to v7 so installed PWAs don't keep serving the old mark from unchanged paths. The splash-screen logo in index.html still carries the old cyan clipboard mark and is left for a follow-up.

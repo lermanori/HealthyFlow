@@ -84,15 +84,25 @@
         background: #f8fafc;
       }
       
+      /* Brand mark, duplicated from src/components/AppMark.tsx because the splash
+         renders before React mounts. The --mark-* tokens in src/index.css load
+         with the bundle, i.e. too late, so the colours are literals here and the
+         two copies must be kept in step. */
       .loading-logo {
         width: 80px;
         height: 80px;
-        background: #08708c;
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
         margin-bottom: 20px;
+        --mark-tile: #1a1917;
+        --mark-ring: #46655a;
+        --mark-arc: #f7f5f0;
+        --mark-dot: #e4ede7;
+      }
+
+      html[data-theme='white'] .loading-logo {
+        --mark-tile: #f7f5f0;
+        --mark-ring: #e4ede7;
+        --mark-arc: #1a1917;
+        --mark-dot: #46655a;
       }
       
       .loading-text {
@@ -151,13 +161,12 @@
   <body>
     <!-- Loading Screen -->
     <div id="loading-screen" role="status" aria-live="polite" aria-label="Loading HealthyFlow">
-      <div class="loading-logo" aria-hidden="true">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M9.5 2C8.67157 2 8 2.67157 8 3.5V4.5C8 5.32843 8.67157 6 9.5 6H14.5C15.3284 6 16 5.32843 16 4.5V3.5C16 2.67157 15.3284 2 14.5 2H9.5Z" fill="white"/>
-          <path d="M12 8C8.68629 8 6 10.6863 6 14C6 17.3137 8.68629 20 12 20C15.3137 20 18 17.3137 18 14C18 10.6863 15.3137 8 12 8Z" fill="white"/>
-          <path d="M12 10C11.4477 10 11 10.4477 11 11V14C11 14.5523 11.4477 15 12 15C12.5523 15 13 14.5523 13 14V11C13 10.4477 12.5523 10 12 10Z" fill="#06b6d4"/>
-        </svg>
-      </div>
+      <svg class="loading-logo" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect width="512" height="512" rx="113" ry="113" fill="var(--mark-tile)"/>
+        <circle cx="256" cy="256" r="96" fill="none" stroke="var(--mark-ring)" stroke-width="30"/>
+        <path d="M 289.9 120.1 A 140 140 0 1 1 222.1 120.2" fill="none" stroke="var(--mark-arc)" stroke-width="30" stroke-linecap="round"/>
+        <circle cx="256" cy="256" r="42" fill="var(--mark-dot)"/>
+      </svg>
       <div class="loading-text">HealthyFlow</div>
       <div class="loading-subtitle">Plan your day. Track what matters.</div>
       <div class="loading-spinner" aria-hidden="true"></div>
