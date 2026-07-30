@@ -1,6 +1,9 @@
 ### 2026-07-30 10:55 — `claude/healthyflow-landing-page-8c5224`
 
 Rebuilt `public/landing.html` to the "HealthyFlow Landing" Claude Design comp: warm paper canvas with a full night palette and a persisted day/night toggle, Space Grotesk display type, and an editorial layout (step cards, alternating showcase rows with hairline numbered lists, bordered AI panel, hairline capability grid, dark closing band and footer). The existing product screenshots were kept rather than regenerated — the mobile Today shot sits in the design's phone bezel and the Talk/Health/Workouts desktop shots sit in a landscape variant of it. All acquisition plumbing carried over unchanged (PostHog, signup-status offer swapping, CTA placements, waitlist POST, demo-CTA UTM forwarding), verified in-browser at 1280px and 375px in both themes with no console errors and no horizontal overflow.
+### 2026-07-30 11:25 — `claude/app-mark-brand-surfaces`
+
+Carried the new "2a Core" mark from the app icon into the product itself (option B: brand surfaces adopt the design palette, the rest of the app keeps its teal). Added `src/components/AppMark.tsx` as the single source for the in-app mark, driven by new `--mark-*` tokens that flip Ink/Paper with the theme, and pointed the three Layout headers, the login card, and the demo header at it. The pre-React splash in index.html carries a hand-duplicated copy since the bundle's tokens load too late, and admin.html finally has a favicon. The lucide `Brain` icon stays where it means "AI feature" — only the five brand placements changed.
 
 ---
 

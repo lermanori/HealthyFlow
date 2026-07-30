@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, Brain, Eye, EyeOff, Lock, Mail, Play, User } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Lock, Mail, Play, User } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { waitlistService, type SignupStatus } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import AppMark from '../components/AppMark'
 import { analytics } from '../lib/analytics'
 import {
   beginGoogleOAuth,
@@ -300,9 +301,7 @@ export default function LoginPage() {
       >
         <div className="card">
           <header className="mb-6 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-section bg-action">
-              <Brain className="h-8 w-8 text-white" />
-            </div>
+            <AppMark size={56} className="mx-auto mb-4 block" />
             <h1 className="text-2xl font-bold text-ink md:text-3xl">{heading}</h1>
             <p className="mt-2 text-sm text-ink-muted">{supportingCopy}</p>
           </header>
