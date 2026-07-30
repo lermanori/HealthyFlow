@@ -2186,4 +2186,39 @@ export const db = {
       .is('revoked_at', null)
     if (error) throw error
   },
+
+  async createMcpOAuthClient(row: {
+    client_id: string
+    client_name: string
+    redirect_uris: string[]
+    grant_types: string[]
+    response_types: string[]
+    scope: string | null
+    client_uri: string | null
+    logo_uri: string | null
+    policy_uri: string | null
+    tos_uri: string | null
+  }) {
+    const { data, error } = await supabase
+      .from('mcp_oauth_clients')
+      .insert(row)
+      .select(
+        'client_id, client_name, redirect_uris, grant_types, response_types, scope, client_uri, logo_uri, policy_uri, tos_uri, client_id_issued_at'
+      )
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async getMcpOAuthClient(clientId: string) {
+    const { data, error } = await supabase
+      .from('mcp_oauth_clients')
+      .select(
+        'client_id, client_name, redirect_uris, grant_types, response_types, scope, client_uri, logo_uri, policy_uri, tos_uri, client_id_issued_at'
+      )
+      .eq('client_id', clientId)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
 };

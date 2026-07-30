@@ -1,6 +1,18 @@
+### 2026-07-30 15:56 — `main`
+
+Integrated HealthyFlow's iOS App Store readiness work with the latest ChatGPT MCP OAuth registration changes already on the remote main branch. Both streams are now preserved together without overwriting either release path, leaving main ready to publish.
+
+---
+
 ### 2026-07-30 15:43 — `codex/ios-capacitor`
 
 Completed HealthyFlow’s App Store readiness layer with native Sign in with Apple, an opaque validated app icon, and a server-controlled minimum-version gate. The iOS shell now owns safe areas consistently across authenticated and public screens, with a compact header and native-style bottom navigation that keeps legal links in the drawer. Frontend, backend, Capacitor, and Xcode simulator validation all pass; production enablement now only requires the documented Apple Developer, Supabase provider, migration, and release configuration.
+
+---
+
+### 2026-07-30 15:23 — `claude/healthyflow-mcp-connection-7dba60`
+
+Traced the ChatGPT connector popup that stalls on `about:blank` to its real cause, which neither the CORS nor the bootstrap-format fix addressed: the authorization server advertised only Client ID Metadata Documents and had no `registration_endpoint`, so ChatGPT — which uses RFC 7591 dynamic registration — could never obtain a `client_id` to build an authorization URL with, and left the popup it had already opened unnavigated. The CIMD fallback could not have worked either, since Cloudflare answers the server-side fetch of a chatgpt.com client document with a 403. Added a durable `mcp_oauth_clients` table and a public-client-only `POST /oauth/register`, made client resolution consult the database before any outbound fetch, and stopped the protected-resource metadata being served under paths that are not the resource it declares. 494 backend tests, backend typecheck, and both builds pass; going live still needs the migration applied and `MCP_PUBLIC_URL` repointed at `/mcp` on Railway.
 
 ---
 

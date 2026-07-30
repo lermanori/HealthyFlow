@@ -14,6 +14,7 @@ import {
 import type { OAuthRegisteredClientsStore } from '@modelcontextprotocol/sdk/server/auth/clients.js'
 import {
   AccessDeniedError,
+  InvalidClientMetadataError,
   InvalidGrantError,
   InvalidScopeError,
   InvalidTargetError,
@@ -38,6 +39,7 @@ export const ApiTokenAudienceSchema = z.enum(['mcp'])
 export type ApiTokenScope = z.infer<typeof ApiTokenScopeSchema>
 
 export const MCP_OAUTH_SCOPES = [...ApiTokenScopeSchema.options] as const
+export const MCP_OAUTH_GRANT_TYPES = ['authorization_code', 'refresh_token']
 
 const TOKEN_PREFIX = 'hf_pat_'
 const AUTHORIZATION_CODE_PREFIX = 'hf_code_'
@@ -60,7 +62,8 @@ export type McpOAuthConfig = z.infer<typeof McpOAuthConfigSchema>
 
 const McpOAuthRequestClaimsSchema = z.object({
   tokenUse: z.literal('mcp_oauth_request'),
-  clientId: z.string().url(),
+  // Dynamically registered clients get an opaque UUID; CIMD clients a URL.
+  clientId: z.string().min(1).max(512),
   clientName: z.string().min(1).max(200),
   redirectUri: z.string().url(),
   scopes: z.array(ApiTokenScopeSchema).min(1),
@@ -73,7 +76,7 @@ type McpOAuthRequestClaims = z.infer<typeof McpOAuthRequestClaimsSchema>
 const McpOAuthAccessClaimsSchema = z.object({
   tokenUse: z.literal('mcp_oauth_access'),
   grantId: z.string().uuid(),
-  clientId: z.string().url(),
+  clientId: z.string().min(1).max(512),
   scopes: z.array(ApiTokenScopeSchema).min(1),
   resource: z.string().url(),
   sub: z.string().min(1),
@@ -246,10 +249,137 @@ export function clearMcpOAuthClientCache() {
   clientMetadataCache.clear()
 }
 
+// A dynamically registered client_id is an opaque UUID with no hostname to show.
+function clientDisplayName(clientId: string) {
+  try {
+    return new URL(clientId).hostname
+  } catch {
+    return 'MCP client'
+  }
+}
+
+// A redirect URI must be a fixed https endpoint (or a loopback URL for local
+// development) with no fragment, whether it arrives via dynamic registration or
+// a Client ID Metadata Document.
+function redirectUriIsAllowed(redirectUri: string) {
+  let url: URL
+  try {
+    url = new URL(redirectUri)
+  } catch {
+    return false
+  }
+  if (url.hash) return false
+  const isLoopback =
+    url.hostname === 'localhost' ||
+    url.hostname === '127.0.0.1' ||
+    url.hostname === '[::1]'
+  return url.protocol === 'https:' || (url.protocol === 'http:' && isLoopback)
+}
+
+function registeredClientToInformation(row: {
+  client_id: string
+  client_name: string
+  redirect_uris: string[]
+  grant_types: string[]
+  response_types: string[]
+  scope: string | null
+  client_uri: string | null
+  logo_uri: string | null
+  policy_uri: string | null
+  tos_uri: string | null
+  client_id_issued_at: string
+}): OAuthClientInformationFull {
+  return OAuthClientInformationFullSchema.parse({
+    client_id: row.client_id,
+    client_name: row.client_name,
+    redirect_uris: row.redirect_uris,
+    grant_types: row.grant_types,
+    response_types: row.response_types,
+    token_endpoint_auth_method: 'none',
+    client_id_issued_at: Math.floor(
+      new Date(row.client_id_issued_at).getTime() / 1000
+    ),
+    ...(row.scope ? { scope: row.scope } : {}),
+    ...(row.client_uri ? { client_uri: row.client_uri } : {}),
+    ...(row.logo_uri ? { logo_uri: row.logo_uri } : {}),
+    ...(row.policy_uri ? { policy_uri: row.policy_uri } : {}),
+    ...(row.tos_uri ? { tos_uri: row.tos_uri } : {}),
+  })
+}
+
 class McpOAuthClientsStore implements OAuthRegisteredClientsStore {
+  // ChatGPT registers dynamically (RFC 7591); other clients may present a
+  // Client ID Metadata Document URL. Registered clients win: their client_id is
+  // an opaque UUID and can never be mistaken for a document URL.
+  async registerClient(
+    client: Omit<OAuthClientInformationFull, 'client_id' | 'client_id_issued_at'> &
+      Partial<Pick<OAuthClientInformationFull, 'client_id' | 'client_id_issued_at'>>
+  ): Promise<OAuthClientInformationFull> {
+    if (!client.client_id) {
+      throw new InvalidClientMetadataError('A client_id could not be issued')
+    }
+    if (client.token_endpoint_auth_method && client.token_endpoint_auth_method !== 'none') {
+      throw new InvalidClientMetadataError(
+        'HealthyFlow only issues credentials to public clients using PKCE'
+      )
+    }
+    if (!client.redirect_uris?.length) {
+      throw new InvalidClientMetadataError('At least one redirect_uri is required')
+    }
+    if (!client.redirect_uris.every(redirectUriIsAllowed)) {
+      throw new InvalidClientMetadataError(
+        'Every redirect_uri must be an https URL without a fragment'
+      )
+    }
+
+    const grantTypes = client.grant_types?.length
+      ? client.grant_types
+      : [...MCP_OAUTH_GRANT_TYPES]
+    if (grantTypes.some((grant) => !MCP_OAUTH_GRANT_TYPES.includes(grant))) {
+      throw new InvalidClientMetadataError(
+        'HealthyFlow supports the authorization_code and refresh_token grants'
+      )
+    }
+    const responseTypes = client.response_types?.length
+      ? client.response_types
+      : ['code']
+    if (responseTypes.some((responseType) => responseType !== 'code')) {
+      throw new InvalidClientMetadataError('Only the code response type is supported')
+    }
+
+    const row = await db.createMcpOAuthClient({
+      client_id: client.client_id,
+      client_name: client.client_name?.slice(0, 200) || 'MCP client',
+      redirect_uris: client.redirect_uris,
+      grant_types: grantTypes,
+      response_types: responseTypes,
+      scope: client.scope ?? MCP_OAUTH_SCOPES.join(' '),
+      client_uri: client.client_uri ?? null,
+      logo_uri: client.logo_uri ?? null,
+      policy_uri: client.policy_uri ?? null,
+      tos_uri: client.tos_uri ?? null,
+    })
+    const registered = registeredClientToInformation(row)
+    clientMetadataCache.set(registered.client_id, {
+      client: registered,
+      expiresAt: Date.now() + CLIENT_METADATA_CACHE_MS,
+    })
+    return registered
+  }
+
   async getClient(clientId: string) {
     const cached = clientMetadataCache.get(clientId)
     if (cached && cached.expiresAt > Date.now()) return cached.client
+
+    const registered = await db.getMcpOAuthClient(clientId)
+    if (registered) {
+      const client = registeredClientToInformation(registered)
+      clientMetadataCache.set(clientId, {
+        client,
+        expiresAt: Date.now() + CLIENT_METADATA_CACHE_MS,
+      })
+      return client
+    }
 
     let clientUrl: URL
     try {
@@ -292,19 +422,7 @@ class McpOAuthClientsStore implements OAuthRegisteredClientsStore {
       ) {
         return undefined
       }
-      if (
-        parsed.data.redirect_uris.some((redirectUri) => {
-          const url = new URL(redirectUri)
-          const isLoopback =
-            url.hostname === 'localhost' ||
-            url.hostname === '127.0.0.1' ||
-            url.hostname === '[::1]'
-          return Boolean(
-            url.hash ||
-            (url.protocol !== 'https:' && !(url.protocol === 'http:' && isLoopback))
-          )
-        })
-      ) {
+      if (!parsed.data.redirect_uris.every(redirectUriIsAllowed)) {
         return undefined
       }
 
@@ -433,7 +551,7 @@ export class HealthyFlowMcpOAuthProvider implements OAuthServerProvider {
       throw new InvalidTargetError('The resource must be the HealthyFlow MCP endpoint')
     }
     const scopes = normalizeScopes(params.scopes)
-    const clientName = client.client_name || new URL(client.client_id).hostname
+    const clientName = client.client_name || clientDisplayName(client.client_id)
     const request = signConsentRequest(this.config, {
       tokenUse: 'mcp_oauth_request',
       clientId: client.client_id,
@@ -671,9 +789,11 @@ export function mcpOAuthAuthorizationServerMetadata(
     authorization_endpoint: new URL('/oauth/authorize', config.issuer).toString(),
     token_endpoint: new URL('/oauth/token', config.issuer).toString(),
     revocation_endpoint: new URL('/oauth/revoke', config.issuer).toString(),
+    // ChatGPT's connector platform only supports RFC 7591 dynamic registration.
+    registration_endpoint: new URL('/oauth/register', config.issuer).toString(),
     scopes_supported: [...MCP_OAUTH_SCOPES],
     response_types_supported: ['code'],
-    grant_types_supported: ['authorization_code', 'refresh_token'],
+    grant_types_supported: [...MCP_OAUTH_GRANT_TYPES],
     token_endpoint_auth_methods_supported: ['none'],
     revocation_endpoint_auth_methods_supported: ['none'],
     code_challenge_methods_supported: ['S256'],
