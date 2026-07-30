@@ -51,7 +51,7 @@ function SummaryCards({ totals }: { totals: TokenManagerTotals }) {
       {cards.map(([label, value]) => (
         <div key={label} className="rounded-lg border border-line/50 bg-page/70 p-4">
           <p className="text-xs text-ink-muted">{label}</p>
-          <p className="mt-2 text-2xl font-bold text-cyan-300">
+          <p className="mt-2 text-2xl font-bold text-accent">
             {label === 'OpenAI cost' ? formatUsd(value) : formatNumber(value)}
           </p>
         </div>
@@ -186,7 +186,7 @@ export default function TokenManagerPage() {
   if (overviewQuery.isLoading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-8 h-8 animate-spin text-cyan-400" />
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
       </div>
     )
   }
@@ -194,7 +194,7 @@ export default function TokenManagerPage() {
   if (overviewQuery.isError || !overview || !totals) {
     return (
       <div className="card">
-        <p className="text-sm text-red-300">Failed to load token manager.</p>
+        <p className="text-sm text-state-danger">Failed to load token manager.</p>
       </div>
     )
   }
@@ -202,7 +202,7 @@ export default function TokenManagerPage() {
   return (
     <div className="space-y-6 pb-28 md:pb-0">
       <div className="flex items-center space-x-3">
-        <div className="w-8 h-8 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-lg flex items-center justify-center">
+        <div className="w-8 h-8 bg-action rounded-lg flex items-center justify-center">
           <Coins className="w-4 h-4 text-white" />
         </div>
         <h1 className="text-2xl font-bold text-ink neon-text">Token Manager</h1>
@@ -211,7 +211,7 @@ export default function TokenManagerPage() {
       <div className="card space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
-            <Activity className="w-5 h-5 text-cyan-400" />
+            <Activity className="w-5 h-5 text-accent" />
             <h2 className="text-lg font-semibold text-ink">Usage Totals</h2>
           </div>
           <div className="flex rounded-lg border border-line/70 bg-page/80 p-1">
@@ -221,7 +221,7 @@ export default function TokenManagerPage() {
                 onClick={() => setSelectedRange(range)}
                 className={`px-3 py-2 text-sm rounded-md transition-colors ${
                   selectedRange === range
-                    ? 'bg-cyan-500/20 text-cyan-300'
+                    ? 'bg-accent/20 text-accent'
                     : 'text-ink-muted hover:text-ink-soft'
                 }`}
               >
@@ -251,7 +251,7 @@ export default function TokenManagerPage() {
 
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
-          <Settings className="w-5 h-5 text-cyan-400" />
+          <Settings className="w-5 h-5 text-accent" />
           <h2 className="text-lg font-semibold text-ink">Billing Settings</h2>
         </div>
 
@@ -297,7 +297,7 @@ export default function TokenManagerPage() {
 
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
-          <BadgeDollarSign className="w-5 h-5 text-cyan-400" />
+          <BadgeDollarSign className="w-5 h-5 text-accent" />
           <h2 className="text-lg font-semibold text-ink">Subscription Pricing</h2>
         </div>
 
@@ -309,7 +309,7 @@ export default function TokenManagerPage() {
               onClick={() => setPromoActive(!promoActive)}
               className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition ${
                 promoActive
-                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                  ? 'border-state-success/40 bg-state-success/10 text-state-success'
                   : 'border-line bg-sunken/30 text-ink-soft'
               }`}
             >
@@ -322,7 +322,7 @@ export default function TokenManagerPage() {
             <p className="mt-1 text-lg font-semibold text-ink">
               ${overview.subscriptionPricing.topUpPriceUsd} for {formatNumber(overview.subscriptionPricing.topUpCredits)} credits
             </p>
-            <p className="mt-1 text-xs text-gray-500">AI cost metering remains {overview.settings.appTokensPerUsd} tokens / $1.</p>
+            <p className="mt-1 text-xs text-ink-muted">AI cost metering remains {overview.settings.appTokensPerUsd} tokens / $1.</p>
           </div>
           <button
             onClick={() => subscriptionPricingMutation.mutate()}
@@ -342,10 +342,10 @@ export default function TokenManagerPage() {
       <div className="card">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
-            <Mail className="w-5 h-5 text-cyan-400" />
+            <Mail className="w-5 h-5 text-accent" />
             <h2 className="text-lg font-semibold text-ink">Admin Inbox</h2>
             {contactMessages.some(message => message.status === 'pending') && (
-              <span className="rounded-full bg-cyan-500/20 px-2 py-1 text-xs font-medium text-cyan-200">
+              <span className="rounded-full bg-accent/20 px-2 py-1 text-xs font-medium text-accent">
                 {contactMessages.filter(message => message.status === 'pending').length} pending
               </span>
             )}
@@ -357,7 +357,7 @@ export default function TokenManagerPage() {
                 onClick={() => setContactStatus(status)}
                 className={`px-3 py-2 text-sm capitalize rounded-md transition-colors ${
                   contactStatus === status
-                    ? 'bg-cyan-500/20 text-cyan-300'
+                    ? 'bg-accent/20 text-accent'
                     : 'text-ink-muted hover:text-ink-soft'
                 }`}
               >
@@ -383,19 +383,19 @@ export default function TokenManagerPage() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`rounded-full px-2 py-1 text-xs font-medium ${
                         message.kind === 'subscribe'
-                          ? 'bg-emerald-500/15 text-emerald-200'
-                          : 'bg-blue-500/15 text-blue-200'
+                          ? 'bg-state-success/15 text-state-success'
+                          : 'bg-state-info/15 text-state-info'
                       }`}>
                         {message.kind === 'subscribe' ? 'Subscribe' : 'Buy more'}
                       </span>
                       <span className={`rounded-full px-2 py-1 text-xs font-medium ${
                         message.status === 'pending'
-                          ? 'bg-amber-500/15 text-amber-200'
-                          : 'bg-gray-700/70 text-ink-soft'
+                          ? 'bg-state-warning/15 text-state-warning'
+                          : 'bg-raised/70 text-ink-soft'
                       }`}>
                         {message.status}
                       </span>
-                      <span className="text-xs text-gray-500">{formatDate(message.createdAt)}</span>
+                      <span className="text-xs text-ink-muted">{formatDate(message.createdAt)}</span>
                     </div>
                     <p className="mt-2 font-medium text-ink">{message.userName ?? 'Unknown user'}</p>
                     <p className="text-xs text-ink-muted">{message.userEmail ?? message.userId}</p>
@@ -433,7 +433,7 @@ export default function TokenManagerPage() {
 
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
-          <UserCog className="w-5 h-5 text-cyan-400" />
+          <UserCog className="w-5 h-5 text-accent" />
           <h2 className="text-lg font-semibold text-ink">Billing Accounts</h2>
         </div>
 
@@ -473,7 +473,7 @@ export default function TokenManagerPage() {
                       <p className="text-xs text-ink-muted">
                         {user.subscription?.active ? `${user.subscription.pricePhase} · renews ${user.subscription.renewalDate ?? '-'}` : 'Inactive'}
                       </p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-ink-muted">
                         Monthly {formatNumber(user.subscription_balance)} · Top-up {formatNumber(user.topup_balance)}
                       </p>
                       <button
@@ -529,7 +529,7 @@ export default function TokenManagerPage() {
 
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
-          <Activity className="w-5 h-5 text-cyan-400" />
+          <Activity className="w-5 h-5 text-accent" />
           <h2 className="text-lg font-semibold text-ink">Activity Log</h2>
         </div>
 

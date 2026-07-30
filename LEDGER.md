@@ -1,3 +1,9 @@
+### 2026-07-30 12:40 — `claude/semantic-token-refactor`
+
+Converted every raw Tailwind palette class in the app to a semantic token, the prerequisite for any repalette: 174 occurrences across 13 files now read from the theme system instead of naming a hue. The biggest win is the light theme, where admin surfaces were previously unreadable — Token Manager's `text-cyan-300` on a near-white ground measured about 1.4:1 and is now roughly 8:1. Also deduplicated the AI analyzer's private category map, which only covered four of the six categories and silently rendered grocery and nutrition as personal. Six hover states that the mechanical mapping had flattened were repaired by hand.
+
+---
+
 ### 2026-07-30 10:55 — `claude/healthyflow-landing-page-8c5224`
 
 Rebuilt `public/landing.html` to the "HealthyFlow Landing" Claude Design comp: warm paper canvas with a full night palette and a persisted day/night toggle, Space Grotesk display type, and an editorial layout (step cards, alternating showcase rows with hairline numbered lists, bordered AI panel, hairline capability grid, dark closing band and footer). The existing product screenshots were kept rather than regenerated — the mobile Today shot sits in the design's phone bezel and the Talk/Health/Workouts desktop shots sit in a landscape variant of it. All acquisition plumbing carried over unchanged (PostHog, signup-status offer swapping, CTA placements, waitlist POST, demo-CTA UTM forwarding), verified in-browser at 1280px and 375px in both themes with no console errors and no horizontal overflow.

@@ -87,10 +87,10 @@ function DeletionDialog({
         onClick={close}
         disabled={pending}
       />
-      <div className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border border-red-500/25 bg-page p-5 shadow-2xl sm:max-w-2xl sm:rounded-2xl sm:p-6">
+      <div className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-2xl border border-state-danger/25 bg-page p-5 shadow-2xl sm:max-w-2xl sm:rounded-2xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-red-300">
+            <div className="flex items-center gap-2 text-state-danger">
               <AlertTriangle className="h-5 w-5" />
               <h2 id="delete-test-users-title" className="text-lg font-semibold">Permanent deletion preview</h2>
             </div>
@@ -112,9 +112,9 @@ function DeletionDialog({
                   <p className="text-xs text-ink-muted">{user.email}</p>
                 </div>
                 {user.blockers.length === 0 ? (
-                  <span className="rounded-full bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300">Eligible test user</span>
+                  <span className="rounded-full bg-state-success/15 px-2 py-1 text-xs text-state-success">Eligible test user</span>
                 ) : (
-                  <span className="rounded-full bg-red-500/15 px-2 py-1 text-xs text-red-300">
+                  <span className="rounded-full bg-state-danger/15 px-2 py-1 text-xs text-state-danger">
                     Blocked: {user.blockers.map(blocker => blockerLabels[blocker]).join(', ')}
                   </span>
                 )}
@@ -136,7 +136,7 @@ function DeletionDialog({
                 ))}
               </div>
               {user.releasesPublicSignupSeat && (
-                <p className="mt-3 text-xs font-medium text-emerald-300">
+                <p className="mt-3 text-xs font-medium text-state-success">
                   1 public signup seat will be returned.
                 </p>
               )}
@@ -151,7 +151,7 @@ function DeletionDialog({
           {preview.canDelete && preview.confirmationPhrase ? (
             <>
               <label htmlFor="delete-users-confirmation" className="mt-4 block text-sm text-ink-soft">
-                Type <span className="font-mono font-semibold text-red-300">{preview.confirmationPhrase}</span>
+                Type <span className="font-mono font-semibold text-state-danger">{preview.confirmationPhrase}</span>
               </label>
               <input
                 id="delete-users-confirmation"
@@ -163,7 +163,7 @@ function DeletionDialog({
               />
             </>
           ) : (
-            <p className="mt-2 text-sm text-red-300">
+            <p className="mt-2 text-sm text-state-danger">
               Deletion is blocked. Mark accounts explicitly as test, remove active subscriptions, and exclude protected accounts.
             </p>
           )}
@@ -173,7 +173,7 @@ function DeletionDialog({
           <button type="button" className="btn-secondary" onClick={close} disabled={pending}>Cancel</button>
           <button
             type="button"
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-control bg-red-600 px-4 py-2 font-semibold text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-control bg-state-danger px-4 py-2 font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
             disabled={!preview.canDelete || !preview.confirmationPhrase || confirmation !== preview.confirmationPhrase || pending}
             onClick={confirm}
           >
@@ -329,11 +329,11 @@ export default function UserManagementPanel() {
             </div>
             <div className="rounded-control border border-line bg-sunken/35 px-3 py-2">
               <p className="text-ink-muted">Test</p>
-              <p className="mt-1 text-lg font-semibold text-amber-300">{counts.test}</p>
+              <p className="mt-1 text-lg font-semibold text-state-warning">{counts.test}</p>
             </div>
             <div className="rounded-control border border-line bg-sunken/35 px-3 py-2">
               <p className="text-ink-muted">Disabled</p>
-              <p className="mt-1 text-lg font-semibold text-red-300">{counts.disabled}</p>
+              <p className="mt-1 text-lg font-semibold text-state-danger">{counts.disabled}</p>
             </div>
           </div>
         </div>
@@ -380,7 +380,7 @@ export default function UserManagementPanel() {
                 </button>
                 <button
                   type="button"
-                  className="inline-flex min-h-11 items-center gap-2 rounded-control border border-red-500/35 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-500/10 disabled:opacity-50"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-control border border-state-danger/35 px-3 py-2 text-sm font-medium text-state-danger transition hover:bg-state-danger/10 disabled:opacity-50"
                   onClick={() => previewMutation.mutate(selectedIds)}
                   disabled={previewMutation.isPending || selectedIds.length > 20}
                   title={selectedIds.length > 20 ? 'Preview up to 20 users at a time' : undefined}
@@ -398,7 +398,7 @@ export default function UserManagementPanel() {
             <Loader2 className="h-4 w-4 animate-spin" /> Loading users…
           </div>
         ) : usersQuery.isError ? (
-          <p className="mt-6 text-sm text-red-300">Could not load users.</p>
+          <p className="mt-6 text-sm text-state-danger">Could not load users.</p>
         ) : (
           <div className="mt-5 overflow-x-auto">
             <table className="min-w-[960px] w-full text-sm">
@@ -431,18 +431,18 @@ export default function UserManagementPanel() {
                       <p className="font-medium text-ink">{user.name}</p>
                       <p className="text-xs text-ink-muted">{user.email}</p>
                       {user.protection && (
-                        <span className="mt-1 inline-flex items-center gap-1 text-xs text-cyan-300">
+                        <span className="mt-1 inline-flex items-center gap-1 text-xs text-accent">
                           <ShieldCheck className="h-3.5 w-3.5" /> {protectionLabels[user.protection]}
                         </span>
                       )}
                     </td>
                     <td className="py-3 pr-4">
-                      <span className={`rounded-full px-2 py-1 text-xs font-medium ${user.isTest ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'}`}>
+                      <span className={`rounded-full px-2 py-1 text-xs font-medium ${user.isTest ? 'bg-state-warning/15 text-state-warning' : 'bg-state-success/15 text-state-success'}`}>
                         {user.isTest ? 'Test' : 'Live'}
                       </span>
                     </td>
                     <td className="py-3 pr-4">
-                      <span className={`rounded-full px-2 py-1 text-xs font-medium ${user.disabledAt ? 'bg-red-500/15 text-red-300' : 'bg-cyan-500/15 text-cyan-300'}`}>
+                      <span className={`rounded-full px-2 py-1 text-xs font-medium ${user.disabledAt ? 'bg-state-danger/15 text-state-danger' : 'bg-accent/15 text-accent'}`}>
                         {user.disabledAt ? 'Disabled' : 'Active'}
                       </span>
                     </td>
@@ -453,7 +453,7 @@ export default function UserManagementPanel() {
                     </td>
                     <td className="py-3">
                       <p className="font-medium text-ink">{user.balance}</p>
-                      {user.subscriptionActive && <p className="text-xs text-emerald-300">Active subscription</p>}
+                      {user.subscriptionActive && <p className="text-xs text-state-success">Active subscription</p>}
                     </td>
                   </tr>
                 ))}
@@ -473,7 +473,7 @@ export default function UserManagementPanel() {
           {auditQuery.isLoading ? (
             <p className="mt-3 text-sm text-ink-muted">Loading audit history…</p>
           ) : auditQuery.isError ? (
-            <p className="mt-3 text-sm text-red-300">Could not load audit history.</p>
+            <p className="mt-3 text-sm text-state-danger">Could not load audit history.</p>
           ) : (auditQuery.data?.length ?? 0) === 0 ? (
             <p className="mt-3 text-sm text-ink-muted">No user-management changes recorded yet.</p>
           ) : (

@@ -50,10 +50,10 @@ export default function TTSSettings({
 
   if (!isSupported) {
     return (
-      <div className={`${embedded ? 'rounded-lg px-2 py-1' : 'rounded-xl border border-yellow-500/30 p-4'} bg-yellow-500/10`}>
+      <div className={`${embedded ? 'rounded-lg px-2 py-1' : 'rounded-xl border border-state-warning/30 p-4'} bg-state-warning/10`}>
         <div className="flex items-center space-x-2">
-          <MicOff className="w-4 h-4 text-yellow-400" />
-          <span className="text-sm text-yellow-400 font-medium">TTS Not Supported</span>
+          <MicOff className="w-4 h-4 text-state-warning" />
+          <span className="text-sm text-state-warning font-medium">TTS Not Supported</span>
         </div>
         <p className="text-xs text-ink-soft mt-1">
           Text-to-speech is not supported in your browser. Try using Chrome, Safari, or Edge.
@@ -66,14 +66,14 @@ export default function TTSSettings({
     <div
       className={`tts-controls ${
         embedded
-          ? 'rounded-xl border border-cyan-500/25 bg-page/25 px-1.5 py-1'
-          : `rounded-xl border border-cyan-500/30 bg-card/50 ${compact ? 'p-3' : 'p-4'}`
+          ? 'rounded-xl border border-accent/25 bg-page/25 px-1.5 py-1'
+          : `rounded-xl border border-accent/30 bg-card/50 ${compact ? 'p-3' : 'p-4'}`
       }`}
     >
       {/* Header */}
       <div className={`flex items-center justify-between ${compact ? '' : 'mb-3'}`}>
         <div className={`flex items-center ${embedded ? 'space-x-1.5' : 'space-x-2'}`}>
-          <div className={`${embedded ? 'h-8 w-8 rounded-lg' : 'w-6 h-6 rounded-lg'} bg-gradient-to-r from-cyan-500 to-blue-600 flex items-center justify-center`}>
+          <div className={`${embedded ? 'h-8 w-8 rounded-lg' : 'w-6 h-6 rounded-lg'} bg-action flex items-center justify-center`}>
             <Volume2 className="w-3 h-3 text-white" />
           </div>
           {!embedded && <h4 className="text-sm font-medium text-ink-soft">Voice Assistant</h4>}
@@ -82,7 +82,7 @@ export default function TTSSettings({
         <div className={`flex items-center ${embedded ? 'space-x-1.5' : 'space-x-2'}`}>
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className={`${embedded ? 'flex h-8 w-8 items-center justify-center rounded-lg' : 'p-1 rounded'} hover:bg-gray-700 transition-colors`}
+            className={`${embedded ? 'flex h-8 w-8 items-center justify-center rounded-lg' : 'p-1 rounded'} hover:bg-raised transition-colors`}
             aria-label="Open voice assistant settings"
           >
             <Settings className="w-4 h-4 text-ink-muted" />
@@ -95,7 +95,7 @@ export default function TTSSettings({
               onChange={(e) => onTTSEnabledChange(e.target.checked)}
               className="sr-only peer"
             />
-            <div className="w-9 h-5 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"></div>
+            <div className="w-9 h-5 bg-raised peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent"></div>
           </label>
         </div>
       </div>
@@ -106,12 +106,12 @@ export default function TTSSettings({
           onClick={() => setIsSettingsOpen(false)}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-cyan-500/30 bg-page p-5 shadow-2xl shadow-cyan-500/20"
+            className="w-full max-w-md rounded-2xl border border-accent/30 bg-page p-5 shadow-2xl shadow-accent/20"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-5 flex items-center justify-between gap-3">
               <div className="flex items-center space-x-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-action">
                   <Volume2 className="h-4 w-4 text-white" />
                 </div>
                 <div>
@@ -140,7 +140,7 @@ export default function TTSSettings({
                   onChange={(e) => onTTSEnabledChange(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="h-6 w-11 rounded-full bg-gray-600 after:absolute after:left-[3px] after:top-[3px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-cyan-500 peer-checked:after:translate-x-full peer-focus:outline-none"></div>
+                <div className="h-6 w-11 rounded-full bg-raised after:absolute after:left-[3px] after:top-[3px] after:h-5 after:w-5 after:rounded-full after:bg-white after:transition-all after:content-[''] peer-checked:bg-accent peer-checked:after:translate-x-full peer-focus:outline-none"></div>
               </label>
             </div>
 
@@ -171,9 +171,9 @@ export default function TTSSettings({
                   step="0.1"
                   value={rate}
                   onChange={(e) => onRateChange(parseFloat(e.target.value))}
-                  className="slider h-2 w-full cursor-pointer appearance-none rounded-lg bg-gray-700"
+                  className="slider h-2 w-full cursor-pointer appearance-none rounded-lg bg-raised"
                 />
-                <div className="mt-1 flex justify-between text-xs text-gray-500">
+                <div className="mt-1 flex justify-between text-xs text-ink-muted">
                   <span>Slow</span>
                   <span>Normal</span>
                   <span>Fast</span>
@@ -185,7 +185,7 @@ export default function TTSSettings({
                   type="checkbox"
                   checked={autoSpeakResults}
                   onChange={(e) => onAutoSpeakChange(e.target.checked)}
-                  className="h-4 w-4 rounded border-line-strong bg-gray-700 text-cyan-500 focus:ring-2 focus:ring-cyan-500"
+                  className="h-4 w-4 rounded border-line-strong bg-raised text-accent focus:ring-2 focus:ring-accent"
                 />
                 <span className="text-sm text-ink-soft">Auto-speak analysis results</span>
               </label>

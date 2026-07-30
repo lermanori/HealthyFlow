@@ -19,9 +19,9 @@ type ParseResult = {
 }
 
 function confidenceStyles(confidence?: MealParseReview['confidence']) {
-  if (confidence === 'high') return 'border-emerald-400/40 bg-emerald-500/10 text-emerald-100'
-  if (confidence === 'medium') return 'border-amber-400/40 bg-amber-500/10 text-amber-100'
-  if (confidence === 'low') return 'border-red-400/40 bg-red-500/10 text-red-100'
+  if (confidence === 'high') return 'border-state-success/40 bg-state-success/10 text-state-success'
+  if (confidence === 'medium') return 'border-state-warning/40 bg-state-warning/10 text-state-warning'
+  if (confidence === 'low') return 'border-state-danger/40 bg-state-danger/10 text-state-danger'
   return 'border-line bg-sunken/30 text-ink-soft'
 }
 
@@ -68,7 +68,7 @@ function MealCard({ meal }: { meal: ParsedMeal }) {
           <h3 className="font-semibold text-ink">{meal.name}</h3>
           {meal.quantity && <p className="mt-1 text-sm text-ink-muted">{meal.quantity}</p>}
         </div>
-        <span className="rounded-full border border-cyan-500/30 bg-cyan-500/15 px-3 py-1 text-sm font-semibold text-cyan-200">
+        <span className="rounded-full border border-accent/30 bg-accent/15 px-3 py-1 text-sm font-semibold text-accent">
           {meal.calories} cal
         </span>
       </div>
@@ -152,7 +152,7 @@ export default function MealParserLabPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <section className="card space-y-4">
           <div className="flex items-center gap-2 text-ink">
-            <ImageIcon className="h-5 w-5 text-cyan-300" />
+            <ImageIcon className="h-5 w-5 text-accent" />
             <h2 className="font-semibold">Input</h2>
           </div>
           {photo ? (
@@ -168,7 +168,7 @@ export default function MealParserLabPage() {
           ) : (
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex min-h-[18rem] w-full flex-col items-center justify-center rounded-lg border border-dashed border-line-strong bg-sunken/30 text-ink-muted transition-colors hover:border-cyan-500/50 hover:text-cyan-200"
+              className="flex min-h-[18rem] w-full flex-col items-center justify-center rounded-lg border border-dashed border-line-strong bg-sunken/30 text-ink-muted transition-colors hover:border-accent/50 hover:text-accent"
             >
               <Upload className="mb-3 h-8 w-8" />
               <span className="text-sm">Upload a nutrition label photo</span>
