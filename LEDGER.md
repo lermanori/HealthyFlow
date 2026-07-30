@@ -1,3 +1,9 @@
+### 2026-07-30 17:12 — `main`
+
+Prepared HealthyFlow’s next iOS release by advancing both the app and Today widget to marketing version 1.0.1 and build 2. The frontend, backend, Capacitor sync, simulator Release build, and signed device archive all passed; Apple accepted the upload into App Store Connect without warnings or errors and is processing the build.
+
+---
+
 ### 2026-07-30 16:56 — `claude/landing-page-screenshot-script-ad32b9`
 
 The landing page now shows the product in whichever theme the visitor is reading it in. `capture-landing-shots.mjs` shoots every surface twice, once per app theme, keeping the dark set on its existing filenames and suffixing the light set `-light`; `landing.html` carries both variants per screenshot and hides the mismatched one in CSS, so the swap follows the day/night toggle rather than just the OS preference. Both variants are lazy, which stops the hidden one being fetched, and the pre-paint script preloads the theme-correct hero to buy back the priority that costs. This commit adds the 18 new light assets and refreshes the 18 dark ones, which now carry today's seeded demo data.
