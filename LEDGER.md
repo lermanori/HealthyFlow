@@ -1,3 +1,9 @@
+### 2026-07-30 13:29 — `main`
+
+Production protocol verification exposed that Railway's Node 18 default lacks the web-crypto runtime required by the current MCP SDK, causing unauthenticated tool calls to fail before returning their OAuth challenge. Raised the repository runtime floor to Node 20 and pinned Railway's build to Node 22 so the deployed MCP server uses a supported runtime.
+
+---
+
 ### 2026-07-30 13:23 — `main`
 
 Added a ChatGPT-ready OAuth 2.1 layer to HealthyFlow's MCP endpoint with CIMD client discovery, PKCE, audience-bound access tokens, rotating refresh grants, revocation, and explicit tool scopes while retaining PAT access for developer clients. Added the authenticated consent route, connection management in Settings, durable Supabase grant storage, deployment configuration, and regression coverage; 488 backend tests, backend typechecking, and the production frontend build pass. The implementation is ready for its additive production migration and coordinated Railway/Netlify rollout.
