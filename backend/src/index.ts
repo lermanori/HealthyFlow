@@ -37,9 +37,11 @@ const PORT = process.env.PORT || 3001
 app.set('trust proxy', 1)
 
 // Middleware
-// Restrict CORS to the production domain, the Netlify site, their subdomains, and local dev.
+// Restrict app APIs to HealthyFlow surfaces. ChatGPT additionally needs browser
+// access to MCP/OAuth discovery and authorization while connecting an account.
 const CORS_ROOT_DOMAINS = ['healthyflow.app', 'deluxe-souffle-b9b7f7.netlify.app']
-const isAllowedOrigin = (origin: string): boolean => {
+const CHATGPT_CORS_ROOT_DOMAINS = ['chatgpt.com']
+const originMatchesRoots = (origin: string, roots: string[]): boolean => {
   let hostname: string
   try {
     hostname = new URL(origin).hostname
@@ -47,7 +49,7 @@ const isAllowedOrigin = (origin: string): boolean => {
     return false
   }
   if (hostname === 'localhost' || hostname === '127.0.0.1') return true
-  return CORS_ROOT_DOMAINS.some(
+  return roots.some(
     (root) =>
       hostname === root ||
       hostname.endsWith(`.${root}`) ||
@@ -55,14 +57,31 @@ const isAllowedOrigin = (origin: string): boolean => {
       hostname.endsWith(`--${root}`)
   )
 }
-app.use(
+const isAllowedOrigin = (origin: string) =>
+  originMatchesRoots(origin, CORS_ROOT_DOMAINS)
+const isAllowedMcpOAuthOrigin = (origin: string) =>
+  isAllowedOrigin(origin) ||
+  originMatchesRoots(origin, CHATGPT_CORS_ROOT_DOMAINS)
+const corsFor = (isAllowed: (origin: string) => boolean) =>
   cors({
     origin: (origin, callback) => {
       // Allow non-browser requests (curl, server-to-server, health checks) with no Origin header.
-      if (!origin || isAllowedOrigin(origin)) return callback(null, true)
+      if (!origin || isAllowed(origin)) return callback(null, true)
       callback(new Error(`Origin not allowed by CORS: ${origin}`))
     },
   })
+const appCors = corsFor(isAllowedOrigin)
+const mcpOAuthCors = corsFor(isAllowedMcpOAuthOrigin)
+const isMcpOAuthCorsPath = (path: string) =>
+  path === '/mcp' ||
+  path.startsWith('/mcp/') ||
+  path.startsWith('/oauth/') ||
+  path.startsWith('/.well-known/oauth-')
+
+app.use((req, res, next) =>
+  isMcpOAuthCorsPath(req.path)
+    ? mcpOAuthCors(req, res, next)
+    : appCors(req, res, next)
 )
 app.use(express.json({ limit: '6mb' }))
 

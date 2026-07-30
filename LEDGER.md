@@ -1,3 +1,9 @@
+### 2026-07-30 13:52 — `main`
+
+Fixed the ChatGPT connection popup stalling on `about:blank`: the browser-origin OAuth bootstrap was being rejected by HealthyFlow's global CORS policy before it reached discovery or authorization. ChatGPT browser access is now allowed only for MCP, OAuth, and OAuth discovery paths while general HealthyFlow APIs retain their existing origin restrictions; the new regression passes with all 489 backend tests.
+
+---
+
 ### 2026-07-30 13:29 — `main`
 
 Production protocol verification exposed that Railway's Node 18 default lacks the web-crypto runtime required by the current MCP SDK, causing unauthenticated tool calls to fail before returning their OAuth challenge. Raised the repository runtime floor to Node 20 and pinned Railway's build to Node 22 so the deployed MCP server uses a supported runtime.

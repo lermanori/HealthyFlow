@@ -149,6 +149,32 @@ describe('HealthyFlow MCP OAuth', () => {
     })
   })
 
+  it('allows the ChatGPT browser origin to bootstrap MCP OAuth', async () => {
+    const metadata = await request(app)
+      .get('/.well-known/oauth-authorization-server')
+      .set('Origin', 'https://chatgpt.com')
+
+    expect(metadata.status).toBe(200)
+    expect(metadata.headers['access-control-allow-origin']).toBe(
+      'https://chatgpt.com'
+    )
+
+    const authorizePreflight = await request(app)
+      .options('/oauth/authorize')
+      .set('Origin', 'https://chatgpt.com')
+      .set('Access-Control-Request-Method', 'GET')
+
+    expect(authorizePreflight.status).toBe(204)
+    expect(authorizePreflight.headers['access-control-allow-origin']).toBe(
+      'https://chatgpt.com'
+    )
+
+    const accountApi = await request(app)
+      .get('/api/health')
+      .set('Origin', 'https://chatgpt.com')
+    expect(accountApi.headers['access-control-allow-origin']).toBeUndefined()
+  })
+
   it('completes CIMD, consent, PKCE code exchange, and refresh rotation', async () => {
     const verifier = crypto.randomBytes(32).toString('base64url')
     const challenge = crypto
