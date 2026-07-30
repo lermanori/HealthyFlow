@@ -7,6 +7,10 @@
 // Usage (needs the API on :3001):
 //   node scripts/capture-landing-shots.mjs
 //
+// Every shot is captured twice, once per app theme, because the landing page
+// swaps to the variant matching its own day/night state. To reshoot only one:
+//   HF_SHOT_THEME=white node scripts/capture-landing-shots.mjs
+//
 // It signs in as a seeded demo persona over the API and then drops the demo
 // markers from localStorage, so the captures show the ordinary logged-in app
 // rather than the guided-tour chrome.
@@ -40,6 +44,16 @@ const OUT = 'public/landing'
 
 // Flags the operator explicitly wants ON for this run.
 const FLAGS_ON = new Set((process.env.HF_SHOT_FLAGS ?? '').split(',').map((s) => s.trim()).filter(Boolean))
+
+// Both app themes are shot every run, because landing.html picks the variant
+// that matches its own day/night state — a theme captured once goes stale
+// invisibly, since whoever is looking at the other theme sees the mismatch and
+// the person running the script does not. The dark shots keep the unsuffixed
+// names (landing.html's srcset and the og:image point at them); light shots get
+// a '-light' suffix. HF_SHOT_THEME=white narrows a run to one theme.
+const THEMES = process.env.HF_SHOT_THEME ? [process.env.HF_SHOT_THEME] : ['midnight', 'white']
+const SUFFIX = { midnight: '', white: '-light' }
+const COLOR_SCHEME = { midnight: 'dark', white: 'light' }
 
 // Lina is the health-tracker persona: her seeded day is the only one that fills
 // Nutrition, Workouts and Progress, which is what the Health section sells.
@@ -134,8 +148,7 @@ async function demoToken() {
 // on a dark landing page. Pin it server-side: the pre-render snippet in
 // index.html reads localStorage, but useSettings overwrites that from the API a
 // moment later, so only the server value actually decides the shot.
-async function pinTheme(token) {
-  const theme = process.env.HF_SHOT_THEME ?? 'midnight'
+async function pinTheme(token, theme) {
   const res = await fetch(`${API}/settings`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -164,11 +177,10 @@ async function main() {
   const flags = await featureFlagNames()
   web = await startWebServer(flags)
   const token = await demoToken()
-  const theme = await pinTheme(token)
   const browser = await chromium.launch()
   const work = await mkdtemp(join(tmpdir(), 'hf-shots-'))
 
-  const capture = async (context, shots) => {
+  const capture = async (context, shots, theme, suffix) => {
     // addInitScript, not a one-off evaluate: the axios 401 interceptor clears the
     // token and reloads, so a single seeding would silently drop us onto the
     // login page partway through the run.
@@ -203,27 +215,36 @@ async function main() {
         await shot.prepare(page)
         await page.waitForTimeout(300)
       }
-      await page.screenshot({ path: join(work, `${shot.name}.png`) })
-      console.log(`captured ${shot.name}`)
+      await page.screenshot({ path: join(work, `${shot.name}${suffix}.png`) })
+      console.log(`captured ${shot.name}${suffix}`)
     }
     await page.close()
   }
 
-  const desktop = await browser.newContext({
-    viewport: { width: 1440, height: 900 },
-    deviceScaleFactor: 2,
-    colorScheme: 'dark',
-  })
-  await capture(desktop, DESKTOP)
+  for (const theme of THEMES) {
+    const suffix = SUFFIX[theme]
+    const colorScheme = COLOR_SCHEME[theme]
+    if (suffix === undefined) throw new Error(`unknown HF_SHOT_THEME=${theme} — expected midnight or white`)
+    await pinTheme(token, theme)
 
-  const mobile = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    deviceScaleFactor: 3,
-    colorScheme: 'dark',
-    isMobile: true,
-    hasTouch: true,
-  })
-  await capture(mobile, [{ name: 'today-mobile', path: '/app/' }])
+    const desktop = await browser.newContext({
+      viewport: { width: 1440, height: 900 },
+      deviceScaleFactor: 2,
+      colorScheme,
+    })
+    await capture(desktop, DESKTOP, theme, suffix)
+    await desktop.close()
+
+    const mobile = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      deviceScaleFactor: 3,
+      colorScheme,
+      isMobile: true,
+      hasTouch: true,
+    })
+    await capture(mobile, [{ name: 'today-mobile', path: '/app/' }], theme, suffix)
+    await mobile.close()
+  }
 
   await browser.close()
 
@@ -235,7 +256,7 @@ async function main() {
     await run('sips', ['-s', 'format', 'jpeg', '-s', 'formatOptions', '82', png, '--out', join(work, `${name}.jpg`)])
     await rename(join(work, `${name}.jpg`), join(OUT, `${name}.jpg`))
     await run('cwebp', ['-q', '82', png, '-o', join(OUT, `${name}.webp`)])
-    if (name.endsWith('-desktop')) {
+    if (name.includes('-desktop')) {
       for (const width of [800, 1400]) {
         await run('cwebp', ['-q', '80', '-resize', String(width), '0', png, '-o', join(OUT, `${name}-${width}.webp`)])
       }
