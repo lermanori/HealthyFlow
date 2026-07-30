@@ -131,21 +131,21 @@ export default function PWAInstallPrompt({ suppressed = false }: PWAInstallPromp
       
       <div className="space-y-3 text-sm text-ink-soft">
         <div className="flex items-start space-x-3">
-          <div className="w-6 h-6 bg-state-info rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
+          <div className="w-6 h-6 bg-state-info rounded-full flex items-center justify-center text-on-action text-xs font-bold flex-shrink-0 mt-0.5">
             1
           </div>
           <p>Tap the <strong>Share</strong> button in Safari (bottom of screen)</p>
         </div>
         
         <div className="flex items-start space-x-3">
-          <div className="w-6 h-6 bg-state-info rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
+          <div className="w-6 h-6 bg-state-info rounded-full flex items-center justify-center text-on-action text-xs font-bold flex-shrink-0 mt-0.5">
             2
           </div>
           <p>Scroll down and tap <strong>"Add to Home Screen"</strong></p>
         </div>
         
         <div className="flex items-start space-x-3">
-          <div className="w-6 h-6 bg-state-info rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 mt-0.5">
+          <div className="w-6 h-6 bg-state-info rounded-full flex items-center justify-center text-on-action text-xs font-bold flex-shrink-0 mt-0.5">
             3
           </div>
           <p>Tap <strong>"Add"</strong> to install HealthyFlow</p>

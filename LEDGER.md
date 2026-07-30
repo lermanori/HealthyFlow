@@ -1,3 +1,9 @@
+### 2026-07-30 13:30 — `claude/repalette-foundations`
+
+Swapped the app's foundation tokens to the design system's warm-neutral palette: surfaces, text, borders, interactive and status, in both themes, plus the two values the design system flagged as failing AA. Split accent into fill (`--action-primary`) and glyph (`--action-accent`) roles, which is what lets accent text clear 4.5:1 over its own wash at every tint step. Also converted nine `text-white` labels sitting on coloured fills to `text-on-action`, without which dark-theme chips would have rendered white-on-mint at about 1.5:1. Category and week hues are deliberately untouched and will clash until the item-mark pass lands.
+
+---
+
 ### 2026-07-30 12:40 — `claude/semantic-token-refactor`
 
 Converted every raw Tailwind palette class in the app to a semantic token, the prerequisite for any repalette: 174 occurrences across 13 files now read from the theme system instead of naming a hue. The biggest win is the light theme, where admin surfaces were previously unreadable — Token Manager's `text-cyan-300` on a near-white ground measured about 1.4:1 and is now roughly 8:1. Also deduplicated the AI analyzer's private category map, which only covered four of the six categories and silently rendered grocery and nutrition as personal. Six hover states that the mechanical mapping had flattened were repaired by hand.
