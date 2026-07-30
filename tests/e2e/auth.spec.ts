@@ -64,7 +64,7 @@ test.describe('unauthenticated flows', () => {
     await expect(page.locator('#email')).toHaveValue('')
     await expect(page.locator('#password')).toHaveValue('')
     await expect(page.getByText('demo@healthyflow.com')).toHaveCount(0)
-    await expect(page.getByRole('link', { name: 'Try the guided demo' })).toHaveAttribute('href', '/app/demo')
+    await expect(page.getByRole('link', { name: 'See a day like yours' })).toHaveAttribute('href', '/app/demo?source=login')
     await expect(page.locator('#waitlist-email')).toHaveCount(0)
 
     await page.getByRole('button', { name: 'Join the waitlist' }).click()

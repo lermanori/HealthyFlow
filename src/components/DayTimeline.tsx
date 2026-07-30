@@ -488,35 +488,6 @@ export default function DayTimeline({
     slot => hasSlotContent(slot) || parseInt(slot, 10) === nowHour
   )
 
-  useEffect(() => {
-    window.__healthyFlowDemo = {
-      ...(window.__healthyFlowDemo ?? {}),
-      moveRolloverTaskToToday: async (startTime: string) => {
-        const todayKey = localDateKey()
-        const task = tasks.find(item => !item.startTime && item.scheduledDate && item.scheduledDate < todayKey)
-          ?? tasks.find(item => !item.startTime)
-        if (!task) {
-          console.warn('[demo] No rollover task available to move')
-          return
-        }
-        const optimistic = tasks.map(item => (
-          item.id === task.id ? { ...item, startTime, position: null } as Task : item
-        ))
-        onTasksReorder(optimistic)
-        const updated = await taskService.updateTask(task.id, { startTime, position: null })
-        onTasksReorder(tasks.map(item => (item.id === task.id ? ({ ...item, ...updated } as Task) : item)))
-        onTasksPersisted()
-      },
-      expandAnytime: () => setIsAnytimeExpanded(true),
-    }
-
-    return () => {
-      if (!window.__healthyFlowDemo) return
-      delete window.__healthyFlowDemo.moveRolloverTaskToToday
-      delete window.__healthyFlowDemo.expandAnytime
-    }
-  }, [onTasksPersisted, onTasksReorder, tasks])
-
   // Reopen a Habit's check-in sheet from one of its progress chunks — a chunk has
   // no module page to navigate to, and the sheet is where the rest gets logged.
   const handleHabitSelect = (habitId: string) => {

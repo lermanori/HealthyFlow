@@ -723,7 +723,7 @@
         </p>
         <div class="hero-ctas">
           <a class="btn btn-primary" data-access-cta data-placement="hero" href="#waitlist-form">Join the waitlist</a>
-          <a class="btn btn-ghost" href="/app/demo">Watch Demo</a>
+          <a class="btn btn-ghost" data-demo-cta href="/app/demo?source=landing">Watch Demo</a>
         </div>
         <div class="hero-note" data-hero-offer>
           $<span data-offer-founding-price>9</span>/month for the first 100 members ·
@@ -967,7 +967,7 @@
       <p class="reveal" data-final-offer>One timeline. It rolls itself forward. First 100 members get in at $9.</p>
       <div class="hero-ctas reveal">
         <a class="btn btn-primary" data-access-cta data-placement="final" href="#waitlist-form">Join the waitlist</a>
-        <a class="btn btn-ghost" href="/app/demo">Watch Demo</a>
+        <a class="btn btn-ghost" data-demo-cta href="/app/demo?source=landing">Watch Demo</a>
       </div>
     </div>
   </section>
@@ -1110,6 +1110,16 @@
           access_mode: accessMode,
         });
       });
+    });
+
+    const campaignParams = new URLSearchParams(location.search);
+    document.querySelectorAll('[data-demo-cta]').forEach((el) => {
+      const href = new URL(el.getAttribute('href'), location.origin);
+      ['utm_source', 'utm_medium', 'utm_campaign'].forEach((name) => {
+        const value = campaignParams.get(name);
+        if (value) href.searchParams.set(name, value);
+      });
+      el.setAttribute('href', `${href.pathname}${href.search}`);
     });
 
     document.getElementById('waitlist-form').addEventListener('submit', async (e) => {

@@ -2,7 +2,11 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { useQueryClient } from '@tanstack/react-query'
 import { authService } from '../services/api'
 import { analytics } from '../lib/analytics'
-import type { DemoPersonaId } from '../demoPersonas'
+import {
+  clearDemoAcquisition,
+  readDemoAcquisition,
+  type DemoPersonaId,
+} from '../demoPersonas'
 import toast from 'react-hot-toast'
 
 interface User {
@@ -19,14 +23,18 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>
   loginWithGoogle: (accessToken: string, invite?: string) => Promise<void>
   startDemoSession: (persona: DemoPersonaId) => Promise<void>
+  leaveDemoSession: () => Promise<boolean>
   signup: (email: string, password: string, name: string, invite?: string) => Promise<void>
   logout: () => void
   completeAccountDeletion: () => void
+  isDemoSession: boolean
+  hasDemoReturnSession: boolean
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 const LEGACY_DEMO_EMAIL = 'demo@healthyflow.com'
+const DEMO_RETURN_TOKEN_KEY = 'healthyflow-demo-return-token-v1'
 
 function isDemoEmail(email: string) {
   return email === LEGACY_DEMO_EMAIL || email.startsWith('demo-')
@@ -34,7 +42,6 @@ function isDemoEmail(email: string) {
 
 function clearDemoState() {
   localStorage.removeItem('demoPersona')
-  localStorage.removeItem('mayaDemoGuide')
 }
 
 function identifyUser(userData: User) {
@@ -49,20 +56,38 @@ function identifyUser(userData: User) {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [hasDemoReturnSession, setHasDemoReturnSession] = useState(
+    () => Boolean(sessionStorage.getItem(DEMO_RETURN_TOKEN_KEY)),
+  )
   const queryClient = useQueryClient()
 
   useEffect(() => {
     const token = localStorage.getItem('token')
-    if (token) {
+    const returnToken = sessionStorage.getItem(DEMO_RETURN_TOKEN_KEY)
+    const tokenToVerify = token ?? returnToken
+    if (tokenToVerify) {
       // Verify token and get user info
-      authService.verifyToken()
+      authService.verifyToken(token ? undefined : tokenToVerify)
         .then(userData => {
-          if (!isDemoEmail(userData.email)) clearDemoState()
+          if (!token && returnToken) {
+            localStorage.setItem('token', returnToken)
+            sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
+            setHasDemoReturnSession(false)
+          }
+          if (!isDemoEmail(userData.email)) {
+            clearDemoState()
+            sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
+            setHasDemoReturnSession(false)
+          }
           identifyUser(userData)
           setUser(userData)
         })
         .catch(() => {
           localStorage.removeItem('token')
+          if (!token && returnToken) {
+            sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
+            setHasDemoReturnSession(false)
+          }
           queryClient.clear()
         })
         .finally(() => {
@@ -78,6 +103,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { user: userData, token } = await authService.login(email, password)
       queryClient.clear()
       if (!isDemoEmail(userData.email)) clearDemoState()
+      sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
+      setHasDemoReturnSession(false)
+      clearDemoAcquisition()
       localStorage.setItem('token', token)
       identifyUser(userData)
       analytics.capture('logged_in', { is_demo: isDemoEmail(userData.email) })
@@ -90,10 +118,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const loginWithGoogle = async (accessToken: string, invite?: string) => {
+    const acquisition = readDemoAcquisition()
     const result = await authService.googleSession(accessToken, invite)
     const { user: userData, token, isNewUser, signupCredits } = result
     queryClient.clear()
     clearDemoState()
+    sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
+    setHasDemoReturnSession(false)
     localStorage.setItem('token', token)
     identifyUser(userData)
     if (isNewUser && signupCredits) {
@@ -110,9 +141,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'google',
         credit_cohort: signupCredits.cohort,
         onboarding_credits: signupCredits.credits,
+        source: acquisition ? 'demo' : 'direct',
+        persona: acquisition?.persona,
       })
       toast.success(`Account created with ${signupCredits.credits} AI credits. Welcome to HealthyFlow.`)
     } else {
+      clearDemoAcquisition()
       analytics.capture('logged_in', { method: 'google', is_demo: false })
       toast.success('Welcome back!')
     }
@@ -121,9 +155,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = async (email: string, password: string, name: string, invite?: string) => {
     try {
+      const acquisition = readDemoAcquisition()
       const { user: userData, token, signupCredits } = await authService.signup(email, password, name, invite)
       queryClient.clear()
       clearDemoState()
+      sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
+      setHasDemoReturnSession(false)
       localStorage.setItem('token', token)
       analytics.identify(userData.id, {
         email: userData.email,
@@ -138,6 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'password',
         credit_cohort: signupCredits.cohort,
         onboarding_credits: signupCredits.credits,
+        source: acquisition ? 'demo' : 'direct',
+        persona: acquisition?.persona,
       })
       setUser(userData)
       toast.success(`Account created with ${signupCredits.credits} AI credits. Welcome to HealthyFlow.`)
@@ -150,13 +189,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const startDemoSession = async (persona: DemoPersonaId) => {
     try {
+      const acquisition = readDemoAcquisition()
+      const returnToken = user && !isDemoEmail(user.email)
+        ? localStorage.getItem('token')
+        : null
       const { user: userData, token } = await authService.startDemoSession(persona)
       queryClient.clear()
+      if (returnToken && !sessionStorage.getItem(DEMO_RETURN_TOKEN_KEY)) {
+        sessionStorage.setItem(DEMO_RETURN_TOKEN_KEY, returnToken)
+        setHasDemoReturnSession(true)
+      }
       localStorage.setItem('token', token)
       localStorage.setItem('demoPersona', persona)
-      localStorage.setItem('mayaDemoGuide', 'open')
       identifyUser(userData)
-      analytics.capture('demo_started', { persona })
+      analytics.capture('demo_started', {
+        persona,
+        entry_source: acquisition?.entrySource,
+      })
       setUser(userData)
       toast.success('Demo loaded')
     } catch (error: any) {
@@ -166,9 +215,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const leaveDemoSession = async () => {
+    const returnToken = sessionStorage.getItem(DEMO_RETURN_TOKEN_KEY)
+
+    if (!returnToken) {
+      localStorage.removeItem('token')
+      clearDemoState()
+      queryClient.clear()
+      analytics.reset()
+      setUser(null)
+      return false
+    }
+
+    sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
+    setHasDemoReturnSession(false)
+    try {
+      const userData = await authService.verifyToken(returnToken)
+      localStorage.setItem('token', returnToken)
+      clearDemoState()
+      identifyUser(userData)
+      setUser(userData)
+      queryClient.clear()
+      return true
+    } catch {
+      localStorage.removeItem('token')
+      clearDemoState()
+      queryClient.clear()
+      analytics.reset()
+      setUser(null)
+      return false
+    }
+  }
+
   const logout = () => {
     localStorage.removeItem('token')
     clearDemoState()
+    sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
+    setHasDemoReturnSession(false)
+    clearDemoAcquisition()
     queryClient.clear()
     analytics.reset()
     setUser(null)
@@ -178,6 +262,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const completeAccountDeletion = () => {
     localStorage.removeItem('token')
     clearDemoState()
+    sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
+    setHasDemoReturnSession(false)
+    clearDemoAcquisition()
     localStorage.removeItem('healthyflow-assistant-conversations-v1')
     localStorage.removeItem('healthyflow-assistant-conversations-v1-migrated')
     queryClient.clear()
@@ -187,7 +274,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, startDemoSession, signup, logout, completeAccountDeletion }}>
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      login,
+      loginWithGoogle,
+      startDemoSession,
+      leaveDemoSession,
+      signup,
+      logout,
+      completeAccountDeletion,
+      isDemoSession: Boolean(user && isDemoEmail(user.email)),
+      hasDemoReturnSession,
+    }}>
       {children}
     </AuthContext.Provider>
   )

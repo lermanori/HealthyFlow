@@ -46,4 +46,10 @@ describe('Landing signup CTA', () => {
     assert.match(landing, /foundingMembersRemaining/)
     assert.match(landing, /Every new account receives/)
   })
+
+  it('preserves campaign attribution on demo entry', () => {
+    assert.equal((landing.match(/data-demo-cta/g) ?? []).length, 3)
+    assert.match(landing, /\['utm_source', 'utm_medium', 'utm_campaign'\]/)
+    assert.match(landing, /href\.searchParams\.set\(name, value\)/)
+  })
 })

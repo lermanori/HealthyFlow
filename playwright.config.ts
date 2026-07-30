@@ -36,7 +36,7 @@ const HERMETIC = [
 // running all projects runs every test exactly once. If a spec appeared twice,
 // a default run would execute it twice and the totals would silently inflate.
 const SUBJECTS: Record<string, readonly string[]> = {
-  auth: ['auth', 'onboarding'],
+  auth: ['auth', 'onboarding', 'demo-funnel'],
   today: ['today-workspace', 'today-anytime-drag', 'today-date-navigation', 'day-summary'],
   items: ['items-add', 'items-lifecycle', 'rollover'],
   habits: ['habits', 'habit-progress'],

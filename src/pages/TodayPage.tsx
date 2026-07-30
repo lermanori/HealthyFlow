@@ -69,6 +69,12 @@ import { createPortal } from 'react-dom'
 import { useSettings } from '../hooks/useSettings'
 import HabitOutcomeSheet from '../components/HabitOutcomeSheet'
 import { enabledModulePresentations } from '../modulePresentation'
+import {
+  clearDemoAcquisition,
+  demoPersonaById,
+  readDemoAcquisition,
+} from '../demoPersonas'
+import { analytics } from '../lib/analytics'
 
 const touchpointCtas: Record<TouchpointType, { title: string; body: string; button: string }> = {
   morning: {
@@ -891,6 +897,7 @@ export default function TodayPage() {
   const [habitCheckIn, setHabitCheckIn] = useState<HabitItem | null>(null)
   const [daySwipeOffset, setDaySwipeOffset] = useState(0)
   const [isDaySwipeTracking, setIsDaySwipeTracking] = useState(false)
+  const [demoAcquisition, setDemoAcquisition] = useState(readDemoAcquisition)
   const daySwipeGesture = useRef<DaySwipeGesture | null>(null)
   const queryClient = useQueryClient()
   const location = useLocation()
@@ -1181,6 +1188,8 @@ export default function TodayPage() {
     mutationFn: onboardingService.skip,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['settings'] })
+      clearDemoAcquisition()
+      setDemoAcquisition(null)
       toast.success('Onboarding skipped')
     },
     onError: () => toast.error('Failed to skip onboarding'),
@@ -1512,7 +1521,9 @@ export default function TodayPage() {
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-ink">Tell HealthyFlow about your day</h2>
             <p className="mt-1 text-sm text-ink-muted">
-              Turn one brain-dump into Items for this date.
+              {demoAcquisition
+                ? demoPersonaById(demoAcquisition.persona).activationPrompt
+                : 'Turn one brain-dump into Items for this date.'}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -1551,6 +1562,13 @@ export default function TodayPage() {
                 <AITextAnalyzer
                   onClose={() => setShowAIAnalyzer(false)}
                   onConfirmed={() => {
+                    if (demoAcquisition) {
+                      analytics.capture('first_real_day_activation_completed', {
+                        persona: demoAcquisition.persona,
+                      })
+                      clearDemoAcquisition()
+                      setDemoAcquisition(null)
+                    }
                     if (settings?.onboardingStatus === 'active') completeOnboardingMutation.mutate()
                   }}
                   scheduledDate={format(selectedDate, 'yyyy-MM-dd')}

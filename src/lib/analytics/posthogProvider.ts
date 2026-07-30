@@ -3,8 +3,8 @@ import type { AnalyticsProvider } from './types'
 
 // PostHog project keys are public by design (they only allow ingestion), so
 // exposing VITE_POSTHOG_KEY in the bundle is fine.
-const KEY = import.meta.env.VITE_POSTHOG_KEY as string | undefined
-const HOST = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || 'https://us.i.posthog.com'
+const KEY = import.meta.env?.VITE_POSTHOG_KEY as string | undefined
+const HOST = (import.meta.env?.VITE_POSTHOG_HOST as string | undefined) || 'https://us.i.posthog.com'
 
 export function posthogConfigured(): boolean {
   return Boolean(KEY)

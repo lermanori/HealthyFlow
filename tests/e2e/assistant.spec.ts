@@ -19,7 +19,6 @@ test('Demo Talk stays deterministic without calling the billable chat API', asyn
   let billableChatRequests = 0
   await page.addInitScript(() => {
     localStorage.setItem('demoPersona', 'noam')
-    localStorage.setItem('mayaDemoGuide', 'closed')
   })
   await page.route('**/api/ai/chat', (route) => {
     billableChatRequests += 1
