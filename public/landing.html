@@ -34,6 +34,16 @@
         ? saved
         : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'day')
       document.documentElement.setAttribute('data-theme', t)
+      // The hero screenshot exists in both app themes and CSS hides the one that
+      // does not match (see .shot-night / .shot-day). Both are lazy so the hidden
+      // one is never fetched, which also costs the visible one its priority —
+      // preloading here, before <body> is parsed, buys that back.
+      var link = document.createElement('link')
+      link.rel = 'preload'
+      link.as = 'image'
+      link.type = 'image/webp'
+      link.href = t === 'night' ? './landing/today-mobile.webp' : './landing/today-mobile-light.webp'
+      document.head.appendChild(link)
     })()
   </script>
   <style>
@@ -278,6 +288,16 @@
     .frame-phone { width: 372px; justify-self: end; }
     .frame-wide { padding: 10px; border-radius: 22px; box-shadow: 0 24px 48px -28px var(--shadow-card); }
     .frame-wide > * { border-radius: 14px; }
+
+    /* Every screenshot ships in both app themes; show the one that matches the
+       landing theme, so a light page never displays the dark product. Hiding via
+       display:none (rather than swapping src in JS) keeps this working with the
+       theme toggle, and because both variants are loading="lazy" the browser
+       never fetches the hidden one. Night is hidden by default so the no-JS
+       case — no data-theme attribute, day palette — still shows exactly one. */
+    .shot-night { display: none; }
+    [data-theme="night"] .shot-night { display: inline; }
+    [data-theme="night"] .shot-day { display: none; }
 
     /* ---------- how it works ---------- */
     .steps {
@@ -686,9 +706,13 @@
     </div>
     <div class="frame frame-phone">
       <div>
-        <picture>
+        <picture class="shot-night">
           <source srcset="./landing/today-mobile.webp" type="image/webp" />
-          <img src="./landing/today-mobile.jpg" alt="HealthyFlow Today view — one timeline holding tasks, habits, meals and workouts" fetchpriority="high" />
+          <img src="./landing/today-mobile.jpg" alt="HealthyFlow Today view — one timeline holding tasks, habits, meals and workouts" loading="lazy" />
+        </picture>
+        <picture class="shot-day">
+          <source srcset="./landing/today-mobile-light.webp" type="image/webp" />
+          <img src="./landing/today-mobile-light.jpg" alt="HealthyFlow Today view — one timeline holding tasks, habits, meals and workouts" loading="lazy" />
         </picture>
       </div>
     </div>
@@ -745,7 +769,8 @@
         <div class="showcase-media">
           <div class="frame frame-wide">
             <div>
-              <picture><source type="image/webp" srcset="./landing/talk-desktop-800.webp 800w, ./landing/talk-desktop-1400.webp 1400w, ./landing/talk-desktop.webp 2880w" sizes="(max-width: 1000px) 92vw, 500px" /><img src="./landing/talk-desktop.jpg" alt="Adding items with Talk in HealthyFlow" loading="lazy" /></picture>
+              <picture class="shot-night"><source type="image/webp" srcset="./landing/talk-desktop-800.webp 800w, ./landing/talk-desktop-1400.webp 1400w, ./landing/talk-desktop.webp 2880w" sizes="(max-width: 1000px) 92vw, 500px" /><img src="./landing/talk-desktop.jpg" alt="Adding items with Talk in HealthyFlow" loading="lazy" /></picture>
+              <picture class="shot-day"><source type="image/webp" srcset="./landing/talk-desktop-light-800.webp 800w, ./landing/talk-desktop-light-1400.webp 1400w, ./landing/talk-desktop-light.webp 2880w" sizes="(max-width: 1000px) 92vw, 500px" /><img src="./landing/talk-desktop-light.jpg" alt="Adding items with Talk in HealthyFlow" loading="lazy" /></picture>
             </div>
           </div>
         </div>
@@ -765,7 +790,8 @@
         <div class="showcase-media">
           <div class="frame frame-wide">
             <div>
-              <picture><source type="image/webp" srcset="./landing/health-desktop-800.webp 800w, ./landing/health-desktop-1400.webp 1400w, ./landing/health-desktop.webp 2880w" sizes="(max-width: 1000px) 92vw, 500px" /><img src="./landing/health-desktop.jpg" alt="Calorie log and weight tracking in HealthyFlow" loading="lazy" /></picture>
+              <picture class="shot-night"><source type="image/webp" srcset="./landing/health-desktop-800.webp 800w, ./landing/health-desktop-1400.webp 1400w, ./landing/health-desktop.webp 2880w" sizes="(max-width: 1000px) 92vw, 500px" /><img src="./landing/health-desktop.jpg" alt="Calorie log and weight tracking in HealthyFlow" loading="lazy" /></picture>
+              <picture class="shot-day"><source type="image/webp" srcset="./landing/health-desktop-light-800.webp 800w, ./landing/health-desktop-light-1400.webp 1400w, ./landing/health-desktop-light.webp 2880w" sizes="(max-width: 1000px) 92vw, 500px" /><img src="./landing/health-desktop-light.jpg" alt="Calorie log and weight tracking in HealthyFlow" loading="lazy" /></picture>
             </div>
           </div>
         </div>
@@ -785,7 +811,8 @@
         <div class="showcase-media">
           <div class="frame frame-wide">
             <div>
-              <picture><source type="image/webp" srcset="./landing/workouts-desktop-800.webp 800w, ./landing/workouts-desktop-1400.webp 1400w, ./landing/workouts-desktop.webp 2880w" sizes="(max-width: 1000px) 92vw, 500px" /><img src="./landing/workouts-desktop.jpg" alt="Workout tracker in HealthyFlow" loading="lazy" /></picture>
+              <picture class="shot-night"><source type="image/webp" srcset="./landing/workouts-desktop-800.webp 800w, ./landing/workouts-desktop-1400.webp 1400w, ./landing/workouts-desktop.webp 2880w" sizes="(max-width: 1000px) 92vw, 500px" /><img src="./landing/workouts-desktop.jpg" alt="Workout tracker in HealthyFlow" loading="lazy" /></picture>
+              <picture class="shot-day"><source type="image/webp" srcset="./landing/workouts-desktop-light-800.webp 800w, ./landing/workouts-desktop-light-1400.webp 1400w, ./landing/workouts-desktop-light.webp 2880w" sizes="(max-width: 1000px) 92vw, 500px" /><img src="./landing/workouts-desktop-light.jpg" alt="Workout tracker in HealthyFlow" loading="lazy" /></picture>
             </div>
           </div>
         </div>
