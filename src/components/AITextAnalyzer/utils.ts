@@ -1,23 +1,22 @@
 import { format, addDays } from 'date-fns'
+import { getCategoryPresentation } from '../../categoryPresentation'
 
+// Class strings are written out in full on purpose: Tailwind's JIT scans source
+// for complete literals, so anything assembled from a template gets purged.
 export const getPriorityColor = (priority: string) => {
   switch (priority) {
-    case 'high': return 'text-red-400 bg-red-500/20 border-red-500/30'
-    case 'medium': return 'text-yellow-400 bg-yellow-500/20 border-yellow-500/30'
-    case 'low': return 'text-green-400 bg-green-500/20 border-green-500/30'
-    default: return 'text-gray-400 bg-gray-500/20 border-gray-500/30'
+    case 'high': return 'text-state-danger bg-state-danger/20 border-state-danger/30'
+    case 'medium': return 'text-state-warning bg-state-warning/20 border-state-warning/30'
+    case 'low': return 'text-state-success bg-state-success/20 border-state-success/30'
+    default: return 'text-ink-muted bg-raised border-line'
   }
 }
 
-export const getCategoryColor = (category: string) => {
-  const colors: Record<string, string> = {
-    health: 'bg-green-500/20 text-green-400 border-green-500/30',
-    work: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    personal: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    fitness: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-  }
-  return colors[category] ?? colors.personal
-}
+// Delegates to the shared presentation so the analyzer can't drift from the rest
+// of the app. The previous local map covered only four of the six categories and
+// silently rendered grocery and nutrition as personal.
+export const getCategoryColor = (category: string) =>
+  getCategoryPresentation(category).className
 
 export const getDateLabel = (date: string) => {
   const today = format(new Date(), 'yyyy-MM-dd')
@@ -30,7 +29,7 @@ export const getDateLabel = (date: string) => {
 export const getDateColor = (date: string) => {
   const today = format(new Date(), 'yyyy-MM-dd')
   const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd')
-  if (date === today) return 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
-  if (date === tomorrow) return 'bg-blue-500/20 text-blue-400 border-blue-500/30'
-  return 'bg-gray-500/20 text-gray-400 border-gray-500/30'
+  if (date === today) return 'text-accent bg-accent/20 border-accent/30'
+  if (date === tomorrow) return 'text-state-info bg-state-info/20 border-state-info/30'
+  return 'text-ink-muted bg-raised border-line'
 }

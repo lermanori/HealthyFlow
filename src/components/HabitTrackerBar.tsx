@@ -7,7 +7,7 @@ interface HabitTrackerBarProps {
   color?: string
 }
 
-export default function HabitTrackerBar({ title, completed, total, color = 'bg-gradient-to-r from-cyan-500 to-blue-600' }: HabitTrackerBarProps) {
+export default function HabitTrackerBar({ title, completed, total, color = 'bg-action' }: HabitTrackerBarProps) {
   const percentage = total > 0 ? (completed / total) * 100 : 0
 
   return (
@@ -18,7 +18,7 @@ export default function HabitTrackerBar({ title, completed, total, color = 'bg-g
       </div>
       
       <div className="relative">
-        <div className="w-full bg-gray-700/50 rounded-full h-3 overflow-hidden">
+        <div className="w-full bg-raised/50 rounded-full h-3 overflow-hidden">
           <motion.div
             className={`h-3 rounded-full ${color} relative overflow-hidden`}
             initial={{ width: 0 }}
@@ -40,14 +40,14 @@ export default function HabitTrackerBar({ title, completed, total, color = 'bg-g
       </div>
       
       <div className="flex justify-between items-center text-xs">
-        <span className="text-gray-500">
+        <span className="text-ink-muted">
           {percentage.toFixed(0)}% complete
         </span>
         {percentage === 100 && (
           <motion.span
             initial={{ opacity: 0, scale: 0 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="text-cyan-400 font-medium"
+            className="text-accent font-medium"
           >
             ✨ Perfect!
           </motion.span>

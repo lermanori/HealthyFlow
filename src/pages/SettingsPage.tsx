@@ -777,7 +777,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           </div>
         )}
         
-        <div className="divide-y divide-gray-700/50">
+        <div className="divide-y divide-line/50">
           <Switch
             label="Push Notifications"
             description="Receive notifications for task reminders and updates"

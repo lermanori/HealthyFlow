@@ -63,7 +63,7 @@ export default function PrivacyPolicyPage() {
     <div className="min-h-screen bg-page px-4 py-10 text-ink-soft sm:px-6 lg:px-8">
       <main className="mx-auto max-w-4xl">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <Link to="/" className="text-sm font-medium text-cyan-400 transition-colors hover:text-cyan-300">
+          <Link to="/" className="text-sm font-medium text-accent transition-colors hover:text-accent">
             HealthyFlow
           </Link>
           <Link to="/terms" className="text-sm font-medium text-ink-muted transition-colors hover:text-ink-soft">
@@ -71,8 +71,8 @@ export default function PrivacyPolicyPage() {
           </Link>
         </div>
 
-        <article className="rounded-2xl border border-line/50 bg-card/60 p-6 shadow-xl shadow-cyan-500/5 sm:p-8">
-          <p className="mb-3 text-sm font-medium uppercase tracking-wider text-cyan-400">Effective July 2, 2026</p>
+        <article className="rounded-2xl border border-line/50 bg-card/60 p-6 shadow-xl shadow-accent/5 sm:p-8">
+          <p className="mb-3 text-sm font-medium uppercase tracking-wider text-accent">Effective July 2, 2026</p>
           <h1 className="mb-4 text-3xl font-bold text-ink sm:text-4xl">Privacy Policy</h1>
           <p className="mb-8 text-base leading-7 text-ink-soft">
             This Privacy Policy explains how HealthyFlow collects, uses, shares, and protects information when you use
@@ -97,7 +97,7 @@ export default function PrivacyPolicyPage() {
               <h2 className="mb-3 text-xl font-semibold text-ink">Contact</h2>
               <p className="leading-7 text-ink-soft">
                 For privacy questions, requests, or concerns, contact HealthyFlow support at{' '}
-                <a className="text-cyan-400 hover:text-cyan-300" href="mailto:privacy@healthyflow.app">
+                <a className="text-accent hover:text-accent-hover" href="mailto:privacy@healthyflow.app">
                   privacy@healthyflow.app
                 </a>
                 .

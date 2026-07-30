@@ -7,8 +7,8 @@ const WAITLIST_KEY = ['admin', 'waitlist'] as const
 
 const STATUS_STYLES: Record<WaitlistEntry['status'], string> = {
   pending: 'text-ink-muted',
-  invited: 'text-cyan-400',
-  registered: 'text-emerald-400',
+  invited: 'text-accent',
+  registered: 'text-state-success',
 }
 
 export default function WaitlistPanel() {
@@ -78,7 +78,7 @@ export default function WaitlistPanel() {
     return (
       <div className="card">
         <h2 className="text-lg font-semibold text-ink">Waitlist</h2>
-        <p className="mt-3 text-red-400">Could not load the waitlist.</p>
+        <p className="mt-3 text-state-danger">Could not load the waitlist.</p>
       </div>
     )
   }
@@ -139,7 +139,7 @@ export default function WaitlistPanel() {
           </button>
         </div>
         {claimedDraft > totalDraft && (
-          <p className="mt-2 text-sm text-red-400">Claimed seats cannot exceed total seats.</p>
+          <p className="mt-2 text-sm text-state-danger">Claimed seats cannot exceed total seats.</p>
         )}
       </div>
 

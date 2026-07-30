@@ -53,8 +53,8 @@ export default function TTSActions({
 
       {/* Speaking Indicator */}
       {isSpeaking && (
-        <div className="flex items-center space-x-1 text-cyan-400">
-          <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+        <div className="flex items-center space-x-1 text-accent">
+          <div className="w-2 h-2 bg-accent rounded-full animate-pulse" />
           <span className="text-xs">Speaking...</span>
         </div>
       )}
