@@ -1,9 +1,22 @@
 import { useState, useEffect } from 'react'
+import {
+  checkPushPermission,
+  requestPushPermission,
+  type PushPermissionState,
+} from '../lib/push'
 
 interface NotificationPermission {
   granted: boolean
   denied: boolean
   default: boolean
+}
+
+function permissionFlags(permission: PushPermissionState): NotificationPermission {
+  return {
+    granted: permission === 'granted',
+    denied: permission === 'denied',
+    default: permission === 'prompt',
+  }
 }
 
 export function useNotifications() {
@@ -14,27 +27,19 @@ export function useNotifications() {
   })
 
   useEffect(() => {
-    if ('Notification' in window) {
-      const currentPermission = Notification.permission
-      setPermission({
-        granted: currentPermission === 'granted',
-        denied: currentPermission === 'denied',
-        default: currentPermission === 'default'
-      })
+    let active = true
+    void checkPushPermission().then((current) => {
+      if (active) setPermission(permissionFlags(current))
+    })
+    return () => {
+      active = false
     }
   }, [])
 
   const requestPermission = async () => {
-    if ('Notification' in window && permission.default) {
-      const result = await Notification.requestPermission()
-      setPermission({
-        granted: result === 'granted',
-        denied: result === 'denied',
-        default: result === 'default'
-      })
-      return result === 'granted'
-    }
-    return false
+    const result = await requestPushPermission()
+    setPermission(permissionFlags(result))
+    return result === 'granted'
   }
 
   const showNotification = (title: string, options?: NotificationOptions) => {

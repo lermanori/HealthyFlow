@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import api, { accountService, ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DAILY_SIGNALS_QUERY_KEY, DailyTouchpointRhythm, DAY_SUMMARY_QUERY_KEY, McpOAuthGrant, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
 import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
+import { isNativeApp } from '../lib/native'
 import Switch from '../components/Switch'
 import DeleteAccountDialog from '../components/DeleteAccountDialog'
 import { MODULE_PRESENTATIONS } from '../modulePresentation'
@@ -608,20 +609,24 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                 {isOutOfCredits ? 'You are out of AI credits' : 'You are running low on AI credits'}
               </p>
               <p className="mt-1 text-sm text-ink-soft">
-                Subscribe for {monthlyCredits} credits each month, or buy {topUpCredits} non-expiring credits for ${topUpPrice}.
+                {isNativeApp
+                  ? 'AI credit purchases are not yet available in the iOS app.'
+                  : `Subscribe for ${monthlyCredits} credits each month, or buy ${topUpCredits} non-expiring credits for $${topUpPrice}.`}
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('subscribe')}>
-                  Subscribe
-                </button>
-                <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('topup')}>
-                  Buy {topUpCredits} · ${topUpPrice}
-                </button>
-              </div>
+              {!isNativeApp && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('subscribe')}>
+                    Subscribe
+                  </button>
+                  <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('topup')}>
+                    Buy {topUpCredits} · ${topUpPrice}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          {creditSummary && (
+          {creditSummary && !isNativeApp && (
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="rounded-lg border border-line/70 bg-sunken/25 p-3">
                 <p className="text-ink-muted">Monthly plan</p>
@@ -689,7 +694,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         </div>
       </div>
 
-      {contactFlow && (
+      {contactFlow && !isNativeApp && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button
             type="button"
@@ -1452,14 +1457,14 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         <DeleteAccountDialog
           onClose={() => setShowDeleteAccount(false)}
           onExport={handleExportAccount}
-          requiresPassword={user?.authMethod !== 'google'}
+          requiresPassword={user?.authMethod === 'password'}
           onDeleted={(warnings) => {
             setShowDeleteAccount(false)
             if (warnings.includes('google-revocation-failed')) {
               toast('Google access could not be revoked automatically. Remove HealthyFlow in your Google Account permissions.', { icon: '⚠️', duration: 9000 })
             }
             if (warnings.includes('supabase-auth-deletion-failed')) {
-              toast('Your HealthyFlow data was deleted, but Google sign-in cleanup needs support.', { icon: '⚠️', duration: 9000 })
+              toast('Your HealthyFlow data was deleted, but provider sign-in cleanup needs support.', { icon: '⚠️', duration: 9000 })
             }
             completeAccountDeletion()
             navigate('/login', { replace: true })

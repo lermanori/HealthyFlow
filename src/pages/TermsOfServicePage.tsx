@@ -65,7 +65,7 @@ const sections = [
 
 export default function TermsOfServicePage() {
   return (
-    <div className="min-h-screen bg-page px-4 py-10 text-ink-soft sm:px-6 lg:px-8">
+    <div className="native-legal-page min-h-screen bg-page px-4 py-10 text-ink-soft sm:px-6 lg:px-8">
       <main className="mx-auto max-w-4xl">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <Link to="/" className="text-sm font-medium text-accent transition-colors hover:text-accent">

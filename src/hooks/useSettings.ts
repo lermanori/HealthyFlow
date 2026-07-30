@@ -5,6 +5,7 @@ import {
   resolveModuleAvailabilities,
   type SettingsResolution,
 } from '../modulePresentation'
+import { setNativeStatusBarForTheme } from '../lib/native'
 
 const QUERY_KEY = ['settings']
 
@@ -21,6 +22,7 @@ export function applyTheme(theme: UserSettings['theme']) {
   }
   const meta = document.querySelector('meta[name="theme-color"]')
   if (meta) meta.setAttribute('content', theme === 'white' ? '#F7F5F0' : '#16181C')
+  void setNativeStatusBarForTheme(theme)
 }
 
 export function useSettings(enabled = true) {

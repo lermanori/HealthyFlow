@@ -2,8 +2,18 @@ import { logger } from './utils/logger'
 import { z } from 'zod'
 import webpush from 'web-push'
 import cron from 'node-cron'
+import { createHash, createSign } from 'node:crypto'
+import * as http2 from 'node:http2'
 import { db } from './supabase-client'
 import { buildDailyContext } from './daily-context'
+import {
+  NativePushRegistrationSchema,
+} from './push-contracts'
+
+export {
+  NativePushRegistrationSchema,
+  type NativePushRegistration,
+} from './push-contracts'
 
 // Closed set of touchpoint types (see spec). Order matters for iteration.
 export const TOUCHPOINT_TYPES = ['morning', 'midday', 'weekly'] as const
@@ -150,11 +160,162 @@ export function configureVapid(): boolean {
   return true
 }
 
+const ApnsConfigSchema = z.object({
+  keyId: z.string().min(1),
+  teamId: z.string().min(1),
+  privateKey: z.string().includes('BEGIN PRIVATE KEY'),
+  bundleId: z.string().min(1),
+  environment: z.enum(['sandbox', 'production']),
+})
+type ApnsConfig = z.infer<typeof ApnsConfigSchema>
+
+let cachedApnsAuth: { token: string; issuedAt: number; identity: string } | null = null
+
+function readApnsConfig(): ApnsConfig | null {
+  const parsed = ApnsConfigSchema.safeParse({
+    keyId: process.env.APNS_KEY_ID,
+    teamId: process.env.APNS_TEAM_ID,
+    privateKey: process.env.APNS_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    bundleId: process.env.APNS_BUNDLE_ID ?? 'app.healthyflow.mobile',
+    environment: process.env.APNS_ENVIRONMENT ?? 'production',
+  })
+  return parsed.success ? parsed.data : null
+}
+
+export function configureApns(): boolean {
+  return readApnsConfig() !== null
+}
+
+function base64Url(value: string | Buffer) {
+  return Buffer.from(value).toString('base64url')
+}
+
+function apnsAuthorization(config: ApnsConfig) {
+  const now = Math.floor(Date.now() / 1000)
+  const privateKeyFingerprint = createHash('sha256')
+    .update(config.privateKey)
+    .digest('hex')
+  const identity = `${config.teamId}:${config.keyId}:${privateKeyFingerprint}`
+  if (
+    cachedApnsAuth &&
+    cachedApnsAuth.identity === identity &&
+    now - cachedApnsAuth.issuedAt < 50 * 60
+  ) {
+    return cachedApnsAuth.token
+  }
+
+  const header = base64Url(JSON.stringify({ alg: 'ES256', kid: config.keyId }))
+  const claims = base64Url(JSON.stringify({ iss: config.teamId, iat: now }))
+  const unsignedToken = `${header}.${claims}`
+  const signer = createSign('SHA256')
+  signer.update(unsignedToken)
+  signer.end()
+  const signature = signer.sign({
+    key: config.privateKey,
+    dsaEncoding: 'ieee-p1363',
+  })
+  const token = `${unsignedToken}.${base64Url(signature)}`
+  cachedApnsAuth = { token, issuedAt: now, identity }
+  return token
+}
+
+class ApnsDeliveryError extends Error {
+  constructor(
+    public readonly statusCode: number,
+    public readonly reason: string,
+  ) {
+    super(`APNs delivery failed (${statusCode}): ${reason}`)
+    this.name = 'ApnsDeliveryError'
+  }
+}
+
+export async function sendApnsNotification(
+  device: { device_token: string; app_id: string },
+  payload: PushPayload,
+): Promise<void> {
+  const config = readApnsConfig()
+  if (!config) throw new Error('APNs is not configured')
+  if (device.app_id !== config.bundleId) {
+    throw new Error(`APNs topic mismatch for ${device.app_id}`)
+  }
+
+  const origin = config.environment === 'sandbox'
+    ? 'https://api.sandbox.push.apple.com'
+    : 'https://api.push.apple.com'
+  const body = JSON.stringify({
+    aps: {
+      alert: { title: payload.title, body: payload.body },
+      sound: 'default',
+    },
+    url: payload.url,
+  })
+
+  await new Promise<void>((resolve, reject) => {
+    const client = http2.connect(origin)
+    let statusCode = 0
+    let responseBody = ''
+    let settled = false
+
+    const finish = (error?: Error) => {
+      if (settled) return
+      settled = true
+      if (error) {
+        client.destroy()
+        reject(error)
+        return
+      }
+      client.close()
+      resolve()
+    }
+
+    client.once('error', finish)
+    client.setTimeout(10_000, () => {
+      finish(new Error('APNs request timed out'))
+    })
+    const request = client.request({
+      ':method': 'POST',
+      ':path': `/3/device/${device.device_token}`,
+      authorization: `bearer ${apnsAuthorization(config)}`,
+      'apns-topic': config.bundleId,
+      'apns-push-type': 'alert',
+      'apns-priority': '10',
+      'apns-expiration': '0',
+      'content-type': 'application/json',
+    })
+    request.setEncoding('utf8')
+    request.on('response', (headers) => {
+      statusCode = Number(headers[':status'] ?? 0)
+    })
+    request.on('data', (chunk: string) => {
+      responseBody += chunk
+    })
+    request.once('error', finish)
+    request.on('end', () => {
+      if (statusCode >= 200 && statusCode < 300) {
+        finish()
+        return
+      }
+      let reason = responseBody || 'unknown'
+      try {
+        const parsed = JSON.parse(responseBody) as { reason?: string }
+        reason = parsed.reason ?? reason
+      } catch {
+        // APNs normally returns JSON; preserve the raw response if it does not.
+      }
+      finish(new ApnsDeliveryError(statusCode, reason))
+    })
+    request.end(body)
+  })
+}
+
 export async function sendPushToUser(userId: string, payload: PushPayload): Promise<void> {
-  const subscriptions = await db.listPushSubscriptions(userId)
+  const [subscriptions, nativeDevices] = await Promise.all([
+    db.listPushSubscriptions(userId),
+    db.listNativePushDevices(userId),
+  ])
   const body = JSON.stringify(payload)
 
-  await Promise.all(subscriptions.map(async (sub) => {
+  const webDeliveries = subscriptions.map(async (sub) => {
     const subscription = { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }
     try {
       await webpush.sendNotification(subscription, body)
@@ -168,7 +329,21 @@ export async function sendPushToUser(userId: string, payload: PushPayload): Prom
         console.error(`[proactivity] push send failed for ${sub.endpoint}:`, err)
       }
     }
-  }))
+  })
+
+  const nativeDeliveries = nativeDevices.map(async (device) => {
+    try {
+      await proactivityInternals.sendApnsNotification(device, payload)
+    } catch (err) {
+      if (err instanceof ApnsDeliveryError && err.statusCode === 410) {
+        await db.deleteNativePushDevice(userId, device.device_token, device.app_id)
+      } else {
+        console.error(`[proactivity] APNs send failed for ${device.device_token.slice(0, 8)}…:`, err)
+      }
+    }
+  })
+
+  await Promise.all([...webDeliveries, ...nativeDeliveries])
 }
 
 // Static, deterministic payloads. No AI at send time (spec).
@@ -179,7 +354,7 @@ const TOUCHPOINT_PAYLOADS: Record<TouchpointType, PushPayload> = {
 }
 
 // Exported object indirection so tests can spy on sendPushToUser.
-export const proactivityInternals = { sendPushToUser }
+export const proactivityInternals = { sendPushToUser, sendApnsNotification }
 
 export async function runProactivityTick(now: Date = new Date(), windowMinutes = 5): Promise<void> {
   const rows = await db.listAllRhythms()
@@ -204,8 +379,10 @@ export async function runProactivityTick(now: Date = new Date(), windowMinutes =
 let schedulerStarted = false
 export function startProactivityScheduler(): void {
   if (schedulerStarted) return
-  if (!configureVapid()) {
-    console.warn('[proactivity] VAPID keys missing — scheduler not started')
+  const webPushReady = configureVapid()
+  const nativePushReady = configureApns()
+  if (!webPushReady && !nativePushReady) {
+    console.warn('[proactivity] VAPID and APNs keys missing — scheduler not started')
     return
   }
   schedulerStarted = true

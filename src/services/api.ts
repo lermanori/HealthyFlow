@@ -25,8 +25,13 @@ import {
 } from '../../backend/src/day-summary-schema'
 import SettingsContracts, { type Settings as UserSettings } from '../../backend/src/settings-schema'
 import type { WaitlistJoinInput } from '../../backend/src/waitlist'
+import type { NativePushRegistration } from '../../backend/src/push-contracts'
+import MobileVersionContracts, {
+  type IosVersionPolicy,
+} from '../../backend/src/mobile-version-contracts'
 
 const { SettingsSchema } = SettingsContracts
+const { IosVersionPolicySchema } = MobileVersionContracts
 
 export type {
   Category,
@@ -36,6 +41,7 @@ export type {
   DaySummary,
   PlanningWindow,
   UserSettings,
+  IosVersionPolicy,
 }
 export { isDaySummaryItemAddressed }
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
@@ -363,7 +369,7 @@ export const ManagedUserSchema = z.object({
   email: z.string().email(),
   name: z.string(),
   role: z.enum(['admin', 'user']),
-  signupMethod: z.enum(['password', 'google']),
+  signupMethod: z.enum(['password', 'google', 'apple']),
   createdAt: z.string(),
   lastLoginAt: z.string().nullable(),
   disabledAt: z.string().nullable(),
@@ -494,7 +500,7 @@ const AuthUserSchema = z.object({
   email: z.string().email(),
   name: z.string(),
   role: z.enum(['admin', 'user']),
-  authMethod: z.enum(['password', 'google']).default('password'),
+  authMethod: z.enum(['password', 'google', 'apple']).default('password'),
 })
 
 const SignupResponseSchema = z.object({
@@ -503,7 +509,7 @@ const SignupResponseSchema = z.object({
   signupCredits: SignupCreditGrantSchema,
 })
 
-const GoogleSessionResponseSchema = z.object({
+const ProviderSessionResponseSchema = z.object({
   user: AuthUserSchema,
   token: z.string().min(1),
   isNewUser: z.boolean(),
@@ -522,9 +528,14 @@ export const authService = {
     return SignupResponseSchema.parse(response.data)
   },
 
-  googleSession: async (accessToken: string, invite?: string) => {
-    const response = await api.post('/auth/google', { accessToken, invite })
-    return GoogleSessionResponseSchema.parse(response.data)
+  providerSession: async (
+    provider: 'google' | 'apple',
+    accessToken: string,
+    invite?: string,
+    displayName?: string,
+  ) => {
+    const response = await api.post(`/auth/${provider}`, { accessToken, invite, displayName })
+    return ProviderSessionResponseSchema.parse(response.data)
   },
 
   startDemoSession: async (persona: DemoPersonaId) => {
@@ -1148,12 +1159,31 @@ export const pushService = {
   unsubscribe: async (endpoint: string): Promise<void> => {
     await api.delete('/proactivity/push/subscribe', { data: { endpoint } })
   },
+  registerNative: async (registration: NativePushRegistration): Promise<void> => {
+    await api.post('/proactivity/push/native/register', registration)
+  },
+  unregisterNative: async (
+    registration: NativePushRegistration,
+    authToken?: string,
+  ): Promise<void> => {
+    await api.delete('/proactivity/push/native/register', {
+      data: registration,
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+    })
+  },
   sendTest: async (): Promise<void> => {
     await api.post('/proactivity/test-notification')
   },
   getKickoff: async (type: 'morning' | 'midday' | 'weekly'): Promise<string> => {
     const response = await api.get('/proactivity/kickoff', { params: { type } })
     return response.data.message
+  },
+}
+
+export const mobileVersionService = {
+  getIosPolicy: async (): Promise<IosVersionPolicy> => {
+    const response = await api.get('/mobile/version/ios', { timeout: 4_000 })
+    return IosVersionPolicySchema.parse(response.data)
   },
 }
 

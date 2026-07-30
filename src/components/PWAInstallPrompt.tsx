@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Download, X, Smartphone, Apple } from 'lucide-react'
+import { isNativeApp } from '../lib/native'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>
@@ -19,8 +20,9 @@ export default function PWAInstallPrompt({ suppressed = false }: PWAInstallPromp
   const [isStandalone, setIsStandalone] = useState(false)
 
   useEffect(() => {
-    if (suppressed) {
+    if (suppressed || isNativeApp) {
       setShowPrompt(false)
+      if (isNativeApp) setIsInstalled(true)
       return
     }
 

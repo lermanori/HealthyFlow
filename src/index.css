@@ -48,7 +48,9 @@
   --week-meal: 251 113 133;
   --week-workout: 251 191 36;
   --week-calendar: 56 189 248;
-  --mobile-dock-content-height: 4.5rem;
+  --mobile-header-content-height: 4rem;
+  --mobile-header-height: calc(var(--mobile-header-content-height) + env(safe-area-inset-top));
+  --mobile-dock-content-height: 3.75rem;
   --mobile-dock-height: calc(var(--mobile-dock-content-height) + env(safe-area-inset-bottom));
   /* Brand mark ("2a Core"). Deliberately outside the action/accent ramp: the mark
      is the app icon, and it has to stay pixel-identical to the installed icon in
@@ -457,9 +459,37 @@
   -webkit-backdrop-filter: none;
 }
 
+.native-safe-header {
+  padding-top: calc(1.25rem + env(safe-area-inset-top));
+}
+
+.native-auth-page {
+  padding-top: calc(1.5rem + env(safe-area-inset-top));
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+}
+
+.native-legal-page {
+  padding-top: calc(2.5rem + env(safe-area-inset-top));
+  padding-bottom: calc(2.5rem + env(safe-area-inset-bottom));
+}
+
+.native-consent-page {
+  padding-top: calc(2rem + env(safe-area-inset-top));
+  padding-bottom: calc(2rem + env(safe-area-inset-bottom));
+}
+
 @media (max-width: 1023px) {
+  .mobile-header-inner {
+    height: var(--mobile-header-height);
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .mobile-main-content {
+    padding-bottom: calc(var(--mobile-dock-height) + 1rem);
+  }
+
   .mobile-bottom-dock {
-    min-height: var(--mobile-dock-height);
+    height: var(--mobile-dock-height);
     padding-bottom: env(safe-area-inset-bottom);
   }
 
@@ -491,7 +521,7 @@
   }
 
   .mobile-dock-link {
-    min-height: 56px !important;
+    min-height: 48px !important;
   }
 
   .assistant-composer button,

@@ -8,20 +8,32 @@ import {
   type DemoPersonaId,
 } from '../demoPersonas'
 import toast from 'react-hot-toast'
+import {
+  detachNativePushToken,
+  syncNativePushToken,
+} from '../lib/push'
+import { clearTodayWidget } from '../lib/widget'
 
 interface User {
   id: string
   email: string
   name: string
   role: 'admin' | 'user'
-  authMethod: 'password' | 'google'
+  authMethod: 'password' | 'google' | 'apple'
 }
+
+type AuthProvider = 'google' | 'apple'
 
 interface AuthContextType {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
-  loginWithGoogle: (accessToken: string, invite?: string) => Promise<void>
+  loginWithProvider: (
+    provider: AuthProvider,
+    accessToken: string,
+    invite?: string,
+    displayName?: string,
+  ) => Promise<void>
   startDemoSession: (persona: DemoPersonaId) => Promise<void>
   leaveDemoSession: () => Promise<boolean>
   signup: (email: string, password: string, name: string, invite?: string) => Promise<void>
@@ -51,6 +63,11 @@ function identifyUser(userData: User) {
     role: userData.role,
     is_demo: isDemoEmail(userData.email),
   })
+  if (!isDemoEmail(userData.email)) {
+    void syncNativePushToken().catch((error) => {
+      console.error('[push] could not attach native device to signed-in user:', error)
+    })
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -84,6 +101,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
         .catch(() => {
           localStorage.removeItem('token')
+          void clearTodayWidget().catch((error) => {
+            console.error('[widget] could not clear signed-out Today widget:', error)
+          })
           if (!token && returnToken) {
             sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
             setHasDemoReturnSession(false)
@@ -94,6 +114,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false)
         })
     } else {
+      void clearTodayWidget().catch((error) => {
+        console.error('[widget] could not clear signed-out Today widget:', error)
+      })
       setLoading(false)
     }
   }, [queryClient])
@@ -117,9 +140,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const loginWithGoogle = async (accessToken: string, invite?: string) => {
+  const loginWithProvider = async (
+    provider: AuthProvider,
+    accessToken: string,
+    invite?: string,
+    displayName?: string,
+  ) => {
     const acquisition = readDemoAcquisition()
-    const result = await authService.googleSession(accessToken, invite)
+    const result = await authService.providerSession(provider, accessToken, invite, displayName)
     const { user: userData, token, isNewUser, signupCredits } = result
     queryClient.clear()
     clearDemoState()
@@ -138,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         onboarding_credit_grant: signupCredits.credits,
       }, { signed_up_at: new Date().toISOString() })
       analytics.capture('signed_up', {
-        method: 'google',
+        method: provider,
         credit_cohort: signupCredits.cohort,
         onboarding_credits: signupCredits.credits,
         source: acquisition ? 'demo' : 'direct',
@@ -147,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast.success(`Account created with ${signupCredits.credits} AI credits. Welcome to HealthyFlow.`)
     } else {
       clearDemoAcquisition()
-      analytics.capture('logged_in', { method: 'google', is_demo: false })
+      analytics.capture('logged_in', { method: provider, is_demo: false })
       toast.success('Welcome back!')
     }
     setUser(userData)
@@ -248,6 +276,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
+    const authToken = localStorage.getItem('token')
+    void detachNativePushToken(authToken).catch((error) => {
+      console.error('[push] could not detach native device during logout:', error)
+    })
+    void clearTodayWidget().catch((error) => {
+      console.error('[widget] could not clear Today widget during logout:', error)
+    })
     localStorage.removeItem('token')
     clearDemoState()
     sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
@@ -260,6 +295,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const completeAccountDeletion = () => {
+    void clearTodayWidget().catch((error) => {
+      console.error('[widget] could not clear Today widget after account deletion:', error)
+    })
     localStorage.removeItem('token')
     clearDemoState()
     sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
@@ -278,7 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       login,
-      loginWithGoogle,
+      loginWithProvider,
       startDemoSession,
       leaveDemoSession,
       signup,

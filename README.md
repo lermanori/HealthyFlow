@@ -14,6 +14,7 @@ for data. The app is served under `/app`; `/` is the marketing page.
 | What a word means (Item, Habit instance, Rollover…) | [`CONTEXT.md`](./CONTEXT.md) |
 | Why something is built the way it is | [`docs/adr/`](./docs/adr/) |
 | Positioning, pricing, go-to-market | [`MARKETING.md`](./MARKETING.md) |
+| How the iOS app works | [`docs/ios.md`](./docs/ios.md) |
 | What is in flight | [Issues](https://github.com/lermanori/HealthyFlow/issues) · [Project 1](https://github.com/users/lermanori/projects/1/views/1) |
 | How to deploy | [`README-DEPLOYMENT.md`](./README-DEPLOYMENT.md) |
 

@@ -8,7 +8,12 @@ import { Credits } from '../credits'
 import { Onboarding } from '../onboarding'
 import { Waitlist } from '../waitlist'
 import { DEMO_PERSONAS, getDemoPersonaUser } from '../demo-personas'
-import { Auth, AuthFlowError, GoogleSessionSchema } from '../auth'
+import {
+  AppleSessionSchema,
+  Auth,
+  AuthFlowError,
+  GoogleSessionSchema,
+} from '../auth'
 
 const router = express.Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
@@ -42,12 +47,12 @@ const signupLimiter = rateLimit({
   message: { error: 'Too many signup attempts, please try again later.' },
 })
 
-const googleSessionLimiter = rateLimit({
+const providerSessionLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many Google sign-in attempts. Please try again later.' },
+  message: { error: 'Too many sign-in attempts. Please try again later.' },
 })
 
 async function recordLogin(userId: string) {
@@ -151,7 +156,7 @@ router.post('/signup', signupLimiter, async (req, res) => {
 
 // Supabase Auth verifies the Google identity; HealthyFlow then applies its own
 // access gate and returns the same app JWT used by password login.
-router.post('/google', googleSessionLimiter, async (req, res) => {
+router.post('/google', providerSessionLimiter, async (req, res) => {
   const parsed = GoogleSessionSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: 'Google sign-in data is missing.' })
@@ -170,6 +175,31 @@ router.post('/google', googleSessionLimiter, async (req, res) => {
     }
     console.error('Google sign-in error:', error)
     return res.status(500).json({ error: 'Could not finish Google sign-in.' })
+  }
+})
+
+// The native iOS AuthenticationServices flow exchanges its Apple ID token for
+// a short-lived Supabase session first. HealthyFlow verifies that session here,
+// applies the same access gate as every other signup, and returns its app JWT.
+router.post('/apple', providerSessionLimiter, async (req, res) => {
+  const parsed = AppleSessionSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Apple sign-in data is missing.' })
+  }
+  if (accountCreationBlockedInTestMode()) {
+    return res.status(403).json(testModeAccountCreationResponse)
+  }
+
+  try {
+    const session = await Auth.exchangeAppleSession(parsed.data)
+    await recordLogin(session.user.id)
+    return res.json(session)
+  } catch (error) {
+    if (error instanceof AuthFlowError) {
+      return res.status(error.status).json({ error: error.message, reason: error.reason })
+    }
+    console.error('Apple sign-in error:', error)
+    return res.status(500).json({ error: 'Could not finish Apple sign-in.' })
   }
 })
 
