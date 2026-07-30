@@ -25,6 +25,7 @@ import { WEEK_VIEW_ENABLED } from '../featureFlags'
 import { MODULE_PRESENTATIONS } from '../modulePresentation'
 import { parseDemoPersonaId } from '../demoPersonas'
 import { analytics } from '../lib/analytics'
+import { isNativeApp } from '../lib/native'
 
 interface LayoutProps {
   children: ReactNode
@@ -243,6 +244,12 @@ export default function Layout({ children }: LayoutProps) {
                   })}
                 </div>
 
+                {isNativeApp && (
+                  <div className="mt-8 flex gap-5 border-t border-line/50 px-4 pt-5 text-sm text-ink-muted">
+                    <Link to="/privacy" className="transition-colors hover:text-accent">Privacy</Link>
+                    <Link to="/terms" className="transition-colors hover:text-accent">Terms</Link>
+                  </div>
+                )}
               </nav>
 
               {/* User Info & Logout */}
@@ -276,27 +283,27 @@ export default function Layout({ children }: LayoutProps) {
   ), document.body)
 
   return (
-    <div className="min-h-screen bg-page">
+    <div className={`min-h-screen bg-page ${isNativeApp ? 'native-app-shell' : ''}`}>
       {/* PWA Install Prompt */}
       <PWAInstallPrompt suppressed={isDemo} />
       
       {/* Mobile Header */}
       {isMobile && (
         <header className="pwa-mobile-header fixed left-0 right-0 top-0 z-30 border-b border-line/50 lg:hidden">
-          <div className="flex h-[calc(4.8125rem+env(safe-area-inset-top))] items-end justify-between p-4">
+          <div className="mobile-header-inner grid grid-cols-[2.75rem_1fr_2.75rem] items-center gap-2 px-4">
             <button
               type="button"
               aria-label="Open navigation menu"
               onClick={() => setIsMobileMenuOpen(true)}
               data-demo-id="account-menu"
-              className="p-2 rounded-lg hover:bg-card/50 transition-colors text-ink-muted hover:text-ink-soft"
+              className="flex h-11 w-11 items-center justify-center rounded-control text-ink-muted transition-colors hover:bg-card/50 hover:text-ink-soft"
             >
               <Menu className="w-6 h-6" />
             </button>
             
-            <div className="flex items-center space-x-2">
-              <AppMark size={32} />
-              <h1 className="text-lg font-bold text-ink">HealthyFlow</h1>
+            <div className="flex min-w-0 items-center justify-center space-x-2">
+              <AppMark size={30} />
+              <h1 className="truncate text-[1.05rem] font-bold text-ink">HealthyFlow</h1>
             </div>
             
             {/* Mobile User Menu Button */}
@@ -305,7 +312,7 @@ export default function Layout({ children }: LayoutProps) {
               aria-label="Open account navigation"
               onClick={() => setIsMobileMenuOpen(true)}
               data-demo-id="account-menu"
-              className="flex h-10 w-10 items-center justify-center rounded-full bg-action"
+              className="flex h-10 w-10 justify-self-end items-center justify-center rounded-full bg-action"
             >
               <span className="text-white font-semibold text-sm">
                 {user?.name?.charAt(0).toUpperCase()}
@@ -408,7 +415,9 @@ export default function Layout({ children }: LayoutProps) {
           data-demo-id="main-content"
           className={`min-w-0 flex-1 overflow-x-hidden ${
             isMobile
-              ? isTalkPage ? 'mt-[calc(4.8125rem+env(safe-area-inset-top))] h-[calc(100dvh-4.8125rem-env(safe-area-inset-top))] p-0' : 'mt-[calc(4.8125rem+env(safe-area-inset-top))] p-4 pb-32'
+              ? isTalkPage
+                ? 'mt-[var(--mobile-header-height)] h-[calc(100dvh-var(--mobile-header-height))] p-0'
+                : 'mobile-main-content mt-[var(--mobile-header-height)] p-4'
               : 'p-6'
           }`}
           ref={contentRef}
@@ -434,7 +443,7 @@ export default function Layout({ children }: LayoutProps) {
               </div>
             )}
             {children}
-            {!(isMobile && isTalkPage) && (
+            {!(isMobile && isTalkPage) && !(isMobile && isNativeApp) && (
               <footer className="mt-10 flex flex-wrap justify-center gap-4 text-xs text-ink-muted">
                 <Link to="/privacy" className="transition-colors hover:text-accent">
                   Privacy Policy
@@ -451,7 +460,7 @@ export default function Layout({ children }: LayoutProps) {
       {/* Mobile Bottom Navigation — hidden while the drawer is open so it doesn't cover the drawer's Logout button */}
       {isMobile && !isMobileMenuOpen && (
         <div className="mobile-bottom-dock fixed bottom-0 left-0 right-0 z-30 border-t border-line/50 bg-page/95 backdrop-blur-xl">
-          <div className="grid grid-cols-2 gap-2 p-2">
+          <nav aria-label="Primary" className="mx-auto grid h-[var(--mobile-dock-content-height)] max-w-sm grid-cols-2 px-4 py-1">
             {primaryMobileNavigation.map((item) => {
               const isActive = isNavigationActive(item)
               return (
@@ -460,21 +469,24 @@ export default function Layout({ children }: LayoutProps) {
                   to={item.href}
                   aria-label={item.name}
                   data-demo-id={`nav-${item.name.toLowerCase().replace(/\s+/g, '-')}`}
-                  className={`mobile-dock-link flex min-w-0 flex-col items-center space-y-1 rounded-control border p-2 transition-colors xs:p-3 ${
+                  className={`mobile-dock-link flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-control transition-colors ${
                     isActive
-                      ? 'border-accent/40 bg-accent/10 text-accent'
-                      : 'border-transparent text-ink-muted hover:bg-raised hover:text-ink'
+                      ? 'text-accent'
+                      : 'text-ink-muted hover:text-ink'
                   }`}
                 >
-                  <item.icon className={`h-5 w-5 ${isActive ? 'text-accent' : ''}`} />
+                  <span className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors ${
+                    isActive ? 'bg-accent/15' : ''
+                  }`}>
+                    <item.icon className="h-5 w-5" />
+                  </span>
                   <span className="mobile-nav-label max-w-full truncate text-[10px] font-medium leading-tight xs:text-xs">
                     {item.name}
                   </span>
                 </Link>
               )
             })}
-          </div>
-          
+          </nav>
         </div>
       )}
     </div>

@@ -21,13 +21,13 @@ export type AnalyticsEvents = {
     persona?: 'maya' | 'noam' | 'lina' | 'amir'
   }
   signed_up: {
-    method: 'password' | 'google'
+    method: 'password' | 'google' | 'apple'
     credit_cohort: 'founding' | 'standard'
     onboarding_credits: number
     source?: 'direct' | 'demo'
     persona?: 'maya' | 'noam' | 'lina' | 'amir'
   }
-  logged_in: { is_demo: boolean; method?: 'password' | 'google' }
+  logged_in: { is_demo: boolean; method?: 'password' | 'google' | 'apple' }
   demo_picker_viewed: { entry_source: string }
   demo_value_proof_viewed: {
     persona: 'maya' | 'noam' | 'lina' | 'amir'
@@ -88,6 +88,15 @@ export type AnalyticsEvents = {
   google_calendar_connected: void
   pwa_installed: void
   day_progress_shared: { addressed: number; total: number }
+  native_version_blocked: {
+    current_version: string
+    minimum_version: string
+    policy_source: 'live' | 'cache'
+  }
+  native_update_opened: {
+    current_version: string
+    minimum_version: string
+  }
 
   // Monetization
   credits_exhausted: void

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, Eye, EyeOff, Lock, Mail, Play, User } from 'lucide-react'
+import { Apple, ArrowRight, Eye, EyeOff, Lock, Mail, Play, User } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { waitlistService, type SignupStatus } from '../services/api'
@@ -19,6 +19,12 @@ import {
   replaceOAuthCallbackUrl,
 } from '../services/googleAuth'
 import {
+  AppleSignInError,
+  beginAppleSignIn,
+  clearAppleSession,
+} from '../services/appleAuth'
+import { isNativeIOS } from '../lib/native'
+import {
   beginDemoAcquisition,
   demoPersonaById,
   parseDemoPersonaId,
@@ -36,8 +42,10 @@ function GoogleIcon() {
   )
 }
 
-function googleExchangeMessage(error: unknown) {
-  if (error instanceof GoogleOAuthCallbackError) return error.message
+function providerExchangeMessage(provider: 'Google' | 'Apple', error: unknown) {
+  if (error instanceof GoogleOAuthCallbackError || error instanceof AppleSignInError) {
+    return error.message
+  }
   const response = (error as {
     response?: { status?: number; data?: { error?: unknown; reason?: unknown } }
   })?.response
@@ -46,16 +54,18 @@ function googleExchangeMessage(error: unknown) {
   if (reason === 'invite_used') return 'This invitation has already been used.'
   if (reason === 'invite_invalid') return 'This invitation is invalid. Check the link or ask for a new invitation.'
   if (reason === 'closed') return 'New accounts are invite-only right now. Join the waitlist or use a valid invitation.'
-  if (reason === 'identity_conflict') return 'This Google account is already linked to another HealthyFlow account.'
+  if (reason === 'identity_conflict') {
+    return `This ${provider} account is already linked to another HealthyFlow account.`
+  }
   if (reason === 'provider_session_invalid' || response?.status === 401) {
-    return 'Google sign-in expired. Please try again.'
+    return `${provider} sign-in expired. Please try again.`
   }
   if (reason === 'provider_unavailable' || response?.status === 503) {
-    return 'Google sign-in is temporarily unavailable. Please try again.'
+    return `${provider} sign-in is temporarily unavailable. Please try again.`
   }
-  if (!response) return 'Network error while finishing Google sign-in. Check your connection and try again.'
+  if (!response) return `Network error while finishing ${provider} sign-in. Check your connection and try again.`
   const message = response.data?.error
-  return typeof message === 'string' ? message : 'Could not finish Google sign-in. Please try again.'
+  return typeof message === 'string' ? message : `Could not finish ${provider} sign-in. Please try again.`
 }
 
 function takeAuthNotice() {
@@ -89,6 +99,7 @@ export default function LoginPage() {
   const [error, setError] = useState(takeAuthNotice)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(() => isGoogleOAuthCallback())
+  const [appleLoading, setAppleLoading] = useState(false)
   const [googleRetryAvailable, setGoogleRetryAvailable] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
   const [signupStatus, setSignupStatus] = useState<SignupStatus | null>(null)
@@ -97,7 +108,7 @@ export default function LoginPage() {
   const [waitlistJoined, setWaitlistJoined] = useState(false)
   const [waitlistError, setWaitlistError] = useState('')
   const [waitlistSubmitting, setWaitlistSubmitting] = useState(false)
-  const { login, loginWithGoogle, signup } = useAuth()
+  const { login, loginWithProvider, signup } = useAuth()
   const oauthCallbackHandled = useRef(false)
 
   // An invite always opens the form; otherwise the public slot count decides.
@@ -118,7 +129,7 @@ export default function LoginPage() {
       setGoogleLoading(true)
       try {
         const callback = await completeGoogleOAuthCallback()
-        await loginWithGoogle(callback.accessToken, callback.invite)
+        await loginWithProvider('google', callback.accessToken, callback.invite)
         await clearGoogleOAuth()
         replaceOAuthCallbackUrl(undefined, callback.returnTo)
       } catch (callbackError) {
@@ -128,7 +139,7 @@ export default function LoginPage() {
           hasProviderSession &&
           (!terminalResponse || (terminalResponse.status ?? 500) >= 500)
         setGoogleRetryAvailable(retryable)
-        setError(googleExchangeMessage(callbackError))
+        setError(providerExchangeMessage('Google', callbackError))
         if (!retryable) {
           const returnTo = getPendingGoogleReturnTo()
           const retainedInvite = await clearGoogleOAuth({ keepInvite: true })
@@ -142,7 +153,7 @@ export default function LoginPage() {
     }
 
     void finish()
-  }, [inviteToken, loginWithGoogle])
+  }, [inviteToken, loginWithProvider])
 
   useEffect(() => {
     // Fail closed: if the status call fails we leave signupStatus null, which hides
@@ -254,7 +265,7 @@ export default function LoginPage() {
         : undefined
       await beginGoogleOAuth(inviteToken, returnTo)
     } catch (oauthError) {
-      setError(googleExchangeMessage(oauthError))
+      setError(providerExchangeMessage('Google', oauthError))
       setGoogleLoading(false)
     }
   }
@@ -270,14 +281,28 @@ export default function LoginPage() {
           'Google sign-in expired. Please try again.',
         )
       }
-      await loginWithGoogle(accessToken, getPendingGoogleInvite() ?? inviteToken)
+      await loginWithProvider('google', accessToken, getPendingGoogleInvite() ?? inviteToken)
       const returnTo = getPendingGoogleReturnTo()
       await clearGoogleOAuth()
       replaceOAuthCallbackUrl(undefined, returnTo)
     } catch (oauthError) {
-      setError(googleExchangeMessage(oauthError))
+      setError(providerExchangeMessage('Google', oauthError))
     } finally {
       setGoogleLoading(false)
+    }
+  }
+
+  const handleAppleSignIn = async () => {
+    setError('')
+    setAppleLoading(true)
+    try {
+      const { accessToken, displayName } = await beginAppleSignIn()
+      await loginWithProvider('apple', accessToken, inviteToken, displayName)
+    } catch (appleError) {
+      setError(providerExchangeMessage('Apple', appleError))
+    } finally {
+      await clearAppleSession()
+      setAppleLoading(false)
     }
   }
 
@@ -298,7 +323,7 @@ export default function LoginPage() {
       : 'Sign in to continue planning your day.'
 
   return (
-    <div className="relative flex min-h-screen items-start justify-center bg-page px-4 py-6 sm:items-center sm:py-10">
+    <div className="native-auth-page relative flex min-h-screen items-start justify-center bg-page px-4 py-6 sm:items-center sm:py-10">
       <motion.main
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -353,21 +378,36 @@ export default function LoginPage() {
             </>
           )}
 
-          <button
-            type="button"
-            onClick={googleRetryAvailable ? retryGoogleExchange : handleGoogleSignIn}
-            disabled={googleLoading || loading}
-            className="btn-secondary flex w-full items-center justify-center gap-3 py-3.5"
-          >
-            {googleLoading ? <LoadingSpinner size="sm" /> : <GoogleIcon />}
-            <span>
-              {googleLoading
-                ? 'Finishing Google sign-in…'
-                : googleRetryAvailable
-                  ? 'Retry Google sign-in'
-                  : 'Continue with Google'}
-            </span>
-          </button>
+          <div className={isNativeIOS ? 'grid grid-cols-2 gap-3' : ''}>
+            <button
+              type="button"
+              onClick={googleRetryAvailable ? retryGoogleExchange : handleGoogleSignIn}
+              disabled={googleLoading || appleLoading || loading}
+              className="btn-secondary flex w-full items-center justify-center gap-2 px-3 py-3.5"
+              aria-label={googleRetryAvailable ? 'Retry Google sign-in' : 'Continue with Google'}
+            >
+              {googleLoading ? <LoadingSpinner size="sm" /> : <GoogleIcon />}
+              <span className={isNativeIOS ? 'text-xs' : ''}>
+                {googleLoading
+                  ? 'Finishing…'
+                  : googleRetryAvailable
+                    ? 'Retry Google'
+                    : 'Continue with Google'}
+              </span>
+            </button>
+            {isNativeIOS && (
+              <button
+                type="button"
+                onClick={handleAppleSignIn}
+                disabled={appleLoading || googleLoading || loading}
+                className="flex w-full items-center justify-center gap-2 rounded-control border border-ink bg-ink px-3 py-3.5 text-xs font-semibold text-page transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Continue with Apple"
+              >
+                {appleLoading ? <LoadingSpinner size="sm" /> : <Apple className="h-5 w-5" />}
+                <span>{appleLoading ? 'Finishing…' : 'Continue with Apple'}</span>
+              </button>
+            )}
+          </div>
 
           <div className="my-5 flex items-center gap-3" aria-hidden="true">
             <span className="h-px flex-1 bg-line" />
@@ -480,7 +520,7 @@ export default function LoginPage() {
 
             <motion.button
               type="submit"
-              disabled={loading || googleLoading}
+              disabled={loading || googleLoading || appleLoading}
               className="btn-primary mt-2 flex w-full items-center justify-center gap-2 py-3.5"
             >
               {loading ? (

@@ -47,6 +47,7 @@ beforeEach(() => {
     role: 'user',
     password_hash: 'hash',
     google_auth_subject: null,
+    apple_auth_subject: null,
     signup_method: 'password',
   }))
   mockCompare.mockResolvedValue(true)
@@ -141,6 +142,29 @@ test('deletes a Google-created account without asking for a password and removes
   expect(mockCompare).not.toHaveBeenCalled()
   expect(mockDeleteUser).toHaveBeenCalledWith('google-user')
   expect(mockDeleteSupabaseAuthUser).toHaveBeenCalledWith('google-subject')
+})
+
+test('deletes an Apple-created account without asking for a password and removes its auth identity', async () => {
+  mockGetAccountCredentials.mockResolvedValueOnce({
+    id: 'apple-user',
+    role: 'user',
+    email: 'apple@example.com',
+    password_hash: 'random-unusable-hash',
+    google_auth_subject: null,
+    apple_auth_subject: 'apple-subject',
+    signup_method: 'apple',
+  })
+
+  const response = await request(app)
+    .delete('/api/account')
+    .set('Authorization', `Bearer ${tokenFor('apple-user')}`)
+    .send({ confirmation: 'DELETE' })
+
+  expect(response.status).toBe(200)
+  expect(response.body).toEqual({ deleted: true, warnings: [] })
+  expect(mockCompare).not.toHaveBeenCalled()
+  expect(mockDeleteUser).toHaveBeenCalledWith('apple-user')
+  expect(mockDeleteSupabaseAuthUser).toHaveBeenCalledWith('apple-subject')
 })
 
 test('continues deletion and reports a Google revocation warning', async () => {

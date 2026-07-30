@@ -26,7 +26,7 @@ import { waitlistService, type SignupStatus } from '../services/api'
 
 function DemoBrand({ action, actionLabel }: { action: () => void; actionLabel: string }) {
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-line/70 px-5 py-5 sm:px-8">
+    <header className="native-safe-header flex items-center justify-between gap-4 border-b border-line/70 px-5 py-5 sm:px-8">
       <div className="flex items-center gap-3">
         <AppMark size={44} />
         <div>

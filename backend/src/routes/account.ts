@@ -59,7 +59,7 @@ router.delete('/', deleteLimiter, async (req: AuthRequest, res) => {
         error: 'Administrator, demo, and durable test accounts cannot be deleted here.',
       })
     }
-    if (user.signup_method !== 'google') {
+    if (user.signup_method === 'password') {
       if (!parsed.data.password) {
         return res.status(400).json({ error: 'Enter your password and type DELETE exactly.' })
       }
@@ -75,9 +75,13 @@ router.delete('/', deleteLimiter, async (req: AuthRequest, res) => {
       warnings.push('google-revocation-failed')
     }
     await db.deleteUserWithSignupCleanup(user.id)
-    if (user.google_auth_subject) {
+    const providerSubjects = new Set([
+      user.google_auth_subject,
+      user.apple_auth_subject,
+    ].filter((subject): subject is string => Boolean(subject)))
+    for (const providerSubject of providerSubjects) {
       try {
-        const { error } = await supabase.auth.admin.deleteUser(user.google_auth_subject)
+        const { error } = await supabase.auth.admin.deleteUser(providerSubject)
         if (error) throw error
       } catch (error) {
         console.warn('Supabase Auth deletion failed during account deletion:', error)

@@ -9,6 +9,7 @@ import { StatusBar, Style } from '@capacitor/status-bar'
 import { nativeRouteFromUrl } from '../utils/nativeRouting'
 
 export const isNativeApp = Capacitor.isNativePlatform()
+export const isNativeIOS = isNativeApp && Capacitor.getPlatform() === 'ios'
 export const appRouterBasename = isNativeApp ? '/' : '/app'
 export const nativeOAuthRedirectUrl = 'healthyflow://oauth/callback'
 

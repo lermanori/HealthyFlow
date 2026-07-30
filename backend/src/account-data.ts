@@ -159,7 +159,7 @@ export async function buildAccountExport(userId: string): Promise<AccountExportV
 export async function getAccountCredentials(userId: string) {
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, name, role, password_hash, google_auth_subject, signup_method, disabled_at')
+    .select('id, email, name, role, password_hash, google_auth_subject, apple_auth_subject, signup_method, disabled_at')
     .eq('id', userId)
     .single()
   if (error) throw error
@@ -195,7 +195,7 @@ export const ManagedUserSchema = z.object({
   email: z.string().email(),
   name: z.string(),
   role: z.enum(['admin', 'user']),
-  signupMethod: z.enum(['password', 'google']),
+  signupMethod: z.enum(['password', 'google', 'apple']),
   createdAt: z.string(),
   lastLoginAt: z.string().nullable(),
   disabledAt: z.string().nullable(),
@@ -268,8 +268,9 @@ type AdminUserRow = {
   email: string
   name: string
   role: 'admin' | 'user'
-  signup_method: 'password' | 'google' | null
+  signup_method: 'password' | 'google' | 'apple' | null
   google_auth_subject: string | null
+  apple_auth_subject: string | null
   created_at: string
   last_login_at: string | null
   disabled_at: string | null
@@ -322,7 +323,7 @@ export function adminDeletionConfirmationPhrase(count: number) {
 async function requireAdminActor(actorId: string): Promise<AdminUserRow> {
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, name, role, signup_method, google_auth_subject, created_at, last_login_at, disabled_at, is_test')
+    .select('id, email, name, role, signup_method, google_auth_subject, apple_auth_subject, created_at, last_login_at, disabled_at, is_test')
     .eq('id', actorId)
     .single()
   if (error || !data) {
@@ -337,7 +338,7 @@ async function requireAdminActor(actorId: string): Promise<AdminUserRow> {
 async function getAdminUserRows(userIds?: string[]): Promise<AdminUserRow[]> {
   let query = supabase
     .from('users')
-    .select('id, email, name, role, signup_method, google_auth_subject, created_at, last_login_at, disabled_at, is_test')
+    .select('id, email, name, role, signup_method, google_auth_subject, apple_auth_subject, created_at, last_login_at, disabled_at, is_test')
     .order('created_at', { ascending: false })
   if (userIds) query = query.in('id', userIds)
   const { data, error } = await query
@@ -583,15 +584,19 @@ export async function deleteManagedTestUsers(
       const cleanup = await db.deleteUserWithSignupCleanup(user.id)
 
       const warnings: string[] = []
-      if (user.google_auth_subject) {
-        const { error: authError } = await supabase.auth.admin.deleteUser(user.google_auth_subject)
+      const providerSubjects = new Set([
+        user.google_auth_subject,
+        user.apple_auth_subject,
+      ].filter((subject): subject is string => Boolean(subject)))
+      for (const providerSubject of providerSubjects) {
+        const { error: authError } = await supabase.auth.admin.deleteUser(providerSubject)
         if (authError) {
           warnings.push('supabase_auth_cleanup_failed')
           await insertAdminAudit({
             actor,
             targetEmail: user.email,
             action: 'delete_auth_cleanup_failed',
-            details: { providerSubject: user.google_auth_subject },
+            details: { providerSubject },
           })
         }
       }

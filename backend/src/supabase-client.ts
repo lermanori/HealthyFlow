@@ -26,7 +26,8 @@ export const db = {
     password_hash: string
     role?: 'admin' | 'user'
     google_auth_subject?: string
-    signup_method?: 'password' | 'google'
+    apple_auth_subject?: string
+    signup_method?: 'password' | 'google' | 'apple'
     pending_invite_token?: string
     claimed_public_signup_slot?: boolean
   }) {
@@ -85,6 +86,41 @@ export const db = {
     return data;
   },
 
+  async getUserByAppleSubject(subject: string) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('apple_auth_subject', subject)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+
+  async linkAppleIdentity(userId: string, subject: string) {
+    const { data: existing, error: lookupError } = await supabase
+      .from('users')
+      .select('id, apple_auth_subject')
+      .eq('id', userId)
+      .single();
+    if (lookupError) throw lookupError;
+
+    if (existing.apple_auth_subject && existing.apple_auth_subject !== subject) {
+      const error = new Error('Apple identity conflict') as Error & { code?: string }
+      error.code = 'APPLE_IDENTITY_CONFLICT'
+      throw error
+    }
+    if (existing.apple_auth_subject === subject) return existing
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ apple_auth_subject: subject })
+      .eq('id', userId)
+      .select('id, apple_auth_subject')
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
   async clearPendingSignupInvite(userId: string) {
     const { error } = await supabase
       .from('users')
@@ -98,7 +134,7 @@ export const db = {
     email: string
     name: string
     role: 'admin' | 'user'
-    signup_method?: 'password' | 'google'
+    signup_method?: 'password' | 'google' | 'apple'
     disabled_at?: string | null
     is_test?: boolean
     last_login_at?: string | null
@@ -115,7 +151,7 @@ export const db = {
       email: string
       name: string
       role: 'admin' | 'user'
-      signup_method?: 'password' | 'google'
+      signup_method?: 'password' | 'google' | 'apple'
       disabled_at?: string | null
       is_test?: boolean
       last_login_at?: string | null

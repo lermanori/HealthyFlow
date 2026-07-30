@@ -13,10 +13,12 @@ The current minimum deployment target is iOS 17.
 - Trusted custom-scheme routing and validation for future universal links
 - Google OAuth through the system browser with
   `healthyflow://oauth/callback`
+- Native Sign in with Apple through AuthenticationServices and Supabase Auth
 - APNs registration, authenticated device storage, delivery, and stale-token
   pruning
 - Native haptics, Share sheet, keyboard resizing, network state, splash screen,
   and theme-aware status bar
+- A server-controlled minimum-version gate that can require an App Store update
 - A small and medium Today widget backed by an App Group
 - PWA service-worker and Web Push registration disabled inside the native shell
 
@@ -69,7 +71,8 @@ The checked-in project uses these identifiers:
 Before installing on a real device or creating an archive:
 
 1. Create the app and widget identifiers in the Apple Developer portal.
-2. Enable Push Notifications and App Groups for the app identifier.
+2. Enable Push Notifications, App Groups, and Sign in with Apple for the app
+   identifier.
 3. Enable the shared App Group for both the app and widget identifiers.
 4. In Xcode, select the same development team for the `App` and
    `HealthyFlowWidget` targets and let Xcode manage signing.
@@ -98,6 +101,25 @@ then clears the provider session.
 Test this on a physical device before TestFlight. A simulator verifies routing,
 but it does not prove the production provider configuration.
 
+## Sign in with Apple setup
+
+The native app uses Apple's AuthenticationServices API. The checked-in app
+target includes the Sign in with Apple capability and entitlement, but the
+Developer portal and Supabase project still have to match:
+
+1. Enable Sign in with Apple for the `app.healthyflow.mobile` App ID and refresh
+   the app provisioning profile in Xcode.
+2. In Supabase Auth, enable the Apple provider and add
+   `app.healthyflow.mobile` to the accepted client IDs.
+3. Apply `supabase/migrations/20260730130000_add_apple_auth.sql`.
+4. Test first authorization and returning authorization on a physical device
+   signed into an Apple ID. Apple supplies the person's name only on first
+   authorization, so that path must be included in the smoke test.
+
+This implementation is native-only: it exchanges Apple's identity token and
+nonce directly with Supabase and does not expose an Apple OAuth button on the
+web login page.
+
 ## APNs setup
 
 Apply the native-device migration:
@@ -124,11 +146,52 @@ Push registration must be tested on a physical device with signed entitlements.
 The simulator build and backend tests validate the integration boundary but
 cannot validate delivery from Apple's production service.
 
+## Version gate and release order
+
+The native shell checks `GET /api/mobile/version/ios` before starting the React
+application and whenever iOS brings the app back to the foreground. If the
+installed marketing version is lower than the configured minimum, HealthyFlow
+shows a blocking update screen that links to the App Store. The web and PWA
+builds do not run this gate.
+
+Configure the Railway backend only after the App Store listing has its final
+public URL:
+
+```text
+IOS_VERSION_GATE_ENABLED=true
+IOS_MINIMUM_VERSION=1.0
+IOS_LATEST_VERSION=1.0
+IOS_APP_STORE_URL=https://apps.apple.com/app/healthyflow/id123456789
+IOS_UPDATE_MESSAGE=A newer version of HealthyFlow is required to continue.
+```
+
+The gate is disabled unless `IOS_VERSION_GATE_ENABLED` is exactly `true`.
+An enabled deployment with an invalid or incomplete policy returns an explicit
+configuration error. If a launched app cannot reach the backend, it applies the
+last enabled policy it received. A device with no cached policy is allowed to
+start so a backend outage cannot lock out every installation. Receiving a live
+disabled policy clears the cached policy.
+
+For every App Store release:
+
+1. Increase `MARKETING_VERSION` for the user-visible release, for example
+   `1.0` to `1.1`, and increase `CURRENT_PROJECT_VERSION` for every uploaded
+   build. Keep the app and widget target values aligned.
+2. Archive, upload, validate, and release the new build. Confirm it is available
+   from the configured App Store URL.
+3. Set `IOS_LATEST_VERSION` to the released marketing version. This records the
+   current release without blocking older compatible clients.
+4. Raise `IOS_MINIMUM_VERSION` only when older clients are no longer compatible
+   or must be retired. Never raise it before the replacement build is available.
+
+Use numeric dot-separated marketing versions such as `1.2` or `1.2.3`; the
+comparison is numeric, so `1.10` is newer than `1.9`. Test a forced update with
+a TestFlight or locally signed build before enforcing a production minimum.
+
 ## App Store work still required
 
-- Add Sign in with Apple or document why an App Review exception applies. The
-  current app offers Google and password authentication; this decision should
-  be resolved before submission.
+- Verify Sign in with Apple against the production App ID, provisioning
+  profile, and Supabase provider configuration on a physical device.
 - Decide how paid digital features are sold in the iOS app. The native shell
   currently hides HealthyFlow's manual purchase/contact CTAs; implement the
   approved StoreKit flow before offering iOS purchases.

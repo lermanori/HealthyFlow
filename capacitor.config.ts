@@ -7,7 +7,9 @@ const config: CapacitorConfig = {
   backgroundColor: '#16181C',
   ios: {
     backgroundColor: '#16181C',
-    contentInset: 'automatic',
+    // CSS owns the status-bar and home-indicator safe areas. Automatic WebView
+    // insets would reserve the same space twice.
+    contentInset: 'never',
     preferredContentMode: 'mobile',
     scrollEnabled: true,
   },

@@ -52,7 +52,7 @@ export default function OAuthConsentPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-page px-4 py-8">
+    <main className="native-consent-page flex min-h-screen items-center justify-center bg-page px-4 py-8">
       <section className="card w-full max-w-lg" aria-labelledby="oauth-consent-title">
         <header className="text-center">
           <AppMark size={56} className="mx-auto mb-4 block" />

@@ -1,3 +1,9 @@
+### 2026-07-30 15:43 — `codex/ios-capacitor`
+
+Completed HealthyFlow’s App Store readiness layer with native Sign in with Apple, an opaque validated app icon, and a server-controlled minimum-version gate. The iOS shell now owns safe areas consistently across authenticated and public screens, with a compact header and native-style bottom navigation that keeps legal links in the drawer. Frontend, backend, Capacitor, and Xcode simulator validation all pass; production enablement now only requires the documented Apple Developer, Supabase provider, migration, and release configuration.
+
+---
+
 ### 2026-07-30 14:25 — `codex/ios-capacitor`
 
 Established HealthyFlow as a working Capacitor iOS 17 app while keeping the React product and web deployment intact. The native boundary now covers deep links, Google OAuth handoff, APNs, notification permissions, haptics, sharing, platform styling, and a privacy-safe WidgetKit Today widget backed by the canonical DaySummary. The complete frontend and backend gates pass, the app and widget build and run in the iPhone simulator, and the remaining Apple signing, Sign in with Apple, StoreKit, and physical-device steps are documented for TestFlight.

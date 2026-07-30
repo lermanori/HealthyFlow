@@ -9,6 +9,7 @@ import { AuthProvider } from './context/AuthContext.tsx'
 import { analytics } from './lib/analytics'
 import { appRouterBasename, initializeNativeApp, isNativeApp } from './lib/native'
 import PageViewTracker from './lib/analytics/PageViewTracker'
+import NativeVersionGate from './components/NativeVersionGate'
 import './index.css'
 
 analytics.init()
@@ -26,25 +27,27 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename={appRouterBasename}>
-        <PageViewTracker />
-        <AuthProvider>
-          <MotionConfig reducedMotion="user">
-            <App />
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 3000,
-                style: {
-                  background: 'rgb(var(--surface-overlay))',
-                  color: 'rgb(var(--text-primary))',
-                  border: '1px solid rgb(var(--border-default))',
-                  borderRadius: 'var(--radius-control)',
-                  boxShadow: 'var(--shadow-overlay)',
-                },
-              }}
-            />
-          </MotionConfig>
-        </AuthProvider>
+        <NativeVersionGate>
+          <PageViewTracker />
+          <AuthProvider>
+            <MotionConfig reducedMotion="user">
+              <App />
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 3000,
+                  style: {
+                    background: 'rgb(var(--surface-overlay))',
+                    color: 'rgb(var(--text-primary))',
+                    border: '1px solid rgb(var(--border-default))',
+                    borderRadius: 'var(--radius-control)',
+                    boxShadow: 'var(--shadow-overlay)',
+                  },
+                }}
+              />
+            </MotionConfig>
+          </AuthProvider>
+        </NativeVersionGate>
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,

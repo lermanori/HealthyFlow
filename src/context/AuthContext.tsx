@@ -19,14 +19,21 @@ interface User {
   email: string
   name: string
   role: 'admin' | 'user'
-  authMethod: 'password' | 'google'
+  authMethod: 'password' | 'google' | 'apple'
 }
+
+type AuthProvider = 'google' | 'apple'
 
 interface AuthContextType {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
-  loginWithGoogle: (accessToken: string, invite?: string) => Promise<void>
+  loginWithProvider: (
+    provider: AuthProvider,
+    accessToken: string,
+    invite?: string,
+    displayName?: string,
+  ) => Promise<void>
   startDemoSession: (persona: DemoPersonaId) => Promise<void>
   leaveDemoSession: () => Promise<boolean>
   signup: (email: string, password: string, name: string, invite?: string) => Promise<void>
@@ -133,9 +140,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const loginWithGoogle = async (accessToken: string, invite?: string) => {
+  const loginWithProvider = async (
+    provider: AuthProvider,
+    accessToken: string,
+    invite?: string,
+    displayName?: string,
+  ) => {
     const acquisition = readDemoAcquisition()
-    const result = await authService.googleSession(accessToken, invite)
+    const result = await authService.providerSession(provider, accessToken, invite, displayName)
     const { user: userData, token, isNewUser, signupCredits } = result
     queryClient.clear()
     clearDemoState()
@@ -154,7 +166,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         onboarding_credit_grant: signupCredits.credits,
       }, { signed_up_at: new Date().toISOString() })
       analytics.capture('signed_up', {
-        method: 'google',
+        method: provider,
         credit_cohort: signupCredits.cohort,
         onboarding_credits: signupCredits.credits,
         source: acquisition ? 'demo' : 'direct',
@@ -163,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       toast.success(`Account created with ${signupCredits.credits} AI credits. Welcome to HealthyFlow.`)
     } else {
       clearDemoAcquisition()
-      analytics.capture('logged_in', { method: 'google', is_demo: false })
+      analytics.capture('logged_in', { method: provider, is_demo: false })
       toast.success('Welcome back!')
     }
     setUser(userData)
@@ -304,7 +316,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       login,
-      loginWithGoogle,
+      loginWithProvider,
       startDemoSession,
       leaveDemoSession,
       signup,
