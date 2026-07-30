@@ -10,6 +10,7 @@ jest.mock('../../src/supabase-client', () => ({
   db: {
     getUserByEmail: jest.fn(),
     createUser: jest.fn(),
+    releasePublicSignupSlot: jest.fn(),
     claimSignupCreditGrant: jest.fn(),
     getFoundingSignupCreditGrantCount: jest.fn(),
   },
@@ -42,12 +43,30 @@ beforeEach(() => {
     alreadyGranted: false,
   })
   mockDb.getFoundingSignupCreditGrantCount.mockResolvedValue(0)
+  mockDb.releasePublicSignupSlot.mockResolvedValue(true)
   // Default to an open public slot so the pre-existing tests below still exercise
   // the happy path; the gating tests override this per case.
   mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: true, via: 'public' })
 })
 
 describe('POST /api/auth/signup', () => {
+  it('validates but cannot create an account when the E2E backend is in test mode', async () => {
+    process.env.HF_TEST_MODE = '1'
+    try {
+      const res = await request(app)
+        .post('/api/auth/signup')
+        .send({ email: 'blocked@example.com', password: 'password1', name: 'Blocked' })
+        .set('X-Forwarded-For', '10.20.30.40')
+
+      expect(res.status).toBe(403)
+      expect(res.body.reason).toBe('test_account_creation_disabled')
+      expect(mockDb.getUserByEmail).not.toHaveBeenCalled()
+      expect(mockDb.createUser).not.toHaveBeenCalled()
+    } finally {
+      delete process.env.HF_TEST_MODE
+    }
+  })
+
   it('new email signs up → 200 with JWT', async () => {
     mockDb.getUserByEmail.mockResolvedValue(null)
     mockDb.createUser.mockResolvedValue({ id: 'user-1', email: 'new@example.com', name: 'Alice' })
@@ -65,6 +84,9 @@ describe('POST /api/auth/signup', () => {
       balance: 250,
       alreadyGranted: false,
     })
+    expect(mockDb.createUser).toHaveBeenCalledWith(expect.objectContaining({
+      claimed_public_signup_slot: true,
+    }))
     expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('user-1')
   })
 
@@ -143,6 +165,9 @@ describe('POST /api/auth/signup — access gating', () => {
       .set('X-Forwarded-For', '10.0.0.2')
 
     expect(res.status).toBe(200)
+    expect(mockDb.createUser).toHaveBeenCalledWith(expect.objectContaining({
+      claimed_public_signup_slot: false,
+    }))
     expect(mockWaitlist.completeInviteSignup).toHaveBeenCalledWith('t1', 'user-1')
   })
 
@@ -182,6 +207,19 @@ describe('POST /api/auth/signup — access gating', () => {
 
     expect(res.status).toBe(200)
     expect(mockWaitlist.completeInviteSignup).not.toHaveBeenCalled()
+  })
+
+  it('returns a reserved public seat when account creation fails', async () => {
+    mockDb.getUserByEmail.mockResolvedValue(null)
+    mockDb.createUser.mockRejectedValue(new Error('insert failed'))
+
+    const res = await request(app)
+      .post('/api/auth/signup')
+      .send({ email: 'failed@example.com', password: 'password1', name: 'Failed' })
+      .set('X-Forwarded-For', '10.0.0.6')
+
+    expect(res.status).toBe(500)
+    expect(mockDb.releasePublicSignupSlot).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -231,6 +269,43 @@ describe('POST /api/auth/register (admin-only, regression guard)', () => {
     // Original /register returns user without JWT (existing behavior)
     expect(res.status).toBe(200)
     expect(res.body.user).toBeDefined()
+  })
+
+  it('does not create an admin-added account in E2E test mode', async () => {
+    process.env.HF_TEST_MODE = '1'
+    try {
+      const res = await request(app)
+        .post('/api/auth/register')
+        .send({
+          email: 'blocked-admin@example.com',
+          password: 'password1',
+          name: 'Blocked Admin',
+          adminToken: process.env.ADMIN_TOKEN,
+        })
+
+      expect(res.status).toBe(403)
+      expect(res.body.reason).toBe('test_account_creation_disabled')
+      expect(mockDb.createUser).not.toHaveBeenCalled()
+    } finally {
+      delete process.env.HF_TEST_MODE
+    }
+  })
+})
+
+describe('other account-producing auth routes in E2E test mode', () => {
+  it.each([
+    ['/api/auth/google', { accessToken: 'test-provider-token' }],
+    ['/api/auth/demo-session', { persona: 'maya' }],
+  ])('blocks %s before it can create a user', async (path, body) => {
+    process.env.HF_TEST_MODE = '1'
+    try {
+      const res = await request(app).post(path).send(body)
+      expect(res.status).toBe(403)
+      expect(res.body.reason).toBe('test_account_creation_disabled')
+      expect(mockDb.createUser).not.toHaveBeenCalled()
+    } finally {
+      delete process.env.HF_TEST_MODE
+    }
   })
 })
 

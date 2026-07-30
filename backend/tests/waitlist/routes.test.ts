@@ -1,5 +1,6 @@
 import request from 'supertest'
 import { app } from '../../src/index'
+import { SignupSeatSettingsSchema } from '../../src/routes/waitlist'
 import { Waitlist } from '../../src/waitlist'
 
 jest.mock('../../src/waitlist', () => {
@@ -89,5 +90,25 @@ describe('admin waitlist routes require authentication', () => {
   it('rejects unauthenticated removal', async () => {
     const res = await request(app).delete('/api/waitlist/admin/entries/w1')
     expect(res.status).toBe(401)
+  })
+})
+
+describe('public signup seat settings', () => {
+  it('accepts an explicit claimed count within the total capacity', () => {
+    expect(SignupSeatSettingsSchema.parse({
+      publicSlotsOpen: 100,
+      publicSlotsClaimed: 23,
+    })).toEqual({
+      publicSlotsOpen: 100,
+      publicSlotsClaimed: 23,
+    })
+  })
+
+  it('rejects claimed seats above the total capacity', () => {
+    const result = SignupSeatSettingsSchema.safeParse({
+      publicSlotsOpen: 10,
+      publicSlotsClaimed: 11,
+    })
+    expect(result.success).toBe(false)
   })
 })

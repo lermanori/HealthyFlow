@@ -9,6 +9,7 @@ const mockCompare = jest.fn()
 const mockDeleteSupabaseAuthUser = jest.fn()
 
 jest.mock('../src/account-data', () => ({
+  DURABLE_E2E_USER_EMAIL: 'e2e@test.healthyflow.local',
   buildAccountExport: (...args: unknown[]) => mockBuildAccountExport(...args),
   getAccountCredentials: (...args: unknown[]) => mockGetAccountCredentials(...args),
 }))
@@ -23,7 +24,7 @@ jest.mock('../src/supabase-client', () => ({
   db: {
     getUserById: jest.fn(),
     getUserByEmail: jest.fn(),
-    deleteUser: (...args: unknown[]) => mockDeleteUser(...args),
+    deleteUserWithSignupCleanup: (...args: unknown[]) => mockDeleteUser(...args),
   },
 }))
 jest.mock('../src/calendar', () => {
@@ -97,6 +98,7 @@ test('rejects a wrong current password', async () => {
 test.each([
   ['admin-user', 'admin', 'admin@example.com'],
   ['demo-user', 'user', 'demo-maya@healthyflow.local'],
+  ['e2e-user', 'user', 'e2e@test.healthyflow.local'],
 ])('blocks ineligible account %s', async (userId, role, email) => {
   mockGetAccountCredentials.mockResolvedValueOnce({ id: userId, role, email, password_hash: 'hash' })
   const response = await request(app)

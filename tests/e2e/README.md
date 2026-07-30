@@ -119,15 +119,18 @@ forces the flag on for the suite so the route stays covered while it is hidden.
 ## Test infrastructure
 
 - Tests run against the **existing Supabase dev DB** — no separate test database.
-- A dedicated test user (`e2e@test.healthyflow.local`) is seeded idempotently by `globalSetup.ts` at suite startup.
+- The suite uses exactly one durable, pre-provisioned test user: `e2e@test.healthyflow.local`.
+- `globalSetup.ts` verifies that account exists, is enabled, and is explicitly marked `is_test`. It fails loudly if the account is missing; automated tests never seed users.
+- The durable fixture is protected from both self-service and administrator deletion.
 - The backend must be started with `HF_TEST_MODE=1`; `playwright.config.ts` does this automatically via `webServer`.
+- In `HF_TEST_MODE`, signup, Google account creation, demo-user creation, and admin registration are blocked at the backend. Signup UI coverage intercepts the response and uses the durable user's session, so the browser happy path is exercised without persistence.
 - Do not commit `.env`; Supabase credentials must be present locally.
 
 ## Resetting test data
 
 ### `/test/reset` endpoint
 
-`POST /test/reset` is only mounted when `HF_TEST_MODE=1` (404 in production). It truncates the seeded test user's tasks so each spec starts clean. It is NOT called by specs directly; instead, **each spec resets via `globalSetup.ts` at suite startup**.
+`POST /test/reset` is only mounted when `HF_TEST_MODE=1` (404 in production). It clears mutable data only for the durable test user. Onboarding specs may also pass `{ "onboardingStatus": "active" }` and restore `"completed"` afterward. The endpoint returns 503 if the durable user is missing; it never creates a replacement.
 
 **Important gotcha**: `page.goto('/test/reset')` does NOT work (SPA catches all routes). Specs that need to reset mid-run must use:
 
@@ -135,7 +138,7 @@ forces the flag on for the suite so the route stays covered while it is hidden.
 await page.request.post('http://localhost:3001/test/reset')
 ```
 
-No specs currently reset mid-run (globalSetup suffices), but document this for future use.
+Several stateful specs reset between cases because every test shares the same durable account.
 
 ## Auth fixture
 

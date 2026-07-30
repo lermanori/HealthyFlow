@@ -28,6 +28,7 @@ export const db = {
     google_auth_subject?: string
     signup_method?: 'password' | 'google'
     pending_invite_token?: string
+    claimed_public_signup_slot?: boolean
   }) {
     const { data, error } = await supabase
       .from('users')
@@ -147,6 +148,18 @@ export const db = {
       .eq('id', userId);
     
     if (error) throw error;
+  },
+
+  async deleteUserWithSignupCleanup(userId: string) {
+    const { data, error } = await supabase.rpc('delete_user_with_signup_cleanup', {
+      p_user_id: userId,
+    });
+    if (error) throw error;
+    const result = data?.[0];
+    return {
+      waitlistEntriesDeleted: Number(result?.waitlist_entries_deleted ?? 0),
+      publicSignupSeatsReleased: Number(result?.public_signup_seats_released ?? 0),
+    };
   },
 
   async updateUserPassword(userId: string, passwordHash: string) {
@@ -971,7 +984,10 @@ export const db = {
   // only cleared tasks and workouts. The leftovers silently broke specs in other
   // subjects: items-lifecycle's schedule-compaction assertions fail when a stray
   // Calorie entry from the health specs occupies an hour that should be empty.
-  async resetTestUser(userId: string) {
+  async resetTestUser(
+    userId: string,
+    options: { onboardingStatus?: 'active' | 'completed' | 'skipped' } = {}
+  ) {
     const userScoped = [
       'workout_plans',
       'workout_sessions',
@@ -995,6 +1011,12 @@ export const db = {
       .delete()
       .eq('user_id', userId)
     if (error) throw error
+
+    if (options.onboardingStatus) {
+      await this.upsertUserSettings(userId, {
+        onboardingStatus: options.onboardingStatus,
+      })
+    }
   },
 
   // Credits
@@ -1345,10 +1367,17 @@ export const db = {
     return data
   },
 
-  async updateSignupAccess(settings: { public_slots_open: number }) {
+  async updateSignupAccess(settings: {
+    public_slots_open: number
+    public_slots_claimed: number
+  }) {
     const { data, error } = await supabase
       .from('signup_access')
-      .update({ public_slots_open: settings.public_slots_open, updated_at: new Date().toISOString() })
+      .update({
+        public_slots_open: settings.public_slots_open,
+        public_slots_claimed: settings.public_slots_claimed,
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', true)
       .select('public_slots_open, public_slots_claimed, updated_at')
       .single()
@@ -1358,6 +1387,12 @@ export const db = {
 
   async claimPublicSignupSlot(): Promise<boolean> {
     const { data, error } = await supabase.rpc('claim_public_signup_slot')
+    if (error) throw error
+    return data === true
+  },
+
+  async releasePublicSignupSlot(): Promise<boolean> {
+    const { data, error } = await supabase.rpc('release_public_signup_slot')
     if (error) throw error
     return data === true
   },

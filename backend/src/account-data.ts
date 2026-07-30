@@ -1,8 +1,10 @@
 import { z } from 'zod'
-import { supabase } from './supabase-client'
+import { db, supabase } from './supabase-client'
 
 const ExportRowSchema = z.record(z.string(), z.unknown())
 const ExportRowsSchema = z.array(ExportRowSchema)
+
+export const DURABLE_E2E_USER_EMAIL = 'e2e@test.healthyflow.local'
 
 export const AccountExportV1Schema = z.object({
   version: z.literal(1),
@@ -161,7 +163,12 @@ export async function getAccountCredentials(userId: string) {
   return data
 }
 
-const AdminUserProtectionSchema = z.enum(['current_admin', 'administrator', 'demo_account'])
+const AdminUserProtectionSchema = z.enum([
+  'current_admin',
+  'administrator',
+  'demo_account',
+  'test_fixture',
+])
 const AdminUserActionSchema = z.enum(['mark_test', 'mark_live', 'disable', 'enable'])
 
 export const AdminUserBatchActionInputSchema = z.object({
@@ -203,6 +210,7 @@ export const AdminUserDeletionCountsSchema = z.object({
   assistant: z.number().int().nonnegative(),
   billing: z.number().int().nonnegative(),
   account: z.number().int().nonnegative(),
+  waitlist: z.number().int().nonnegative(),
   total: z.number().int().nonnegative(),
 })
 export type AdminUserDeletionCounts = z.infer<typeof AdminUserDeletionCountsSchema>
@@ -218,10 +226,12 @@ export const AdminUserDeletionTargetSchema = z.object({
     'current_admin',
     'administrator',
     'demo_account',
+    'test_fixture',
     'not_test',
     'active_subscription',
   ])),
   counts: AdminUserDeletionCountsSchema,
+  releasesPublicSignupSeat: z.boolean(),
 })
 
 export const AdminUserDeletionPreviewSchema = z.object({
@@ -281,6 +291,7 @@ export function adminUserProtectionFor(
   if (user.id === actorId) return 'current_admin' as const
   if (user.role === 'admin') return 'administrator' as const
   const email = user.email.trim().toLowerCase()
+  if (email === DURABLE_E2E_USER_EMAIL) return 'test_fixture' as const
   if (email === 'demo@healthyflow.com' || email.startsWith('demo-')) {
     return 'demo_account' as const
   }
@@ -293,7 +304,7 @@ export function adminDeletionBlockers(input: {
   subscriptionActive: boolean
 }) {
   const blockers: Array<
-    'current_admin' | 'administrator' | 'demo_account' | 'not_test' | 'active_subscription'
+    'current_admin' | 'administrator' | 'demo_account' | 'test_fixture' | 'not_test' | 'active_subscription'
   > = []
   if (input.protection) blockers.push(input.protection)
   if (!input.isTest) blockers.push('not_test')
@@ -463,11 +474,15 @@ async function deletionCounts(userIds: string[]) {
       assistant: Number(row.assistant ?? 0),
       billing: Number(row.billing ?? 0),
       account: Number(row.account ?? 0),
+      waitlist: Number(row.waitlist ?? 0),
     }
-    return [String(row.user_id), AdminUserDeletionCountsSchema.parse({
-      ...counts,
-      total: Object.values(counts).reduce((sum, value) => sum + value, 0),
-    })]
+    return [String(row.user_id), {
+      counts: AdminUserDeletionCountsSchema.parse({
+        ...counts,
+        total: Object.values(counts).reduce((sum, value) => sum + value, 0),
+      }),
+      releasesPublicSignupSeat: Number(row.public_signup_seats ?? 0) > 0,
+    }]
   }))
 }
 
@@ -498,15 +513,17 @@ export async function previewAdminUserDeletion(
       subscriptionActive: subscriptions.get(user.id) ?? false,
       protection,
       blockers,
-      counts: counts.get(user.id) ?? {
+      counts: counts.get(user.id)?.counts ?? {
         items: 0,
         health: 0,
         calendar: 0,
         assistant: 0,
         billing: 0,
         account: 0,
+        waitlist: 0,
         total: 0,
       },
+      releasesPublicSignupSeat: counts.get(user.id)?.releasesPublicSignupSeat ?? false,
     })
   })
   const canDelete = previews.every(user => user.blockers.length === 0)
@@ -541,7 +558,13 @@ export async function deleteManagedTestUsers(
   const users = await getAdminUserRows(input.userIds)
   requireAllTargets(input.userIds, users)
   const previewById = new Map(preview.users.map(user => [user.id, user]))
-  const deleted: Array<{ id: string; email: string; warnings: string[] }> = []
+  const deleted: Array<{
+    id: string
+    email: string
+    warnings: string[]
+    waitlistEntriesDeleted: number
+    publicSignupSeatsReleased: number
+  }> = []
   const failures: Array<{ id: string; email: string; error: string }> = []
 
   for (const user of users) {
@@ -554,8 +577,7 @@ export async function deleteManagedTestUsers(
         action: 'delete_requested',
         details: { counts: targetPreview?.counts ?? null },
       })
-      const { error } = await supabase.from('users').delete().eq('id', user.id)
-      if (error) throw error
+      const cleanup = await db.deleteUserWithSignupCleanup(user.id)
 
       const warnings: string[] = []
       if (user.google_auth_subject) {
@@ -574,9 +596,9 @@ export async function deleteManagedTestUsers(
         actor,
         targetEmail: user.email,
         action: 'delete_completed',
-        details: { counts: targetPreview?.counts ?? null, warnings },
+        details: { counts: targetPreview?.counts ?? null, cleanup, warnings },
       })
-      deleted.push({ id: user.id, email: user.email, warnings })
+      deleted.push({ id: user.id, email: user.email, warnings, ...cleanup })
     } catch (error) {
       failures.push({
         id: user.id,
