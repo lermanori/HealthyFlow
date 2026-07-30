@@ -1,7 +1,7 @@
-// Bumped to v6 for the /app move: `activate` only deletes caches that don't start
-// with CACHE_VERSION, so without this bump existing installs would keep serving the
-// old `/` shell — which is now the marketing page, not the app.
-const CACHE_VERSION = 'healthyflow-v6'
+// Bumped to v7 for the new app icon: the icon PNGs changed content at unchanged
+// paths, and `activate` only deletes caches that don't start with CACHE_VERSION,
+// so without this bump existing installs would keep serving the old mark.
+const CACHE_VERSION = 'healthyflow-v7'
 const APP_SHELL_CACHE = `${CACHE_VERSION}-app-shell`
 const ASSET_CACHE = `${CACHE_VERSION}-assets`
 
