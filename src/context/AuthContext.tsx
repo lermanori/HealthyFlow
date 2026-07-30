@@ -8,6 +8,11 @@ import {
   type DemoPersonaId,
 } from '../demoPersonas'
 import toast from 'react-hot-toast'
+import {
+  detachNativePushToken,
+  syncNativePushToken,
+} from '../lib/push'
+import { clearTodayWidget } from '../lib/widget'
 
 interface User {
   id: string
@@ -51,6 +56,11 @@ function identifyUser(userData: User) {
     role: userData.role,
     is_demo: isDemoEmail(userData.email),
   })
+  if (!isDemoEmail(userData.email)) {
+    void syncNativePushToken().catch((error) => {
+      console.error('[push] could not attach native device to signed-in user:', error)
+    })
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -84,6 +94,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
         .catch(() => {
           localStorage.removeItem('token')
+          void clearTodayWidget().catch((error) => {
+            console.error('[widget] could not clear signed-out Today widget:', error)
+          })
           if (!token && returnToken) {
             sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
             setHasDemoReturnSession(false)
@@ -94,6 +107,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setLoading(false)
         })
     } else {
+      void clearTodayWidget().catch((error) => {
+        console.error('[widget] could not clear signed-out Today widget:', error)
+      })
       setLoading(false)
     }
   }, [queryClient])
@@ -248,6 +264,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
+    const authToken = localStorage.getItem('token')
+    void detachNativePushToken(authToken).catch((error) => {
+      console.error('[push] could not detach native device during logout:', error)
+    })
+    void clearTodayWidget().catch((error) => {
+      console.error('[widget] could not clear Today widget during logout:', error)
+    })
     localStorage.removeItem('token')
     clearDemoState()
     sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
@@ -260,6 +283,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const completeAccountDeletion = () => {
+    void clearTodayWidget().catch((error) => {
+      console.error('[widget] could not clear Today widget after account deletion:', error)
+    })
     localStorage.removeItem('token')
     clearDemoState()
     sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)

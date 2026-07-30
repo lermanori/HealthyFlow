@@ -25,6 +25,7 @@ import {
 } from '../../backend/src/day-summary-schema'
 import SettingsContracts, { type Settings as UserSettings } from '../../backend/src/settings-schema'
 import type { WaitlistJoinInput } from '../../backend/src/waitlist'
+import type { NativePushRegistration } from '../../backend/src/push-contracts'
 
 const { SettingsSchema } = SettingsContracts
 
@@ -1147,6 +1148,18 @@ export const pushService = {
   },
   unsubscribe: async (endpoint: string): Promise<void> => {
     await api.delete('/proactivity/push/subscribe', { data: { endpoint } })
+  },
+  registerNative: async (registration: NativePushRegistration): Promise<void> => {
+    await api.post('/proactivity/push/native/register', registration)
+  },
+  unregisterNative: async (
+    registration: NativePushRegistration,
+    authToken?: string,
+  ): Promise<void> => {
+    await api.delete('/proactivity/push/native/register', {
+      data: registration,
+      headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+    })
   },
   sendTest: async (): Promise<void> => {
     await api.post('/proactivity/test-notification')

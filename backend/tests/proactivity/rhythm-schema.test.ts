@@ -1,4 +1,9 @@
-import { RhythmSchema, PushSubscriptionSchema, TOUCHPOINT_TYPES } from '../../src/proactivity'
+import {
+  NativePushRegistrationSchema,
+  RhythmSchema,
+  PushSubscriptionSchema,
+  TOUCHPOINT_TYPES,
+} from '../../src/proactivity'
 
 describe('RhythmSchema', () => {
   it('fills full defaults from an empty object', () => {
@@ -34,5 +39,26 @@ describe('PushSubscriptionSchema', () => {
     })
     expect(parsed.endpoint).toBe('https://push.example/abc')
     expect(parsed.keys.p256dh).toBe('KEY')
+  })
+})
+
+describe('NativePushRegistrationSchema', () => {
+  it('accepts only the HealthyFlow iOS app and a hexadecimal APNs token', () => {
+    const registration = NativePushRegistrationSchema.parse({
+      platform: 'ios',
+      deviceToken: 'A'.repeat(64),
+      appId: 'app.healthyflow.mobile',
+    })
+    expect(registration.deviceToken).toHaveLength(64)
+    expect(() => NativePushRegistrationSchema.parse({
+      platform: 'android',
+      deviceToken: 'A'.repeat(64),
+      appId: 'app.healthyflow.mobile',
+    })).toThrow()
+    expect(() => NativePushRegistrationSchema.parse({
+      platform: 'ios',
+      deviceToken: 'A'.repeat(64),
+      appId: 'com.attacker.app',
+    })).toThrow()
   })
 })

@@ -22,6 +22,7 @@ import {
   HeartPulse,
   Plus,
   RotateCcw,
+  Share2,
   Sparkles,
   Trash2,
   Utensils,
@@ -75,6 +76,8 @@ import {
   readDemoAcquisition,
 } from '../demoPersonas'
 import { analytics } from '../lib/analytics'
+import { completionHaptic, shareFromHealthyFlow } from '../lib/native'
+import { updateTodayWidget } from '../lib/widget'
 
 const touchpointCtas: Record<TouchpointType, { title: string; body: string; button: string }> = {
   morning: {
@@ -984,6 +987,13 @@ export default function TodayPage() {
   )
 
   useEffect(() => {
+    if (!isViewingToday || !daySummary) return
+    void updateTodayWidget(daySummary).catch((error) => {
+      console.error('[widget] could not update Today widget:', error)
+    })
+  }, [daySummary, isViewingToday])
+
+  useEffect(() => {
     const syncTimedTasks = async () => {
       if (isLoading || tasksData.length === 0) return
       const date = format(selectedDate, 'yyyy-MM-dd')
@@ -1013,6 +1023,7 @@ export default function TodayPage() {
   const completeTaskMutation = useMutation({
     mutationFn: taskService.completeTask,
     onSuccess: (completedTask) => {
+      void completionHaptic()
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
@@ -1260,6 +1271,29 @@ export default function TodayPage() {
     setSelectedDate(new Date())
   }
 
+  const handleShareDay = async () => {
+    if (!daySummary) return
+    const addressed = daySummary.completion.addressed ?? daySummary.completion.completed
+    const text = daySummary.completion.total === 0
+      ? 'I shaped a clear day in HealthyFlow.'
+      : `I addressed ${addressed} of ${daySummary.completion.total} Items in HealthyFlow today.`
+    try {
+      await shareFromHealthyFlow({
+        title: 'My HealthyFlow day',
+        text,
+        url: 'https://healthyflow.app',
+      })
+      analytics.capture('day_progress_shared', {
+        addressed,
+        total: daySummary.completion.total,
+      })
+    } catch (error) {
+      if ((error as { name?: string })?.name !== 'AbortError') {
+        toast.error('Could not share this day')
+      }
+    }
+  }
+
   const resetDaySwipe = () => {
     daySwipeGesture.current = null
     setIsDaySwipeTracking(false)
@@ -1467,6 +1501,15 @@ export default function TodayPage() {
               <Sparkles className="h-4 w-4" />
               <span>Talk</span>
             </Link>
+            <button
+              type="button"
+              onClick={handleShareDay}
+              disabled={!daySummary}
+              aria-label="Share today’s progress"
+              className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-card/50 text-ink-soft transition-colors hover:border-line-strong hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Share2 className="h-[17px] w-[17px]" />
+            </button>
             <Link
               to="/add"
               aria-label="Add"

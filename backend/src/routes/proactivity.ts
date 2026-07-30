@@ -4,6 +4,7 @@ import { db } from '../supabase-client'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 import {
   RhythmSchema,
+  NativePushRegistrationSchema,
   PushSubscriptionSchema,
   TOUCHPOINT_TYPES,
   buildKickoffMessage,
@@ -66,6 +67,39 @@ router.delete('/push/subscribe', authenticateToken, async (req: AuthRequest, res
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues })
   try {
     await db.deletePushSubscriptionByEndpoint(parsed.data.endpoint)
+    res.json({ ok: true })
+  } catch {
+    res.status(500).json({ error: 'Database error' })
+  }
+})
+
+// POST /api/proactivity/push/native/register
+router.post('/push/native/register', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = NativePushRegistrationSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues })
+  try {
+    await db.addNativePushDevice({
+      user_id: req.user.userId,
+      device_token: parsed.data.deviceToken,
+      platform: parsed.data.platform,
+      app_id: parsed.data.appId,
+    })
+    res.status(201).json({ ok: true })
+  } catch {
+    res.status(500).json({ error: 'Database error' })
+  }
+})
+
+// DELETE /api/proactivity/push/native/register
+router.delete('/push/native/register', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = NativePushRegistrationSchema.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues })
+  try {
+    await db.deleteNativePushDevice(
+      req.user.userId,
+      parsed.data.deviceToken,
+      parsed.data.appId,
+    )
     res.json({ ok: true })
   } catch {
     res.status(500).json({ error: 'Database error' })

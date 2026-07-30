@@ -9,6 +9,9 @@ jest.mock('../../src/supabase-client', () => ({
     addPushSubscription: jest.fn(),
     deletePushSubscriptionByEndpoint: jest.fn(),
     listPushSubscriptions: jest.fn(),
+    addNativePushDevice: jest.fn(),
+    deleteNativePushDevice: jest.fn(),
+    listNativePushDevices: jest.fn(),
   },
 }))
 jest.mock('../../src/daily-context', () => ({
@@ -25,7 +28,10 @@ const mockDb = db as unknown as Record<string, jest.Mock>
 const mockBuildDailyContext = buildDailyContext as jest.Mock
 const TOKEN = `Bearer ${jwt.sign({ userId: 'u1' }, process.env.JWT_SECRET!)}`
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockDb.listNativePushDevices.mockResolvedValue([])
+})
 
 describe('proactivity routes', () => {
   it('GET /rhythm returns parsed defaults', async () => {
@@ -72,6 +78,56 @@ describe('proactivity routes', () => {
       .send({ endpoint: 'https://push/x' })
     expect(res.status).toBe(200)
     expect(mockDb.deletePushSubscriptionByEndpoint).toHaveBeenCalledWith('https://push/x')
+  })
+
+  it('POST /push/native/register stores an authenticated iOS device', async () => {
+    const deviceToken = 'a'.repeat(64)
+    const res = await request(app)
+      .post('/api/proactivity/push/native/register')
+      .set('Authorization', TOKEN)
+      .send({
+        platform: 'ios',
+        deviceToken,
+        appId: 'app.healthyflow.mobile',
+      })
+    expect(res.status).toBe(201)
+    expect(mockDb.addNativePushDevice).toHaveBeenCalledWith({
+      user_id: 'u1',
+      device_token: deviceToken,
+      platform: 'ios',
+      app_id: 'app.healthyflow.mobile',
+    })
+  })
+
+  it('DELETE /push/native/register scopes removal to the authenticated user', async () => {
+    const deviceToken = 'b'.repeat(64)
+    const res = await request(app)
+      .delete('/api/proactivity/push/native/register')
+      .set('Authorization', TOKEN)
+      .send({
+        platform: 'ios',
+        deviceToken,
+        appId: 'app.healthyflow.mobile',
+      })
+    expect(res.status).toBe(200)
+    expect(mockDb.deleteNativePushDevice).toHaveBeenCalledWith(
+      'u1',
+      deviceToken,
+      'app.healthyflow.mobile',
+    )
+  })
+
+  it('POST /push/native/register rejects a malformed or foreign app registration', async () => {
+    const res = await request(app)
+      .post('/api/proactivity/push/native/register')
+      .set('Authorization', TOKEN)
+      .send({
+        platform: 'ios',
+        deviceToken: 'not-a-device-token',
+        appId: 'com.attacker.app',
+      })
+    expect(res.status).toBe(400)
+    expect(mockDb.addNativePushDevice).not.toHaveBeenCalled()
   })
 
   it('POST /test-notification sends a push and returns ok', async () => {

@@ -1,4 +1,10 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import {
+  appRouterBasename,
+  isNativeApp,
+  nativeOAuthRedirectUrl,
+  openNativeBrowser,
+} from '../lib/native'
 
 const STORAGE_KEY = 'healthyflow-google-oauth'
 const PENDING_KEY = 'healthyflow-google-oauth-pending'
@@ -96,14 +102,21 @@ export async function beginGoogleOAuth(invite?: string, returnTo?: string) {
   } satisfies PendingGoogleOAuth))
 
   try {
-    const { error } = await getClient().auth.signInWithOAuth({
+    const { data, error } = await getClient().auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/app?oauth=callback`,
+        redirectTo: isNativeApp
+          ? nativeOAuthRedirectUrl
+          : `${window.location.origin}/app?oauth=callback`,
         queryParams: { prompt: 'select_account' },
+        skipBrowserRedirect: isNativeApp,
       },
     })
     if (error) throw error
+    if (isNativeApp) {
+      if (!data.url) throw new Error('Missing Google OAuth provider URL')
+      await openNativeBrowser(data.url)
+    }
   } catch (error) {
     window.localStorage.removeItem(PENDING_KEY)
     if (error instanceof GoogleOAuthCallbackError) throw error
@@ -192,7 +205,7 @@ export function replaceOAuthCallbackUrl(invite?: string, returnTo?: string) {
       return
     }
   }
-  const next = new URL('/app', window.location.origin)
+  const next = new URL(appRouterBasename, window.location.origin)
   if (invite) next.searchParams.set('invite', invite)
   window.history.replaceState({}, '', `${next.pathname}${next.search}`)
 }

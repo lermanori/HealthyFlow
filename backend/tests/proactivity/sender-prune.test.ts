@@ -9,20 +9,27 @@ jest.mock('../../src/supabase-client', () => ({
   db: {
     listPushSubscriptions: jest.fn(),
     deletePushSubscriptionByEndpoint: jest.fn(),
+    listNativePushDevices: jest.fn(),
+    deleteNativePushDevice: jest.fn(),
   },
 }))
 
 import webpush from 'web-push'
 import { db } from '../../src/supabase-client'
-import { sendPushToUser } from '../../src/proactivity'
+import { proactivityInternals, sendPushToUser } from '../../src/proactivity'
 
 const mockWebpush = webpush as jest.Mocked<typeof webpush>
 const mockDb = db as unknown as {
   listPushSubscriptions: jest.Mock
   deletePushSubscriptionByEndpoint: jest.Mock
+  listNativePushDevices: jest.Mock
+  deleteNativePushDevice: jest.Mock
 }
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockDb.listNativePushDevices.mockResolvedValue([])
+})
 
 describe('sendPushToUser', () => {
   it('sends to every subscription with the given payload', async () => {
@@ -70,5 +77,28 @@ describe('sendPushToUser', () => {
 
     await sendPushToUser('u1', { title: 'x', body: 'y', url: '/' })
     expect(mockDb.deletePushSubscriptionByEndpoint).not.toHaveBeenCalled()
+  })
+
+  it('delivers the same payload to registered native devices', async () => {
+    mockDb.listPushSubscriptions.mockResolvedValue([])
+    mockDb.listNativePushDevices.mockResolvedValue([
+      {
+        device_token: 'a'.repeat(64),
+        platform: 'ios',
+        app_id: 'app.healthyflow.mobile',
+      },
+    ])
+    const apnsSpy = jest
+      .spyOn(proactivityInternals, 'sendApnsNotification')
+      .mockResolvedValue()
+    const payload = { title: 'Plan', body: 'Ready?', url: '/app/talk?kickoff=morning' }
+
+    await sendPushToUser('u1', payload)
+
+    expect(apnsSpy).toHaveBeenCalledWith({
+      device_token: 'a'.repeat(64),
+      platform: 'ios',
+      app_id: 'app.healthyflow.mobile',
+    }, payload)
   })
 })

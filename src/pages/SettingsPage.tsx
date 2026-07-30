@@ -10,6 +10,7 @@ import toast from 'react-hot-toast'
 import api, { accountService, ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DAILY_SIGNALS_QUERY_KEY, DailyTouchpointRhythm, DAY_SUMMARY_QUERY_KEY, McpOAuthGrant, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
 import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
+import { isNativeApp } from '../lib/native'
 import Switch from '../components/Switch'
 import DeleteAccountDialog from '../components/DeleteAccountDialog'
 import { MODULE_PRESENTATIONS } from '../modulePresentation'
@@ -608,20 +609,24 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                 {isOutOfCredits ? 'You are out of AI credits' : 'You are running low on AI credits'}
               </p>
               <p className="mt-1 text-sm text-ink-soft">
-                Subscribe for {monthlyCredits} credits each month, or buy {topUpCredits} non-expiring credits for ${topUpPrice}.
+                {isNativeApp
+                  ? 'AI credit purchases are not yet available in the iOS app.'
+                  : `Subscribe for ${monthlyCredits} credits each month, or buy ${topUpCredits} non-expiring credits for $${topUpPrice}.`}
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('subscribe')}>
-                  Subscribe
-                </button>
-                <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('topup')}>
-                  Buy {topUpCredits} · ${topUpPrice}
-                </button>
-              </div>
+              {!isNativeApp && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('subscribe')}>
+                    Subscribe
+                  </button>
+                  <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('topup')}>
+                    Buy {topUpCredits} · ${topUpPrice}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          {creditSummary && (
+          {creditSummary && !isNativeApp && (
             <div className="grid grid-cols-2 gap-3 text-sm">
               <div className="rounded-lg border border-line/70 bg-sunken/25 p-3">
                 <p className="text-ink-muted">Monthly plan</p>
@@ -689,7 +694,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         </div>
       </div>
 
-      {contactFlow && (
+      {contactFlow && !isNativeApp && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button
             type="button"

@@ -87,6 +87,7 @@ export type AnalyticsEvents = {
   achievement_recorded: void
   google_calendar_connected: void
   pwa_installed: void
+  day_progress_shared: { addressed: number; total: number }
 
   // Monetization
   credits_exhausted: void

@@ -7,6 +7,7 @@ import { MotionConfig } from 'framer-motion'
 import App from './App.tsx'
 import { AuthProvider } from './context/AuthContext.tsx'
 import { analytics } from './lib/analytics'
+import { appRouterBasename, initializeNativeApp, isNativeApp } from './lib/native'
 import PageViewTracker from './lib/analytics/PageViewTracker'
 import './index.css'
 
@@ -24,7 +25,7 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter basename="/app">
+      <BrowserRouter basename={appRouterBasename}>
         <PageViewTracker />
         <AuthProvider>
           <MotionConfig reducedMotion="user">
@@ -51,7 +52,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 
 const isViteDevServer = import.meta.env.DEV
 
-if ('serviceWorker' in navigator && !isViteDevServer) {
+if ('serviceWorker' in navigator && !isViteDevServer && !isNativeApp) {
   let refreshingForServiceWorker = false
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (refreshingForServiceWorker) return
@@ -84,3 +85,17 @@ if ('serviceWorker' in navigator && !isViteDevServer) {
     import('./lib/push').then(({ ensurePushSubscription }) => ensurePushSubscription())
   })
 }
+
+if (isNativeApp) {
+  window.addEventListener('load', () => {
+    import('./lib/push')
+      .then(({ ensurePushSubscription }) => ensurePushSubscription())
+      .catch((error) => {
+        console.error('Native push registration check failed:', error)
+      })
+  })
+}
+
+void initializeNativeApp().catch((error) => {
+  console.error('Native app initialization failed:', error)
+})

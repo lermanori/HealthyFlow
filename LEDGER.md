@@ -1,3 +1,9 @@
+### 2026-07-30 14:25 — `codex/ios-capacitor`
+
+Established HealthyFlow as a working Capacitor iOS 17 app while keeping the React product and web deployment intact. The native boundary now covers deep links, Google OAuth handoff, APNs, notification permissions, haptics, sharing, platform styling, and a privacy-safe WidgetKit Today widget backed by the canonical DaySummary. The complete frontend and backend gates pass, the app and widget build and run in the iPhone simulator, and the remaining Apple signing, Sign in with Apple, StoreKit, and physical-device steps are documented for TestFlight.
+
+---
+
 ### 2026-07-30 13:29 — `main`
 
 Production protocol verification exposed that Railway's Node 18 default lacks the web-crypto runtime required by the current MCP SDK, causing unauthenticated tool calls to fail before returning their OAuth challenge. Raised the repository runtime floor to Node 20 and pinned Railway's build to Node 22 so the deployed MCP server uses a supported runtime.
