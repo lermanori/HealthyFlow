@@ -1,3 +1,9 @@
+### 2026-07-30 10:55 — `claude/healthyflow-landing-page-8c5224`
+
+Rebuilt `public/landing.html` to the "HealthyFlow Landing" Claude Design comp: warm paper canvas with a full night palette and a persisted day/night toggle, Space Grotesk display type, and an editorial layout (step cards, alternating showcase rows with hairline numbered lists, bordered AI panel, hairline capability grid, dark closing band and footer). The existing product screenshots were kept rather than regenerated — the mobile Today shot sits in the design's phone bezel and the Talk/Health/Workouts desktop shots sit in a landscape variant of it. All acquisition plumbing carried over unchanged (PostHog, signup-status offer swapping, CTA placements, waitlist POST, demo-CTA UTM forwarding), verified in-browser at 1280px and 375px in both themes with no console errors and no horizontal overflow.
+
+---
+
 ### 2026-07-29 14:59 — `codex/waitlist-seat-accounting`
 
 Closed the signup-capacity accounting gap: public signups now own an explicit seat, failed account creation returns the reservation, and future account deletion removes matching waitlist/invite state while releasing only seats actually consumed through public registration. The admin surface can reconcile both claimed and total seats, validates impossible combinations, and previews waitlist cleanup plus seat release before permanent deletion. Existing orphaned registered waitlist rows are repaired by the migration, and the change passes 482 backend tests, 50 frontend tests, both production builds, lint, and a mocked browser walkthrough.
