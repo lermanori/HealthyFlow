@@ -1,3 +1,9 @@
+### 2026-07-30 16:32 — `main`
+
+Committed the Siri Capture planning artifacts that were sitting untracked in the working copy: the mission brief, the curated Apple App Intents resource list, and the first lesson page on the capture data flow. These were written during a separate planning session and were at risk of being lost or swept into an unrelated deploy upload; they now live on main alongside the iOS release. No application code changed.
+
+---
+
 ### 2026-07-30 15:56 — `main`
 
 Integrated HealthyFlow's iOS App Store readiness work with the latest ChatGPT MCP OAuth registration changes already on the remote main branch. Both streams are now preserved together without overwriting either release path, leaving main ready to publish.
