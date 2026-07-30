@@ -6,7 +6,6 @@ import {
   Calendar,
   Settings,
   LogOut,
-  Brain,
   Menu,
   X,
   Coins,
@@ -17,6 +16,7 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import PWAInstallPrompt from './PWAInstallPrompt'
+import AppMark from './AppMark'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSettings } from '../hooks/useSettings'
 import type { ModuleNoticeState } from '../App'
@@ -180,9 +180,7 @@ export default function Layout({ children }: LayoutProps) {
               {/* Header */}
               <div className="flex items-center justify-between p-6 border-b border-line/50">
                 <div className="flex items-center space-x-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-control bg-action">
-                      <Brain className="w-6 h-6 text-white" />
-                  </div>
+                  <AppMark size={40} />
                   <div>
                     <h1 id="mobile-navigation-title" className="text-xl font-bold text-ink">HealthyFlow navigation</h1>
                     <p className="text-xs text-ink-muted">Plan your day. Track what matters.</p>
@@ -297,9 +295,7 @@ export default function Layout({ children }: LayoutProps) {
             </button>
             
             <div className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-control bg-action">
-                  <Brain className="w-4 h-4 text-white" />
-              </div>
+              <AppMark size={32} />
               <h1 className="text-lg font-bold text-ink">HealthyFlow</h1>
             </div>
             
@@ -325,9 +321,7 @@ export default function Layout({ children }: LayoutProps) {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center h-16">
               <div className="flex items-center space-x-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-control bg-action">
-                    <Brain className="w-6 h-6 text-white" />
-                </div>
+                <AppMark size={40} />
                 <div>
                   <h1 className="text-xl font-bold text-ink">HealthyFlow</h1>
                   <p className="text-xs text-ink-muted">Plan your day. Track what matters.</p>

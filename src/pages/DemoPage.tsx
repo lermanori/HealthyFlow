@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import {
   ArrowRight,
-  Brain,
   CheckCircle2,
   Clock,
   Mail,
@@ -21,6 +20,7 @@ import {
   type DemoAcquisition,
   type DemoPersonaId,
 } from '../demoPersonas'
+import AppMark from '../components/AppMark'
 import { analytics } from '../lib/analytics'
 import { waitlistService, type SignupStatus } from '../services/api'
 
@@ -28,9 +28,7 @@ function DemoBrand({ action, actionLabel }: { action: () => void; actionLabel: s
   return (
     <header className="flex items-center justify-between gap-4 border-b border-line/70 px-5 py-5 sm:px-8">
       <div className="flex items-center gap-3">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-action">
-          <Brain className="h-6 w-6 text-on-action" />
-        </div>
+        <AppMark size={44} />
         <div>
           <p className="text-lg font-bold text-ink">HealthyFlow</p>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted">Value preview</p>

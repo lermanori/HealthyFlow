@@ -50,6 +50,14 @@
   --week-calendar: 56 189 248;
   --mobile-dock-content-height: 4.5rem;
   --mobile-dock-height: calc(var(--mobile-dock-content-height) + env(safe-area-inset-bottom));
+  /* Brand mark ("2a Core"). Deliberately outside the action/accent ramp: the mark
+     is the app icon, and it has to stay pixel-identical to the installed icon in
+     public/icons rather than drift with the product palette. The dark theme gets
+     the Ink tile, [data-theme='white'] the Paper tile. */
+  --mark-tile: 26 25 23;
+  --mark-ring: 70 101 90;
+  --mark-arc: 247 245 240;
+  --mark-dot: 228 237 231;
 }
 
 [data-theme='white'] {
@@ -102,6 +110,11 @@
   --week-meal: 190 18 60;
   --week-workout: 180 83 9;
   --week-calendar: 3 105 161;
+  /* Paper tile — the light-mode app icon. */
+  --mark-tile: 247 245 240;
+  --mark-ring: 228 237 231;
+  --mark-arc: 26 25 23;
+  --mark-dot: 70 101 90;
 }
 
 @layer base {
