@@ -12,7 +12,7 @@ export default function OfflineNotification() {
           initial={{ opacity: 0, y: -50 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -50 }}
-          className="fixed top-0 left-0 right-0 z-50 bg-state-danger text-white p-3 flex items-center justify-center"
+          className="fixed top-0 left-0 right-0 z-50 bg-state-danger text-on-action p-3 flex items-center justify-center"
         >
           <WifiOff className="w-4 h-4 mr-2" />
           <span className="text-sm font-medium">You're offline. Some features may be limited.</span>
@@ -24,7 +24,7 @@ export default function OfflineNotification() {
           initial={{ opacity: 0, y: -50 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -50 }}
-          className="fixed top-0 left-0 right-0 z-50 bg-state-success text-white p-3 flex items-center justify-center"
+          className="fixed top-0 left-0 right-0 z-50 bg-state-success text-on-action p-3 flex items-center justify-center"
         >
           <Wifi className="w-4 h-4 mr-2" />
           <span className="text-sm font-medium">You're back online! Syncing data...</span>

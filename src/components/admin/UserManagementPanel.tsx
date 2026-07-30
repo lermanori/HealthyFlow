@@ -173,7 +173,7 @@ function DeletionDialog({
           <button type="button" className="btn-secondary" onClick={close} disabled={pending}>Cancel</button>
           <button
             type="button"
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-control bg-state-danger px-4 py-2 font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-control bg-state-danger px-4 py-2 font-semibold text-on-action transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45"
             disabled={!preview.canDelete || !preview.confirmationPhrase || confirmation !== preview.confirmationPhrase || pending}
             onClick={confirm}
           >

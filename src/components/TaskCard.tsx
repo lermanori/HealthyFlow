@@ -224,7 +224,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
           aria-label={task.type === 'habit' ? `Check in ${task.title}` : task.completed ? 'Uncheck task' : 'Check task'}
           className="-m-3 flex h-11 w-11 flex-shrink-0 cursor-pointer items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
         >
-          <span aria-hidden="true" className={`flex items-center justify-center rounded-full border-2 transition-colors ${compact ? 'h-4 w-4 sm:h-5 sm:w-5' : 'h-5 w-5'} ${task.completed ? 'border-state-success bg-state-success text-white' : 'border-line-strong group-hover:border-accent'}`}>
+          <span aria-hidden="true" className={`flex items-center justify-center rounded-full border-2 transition-colors ${compact ? 'h-4 w-4 sm:h-5 sm:w-5' : 'h-5 w-5'} ${task.completed ? 'border-state-success bg-state-success text-on-action' : 'border-line-strong group-hover:border-accent'}`}>
             {task.type === 'habit' ? <RotateCcw className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} /> : task.completed && <Check className={compact ? 'h-2.5 w-2.5' : 'h-3 w-3'} />}
           </span>
         </button>

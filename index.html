@@ -8,7 +8,7 @@
     <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192x192.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>HealthyFlow - Smart Daily Planner</title>
-    <meta name="theme-color" content="#0f172a" />
+    <meta name="theme-color" content="#16181C" />
     
     <!-- Apply saved theme before render to avoid flash-of-wrong-theme -->
     <script>
@@ -18,7 +18,7 @@
           document.documentElement.setAttribute('data-theme', 'white');
         }
         var themeMeta = document.querySelector('meta[name="theme-color"]');
-        if (themeMeta) themeMeta.setAttribute('content', t === 'white' ? '#f8fafc' : '#0f172a');
+        if (themeMeta) themeMeta.setAttribute('content', t === 'white' ? '#F7F5F0' : '#16181C');
       })();
     </script>
 
@@ -47,16 +47,16 @@
     <style>
       html {
         -webkit-text-size-adjust: 100%;
-        background: #0f172a;
+        background: #16181C;
       }
 
       body {
-        background: #0f172a;
+        background: #16181C;
       }
 
       html[data-theme='white'],
       html[data-theme='white'] body {
-        background: #f8fafc;
+        background: #F7F5F0;
       }
       
       /* Prevent pull-to-refresh */
@@ -71,7 +71,7 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: #0f172a;
+        background: #16181C;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -81,7 +81,7 @@
       }
 
       html[data-theme='white'] #loading-screen {
-        background: #f8fafc;
+        background: #F7F5F0;
       }
       
       /* Brand mark, duplicated from src/components/AppMark.tsx because the splash
@@ -106,7 +106,7 @@
       }
       
       .loading-text {
-        color: #f8fafc;
+        color: #F2F3F5;
         font-family: system-ui, -apple-system, sans-serif;
         font-size: 24px;
         font-weight: 700;
@@ -114,7 +114,7 @@
       }
       
       .loading-subtitle {
-        color: #94a3b8;
+        color: #878E99;
         font-family: system-ui, -apple-system, sans-serif;
         font-size: 14px;
         margin-bottom: 30px;
@@ -123,23 +123,23 @@
       .loading-spinner {
         width: 40px;
         height: 40px;
-        border: 3px solid rgba(34, 211, 238, 0.22);
-        border-top: 3px solid #22d3ee;
+        border: 3px solid rgba(169, 199, 182, 0.22);
+        border-top: 3px solid #A9C7B6;
         border-radius: 50%;
         animation: spin 1s linear infinite;
       }
       
       html[data-theme='white'] .loading-text {
-        color: #0f172a;
+        color: #1A1917;
       }
 
       html[data-theme='white'] .loading-subtitle {
-        color: #64748b;
+        color: #6B675C;
       }
 
       html[data-theme='white'] .loading-spinner {
-        border-color: rgba(8, 112, 140, 0.18);
-        border-top-color: #08708c;
+        border-color: rgba(70, 101, 90, 0.18);
+        border-top-color: #46655A;
       }
       
       @keyframes spin {

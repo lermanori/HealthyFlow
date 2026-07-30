@@ -226,7 +226,7 @@ function CalendarEventBlock({
           className="-m-3 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           aria-label={event.completed ? 'Uncheck calendar event' : 'Check calendar event'}
         >
-          <span aria-hidden="true" className={`flex h-4 w-4 items-center justify-center rounded-full border-2 transition-colors sm:h-5 sm:w-5 ${event.completed ? 'border-state-success bg-state-success text-white' : 'border-line-strong'}`}>
+          <span aria-hidden="true" className={`flex h-4 w-4 items-center justify-center rounded-full border-2 transition-colors sm:h-5 sm:w-5 ${event.completed ? 'border-state-success bg-state-success text-on-action' : 'border-line-strong'}`}>
             {event.completed && <Check className="h-3 w-3" />}
           </span>
         </button>

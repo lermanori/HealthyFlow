@@ -76,7 +76,7 @@ export default function DeleteAccountDialog({ onClose, onDeleted, onExport, requ
             <input className="input-field font-mono" autoComplete="off" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} disabled={pending} />
           </label>
           {error && <p className="rounded-lg border border-state-danger/30 bg-state-danger/10 p-3 text-sm text-state-danger" role="alert">{error}</p>}
-          <button type="button" disabled={pending || (requiresPassword && password.length === 0) || confirmation !== 'DELETE'} onClick={() => void removeAccount()} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-state-danger px-4 py-3 font-semibold text-white transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-state-danger disabled:cursor-not-allowed disabled:opacity-45">
+          <button type="button" disabled={pending || (requiresPassword && password.length === 0) || confirmation !== 'DELETE'} onClick={() => void removeAccount()} className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-state-danger px-4 py-3 font-semibold text-on-action transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-state-danger disabled:cursor-not-allowed disabled:opacity-45">
             {pending && <Loader2 className="h-4 w-4 animate-spin" />}
             {pending ? 'Deleting account…' : 'Delete my account'}
           </button>

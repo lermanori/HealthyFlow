@@ -8,35 +8,35 @@
    work in both themes without page-specific color branches. */
 :root {
   color-scheme: dark;
-  --surface-page: 15 23 42;
-  --surface-card: 17 24 39;
-  --surface-raised: 30 41 59;
-  --surface-input: 15 23 42;
-  --surface-sunken: 2 6 23;
-  --surface-overlay: 17 24 39;
-  --text-primary: 248 250 252;
-  --text-secondary: 203 213 225;
-  --text-muted: 148 163 184;
-  --text-disabled: 100 116 139;
-  --border-default: 51 65 85;
-  --border-strong: 71 85 105;
-  --action-primary: 14 116 144;
-  --action-primary-hover: 21 94 117;
-  --action-accent: 34 211 238;
-  --action-on-primary: 255 255 255;
-  --focus-ring: 34 211 238;
-  --state-success: 52 211 153;
-  --state-warning: 251 191 36;
-  --state-danger: 251 113 133;
-  --state-info: 56 189 248;
+  --surface-page: 22 24 28;
+  --surface-card: 28 31 36;
+  --surface-raised: 28 31 36;
+  --surface-input: 16 18 20;
+  --surface-sunken: 16 18 20;
+  --surface-overlay: 35 39 46;
+  --text-primary: 242 243 245;
+  --text-secondary: 167 173 183;
+  --text-muted: 135 142 153;
+  --text-disabled: 86 92 102;
+  --border-default: 36 39 45;
+  --border-strong: 58 64 72;
+  --action-primary: 169 199 182;
+  --action-primary-hover: 192 216 200;
+  --action-accent: 183 210 194;
+  --action-on-primary: 20 32 26;
+  --focus-ring: 169 199 182;
+  --state-success: 169 199 182;
+  --state-warning: 214 154 92;
+  --state-danger: 217 115 106;
+  --state-info: 167 173 183;
   --category-health: 52 211 153;
   --category-work: 56 189 248;
   --category-personal: 192 132 252;
   --category-fitness: 251 191 36;
   --category-grocery: 45 212 191;
   --category-nutrition: 251 113 133;
-  --shadow-section: 0 1px 2px rgb(2 6 23 / 0.28);
-  --shadow-overlay: 0 18px 45px rgb(2 6 23 / 0.42);
+  --shadow-section: 0 1px 2px rgb(2 4 6 / 0.28);
+  --shadow-overlay: 0 18px 45px rgb(2 4 6 / 0.42);
   --radius-control: 0.625rem;
   --radius-section: 0.875rem;
   --radius-overlay: 1rem;
@@ -62,48 +62,44 @@
 
 [data-theme='white'] {
   color-scheme: light;
-  --surface-page: 248 250 252;
-  --surface-card: 255 255 255;
-  --surface-raised: 241 245 249;
-  --surface-input: 255 255 255;
-  --surface-sunken: 241 245 249;
-  --surface-overlay: 255 255 255;
-  --text-primary: 15 23 42;
-  --text-secondary: 51 65 85;
-  /* Was 100 116 139 (slate-500), which lands at 4.38:1 on the light panel
-     surfaces — just under AA, and muted text is mostly 12px so the large-text
-     allowance never applies. Darkened just enough for headroom (5.01:1) rather
-     than dropped to slate-600, which would visibly flatten the muted/secondary
-     distinction. */
-  --text-muted: 92 107 128;
-  --text-disabled: 148 163 184;
-  --border-default: 226 232 240;
-  --border-strong: 203 213 225;
-  --action-primary: 8 112 140;
-  --action-primary-hover: 14 116 144;
-  /* Darker than --action-primary on purpose. `accent` is the only token used as
-     BOTH the text colour and the tint behind it (bg-accent/5..20 + text-accent),
-     and on a light ground those two converge: at the old 8 112 140, accent text
-     on bg-accent/15 measured 4.31:1 — under the 4.5 AA floor. Darkening the text
-     side wins more than the tint loses, so every tint step now clears AA
-     (5.32:1 at bg-accent/20, 6.79:1 at bg-accent/5).
-     Solid accent buttons are unaffected in the safe direction: white
-     --action-on-primary gains contrast against a darker fill. */
-  --action-accent: 6 90 112;
-  --action-on-primary: 255 255 255;
-  --focus-ring: 8 112 140;
-  --state-success: 4 120 87;
-  --state-warning: 180 83 9;
-  --state-danger: 190 18 60;
-  --state-info: 3 105 161;
+  --surface-page: 247 245 240;
+  --surface-card: 255 253 249;
+  --surface-raised: 255 253 249;
+  --surface-input: 255 253 249;
+  --surface-sunken: 239 235 227;
+  --surface-overlay: 255 253 249;
+  --text-primary: 26 25 23;
+  --text-secondary: 85 82 75;
+  /* Muted text is mostly 12px, so the large-text contrast allowance never
+     applies and this has to clear 4.5:1 on canvas, card and sunken alike. */
+  --text-muted: 107 103 92;
+  --text-disabled: 155 150 137;
+  --border-default: 226 220 209;
+  --border-strong: 207 199 184;
+  --action-primary: 70 101 90;
+  --action-primary-hover: 55 84 74;
+  /* The design system's `accent-text`, deliberately darker than --action-primary
+     (its `accent`). `accent` is the only token used as BOTH the text colour and
+     the tint behind it (bg-accent/5..20 + text-accent), and on a light ground
+     those two converge. Splitting the roles is what keeps every tint step clear
+     of the 4.5:1 floor — 5.30–7.62:1 across 5/10/15/20% over all three grounds.
+     Fills, rules, icons and marks use --action-primary; glyphs on a wash use
+     this. */
+  --action-accent: 56 84 74;
+  --action-on-primary: 247 245 240;
+  --focus-ring: 35 65 58;
+  --state-success: 70 101 90;
+  --state-warning: 149 87 30;
+  --state-danger: 154 59 50;
+  --state-info: 85 82 75;
   --category-health: 4 120 87;
   --category-work: 3 105 161;
   --category-personal: 126 34 206;
   --category-fitness: 180 83 9;
   --category-grocery: 15 118 110;
   --category-nutrition: 190 18 60;
-  --shadow-section: 0 1px 2px rgb(15 23 42 / 0.07);
-  --shadow-overlay: 0 18px 45px rgb(15 23 42 / 0.16);
+  --shadow-section: 0 1px 2px rgb(26 25 23 / 0.07);
+  --shadow-overlay: 0 18px 45px rgb(26 25 23 / 0.16);
   --week-task: 8 112 140;
   --week-habit: 126 34 206;
   --week-grocery: 4 120 87;
