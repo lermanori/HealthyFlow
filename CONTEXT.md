@@ -111,11 +111,13 @@ password account instead of creating a duplicate; genuinely new accounts still
 pass through the public-slot or Invitation gate.
 
 **MCP OAuth connection**:
-An external MCP client's user-authorized access to HealthyFlow. ChatGPT discovers
-the HealthyFlow authorization server from the `/mcp` resource, identifies itself
-with Client ID Metadata Documents (CIMD), and uses authorization code + PKCE.
-The durable record is a revocable grant; plaintext authorization codes and
-refresh tokens are never stored.
+An external MCP client's user-authorized access to HealthyFlow. The client
+discovers the HealthyFlow authorization server from the MCP resource, identifies
+itself by dynamic client registration (RFC 7591, what ChatGPT uses) or a Client
+ID Metadata Document (CIMD), and uses authorization code + PKCE. Only public
+clients are accepted, so no client secret is ever issued. The durable record is
+a revocable grant; plaintext authorization codes and refresh tokens are never
+stored.
 
 **Invitation**:
 A time-limited signup token tied to a Waitlist entry. Invitation state is

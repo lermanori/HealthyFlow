@@ -4,9 +4,21 @@ import request from 'supertest'
 
 let storedCode: Record<string, any> | null = null
 let storedGrant: Record<string, any> | null = null
+let storedClients: Map<string, Record<string, any>> = new Map()
 
 jest.mock('../src/supabase-client', () => ({
   db: {
+    createMcpOAuthClient: jest.fn(async (row) => {
+      const stored = {
+        ...row,
+        client_id_issued_at: new Date().toISOString(),
+      }
+      storedClients.set(row.client_id, stored)
+      return stored
+    }),
+    getMcpOAuthClient: jest.fn(
+      async (clientId) => storedClients.get(clientId) ?? null
+    ),
     createMcpOAuthAuthorizationCode: jest.fn(async (row) => {
       storedCode = { ...row, consumed_at: null }
       return { id: row.id }
@@ -114,6 +126,7 @@ function mcpMessage(response: request.Response) {
 beforeEach(() => {
   storedCode = null
   storedGrant = null
+  storedClients = new Map()
   clearMcpOAuthClientCache()
   global.fetch = jest.fn(async () =>
     new Response(JSON.stringify(clientMetadata()), {
@@ -144,9 +157,25 @@ describe('HealthyFlow MCP OAuth', () => {
       authorization_endpoint: 'http://localhost:3001/oauth/authorize',
       token_endpoint: 'http://localhost:3001/oauth/token',
       revocation_endpoint: 'http://localhost:3001/oauth/revoke',
+      registration_endpoint: 'http://localhost:3001/oauth/register',
       code_challenge_methods_supported: ['S256'],
       client_id_metadata_document_supported: true,
     })
+  })
+
+  // RFC 9728 derives this path from the resource itself. Serving the document
+  // under a path that is not the resource is what made ChatGPT abandon the flow.
+  it('serves resource metadata only at its own resource path', async () => {
+    const canonical = await request(app).get(
+      '/.well-known/oauth-protected-resource/mcp'
+    )
+    expect(canonical.status).toBe(200)
+    expect(canonical.body.resource).toBe(RESOURCE)
+
+    const alias = await request(app).get(
+      '/.well-known/oauth-protected-resource/mcp/chatgpt'
+    )
+    expect(alias.status).toBe(404)
   })
 
   it('allows the ChatGPT browser origin to bootstrap MCP OAuth', async () => {
@@ -296,6 +325,134 @@ describe('HealthyFlow MCP OAuth', () => {
     expect(replay.body.error).toBe('invalid_grant')
   })
 
+  // ChatGPT's connector platform registers dynamically; it never fetches a
+  // Client ID Metadata Document. Without this leg it has no client_id, cannot
+  // build an authorization URL, and leaves its popup on about:blank forever.
+  it('completes dynamic registration, consent, and PKCE code exchange', async () => {
+    const registration = await request(app)
+      .post('/oauth/register')
+      .send({
+        client_name: 'ChatGPT',
+        redirect_uris: [REDIRECT_URI],
+        grant_types: ['authorization_code', 'refresh_token'],
+        response_types: ['code'],
+        token_endpoint_auth_method: 'none',
+      })
+
+    expect(registration.status).toBe(201)
+    const clientId = registration.body.client_id
+    expect(clientId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+    )
+    expect(registration.body.client_secret).toBeUndefined()
+    expect(registration.body.redirect_uris).toEqual([REDIRECT_URI])
+
+    // The dynamic client must resolve without any outbound metadata fetch.
+    ;(global.fetch as jest.Mock).mockClear()
+
+    const verifier = crypto.randomBytes(32).toString('base64url')
+    const challenge = crypto
+      .createHash('sha256')
+      .update(verifier)
+      .digest('base64url')
+    const authorize = await request(app)
+      .get('/oauth/authorize')
+      .query({
+        response_type: 'code',
+        client_id: clientId,
+        redirect_uri: REDIRECT_URI,
+        scope: 'hf:read hf:write:add',
+        state: 'dcr-state',
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+        resource: RESOURCE,
+      })
+
+    expect(authorize.status).toBe(302)
+    expect(global.fetch).not.toHaveBeenCalled()
+    const signedRequest = new URL(authorize.headers.location).searchParams.get(
+      'request'
+    )
+
+    const consentDetails = await request(app)
+      .get('/api/oauth/authorize/request')
+      .set('Authorization', APP_TOKEN)
+      .query({ request: signedRequest })
+    expect(consentDetails.status).toBe(200)
+    expect(consentDetails.body.clientName).toBe('ChatGPT')
+
+    const approval = await request(app)
+      .post('/api/oauth/authorize')
+      .set('Authorization', APP_TOKEN)
+      .send({ request: signedRequest, decision: 'approve' })
+    expect(approval.status).toBe(200)
+    const code = new URL(approval.body.redirectUrl).searchParams.get('code')
+
+    const exchange = await request(app)
+      .post('/oauth/token')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .send(
+        form({
+          grant_type: 'authorization_code',
+          client_id: clientId,
+          code: code!,
+          code_verifier: verifier,
+          redirect_uri: REDIRECT_URI,
+          resource: RESOURCE,
+        })
+      )
+    expect(exchange.status).toBe(200)
+    expect(exchange.body.scope).toBe('hf:read hf:write:add')
+
+    const verified = await getMcpOAuthProvider(
+      resolveMcpOAuthConfig()
+    ).verifyAccessToken(exchange.body.access_token)
+    expect(verified.clientId).toBe(clientId)
+    expect(verified.extra).toMatchObject({ userId: 'user-1' })
+
+    const refresh = await request(app)
+      .post('/oauth/token')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .send(
+        form({
+          grant_type: 'refresh_token',
+          client_id: clientId,
+          refresh_token: exchange.body.refresh_token,
+          resource: RESOURCE,
+        })
+      )
+    expect(refresh.status).toBe(200)
+    expect(refresh.body.refresh_token).not.toBe(exchange.body.refresh_token)
+  })
+
+  it('refuses to register a client with an unsafe redirect_uri', async () => {
+    const response = await request(app)
+      .post('/oauth/register')
+      .send({
+        client_name: 'Attacker',
+        redirect_uris: ['http://evil.example.com/callback'],
+        token_endpoint_auth_method: 'none',
+      })
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe('invalid_client_metadata')
+    expect(storedClients.size).toBe(0)
+  })
+
+  it('refuses to register a confidential client', async () => {
+    const response = await request(app)
+      .post('/oauth/register')
+      .send({
+        client_name: 'Secret Holder',
+        redirect_uris: [REDIRECT_URI],
+        token_endpoint_auth_method: 'client_secret_post',
+      })
+
+    expect(response.status).toBe(400)
+    expect(response.body.error).toBe('invalid_client_metadata')
+    expect(storedClients.size).toBe(0)
+  })
+
   it('rejects authorization for a different MCP resource', async () => {
     const response = await request(app)
       .get('/oauth/authorize')
@@ -385,7 +542,7 @@ describe('mixed-auth MCP discovery', () => {
     expect(response.text).toContain('"name":"healthyflow"')
 
     const metadata = await request(app).get(
-      '/.well-known/oauth-protected-resource/mcp/chatgpt'
+      '/.well-known/oauth-protected-resource/mcp'
     )
     expect(metadata.status).toBe(200)
     expect(metadata.body.resource).toBe(RESOURCE)

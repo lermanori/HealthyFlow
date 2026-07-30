@@ -1,3 +1,9 @@
+### 2026-07-30 15:23 — `claude/healthyflow-mcp-connection-7dba60`
+
+Traced the ChatGPT connector popup that stalls on `about:blank` to its real cause, which neither the CORS nor the bootstrap-format fix addressed: the authorization server advertised only Client ID Metadata Documents and had no `registration_endpoint`, so ChatGPT — which uses RFC 7591 dynamic registration — could never obtain a `client_id` to build an authorization URL with, and left the popup it had already opened unnavigated. The CIMD fallback could not have worked either, since Cloudflare answers the server-side fetch of a chatgpt.com client document with a 403. Added a durable `mcp_oauth_clients` table and a public-client-only `POST /oauth/register`, made client resolution consult the database before any outbound fetch, and stopped the protected-resource metadata being served under paths that are not the resource it declares. 494 backend tests, backend typecheck, and both builds pass; going live still needs the migration applied and `MCP_PUBLIC_URL` repointed at `/mcp` on Railway.
+
+---
+
 ### 2026-07-30 14:45 — `main`
 
 Made the MCP transport accept ChatGPT's connector bootstrap format, which sends JSON as `application/octet-stream` while advertising a generic `Accept` header. Added a stable `/mcp/chatgpt` resource alias and matching OAuth discovery metadata so ChatGPT can refresh connector metadata without changing the existing MCP endpoint; regression coverage now exercises the exact request shape observed in production.
