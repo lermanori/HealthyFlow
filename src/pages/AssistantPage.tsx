@@ -645,23 +645,6 @@ export default function AssistantPage() {
     sendMessage(draft)
   }
 
-  useEffect(() => {
-    window.__healthyFlowDemo = {
-      ...(window.__healthyFlowDemo ?? {}),
-      setTalkDraft: (value: string) => {
-        setDraft(value)
-        inputRef.current?.focus()
-      },
-      submitTalk: () => sendMessage(draft, null, apiMessages, model, undefined, { forceMock: true }),
-    }
-
-    return () => {
-      if (!window.__healthyFlowDemo) return
-      delete window.__healthyFlowDemo.setTalkDraft
-      delete window.__healthyFlowDemo.submitTalk
-    }
-  }, [apiMessages, draft, model])
-
   const [searchParams, setSearchParams] = useSearchParams()
   const kickoffFiredRef = useRef(false)
 

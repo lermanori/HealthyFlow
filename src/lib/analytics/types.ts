@@ -16,14 +16,48 @@ export type AnalyticsEvents = {
     placement: 'navigation' | 'hero' | 'free_plan' | 'founding_plan' | 'final'
     access_mode: 'open' | 'waitlist'
   }
-  waitlist_submitted: { source: 'landing' | 'login' }
+  waitlist_submitted: {
+    source: 'landing' | 'login' | 'demo'
+    persona?: 'maya' | 'noam' | 'lina' | 'amir'
+  }
   signed_up: {
     method: 'password' | 'google'
     credit_cohort: 'founding' | 'standard'
     onboarding_credits: number
+    source?: 'direct' | 'demo'
+    persona?: 'maya' | 'noam' | 'lina' | 'amir'
   }
   logged_in: { is_demo: boolean; method?: 'password' | 'google' }
-  demo_started: { persona: 'maya' | 'noam' | 'lina' | 'amir' }
+  demo_picker_viewed: { entry_source: string }
+  demo_value_proof_viewed: {
+    persona: 'maya' | 'noam' | 'lina' | 'amir'
+    entry_source: string
+  }
+  demo_value_proof_completed: {
+    persona: 'maya' | 'noam' | 'lina' | 'amir'
+    destination: 'outcome' | 'workspace'
+  }
+  demo_started: {
+    persona: 'maya' | 'noam' | 'lina' | 'amir'
+    entry_source?: string
+  }
+  demo_progressed: {
+    persona: 'maya' | 'noam' | 'lina' | 'amir'
+    step_id: string
+    progress_percent: number
+  }
+  demo_ended: {
+    persona: 'maya' | 'noam' | 'lina' | 'amir'
+    reason: 'finished' | 'closed'
+  }
+  demo_acquisition_clicked: {
+    persona: 'maya' | 'noam' | 'lina' | 'amir'
+    destination: 'signup' | 'waitlist' | 'return'
+    access_mode: 'open' | 'waitlist' | 'restored_session' | 'existing_session'
+  }
+  first_real_day_activation_completed: {
+    persona: 'maya' | 'noam' | 'lina' | 'amir'
+  }
   onboarding_completed: void
   onboarding_skipped: void
 

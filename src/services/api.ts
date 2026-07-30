@@ -24,6 +24,7 @@ import {
   type PlanningWindow,
 } from '../../backend/src/day-summary-schema'
 import SettingsContracts, { type Settings as UserSettings } from '../../backend/src/settings-schema'
+import type { WaitlistJoinInput } from '../../backend/src/waitlist'
 
 const { SettingsSchema } = SettingsContracts
 
@@ -47,7 +48,7 @@ const api = axios.create({
 // Add auth token to requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
-  if (token) {
+  if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`
   }
   const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -531,8 +532,10 @@ export const authService = {
     return response.data
   },
 
-  verifyToken: async () => {
-    const response = await api.get('/auth/verify')
+  verifyToken: async (token?: string) => {
+    const response = await api.get('/auth/verify', token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined)
     return response.data
   },
 }
@@ -555,7 +558,7 @@ export type SignupAccess = {
 
 // Waitlist Service — public join + signup availability, plus admin management.
 export const waitlistService = {
-  join: async (input: { email: string; name?: string; source?: string }) => {
+  join: async (input: WaitlistJoinInput) => {
     const response = await api.post('/waitlist', input)
     return response.data as { joined: boolean }
   },

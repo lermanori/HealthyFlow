@@ -82,7 +82,8 @@ function AssistantRedirect() {
 
 function App() {
   const { user, loading } = useAuth()
-  const { modules, retry } = useSettings(!!user)
+  const location = useLocation()
+  const { modules, retry } = useSettings(Boolean(user) && location.pathname !== '/demo')
   const healthAvailability = resolveHealthAvailability(modules)
   const modulePages: Record<OptionalModule, ReactNode> = {
     calories: <CaloriesPage />,
@@ -113,10 +114,19 @@ function App() {
     )
   }
 
-  if (!user) {
+  // The picker, value proof, and acquisition ending sit outside the authenticated
+  // application shell. Opening a seeded workspace is an optional secondary path.
+  if (location.pathname === '/demo') {
     return (
       <Routes>
         <Route path="/demo" element={<DemoPage />} />
+      </Routes>
+    )
+  }
+
+  if (!user) {
+    return (
+      <Routes>
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
         <Route path="*" element={<LoginPage />} />
@@ -133,7 +143,6 @@ function App() {
           <Route path="/add" element={<AddItemPage />} />
           <Route path="/week" element={WEEK_VIEW_ENABLED ? <WeekViewPage /> : <Navigate to="/" replace />} />
           <Route path="/talk" element={<AssistantPage />} />
-          <Route path="/demo" element={<DemoPage />} />
           <Route path="/assistant" element={<AssistantRedirect />} />
           <Route path="/settings/*" element={<SettingsPage />} />
           <Route path="/token-manager" element={user.role === 'admin' ? <TokenManagerPage /> : <Navigate to="/" replace />} />

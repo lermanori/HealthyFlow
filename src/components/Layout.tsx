@@ -17,13 +17,14 @@ import {
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import PWAInstallPrompt from './PWAInstallPrompt'
-import MayaDemoGuide from './MayaDemoGuide'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSettings } from '../hooks/useSettings'
 import type { ModuleNoticeState } from '../App'
 import { useModalFocus } from '../hooks/useModalFocus'
 import { WEEK_VIEW_ENABLED } from '../featureFlags'
 import { MODULE_PRESENTATIONS } from '../modulePresentation'
+import { parseDemoPersonaId } from '../demoPersonas'
+import { analytics } from '../lib/analytics'
 
 interface LayoutProps {
   children: ReactNode
@@ -75,24 +76,19 @@ export default function Layout({ children }: LayoutProps) {
     initialFocusRef: mobileMenuCloseRef,
   })
 
-  useEffect(() => {
-    window.__healthyFlowDemo = {
-      ...(window.__healthyFlowDemo ?? {}),
-      openAccountMenu: () => setIsMobileMenuOpen(true),
-      closeAccountMenu: () => setIsMobileMenuOpen(false),
-    }
-
-    return () => {
-      if (!window.__healthyFlowDemo) return
-      delete window.__healthyFlowDemo.openAccountMenu
-      delete window.__healthyFlowDemo.closeAccountMenu
-    }
-  }, [])
-
   const { modules, resolution, retry } = useSettings()
   const isTalkPage = location.pathname === '/talk'
   const searchParams = new URLSearchParams(location.search)
   const isDemo = location.pathname === '/demo' || Boolean(searchParams.get('demo')) || Boolean(localStorage.getItem('demoPersona'))
+  const handleSessionExit = () => {
+    if (isDemo) {
+      const persona = parseDemoPersonaId(localStorage.getItem('demoPersona'))
+      analytics.capture('demo_ended', { persona, reason: 'closed' })
+      navigate(`/demo?persona=${persona}&stage=finish&reason=closed`)
+      return
+    }
+    logout()
+  }
 
   const healthEnabled = Object.values(modules).includes('enabled')
   const navigationGroups = ([
@@ -266,12 +262,12 @@ export default function Layout({ children }: LayoutProps) {
                 </div>
                 
                 <button
-                  onClick={logout}
+                  onClick={handleSessionExit}
                   data-demo-id="logout-button"
                   className="flex items-center space-x-2 w-full text-ink-muted hover:text-ink-soft transition-colors p-3 rounded-lg hover:bg-card/50"
                 >
                   <LogOut className="w-5 h-5" />
-                  <span className="font-medium">Logout</span>
+                  <span className="font-medium">{isDemo ? 'Exit demo' : 'Logout'}</span>
                 </button>
               </div>
             </div>
@@ -344,12 +340,12 @@ export default function Layout({ children }: LayoutProps) {
                   <p className="text-sm font-medium text-ink">{user?.name}</p>
                 </div>
                 <button
-                  onClick={logout}
+                  onClick={handleSessionExit}
                   data-demo-id="logout-button"
                   className="flex items-center space-x-2 text-ink-muted hover:text-ink-soft transition-colors p-2 rounded-lg hover:bg-card/50"
                 >
                   <LogOut className="w-4 h-4" />
-                  <span className="text-sm">Logout</span>
+                  <span className="text-sm">{isDemo ? 'Exit demo' : 'Logout'}</span>
                 </button>
               </div>
             </div>
@@ -487,7 +483,6 @@ export default function Layout({ children }: LayoutProps) {
           
         </div>
       )}
-      <MayaDemoGuide />
     </div>
   )
 }

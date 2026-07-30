@@ -4,6 +4,12 @@ Rebuilt `public/landing.html` to the "HealthyFlow Landing" Claude Design comp: w
 
 ---
 
+### 2026-07-30 10:35 — `claude/healthyflow-icon-theme-variants-62d802`
+
+Replaced the app icon with the "2a Core" mark from the Claude Design project — a day arc enclosing a centred now-dot — in two theme variants: Paper on light, Ink on dark. Both ship as hand-written SVG sources plus a full rasterized PNG set (regenerable via `scripts/generate-icons.sh`), with the dark variant keeping the canonical filenames since the app defaults to dark. Favicons switch on `prefers-color-scheme` in both the app shell and the landing page, and the service worker cache was bumped to v7 so installed PWAs don't keep serving the old mark from unchanged paths. The splash-screen logo in index.html still carries the old cyan clipboard mark and is left for a follow-up.
+
+---
+
 ### 2026-07-29 14:59 — `codex/waitlist-seat-accounting`
 
 Closed the signup-capacity accounting gap: public signups now own an explicit seat, failed account creation returns the reservation, and future account deletion removes matching waitlist/invite state while releasing only seats actually consumed through public registration. The admin surface can reconcile both claimed and total seats, validates impossible combinations, and previews waitlist cleanup plus seat release before permanent deletion. Existing orphaned registered waitlist rows are repaired by the migration, and the change passes 482 backend tests, 50 frontend tests, both production builds, lint, and a mocked browser walkthrough.

@@ -16,6 +16,12 @@ import {
   isGoogleOAuthCallback,
   replaceOAuthCallbackUrl,
 } from '../services/googleAuth'
+import {
+  beginDemoAcquisition,
+  demoPersonaById,
+  parseDemoPersonaId,
+  readDemoAcquisition,
+} from '../demoPersonas'
 
 function GoogleIcon() {
   return (
@@ -57,12 +63,21 @@ function takeAuthNotice() {
 }
 
 export default function LoginPage() {
+  const [initialParams] = useState(() => new URLSearchParams(window.location.search))
   const [inviteToken] = useState(() =>
-    new URLSearchParams(window.location.search).get('invite') ??
+    initialParams.get('invite') ??
     getPendingGoogleInvite() ??
     undefined
   )
-  const [mode, setMode] = useState<'login' | 'signup'>(() => inviteToken ? 'signup' : 'login')
+  const [demoAcquisition] = useState(() => {
+    if (initialParams.get('from') === 'demo') {
+      return beginDemoAcquisition(parseDemoPersonaId(initialParams.get('persona')), initialParams)
+    }
+    return isGoogleOAuthCallback() ? readDemoAcquisition() : null
+  })
+  const [mode, setMode] = useState<'login' | 'signup'>(() =>
+    inviteToken || initialParams.get('mode') === 'signup' ? 'signup' : 'login'
+  )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
@@ -260,11 +275,19 @@ export default function LoginPage() {
   }
 
   const inviteSignup = Boolean(inviteToken) && mode === 'signup'
+  const demoMeta = demoAcquisition ? demoPersonaById(demoAcquisition.persona) : null
+  const demoSearch = new URLSearchParams({ source: 'login' })
+  for (const name of ['utm_source', 'utm_medium', 'utm_campaign']) {
+    const value = initialParams.get(name)
+    if (value) demoSearch.set(name, value)
+  }
   const heading = inviteSignup ? "You're invited" : mode === 'signup' ? 'Create your account' : 'Welcome back'
   const supportingCopy = inviteSignup
     ? 'Create your account to start planning with HealthyFlow.'
     : mode === 'signup'
-      ? 'Start with one place for your tasks, habits, health, and workouts.'
+      ? demoMeta
+        ? `Start your clean workspace with: “${demoMeta.activationPrompt}”`
+        : 'Start with one place for your tasks, habits, health, and workouts.'
       : 'Sign in to continue planning your day.'
 
   return (
@@ -312,10 +335,17 @@ export default function LoginPage() {
           )}
 
           {!inviteToken && signupStatus?.mode === 'open' && mode === 'signup' && (
-            <p className="mb-5 text-center text-sm text-accent">
-              {signupStatus.remaining} {signupStatus.remaining === 1 ? 'spot' : 'spots'} left ·{' '}
-              {signupStatus.offer.onboardingCredits} onboarding credits included
-            </p>
+            <>
+              {demoMeta && (
+                <p className="mb-3 rounded-control border border-accent/25 bg-accent/[.07] px-3 py-2 text-center text-sm text-ink-soft">
+                  Only your “{demoMeta.problem}” intent comes with you. The demo workspace does not.
+                </p>
+              )}
+              <p className="mb-5 text-center text-sm text-accent">
+                {signupStatus.remaining} {signupStatus.remaining === 1 ? 'spot' : 'spots'} left ·{' '}
+                {signupStatus.offer.onboardingCredits} onboarding credits included
+              </p>
+            </>
           )}
 
           <button
@@ -477,9 +507,9 @@ export default function LoginPage() {
 
           {mode === 'login' && (
             <div className="mt-6 border-t border-line pt-5">
-              <Link to="/demo" className="btn-secondary flex w-full items-center justify-center gap-2">
+              <Link to={`/demo?${demoSearch.toString()}`} className="btn-secondary flex w-full items-center justify-center gap-2">
                 <Play className="h-4 w-4" aria-hidden="true" />
-                Try the guided demo
+                See a day like yours
               </Link>
               <p className="mt-2 text-center text-xs text-ink-muted">Explore a prepared workspace. No account needed.</p>
             </div>

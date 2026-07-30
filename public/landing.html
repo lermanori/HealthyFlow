@@ -385,6 +385,9 @@
       color: var(--accent);
       white-space: nowrap;
     }
+    /* Arrow lives in CSS, not the label: the access script rewrites this link's
+       textContent wholesale when signup opens, which would eat an inline glyph. */
+    .all-item.cta a::after { content: ' →'; }
 
     /* ---------- pricing ---------- */
     .plans {
@@ -594,7 +597,7 @@
       .nav-login { display: none; }
       .brand { font-size: 17px; gap: 8px; min-width: 0; }
       .nav-cta { flex: 0 0 auto; gap: 8px; }
-      .nav-cta .btn-sm { padding: 0 12px; font-size: 13px; }
+      .nav-cta .btn-sm { padding: 0 12px; font-size: 13px; white-space: nowrap; }
       .frame-phone { width: 100%; max-width: 340px; padding: 9px; border-radius: 38px; }
       .frame-phone > * { border-radius: 30px; }
       .hero-ctas .btn { flex: 1 1 100%; }
@@ -658,7 +661,7 @@
           </button>
         </div>
         <a class="nav-login" href="/app">Log in</a>
-        <a class="btn btn-primary btn-sm" data-access-cta data-placement="navigation" href="#waitlist-form">Join the waitlist</a>
+        <a class="btn btn-primary btn-sm nav-primary" data-access-cta data-placement="navigation" href="#waitlist-form">Join the waitlist</a>
       </div>
     </div>
   </header>
@@ -832,7 +835,7 @@
         <div class="all-item"><span class="meta">Health</span><p class="name">Progress</p></div>
         <div class="all-item"><span class="meta">Capture</span><p class="name">Talk</p></div>
         <div class="all-item"><span class="meta">Capture</span><p class="name">Voice</p></div>
-        <div class="all-item cta"><a data-access-cta data-placement="everything_grid" href="#waitlist-form">Join the waitlist →</a></div>
+        <div class="all-item cta"><a data-access-cta data-placement="everything_grid" href="#waitlist-form">Join the waitlist</a></div>
       </div>
     </div>
   </section>
@@ -1029,7 +1032,7 @@
         const accessMessage = document.querySelector('[data-access-message]');
         if (status.mode === 'open' && status.remaining > 0) {
           accessCtas.forEach((el) => {
-            el.textContent = el.dataset.placement === 'everything_grid' ? 'Start free →' : 'Start Free';
+            el.textContent = 'Start Free';
             el.setAttribute('href', '/app');
             el.dataset.accessMode = 'open';
           });
@@ -1040,7 +1043,7 @@
           }
         } else {
           accessCtas.forEach((el) => {
-            el.textContent = el.dataset.placement === 'everything_grid' ? 'Join the waitlist →' : 'Join the waitlist';
+            el.textContent = 'Join the waitlist';
             el.setAttribute('href', '#waitlist-form');
             el.dataset.accessMode = 'waitlist';
           });
