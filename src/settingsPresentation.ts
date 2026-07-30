@@ -66,7 +66,7 @@ export const SETTINGS_CATEGORIES = z.array(SettingsCategorySchema).parse([
   {
     id: 'connections-advanced',
     label: 'Connections & Advanced',
-    description: 'Calendar connection and developer API tokens.',
+    description: 'Calendar, ChatGPT, and developer connections.',
     order: 60,
     classification: 'advanced',
     icon: 'connection',

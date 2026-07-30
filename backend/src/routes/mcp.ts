@@ -2,7 +2,15 @@ import express from 'express'
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { z } from 'zod'
-import { ApiTokens } from '../api-tokens'
+import {
+  ApiTokens,
+  type ApiTokenScope,
+  type McpAuthContext,
+  type McpOAuthConfig,
+  MCP_OAUTH_SCOPES,
+  mcpOAuthChallenge,
+  resolveMcpOAuthConfig,
+} from '../api-tokens'
 import { AiCapabilities, aiCapabilityTools } from '../ai-capabilities'
 
 const router = express.Router()
@@ -45,26 +53,103 @@ function jsonContent(value: unknown) {
   }
 }
 
-function createServer(auth: { tokenId: string; userId: string; scopes: string[] }) {
+function oauthErrorContent(
+  requiredScopes: ApiTokenScope[],
+  error: 'invalid_token' | 'insufficient_scope',
+  description: string,
+  config: McpOAuthConfig
+) {
+  return {
+    isError: true,
+    content: [{ type: 'text' as const, text: description }],
+    _meta: {
+      'mcp/www_authenticate': [
+        mcpOAuthChallenge(requiredScopes, {
+          error,
+          errorDescription: description,
+          config,
+        }),
+      ],
+    },
+  }
+}
+
+function toolsForAuth(auth: McpAuthContext | null) {
+  return aiCapabilityTools({
+    mode: 'mcp',
+    scopes: auth?.kind === 'pat' ? auth.scopes : [...MCP_OAUTH_SCOPES],
+    caller: 'mcp',
+  })
+}
+
+function requiredScopesForTool(tool: ReturnType<typeof toolsForAuth>[number]) {
+  return [
+    'hf:read',
+    ...(tool.scope ? [tool.scope] : []),
+  ] as ApiTokenScope[]
+}
+
+function toolAnnotations(tool: ReturnType<typeof toolsForAuth>[number]) {
+  const isWrite = Boolean(tool.scope)
+  return {
+    readOnlyHint: !isWrite,
+    openWorldHint: false,
+    destructiveHint: tool.name === 'delete_item',
+  }
+}
+
+function toolDescriptors(auth: McpAuthContext | null) {
+  return toolsForAuth(auth).map((tool) => {
+    const requiredScopes = requiredScopesForTool(tool)
+    const securitySchemes = [{ type: 'oauth2', scopes: requiredScopes }]
+    return {
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.parameters,
+      outputSchema: z.toJSONSchema(tool.outputSchema),
+      annotations: toolAnnotations(tool),
+      securitySchemes,
+      _meta: { securitySchemes },
+    }
+  })
+}
+
+function createServer(auth: McpAuthContext | null, config: McpOAuthConfig) {
   const server = new McpServer({ name: 'healthyflow', version: '1.0.0' })
-  const tools = aiCapabilityTools({ mode: 'mcp', scopes: auth.scopes, caller: 'mcp' })
+  const tools = toolsForAuth(auth)
 
   for (const tool of tools) {
     const isWrite = Boolean(tool.scope)
-    const annotations = {
-      readOnlyHint: !isWrite,
-      openWorldHint: false,
-      destructiveHint: tool.name === 'delete_item',
-    }
+    const requiredScopes = requiredScopesForTool(tool)
+    const securitySchemes = [{ type: 'oauth2', scopes: requiredScopes }]
     server.registerTool(
       tool.name,
       {
         description: tool.description,
         inputSchema: tool.inputSchema,
         outputSchema: tool.outputSchema,
-        annotations,
+        annotations: toolAnnotations(tool),
+        _meta: {
+          securitySchemes,
+        },
       },
       async (args) => {
+        if (!auth) {
+          return oauthErrorContent(
+            requiredScopes,
+            'invalid_token',
+            'Connect HealthyFlow to use this tool.',
+            config
+          )
+        }
+        if (requiredScopes.some((scope) => !auth.scopes.includes(scope))) {
+          return oauthErrorContent(
+            requiredScopes,
+            'insufficient_scope',
+            'The HealthyFlow connection does not grant this tool permission.',
+            config
+          )
+        }
         if (!checkRate(auth.tokenId, isWrite)) {
           throw new Error('Rate limit exceeded')
         }
@@ -74,6 +159,9 @@ function createServer(auth: { tokenId: string; userId: string; scopes: string[] 
   }
 
   const readResource = async (uri: URL, variables: Record<string, unknown>, capabilityName: keyof typeof AiCapabilities) => {
+    if (!auth || !auth.scopes.includes('hf:read')) {
+      throw new Error('HealthyFlow authentication with hf:read is required')
+    }
     if (!checkRate(auth.tokenId, false)) throw new Error('Rate limit exceeded')
     const date = typeof variables.date === 'string' ? variables.date : undefined
     const capability = AiCapabilities[capabilityName]
@@ -96,13 +184,33 @@ function createServer(auth: { tokenId: string; userId: string; scopes: string[] 
 
 router.post('/', async (req, res) => {
   const token = bearerToken(req)
-  if (!token) return res.status(401).json({ error: 'Missing MCP bearer token' })
+  const config = resolveMcpOAuthConfig()
+  const auth = token ? await ApiTokens.authenticateMcp(token, config) : null
+  if (token && !auth) {
+    res.set(
+      'WWW-Authenticate',
+      mcpOAuthChallenge(['hf:read'], {
+        error: 'invalid_token',
+        errorDescription: 'The HealthyFlow access token is invalid or expired.',
+        config,
+      })
+    )
+    return res.status(401).json({ error: 'Invalid MCP token' })
+  }
 
-  const auth = await ApiTokens.authenticate(token, 'mcp')
-  if (!auth) return res.status(401).json({ error: 'Invalid MCP token' })
-  if (!auth.scopes.includes('hf:read')) return res.status(403).json({ error: 'Missing hf:read scope' })
+  if (
+    req.body?.jsonrpc === '2.0' &&
+    req.body?.method === 'tools/list' &&
+    (typeof req.body?.id === 'string' || typeof req.body?.id === 'number')
+  ) {
+    return res.json({
+      jsonrpc: '2.0',
+      id: req.body.id,
+      result: { tools: toolDescriptors(auth) },
+    })
+  }
 
-  const server = createServer(auth)
+  const server = createServer(auth, config)
   try {
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
     await server.connect(transport)

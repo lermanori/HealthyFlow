@@ -13,6 +13,7 @@ import {
   completeGoogleOAuthCallback,
   getCurrentGoogleAccessToken,
   getPendingGoogleInvite,
+  getPendingGoogleReturnTo,
   GoogleOAuthCallbackError,
   isGoogleOAuthCallback,
   replaceOAuthCallbackUrl,
@@ -119,7 +120,7 @@ export default function LoginPage() {
         const callback = await completeGoogleOAuthCallback()
         await loginWithGoogle(callback.accessToken, callback.invite)
         await clearGoogleOAuth()
-        replaceOAuthCallbackUrl()
+        replaceOAuthCallbackUrl(undefined, callback.returnTo)
       } catch (callbackError) {
         const hasProviderSession = Boolean(await getCurrentGoogleAccessToken())
         const terminalResponse = (callbackError as { response?: { status?: number } })?.response
@@ -129,10 +130,11 @@ export default function LoginPage() {
         setGoogleRetryAvailable(retryable)
         setError(googleExchangeMessage(callbackError))
         if (!retryable) {
+          const returnTo = getPendingGoogleReturnTo()
           const retainedInvite = await clearGoogleOAuth({ keepInvite: true })
-          replaceOAuthCallbackUrl(retainedInvite)
+          replaceOAuthCallbackUrl(retainedInvite, returnTo)
         } else {
-          replaceOAuthCallbackUrl(inviteToken)
+          replaceOAuthCallbackUrl(inviteToken, getPendingGoogleReturnTo())
         }
       } finally {
         setGoogleLoading(false)
@@ -247,7 +249,10 @@ export default function LoginPage() {
     setGoogleRetryAvailable(false)
     setGoogleLoading(true)
     try {
-      await beginGoogleOAuth(inviteToken)
+      const returnTo = window.location.pathname === '/app/oauth/authorize'
+        ? `${window.location.pathname}${window.location.search}`
+        : undefined
+      await beginGoogleOAuth(inviteToken, returnTo)
     } catch (oauthError) {
       setError(googleExchangeMessage(oauthError))
       setGoogleLoading(false)
@@ -266,8 +271,9 @@ export default function LoginPage() {
         )
       }
       await loginWithGoogle(accessToken, getPendingGoogleInvite() ?? inviteToken)
+      const returnTo = getPendingGoogleReturnTo()
       await clearGoogleOAuth()
-      replaceOAuthCallbackUrl()
+      replaceOAuthCallbackUrl(undefined, returnTo)
     } catch (oauthError) {
       setError(googleExchangeMessage(oauthError))
     } finally {

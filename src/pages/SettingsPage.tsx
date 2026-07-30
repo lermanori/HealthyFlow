@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, Smartphone, Unplug, Sparkles, Mail, Instagram, MessageCircle, Copy, X, KeyRound, Trash2, HeartPulse } from 'lucide-react'
+import { ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, ShieldCheck, Smartphone, Unplug, Sparkles, Mail, Instagram, MessageCircle, Copy, X, KeyRound, Trash2, HeartPulse } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
 import { useCredits } from '../hooks/useCredits'
 import { useSettings, applyTheme } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
-import api, { accountService, ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DAILY_SIGNALS_QUERY_KEY, DailyTouchpointRhythm, DAY_SUMMARY_QUERY_KEY, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
+import api, { accountService, ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DAILY_SIGNALS_QUERY_KEY, DailyTouchpointRhythm, DAY_SUMMARY_QUERY_KEY, McpOAuthGrant, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
 import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
 import Switch from '../components/Switch'
@@ -97,6 +97,7 @@ export default function SettingsPage() {
     setContactFlow(kind)
   }
   const [apiTokens, setApiTokens] = useState<ApiTokenRecord[]>([])
+  const [oauthGrants, setOAuthGrants] = useState<McpOAuthGrant[]>([])
   const [newToken, setNewToken] = useState('')
   const [newTokenScopes, setNewTokenScopes] = useState<ApiTokenScope[]>([])
   const [tokenName, setTokenName] = useState('MCP connection')
@@ -141,6 +142,7 @@ export default function SettingsPage() {
   useEffect(() => {
     loadCalendarStatus()
     loadApiTokens()
+    loadOAuthGrants()
     loadRhythm()
   }, [])
 
@@ -209,6 +211,14 @@ export default function SettingsPage() {
     }
   }
 
+  const loadOAuthGrants = async () => {
+    try {
+      setOAuthGrants(await connectionsService.listOAuthGrants())
+    } catch {
+      toast.error('Failed to load ChatGPT connections')
+    }
+  }
+
   const createTokenMutation = useMutation({
     mutationFn: () => connectionsService.createToken({ name: tokenName, scopes: selectedScopes }),
     onSuccess: async (created) => {
@@ -229,6 +239,15 @@ export default function SettingsPage() {
       toast.success('Token revoked')
     },
     onError: () => toast.error('Failed to revoke token'),
+  })
+
+  const revokeOAuthGrantMutation = useMutation({
+    mutationFn: (grantId: string) => connectionsService.revokeOAuthGrant(grantId),
+    onSuccess: async () => {
+      await loadOAuthGrants()
+      toast.success('ChatGPT connection revoked')
+    },
+    onError: () => toast.error('Failed to revoke ChatGPT connection'),
   })
 
   const toggleScope = (scope: ApiTokenScope) => {
@@ -452,7 +471,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       case 'appearance':
         return `${settings?.theme === 'white' ? 'White' : 'Midnight'} theme`
       case 'connections-advanced':
-        return `${calendarStatus?.connected ? 'Calendar connected' : 'Calendar not connected'} · ${apiTokens.filter((token) => !token.revokedAt).length} active tokens`
+        return `${calendarStatus?.connected ? 'Calendar connected' : 'Calendar not connected'} · ${oauthGrants.filter((grant) => !grant.revokedAt).length} ChatGPT connections`
       case 'data-privacy':
         return 'Export data or manage destructive actions'
     }
@@ -1238,15 +1257,86 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
 
       <div className="card">
         <div className="mb-4 flex items-center space-x-3">
+          <ShieldCheck className="h-5 w-5 text-accent" />
+          <div>
+            <h2 className="text-lg font-semibold text-ink">ChatGPT connection</h2>
+            <p className="text-sm text-ink-muted">
+              Let ChatGPT use HealthyFlow through a secure sign-in and consent flow.
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-line/70 bg-sunken/25 p-4">
+          <p className="text-sm font-medium text-ink">MCP server URL</p>
+          <div className="mt-2 flex gap-2">
+            <input className="input-field min-w-0 flex-1 font-mono text-xs" value={mcpEndpoint()} readOnly />
+            <button
+              type="button"
+              className="btn-secondary px-3"
+              onClick={() => {
+                navigator.clipboard.writeText(mcpEndpoint())
+                toast.success('MCP URL copied')
+              }}
+              aria-label="Copy MCP server URL"
+            >
+              <Copy className="h-4 w-4" />
+            </button>
+          </div>
+          <ol className="mt-4 list-decimal space-y-2 pl-5 text-sm text-ink-soft">
+            <li>In ChatGPT Settings, enable Developer mode under Security and login.</li>
+            <li>Open ChatGPT Plugins, select the plus button, and create a connection with this MCP server URL.</li>
+            <li>Review the discovered tools. ChatGPT will open HealthyFlow for authorization when you first use one.</li>
+          </ol>
+          <p className="mt-3 text-xs text-ink-muted">
+            No token needs to be copied into ChatGPT. Access tokens are short-lived,
+            and you can revoke the connection below.
+          </p>
+        </div>
+
+        <div className="mt-4 divide-y divide-card">
+          {oauthGrants.length === 0 && (
+            <p className="py-3 text-sm text-ink-muted">No ChatGPT OAuth connections yet.</p>
+          )}
+          {oauthGrants.map((grant) => (
+            <div key={grant.id} className="flex items-center justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-ink">{grant.clientName}</p>
+                <p className="text-xs text-ink-muted">{grant.scopes.join(', ')}</p>
+                <p className="text-xs text-ink-muted">
+                  Connected {new Date(grant.createdAt).toLocaleDateString()}
+                  {grant.lastUsedAt ? ` · last used ${new Date(grant.lastUsedAt).toLocaleString()}` : ''}
+                  {grant.revokedAt ? ' · revoked' : ''}
+                </p>
+              </div>
+              {!grant.revokedAt && (
+                <button
+                  type="button"
+                  className="rounded-lg border border-state-danger/30 p-2 text-state-danger hover:bg-state-danger/10"
+                  onClick={() => revokeOAuthGrantMutation.mutate(grant.id)}
+                  disabled={revokeOAuthGrantMutation.isPending}
+                  aria-label={`Revoke ${grant.clientName} connection`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card">
+        <div className="mb-4 flex items-center space-x-3">
           <KeyRound className="h-5 w-5 text-accent" />
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-ink">Developer API tokens</h2>
+              <h2 className="text-lg font-semibold text-ink">Developer client tokens</h2>
               <span className="rounded-full border border-state-warning/30 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-state-warning">
                 Advanced
               </span>
             </div>
-            <p className="text-sm text-ink-muted">Create scoped credentials for explicit external access.</p>
+            <p className="text-sm text-ink-muted">
+              Create scoped credentials for clients that accept a custom Authorization header. ChatGPT uses OAuth above.
+            </p>
           </div>
         </div>
 

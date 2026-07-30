@@ -117,8 +117,10 @@ when all three are hidden.
   Lina, Amir) walking through the real surfaces with stable demo data, narrated
   with subtitles and voiceover.
 - Account deletion.
-- Scoped **API tokens** (`hf:read`, `hf:write:add|update|complete|delete`) and an
-  MCP endpoint, so an external agent can work against a user's day.
+- A remote **MCP endpoint** with OAuth 2.1 authorization-code + PKCE for ChatGPT,
+  short-lived access tokens, rotating refresh tokens, and user-revocable grants.
+- Scoped **API tokens** (`hf:read`, `hf:write:add|update|complete|delete`) remain
+  available for developer clients that accept a custom Authorization header.
 - Admin-only surfaces: Token Manager, OCR Lab.
 
 ### Notifications & rhythm

@@ -1,6 +1,11 @@
 import express from 'express'
 import { z } from 'zod'
-import { ApiTokenAudienceSchema, ApiTokens, ApiTokenScopeSchema } from '../api-tokens'
+import {
+  ApiTokenAudienceSchema,
+  ApiTokens,
+  ApiTokenScopeSchema,
+  McpOAuth,
+} from '../api-tokens'
 import { db } from '../supabase-client'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 import { SettingsPatchSchema, SettingsSchema } from '../settings-schema'
@@ -62,6 +67,24 @@ router.delete('/connections/tokens/:tokenId', authenticateToken, async (req: Aut
     if (!revoked) return res.status(404).json({ error: 'Not found' })
     res.json(revoked)
   } catch (err) {
+    res.status(500).json({ error: 'Database error' })
+  }
+})
+
+router.get('/connections/oauth', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    res.json(await McpOAuth.listGrants(req.user.userId))
+  } catch {
+    res.status(500).json({ error: 'Database error' })
+  }
+})
+
+router.delete('/connections/oauth/:grantId', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const revoked = await McpOAuth.revokeGrant(req.user.userId, req.params.grantId)
+    if (!revoked) return res.status(404).json({ error: 'Not found' })
+    res.json(revoked)
+  } catch {
     res.status(500).json({ error: 'Database error' })
   }
 })

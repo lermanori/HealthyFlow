@@ -38,6 +38,7 @@ export const AccountExportV1Schema = z.object({
   billing: z.object({ credits: ExportRowsSchema, subscriptions: ExportRowsSchema, usage: ExportRowsSchema }),
   contactMessages: ExportRowsSchema,
   apiTokens: ExportRowsSchema,
+  mcpOAuthGrants: ExportRowsSchema,
 })
 
 export type AccountExportV1 = z.infer<typeof AccountExportV1Schema>
@@ -92,7 +93,7 @@ export async function buildAccountExport(userId: string): Promise<AccountExportV
     workoutPlans, workoutSessions, workoutExerciseHistory,
     calendarConnections, calendarEvents,
     conversations, messages, recommendations, proposals, auditMetadata,
-    credits, subscriptions, usage, contactMessages, apiTokens,
+    credits, subscriptions, usage, contactMessages, apiTokens, mcpOAuthGrants,
   ] = await Promise.all([
     paginatedUserRows('user_settings', userId),
     paginatedUserRows('user_rhythm', userId),
@@ -119,6 +120,7 @@ export async function buildAccountExport(userId: string): Promise<AccountExportV
     paginatedUserRows('ai_usage_log', userId),
     paginatedUserRows('contact_messages', userId, 'id, user_id, kind, message, status, created_at, handled_at'),
     paginatedUserRows('api_tokens', userId, 'id, user_id, name, scopes, audience, created_at, last_used_at, revoked_at'),
+    paginatedUserRows('mcp_oauth_grants', userId, 'id, user_id, client_id, client_name, scopes, resource, created_at, last_used_at, revoked_at'),
   ])
 
   const workoutPlanItems = await rowsByParentIds('workout_plan_items', 'plan_id', workoutPlans.map((row) => String(row.id)))
@@ -150,6 +152,7 @@ export async function buildAccountExport(userId: string): Promise<AccountExportV
     billing: { credits, subscriptions, usage },
     contactMessages,
     apiTokens,
+    mcpOAuthGrants,
   })
 }
 

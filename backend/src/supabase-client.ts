@@ -2001,4 +2001,153 @@ export const db = {
     if (error) throw error
     return data
   },
+
+  async createMcpOAuthAuthorizationCode(row: {
+    id: string
+    code_hash: string
+    user_id: string
+    client_id: string
+    client_name: string
+    redirect_uri: string
+    scopes: string[]
+    resource: string
+    code_challenge: string
+    expires_at: string
+  }) {
+    const { data, error } = await supabase
+      .from('mcp_oauth_authorization_codes')
+      .insert(row)
+      .select('id')
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async getMcpOAuthAuthorizationCodeByHash(codeHash: string) {
+    const { data, error } = await supabase
+      .from('mcp_oauth_authorization_codes')
+      .select('client_id, code_challenge, expires_at, consumed_at')
+      .eq('code_hash', codeHash)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async exchangeMcpOAuthAuthorizationCode(input: {
+    code_hash: string
+    client_id: string
+    redirect_uri: string
+    resource: string
+    grant_id: string
+    refresh_token_hash: string
+    refresh_expires_at: string
+  }) {
+    const { data, error } = await supabase.rpc('exchange_mcp_oauth_code', {
+      p_code_hash: input.code_hash,
+      p_client_id: input.client_id,
+      p_redirect_uri: input.redirect_uri,
+      p_resource: input.resource,
+      p_grant_id: input.grant_id,
+      p_refresh_token_hash: input.refresh_token_hash,
+      p_refresh_expires_at: input.refresh_expires_at,
+    })
+    if (error) throw error
+    return data?.[0] ?? null
+  },
+
+  async rotateMcpOAuthRefreshToken(input: {
+    refresh_token_hash: string
+    client_id: string
+    resource: string
+    new_refresh_token_hash: string
+    new_refresh_expires_at: string
+  }) {
+    const { data, error } = await supabase.rpc(
+      'rotate_mcp_oauth_refresh_token',
+      {
+        p_refresh_token_hash: input.refresh_token_hash,
+        p_client_id: input.client_id,
+        p_resource: input.resource,
+        p_new_refresh_token_hash: input.new_refresh_token_hash,
+        p_new_refresh_expires_at: input.new_refresh_expires_at,
+      }
+    )
+    if (error) throw error
+    return data?.[0] ?? null
+  },
+
+  async getMcpOAuthGrantByRefreshHash(input: {
+    refresh_token_hash: string
+    client_id: string
+    resource: string
+  }) {
+    const { data, error } = await supabase
+      .from('mcp_oauth_grants')
+      .select('id, scopes')
+      .eq('refresh_token_hash', input.refresh_token_hash)
+      .eq('client_id', input.client_id)
+      .eq('resource', input.resource)
+      .is('revoked_at', null)
+      .gt('refresh_expires_at', new Date().toISOString())
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async getMcpOAuthGrant(grantId: string) {
+    const { data, error } = await supabase
+      .from('mcp_oauth_grants')
+      .select('id, user_id, client_id, scopes, resource, revoked_at')
+      .eq('id', grantId)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async touchMcpOAuthGrant(grantId: string) {
+    const { error } = await supabase
+      .from('mcp_oauth_grants')
+      .update({ last_used_at: new Date().toISOString() })
+      .eq('id', grantId)
+      .is('revoked_at', null)
+    if (error) throw error
+  },
+
+  async listMcpOAuthGrants(userId: string) {
+    const { data, error } = await supabase
+      .from('mcp_oauth_grants')
+      .select('id, client_name, scopes, created_at, last_used_at, revoked_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return data ?? []
+  },
+
+  async revokeMcpOAuthGrant(userId: string, grantId: string) {
+    const { data, error } = await supabase
+      .from('mcp_oauth_grants')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('id', grantId)
+      .eq('user_id', userId)
+      .is('revoked_at', null)
+      .select('id, client_name, scopes, created_at, last_used_at, revoked_at')
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async revokeMcpOAuthGrantByRefreshHash(input: {
+    refresh_token_hash: string
+    client_id: string
+    resource: string
+  }) {
+    const { error } = await supabase
+      .from('mcp_oauth_grants')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('refresh_token_hash', input.refresh_token_hash)
+      .eq('client_id', input.client_id)
+      .eq('resource', input.resource)
+      .is('revoked_at', null)
+    if (error) throw error
+  },
 };

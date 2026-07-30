@@ -110,6 +110,13 @@ the server-issued HealthyFlow JWT. A verified Google email links to an existing
 password account instead of creating a duplicate; genuinely new accounts still
 pass through the public-slot or Invitation gate.
 
+**MCP OAuth connection**:
+An external MCP client's user-authorized access to HealthyFlow. ChatGPT discovers
+the HealthyFlow authorization server from the `/mcp` resource, identifies itself
+with Client ID Metadata Documents (CIMD), and uses authorization code + PKCE.
+The durable record is a revocable grant; plaintext authorization codes and
+refresh tokens are never stored.
+
 **Invitation**:
 A time-limited signup token tied to a Waitlist entry. Invitation state is
 retained through the Google OAuth redirect, expires after seven days, is

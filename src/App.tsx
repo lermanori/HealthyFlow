@@ -17,6 +17,7 @@ import LoginPage from './pages/LoginPage'
 import DemoPage from './pages/DemoPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsOfServicePage from './pages/TermsOfServicePage'
+import OAuthConsentPage from './pages/OAuthConsentPage'
 import LoadingSpinner from './components/LoadingSpinner'
 import OfflineNotification from './components/OfflineNotification'
 import { useSettings } from './hooks/useSettings'
@@ -132,6 +133,10 @@ function App() {
         <Route path="*" element={<LoginPage />} />
       </Routes>
     )
+  }
+
+  if (location.pathname === '/oauth/authorize') {
+    return <OAuthConsentPage />
   }
 
   return (

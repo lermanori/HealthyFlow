@@ -9,6 +9,7 @@ const tables: Record<string, Array<Record<string, unknown>>> = {
   calendar_connections: [{ id: 'connection-1', user_id: 'user-1', provider: 'google', provider_account_email: 'user@gmail.com', refresh_token_encrypted: 'secret' }],
   external_calendar_events: [{ id: 'event-1', user_id: 'user-1', title: 'Event', raw: { secret: true } }],
   api_tokens: [{ id: 'token-1', user_id: 'user-1', name: 'MCP', scopes: ['hf:read'], token_hash: 'secret' }],
+  mcp_oauth_grants: [{ id: 'grant-1', user_id: 'user-1', client_name: 'ChatGPT', refresh_token_hash: 'secret' }],
 }
 
 const selectCalls: Array<{ table: string; columns: string }> = []
@@ -66,4 +67,5 @@ test('redacts credentials, token hashes, and opaque calendar raw data through ex
   expect(json).not.toContain('"raw"')
   expect(selectCalls.find((call) => call.table === 'calendar_connections')?.columns).not.toContain('token_encrypted')
   expect(selectCalls.find((call) => call.table === 'api_tokens')?.columns).not.toContain('token_hash')
+  expect(selectCalls.find((call) => call.table === 'mcp_oauth_grants')?.columns).not.toContain('refresh_token_hash')
 })

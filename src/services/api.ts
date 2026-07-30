@@ -1168,37 +1168,91 @@ export const rhythmService = {
   },
 }
 
-export type ApiTokenScope = 'hf:read' | 'hf:write:add' | 'hf:write:update' | 'hf:write:complete' | 'hf:write:delete'
+const ApiTokenScopeSchema = z.enum([
+  'hf:read',
+  'hf:write:add',
+  'hf:write:update',
+  'hf:write:complete',
+  'hf:write:delete',
+])
+export type ApiTokenScope = z.infer<typeof ApiTokenScopeSchema>
 
-export interface ApiTokenRecord {
-  id: string
-  name: string
-  scopes: ApiTokenScope[]
-  audience: 'mcp'
-  createdAt: string
-  lastUsedAt: string | null
-  revokedAt: string | null
-}
+const ApiTokenRecordSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  scopes: z.array(ApiTokenScopeSchema),
+  audience: z.literal('mcp'),
+  createdAt: z.string(),
+  lastUsedAt: z.string().nullable(),
+  revokedAt: z.string().nullable(),
+})
+export type ApiTokenRecord = z.infer<typeof ApiTokenRecordSchema>
 
-export interface CreatedApiToken {
-  token: string
-  record: ApiTokenRecord
-}
+const CreatedApiTokenSchema = z.object({
+  token: z.string(),
+  record: ApiTokenRecordSchema,
+})
+export type CreatedApiToken = z.infer<typeof CreatedApiTokenSchema>
+
+const McpOAuthGrantSchema = z.object({
+  id: z.string(),
+  clientName: z.string(),
+  scopes: z.array(ApiTokenScopeSchema),
+  createdAt: z.string(),
+  lastUsedAt: z.string().nullable(),
+  revokedAt: z.string().nullable(),
+})
+export type McpOAuthGrant = z.infer<typeof McpOAuthGrantSchema>
+
+const McpOAuthConsentRequestSchema = z.object({
+  clientName: z.string(),
+  scopes: z.array(ApiTokenScopeSchema),
+})
+export type McpOAuthConsentRequest = z.infer<typeof McpOAuthConsentRequestSchema>
+
+const McpOAuthConsentResultSchema = z.object({
+  redirectUrl: z.string().url(),
+})
 
 export const connectionsService = {
   listTokens: async (): Promise<ApiTokenRecord[]> => {
     const response = await api.get('/settings/connections/tokens')
-    return response.data
+    return z.array(ApiTokenRecordSchema).parse(response.data)
   },
 
   createToken: async (input: { name: string; scopes: ApiTokenScope[] }): Promise<CreatedApiToken> => {
     const response = await api.post('/settings/connections/tokens', { ...input, audience: 'mcp' })
-    return response.data
+    return CreatedApiTokenSchema.parse(response.data)
   },
 
   revokeToken: async (tokenId: string): Promise<ApiTokenRecord> => {
     const response = await api.delete(`/settings/connections/tokens/${tokenId}`)
-    return response.data
+    return ApiTokenRecordSchema.parse(response.data)
+  },
+
+  getOAuthRequest: async (request: string): Promise<McpOAuthConsentRequest> => {
+    const response = await api.get('/oauth/authorize/request', {
+      params: { request },
+    })
+    return McpOAuthConsentRequestSchema.parse(response.data)
+  },
+
+  completeOAuthRequest: async (input: {
+    request: string
+    decision: 'approve' | 'deny'
+  }): Promise<{ redirectUrl: string }> => {
+    const response = await api.post('/oauth/authorize', input)
+    return McpOAuthConsentResultSchema.parse(response.data)
+  },
+
+  listOAuthGrants: async (): Promise<McpOAuthGrant[]> => {
+    const response = await api.get('/settings/connections/oauth')
+    return z.array(McpOAuthGrantSchema).parse(response.data)
+  },
+
+  revokeOAuthGrant: async (grantId: string): Promise<McpOAuthGrant> => {
+    const response = await api.delete(`/settings/connections/oauth/${grantId}`)
+    return McpOAuthGrantSchema.parse(response.data)
   },
 }
 

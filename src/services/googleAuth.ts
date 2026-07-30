@@ -6,6 +6,7 @@ const PENDING_MAX_AGE_MS = 30 * 60 * 1000
 
 type PendingGoogleOAuth = {
   invite?: string
+  returnTo?: string
   startedAt: number
 }
 
@@ -78,14 +79,19 @@ export function getPendingGoogleInvite() {
   return readPending()?.invite
 }
 
+export function getPendingGoogleReturnTo() {
+  return readPending()?.returnTo
+}
+
 export function isGoogleOAuthCallback() {
   const params = new URLSearchParams(window.location.search)
   return params.get('oauth') === 'callback'
 }
 
-export async function beginGoogleOAuth(invite?: string) {
+export async function beginGoogleOAuth(invite?: string, returnTo?: string) {
   window.localStorage.setItem(PENDING_KEY, JSON.stringify({
     invite,
+    returnTo,
     startedAt: Date.now(),
   } satisfies PendingGoogleOAuth))
 
@@ -141,6 +147,7 @@ export async function completeGoogleOAuthCallback() {
     return {
       accessToken: data.session.access_token,
       invite: getPendingGoogleInvite(),
+      returnTo: getPendingGoogleReturnTo(),
     }
   } catch {
     throw new GoogleOAuthCallbackError(
@@ -173,7 +180,18 @@ export async function clearGoogleOAuth({ keepInvite = false }: { keepInvite?: bo
   return invite
 }
 
-export function replaceOAuthCallbackUrl(invite?: string) {
+export function replaceOAuthCallbackUrl(invite?: string, returnTo?: string) {
+  if (returnTo) {
+    const requested = new URL(returnTo, window.location.origin)
+    if (
+      requested.origin === window.location.origin &&
+      requested.pathname === '/app/oauth/authorize'
+    ) {
+      window.history.replaceState({}, '', `${requested.pathname}${requested.search}`)
+      window.dispatchEvent(new PopStateEvent('popstate'))
+      return
+    }
+  }
   const next = new URL('/app', window.location.origin)
   if (invite) next.searchParams.set('invite', invite)
   window.history.replaceState({}, '', `${next.pathname}${next.search}`)

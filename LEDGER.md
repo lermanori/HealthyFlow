@@ -1,3 +1,9 @@
+### 2026-07-30 13:23 — `main`
+
+Added a ChatGPT-ready OAuth 2.1 layer to HealthyFlow's MCP endpoint with CIMD client discovery, PKCE, audience-bound access tokens, rotating refresh grants, revocation, and explicit tool scopes while retaining PAT access for developer clients. Added the authenticated consent route, connection management in Settings, durable Supabase grant storage, deployment configuration, and regression coverage; 488 backend tests, backend typechecking, and the production frontend build pass. The implementation is ready for its additive production migration and coordinated Railway/Netlify rollout.
+
+---
+
 ### 2026-07-30 13:30 — `claude/repalette-foundations`
 
 Swapped the app's foundation tokens to the design system's warm-neutral palette: surfaces, text, borders, interactive and status, in both themes, plus the two values the design system flagged as failing AA. Split accent into fill (`--action-primary`) and glyph (`--action-accent`) roles, which is what lets accent text clear 4.5:1 over its own wash at every tint step. Also converted nine `text-white` labels sitting on coloured fills to `text-on-action`, without which dark-theme chips would have rendered white-on-mint at about 1.5:1. Category and week hues are deliberately untouched and will clash until the item-mark pass lands.

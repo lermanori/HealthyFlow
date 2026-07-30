@@ -1,8 +1,7 @@
+import './load-env'
 import { logger } from './utils/logger'
 import express from 'express'
 import cors from 'cors'
-import dotenv from 'dotenv'
-import path from 'path'
 import { z } from 'zod'
 import { authRoutes } from './routes/auth'
 import { taskRoutes } from './routes/tasks'
@@ -21,6 +20,7 @@ import { workoutRoutes } from './routes/workouts'
 import { onboardingRoutes } from './routes/onboarding'
 import { contactMessageRoutes } from './routes/contact-messages'
 import { mcpRoutes } from './routes/mcp'
+import { oauthRoutes } from './routes/oauth'
 import { proactivityRoutes } from './routes/proactivity'
 import { accountRoutes } from './routes/account'
 import { daySummaryRoutes } from './routes/day-summary'
@@ -29,9 +29,6 @@ import { initDatabase } from './db/database'
 import { db } from './supabase-client'
 import { startProactivityScheduler } from './proactivity'
 import { DURABLE_E2E_USER_EMAIL } from './account-data'
-
-// Load .env from parent directory
-dotenv.config({ path: path.join(__dirname, '../.env') })
 
 const app = express()
 const PORT = process.env.PORT || 3001
@@ -73,6 +70,7 @@ app.use(express.json({ limit: '6mb' }))
 // initDatabase()
 
 // Routes
+app.use(oauthRoutes)
 app.use('/api/auth', authRoutes)
 app.use('/api/tasks', taskRoutes)
 app.use('/api', summaryRoutes)
