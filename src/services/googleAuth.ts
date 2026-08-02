@@ -171,6 +171,10 @@ export async function beginNativeGoogleSignIn() {
     credential = await GoogleSignIn.signIn({ clientId })
   } catch (error) {
     const code = (error as { code?: string })?.code
+    // The native layer knows precisely why this failed; the friendly strings
+    // below deliberately do not. Keep the real reason in the console so a
+    // failure is diagnosable without another instrumented build.
+    console.error('[auth] native Google sign-in failed:', code, (error as Error)?.message)
     if (code === 'google_sign_in_cancelled') {
       throw new GoogleOAuthCallbackError(
         'cancelled',

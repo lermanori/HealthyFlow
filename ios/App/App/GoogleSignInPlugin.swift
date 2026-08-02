@@ -191,7 +191,7 @@ public final class GoogleSignInPlugin: CAPPlugin, CAPBridgedPlugin {
         // which is exactly the failure mode this plugin replaces.
         request.timeoutInterval = 30
 
-        URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
             guard let self else { return }
 
             if let error {
@@ -206,14 +206,28 @@ public final class GoogleSignInPlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
 
-            guard
-                let data,
-                let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                let idToken = payload["id_token"] as? String
-            else {
+            let payload = data
+                .flatMap { try? JSONSerialization.jsonObject(with: $0) }
+                .flatMap { $0 as? [String: Any] }
+
+            guard let idToken = payload?["id_token"] as? String else {
+                // Google reports the real cause (invalid_grant, invalid_client,
+                // code_verifier mismatch, ...) in the body. Without it every
+                // failure looks identical from JS, so carry it into the message.
+                let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+                let providerError = [
+                    payload?["error"] as? String,
+                    payload?["error_description"] as? String
+                ]
+                    .compactMap { $0 }
+                    .joined(separator: ": ")
+                let detail = providerError.isEmpty
+                    ? "no id_token in response"
+                    : providerError
+
                 self.resolveOnMain {
                     self.pendingCall?.reject(
-                        "Google did not return an identity token.",
+                        "Google token exchange failed (HTTP \(status)): \(detail)",
                         "google_sign_in_invalid"
                     )
                     self.finish()
@@ -223,7 +237,7 @@ public final class GoogleSignInPlugin: CAPPlugin, CAPBridgedPlugin {
 
             self.resolveOnMain {
                 var result: [String: Any] = ["idToken": idToken]
-                if let accessToken = payload["access_token"] as? String {
+                if let accessToken = payload?["access_token"] as? String {
                     result["accessToken"] = accessToken
                 }
                 self.pendingCall?.resolve(result)
