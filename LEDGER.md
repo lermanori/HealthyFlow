@@ -1,3 +1,9 @@
+### 2026-08-02 17:45 — `main`
+
+Added a build-time guard so an iOS build fails fast when its Supabase Auth configuration is missing, rather than shipping a bundle whose sign-in is silently unconfigured. `build:ios` now runs `verify:ios-auth-env` first, which checks `VITE_SUPABASE_URL` and a publishable/anon key are present and exits non-zero with the missing names. This closes the loop on the failure that opened today's session, where the committed `.env.production` had lost those vars and Google sign-in reported itself unconfigured only at runtime on device.
+
+---
+
 ### 2026-08-02 17:20 — `feat/native-google-signin`
 
 Replaced Google sign-in on iOS with a native in-process flow, so it now works the same way Apple already did. Device testing showed the old flow reaching Google and returning a valid code, then hanging on "Finishing…" forever with no network request: the deep-link callback lands as a history push into an already-mounted React tree, so none of the mount-time triggers the web flow relies on ever fire, and the spinner was a leftover from starting the flow rather than a sign of work in progress. A new `GoogleSignInPlugin` (Swift, `ASWebAuthenticationSession` + PKCE, no third-party SDK) obtains the ID token natively and hands it to `signInWithIdToken`, deleting the callback path entirely on iOS. The backend contract from ADR-0005 is unchanged and the web flow is untouched. The last defect was a one-line omission that cost most of the debugging time: plugins in the app target are registered explicitly in `capacitorDidLoad`, not auto-discovered, so the Swift compiled cleanly into the binary while the bridge never exposed it and every call rejected with `UNIMPLEMENTED` before any OAuth code ran. Google and Apple sign-in are both confirmed working on device. Reasoning recorded in ADR-0006.
