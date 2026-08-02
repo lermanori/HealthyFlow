@@ -79,3 +79,9 @@ session differs per platform.
   it is shared with other native links.
 - `ASWebAuthenticationSession` shows a system consent sheet the first time,
   naming the domain being signed in to. This is expected and required.
+- Any future plugin added to the app target must be registered explicitly in
+  `HealthyFlowViewController.capacitorDidLoad()`. Capacitor does not
+  auto-discover them. Omitting the registration fails in a deliberately
+  confusing way: the Swift compiles and ships, but the bridge never exposes it,
+  so calls reject with `UNIMPLEMENTED` before any plugin code runs — which looks
+  like a provider failure rather than a wiring mistake.
