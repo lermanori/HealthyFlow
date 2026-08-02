@@ -1,10 +1,23 @@
+import { registerPlugin } from '@capacitor/core'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import {
   appRouterBasename,
   isNativeApp,
+  isNativeIOS,
   nativeOAuthRedirectUrl,
   openNativeBrowser,
 } from '../lib/native'
+
+type GoogleSignInResult = {
+  idToken: string
+  accessToken?: string
+}
+
+interface GoogleSignInPlugin {
+  signIn(options: { clientId: string }): Promise<GoogleSignInResult>
+}
+
+const GoogleSignIn = registerPlugin<GoogleSignInPlugin>('GoogleSignIn')
 
 const STORAGE_KEY = 'healthyflow-google-oauth'
 const PENDING_KEY = 'healthyflow-google-oauth-pending'
@@ -123,6 +136,77 @@ export async function beginGoogleOAuth(invite?: string, returnTo?: string) {
     throw new GoogleOAuthCallbackError(
       'provider_error',
       'Could not start Google sign-in. Please check your connection and try again.',
+    )
+  }
+}
+
+/**
+ * Native Google sign-in for the iOS shell.
+ *
+ * The web flow leaves the page for Supabase's hosted OAuth redirect and relies
+ * on the callback arriving as a fresh page load. The native shell never
+ * unloads, so that callback would land as a history push into an already
+ * mounted React tree and no mount-time trigger would fire. Here the ID token
+ * comes back in-process instead, exactly like Apple's flow, so there is no
+ * redirect to route and nothing to resume.
+ */
+export async function beginNativeGoogleSignIn() {
+  if (!isNativeIOS) {
+    throw new GoogleOAuthCallbackError(
+      'not_configured',
+      'Native Google sign-in is available in the HealthyFlow iOS app.',
+    )
+  }
+
+  const clientId = import.meta.env.VITE_GOOGLE_IOS_CLIENT_ID
+  if (!clientId) {
+    throw new GoogleOAuthCallbackError(
+      'not_configured',
+      'Google sign-in is not configured yet. Use email and password for now.',
+    )
+  }
+
+  let credential: GoogleSignInResult
+  try {
+    credential = await GoogleSignIn.signIn({ clientId })
+  } catch (error) {
+    const code = (error as { code?: string })?.code
+    // The native layer knows precisely why this failed; the friendly strings
+    // below deliberately do not. Keep the real reason in the console so a
+    // failure is diagnosable without another instrumented build.
+    console.error('[auth] native Google sign-in failed:', code, (error as Error)?.message)
+    if (code === 'google_sign_in_cancelled') {
+      throw new GoogleOAuthCallbackError(
+        'cancelled',
+        'Google sign-in was cancelled. No changes were made.',
+      )
+    }
+    if (code === 'google_sign_in_not_configured') {
+      throw new GoogleOAuthCallbackError(
+        'not_configured',
+        'Google sign-in is not configured yet. Use email and password for now.',
+      )
+    }
+    throw new GoogleOAuthCallbackError(
+      'provider_error',
+      'Google could not complete sign-in. Please try again.',
+    )
+  }
+
+  try {
+    const { data, error } = await getClient().auth.signInWithIdToken({
+      provider: 'google',
+      token: credential.idToken,
+    })
+    if (error || !data.session?.access_token) {
+      throw error ?? new Error('Missing Supabase Auth session')
+    }
+    return { accessToken: data.session.access_token }
+  } catch (error) {
+    if (error instanceof GoogleOAuthCallbackError) throw error
+    throw new GoogleOAuthCallbackError(
+      'session_invalid',
+      'Google sign-in did not return a valid session. Please try again.',
     )
   }
 }

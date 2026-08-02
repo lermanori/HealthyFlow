@@ -9,6 +9,7 @@ import AppMark from '../components/AppMark'
 import { analytics } from '../lib/analytics'
 import {
   beginGoogleOAuth,
+  beginNativeGoogleSignIn,
   clearGoogleOAuth,
   completeGoogleOAuthCallback,
   getCurrentGoogleAccessToken,
@@ -259,6 +260,23 @@ export default function LoginPage() {
     setError('')
     setGoogleRetryAvailable(false)
     setGoogleLoading(true)
+
+    // Native iOS resolves in-process, so it owns the whole exchange here and
+    // must always clear its own spinner. The web flow deliberately leaves the
+    // spinner up: the page is about to unload for Supabase's hosted redirect,
+    // and the callback resumes on a fresh mount.
+    if (isNativeIOS) {
+      try {
+        const { accessToken } = await beginNativeGoogleSignIn()
+        await loginWithProvider('google', accessToken, inviteToken)
+      } catch (oauthError) {
+        setError(providerExchangeMessage('Google', oauthError))
+      } finally {
+        setGoogleLoading(false)
+      }
+      return
+    }
+
     try {
       const returnTo = window.location.pathname === '/app/oauth/authorize'
         ? `${window.location.pathname}${window.location.search}`
