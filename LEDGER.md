@@ -1,3 +1,9 @@
+### 2026-08-02 16:40 — `main`
+
+Fixed native Google sign-in, which was failing in the iOS app despite being enabled in Supabase: the committed `.env.production` was missing `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`, so builds outside the Netlify web deploy (like local iOS builds) never had Supabase Auth configured client-side. Committed the fix that was already sitting uncommitted locally. Also fixed two related Supabase Auth dashboard config issues found in the same investigation: the Google provider's native redirect URL (`healthyflow://oauth/callback`) was missing from the Redirect URLs allowlist, and Apple Sign In was disabled with an invalid Client ID and a malformed (non-JWT) secret key — both corrected in the dashboard directly. Verified end-to-end in the iOS Simulator: Google sign-in now correctly reaches the real Google account-chooser screen through Supabase's OAuth proxy.
+
+---
+
 ### 2026-07-30 17:12 — `main`
 
 Prepared HealthyFlow’s next iOS release by advancing both the app and Today widget to marketing version 1.0.1 and build 2. The frontend, backend, Capacitor sync, simulator Release build, and signed device archive all passed; Apple accepted the upload into App Store Connect without warnings or errors and is processing the build.
