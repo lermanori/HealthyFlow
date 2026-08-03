@@ -1,3 +1,11 @@
+### 2026-08-03 16:05 — `main`
+
+Ran the Today Playwright suite against the Phase 2 work and it caught a real bug the type checker could not. The hour slot decides compaction through a different predicate than the one that sizes it, and only the sizing one had been taught about Focus blocks — so an hour holding only a Focus block collapsed to the 28px empty height and its 72px row spilled into the next hour, landing underneath the now-marker and making Start unclickable for anyone viewing an earlier block. Measuring the two bounding boxes is what settled it as a defect rather than a flaky click. Both new specs now pass, and the exit scenario runs end to end.
+
+Seven `today-workspace` screenshot tests still fail. They were verified against a worktree at the previous commit and fail identically there, so they are pre-existing baseline drift and are deliberately left alone rather than folded into this change. Phase 2 is marked complete and Phase 3 is now the current phase.
+
+---
+
 ### 2026-08-03 15:20 — `main`
 
 Phase 2 of the Work delivery plan: Focus blocks are now first-class rows on Today. Work gained a day-scoped read (`Work.listDayFocusBlocks`) that denormalises Project and Task context and resolves each block's hour slot server-side, and that arrives on Today through a new top-level `work` key on DaySummary — added with `.default()`, so no fixture or `version` bump was needed. Today renders the same record Work owns and keeps no copy of it: the row links to its Project, Start opens a full-screen focus overlay whose timer is derived from the persisted `startedAt`, Esc minimizes without ending the block, and finishing opens the Work review as a sheet. The review form and elapsed-timer were extracted out of FocusBlockCard so Work and Today cannot drift into two implementations.

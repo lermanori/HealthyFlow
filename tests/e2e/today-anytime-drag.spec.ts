@@ -6,6 +6,8 @@ const DATE = new Date().toISOString().slice(0, 10)
 const HABIT_PARENT_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'
 const VIRTUAL_HABIT_ID = `${HABIT_PARENT_ID}-${DATE}`
 const MATERIALIZED_HABIT_ID = 'bbbbbbbb-cccc-dddd-eeee-ffffffffffff'
+// Must be a real UUID: the client re-parses the day summary strictly.
+const FOCUS_BLOCK_ID = '44444444-4444-4444-8444-444444444444'
 
 type MutableItem = Pick<DaySummaryItem, 'id' | 'title'> & Partial<DaySummaryItem>
 
@@ -396,7 +398,7 @@ test('failed virtual Habit reorder restores its synthetic id, order, layout, and
 // land on the wrong row.
 test('a Focus block sharing an hour slot leaves drag indices and reorder payloads intact', async ({ page }) => {
   const workspace = await setupDragWorkspace(page, {
-    focusBlocks: [{ id: 'focus-1', startTime: '10:00', intendedOutcome: 'Ship invoice reminders' }],
+    focusBlocks: [{ id: FOCUS_BLOCK_ID, startTime: '10:00', intendedOutcome: 'Ship invoice reminders' }],
   })
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/app')
@@ -415,5 +417,5 @@ test('a Focus block sharing an hour slot leaves drag indices and reorder payload
   await expect(slot.getByTestId('timeline-focus-block')).toHaveCount(1)
 
   // And a subsequent Anytime reorder carries only Task ids.
-  expect(workspace.getReorderedIds().every(id => id !== 'focus-1')).toBe(true)
+  expect(workspace.getReorderedIds().every(id => id !== FOCUS_BLOCK_ID)).toBe(true)
 })

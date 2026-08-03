@@ -498,7 +498,11 @@ export default function DayTimeline({
     recordBuckets[slot].sort((a, b) => a.time.localeCompare(b.time))
   }
 
-  const hasSlotContent = (slot: string) => slotBuckets[slot].length > 0 || calendarBuckets[slot].length > 0 || recordBuckets[slot].length > 0
+  // A Focus block counts as content: without it the hour collapses to the
+  // compact empty height and its row overflows into the next slot.
+  const focusSlots = new Set(focusBlockRows.map(row => row.slot))
+  const hasSlotContent = (slot: string) =>
+    slotBuckets[slot].length > 0 || calendarBuckets[slot].length > 0 || recordBuckets[slot].length > 0 || focusSlots.has(slot)
   // The current hour never collapses — the now-line has to stay findable on a
   // quiet afternoon.
   const compactedEmptySlots = compactableEmptySlots(

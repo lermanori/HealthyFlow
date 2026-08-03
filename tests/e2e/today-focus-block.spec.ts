@@ -17,6 +17,8 @@ const DATE = new Date().toISOString().slice(0, 10)
 const BLOCK_ID = '44444444-4444-4444-8444-444444444444'
 const PROJECT_ID = '22222222-2222-4222-8222-222222222222'
 const TASK_ID = '33333333-3333-4333-8333-333333333333'
+const REVIEW_ID = '55555555-5555-4555-8555-555555555555'
+const SESSION_ID = '66666666-6666-4666-8666-666666666666'
 
 const settings = {
   notifications: false,
@@ -104,8 +106,52 @@ async function setupWorkspace(page: Page) {
 
     if (url.pathname.endsWith('/review')) {
       sessionsCreated += 1
+      const input = route.request().postDataJSON() as Record<string, any>
       block = { ...block, status: 'completed' }
-      return route.fulfill({ status: 201, json: { focusBlock: block, review: { id: 'r1' }, session: { id: 's1' } } })
+      // Shaped like the real ReviewCompletion — the client Zod-parses it, so a
+      // stub would fail the same way a broken server would.
+      const review = {
+        id: REVIEW_ID,
+        focusBlockId: BLOCK_ID,
+        trigger: 'finished',
+        whatChanged: input.whatChanged,
+        evidenceProduced: input.evidenceProduced ?? '',
+        milestoneImpact: input.milestoneImpact,
+        whatGotInWay: input.whatGotInWay ?? '',
+        unnecessaryWork: input.unnecessaryWork ?? '',
+        actualMinutes: input.actualMinutes,
+        nextStep: input.nextStep,
+        attention: input.attention,
+        confirmedUpdates: input.updates ?? { tasks: [], project: {} },
+        createdAt: new Date().toISOString(),
+      }
+      return route.fulfill({
+        status: 201,
+        json: {
+          focusBlock: block,
+          review,
+          session: {
+            id: SESSION_ID,
+            projectId: PROJECT_ID,
+            focusBlockId: BLOCK_ID,
+            taskIds: [TASK_ID],
+            standaloneTitle: null,
+            standaloneContext: null,
+            plannedMinutes: 45,
+            actualMinutes: input.actualMinutes,
+            outcome: input.whatChanged,
+            evidence: input.evidenceProduced ?? null,
+            attention: input.attention,
+            blockerInfo: null,
+            driftInfo: null,
+            nextStep: input.nextStep,
+            occurredAt: new Date().toISOString(),
+            startedAt: block.startedAt ?? null,
+            endedAt: new Date().toISOString(),
+            review,
+          },
+        },
+      })
     }
 
     return route.continue()
@@ -128,6 +174,7 @@ test('a Focus block runs its whole life from Today without becoming a Task', asy
   const workspace = await setupWorkspace(page)
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/app')
+  await expect(page.locator('#loading-screen')).toBeHidden()
 
   // Appears at its scheduled hour, reading as Focus rather than as a Task.
   const slot = page.locator('[data-demo-id="schedule-slot-14:00"]')
@@ -136,6 +183,11 @@ test('a Focus block runs its whole life from Today without becoming a Task', asy
   await expect(row).toContainText('Ship invoice reminders')
   await expect(row).toContainText('InvoiceFlow')
   await expect(row).toHaveAttribute('data-focus-block-status', 'planned')
+
+  // The hour must not collapse to the compact empty height around a Focus
+  // block — if it does, the row overflows into the next hour and the now-marker
+  // covers this button.
+  await expect(slot).toHaveAttribute('data-compacted', 'false')
 
   // Start opens the overlay with the target and a running clock.
   await row.getByRole('button', { name: 'Start focus block' }).click()
@@ -147,6 +199,7 @@ test('a Focus block runs its whole life from Today without becoming a Task', asy
 
   // Survives a reload: still active, still timing from the persisted start.
   await page.reload()
+  await expect(page.locator('#loading-screen')).toBeHidden()
   await expect(page.getByTestId('focus-block-overlay')).toBeVisible()
 
   // Minimize keeps the block running and leaves a Resume affordance.
@@ -185,6 +238,7 @@ test('a Focus block runs its whole life from Today without becoming a Task', asy
 test('a block scheduled for another day shows but cannot be started', async ({ page }) => {
   await setupWorkspace(page)
   await page.goto('/app')
+  await expect(page.locator('#loading-screen')).toBeHidden()
 
   await page.getByRole('button', { name: 'Next day', exact: true }).click()
 
