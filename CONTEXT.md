@@ -91,6 +91,22 @@ The Recent / Most-used exercise picker built from previously logged Workout sess
 **Achievement definition**:
 A named measurement shown to users in the Progress section. It defines the metric, unit, improvement direction, and an optional target. The internal API and `/achievements` route keep the established Achievement identity even though the presentation label is Progress.
 
+### Work
+
+**Project**:
+A bounded Work context for a target. It records the target, definition of done, current milestone, deadline, status, summary, blockers, constraints, non-goals, decisions, links, next valuable step, related canonical Tasks, Focus-block history, and Work-session history. Archiving hides a Project from active use without deleting its records. Safely deleting one unassigns its Tasks and preserves its Work history as standalone context.
+
+**Focus block**:
+A persistent, startable plan for focused Work. It has a stable id, a real scheduled date and start time, planned focused minutes, intended outcome/evidence, optional transition/break minutes, and references canonical Tasks without copying or completing them. A Focus block belongs to a Project or carries bounded standalone title/context. Its lifecycle is `planned → active → reviewing → completed`, with `canceled` as a terminal alternative. A completed Work review, not elapsed time, produces the Work session.
+_Avoid_: storing a Focus block as a Task, calling a display-only time label a schedule, or overwriting an earlier block when planning another one
+
+**Work review**:
+The structured account required to complete a Focus block: what changed, evidence, milestone impact, blockers, unnecessary work, actual focused minutes, next valuable step, and attention (`Focused`, `Mixed`, or `Drifted`). It also preserves the explicit Task and Project updates the user confirmed. The review, its Work session, those confirmed updates, and the Focus-block completion are one atomic write.
+
+**Work session**:
+The durable record of Work that actually happened. A reviewed session preserves its Project or standalone context, referenced Tasks, planned-versus-actual minutes, outcome, evidence, attention, blocker/drift information, next step, timestamps, and structured Work review. A user may also enter a standalone or Project-linked historical Work session manually. Recording Work never silently completes a Task.
+_Avoid_: session when you mean the planned Focus block; treating time spent as proof that the Project advanced
+
 ### AI surfaces
 
 **parse-tasks**:
