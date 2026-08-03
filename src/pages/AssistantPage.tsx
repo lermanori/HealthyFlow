@@ -7,6 +7,7 @@ import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, As
 import { useDictatedText } from '../hooks/useDictatedText'
 import PendingActionCard, { type PendingActionView } from '../components/PendingActionCard'
 import { invalidatePendingActionQueries } from '../utils/pendingActionInvalidation'
+import { workTalkContext, type WorkTalkContext } from '../workTalk'
 
 type ConversationPendingAction = PendingActionView
 
@@ -406,17 +407,23 @@ export default function AssistantPage() {
   const location = useLocation()
   const demoSession = isDemoSession()
   const [signalContext, setSignalContext] = useState<DailySignalTalkContext | null>(() => dailySignalTalkContext(location.state))
+  // Work hands off a finished, editable prompt. Talk only carries it in —
+  // it never reassembles the Project's target or context for itself.
+  const [workContext, setWorkContext] = useState<WorkTalkContext | null>(() => workTalkContext(location.state))
   const [conversations, setConversations] = useState<StoredConversation[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string>(() => crypto.randomUUID())
   const [messages, setMessages] = useState<ConversationMessage[]>([])
-  const [draft, setDraft] = useState(() => signalContext ? dailySignalTalkPrompt(signalContext) : '')
+  const [draft, setDraft] = useState(() => {
+    if (workContext) return workContext.prompt
+    return signalContext ? dailySignalTalkPrompt(signalContext) : ''
+  })
   const [isSending, setIsSending] = useState(false)
   const [model, setModel] = useState<AssistantChatModel>('gpt-4o-mini')
   const [attachment, setAttachment] = useState<ComposerAttachment | null>(null)
   const [isHistoryLoaded, setIsHistoryLoaded] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const opensFreshSignalChatRef = useRef(signalContext !== null)
+  const opensFreshSignalChatRef = useRef(signalContext !== null || workContext !== null)
   const skipNextPersistRef = useRef(false)
   const saveTimerRef = useRef<number | null>(null)
   const conversationsRef = useRef<StoredConversation[]>([])
@@ -692,6 +699,7 @@ export default function AssistantPage() {
     setMessages([])
     setDraft('')
     setSignalContext(null)
+    setWorkContext(null)
     setAttachment(null)
     setModel('gpt-4o-mini')
     inputRef.current?.focus()
@@ -887,7 +895,7 @@ export default function AssistantPage() {
               >
                 {!conversations.some((conversation) => conversation.id === activeConversationId) && (
                   <option value={activeConversationId}>
-                    {signalContext ? 'New insight chat' : 'New chat'}
+                    {signalContext || workContext ? 'New insight chat' : 'New chat'}
                   </option>
                 )}
                 {conversations.map((conversation) => (
@@ -981,6 +989,19 @@ export default function AssistantPage() {
       </div>
 
       <form onSubmit={submit} className="assistant-composer-form fixed left-0 right-0 z-20 border-t border-card bg-sunken/95 px-2.5 pt-2.5 backdrop-blur-xl md:static md:bg-transparent md:p-3 md:backdrop-blur-none">
+        {workContext && (
+          <div className="mb-2 flex min-h-11 items-center justify-between gap-3 rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-xs text-accent">
+            <span className="min-w-0 truncate">From Work · {workContext.label}</span>
+            <button
+              type="button"
+              onClick={() => setWorkContext(null)}
+              aria-label="Remove Work context"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md hover:bg-accent/15"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
         {signalContext && (
           <div className="mb-2 flex min-h-11 items-center justify-between gap-3 rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-xs text-accent">
             <span className="min-w-0 truncate">

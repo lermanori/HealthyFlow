@@ -1,3 +1,9 @@
+### 2026-08-03 13:45 — `claude/healthyflow-work-impl-bd4185`
+
+Committed the Work module, which had been sitting as one 3,600-line uncommitted blob, as eight ordered commits: local-migration tooling, the two schema migrations, the Work vocabulary, the projectId fix, the backend service, the Work page, and the Talk handoff. The schema arrived in two parts on purpose — the first slice stored a single overwritable `focus_block` JSON object per Project whose time was a display label, so a follow-up migration promotes Focus blocks and Work reviews to real tables and makes review, session, confirmed updates, and block completion one transaction. The first migration is superseded rather than rewritten because it is already in migration history; ADR-0007 records that. One fix in the set is not Work-specific: `POST /api/tasks` has been silently dropping the `projectId` the client has sent since Projects shipped, and now persists it behind an ownership check. The branch was fast-forwarded onto main first, and nothing has been pushed or merged.
+
+---
+
 ### 2026-08-03 13:32 — `main`
 
 Committed the two Work design documents to main after all: the Talk-orchestration-and-Work design target, which fixes Talk as the coordinator and each module as the source of truth for its own records, and the six-phase delivery plan built on it. Holding them on the worktree branch would have kept the reasoning invisible to anything else based on main, and they describe intent rather than code, so they carry no merge cost. The implementation they govern still lives in the `healthyflow-work-impl` worktree.
