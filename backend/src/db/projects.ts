@@ -19,6 +19,14 @@ export const projectsDb = {
     description?: string | null
     color: string
     is_archived: boolean
+    // Work module columns. Optional so the plain Project create path stays
+    // unchanged and leaves them at their defaults.
+    status?: string
+    target?: string | null
+    milestone?: string | null
+    definition_of_done?: string | null
+    deadline?: string | null
+    context?: Record<string, unknown>
   }) {
     const { data, error } = await supabase
       .from('projects')

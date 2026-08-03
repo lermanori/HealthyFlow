@@ -2,6 +2,7 @@ import { logger } from './utils/logger'
 import { sortTasksForTimeline } from './utils/sortTasksForTimeline';
 import { supabase } from './db/client'
 import { projectsDb } from './db/projects'
+import { workDb } from './db/work'
 import { weightDb } from './db/weight'
 import { achievementsDb } from './db/achievements'
 import { pushDb } from './db/push'
@@ -15,6 +16,7 @@ export { supabase }
 // via spread; the remaining (cross-referencing) domains stay inline below.
 export const db = {
   ...projectsDb,
+  ...workDb,
   ...weightDb,
   ...achievementsDb,
   ...pushDb,

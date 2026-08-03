@@ -10,6 +10,7 @@ import { aiRoutes } from './routes/ai'
 import { analyticsRoutes } from './routes/analytics'
 import { adminRoutes } from './routes/admin'
 import { projectRoutes } from './routes/projects'
+import { workRoutes } from './routes/work'
 import { calendarRoutes } from './routes/calendar'
 import { creditsRoutes } from './routes/credits'
 import { settingsRoutes } from './routes/settings'
@@ -139,6 +140,7 @@ app.use('/api/ai', aiRoutes)
 app.use('/api/analytics', analyticsRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/projects', projectRoutes)
+app.use('/api/work', workRoutes)
 app.use('/api/calendar', calendarRoutes)
 app.use('/api/credits', creditsRoutes)
 app.use('/api/settings', settingsRoutes)
