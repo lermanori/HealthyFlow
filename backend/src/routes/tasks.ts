@@ -10,7 +10,7 @@ import { isPureDragUpdate } from '../utils/isPureDragUpdate'
 import { deleteGoogleCalendarEvent, isGoogleCalendarNotConnectedError, syncTaskToGoogleCalendar } from '../calendar'
 import { HabitOutcomeInputSchema, HabitProgress, HabitProgressInputSchema, HabitProgressUpdateSchema } from '../habit-progress'
 import { getItemsForDay, normalizeItemRows } from '../day-summary'
-import { CategorySchema, RollbackDragMaterializationInputSchema } from '../task-contracts'
+import { CategorySchema, ItemTypeSchema, RollbackDragMaterializationInputSchema } from '../task-contracts'
 
 const router = express.Router()
 
@@ -134,6 +134,9 @@ function formatTaskResponse(row: any, opts: { isHabitInstance?: boolean } = {}) 
     googleEventId: row.google_event_id ?? null,
     syncedToGoogle: Boolean(row.synced_to_google),
     googleSyncStatus: row.google_sync_status ?? 'pending',
+    ...(row.type === 'workout' && row.workout_plan_id ? {
+      workoutInfo: { workoutPlanId: row.workout_plan_id },
+    } : {}),
     ...(row.type === 'habit' ? { habitInfo: {
       target: targetValue == null ? null : { value: targetValue, unit: row.habit_target_unit },
       outcome: row.habit_outcome ?? (row.completed ? 'completed' : 'pending'),
@@ -212,13 +215,24 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
 router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
   const { title, type, category, startTime, duration, repeat } = req.body
+  const parsedType = ItemTypeSchema.safeParse(type)
+  if (!parsedType.success) {
+    return res.status(400).json({ error: parsedType.error.issues })
+  }
+  const itemType = parsedType.data
   const parsedCategory = CategorySchema.safeParse(category)
   if (!parsedCategory.success) {
     return res.status(400).json({ error: parsedCategory.error.issues })
   }
-  const location = type === 'task' ? normalizeLocation(req.body.location) : null
-  const parsedTarget = type === 'habit' ? HabitTargetSchema.safeParse(req.body.habitTarget ?? null) : null
+  const location = itemType === 'task' ? normalizeLocation(req.body.location) : null
+  const parsedTarget = itemType === 'habit' ? HabitTargetSchema.safeParse(req.body.habitTarget ?? null) : null
   if (parsedTarget && !parsedTarget.success) return res.status(400).json({ error: parsedTarget.error.issues })
+  const workoutPlanId = itemType === 'workout' && typeof req.body.workoutInfo?.workoutPlanId === 'string'
+    ? req.body.workoutInfo.workoutPlanId
+    : null
+  if (itemType === 'workout' && !workoutPlanId) {
+    return res.status(400).json({ error: 'A planned Workout must reference a Workout plan' })
+  }
   const projectId = typeof req.body.projectId === 'string' && req.body.projectId ? req.body.projectId : null
   // Normalize at the write boundary (ADR-0002): a time implies a day — start_time
   // with no scheduled_date is scheduled for today. No date and no time stays someday.
@@ -239,9 +253,15 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       if (project.user_id !== userId) return res.status(403).json({ error: 'Forbidden' })
     }
 
+    if (workoutPlanId) {
+      const plan = await db.getWorkoutPlanById(workoutPlanId)
+      if (!plan) return res.status(404).json({ error: 'Workout plan not found' })
+      if (plan.user_id !== userId) return res.status(403).json({ error: 'Forbidden' })
+    }
+
     // For untimed tasks, append to end of Anytime backlog (MAX position + 1, or null)
     let position: number | null = null
-    if (type !== 'habit' && !startTime && scheduledDate) {
+    if (itemType !== 'habit' && !startTime && scheduledDate) {
       position = await db.getNextPosition(userId, scheduledDate)
     }
 
@@ -249,7 +269,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       id: uuidv4(),
       user_id: userId,
       title,
-      type,
+      type: itemType,
       category: parsedCategory.data,
       start_time: startTime,
       location,
@@ -257,7 +277,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       repeat_type: repeat,
       // Daily Habits are undated templates. Their selected day is represented by
       // a virtual/materialized instance, never by dating the parent row.
-      scheduled_date: type === 'habit' ? null : scheduledDate,
+      scheduled_date: itemType === 'habit' ? null : scheduledDate,
       position,
       // The client has sent projectId since Projects shipped, but there was no
       // column to put it in. Persisting it is what makes an Item added here
@@ -266,6 +286,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       habit_target_value: parsedTarget?.success ? parsedTarget.data?.value ?? null : null,
       habit_target_unit: parsedTarget?.success ? parsedTarget.data?.unit ?? null : null,
       habit_outcome: null,
+      workout_plan_id: workoutPlanId,
     }
 
     let task = await db.createTask(taskData)
@@ -288,6 +309,9 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       rolledOverFromTaskId: task.rolled_over_from_task_id,
       originalCreatedAt: task.original_created_at,
       position: task.position ?? null,
+      ...(task.type === 'workout' && task.workout_plan_id ? {
+        workoutInfo: { workoutPlanId: task.workout_plan_id },
+      } : {}),
       ...(task.type === 'habit' ? {
         habitInfo: {
           target: task.habit_target_value == null ? null : { value: Number(task.habit_target_value), unit: task.habit_target_unit },

@@ -257,12 +257,23 @@ function CalendarEventBlock({
               <h3 className={`truncate text-sm font-medium sm:text-base ${
                 event.completed ? 'line-through text-ink-muted' : 'text-ink'
               }`}>
-                {event.title}
+                {event.htmlLink ? (
+                  <a
+                    href={event.htmlLink}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={eventClick => eventClick.stopPropagation()}
+                    className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                    aria-label={`Open ${event.title} in Calendar`}
+                  >
+                    {event.title}
+                  </a>
+                ) : event.title}
               </h3>
             </div>
 
             <span className="hidden shrink-0 rounded-full border border-state-success/30 bg-state-success/15 px-2 py-1 text-xs text-state-success sm:inline-flex">
-              Calendar
+              Calendar · fixed
             </span>
           </div>
 
@@ -288,6 +299,11 @@ function CalendarEventBlock({
 // colour-coded at a glance; habit progress reuses the plan hue (cyan) because a
 // chunk is you doing the thing you planned, not a measurement of your body.
 const RECORD_STYLE: Record<RecordKind, { icon: typeof Flame; accent: string; chip: string }> = {
+  'calendar-transition': {
+    icon: Clock,
+    accent: 'border-state-success/30 bg-state-success/10 hover:bg-state-success/20',
+    chip: 'border-state-success/30 bg-state-success/20 text-state-success',
+  },
   nutrition: {
     icon: Flame,
     accent: 'border-state-danger/30 bg-state-danger/10 hover:bg-state-danger/20',
@@ -334,6 +350,9 @@ function TimelineRecordBlock({
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-baseline gap-2">
           <span className="truncate text-sm font-medium text-ink">{record.title}</span>
+          <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${style.chip}`}>
+            {record.kind === 'calendar-transition' ? 'Protected' : 'Actual'}
+          </span>
           <span className="inline-flex shrink-0 items-center gap-1 text-[10px] tabular-nums text-ink-muted">
             <Clock className="h-3 w-3" />
             {record.time}
@@ -361,9 +380,32 @@ function TimelineRecordBlock({
     )
   }
 
+  if (record.externalHref) {
+    return (
+      <a
+        href={record.externalHref}
+        target="_blank"
+        rel="noreferrer"
+        data-testid="timeline-record"
+        data-record-kind={record.kind}
+        className={className}
+      >
+        {body}
+      </a>
+    )
+  }
+
+  if (!record.href) {
+    return (
+      <div data-testid="timeline-record" data-record-kind={record.kind} className={className}>
+        {body}
+      </div>
+    )
+  }
+
   return (
     <Link
-      to={record.href ?? '#'}
+      to={record.href}
       data-testid="timeline-record"
       data-record-kind={record.kind}
       className={className}

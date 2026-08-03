@@ -67,6 +67,9 @@ export const DaySummaryItemSchema = z.object({
    */
   resolvedTime: ClockTimeSchema.nullable().default(null),
   habitInfo: HabitInfoSchema.optional(),
+  workoutInfo: z.object({
+    workoutPlanId: z.string(),
+  }).strict().optional(),
 }).strict()
 
 export const DaySummaryCalendarEventSchema = z.object({
@@ -345,9 +348,110 @@ export const DaySummaryAchievementEntrySchema = z.object({
   loggedTime: ClockTimeSchema.nullable().default(null),
 }).strict()
 
+/** A Progress target is definition context, not a measurement recorded today. */
+export const DaySummaryProgressTargetSchema = z.object({
+  achievementId: z.string(),
+  name: z.string(),
+  unit: z.string(),
+  targetValue: z.number(),
+  latestValue: z.number().nullable(),
+  targetProgress: z.number().nullable(),
+}).strict()
+
 export const ProgressSummarySchema = z.object({
   status: z.enum(['recorded', 'not_recorded', 'disabled', 'unavailable']),
   entries: z.array(DaySummaryAchievementEntrySchema),
+  targets: z.array(DaySummaryProgressTargetSchema).default([]),
+}).strict()
+
+const DailyPlanReferenceBaseSchema = z.object({
+  id: z.string(),
+  sourceId: z.string(),
+  time: ClockTimeSchema.nullable(),
+  slot: ClockTimeSchema.nullable(),
+  semantics: z.enum(['plan', 'actual', 'boundary']),
+})
+
+export const DailyPlanReferenceSchema = z.discriminatedUnion('kind', [
+  DailyPlanReferenceBaseSchema.extend({
+    kind: z.literal('calendar_event'),
+    module: z.literal('calendar'),
+    state: z.literal('fixed'),
+    endTime: ClockTimeSchema.nullable(),
+  }).strict(),
+  DailyPlanReferenceBaseSchema.extend({
+    kind: z.literal('calendar_transition'),
+    module: z.literal('calendar'),
+    state: z.literal('protected'),
+    endTime: ClockTimeSchema,
+    durationMinutes: z.number().int().positive(),
+  }).strict(),
+  DailyPlanReferenceBaseSchema.extend({
+    kind: z.literal('focus_block'),
+    module: z.literal('work'),
+    state: z.enum(['planned', 'active', 'reviewing', 'completed', 'canceled']),
+  }).strict(),
+  DailyPlanReferenceBaseSchema.extend({
+    kind: z.literal('task'),
+    module: z.literal('tasks'),
+    state: z.enum(['planned', 'completed']),
+  }).strict(),
+  DailyPlanReferenceBaseSchema.extend({
+    kind: z.literal('habit'),
+    module: z.literal('habits'),
+    state: z.enum(['pending', 'partial', 'completed', 'failed']),
+  }).strict(),
+  DailyPlanReferenceBaseSchema.extend({
+    kind: z.literal('grocery'),
+    module: z.literal('tasks'),
+    state: z.enum(['planned', 'completed']),
+  }).strict(),
+  DailyPlanReferenceBaseSchema.extend({
+    kind: z.literal('meal_plan'),
+    module: z.literal('nutrition'),
+    state: z.enum(['planned', 'completed']),
+  }).strict(),
+  DailyPlanReferenceBaseSchema.extend({
+    kind: z.literal('workout_plan'),
+    module: z.literal('workouts'),
+    state: z.enum(['planned', 'completed']),
+    workoutPlanId: z.string().nullable(),
+  }).strict(),
+  DailyPlanReferenceBaseSchema.extend({
+    kind: z.literal('habit_progress'),
+    module: z.literal('habits'),
+    state: z.literal('recorded'),
+    itemId: z.string(),
+  }).strict(),
+  DailyPlanReferenceBaseSchema.extend({
+    kind: z.literal('calorie_entry'),
+    module: z.literal('nutrition'),
+    state: z.literal('recorded'),
+  }).strict(),
+  DailyPlanReferenceBaseSchema.extend({
+    kind: z.literal('weight_entry'),
+    module: z.literal('nutrition'),
+    state: z.literal('recorded'),
+  }).strict(),
+  DailyPlanReferenceBaseSchema.extend({
+    kind: z.literal('workout_session'),
+    module: z.literal('workouts'),
+    state: z.literal('recorded'),
+  }).strict(),
+  DailyPlanReferenceBaseSchema.extend({
+    kind: z.literal('progress_target'),
+    module: z.literal('progress'),
+    state: z.literal('target'),
+  }).strict(),
+  DailyPlanReferenceBaseSchema.extend({
+    kind: z.literal('progress_entry'),
+    module: z.literal('progress'),
+    state: z.literal('recorded'),
+  }).strict(),
+])
+
+export const DailyPlanSchema = z.object({
+  references: z.array(DailyPlanReferenceSchema),
 }).strict()
 
 export const DaySummarySchema = z.object({
@@ -386,8 +490,9 @@ export const DaySummarySchema = z.object({
     habits: HabitSummarySchema,
     nutrition: NutritionSummarySchema,
     workouts: WorkoutSummarySchema,
-    progress: ProgressSummarySchema.default({ status: 'unavailable', entries: [] }),
+    progress: ProgressSummarySchema.default({ status: 'unavailable', entries: [], targets: [] }),
   }).strict(),
+  dailyPlan: DailyPlanSchema.default({ references: [] }),
 }).strict()
 
 export type PlanningWindow = z.infer<typeof PlanningWindowSchema>
@@ -396,6 +501,8 @@ export type DaySummaryCalendarEvent = z.infer<typeof DaySummaryCalendarEventSche
 export type DaySummaryCalorieEntry = z.infer<typeof DaySummaryCalorieEntrySchema>
 export type DaySummaryWeightEntry = z.infer<typeof DaySummaryWeightEntrySchema>
 export type DaySummaryAchievementEntry = z.infer<typeof DaySummaryAchievementEntrySchema>
+export type DaySummaryProgressTarget = z.infer<typeof DaySummaryProgressTargetSchema>
+export type DailyPlanReference = z.infer<typeof DailyPlanReferenceSchema>
 export type HabitProgressChunk = z.infer<typeof HabitProgressChunkSchema>
 export type DaySummaryCapacity = z.infer<typeof DaySummaryCapacitySchema>
 export type WorkDaySummary = z.infer<typeof WorkDaySummarySchema>

@@ -12,6 +12,7 @@ jest.mock('../src/supabase-client', () => ({
     getTaskById: jest.fn(),
     updateTask: jest.fn(),
     getProjectById: jest.fn(),
+    getWorkoutPlanById: jest.fn(),
   },
 }))
 
@@ -62,6 +63,74 @@ beforeEach(() => {
 })
 
 describe('task location API', () => {
+  it('requires a module-owned Workout plan when scheduling a Workout Item', async () => {
+    const res = await request(app)
+      .post('/api/tasks')
+      .set('Authorization', TOKEN)
+      .send({
+        title: 'Push day',
+        type: 'workout',
+        category: 'fitness',
+        duration: 60,
+        repeat: 'none',
+        scheduledDate: '2026-08-03',
+      })
+
+    expect(res.status).toBe(400)
+    expect(mockDb.createTask).not.toHaveBeenCalled()
+  })
+
+  it('persists a Workout plan reference without creating a Workout session', async () => {
+    mockDb.getWorkoutPlanById.mockResolvedValue({ id: 'plan-1', user_id: USER_ID, name: 'Push day' })
+    mockDb.createTask.mockResolvedValue(row({
+      id: 'workout-item-1',
+      title: 'Push day',
+      type: 'workout',
+      category: 'fitness',
+      workout_plan_id: 'plan-1',
+    }))
+
+    const res = await request(app)
+      .post('/api/tasks')
+      .set('Authorization', TOKEN)
+      .send({
+        title: 'Push day',
+        type: 'workout',
+        category: 'fitness',
+        duration: 60,
+        repeat: 'none',
+        scheduledDate: '2026-08-03',
+        workoutInfo: { workoutPlanId: 'plan-1' },
+      })
+
+    expect(res.status).toBe(200)
+    expect(mockDb.createTask).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'workout',
+      workout_plan_id: 'plan-1',
+    }))
+    expect(res.body.workoutInfo).toEqual({ workoutPlanId: 'plan-1' })
+  })
+
+  it('rejects a Workout plan owned by someone else', async () => {
+    mockDb.getWorkoutPlanById.mockResolvedValue({ id: 'plan-2', user_id: 'user-2', name: 'Private plan' })
+
+    const res = await request(app)
+      .post('/api/tasks')
+      .set('Authorization', TOKEN)
+      .send({
+        title: 'Private plan',
+        type: 'workout',
+        category: 'fitness',
+        duration: 60,
+        repeat: 'none',
+        scheduledDate: '2026-08-03',
+        workoutInfo: { workoutPlanId: 'plan-2' },
+      })
+
+    expect(res.status).toBe(403)
+    expect(mockDb.createTask).not.toHaveBeenCalled()
+  })
+
   it('rejects assigning a new Task to another user\'s Project', async () => {
     mockDb.getProjectById.mockResolvedValue({ id: 'project-2', user_id: 'user-2' })
 

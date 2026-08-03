@@ -87,8 +87,9 @@ function summary(overrides: Partial<DaySummary> = {}): DaySummary {
         weight: { status: 'not_recorded', entry: null },
       },
       workouts: { status: 'not_logged', sessions: [] },
-      progress: { status: 'not_recorded', entries: [] },
+      progress: { status: 'not_recorded', entries: [], targets: [] },
     },
+    dailyPlan: { references: [] },
     ...overrides,
   }
 }

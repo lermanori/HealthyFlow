@@ -36,7 +36,7 @@ test('persona proof stays faithful to the seeded story', () => {
     ['Next fixed point', 'Put laundry in the machine · 11:00'],
     ['Safely visible for later', 'Electricity bill, Dana reply, reset walk'],
   ])
-  assert.deepEqual(lina?.proof[2], ['Training protected', 'Upper body workout · 18:00'])
+  assert.deepEqual(lina?.proof[2], ['Training protected', 'Upper body strength plan · 18:00'])
 })
 
 test('unknown persona URLs fail safely to Maya', () => {

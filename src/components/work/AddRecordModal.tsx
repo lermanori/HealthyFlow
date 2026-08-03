@@ -31,7 +31,28 @@ interface AddRecordModalProps {
   onRecordSession: (input: RecordWorkSessionInput) => void
 }
 
-const today = () => new Date().toLocaleDateString('en-CA')
+function defaultFocusSchedule(now = new Date()) {
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+  const hours = String(now.getHours()).padStart(2, '0')
+  const minutes = String(now.getMinutes()).padStart(2, '0')
+  return { date: `${year}-${month}-${day}`, time: `${hours}:${minutes}` }
+}
+
+function emptyFocusDraft(prefillTaskId?: string | null) {
+  return {
+    title: '',
+    context: '',
+    ...defaultFocusSchedule(),
+    minutes: '45',
+    outcome: '',
+    evidence: '',
+    transition: '',
+    breakMinutes: '',
+    taskIds: prefillTaskId ? [prefillTaskId] : [] as string[],
+  }
+}
 const ATTENTION: Attention[] = ['Focused', 'Mixed', 'Drifted']
 const TABS: Array<{ id: RecordTab; label: string }> = [
   { id: 'task', label: 'Task' }, { id: 'project', label: 'Project' },
@@ -43,21 +64,22 @@ export default function AddRecordModal({ open, initialTab, project, tasks, prefi
   const [error, setError] = useState('')
   const [task, setTask] = useState({ title: '', relation: 'Direct progress' as TargetRelation })
   const [newProject, setNewProject] = useState({ name: '', target: '', definitionOfDone: '', milestone: '', deadline: '', summary: '' })
-  const [focus, setFocus] = useState({ title: '', context: '', date: today(), time: '09:00', minutes: '45', outcome: '', evidence: '', transition: '', breakMinutes: '', taskIds: [] as string[] })
+  const [focus, setFocus] = useState(() => emptyFocusDraft())
   const [session, setSession] = useState({ title: '', context: '', actualMinutes: '30', outcome: '', evidence: '', attention: 'Focused' as Attention, blocker: '', drift: '', nextStep: '', occurredAt: '' })
   const dialogRef = useRef<HTMLDivElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
+  const projectId = project?.id ?? null
   useModalFocus({ open, onClose, containerRef: dialogRef, initialFocusRef: closeRef, pending: isBusy })
 
   useEffect(() => {
     if (!open) return
-    setTab(!project && initialTab === 'task' ? 'project' : initialTab)
+    setTab(!projectId && initialTab === 'task' ? 'project' : initialTab)
     setError('')
     setTask({ title: '', relation: 'Direct progress' })
     setNewProject({ name: '', target: '', definitionOfDone: '', milestone: '', deadline: '', summary: '' })
-    setFocus({ title: '', context: '', date: today(), time: '09:00', minutes: '45', outcome: '', evidence: '', transition: '', breakMinutes: '', taskIds: prefillTaskId ? [prefillTaskId] : [] })
+    setFocus(emptyFocusDraft(prefillTaskId))
     setSession({ title: '', context: '', actualMinutes: '30', outcome: '', evidence: '', attention: 'Focused', blocker: '', drift: '', nextStep: '', occurredAt: '' })
-  }, [open, initialTab, project?.id, prefillTaskId])
+  }, [open, initialTab, projectId, prefillTaskId])
 
   if (!open) return null
   const numberOrNull = (value: string) => value.trim() ? Number(value) : null

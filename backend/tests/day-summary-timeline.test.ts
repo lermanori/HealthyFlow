@@ -2,10 +2,123 @@ import {
   achievementEntryToDaySummary,
   buildDaySummary,
   calorieRowToClient,
+  deriveDailyPlanReferences,
   itemRowToClient,
   localClockTime,
   weightRowToClient,
 } from '../src/day-summary'
+
+describe('Daily Plan references', () => {
+  it('composes source records without copying their display payloads', () => {
+    const task = itemRowToClient({
+      id: 'task-1', title: 'Write proposal', type: 'task', completed: false,
+      start_time: '11:00', scheduled_date: '2026-08-03', created_at: '2026-08-03T06:00:00.000Z',
+    })
+    const habit = itemRowToClient({
+      id: 'habit-1', title: 'Walk', type: 'habit', completed: false,
+      habit_outcome: 'partial', scheduled_date: '2026-08-03', created_at: '2026-08-03T06:00:00.000Z',
+      habitInfo: { chunks: [{ id: 'chunk-1', amount: 10, note: null, loggedTime: '10:20' }] },
+    })
+
+    const references = deriveDailyPlanReferences({
+      items: [task, habit],
+      calendar: {
+        status: 'connected',
+        reasonCode: null,
+        events: [{
+          id: 'event-1', provider: 'google', calendarId: 'primary', externalEventId: 'external-1',
+          title: 'Client call', description: null, location: null,
+          startAt: null, endAt: null, localStartTime: '09:00', localEndTime: '09:45',
+          allDay: false, status: 'confirmed', htmlLink: null, completed: false, completedAt: null,
+        }],
+      },
+      work: {
+        status: 'scheduled',
+        focusBlocks: [{
+          id: '11111111-1111-4111-8111-111111111111', projectId: null, taskIds: [],
+          standaloneTitle: 'Deep work', standaloneContext: null, scheduledDate: '2026-08-03',
+          startTime: '10:00', plannedMinutes: 45, intendedOutcome: 'Draft ready', intendedEvidence: '',
+          transitionMinutes: null, breakMinutes: null, status: 'active', reviewTrigger: null,
+          startedAt: null, endedAt: null, createdAt: '', updatedAt: '', slot: '10:00',
+          project: null, tasks: [],
+        }],
+      },
+      calorieEntries: [{
+        id: 'meal-1', date: '2026-08-03', time: '12:30', name: 'Lunch', calories: 560,
+        protein: null, carbs: null, fat: null, quantity: null, createdAt: null, updatedAt: null,
+        loggedTime: '12:30',
+      }],
+      weightEntry: null,
+      workoutSessions: [],
+      progressEntries: [],
+      progressTargets: [{
+        achievementId: 'target-1', name: 'Weight', unit: 'kg', targetValue: 75,
+        latestValue: 77, targetProgress: 97,
+      }],
+      transitionBufferMinutes: 15,
+    })
+
+    expect(references.map(reference => reference.kind)).toEqual([
+      'calendar_event',
+      'calendar_transition',
+      'focus_block',
+      'habit_progress',
+      'task',
+      'calorie_entry',
+      'habit',
+      'progress_target',
+    ])
+    expect(references.find(reference => reference.kind === 'calendar_transition')).toMatchObject({
+      sourceId: 'event-1',
+      time: '09:45',
+      endTime: '10:00',
+      durationMinutes: 15,
+      semantics: 'boundary',
+    })
+    expect(references.find(reference => reference.kind === 'progress_target')).toMatchObject({
+      sourceId: 'target-1',
+      time: null,
+      semantics: 'plan',
+    })
+    expect(references.every(reference => !('title' in reference))).toBe(true)
+  })
+
+  it('keeps a selected Workout plan distinct from the actual Workout session', () => {
+    const workout = itemRowToClient({
+      id: 'workout-item-1', title: 'Push day', type: 'workout', category: 'fitness',
+      completed: true, start_time: '17:00', workout_plan_id: 'plan-1',
+      scheduled_date: '2026-08-03', created_at: '2026-08-03T06:00:00.000Z',
+    })
+
+    const references = deriveDailyPlanReferences({
+      items: [workout],
+      calendar: { status: 'connected_empty', reasonCode: null, events: [] },
+      work: { status: 'not_scheduled', focusBlocks: [] },
+      calorieEntries: [],
+      weightEntry: null,
+      workoutSessions: [{
+        id: 'session-1', userId: 'user-1', date: '2026-08-03', title: 'Push day actual',
+        notes: null, exercises: [], createdAt: '', updatedAt: '', loggedTime: '18:10',
+      }],
+      progressEntries: [],
+      progressTargets: [],
+      transitionBufferMinutes: 0,
+    })
+
+    expect(references).toContainEqual(expect.objectContaining({
+      kind: 'workout_plan',
+      sourceId: 'workout-item-1',
+      workoutPlanId: 'plan-1',
+      state: 'completed',
+      semantics: 'plan',
+    }))
+    expect(references).toContainEqual(expect.objectContaining({
+      kind: 'workout_session',
+      sourceId: 'session-1',
+      semantics: 'actual',
+    }))
+  })
+})
 
 // The timeline places dateless records and settled untimed items by *when they
 // were logged*, so every one of these times has to be resolved against the
@@ -220,7 +333,37 @@ describe('supporting.progress', () => {
         { ...achievement, entries: [achievement.entries[1]] },
       ]),
     })
-    expect(summary.supporting.progress).toEqual({ status: 'not_recorded', entries: [] })
+    expect(summary.supporting.progress).toEqual({ status: 'not_recorded', entries: [], targets: [] })
+  })
+
+  it('carries target context without pretending a measurement happened today', async () => {
+    const summary = await summaryWith({
+      getAchievements: jest.fn().mockResolvedValue([{
+        ...achievement,
+        definition: { ...achievement.definition, targetValue: 100 },
+        latest: achievement.entries[1],
+        targetProgress: 90,
+        entries: [achievement.entries[1]],
+      }]),
+    })
+
+    expect(summary.supporting.progress).toMatchObject({
+      status: 'not_recorded',
+      entries: [],
+      targets: [{
+        achievementId: 'def-1',
+        name: 'Bench press 1RM',
+        unit: 'kg',
+        targetValue: 100,
+        latestValue: 90,
+        targetProgress: 90,
+      }],
+    })
+    expect(summary.dailyPlan.references).toContainEqual(expect.objectContaining({
+      kind: 'progress_target',
+      sourceId: 'def-1',
+      semantics: 'plan',
+    }))
   })
 
   it('hides Progress entirely when the module is switched off', async () => {
@@ -230,14 +373,16 @@ describe('supporting.progress', () => {
     })
 
     expect(summary.modules.achievements).toBe('disabled')
-    expect(summary.supporting.progress).toEqual({ status: 'disabled', entries: [] })
+    expect(summary.supporting.progress).toEqual({ status: 'disabled', entries: [], targets: [] })
+    expect(summary.dailyPlan.references.some(reference => reference.module === 'progress')).toBe(false)
   })
 
   it('degrades to unavailable rather than failing the whole day when the source errors', async () => {
     const summary = await summaryWith({
       getAchievements: jest.fn().mockRejectedValue(new Error('boom')),
     })
-    expect(summary.supporting.progress).toEqual({ status: 'unavailable', entries: [] })
+    expect(summary.supporting.progress).toEqual({ status: 'unavailable', entries: [], targets: [] })
+    expect(summary.dailyPlan.references.some(reference => reference.module === 'progress')).toBe(false)
   })
 })
 
@@ -308,6 +453,7 @@ describe('work.focusBlocks', () => {
       listDayFocusBlocks: jest.fn().mockRejectedValue(new Error('boom')),
     })
     expect(summary.work).toEqual({ status: 'unavailable', focusBlocks: [] })
+    expect(summary.dailyPlan.references.some(reference => reference.module === 'work')).toBe(false)
     // The rest of the day still resolves.
     expect(summary.version).toBe(1)
     expect(summary.completion).toBeDefined()

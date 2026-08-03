@@ -9,6 +9,8 @@ export const CategorySchema = z.enum([
   'nutrition',
 ])
 
+export const ItemTypeSchema = z.enum(['task', 'habit', 'grocery', 'meal', 'workout'])
+
 export type Category = z.infer<typeof CategorySchema>
 
 export const RollbackDragMaterializationInputSchema = z.object({
@@ -21,6 +23,7 @@ export type RollbackDragMaterializationInput = z.infer<
 
 const TaskContracts = {
   CategorySchema,
+  ItemTypeSchema,
   RollbackDragMaterializationInputSchema,
 }
 

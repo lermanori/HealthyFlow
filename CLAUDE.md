@@ -38,11 +38,30 @@ Express route handlers do minimal work: validate the request (Zod), call a servi
 - **GitHub Issues**: https://github.com/lermanori/HealthyFlow/issues
 - **GitHub Project (kanban)**: https://github.com/users/lermanori/projects/1/views/1
 - At the start of any AI session, check the kanban board for current task state before acting. Issues are the source of truth for what's in progress and what's next.
-- **Project Ledger**: `LEDGER.md` at the repo root is auto-updated on every commit (via `.githooks/post-commit`). It records commit message, branch, author, and files changed — newest entries first. New clones must run `git config core.hooksPath .githooks` once to activate it.
+- **Project Ledger**: `LEDGER.md` at the repo root is a hand-written session narrative, newest entries first. The agent prepends an entry as part of the commit workflow below — it is **not** automated by a git hook. (`.githooks/post-commit` exists but is deliberately a no-op.)
 
 ## Domain vocabulary
 
 See `CONTEXT.md` at the repo root for the canonical definition of all domain terms (Item, Task, Habit, Rollover, Habit instance, parse-tasks, BYOK, etc.). Use the vocabulary there consistently; do not introduce synonyms.
+
+## Repo map
+
+Root-level docs and what each is authoritative for. If it is not listed here, it is not a source of truth.
+
+| File | Authoritative for | Status |
+|---|---|---|
+| `CLAUDE.md` | Agent instructions for this repo | Live. `AGENTS.md` is a symlink to it — edit `CLAUDE.md` only. |
+| `CONTEXT.md` | Domain vocabulary | Live |
+| `docs/adr/` | Architecture decisions, numbered | Live |
+| `docs/agents/` | Skill configuration (issue tracker, triage labels, domain layout) | Live |
+| `LEDGER.md` | Session-by-session narrative history | Live, append-only |
+| `FEATURES.md` | What the app actually does today | Live — carries a "last verified against the code" date; re-verify before trusting it |
+| `MARKETING.md` | Positioning, pricing, go-to-market plan | Live, product-side — not a spec for code |
+| `MISSION.md`, `RESOURCES.md` | The Siri Capture workstream only | Narrow scope; do not read as whole-project mission |
+| `README.md`, `README-DEPLOYMENT.md` | Setup and deploy steps | Live |
+| `ROLLOVER_IMPROVEMENTS.md` | — | **Superseded** by ADR-0002. Historical only; do not implement from it. |
+
+Untracked working directories that may exist locally and are not part of the repo: `.agents/` (skills installer drop), `.board-harness/` (local board-driven agent orchestration), `.scratch/` (throwaway notes).
 
 ## Agent commit workflow
 

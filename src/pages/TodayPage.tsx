@@ -11,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { format, addDays, subDays, isSameDay, isBefore } from 'date-fns'
 import {
   AlertTriangle,
+  Award,
   Brain,
   Calendar,
   CalendarDays,
@@ -74,7 +75,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { useSettings } from '../hooks/useSettings'
 import HabitOutcomeSheet from '../components/HabitOutcomeSheet'
-import { enabledModulePresentations } from '../modulePresentation'
+import { enabledModulePresentations, getModulePresentation, moduleHealthHref } from '../modulePresentation'
 import {
   clearDemoAcquisition,
   demoPersonaById,
@@ -399,9 +400,57 @@ function itemTypeLabel(item: DaySummary['items'][number]) {
   return 'Item'
 }
 
+type DailyPlanReference = DaySummary['dailyPlan']['references'][number]
+
+function dailyPlanReferenceTitle(summary: DaySummary, reference: DailyPlanReference) {
+  if (reference.kind === 'calendar_event' || reference.kind === 'calendar_transition') {
+    const event = summary.calendar.events.find(candidate => candidate.id === reference.sourceId)
+    if (!event) return null
+    return reference.kind === 'calendar_transition' ? `Transition after ${event.title}` : event.title
+  }
+  if (reference.kind === 'focus_block') {
+    const block = summary.work.focusBlocks.find(candidate => candidate.id === reference.sourceId)
+    if (!block) return null
+    return block.standaloneTitle ?? block.project?.name ?? block.tasks[0]?.title ?? 'Focus block'
+  }
+  if (
+    reference.kind === 'task' || reference.kind === 'habit' || reference.kind === 'grocery' ||
+    reference.kind === 'meal_plan' || reference.kind === 'workout_plan'
+  ) {
+    return summary.items.find(candidate => candidate.id === reference.sourceId)?.title ?? null
+  }
+  if (reference.kind === 'progress_target') {
+    return summary.supporting.progress.targets.find(
+      candidate => candidate.achievementId === reference.sourceId
+    )?.name ?? null
+  }
+  return null
+}
+
+function dailyPlanReferenceModule(reference: DailyPlanReference) {
+  if (reference.kind === 'calendar_transition') return 'Protected transition'
+  if (reference.kind === 'calendar_event') return 'Calendar · fixed'
+  if (reference.kind === 'focus_block') return 'Work · Focus block'
+  if (reference.kind === 'meal_plan') return 'Nutrition · Meal plan'
+  if (reference.kind === 'workout_plan') return 'Workouts · Workout plan'
+  if (reference.kind === 'habit') return 'Habits · Habit instance'
+  if (reference.kind === 'task') return 'Tasks · Task'
+  if (reference.kind === 'grocery') return 'Tasks · Grocery Item'
+  if (reference.kind === 'progress_target') return 'Progress · target'
+  return reference.module
+}
+
+function isOpenDailyPlanReference(summary: DaySummary, reference: DailyPlanReference) {
+  if (reference.semantics === 'actual') return false
+  if (reference.kind === 'calendar_event') {
+    return !summary.calendar.events.find(candidate => candidate.id === reference.sourceId)?.completed
+  }
+  return !['completed', 'canceled', 'failed', 'recorded'].includes(reference.state)
+}
+
 type DayContextDisclosureProps = {
   dateKey: string
-  id: 'habits' | 'nutrition' | 'workouts'
+  id: 'habits' | 'nutrition' | 'workouts' | 'progress'
   icon: ReactNode
   title: string
   summary: string
@@ -506,7 +555,7 @@ function workoutExerciseMetricCopy(
   ].filter((metric): metric is string => metric !== null)
 }
 
-function DecisionBand({ summary }: { summary: DaySummary }) {
+function DecisionBand({ summary, nowMinutes }: { summary: DaySummary; nowMinutes: number | null }) {
   const focus = summary.attention.focus
   const focusItem = focus.itemId
     ? summary.items.find((item) => item.id === focus.itemId)
@@ -516,6 +565,26 @@ function DecisionBand({ summary }: { summary: DaySummary }) {
   const nextCalendar = summary.attention.nextCalendarObligation
   const capacity = summary.capacity
   const capacityEnabled = summary.settings.planningWindow !== null
+  const activeFocusReference = summary.dailyPlan.references.find(
+    reference => reference.kind === 'focus_block' && reference.state === 'active'
+  )
+  const activeFocusBlock = activeFocusReference
+    ? summary.work.focusBlocks.find(block => block.id === activeFocusReference.sourceId) ?? null
+    : null
+  const nextCutoff = summary.dateMode === 'future'
+    ? -1
+    : summary.dateMode === 'today'
+      ? nowMinutes ?? 0
+      : 24 * 60
+  const nextPlanReference = summary.dailyPlan.references.find((reference) => (
+    reference.time !== null &&
+    reference.id !== activeFocusReference?.id &&
+    isOpenDailyPlanReference(summary, reference) &&
+    parseTimeToMinutes(reference.time) > nextCutoff
+  )) ?? null
+  const nextPlanTitle = nextPlanReference
+    ? dailyPlanReferenceTitle(summary, nextPlanReference)
+    : null
 
   const addressed = summary.completion.addressed ?? summary.completion.completed
   const emptyFocusCopy = focus.state === 'completed_day'
@@ -569,14 +638,22 @@ function DecisionBand({ summary }: { summary: DaySummary }) {
             </span>
             <div className="min-w-0">
               <p className="truncate text-lg font-semibold leading-tight text-ink">
-                {focusItem?.title ?? emptyFocusCopy.title}
+                {activeFocusBlock
+                  ? dailyPlanReferenceTitle(summary, activeFocusReference as DailyPlanReference)
+                  : focusItem?.title ?? emptyFocusCopy.title}
               </p>
               <p className="mt-1 text-xs font-medium text-ink-muted">
-                {focusItem
+                {activeFocusBlock
+                  ? 'Work · Focus block active'
+                  : focusItem
                   ? `${itemTypeLabel(focusItem)} · ${focusItem.startTime ? `Planned ${focusItem.startTime}` : 'Anytime'}`
                   : emptyFocusCopy.detail}
               </p>
-              {focusItem && focus.reasonCode && (
+              {activeFocusBlock ? (
+                <p className="mt-2 text-sm leading-relaxed text-ink-soft">
+                  {activeFocusBlock.intendedOutcome || 'Continue the active Focus block.'}
+                </p>
+              ) : focusItem && focus.reasonCode && (
                 <p className="mt-2 text-sm leading-relaxed text-ink-soft">
                   {focusReasonCopy[focus.reasonCode]}
                 </p>
@@ -595,17 +672,23 @@ function DecisionBand({ summary }: { summary: DaySummary }) {
             </span>
             <div className="min-w-0">
               <p className="truncate text-base font-semibold text-ink">
-                {next?.title ?? 'No upcoming obligation'}
+                {nextPlanTitle ?? next?.title ?? 'No upcoming obligation'}
               </p>
               <p className="mt-1 text-xs text-ink-muted">
-                {next
+                {nextPlanReference
+                  ? `${dailyPlanReferenceModule(nextPlanReference)} · ${nextPlanReference.time}`
+                  : next
                   ? `${next.source === 'calendar' ? 'Calendar' : 'Item'} · ${next.startTime}`
                   : summary.calendar.status === 'unavailable'
                     ? 'Calendar could not be checked.'
                     : 'No timed Item or calendar event is next.'}
               </p>
               <p className="mt-2 text-xs leading-relaxed text-ink-soft">
-                {next?.conflictIds.length
+                {nextPlanReference
+                  ? nextPlanReference.kind === 'calendar_transition'
+                    ? `Protected until ${nextPlanReference.endTime}.`
+                    : 'This points to the owning source record; Today does not copy it.'
+                  : next?.conflictIds.length
                   ? `${next.conflictIds.length} overlapping ${next.conflictIds.length === 1 ? 'obligation' : 'obligations'}`
                   : [
                       nextPlanned ? `Next Item ${nextPlanned.startTime}` : 'No next Item',
@@ -673,6 +756,7 @@ function DayContextSummary({
   const habits = summary.supporting.habits
   const nutrition = summary.supporting.nutrition
   const workouts = summary.supporting.workouts
+  const progress = summary.supporting.progress
   const habitInstances = summary.items.filter((item) => item.type === 'habit')
   const habitSummaryCopy = habits.total === 0
     ? 'No Habits due this day'
@@ -697,6 +781,13 @@ function DayContextSummary({
     : workouts.status === 'not_logged'
       ? 'No logged sessions'
       : 'Logged sessions unavailable'
+  const progressSummaryCopy = progress.status === 'unavailable'
+    ? 'Progress measurements unavailable'
+    : progress.status === 'recorded'
+      ? `${progress.entries.length} recorded · ${progress.targets.length} ${progress.targets.length === 1 ? 'target' : 'targets'}`
+      : progress.targets.length > 0
+        ? `${progress.targets.length} ${progress.targets.length === 1 ? 'target' : 'targets'} · no measurement today`
+        : 'No Progress targets or measurements'
 
   return (
     <section aria-labelledby="day-context-heading" data-demo-id="day-context">
@@ -870,6 +961,91 @@ function DayContextSummary({
                     </li>
                   ))}
                 </ul>
+              )}
+            </div>
+          </DayContextDisclosure>
+        )}
+
+        {enabledSummaries.has('progress') && summary.modules.achievements !== 'disabled' && (
+          <DayContextDisclosure
+            dateKey={summary.date}
+            id="progress"
+            icon={<Award className="h-4 w-4 text-state-warning" />}
+            title="Progress"
+            summary={progressSummaryCopy}
+          >
+            <div className="space-y-4">
+              {progress.status === 'unavailable' ? (
+                <p className="text-xs leading-relaxed text-ink-muted">
+                  Progress definitions and measurements could not be checked.
+                </p>
+              ) : (
+                <>
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+                      Targets
+                    </p>
+                    {progress.targets.length === 0 ? (
+                      <p className="mt-1 text-xs text-ink-muted">No active Progress targets.</p>
+                    ) : (
+                      <ul className="mt-2 space-y-3">
+                        {progress.targets.map((target) => (
+                          <li key={target.achievementId}>
+                            <div className="flex items-baseline justify-between gap-3 text-xs">
+                              <span className="truncate font-medium text-ink-soft">{target.name}</span>
+                              <span className="shrink-0 text-[11px] text-ink-muted">
+                                Target {target.targetValue} {target.unit}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-[11px] text-ink-muted">
+                              {target.latestValue === null
+                                ? 'No measurement recorded yet'
+                                : `Latest ${target.latestValue} ${target.unit}`}
+                            </p>
+                            {target.targetProgress !== null && (
+                              <div
+                                role="progressbar"
+                                aria-label={`${target.name} target progress`}
+                                aria-valuemin={0}
+                                aria-valuemax={100}
+                                aria-valuenow={Math.round(target.targetProgress)}
+                                className="mt-1.5 h-1 overflow-hidden rounded-full bg-raised"
+                              >
+                                <span
+                                  className="block h-full bg-state-warning"
+                                  style={{ width: `${Math.min(100, target.targetProgress)}%` }}
+                                />
+                              </div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <div className="border-t border-line/60 pt-3">
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-muted">
+                      Recorded today
+                    </p>
+                    {progress.entries.length === 0 ? (
+                      <p className="mt-1 text-xs text-ink-muted">No Progress measurement recorded for this date.</p>
+                    ) : (
+                      <ul className="mt-2 space-y-2">
+                        {progress.entries.map((entry) => (
+                          <li key={entry.id} className="flex items-baseline justify-between gap-3 text-xs">
+                            <span className="truncate text-ink-soft">{entry.name}</span>
+                            <span className="shrink-0 font-medium text-ink">{entry.value} {entry.unit}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <Link
+                    to={moduleHealthHref(getModulePresentation('achievements'), summary.date)}
+                    className="inline-flex min-h-11 items-center rounded-lg text-xs font-semibold text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                  >
+                    Open Progress
+                  </Link>
+                </>
               )}
             </div>
           </DayContextDisclosure>
@@ -1612,7 +1788,12 @@ export default function TodayPage() {
         />
       </div>
 
-      {daySummary && <DecisionBand summary={daySummary} />}
+      {daySummary && (
+        <DecisionBand
+          summary={daySummary}
+          nowMinutes={isViewingToday ? now.getHours() * 60 + now.getMinutes() : null}
+        />
+      )}
       {DAILY_SIGNALS_ENABLED && <AIRecommendationsBox date={selectedDateKey} />}
       {isViewingToday && dueKickoff && <RhythmKickoffRow kickoff={dueKickoff} />}
 

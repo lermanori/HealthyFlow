@@ -11,8 +11,11 @@ import {
   DaySummarySchema,
   DaySummaryAchievementEntry,
   DaySummaryAchievementEntrySchema,
+  DaySummaryProgressTarget,
   DaySummaryWeightEntry,
   DaySummaryWeightEntrySchema,
+  DailyPlanReference,
+  DailyPlanReferenceSchema,
   isDaySummaryItemAddressed,
   PlanningWindow,
   PlanningWindowSchema,
@@ -117,6 +120,11 @@ export function itemRowToClient(row: any, progressTotal = 0, context: ItemContex
         })),
       },
     } : {}),
+    ...(type === 'workout' && (row.workout_plan_id ?? row.workoutInfo?.workoutPlanId) ? {
+      workoutInfo: {
+        workoutPlanId: String(row.workout_plan_id ?? row.workoutInfo.workoutPlanId),
+      },
+    } : {}),
   })
 }
 
@@ -214,6 +222,219 @@ export function timeToMinutes(value: string | null | undefined): number | null {
 function minutesToTime(value: number): string {
   const safe = Math.max(0, Math.min(23 * 60 + 59, Math.floor(value)))
   return `${String(Math.floor(safe / 60)).padStart(2, '0')}:${String(safe % 60).padStart(2, '0')}`
+}
+
+function hourSlot(value: string | null): string | null {
+  return value ? `${value.slice(0, 2)}:00` : null
+}
+
+type DailyPlanSources = {
+  items: DaySummaryItem[]
+  calendar: CalendarSource
+  work: DaySummary['work']
+  calorieEntries: DaySummaryCalorieEntry[]
+  weightEntry: DaySummaryWeightEntry | null
+  workoutSessions: DaySummary['supporting']['workouts']['sessions']
+  progressEntries: DaySummaryAchievementEntry[]
+  progressTargets: DaySummaryProgressTarget[]
+  transitionBufferMinutes: number
+}
+
+/**
+ * Compose the day by reference. These records deliberately contain identifiers,
+ * timing, and lifecycle only; names, metrics, and mutation state remain owned by
+ * their source module records in the same DaySummary response.
+ */
+export function deriveDailyPlanReferences(sources: DailyPlanSources): DailyPlanReference[] {
+  const references: unknown[] = []
+
+  for (const event of sources.calendar.events) {
+    const time = event.localStartTime
+    references.push({
+      id: `calendar-event:${event.id}`,
+      sourceId: event.id,
+      kind: 'calendar_event',
+      module: 'calendar',
+      time,
+      slot: hourSlot(time),
+      semantics: 'boundary',
+      state: 'fixed',
+      endTime: event.localEndTime,
+    })
+
+    const startMinutes = timeToMinutes(event.localStartTime)
+    const endMinutes = timeToMinutes(event.localEndTime)
+    const transitionEnd = endMinutes == null
+      ? null
+      : Math.min(23 * 60 + 59, endMinutes + sources.transitionBufferMinutes)
+    const canceled = event.status === 'cancelled' || event.status === 'canceled'
+    if (
+      !event.allDay && !canceled && startMinutes != null && endMinutes != null &&
+      endMinutes > startMinutes && transitionEnd != null && transitionEnd > endMinutes
+    ) {
+      const transitionTime = minutesToTime(endMinutes)
+      references.push({
+        id: `calendar-transition:${event.id}`,
+        sourceId: event.id,
+        kind: 'calendar_transition',
+        module: 'calendar',
+        time: transitionTime,
+        slot: hourSlot(transitionTime),
+        semantics: 'boundary',
+        state: 'protected',
+        endTime: minutesToTime(transitionEnd),
+        durationMinutes: transitionEnd - endMinutes,
+      })
+    }
+  }
+
+  for (const block of sources.work.focusBlocks) {
+    const semantics = block.status === 'completed'
+      ? 'actual'
+      : block.status === 'reviewing' || block.status === 'canceled'
+        ? 'boundary'
+        : 'plan'
+    references.push({
+      id: `focus-block:${block.id}`,
+      sourceId: block.id,
+      kind: 'focus_block',
+      module: 'work',
+      time: block.startTime,
+      slot: block.slot,
+      semantics,
+      state: block.status,
+    })
+  }
+
+  for (const item of sources.items) {
+    const time = item.startTime ?? item.resolvedTime
+    const state = item.type === 'habit'
+      ? item.habitInfo?.outcome ?? (item.completed ? 'completed' : 'pending')
+      : item.completed ? 'completed' : 'planned'
+    // Completing a Meal or Workout Item only settles the plan; it does not
+    // fabricate a Calorie entry or Workout session. Those actuals remain
+    // separate module-owned records below.
+    const actual = item.type === 'meal' || item.type === 'workout'
+      ? false
+      : item.type === 'habit'
+        ? state === 'completed' || state === 'failed'
+        : state === 'completed'
+    const kind = item.type === 'meal'
+      ? 'meal_plan'
+      : item.type === 'workout'
+        ? 'workout_plan'
+        : item.type
+    const module = item.type === 'habit'
+      ? 'habits'
+      : item.type === 'meal'
+        ? 'nutrition'
+        : item.type === 'workout'
+          ? 'workouts'
+          : 'tasks'
+    references.push({
+      id: `${kind}:${item.id}`,
+      sourceId: item.id,
+      kind,
+      module,
+      time,
+      slot: hourSlot(time),
+      semantics: actual ? 'actual' : 'plan',
+      state,
+      ...(item.type === 'workout' ? {
+        workoutPlanId: item.workoutInfo?.workoutPlanId ?? null,
+      } : {}),
+    })
+
+    if (item.type === 'habit') {
+      for (const chunk of item.habitInfo?.chunks ?? []) {
+        references.push({
+          id: `habit-progress:${chunk.id}`,
+          sourceId: chunk.id,
+          itemId: item.id,
+          kind: 'habit_progress',
+          module: 'habits',
+          time: chunk.loggedTime,
+          slot: hourSlot(chunk.loggedTime),
+          semantics: 'actual',
+          state: 'recorded',
+        })
+      }
+    }
+  }
+
+  for (const entry of sources.calorieEntries) {
+    references.push({
+      id: `calorie-entry:${entry.id}`,
+      sourceId: entry.id,
+      kind: 'calorie_entry',
+      module: 'nutrition',
+      time: entry.loggedTime,
+      slot: hourSlot(entry.loggedTime),
+      semantics: 'actual',
+      state: 'recorded',
+    })
+  }
+
+  if (sources.weightEntry) {
+    references.push({
+      id: `weight-entry:${sources.weightEntry.id}`,
+      sourceId: sources.weightEntry.id,
+      kind: 'weight_entry',
+      module: 'nutrition',
+      time: sources.weightEntry.loggedTime,
+      slot: hourSlot(sources.weightEntry.loggedTime),
+      semantics: 'actual',
+      state: 'recorded',
+    })
+  }
+
+  for (const session of sources.workoutSessions) {
+    references.push({
+      id: `workout-session:${session.id}`,
+      sourceId: session.id,
+      kind: 'workout_session',
+      module: 'workouts',
+      time: session.loggedTime,
+      slot: hourSlot(session.loggedTime),
+      semantics: 'actual',
+      state: 'recorded',
+    })
+  }
+
+  for (const target of sources.progressTargets) {
+    references.push({
+      id: `progress-target:${target.achievementId}`,
+      sourceId: target.achievementId,
+      kind: 'progress_target',
+      module: 'progress',
+      time: null,
+      slot: null,
+      semantics: 'plan',
+      state: 'target',
+    })
+  }
+
+  for (const entry of sources.progressEntries) {
+    references.push({
+      id: `progress-entry:${entry.id}`,
+      sourceId: entry.id,
+      kind: 'progress_entry',
+      module: 'progress',
+      time: entry.loggedTime,
+      slot: hourSlot(entry.loggedTime),
+      semantics: 'actual',
+      state: 'recorded',
+    })
+  }
+
+  return references
+    .map(reference => DailyPlanReferenceSchema.parse(reference))
+    .sort((left, right) => {
+      if (left.time == null && right.time == null) return left.id.localeCompare(right.id)
+      if (left.time == null) return 1
+      if (right.time == null) return -1
+      return left.time.localeCompare(right.time) || left.id.localeCompare(right.id)
+    })
 }
 
 export function unionIntervals(intervals: MinuteInterval[]): MinuteInterval[] {
@@ -825,18 +1046,29 @@ export async function buildDaySummary(
   // Only entries recorded on this date belong on this day's timeline; the list
   // endpoint returns each definition's recent history.
   const progress: DaySummary['supporting']['progress'] = achievementsEnabled === false
-    ? { status: 'disabled', entries: [] }
+    ? { status: 'disabled', entries: [], targets: [] }
     : achievementsEnabled == null || !achievementRows || achievementRows.status === 'unavailable'
-      ? { status: 'unavailable', entries: [] }
+      ? { status: 'unavailable', entries: [], targets: [] }
       : (() => {
           const entries = achievementRows.summaries.flatMap((summary: any) =>
             (summary.entries ?? [])
               .filter((entry: any) => entry.date === date)
               .map((entry: any) => achievementEntryToDaySummary(entry, summary.definition, timeZone))
           )
+          const targets = achievementRows.summaries
+            .filter((summary: any) => summary.definition?.targetValue != null)
+            .map((summary: any) => ({
+              achievementId: String(summary.definition.id),
+              name: String(summary.definition.name ?? ''),
+              unit: String(summary.definition.unit ?? ''),
+              targetValue: Number(summary.definition.targetValue),
+              latestValue: numberOrNull(summary.latest?.value),
+              targetProgress: numberOrNull(summary.targetProgress),
+            }))
           return {
             status: entries.length > 0 ? 'recorded' as const : 'not_recorded' as const,
             entries,
+            targets,
           }
         })()
 
@@ -859,6 +1091,19 @@ export async function buildDaySummary(
     items,
     calendar,
   })
+  const dailyPlan = {
+    references: deriveDailyPlanReferences({
+      items,
+      calendar,
+      work,
+      calorieEntries,
+      weightEntry: nutrition.weight.entry,
+      workoutSessions: workouts.sessions,
+      progressEntries: progress.entries,
+      progressTargets: progress.targets,
+      transitionBufferMinutes: planningWindow?.transitionBufferMinutes ?? 0,
+    }),
+  }
 
   return DaySummarySchema.parse({
     version: 1,
@@ -901,5 +1146,6 @@ export async function buildDaySummary(
       workouts,
       progress,
     },
+    dailyPlan,
   })
 }

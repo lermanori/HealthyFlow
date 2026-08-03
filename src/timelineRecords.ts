@@ -14,7 +14,7 @@ import type { DaySummary } from '../backend/src/day-summary-schema'
 import type { Task } from './services/api'
 import { getModulePresentation, moduleHealthHref } from './modulePresentation'
 
-export type RecordKind = 'nutrition' | 'weight' | 'workout' | 'progress' | 'habit-progress'
+export type RecordKind = 'calendar-transition' | 'nutrition' | 'weight' | 'workout' | 'progress' | 'habit-progress'
 
 export interface TimelineRecord {
   id: string
@@ -29,6 +29,8 @@ export interface TimelineRecord {
   detail: string
   /** Navigational records link to their module page. */
   href?: string
+  /** Calendar-owned records may link back to the external provider. */
+  externalHref?: string
   /** Habit progress chunks reopen the Habit's check-in sheet instead of navigating. */
   habitId?: string
 }
@@ -151,6 +153,22 @@ export function habitProgressRecords(tasks: Task[]): TimelineRecord[] {
 export function buildTimelineRecords(summary: DaySummary, tasks: Task[] = []): TimelineRecord[] {
   const records: TimelineRecord[] = []
   const date = summary.date
+
+  for (const reference of summary.dailyPlan.references) {
+    if (reference.kind !== 'calendar_transition' || !reference.time) continue
+    const event = summary.calendar.events.find(candidate => candidate.id === reference.sourceId)
+    if (!event) continue
+    records.push({
+      id: reference.id,
+      kind: 'calendar-transition',
+      hour: slotKey(reference.time),
+      time: reference.time,
+      stamped: false,
+      title: `Transition after ${event.title}`,
+      detail: `${reference.durationMinutes} min protected · until ${reference.endTime}`,
+      externalHref: event.htmlLink ?? undefined,
+    })
+  }
 
   if (summary.modules.nutrition === 'enabled') {
     for (const entry of summary.calorieEntries) {

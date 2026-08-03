@@ -138,6 +138,8 @@ test('a chunk with no logged time is skipped rather than guessed', () => {
 const summary = (overrides: Record<string, any> = {}): any => ({
   date: '2026-07-28',
   modules: { habits: 'enabled', nutrition: 'enabled', workouts: 'enabled', achievements: 'enabled' },
+  dailyPlan: { references: [] },
+  calendar: { events: [] },
   calorieEntries: [],
   supporting: {
     nutrition: { weight: { status: 'not_recorded', entry: null } },
@@ -145,6 +147,32 @@ const summary = (overrides: Record<string, any> = {}): any => ({
     progress: { status: 'not_recorded', entries: [] },
   },
   ...overrides,
+})
+
+test('a protected Calendar transition becomes a non-mutating boundary row', () => {
+  const records = buildTimelineRecords(summary({
+    calendar: {
+      events: [{ id: 'event-1', title: 'Client call', htmlLink: 'https://calendar.google.com/event/1' }],
+    },
+    dailyPlan: {
+      references: [{
+        id: 'calendar-transition:event-1', sourceId: 'event-1', kind: 'calendar_transition',
+        module: 'calendar', state: 'protected', semantics: 'boundary', time: '09:45', slot: '09:00',
+        endTime: '10:00', durationMinutes: 15,
+      }],
+    },
+  }))
+
+  assert.deepEqual(records[0], {
+    id: 'calendar-transition:event-1',
+    kind: 'calendar-transition',
+    hour: '09:00',
+    time: '09:45',
+    stamped: false,
+    title: 'Transition after Client call',
+    detail: '15 min protected · until 10:00',
+    externalHref: 'https://calendar.google.com/event/1',
+  })
 })
 
 test('an untimed Calorie entry is placed by when it was logged, not dropped', () => {

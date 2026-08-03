@@ -84,14 +84,14 @@ export const demoPersonas = [
     proof: [
       ['Morning habit', 'Drink water before coffee · 07:30'],
       ['Meals on the clock', 'Breakfast · 08:20, lunch · 12:45'],
-      ['Training protected', 'Upper body workout · 18:00'],
+      ['Training protected', 'Upper body strength plan · 18:00'],
     ],
     icon: HeartPulse,
     preview: [
       ['07:30', 'Drink water before coffee'],
       ['08:20', 'Greek yogurt bowl'],
       ['12:45', 'Chicken salad'],
-      ['18:00', 'Upper body workout'],
+      ['18:00', 'Upper body strength plan'],
       ['Progress', '5K time trend'],
     ],
   },

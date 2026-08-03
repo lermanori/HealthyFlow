@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { addDays, format } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -10,6 +10,7 @@ import {
   CalendarDays,
   CheckSquare,
   Clock,
+  Dumbbell,
   Flame,
   MapPin,
   Mic,
@@ -28,7 +29,9 @@ import {
   DAY_SUMMARY_QUERY_KEY,
   taskService,
   weightService,
+  workoutsService,
   type Category,
+  type WorkoutPlan,
 } from '../services/api'
 import AITextAnalyzer from '../components/AITextAnalyzer'
 import MealAnalyzer from '../components/MealAnalyzer'
@@ -54,7 +57,7 @@ const quickDates = [
 
 type ModuleAddTarget = Exclude<ModulePresentation['addTarget'], null>
 type DomainTab = 'today' | ModuleAddTarget
-type TodayType = 'task' | 'habit'
+type TodayType = 'task' | 'habit' | 'meal' | 'workout'
 type CalorieMode = 'entry' | 'weight'
 
 const addIcon = {
@@ -86,6 +89,7 @@ export default function AddItemPage() {
   const queryClient = useQueryClient()
   const { modules, resolution, retry } = useSettings()
   const calorieAvailability = modules.calories
+  const workoutAvailability = modules.workouts
   const achievementAvailability = modules.achievements
   const [activeTab, setActiveTab] = useState<DomainTab>('today')
   const [showTaskAi, setShowTaskAi] = useState(false)
@@ -103,6 +107,7 @@ export default function AddItemPage() {
   const [habitTargetUnit, setHabitTargetUnit] = useState<'minutes' | 'reps' | 'count'>('minutes')
   const [scheduledDate, setScheduledDate] = useState(todayStr())
   const [projectId, setProjectId] = useState<string | undefined>()
+  const [workoutPlanId, setWorkoutPlanId] = useState('')
 
   const [calorieMode, setCalorieMode] = useState<CalorieMode>('entry')
   const [calorieDate, setCalorieDate] = useState(todayStr())
@@ -126,6 +131,11 @@ export default function AddItemPage() {
     queryKey: ['achievements'],
     queryFn: () => achievementService.list({ entryLimit: 5 }),
     enabled: activeTab === 'achievements' && achievementAvailability === 'enabled',
+  })
+  const workoutPlansQuery = useQuery({
+    queryKey: ['workout-plans'],
+    queryFn: workoutsService.plans,
+    enabled: activeTab === 'today' && todayType === 'workout' && workoutAvailability === 'enabled',
   })
 
   const selectedAchievement = useMemo(
@@ -164,7 +174,14 @@ export default function AddItemPage() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
       queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
-      toast.success(`${todayType === 'habit' ? 'Habit' : 'Task'} added`)
+      const label = todayType === 'habit'
+        ? 'Habit'
+        : todayType === 'meal'
+          ? 'Meal plan'
+          : todayType === 'workout'
+            ? 'Workout plan'
+            : 'Task'
+      toast.success(`${label} added`)
       navigate('/')
     },
     onError: () => toast.error(`Failed to add ${todayType}`),
@@ -217,6 +234,10 @@ export default function AddItemPage() {
       toast.error('Please enter a valid Habit target')
       return
     }
+    if (todayType === 'workout' && !workoutPlanId) {
+      toast.error('Choose a Workout plan')
+      return
+    }
 
     addTodayMutation.mutate({
       title: title.trim(),
@@ -227,8 +248,9 @@ export default function AddItemPage() {
       duration: Number(duration) || 30,
       repeat: todayType === 'habit' ? 'daily' : 'none',
       scheduledDate,
-      projectId,
+      projectId: todayType === 'task' ? projectId : undefined,
       ...(todayType === 'habit' ? { habitTarget: habitTracking === 'target' ? { value: targetValue, unit: habitTargetUnit } : null } : {}),
+      ...(todayType === 'workout' ? { workoutInfo: { workoutPlanId } } : {}),
     })
   }
 
@@ -364,20 +386,29 @@ export default function AddItemPage() {
 
         {activeTab === 'today' && (
           <form onSubmit={submitToday} className="space-y-6">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {(['task', 'habit'] as TodayType[]).map((type) => {
-                const Icon = type === 'task' ? CheckSquare : Zap
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {([
+                { id: 'task', label: 'Task', icon: CheckSquare },
+                { id: 'habit', label: 'Habit', icon: Zap },
+                ...(calorieAvailability === 'enabled' ? [{ id: 'meal' as const, label: 'Meal plan', icon: Utensils }] : []),
+                ...(workoutAvailability === 'enabled' ? [{ id: 'workout' as const, label: 'Workout plan', icon: Dumbbell }] : []),
+              ] as Array<{ id: TodayType; label: string; icon: typeof CheckSquare }>).map((option) => {
+                const Icon = option.icon
                 return (
                   <button
-                    key={type}
+                    key={option.id}
                     type="button"
-                    onClick={() => setTodayType(type)}
+                    onClick={() => {
+                      setTodayType(option.id)
+                      if (option.id === 'meal') setCategory('nutrition')
+                      if (option.id === 'workout') setCategory('fitness')
+                    }}
                     className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition ${
-                      todayType === type ? 'border-accent/50 bg-accent/20 text-accent' : 'border-line text-ink-muted hover:border-line-strong'
+                      todayType === option.id ? 'border-accent/50 bg-accent/20 text-accent' : 'border-line text-ink-muted hover:border-line-strong'
                     }`}
                   >
                     <Icon className="h-4 w-4" />
-                    {type === 'task' ? 'Task' : 'Habit'}
+                    {option.label}
                   </button>
                 )
               })}
@@ -423,7 +454,9 @@ export default function AddItemPage() {
               </div>
             </div>
 
-            <ProjectSelector selectedProjectId={projectId} onProjectSelect={setProjectId} />
+            {todayType === 'task' && (
+              <ProjectSelector selectedProjectId={projectId} onProjectSelect={setProjectId} />
+            )}
 
             {todayType === 'task' && (
               <label className="block space-y-2">
@@ -462,14 +495,70 @@ export default function AddItemPage() {
               {habitTracking === 'target' && <div className="grid grid-cols-[1fr_1.2fr] gap-2"><input type="text" inputMode="decimal" value={habitTargetValue} onChange={event => setHabitTargetValue(event.target.value)} className="input-field" aria-label="Habit target value" /><select value={habitTargetUnit} onChange={event => setHabitTargetUnit(event.target.value as typeof habitTargetUnit)} className="input-field" aria-label="Habit target unit"><option value="minutes">Minutes</option><option value="reps">Repetitions</option><option value="count">Count</option></select></div>}
             </div>}
 
+            {todayType === 'workout' && (
+              <div className="space-y-3 rounded-xl border border-state-warning/25 bg-state-warning/5 p-4">
+                <div>
+                  <p className="text-sm font-medium text-ink-soft">Selected Workout plan</p>
+                  <p className="mt-1 text-xs text-ink-muted">
+                    The Item schedules the plan. Logging a Workout session remains a separate action in Workouts.
+                  </p>
+                </div>
+                {workoutPlansQuery.isLoading ? (
+                  <p className="text-sm text-ink-muted">Loading Workout plans…</p>
+                ) : (workoutPlansQuery.data ?? []).length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-line p-3 text-sm text-ink-muted">
+                    <p>Create a reusable plan in Workouts before scheduling it.</p>
+                    <Link
+                      to="/workouts"
+                      className="mt-2 inline-flex min-h-11 items-center font-semibold text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                    >
+                      Open Workouts
+                    </Link>
+                  </div>
+                ) : (
+                  <select
+                    className="input-field"
+                    value={workoutPlanId}
+                    onChange={(event) => {
+                      const selectedId = event.target.value
+                      setWorkoutPlanId(selectedId)
+                      const selected = (workoutPlansQuery.data as WorkoutPlan[] | undefined)?.find(
+                        plan => plan.id === selectedId
+                      )
+                      if (selected) setTitle(selected.name)
+                    }}
+                    required
+                    aria-label="Workout plan"
+                  >
+                    <option value="">Choose a plan</option>
+                    {(workoutPlansQuery.data ?? []).map((plan) => (
+                      <option key={plan.id} value={plan.id}>
+                        {plan.name} · {plan.exercises.length} {plan.exercises.length === 1 ? 'exercise' : 'exercises'}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
             <label className="block space-y-2">
               <span className="text-sm font-medium text-ink-soft">Scheduled duration</span>
               <input type="number" min="1" value={duration} onChange={(event) => setDuration(event.target.value)} className="input-field" />
             </label>
 
-            <button type="submit" disabled={addTodayMutation.isPending} className="btn-primary inline-flex w-full items-center justify-center gap-2 py-3">
+            <button
+              type="submit"
+              disabled={addTodayMutation.isPending || (todayType === 'workout' && !workoutPlanId)}
+              className="btn-primary inline-flex w-full items-center justify-center gap-2 py-3 disabled:cursor-not-allowed disabled:opacity-50"
+            >
               <Plus className="h-5 w-5" />
-              Add {todayType === 'habit' ? 'Habit' : 'Task'}
+              Add {todayType === 'habit'
+                ? 'Habit'
+                : todayType === 'meal'
+                  ? 'Meal plan'
+                  : todayType === 'workout'
+                    ? 'Workout plan'
+                    : 'Task'}
             </button>
           </form>
         )}

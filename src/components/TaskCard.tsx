@@ -8,6 +8,8 @@ import {
 import { HabitItem, Task } from '../services/api'
 import { format, parseISO } from 'date-fns'
 import { getCategoryPresentation } from '../categoryPresentation'
+import { Link } from 'react-router-dom'
+import { getModulePresentation, moduleHealthHref } from '../modulePresentation'
 
 interface TaskCardProps {
   task: Task
@@ -23,6 +25,16 @@ interface TaskCardProps {
 
 export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncomplete, onHabitCheckIn, isDragging, className = '', compact = false }: TaskCardProps) {
   const [showMenu, setShowMenu] = useState(false)
+  const moduleDestination = task.type === 'meal'
+    ? moduleHealthHref(getModulePresentation('calories'), task.scheduledDate ?? undefined)
+    : task.type === 'workout'
+      ? moduleHealthHref(getModulePresentation('workouts'), task.scheduledDate ?? undefined)
+      : null
+  const planLabel = task.type === 'meal'
+    ? 'Meal plan'
+    : task.type === 'workout'
+      ? 'Workout plan'
+      : null
 
   const handleComplete = () => {
     if (task.type === 'habit' && onHabitCheckIn) {
@@ -104,6 +116,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       case 'meal':
         return (
           <div className="space-y-1 mt-2">
+            <p className="text-xs text-ink-muted">Planned Meal · Calorie entries stay separate</p>
             <div className="flex items-center space-x-2 text-xs text-ink-muted">
               {task.mealInfo?.mealType && (
                 <span className={`px-2 py-1 rounded-full text-xs ${getCategoryColor('nutrition')}`}>
@@ -129,6 +142,9 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       case 'workout':
         return (
           <div className="space-y-1 mt-2">
+            <p className="text-xs text-ink-muted">
+              {task.workoutInfo?.workoutPlanId ? 'Selected reusable plan' : 'Workout plan unavailable'} · Workout sessions stay separate
+            </p>
             <div className="flex items-center space-x-2 text-xs text-ink-muted">
               {task.workoutInfo?.workoutType && (
                 <span className={`px-2 py-1 rounded-full text-xs ${getCategoryColor('fitness')}`}>
@@ -243,6 +259,11 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
               }`}>
                 {task.title}
               </h3>
+              {planLabel && (
+                <span className={`shrink-0 rounded-full border text-[9px] font-semibold uppercase tracking-wide ${compact ? 'px-1 py-0' : 'px-1.5 py-0.5'} ${getTypeColor(task.type)}`}>
+                  {task.completed ? 'Plan done' : planLabel}
+                </span>
+              )}
             </div>
 
             {/* Menu button */}
@@ -330,6 +351,16 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                 <Zap className="w-3 h-3" />
                 <span>Daily</span>
               </span>
+            )}
+
+            {moduleDestination && (
+              <Link
+                to={moduleDestination}
+                onClick={(event) => event.stopPropagation()}
+                className="shrink-0 rounded-full border border-accent/30 bg-accent/10 px-1.5 py-0.5 text-xs text-accent hover:bg-accent/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+              >
+                Open {task.type === 'meal' ? 'Nutrition' : 'Workouts'}
+              </Link>
             )}
 
             {renderGoogleSyncBadge()}

@@ -1,3 +1,9 @@
+### 2026-08-03 16:50 — `main`
+
+Phase 3 turns Today into a typed Daily Plan that references Calendar events and transitions, Work Focus blocks, Tasks, Habit instances, Meal and Workout plans, and module-owned actual records without copying or cross-mutating them. Today now makes planned versus actual state explicit, surfaces Progress targets, schedules reusable Workout plans through an ownership-checked database reference, and defaults new Focus blocks to the current time; the Supabase migration has been applied and the throwaway prototype is retired. The shared Claude skill harness and current responsive baselines are included with the workspace, and the result is green across lint, both production builds, 554 backend tests, 75 frontend unit tests, and targeted responsive/accessibility Playwright coverage.
+
+---
+
 ### 2026-08-03 16:05 — `main`
 
 Ran the Today Playwright suite against the Phase 2 work and it caught a real bug the type checker could not. The hour slot decides compaction through a different predicate than the one that sizes it, and only the sizing one had been taught about Focus blocks — so an hour holding only a Focus block collapsed to the 28px empty height and its 72px row spilled into the next hour, landing underneath the now-marker and making Start unclickable for anyone viewing an earlier block. Measuring the two bounding boxes is what settled it as a defect rather than a flaky click. Both new specs now pass, and the exit scenario runs end to end.

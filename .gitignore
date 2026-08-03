@@ -26,13 +26,18 @@ ngrok.log
 # Skills installer drop (managed by `npx skills add`)
 .agents
 skills-lock.json
-.claude/skills
+
+# Claude Code: track the shared harness, ignore per-dev and session state.
+# .claude/skills/ is committed on purpose — CLAUDE.md documents those skills,
+# so every clone and cloud agent must have them.
+.claude/*
+!.claude/skills/
+!.claude/settings.json
 
 # OS / editor
 .DS_Store
 .vscode
 .idea
-.claude/
 
 # E2E test auth state (sensitive, varies per dev)
 tests/e2e/.auth/

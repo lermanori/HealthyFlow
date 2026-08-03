@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { Achievements } from './achievements'
 import { supabase, db } from './supabase-client'
 import { Workouts } from './workouts'
+import { Work } from './work'
 
 export const DEMO_PERSONAS = ['maya', 'noam', 'lina', 'amir'] as const
 export type DemoPersona = typeof DEMO_PERSONAS[number]
@@ -32,7 +33,7 @@ function completedAt(day: string, time: string | null) {
 
 type SeedItem = {
   title: string
-  type: 'task' | 'habit'
+  type: 'task' | 'habit' | 'grocery' | 'meal' | 'workout'
   category: string
   dayOffset: number
   startTime: string | null
@@ -75,8 +76,8 @@ const taskSeeds: Record<DemoPersona, SeedItem[]> = {
     { title: 'Drink water before coffee', type: 'habit', category: 'health', dayOffset: 0, startTime: '07:30', duration: 5, repeatType: 'daily', completed: true },
     { title: 'Walk after lunch', type: 'habit', category: 'fitness', dayOffset: 0, startTime: '13:15', duration: 20, repeatType: 'daily' },
     { title: 'Evening stretch', type: 'habit', category: 'fitness', dayOffset: 0, startTime: null, duration: 10, repeatType: 'daily', position: 0 },
-    { title: 'Prep overnight oats', type: 'task', category: 'nutrition', dayOffset: 0, startTime: null, duration: 10, repeatType: 'none', position: 1 },
-    { title: 'Upper body workout', type: 'task', category: 'fitness', dayOffset: 0, startTime: '18:00', duration: 45, repeatType: 'none' },
+    { title: 'Prep overnight oats', type: 'meal', category: 'nutrition', dayOffset: 0, startTime: null, duration: 10, repeatType: 'none', position: 1 },
+    { title: 'Upper body strength', type: 'workout', category: 'fitness', dayOffset: 0, startTime: '18:00', duration: 45, repeatType: 'none' },
     { title: 'Review weekly progress', type: 'task', category: 'health', dayOffset: 1, startTime: '19:30', duration: 20, repeatType: 'none' },
   ],
   amir: [
@@ -104,6 +105,9 @@ async function resetDemoData(userId: string) {
   const tables = [
     'assistant_messages',
     'assistant_conversations',
+    'work_sessions',
+    'work_reviews',
+    'focus_blocks',
     'workout_plans',
     'workout_sessions',
     'workout_exercise_items',
@@ -113,6 +117,7 @@ async function resetDemoData(userId: string) {
     'calorie_entries',
     'calorie_items',
     'tasks',
+    'projects',
     'ai_recommendations',
   ]
 
@@ -170,6 +175,48 @@ async function seedLinaExtras(userId: string, baseDate: Date) {
   await db.createWeightEntry({ id: uuidv4(), user_id: userId, date: ymd(addDays(baseDate, -7)), weight_kg: 71.2 })
   await db.createWeightEntry({ id: uuidv4(), user_id: userId, date: today, weight_kg: 70.9 })
 
+  const workoutPlan = await Workouts.createPlan(userId, {
+    name: 'Upper body strength',
+    color: '#f59e0b',
+    note: 'Reusable strength plan for the scheduled Workout Item.',
+    exercises: [
+      { name: 'Squat', sets: 3, reps: 5, weightKg: 62.5, position: 0 },
+      { name: 'Incline walk', durationMinutes: 20, distanceKm: 2.1, position: 1 },
+    ],
+  })
+  const { error: workoutItemError } = await supabase
+    .from('tasks')
+    .update({ workout_plan_id: workoutPlan.id })
+    .eq('user_id', userId)
+    .eq('scheduled_date', today)
+    .eq('type', 'workout')
+  if (workoutItemError) throw workoutItemError
+
+  const project = await Work.createProject(userId, {
+    name: 'Health reset article',
+    status: 'Active',
+    target: 'Publish a practical first draft',
+    milestone: 'Training section drafted',
+    definitionOfDone: 'A reviewable draft exists',
+  })
+  const workTask = await Work.addTask(userId, project.id, {
+    title: 'Draft the training section',
+    relation: 'Direct progress',
+    duration: 45,
+    scheduledDate: today,
+  })
+  await Work.createFocusBlock(userId, {
+    projectId: project.id,
+    taskIds: [workTask.id],
+    scheduledDate: today,
+    startTime: '10:00',
+    plannedMinutes: 45,
+    intendedOutcome: 'A complete training section is ready for review',
+    intendedEvidence: 'Draft text linked from the Project context',
+    transitionMinutes: 10,
+    breakMinutes: 10,
+  })
+
   await Workouts.createSession(userId, {
     date: today,
     title: 'Upper body strength',
@@ -210,6 +257,7 @@ export async function seedDemoPersona(persona: DemoPersona, baseDate = new Date(
     calorieIntake: persona === 'lina',
     achievementTracker: persona === 'lina',
     workoutTracker: persona === 'lina',
+    planningWindow: { startTime: '06:00', endTime: '23:30', transitionBufferMinutes: 15 },
     onboardingStatus: 'completed',
   })
   await seedTasks(userId, baseDate, taskSeeds[persona])
