@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-03  
 **Status:** Active delivery roadmap  
-**Current phase:** Phase 4 — define the module capability registry
+**Current phase:** Phase 5 — prove the AI runtime through the OpenAI API
 
 ## Purpose
 
@@ -36,7 +36,7 @@ The GitHub Project remains the source of truth for issue status. This document i
 | 1 | Work functions completely by hand | Existing Tasks and Projects | Complete |
 | 2 | Work Focus blocks are executable from Today | Phase 1 | Complete |
 | 3 | Every enabled module has an honest Today representation | Phase 2 | Complete |
-| 4 | Every module exposes a bounded capability contract | Phase 3 | In progress — implementation complete, verification pending |
+| 4 | Every module exposes a bounded capability contract | Phase 3 | Complete |
 | 5 | The server-keyed AI runtime is researched and proven with evaluations | Phase 4 | Not started |
 | 6 | Existing Talk orchestrates the full day and John golden scenario | Phase 5 | Not started |
 
@@ -145,7 +145,7 @@ John can inspect one day and correctly distinguish his meeting, Focus block, ord
 
 ## Phase 4 — Define the module capability registry
 
-> **Implementation state (2026-08-03):** The existing `backend/src/ai-capabilities.ts` deep module now materializes a typed inventory across all seven module families from one definition interface, deriving names and risk while applying idempotency and audit policy uniformly. Daily Plan owns deterministic placement validation behind its module interface; internal and MCP adapters share the materialized definitions and model-independent contract/authorization coverage. Newly registered Phase 4 capabilities remain excluded from the production model-tool surface until Phase 5 deliberately activates and evaluates runtime selection.
+> **Completed 2026-08-03:** The existing `backend/src/ai-capabilities.ts` deep module now materializes a typed inventory across all seven module families from one definition interface, deriving names and risk while applying idempotency and audit policy uniformly. Daily Plan owns deterministic placement validation behind its module interface; internal and MCP adapters share the materialized definitions and model-independent contract/authorization coverage. The result was approved after model-independent contract, authorization, full-suite, and generated-artifact verification in commit [`a5b615a`](https://github.com/lermanori/HealthyFlow/commit/a5b615a225c4856c7b843fa340dbf949abab434b); the newly registered capabilities remain excluded from the production model-tool surface until Phase 5 deliberately activates and evaluates runtime selection.
 
 ### Outcome
 
