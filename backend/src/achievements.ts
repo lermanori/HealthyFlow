@@ -47,6 +47,47 @@ export const AchievementListQuerySchema = z.object({
   entryLimit: z.coerce.number().int().min(1).max(100).default(30),
 })
 
+export const AchievementDefinitionSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  name: z.string(),
+  category: z.string().nullable(),
+  metricType: AchievementMetricTypeSchema,
+  unit: z.string(),
+  betterDirection: AchievementBetterDirectionSchema,
+  targetValue: z.number().positive().nullable(),
+  archivedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const AchievementEntrySchema = z.object({
+  id: z.string(),
+  achievementId: z.string(),
+  userId: z.string(),
+  date: z.string().regex(DATE_RE),
+  value: z.number().positive(),
+  supportingValue: z.number().positive().nullable(),
+  supportingUnit: z.string().nullable(),
+  notes: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const AchievementSummarySchema = z.object({
+  definition: AchievementDefinitionSchema,
+  entries: z.array(AchievementEntrySchema),
+  latest: AchievementEntrySchema.nullable(),
+  previous: AchievementEntrySchema.nullable(),
+  personalBest: AchievementEntrySchema.nullable(),
+  trend: z.object({
+    delta: z.number().nullable(),
+    direction: z.enum(['none', 'up', 'down', 'flat']),
+    isImprovement: z.boolean().nullable(),
+  }),
+  targetProgress: z.number().nullable(),
+})
+
 export type AchievementDefinitionCreate = z.infer<typeof AchievementDefinitionCreateSchema>
 export type AchievementDefinitionUpdate = z.infer<typeof AchievementDefinitionUpdateSchema>
 export type AchievementEntryCreate = z.infer<typeof AchievementEntryCreateSchema>
@@ -115,7 +156,13 @@ export function summarizeAchievement(definitionRow: any, entryRows: any[]) {
   }, null)
 
   const delta = latest && previous ? latest.value - previous.value : null
-  const trendDirection = delta == null ? 'none' : delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat'
+  const trendDirection: 'none' | 'up' | 'down' | 'flat' = delta == null
+    ? 'none'
+    : delta > 0
+      ? 'up'
+      : delta < 0
+        ? 'down'
+        : 'flat'
   const isImprovement = delta == null
     ? null
     : delta === 0

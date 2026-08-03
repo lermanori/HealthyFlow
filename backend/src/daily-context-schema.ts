@@ -1,9 +1,12 @@
 import { z } from 'zod'
 import {
+  DaySummaryCalendarEventSchema,
   DaySummaryCalorieEntrySchema,
   DaySummaryItemSchema,
   DaySummaryWeightEntrySchema,
 } from './day-summary-schema'
+import { AchievementSummarySchema } from './achievements'
+import { WorkoutSessionSchema } from './workouts'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -97,7 +100,7 @@ const CalorieHistoryDaySchema = z.object({
 
 const WorkoutHistoryDaySchema = z.object({
   date: z.string(),
-  sessions: z.array(z.unknown()),
+  sessions: z.array(WorkoutSessionSchema),
 })
 
 export const DailyContextSchema = z.object({
@@ -107,9 +110,9 @@ export const DailyContextSchema = z.object({
     tasks: z.array(DaySummaryItemSchema),
     calorieEntries: z.array(DaySummaryCalorieEntrySchema),
     weight: DaySummaryWeightEntrySchema.nullable(),
-    achievements: z.array(z.unknown()),
-    workoutSessions: z.array(z.unknown()),
-    calendarEvents: z.array(z.unknown()),
+    achievements: z.array(AchievementSummarySchema),
+    workoutSessions: z.array(WorkoutSessionSchema),
+    calendarEvents: z.array(DaySummaryCalendarEventSchema),
   }),
   lookback: z.object({
     habitHistory: z.object({

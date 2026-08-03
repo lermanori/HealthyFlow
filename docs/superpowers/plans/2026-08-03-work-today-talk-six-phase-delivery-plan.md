@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-03  
 **Status:** Active delivery roadmap  
-**Current phase:** Phase 3 — make Today the shared Daily Plan
+**Current phase:** Phase 4 — define the module capability registry
 
 ## Purpose
 
@@ -35,8 +35,8 @@ The GitHub Project remains the source of truth for issue status. This document i
 |---|---|---|---|
 | 1 | Work functions completely by hand | Existing Tasks and Projects | Complete |
 | 2 | Work Focus blocks are executable from Today | Phase 1 | Complete |
-| 3 | Every enabled module has an honest Today representation | Phase 2 | In progress |
-| 4 | Every module exposes a bounded capability contract | Phase 3 | Not started |
+| 3 | Every enabled module has an honest Today representation | Phase 2 | Complete |
+| 4 | Every module exposes a bounded capability contract | Phase 3 | In progress — implementation complete, verification pending |
 | 5 | The server-keyed AI runtime is researched and proven with evaluations | Phase 4 | Not started |
 | 6 | Existing Talk orchestrates the full day and John golden scenario | Phase 5 | Not started |
 
@@ -144,6 +144,8 @@ John can inspect one day and correctly distinguish his meeting, Focus block, ord
 ---
 
 ## Phase 4 — Define the module capability registry
+
+> **Implementation state (2026-08-03):** The existing `backend/src/ai-capabilities.ts` deep module now materializes a typed inventory across all seven module families from one definition interface, deriving names and risk while applying idempotency and audit policy uniformly. Daily Plan owns deterministic placement validation behind its module interface; internal and MCP adapters share the materialized definitions and model-independent contract/authorization coverage. Newly registered Phase 4 capabilities remain excluded from the production model-tool surface until Phase 5 deliberately activates and evaluates runtime selection.
 
 ### Outcome
 
@@ -288,4 +290,3 @@ Phase 6 is complete only when scenario evaluations, deterministic invariants, AP
 - [Talk orchestration and Work module — design target](../specs/2026-08-02-talk-orchestration-and-work-design.md)
 - [ADR-0003: shared capability layer, internal tools, external MCP](../../adr/0003-llm-data-access-interface.md)
 - [Daily Signals](../../daily-signals.md)
-

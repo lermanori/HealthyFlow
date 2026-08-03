@@ -18,6 +18,40 @@ export const HabitProgressUpdateSchema = z.object({
   note: z.string().trim().max(120).nullable().optional(),
 }).refine(value => value.amount !== undefined || value.note !== undefined, 'No progress changes supplied')
 
+export const HabitProgressEntrySchema = z.object({
+  id: z.string(),
+  amount: z.number().positive(),
+  note: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const HabitInstanceSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  type: z.literal('habit'),
+  category: z.string().nullable(),
+  startTime: z.string().nullable(),
+  duration: z.number().nullable(),
+  repeat: z.enum(['daily', 'weekly']).nullable(),
+  completed: z.boolean(),
+  scheduledDate: z.string().nullable(),
+  createdAt: z.string(),
+  originalHabitId: z.string().nullable(),
+  isHabitInstance: z.literal(true),
+  position: z.number().int().nullable(),
+  habitInfo: z.object({
+    target: z.object({ value: z.number().positive(), unit: HabitTargetUnitSchema }).nullable(),
+    outcome: HabitOutcomeSchema,
+    progressTotal: z.number().nonnegative(),
+  }),
+})
+
+export const HabitProgressDetailSchema = z.object({
+  habit: HabitInstanceSchema,
+  entries: z.array(HabitProgressEntrySchema),
+})
+
 export type HabitOutcome = z.infer<typeof HabitOutcomeSchema>
 
 const numberOrNull = (value: unknown) => value == null ? null : Number(value)

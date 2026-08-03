@@ -1,3 +1,9 @@
+### 2026-08-03 18:33 — `main`
+
+Phase 4 gives Talk a bounded, Zod-backed inventory of 42 capabilities across Calendar/Daily Plan, Work, Nutrition, Workouts, Habits, Progress, and Tasks, with explicit read, proposal, write, and outcome semantics. The shared internal/MCP definition interface now derives identity and risk, applies confirmation, ownership, idempotency, audit, scope, and typed-error policy uniformly, keeps the 22 newly registered capabilities outside the production runtime until Phase 5, and leaves deterministic placement validation with the Daily Plan module that owns it. A standalone searchable HTML artifact makes the inventory and its input/output contracts inspectable, and the result is green across 568 backend tests, both typechecks, lint with no errors, and browser verification.
+
+---
+
 ### 2026-08-03 16:50 — `main`
 
 Phase 3 turns Today into a typed Daily Plan that references Calendar events and transitions, Work Focus blocks, Tasks, Habit instances, Meal and Workout plans, and module-owned actual records without copying or cross-mutating them. Today now makes planned versus actual state explicit, surfaces Progress targets, schedules reusable Workout plans through an ownership-checked database reference, and defaults new Focus blocks to the current time; the Supabase migration has been applied and the throwaway prototype is retired. The shared Claude skill harness and current responsive baselines are included with the workspace, and the result is green across lint, both production builds, 554 backend tests, 75 frontend unit tests, and targeted responsive/accessibility Playwright coverage.

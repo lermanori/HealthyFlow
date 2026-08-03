@@ -4,6 +4,7 @@ import {
   deriveCapacity,
   deriveDateMode,
   unionIntervals,
+  validateDailyPlacement,
 } from '../src/day-summary'
 import {
   DaySummaryCalendarEvent,
@@ -241,6 +242,51 @@ describe('DaySummary capacity derivation', () => {
     expect(deriveDateMode('2026-07-26', 'Asia/Jerusalem', now)).toBe('past')
     expect(deriveDateMode('2026-07-28', 'Asia/Jerusalem', now)).toBe('future')
     expect(deriveDateMode('2026-07-27', 'Not/A_Timezone', now)).toBe('unknown')
+  })
+})
+
+describe('Daily Plan placement validation', () => {
+  const dependencies = (items: DaySummaryItem[]) => ({
+    itemsForDay: jest.fn().mockImplementation((_userId, date) => (
+      Promise.resolve(date === '2026-07-27' ? items : [])
+    )),
+    getSettings: jest.fn().mockResolvedValue({
+      weekStartsOn: 1,
+      calorieIntake: true,
+      workoutTracker: true,
+      achievementTracker: true,
+      planningWindow,
+    }),
+    getCalendarStatus: jest.fn().mockResolvedValue({ connected: true }),
+    getCalendarEvents: jest.fn().mockResolvedValue([]),
+    getCalorieEntries: jest.fn().mockResolvedValue([]),
+    getWeightEntry: jest.fn().mockResolvedValue(null),
+    getWorkoutSessions: jest.fn().mockResolvedValue([]),
+    getAchievements: jest.fn().mockResolvedValue([]),
+    listDayFocusBlocks: jest.fn().mockResolvedValue([]),
+  })
+
+  it('rejects a placement that overlaps an Item and its transition buffer', async () => {
+    const result = await validateDailyPlacement(
+      'user-1',
+      {
+        date: '2026-07-27',
+        timeZone: 'UTC',
+        startTime: '09:00',
+        durationMinutes: 90,
+        transitionMinutes: 0,
+      },
+      {
+        now: new Date('2026-07-26T08:00:00.000Z'),
+        dependencies: dependencies([item({ id: 'task-1', startTime: '09:30', duration: 60 })]),
+      },
+    )
+
+    expect(result).toMatchObject({
+      status: 'invalid',
+      requestedMinutes: 90,
+      reasons: ['conflicts_with:item:task-1'],
+    })
   })
 })
 

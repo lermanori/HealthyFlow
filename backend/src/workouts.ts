@@ -74,6 +74,46 @@ export const WorkoutExerciseItemQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(50).default(10),
 })
 
+export const WorkoutExerciseSchema = z.object({
+  id: z.string(),
+  sessionId: z.string(),
+  name: z.string(),
+  sets: z.number().positive().nullable(),
+  reps: z.number().positive().nullable(),
+  weightKg: z.number().positive().nullable(),
+  durationMinutes: z.number().positive().nullable(),
+  distanceKm: z.number().positive().nullable(),
+  notes: z.string().nullable(),
+  position: z.number().int().nonnegative(),
+})
+
+export const WorkoutSessionSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  date: z.string().regex(DATE_RE),
+  title: z.string().nullable(),
+  notes: z.string().nullable(),
+  exercises: z.array(WorkoutExerciseSchema),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
+export const WorkoutPlanExerciseSchema = WorkoutExerciseSchema.omit({ sessionId: true }).extend({
+  planId: z.string(),
+})
+
+export const WorkoutPlanSchema = z.object({
+  id: z.string(),
+  userId: z.string(),
+  name: z.string(),
+  color: z.string().nullable(),
+  note: z.string().nullable(),
+  position: z.number().int().nonnegative(),
+  exercises: z.array(WorkoutPlanExerciseSchema),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+})
+
 export type WorkoutExerciseInput = z.infer<typeof WorkoutExerciseInputSchema>
 export type WorkoutPlanDraft = z.infer<typeof WorkoutPlanDraftSchema>
 export type WorkoutPlanCreate = z.infer<typeof WorkoutPlanCreateSchema>

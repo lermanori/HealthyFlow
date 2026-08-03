@@ -454,6 +454,34 @@ export const DailyPlanSchema = z.object({
   references: z.array(DailyPlanReferenceSchema),
 }).strict()
 
+export const DailyPlanPlacementInputSchema = z.object({
+  date: IsoDateSchema,
+  timeZone: z.string().trim().min(1).max(80).nullable().optional(),
+  startTime: ClockTimeSchema,
+  durationMinutes: z.number().int().positive().max(1440),
+  transitionMinutes: z.number().int().min(0).max(180).default(0),
+})
+
+export const DailyPlanPlacementReasonSchema = z.union([
+  CapacityReasonCodeSchema,
+  z.literal('insufficient_available_minutes'),
+  z.literal('outside_planning_window'),
+  z.string().regex(/^conflicts_with:(item|calendar_event|focus_block):.+$/),
+])
+
+export const DailyPlanPlacementValidationSchema = z.object({
+  date: IsoDateSchema,
+  status: z.enum(['valid', 'invalid', 'indeterminate']),
+  requestedMinutes: z.number().int().positive(),
+  availableMinutes: z.number().int().nonnegative().nullable(),
+  reasons: z.array(DailyPlanPlacementReasonSchema),
+  preview: z.object({
+    startTime: ClockTimeSchema,
+    durationMinutes: z.number().int().positive(),
+    transitionMinutes: z.number().int().nonnegative(),
+  }),
+})
+
 export const DaySummarySchema = z.object({
   version: z.literal(1),
   date: IsoDateSchema,
@@ -503,6 +531,9 @@ export type DaySummaryWeightEntry = z.infer<typeof DaySummaryWeightEntrySchema>
 export type DaySummaryAchievementEntry = z.infer<typeof DaySummaryAchievementEntrySchema>
 export type DaySummaryProgressTarget = z.infer<typeof DaySummaryProgressTargetSchema>
 export type DailyPlanReference = z.infer<typeof DailyPlanReferenceSchema>
+export type DailyPlanPlacementInput = z.infer<typeof DailyPlanPlacementInputSchema>
+export type DailyPlanPlacementReason = z.infer<typeof DailyPlanPlacementReasonSchema>
+export type DailyPlanPlacementValidation = z.infer<typeof DailyPlanPlacementValidationSchema>
 export type HabitProgressChunk = z.infer<typeof HabitProgressChunkSchema>
 export type DaySummaryCapacity = z.infer<typeof DaySummaryCapacitySchema>
 export type WorkDaySummary = z.infer<typeof WorkDaySummarySchema>

@@ -16,6 +16,11 @@ import {
   DaySummaryWeightEntrySchema,
   DailyPlanReference,
   DailyPlanReferenceSchema,
+  DailyPlanPlacementInput,
+  DailyPlanPlacementInputSchema,
+  DailyPlanPlacementReason,
+  DailyPlanPlacementValidation,
+  DailyPlanPlacementValidationSchema,
   isDaySummaryItemAddressed,
   PlanningWindow,
   PlanningWindowSchema,
@@ -1147,5 +1152,80 @@ export async function buildDaySummary(
       progress,
     },
     dailyPlan,
+  })
+}
+
+function capacityAvailableMinutes(capacity: DaySummaryCapacity): number | null {
+  if (capacity.status === 'complete') return capacity.availableMinutes
+  if (capacity.status === 'partial') return capacity.availableUpperBoundMinutes
+  return null
+}
+
+function placementConflictReasons(
+  summary: DaySummary,
+  input: DailyPlanPlacementInput,
+): DailyPlanPlacementReason[] {
+  if (summary.capacity.status !== 'complete') return []
+  const start = timeToMinutes(input.startTime)!
+  const end = start + input.durationMinutes + input.transitionMinutes
+  const windowStart = timeToMinutes(summary.capacity.window.consideredStartTime)!
+  const windowEnd = timeToMinutes(summary.capacity.window.consideredEndTime)!
+  const reasons: DailyPlanPlacementReason[] = []
+  if (start < windowStart || end > windowEnd) reasons.push('outside_planning_window')
+
+  const buffer = summary.capacity.window.transitionBufferMinutes
+  const intervals = [
+    ...summary.items
+      .filter(item => item.startTime && item.duration && !item.completed)
+      .map(item => ({ id: `item:${item.id}`, start: timeToMinutes(item.startTime!)!, end: timeToMinutes(item.startTime!)! + item.duration! + buffer })),
+    ...summary.calendar.events
+      .filter(event => event.localStartTime && event.localEndTime && !event.completed)
+      .map(event => ({ id: `calendar_event:${event.id}`, start: timeToMinutes(event.localStartTime!)!, end: timeToMinutes(event.localEndTime!)! + buffer })),
+    ...summary.work.focusBlocks
+      .filter(block => block.status !== 'canceled' && block.status !== 'completed')
+      .map(block => ({ id: `focus_block:${block.id}`, start: timeToMinutes(block.startTime)!, end: timeToMinutes(block.startTime)! + block.plannedMinutes + buffer })),
+  ]
+
+  for (const interval of intervals) {
+    if (start < interval.end && end > interval.start) {
+      reasons.push(`conflicts_with:${interval.id}` as DailyPlanPlacementReason)
+    }
+  }
+  return [...new Set(reasons)]
+}
+
+export async function validateDailyPlacement(
+  userId: string,
+  rawInput: DailyPlanPlacementInput,
+  options: {
+    now?: Date
+    dependencies?: Partial<DaySummaryDependencies>
+  } = {},
+): Promise<DailyPlanPlacementValidation> {
+  const input = DailyPlanPlacementInputSchema.parse(rawInput)
+  const summary = await buildDaySummary(userId, input.date, input.timeZone, options)
+  const requestedMinutes = input.durationMinutes + input.transitionMinutes
+  const reasons: DailyPlanPlacementReason[] = [...summary.capacity.reasonCodes]
+  const conflicts = placementConflictReasons(summary, input)
+  let status: DailyPlanPlacementValidation['status']
+
+  if (summary.capacity.status !== 'complete') status = 'indeterminate'
+  else if (requestedMinutes > summary.capacity.availableMinutes || conflicts.length > 0) {
+    status = 'invalid'
+    if (requestedMinutes > summary.capacity.availableMinutes) reasons.push('insufficient_available_minutes')
+    reasons.push(...conflicts)
+  } else status = 'valid'
+
+  return DailyPlanPlacementValidationSchema.parse({
+    date: input.date,
+    status,
+    requestedMinutes,
+    availableMinutes: capacityAvailableMinutes(summary.capacity),
+    reasons,
+    preview: {
+      startTime: input.startTime,
+      durationMinutes: input.durationMinutes,
+      transitionMinutes: input.transitionMinutes,
+    },
   })
 }

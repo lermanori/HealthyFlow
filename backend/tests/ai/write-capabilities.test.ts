@@ -6,6 +6,8 @@ jest.mock('../../src/supabase-client', () => ({
     getAiPendingAction: jest.fn(),
     markAiPendingActionExecuted: jest.fn(),
     getNextPosition: jest.fn().mockResolvedValue(7),
+    getTaskById: jest.fn(),
+    updateTask: jest.fn(),
     createTask: jest.fn(async (row) => ({
       ...row,
       completed: false,
@@ -32,16 +34,149 @@ jest.mock('../../src/rollover', () => ({
 import {
   AiCapabilities,
   aiCapabilityTools,
+  executeAiCapability,
   executePendingAiAction,
   PendingAiActionUnavailableError,
 } from '../../src/ai-capabilities'
 import { db } from '../../src/supabase-client'
+import * as DaySummary from '../../src/day-summary'
+import { HabitProgress } from '../../src/habit-progress'
+import { Work } from '../../src/work'
 
 describe('AI write capabilities', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     ;(db.getNextPosition as jest.Mock).mockResolvedValue(7)
     ;(db.deleteCalorieEntry as jest.Mock).mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    jest.restoreAllMocks()
+  })
+
+  it('executes Calendar proposals deterministically under the server-owned identity', async () => {
+    jest.spyOn(DaySummary, 'validateDailyPlacement').mockResolvedValueOnce({
+      date: '2026-08-03',
+      status: 'valid',
+      requestedMinutes: 105,
+      availableMinutes: 480,
+      reasons: [],
+      preview: { startTime: '09:00', durationMinutes: 90, transitionMinutes: 15 },
+    })
+
+    const result = await executeAiCapability(
+      { userId: 'user-1', caller: 'internal' },
+      'validate_daily_plan',
+      {
+        date: '2026-08-03',
+        timeZone: 'Asia/Jerusalem',
+        startTime: '09:00',
+        durationMinutes: 90,
+        transitionMinutes: 15,
+      },
+    )
+
+    expect(DaySummary.validateDailyPlacement).toHaveBeenCalledWith('user-1', {
+      date: '2026-08-03',
+      timeZone: 'Asia/Jerusalem',
+      startTime: '09:00',
+      durationMinutes: 90,
+      transitionMinutes: 15,
+    })
+    expect(result).toEqual({
+      ok: true,
+      value: expect.objectContaining({ status: 'valid', requestedMinutes: 105, availableMinutes: 480 }),
+    })
+  })
+
+  it('delegates a confirmed Focus block write to Work and records idempotency and audit', async () => {
+    ;(db.getAiIdempotency as jest.Mock).mockResolvedValueOnce(null)
+    const focusBlock = {
+      id: 'ae7b3ba8-01b7-46c2-ab84-4857946f2aa0',
+      projectId: null,
+      taskIds: [],
+      standaloneTitle: 'Registry contract',
+      standaloneContext: null,
+      scheduledDate: '2026-08-03',
+      startTime: '09:00',
+      plannedMinutes: 90,
+      intendedOutcome: 'Complete the registry',
+      intendedEvidence: 'Green contract tests',
+      transitionMinutes: null,
+      breakMinutes: null,
+      status: 'planned' as const,
+      reviewTrigger: null,
+      startedAt: null,
+      endedAt: null,
+      createdAt: '2026-08-03T06:00:00.000Z',
+      updatedAt: '2026-08-03T06:00:00.000Z',
+    }
+    jest.spyOn(Work, 'createFocusBlock').mockResolvedValueOnce(focusBlock)
+
+    const result = await executeAiCapability(
+      { userId: 'user-1', caller: 'mcp' },
+      'create_focus_block',
+      {
+        projectId: null,
+        taskIds: [],
+        standaloneTitle: 'Registry contract',
+        scheduledDate: '2026-08-03',
+        startTime: '09:00',
+        plannedMinutes: 90,
+        intendedOutcome: 'Complete the registry',
+        intendedEvidence: 'Green contract tests',
+        requestId: 'focus-create-1',
+      },
+    )
+
+    expect(Work.createFocusBlock).toHaveBeenCalledWith('user-1', expect.not.objectContaining({ requestId: expect.anything() }))
+    expect(result).toEqual({ ok: true, value: { focusBlock } })
+    expect(db.createAiIdempotency).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: 'user-1', request_id: 'focus-create-1', tool: 'create_focus_block',
+    }))
+    expect(db.createAiAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: 'user-1', caller: 'mcp', tool: 'create_focus_block',
+    }))
+  })
+
+  it('delegates a confirmed Habit outcome to Habit Progress ownership rules', async () => {
+    ;(db.getAiIdempotency as jest.Mock).mockResolvedValueOnce(null)
+    const detail = {
+      habit: {
+        id: 'habit-instance-1',
+        title: 'Walk',
+        type: 'habit' as const,
+        category: 'health',
+        startTime: null,
+        duration: 20,
+        repeat: 'daily' as const,
+        completed: true,
+        scheduledDate: '2026-08-03',
+        createdAt: '2026-08-01T06:00:00.000Z',
+        originalHabitId: 'habit-1',
+        isHabitInstance: true as const,
+        position: null,
+        habitInfo: { target: null, outcome: 'completed' as const, progressTotal: 0 },
+      },
+      entries: [],
+    }
+    jest.spyOn(HabitProgress, 'setOutcome').mockResolvedValueOnce(detail)
+
+    const result = await executeAiCapability(
+      { userId: 'user-1', caller: 'internal' },
+      'record_habit_outcome',
+      { itemId: 'habit-1_2026-08-03', date: '2026-08-03', outcome: 'completed', requestId: 'habit-outcome-1' },
+    )
+
+    expect(HabitProgress.setOutcome).toHaveBeenCalledWith(
+      'user-1',
+      'habit-1_2026-08-03',
+      { date: '2026-08-03', outcome: 'completed' },
+    )
+    expect(result).toEqual({ ok: true, value: { detail } })
+    expect(db.createAiAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: 'user-1', tool: 'record_habit_outcome', target_ids: ['habit-instance-1'],
+    }))
   })
 
   it('dedupes add-type writes by requestId', async () => {
@@ -79,6 +214,33 @@ describe('AI write capabilities', () => {
       request_id: 'req-2',
       tool: 'add_calorie_entry',
     }))
+  })
+
+  it('does not reveal or mutate an Item owned by another user', async () => {
+    ;(db.getAiIdempotency as jest.Mock).mockResolvedValueOnce(null)
+    ;(db.getTaskById as jest.Mock).mockResolvedValueOnce({
+      id: '16ae2cbb-69cc-43e3-aabb-3f6ab553f6d0',
+      user_id: 'user-2',
+      type: 'task',
+    })
+
+    const result = await executeAiCapability(
+      { userId: 'user-1', caller: 'mcp' },
+      'place_item',
+      {
+        itemId: '16ae2cbb-69cc-43e3-aabb-3f6ab553f6d0',
+        scheduledDate: '2026-08-04',
+        startTime: '09:00',
+        requestId: 'foreign-item-attempt',
+      },
+    )
+
+    expect(result).toEqual({
+      ok: false,
+      error: expect.objectContaining({ code: 'not_found', retryable: false }),
+    })
+    expect(db.updateTask).not.toHaveBeenCalled()
+    expect(db.createAiAuditLog).not.toHaveBeenCalled()
   })
 
   it('adds untimed Tasks at the next Anytime backlog position', async () => {
