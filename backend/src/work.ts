@@ -5,6 +5,8 @@ import {
   CreateFocusBlockInput,
   CreateTaskRecordInput,
   CreateWorkProjectInput,
+  DayFocusBlock,
+  DayFocusBlockProjectSchema,
   EMPTY_PROJECT_CONTEXT,
   FocusBlock,
   FocusBlockTransitionInput,
@@ -232,6 +234,39 @@ export const Work = {
     return assembleScope(userId, projectId)
   },
 
+  /**
+   * Every Focus block scheduled for one day, across all Projects, denormalised
+   * for Today. Three queries regardless of how many blocks the day holds.
+   *
+   * A referenced Task that has since been deleted is simply absent from `tasks`
+   * — the block is still returned rather than hidden or its Task invented.
+   */
+  async listDayFocusBlocks(userId: string, date: string): Promise<DayFocusBlock[]> {
+    const blockRows = await db.getFocusBlocksByDate(userId, date)
+    if (blockRows.length === 0) return []
+
+    const taskIds = [...new Set(blockRows.flatMap((row: any) => row.task_ids ?? []))] as string[]
+    const [taskRows, projectRows] = await Promise.all([
+      db.getTasksByIds(userId, taskIds),
+      db.getProjectsByUserId(userId),
+    ])
+
+    const tasksById = new Map(taskRows.map((row: any) => [row.id, toTaskRecord(row)]))
+    const projectsById = new Map(
+      (projectRows ?? []).map((row: any) => [row.id, DayFocusBlockProjectSchema.parse(toProject(row))]),
+    )
+
+    return blockRows.map((row: any) => {
+      const block = toFocusBlock(row)
+      return {
+        ...block,
+        slot: `${block.startTime.slice(0, 2)}:00`,
+        project: block.projectId ? projectsById.get(block.projectId) ?? null : null,
+        tasks: block.taskIds.map(taskId => tasksById.get(taskId)).filter((task): task is TaskRecord => Boolean(task)),
+      }
+    })
+  },
+
   async createProject(userId: string, input: CreateWorkProjectInput): Promise<WorkProject> {
     const row = await db.createProject({
       id: uuidv4(),
@@ -341,6 +376,25 @@ export const Work = {
       status: 'planned',
     })
     return toFocusBlock(row)
+  },
+
+  /**
+   * Remove a Focus block that never became work.
+   *
+   * A block that produced a Work session is history, not a plan — the session
+   * is the durable record and the database refuses the delete anyway
+   * (work_sessions.focus_block_id is ON DELETE RESTRICT). An in-flight block is
+   * refused too: `cancel` is the honest verb for abandoning work you started.
+   */
+  async deleteFocusBlock(userId: string, focusBlockId: string): Promise<void> {
+    const block = await ownedFocusBlock(userId, focusBlockId)
+    if (block.status === 'active' || block.status === 'reviewing') {
+      throw fail(`Cancel the ${block.status} Focus block before deleting it`, 409)
+    }
+    if (block.status === 'completed') {
+      throw fail('A completed Focus block is kept as the Work session it produced', 409)
+    }
+    await db.deleteFocusBlock(userId, focusBlockId)
   },
 
   async transitionFocusBlock(

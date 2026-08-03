@@ -43,6 +43,14 @@ interface DayTimelineProps {
   onDeleteTask: (task: Task) => void
   onHabitCheckIn: (habit: HabitItem) => void
   supportingContent?: ReactNode
+  /**
+   * Work Focus blocks, pre-bucketed by the caller into hour slots.
+   *
+   * Kept strictly apart from `tasks`: a Focus block is not an Item, is never
+   * draggable, and must never reach the drag-persistence path, which would try
+   * to save it as a Task.
+   */
+  focusBlockRows?: Array<{ id: string; slot: string; clock: string; heightPx: number; render: () => ReactNode }>
 }
 
 interface DragSnapshot {
@@ -138,6 +146,15 @@ function eventDurationMinutes(event: ExternalCalendarEvent): number | undefined 
 function timedBlockHeight(duration?: number): number {
   const minutes = Math.max(duration || MIN_TIMED_TASK_MINUTES, MIN_TIMED_TASK_MINUTES)
   return Math.max(MIN_TIMED_TASK_HEIGHT_PX, Math.round((minutes / 60) * HOUR_SLOT_HEIGHT_PX))
+}
+
+/**
+ * A Focus block is sized by its planned minutes, but floors at the Habit height
+ * rather than the Task one: it carries two lines (target, then time · Project ·
+ * Tasks), so the taller floor is what keeps that from clipping.
+ */
+export function timedFocusBlockHeight(plannedMinutes: number): number {
+  return Math.max(timedBlockHeight(plannedMinutes), MIN_TIMED_HABIT_HEIGHT_PX)
 }
 
 function timedTaskBlockHeight(task: Task): number {
@@ -408,6 +425,7 @@ export default function DayTimeline({
   onDeleteTask,
   onHabitCheckIn,
   supportingContent,
+  focusBlockRows = [],
 }: DayTimelineProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
   const [dragStatus, setDragStatus] = useState('')
@@ -942,10 +960,15 @@ export default function DayTimeline({
                 const slotTasks = slotBuckets[slot]
                 const slotCalendarEvents = calendarBuckets[slot]
                 const slotRecords = recordBuckets[slot]
-                const hasContent = slotTasks.length > 0 || slotCalendarEvents.length > 0 || slotRecords.length > 0
+                const slotFocusRows = focusBlockRows.filter(row => row.slot === slot)
+                // A slot holding only a Focus block still has content — without
+                // this it compacts to 28px and turns off pointer events, which
+                // would make Start unclickable.
+                const hasContent = slotTasks.length > 0 || slotCalendarEvents.length > 0 || slotRecords.length > 0 || slotFocusRows.length > 0
                 const isCompacted = compactedEmptySlots.has(slot)
                 const isCurrentHour = parseInt(slot, 10) === nowHour
                 const slotHeight = slotHeightForContent(slotTasks, slotCalendarEvents, slotRecords, isCompacted)
+                  + (isCompacted ? 0 : slotFocusRows.reduce((total, row) => total + row.heightPx + 4, 0))
 
                 // One ordered list per hour, interleaved by minute so a 07:05
                 // record reads above a 07:45 habit. Draggable rows must receive
@@ -973,6 +996,16 @@ export default function DayTimeline({
                     settled: true,
                     draggable: false,
                     render: () => <TimelineRecordBlock record={record} onHabitSelect={handleHabitSelect} />,
+                  })),
+                  // Never draggable, so never consumes a drag index.
+                  ...slotFocusRows.map((row): SlotRow => ({
+                    key: `focus:${row.id}`,
+                    clock: row.clock,
+                    settled: false,
+                    draggable: false,
+                    render: () => (
+                      <div style={{ height: row.heightPx }} className="min-w-0">{row.render()}</div>
+                    ),
                   })),
                 ].sort((a, b) => a.clock.localeCompare(b.clock))
 

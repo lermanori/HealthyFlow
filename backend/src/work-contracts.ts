@@ -116,6 +116,26 @@ export const FocusBlockSchema = z.object({
 })
 export type FocusBlock = z.infer<typeof FocusBlockSchema>
 
+// A Focus block as Today needs it: the block plus just enough denormalised
+// Project and Task context to render and review a row without a second request.
+// `slot` is resolved here rather than in the browser because every wall-clock
+// value on Today is resolved server-side, where the user's timezone is known.
+export const DayFocusBlockProjectSchema = WorkProjectSchema.pick({
+  id: true,
+  name: true,
+  color: true,
+  target: true,
+  milestone: true,
+})
+export type DayFocusBlockProject = z.infer<typeof DayFocusBlockProjectSchema>
+
+export const DayFocusBlockSchema = FocusBlockSchema.extend({
+  slot: z.string().regex(/^([01]\d|2[0-3]):00$/, 'Expected an hour slot'),
+  project: DayFocusBlockProjectSchema.nullable(),
+  tasks: z.array(TaskRecordSchema),
+})
+export type DayFocusBlock = z.infer<typeof DayFocusBlockSchema>
+
 export const TaskReviewActionSchema = z.enum(['complete', 'reopen', 'defer', 'reactivate'])
 export type TaskReviewAction = z.infer<typeof TaskReviewActionSchema>
 
@@ -297,6 +317,8 @@ const WorkContracts = {
   WorkProjectSummarySchema,
   TaskRecordSchema,
   FocusBlockSchema,
+  DayFocusBlockProjectSchema,
+  DayFocusBlockSchema,
   WorkReviewSchema,
   WorkSessionSchema,
   WorkScopeSchema,

@@ -240,3 +240,81 @@ describe('supporting.progress', () => {
     expect(summary.supporting.progress).toEqual({ status: 'unavailable', entries: [] })
   })
 })
+
+// Focus blocks are the one timeline row Today does not own: Work owns the
+// record, Today only renders and executes it. These pin that the day carries
+// them honestly — including when Work is unreachable.
+describe('work.focusBlocks', () => {
+  const dependenciesFor = (overrides: Record<string, jest.Mock> = {}) => ({
+    itemsForDay: jest.fn().mockResolvedValue([]),
+    getSettings: jest.fn().mockResolvedValue({ weekStartsOn: 1 }),
+    getCalendarStatus: jest.fn().mockResolvedValue({ connected: false }),
+    getCalendarEvents: jest.fn().mockResolvedValue([]),
+    getCalorieEntries: jest.fn().mockResolvedValue([]),
+    getWeightEntry: jest.fn().mockResolvedValue(null),
+    getWorkoutSessions: jest.fn().mockResolvedValue([]),
+    getAchievements: jest.fn().mockResolvedValue([]),
+    listDayFocusBlocks: jest.fn().mockResolvedValue([]),
+    ...overrides,
+  })
+
+  const summaryWith = (overrides: Record<string, jest.Mock> = {}) =>
+    buildDaySummary('user-1', '2026-07-28', 'UTC', {
+      now: new Date('2026-07-28T10:00:00.000Z'),
+      dependencies: dependenciesFor(overrides) as never,
+    })
+
+  const block = {
+    id: '44444444-4444-4444-8444-444444444444',
+    projectId: '22222222-2222-4222-8222-222222222222',
+    taskIds: [],
+    standaloneTitle: null,
+    standaloneContext: null,
+    scheduledDate: '2026-07-28',
+    startTime: '14:30',
+    slot: '14:00',
+    plannedMinutes: 45,
+    intendedOutcome: 'Reminder emails send on schedule',
+    intendedEvidence: 'A passing reminder smoke test',
+    transitionMinutes: null,
+    breakMinutes: null,
+    status: 'planned' as const,
+    reviewTrigger: null,
+    startedAt: null,
+    endedAt: null,
+    createdAt: '2026-07-27T08:00:00.000Z',
+    updatedAt: '2026-07-27T08:00:00.000Z',
+    project: null,
+    tasks: [],
+  }
+
+  it('carries the day\'s blocks with their server-resolved hour slot', async () => {
+    const listDayFocusBlocks = jest.fn().mockResolvedValue([block])
+    const summary = await summaryWith({ listDayFocusBlocks })
+
+    expect(listDayFocusBlocks).toHaveBeenCalledWith('user-1', '2026-07-28')
+    expect(summary.work.status).toBe('scheduled')
+    expect(summary.work.focusBlocks).toHaveLength(1)
+    expect(summary.work.focusBlocks[0]).toMatchObject({ startTime: '14:30', slot: '14:00' })
+  })
+
+  it('reports an empty day as not_scheduled, not unavailable', async () => {
+    const summary = await summaryWith()
+    expect(summary.work).toEqual({ status: 'not_scheduled', focusBlocks: [] })
+  })
+
+  it('degrades to unavailable rather than failing the whole day when Work errors', async () => {
+    const summary = await summaryWith({
+      listDayFocusBlocks: jest.fn().mockRejectedValue(new Error('boom')),
+    })
+    expect(summary.work).toEqual({ status: 'unavailable', focusBlocks: [] })
+    // The rest of the day still resolves.
+    expect(summary.version).toBe(1)
+    expect(summary.completion).toBeDefined()
+  })
+
+  it('is always enabled — Work has no user-facing toggle', async () => {
+    const summary = await summaryWith()
+    expect(summary.modules.work).toBe('enabled')
+  })
+})

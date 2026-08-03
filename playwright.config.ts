@@ -23,6 +23,7 @@ const HERMETIC = [
   'assistant',
   'module-presentation',
   'responsive-visual-system',
+  'today-focus-block',
   'today-workspace',
   'week-theme-visual',
 ] as const
@@ -35,7 +36,7 @@ const HERMETIC = [
 // a default run would execute it twice and the totals would silently inflate.
 const SUBJECTS: Record<string, readonly string[]> = {
   auth: ['auth', 'onboarding', 'demo-funnel'],
-  today: ['today-workspace', 'today-anytime-drag', 'today-date-navigation', 'day-summary'],
+  today: ['today-workspace', 'today-anytime-drag', 'today-date-navigation', 'day-summary', 'today-focus-block'],
   items: ['items-add', 'items-lifecycle', 'rollover'],
   habits: ['habits', 'habit-progress'],
   health: ['health-workflow', 'calories-quick-insert', 'workouts', 'module-presentation'],

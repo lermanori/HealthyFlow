@@ -85,6 +85,14 @@ router.post('/focus-blocks/:id/transition', authenticateToken, validated(FocusBl
   Work.transitionFocusBlock(req.user.userId, req.params.id, body)))
 router.post('/focus-blocks/:id/review', authenticateToken, validated(CompleteWorkReviewInputSchema, (req, body) =>
   Work.completeReview(req.user.userId, req.params.id, body), 201))
+router.delete('/focus-blocks/:id', authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    await Work.deleteFocusBlock(req.user.userId, req.params.id)
+    res.status(204).end()
+  } catch (error) {
+    respondError(res, error)
+  }
+})
 
 router.post('/sessions', authenticateToken, validated(RecordWorkSessionInputSchema, (req, body) =>
   Work.recordSession(req.user.userId, body), 201))

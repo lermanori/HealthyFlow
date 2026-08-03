@@ -72,6 +72,10 @@ export function useWorkProject(projectId: string | null) {
       workService.transitionFocusBlock(focusBlockId, input),
     onSuccess: refresh,
   })
+  const removeFocusBlock = useMutation({
+    mutationFn: (focusBlockId: string) => workService.removeFocusBlock(focusBlockId),
+    onSuccess: refresh,
+  })
   const completeReview = useMutation({
     mutationFn: ({ focusBlockId, ...input }: CompleteWorkReviewInput & { focusBlockId: string }) =>
       workService.completeReview(focusBlockId, input),
@@ -103,6 +107,7 @@ export function useWorkProject(projectId: string | null) {
     removeTask,
     createFocusBlock,
     transitionFocusBlock,
+    removeFocusBlock,
     completeReview,
     recordSession,
     removeSession,

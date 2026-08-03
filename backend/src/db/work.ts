@@ -81,6 +81,19 @@ export const workDb = {
     return data ?? []
   },
 
+  // A day's blocks across every Project. Unlike the scope queries this is not
+  // limited — a single day is naturally bounded.
+  async getFocusBlocksByDate(userId: string, date: string) {
+    const { data, error } = await supabase
+      .from('focus_blocks')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('scheduled_date', date)
+      .order('start_time', { ascending: true })
+    if (error) throw error
+    return data ?? []
+  },
+
   async getStandaloneFocusBlocks(userId: string, limit = 50) {
     const { data, error } = await supabase
       .from('focus_blocks')
@@ -92,6 +105,18 @@ export const workDb = {
       .limit(limit)
     if (error) throw error
     return data ?? []
+  },
+
+  // Hard delete. A block that produced a Work session is protected by the
+  // work_sessions FK (ON DELETE RESTRICT), so the service checks first and this
+  // never has to interpret a constraint error.
+  async deleteFocusBlock(userId: string, focusBlockId: string) {
+    const { error } = await supabase
+      .from('focus_blocks')
+      .delete()
+      .eq('id', focusBlockId)
+      .eq('user_id', userId)
+    if (error) throw error
   },
 
   async updateFocusBlock(userId: string, focusBlockId: string, updates: Record<string, unknown>) {

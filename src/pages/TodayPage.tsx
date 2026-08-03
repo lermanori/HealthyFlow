@@ -28,6 +28,10 @@ import {
   Utensils,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
+import FocusBlockRow from '../components/today/FocusBlockRow'
+import FocusBlockOverlay from '../components/today/FocusBlockOverlay'
+import WorkReviewSheet from '../components/work/WorkReviewSheet'
+import { useTodayFocusBlocks } from '../hooks/useTodayFocusBlocks'
 import {
   calendarService,
   dailySignalsQueryKey,
@@ -40,13 +44,14 @@ import {
   rhythmService,
   taskService,
   ExternalCalendarEvent,
+  FocusBlockTransitionInput,
   Task,
   HabitItem,
   TouchpointType,
   UserRhythm,
   type DaySummary,
 } from '../services/api'
-import DayTimeline from '../components/DayTimeline'
+import DayTimeline, { timedFocusBlockHeight } from '../components/DayTimeline'
 import { buildTimelineRecords } from '../timelineRecords'
 import AIRecommendationsBox from '../components/AIRecommendationsBox'
 import { DAILY_SIGNALS_ENABLED } from '../featureFlags'
@@ -124,6 +129,9 @@ const daytimeCutoffs = {
   morningEnds: 12 * 60,
   middayEnds: 18 * 60,
 }
+
+/** Which Focus block's overlay was open, so an accidental reload can restore it. */
+const FOCUS_OVERLAY_KEY = 'hf.focusOverlay'
 
 const DAY_SWIPE_IGNORED_TARGETS = [
   'a',
@@ -904,6 +912,7 @@ export default function TodayPage() {
   const daySwipeGesture = useRef<DaySwipeGesture | null>(null)
   const queryClient = useQueryClient()
   const location = useLocation()
+
   const { settings, modules } = useSettings()
   const enabledTodaySummaries = new Set(
     enabledModulePresentations(modules)
@@ -944,6 +953,54 @@ export default function TodayPage() {
   )
   const calendarEvents = daySummary?.calendar.events ?? []
   const weekStartsOn = (daySummary?.week.weekStartsOn ?? settings?.weekStartsOn ?? 1) as WeekStartsOn
+
+  // Focus blocks belong to Work. Today renders the same record and hands every
+  // action straight back — it never keeps a copy.
+  const focusBlocks = daySummary?.work.focusBlocks ?? []
+  const focusBlockActions = useTodayFocusBlocks(selectedDateKey)
+
+  // The overlay is view state, so it does not survive a reload on its own. The
+  // breadcrumb reopens it after an accidental refresh mid-focus without letting
+  // a forgotten block wall off the app on some later visit.
+  const [openFocusBlockId, setOpenFocusBlockId] = useState<string | null>(
+    () => sessionStorage.getItem(FOCUS_OVERLAY_KEY)
+  )
+  const [reviewFocusBlockId, setReviewFocusBlockId] = useState<string | null>(null)
+
+  const openFocusOverlay = (focusBlockId: string) => {
+    sessionStorage.setItem(FOCUS_OVERLAY_KEY, focusBlockId)
+    setOpenFocusBlockId(focusBlockId)
+  }
+  const closeFocusOverlay = () => {
+    sessionStorage.removeItem(FOCUS_OVERLAY_KEY)
+    setOpenFocusBlockId(null)
+  }
+
+  const activeFocusBlock = focusBlocks.find(
+    (block) => block.id === openFocusBlockId && block.status === 'active'
+  ) ?? null
+  const reviewingFocusBlock = focusBlocks.find(
+    (block) => block.id === reviewFocusBlockId && block.status === 'reviewing'
+  ) ?? null
+
+  // A block that stopped being active (finished elsewhere, cancelled in another
+  // tab) must not leave a stale breadcrumb behind.
+  useEffect(() => {
+    if (openFocusBlockId && !activeFocusBlock && daySummary) closeFocusOverlay()
+  }, [openFocusBlockId, activeFocusBlock, daySummary])
+
+  const handleFocusTransition = async (focusBlockId: string, action: FocusBlockTransitionInput['action']) => {
+    await focusBlockActions.transition.mutateAsync({ focusBlockId, action })
+    if (action === 'start' || action === 'continue') {
+      setReviewFocusBlockId(null)
+      openFocusOverlay(focusBlockId)
+      return
+    }
+    closeFocusOverlay()
+    // finish/drift/blocked leave the block in `reviewing` on the server; the
+    // sheet renders off that state rather than off a local guess.
+    setReviewFocusBlockId(action === 'cancel' ? null : focusBlockId)
+  }
 
   // Records are everything on the day that isn't an Item. All wall-clock times
   // arrive pre-resolved from the server so they reflect the user's timezone.
@@ -1682,12 +1739,51 @@ export default function TodayPage() {
         )}
       </AnimatePresence>
 
+      {activeFocusBlock && (
+        <FocusBlockOverlay
+          block={activeFocusBlock}
+          isBusy={focusBlockActions.isBusy}
+          onMinimize={closeFocusOverlay}
+          onTransition={(action) => handleFocusTransition(activeFocusBlock.id, action)}
+        />
+      )}
+
+      {reviewingFocusBlock && (
+        <WorkReviewSheet
+          block={reviewingFocusBlock}
+          isBusy={focusBlockActions.isBusy}
+          onReview={async (input) => {
+            await focusBlockActions.completeReview.mutateAsync({ focusBlockId: reviewingFocusBlock.id, ...input })
+            setReviewFocusBlockId(null)
+          }}
+          onTransition={(action) => handleFocusTransition(reviewingFocusBlock.id, action)}
+        />
+      )}
+
       <DayTimeline
         heading={formatScheduleHeading(selectedDate, now)}
         dateKey={selectedDateKey}
         tasks={tasksData}
         calendarEvents={calendarEvents}
         records={timelineRecords}
+        focusBlockRows={focusBlocks.map((block) => ({
+          id: block.id,
+          slot: block.slot,
+          clock: block.startTime,
+          // Sized by its planned minutes, exactly like any other timed row.
+          heightPx: timedFocusBlockHeight(block.plannedMinutes),
+          render: () => (
+            <FocusBlockRow
+              block={block}
+              isToday={isViewingToday}
+              isBusy={focusBlockActions.isBusy}
+              onStart={() => handleFocusTransition(block.id, 'start')}
+              onResume={() => openFocusOverlay(block.id)}
+              onReview={() => setReviewFocusBlockId(block.id)}
+              onDelete={() => focusBlockActions.remove.mutate(block.id)}
+            />
+          ),
+        }))}
         nowHour={isSameDay(selectedDate, now) ? now.getHours() : null}
         onTasksReorder={handleTasksReorder}
         onTasksPersisted={() => {

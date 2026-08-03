@@ -22,6 +22,7 @@ import { Achievements } from './achievements'
 import { Rollover } from './rollover'
 import { db } from './supabase-client'
 import { parseHabitInstanceId } from './utils/parseHabitInstanceId'
+import { Work } from './work'
 import { Workouts } from './workouts'
 
 type CalendarSource = DaySummary['calendar']
@@ -643,6 +644,7 @@ type DaySummaryDependencies = {
   getWeightEntry: typeof db.getWeightEntryByDay
   getWorkoutSessions: typeof Workouts.listSessions
   getAchievements: typeof Achievements.list
+  listDayFocusBlocks: typeof Work.listDayFocusBlocks
 }
 
 const defaultDependencies: DaySummaryDependencies = {
@@ -654,6 +656,7 @@ const defaultDependencies: DaySummaryDependencies = {
   getWeightEntry: (userId, date) => db.getWeightEntryByDay(userId, date),
   getWorkoutSessions: (userId, date) => Workouts.listSessions(userId, date),
   getAchievements: (userId, options) => Achievements.list(userId, options),
+  listDayFocusBlocks: (userId, date) => Work.listDayFocusBlocks(userId, date),
 }
 
 export async function buildDaySummary(
@@ -734,12 +737,23 @@ export async function buildDaySummary(
         () => ({ status: 'unavailable' as const, summaries: [] as any[] })
       )
     : Promise.resolve(null)
-  const [calendar, nutritionRows, workoutRows, achievementRows] = await Promise.all([
+  // Work has no toggle, so it is always queried — but a failure still degrades
+  // to `unavailable` rather than taking the day down with it.
+  const workPromise = dependencies.listDayFocusBlocks(userId, date).then(
+    (blocks) => ({ status: 'available' as const, blocks }),
+    () => ({ status: 'unavailable' as const, blocks: [] })
+  )
+  const [calendar, nutritionRows, workoutRows, achievementRows, workRows] = await Promise.all([
     calendarPromise,
     nutritionPromise,
     workoutsPromise,
     achievementsPromise,
+    workPromise,
   ])
+
+  const work: DaySummary['work'] = workRows.status === 'unavailable'
+    ? { status: 'unavailable', focusBlocks: [] }
+    : { status: workRows.blocks.length > 0 ? 'scheduled' : 'not_scheduled', focusBlocks: workRows.blocks }
 
   let calorieEntries: DaySummaryCalorieEntry[] = []
   let nutrition: DaySummary['supporting']['nutrition']
@@ -858,11 +872,13 @@ export async function buildDaySummary(
     },
     modules: {
       habits: 'enabled',
+      work: 'enabled',
       nutrition: nutritionEnabled == null ? 'unavailable' : nutritionEnabled ? 'enabled' : 'disabled',
       workouts: workoutsEnabled == null ? 'unavailable' : workoutsEnabled ? 'enabled' : 'disabled',
       achievements: achievementsEnabled == null ? 'unavailable' : achievementsEnabled ? 'enabled' : 'disabled',
     },
     items,
+    work,
     calendar,
     calorieEntries,
     completion: completionFor(items),

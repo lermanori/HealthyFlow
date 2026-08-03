@@ -13,11 +13,13 @@ function summary(overrides: Partial<DaySummary> = {}): DaySummary {
     settings: { sourceStatus: 'available', planningWindow: null },
     modules: {
       habits: 'enabled',
+      work: 'enabled',
       nutrition: 'enabled',
       workouts: 'enabled',
       achievements: 'enabled',
     },
     items: [],
+    work: { status: 'not_scheduled', focusBlocks: [] },
     calendar: { status: 'connected_empty', reasonCode: null, events: [] },
     calorieEntries: [],
     completion: {

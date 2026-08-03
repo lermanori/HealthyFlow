@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { DayFocusBlockSchema } from './work-contracts'
 
 export const IsoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 export const ClockTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
@@ -282,6 +283,19 @@ export const WeekLoadSchema = z.object({
 
 export const ModuleAvailabilitySchema = z.enum(['enabled', 'disabled', 'unavailable'])
 
+/**
+ * Work's slice of the day. Focus blocks are primary timeline rows — peers of
+ * `items` and `calendar.events` — so they sit at the top level rather than in
+ * `supporting`, which carries side content.
+ *
+ * `unavailable` means the read failed, not that the day was empty: an empty day
+ * is `not_scheduled`. One module failing must never fail the whole day.
+ */
+export const WorkDaySummarySchema = z.object({
+  status: z.enum(['scheduled', 'not_scheduled', 'unavailable']),
+  focusBlocks: z.array(DayFocusBlockSchema),
+}).strict()
+
 export const HabitSummarySchema = z.object({
   status: z.literal('available'),
   total: z.number().int().nonnegative(),
@@ -348,11 +362,15 @@ export const DaySummarySchema = z.object({
   }).strict(),
   modules: z.object({
     habits: z.literal('enabled'),
+    // Work has no user-facing toggle (there is no `work` key in
+    // ModuleSettingKeySchema), so like habits it is always on.
+    work: z.literal('enabled').default('enabled'),
     nutrition: ModuleAvailabilitySchema,
     workouts: ModuleAvailabilitySchema,
     achievements: ModuleAvailabilitySchema.default('unavailable'),
   }).strict(),
   items: z.array(DaySummaryItemSchema),
+  work: WorkDaySummarySchema.default({ status: 'unavailable', focusBlocks: [] }),
   calendar: CalendarSourceSchema,
   calorieEntries: z.array(DaySummaryCalorieEntrySchema),
   completion: DayCompletionSchema,
@@ -380,6 +398,7 @@ export type DaySummaryWeightEntry = z.infer<typeof DaySummaryWeightEntrySchema>
 export type DaySummaryAchievementEntry = z.infer<typeof DaySummaryAchievementEntrySchema>
 export type HabitProgressChunk = z.infer<typeof HabitProgressChunkSchema>
 export type DaySummaryCapacity = z.infer<typeof DaySummaryCapacitySchema>
+export type WorkDaySummary = z.infer<typeof WorkDaySummarySchema>
 export type DaySummary = z.infer<typeof DaySummarySchema>
 
 export function isDaySummaryItemAddressed(item: DaySummaryItem) {

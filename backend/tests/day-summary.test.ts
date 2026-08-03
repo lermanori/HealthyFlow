@@ -384,6 +384,7 @@ describe('DaySummary composition', () => {
     getCalorieEntries: jest.fn().mockResolvedValue([]),
     getWeightEntry: jest.fn().mockResolvedValue(null),
     getWorkoutSessions: jest.fn().mockResolvedValue([]),
+    listDayFocusBlocks: jest.fn().mockResolvedValue([]),
     ...overrides,
   })
 
@@ -575,6 +576,7 @@ describe('DaySummary composition', () => {
 
     expect(disabledSummary.modules).toEqual({
       habits: 'enabled',
+      work: 'enabled',
       nutrition: 'disabled',
       workouts: 'disabled',
       achievements: 'enabled',
@@ -594,6 +596,8 @@ describe('DaySummary composition', () => {
 
     expect(unavailableSummary.modules).toEqual({
       habits: 'enabled',
+      // Work has no setting to read, so unreachable settings never disable it.
+      work: 'enabled',
       nutrition: 'unavailable',
       workouts: 'unavailable',
       achievements: 'unavailable',

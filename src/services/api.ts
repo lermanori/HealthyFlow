@@ -1803,6 +1803,7 @@ export type {
   ReviewUpdates,
   TargetRelation,
   TaskReviewAction,
+  DayFocusBlock,
   TaskRecord,
   TaskRecordStatus,
   UpdateTaskRecordInput,
@@ -1910,6 +1911,10 @@ export const workService = {
 
   removeSession: async (sessionId: string): Promise<void> => {
     await api.delete(`/work/sessions/${sessionId}`)
+  },
+
+  removeFocusBlock: async (focusBlockId: string): Promise<void> => {
+    await api.delete(`/work/focus-blocks/${focusBlockId}`)
   },
 }
 

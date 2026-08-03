@@ -49,12 +49,16 @@ function initialItems(): MutableItem[] {
   ]
 }
 
-async function setupDragWorkspace(page: Page, options: { failFirstReorder?: boolean } = {}) {
+async function setupDragWorkspace(
+  page: Page,
+  options: { failFirstReorder?: boolean; focusBlocks?: Array<Record<string, unknown> & { id: string; startTime: string }> } = {}
+) {
   let items = initialItems()
   const virtualHabit = structuredClone(items.find(item => item.id === VIRTUAL_HABIT_ID)!)
   let failNextReorder = options.failFirstReorder ?? false
   let reorderCalls = 0
   let rollbackCalls = 0
+  let reorderedIds: string[] = []
 
   await page.route('**/api/settings', route => route.fulfill({ json: settings }))
   await page.route('**/api/proactivity/rhythm', route => route.fulfill({
@@ -68,7 +72,7 @@ async function setupDragWorkspace(page: Page, options: { failFirstReorder?: bool
   await page.route('**/api/ai/daily-context?**', route => route.fulfill({ json: { signals: [] } }))
   await page.route('**/api/day-summary?**', route => {
     const date = new URL(route.request().url()).searchParams.get('date') ?? DATE
-    return route.fulfill({ json: daySummaryFixture({ date, items }) })
+    return route.fulfill({ json: daySummaryFixture({ date, items, focusBlocks: options.focusBlocks }) })
   })
 
   await page.route('**/api/tasks/**', async (route: Route) => {
@@ -84,6 +88,7 @@ async function setupDragWorkspace(page: Page, options: { failFirstReorder?: bool
       }
 
       const { ids } = request.postDataJSON() as { ids: string[] }
+      reorderedIds = [...reorderedIds, ...ids]
       const order = new Map(ids.map((id, index) => [id, index]))
       items = items
         .map(item => order.has(item.id) ? { ...item, position: order.get(item.id)! } : item)
@@ -132,6 +137,7 @@ async function setupDragWorkspace(page: Page, options: { failFirstReorder?: bool
     getItems: () => items,
     getReorderCalls: () => reorderCalls,
     getRollbackCalls: () => rollbackCalls,
+    getReorderedIds: () => reorderedIds,
   }
 }
 
@@ -382,4 +388,32 @@ test('failed virtual Habit reorder restores its synthetic id, order, layout, and
     VIRTUAL_HABIT_ID,
     'flex-complete',
   ])
+})
+
+// Phase 2 guard. A Focus block shares the hour slot with draggable Items but is
+// not one: it must not take a drag index, must not become a drop target, and
+// must never reach the reorder payload. If it ever did, drops in that hour would
+// land on the wrong row.
+test('a Focus block sharing an hour slot leaves drag indices and reorder payloads intact', async ({ page }) => {
+  const workspace = await setupDragWorkspace(page, {
+    focusBlocks: [{ id: 'focus-1', startTime: '10:00', intendedOutcome: 'Ship invoice reminders' }],
+  })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/app')
+
+  const slot = page.locator('[data-demo-id="schedule-slot-10:00"]')
+  await expect(slot.getByTestId('timeline-focus-block')).toHaveCount(1)
+  // The block is not draggable, so it exposes no drag handle of its own.
+  await expect(slot.getByTestId('timeline-focus-block').locator('[data-timeline-drag-handle="true"]')).toHaveCount(0)
+
+  // Drag an Anytime Item into the very slot the Focus block occupies.
+  const source = page.locator('[data-timeline-drag-id="flex-25"] [data-timeline-drag-handle="true"]')
+  await dragWithMouse(page, source, slot)
+
+  await expect.poll(() => workspace.getItems().find(item => item.id === 'flex-25')?.startTime).toBe('10:00')
+  // The Focus block is untouched and still rendered.
+  await expect(slot.getByTestId('timeline-focus-block')).toHaveCount(1)
+
+  // And a subsequent Anytime reorder carries only Task ids.
+  expect(workspace.getReorderedIds().every(id => id !== 'focus-1')).toBe(true)
 })

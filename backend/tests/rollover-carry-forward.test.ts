@@ -152,6 +152,24 @@ describe('Rollover.listForDay — the one rule (ADR-0002)', () => {
     expect(rows.find(r => r.id === 'c').scheduled_date).toBe(YESTERDAY)
   })
 
+  // Phase 2 guard. A Focus block lives in its own table and always carries a
+  // start_time, so carry-forward is structurally incapable of picking one up.
+  // If either of those ever changes, yesterday's unfinished focus would silently
+  // reappear as today's work — this fails first.
+  it('never carries a Focus block forward, even an unfinished one from yesterday', async () => {
+    mockRows = [
+      { ...base, id: 'plain', title: 'left from yesterday', scheduled_date: YESTERDAY },
+      // What a Focus block would look like if it ever leaked into `tasks`.
+      { ...base, id: 'focus', title: 'Ship invoice reminders', scheduled_date: YESTERDAY, type: 'focus_block', start_time: '14:00' },
+      // And a timed ordinary row, which the untimed rule also excludes.
+      { ...base, id: 'timed', title: 'timed leftover', scheduled_date: YESTERDAY, start_time: '09:00' },
+    ]
+
+    const rows = await Rollover.listForDay(USER, TODAY)
+
+    expect(rows.map(r => r.id)).toEqual(['plain'])
+  })
+
   it('adds carry-forward rows to dated rows and returns timeline order', async () => {
     mockRows = [{ ...base, id: 'carry', title: 'left from yesterday', scheduled_date: YESTERDAY }]
     const rows = await Rollover.addCarryForwardRows(USER, TODAY, [

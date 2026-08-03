@@ -82,14 +82,42 @@ export function daySummaryCalendarEvent(input: CalendarEventInput): DaySummaryCa
   }
 }
 
+/** A Focus block as Today receives it. `slot` is resolved by the server. */
+export function daySummaryFocusBlock(input: Record<string, unknown> & { id: string; startTime: string }) {
+  return {
+    projectId: null,
+    taskIds: [],
+    standaloneTitle: null,
+    standaloneContext: null,
+    scheduledDate: new Date().toISOString().slice(0, 10),
+    plannedMinutes: 45,
+    intendedOutcome: 'Reminder emails send on schedule',
+    intendedEvidence: 'A passing reminder smoke test',
+    transitionMinutes: null,
+    breakMinutes: null,
+    status: 'planned',
+    reviewTrigger: null,
+    startedAt: null,
+    endedAt: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    project: null,
+    tasks: [],
+    ...input,
+    slot: `${input.startTime.slice(0, 2)}:00`,
+  }
+}
+
 export function daySummaryFixture({
   date,
   items = [],
   calendarEvents = [],
+  focusBlocks = [],
 }: {
   date: string
   items?: ItemInput[]
   calendarEvents?: CalendarEventInput[]
+  focusBlocks?: Array<Record<string, unknown> & { id: string; startTime: string }>
 }): DaySummary {
   const normalizedItems = items.map(daySummaryItem)
   const normalizedEvents = calendarEvents.map(daySummaryCalendarEvent)
@@ -123,6 +151,10 @@ export function daySummaryFixture({
       workouts: 'disabled',
     },
     items: normalizedItems,
+    work: {
+      status: focusBlocks.length > 0 ? 'scheduled' : 'not_scheduled',
+      focusBlocks: focusBlocks.map(daySummaryFocusBlock),
+    },
     calendar: {
       status: normalizedEvents.length > 0 ? 'connected' : 'connected_empty',
       reasonCode: null,

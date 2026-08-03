@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-03  
 **Status:** Active delivery roadmap  
-**Current phase:** Phase 1 — complete Work manually
+**Current phase:** Phase 2 — put Work on Today
 
 ## Purpose
 
@@ -33,8 +33,8 @@ The GitHub Project remains the source of truth for issue status. This document i
 
 | Phase | Outcome | Dependency | Status |
 |---|---|---|---|
-| 1 | Work functions completely by hand | Existing Tasks and Projects | In progress |
-| 2 | Work Focus blocks are executable from Today | Phase 1 | Not started |
+| 1 | Work functions completely by hand | Existing Tasks and Projects | Complete |
+| 2 | Work Focus blocks are executable from Today | Phase 1 | In progress |
 | 3 | Every enabled module has an honest Today representation | Phase 2 | Not started |
 | 4 | Every module exposes a bounded capability contract | Phase 3 | Not started |
 | 5 | The server-keyed AI runtime is researched and proven with evaluations | Phase 4 | Not started |

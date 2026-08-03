@@ -1,16 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Play } from 'lucide-react'
+import { useMemo } from 'react'
+import { Play, Trash2 } from 'lucide-react'
 import type {
-  Attention,
   CompleteWorkReviewInput,
   FocusBlock,
   FocusBlockTransitionInput,
-  MilestoneImpact,
   TaskRecord,
-  TaskReviewAction,
   WorkProject,
 } from '../../services/api'
-import { RequiredFieldMark, RequiredFieldsNote } from './RequiredFieldMark'
+import { Elapsed } from './Elapsed'
+import WorkReviewForm from './WorkReviewForm'
 
 interface FocusBlockCardProps {
   project: WorkProject | null
@@ -20,115 +18,19 @@ interface FocusBlockCardProps {
   onPlan: () => void
   onTransition: (focusBlockId: string, action: FocusBlockTransitionInput['action']) => void
   onReview: (focusBlockId: string, input: CompleteWorkReviewInput) => void
+  onDelete: (focusBlockId: string) => void
 }
 
-const ATTENTION: Attention[] = ['Focused', 'Mixed', 'Drifted']
-const IMPACT: Array<{ value: MilestoneImpact; label: string }> = [
-  { value: 'advanced', label: 'Advanced the milestone' },
-  { value: 'unblocked', label: 'Unblocked the milestone' },
-  { value: 'both', label: 'Advanced and unblocked it' },
-  { value: 'neither', label: 'Neither' },
-]
-
-function minutesBetween(start: string | null, end: string | null) {
-  if (!start) return 0
-  const elapsed = new Date(end ?? Date.now()).getTime() - new Date(start).getTime()
-  return Math.max(0, Math.round(elapsed / 60_000))
+/**
+ * Deleting is only offered for a block that never became work. The server
+ * enforces the same rule: a completed block is kept as the Work session it
+ * produced, and an in-flight one has to be canceled first.
+ */
+function isDeletable(status: FocusBlock['status']) {
+  return status === 'planned' || status === 'canceled'
 }
 
-function Elapsed({ startedAt }: { startedAt: string }) {
-  const [now, setNow] = useState(Date.now())
-  useEffect(() => {
-    const timer = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => window.clearInterval(timer)
-  }, [])
-  const seconds = Math.max(0, Math.floor((now - new Date(startedAt).getTime()) / 1000))
-  const hours = Math.floor(seconds / 3600)
-  const minutes = Math.floor((seconds % 3600) / 60)
-  const remainder = seconds % 60
-  return <span aria-label="Elapsed time">{hours ? `${hours}:` : ''}{String(minutes).padStart(2, '0')}:{String(remainder).padStart(2, '0')}</span>
-}
-
-function ReviewForm({ block, tasks, project, isBusy, onReview, onTransition }: {
-  block: FocusBlock
-  tasks: TaskRecord[]
-  project: WorkProject | null
-  isBusy: boolean
-  onReview: (input: CompleteWorkReviewInput) => void
-  onTransition: (action: FocusBlockTransitionInput['action']) => void
-}) {
-  const referenced = tasks.filter(task => block.taskIds.includes(task.id))
-  const [whatChanged, setWhatChanged] = useState('')
-  const [evidenceProduced, setEvidenceProduced] = useState('')
-  const [milestoneImpact, setMilestoneImpact] = useState<MilestoneImpact>('neither')
-  const [whatGotInWay, setWhatGotInWay] = useState('')
-  const [unnecessaryWork, setUnnecessaryWork] = useState('')
-  const [actualMinutes, setActualMinutes] = useState(String(minutesBetween(block.startedAt, block.endedAt)))
-  const [nextStep, setNextStep] = useState('')
-  const [attention, setAttention] = useState<Attention>(block.reviewTrigger === 'drifted' ? 'Drifted' : 'Focused')
-  const [taskActions, setTaskActions] = useState<Record<string, TaskReviewAction | ''>>({})
-  const [addBlocker, setAddBlocker] = useState(false)
-  const [blocker, setBlocker] = useState('')
-  const [updateNextStep, setUpdateNextStep] = useState(false)
-  const [updateMilestone, setUpdateMilestone] = useState(false)
-  const [milestone, setMilestone] = useState(project?.milestone ?? '')
-  const actual = Number(actualMinutes)
-  const valid = whatChanged.trim() && nextStep.trim() && Number.isInteger(actual) && actual >= 0 && actual <= 1440
-
-  return (
-    <form className="mt-4 rounded-xl border border-state-warning/30 bg-sunken p-4" onSubmit={event => {
-      event.preventDefault()
-      if (!valid) return
-      const projectUpdates: CompleteWorkReviewInput['updates']['project'] = {}
-      if (addBlocker && blocker.trim()) projectUpdates.addBlocker = blocker.trim()
-      if (updateNextStep) projectUpdates.nextStep = nextStep.trim()
-      if (updateMilestone) projectUpdates.milestone = milestone.trim()
-      onReview({
-        whatChanged: whatChanged.trim(), evidenceProduced: evidenceProduced.trim(), milestoneImpact,
-        whatGotInWay: whatGotInWay.trim(), unnecessaryWork: unnecessaryWork.trim(), actualMinutes: actual,
-        nextStep: nextStep.trim(), attention,
-        updates: {
-          tasks: Object.entries(taskActions).filter(([, action]) => action).map(([taskId, action]) => ({ taskId, action: action as TaskReviewAction })),
-          project: projectUpdates,
-        },
-      })
-    }}>
-      <h3 className="text-base font-semibold text-ink">Complete the Work review</h3>
-      <p className="mt-1 text-xs text-ink-muted">The Work session is created only when this review and its explicit updates succeed together.</p>
-      <RequiredFieldsNote className="mt-2" />
-      <div className="mt-4 grid gap-3 md:grid-cols-2">
-        <label className="flex flex-col gap-1.5 md:col-span-2"><span className="text-xs text-ink-soft">What changed?<RequiredFieldMark /></span><textarea required rows={3} value={whatChanged} onChange={e => setWhatChanged(e.target.value)} className="input-field resize-y" /></label>
-        <label className="flex flex-col gap-1.5 md:col-span-2"><span className="text-xs text-ink-soft">What evidence was produced?</span><textarea rows={2} value={evidenceProduced} onChange={e => setEvidenceProduced(e.target.value)} className="input-field resize-y" /></label>
-        <label className="flex flex-col gap-1.5"><span className="text-xs text-ink-soft">Did this advance or unblock the milestone?<RequiredFieldMark /></span><select required value={milestoneImpact} onChange={e => setMilestoneImpact(e.target.value as MilestoneImpact)} className="input-field min-h-11 py-0">{IMPACT.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
-        <label className="flex flex-col gap-1.5"><span className="text-xs text-ink-soft">Focused minutes that actually happened<RequiredFieldMark /></span><input required type="number" min="0" max="1440" value={actualMinutes} onChange={e => setActualMinutes(e.target.value)} className="input-field min-h-11 py-0" /></label>
-        <label className="flex flex-col gap-1.5"><span className="text-xs text-ink-soft">What got in the way?</span><textarea rows={2} value={whatGotInWay} onChange={e => setWhatGotInWay(e.target.value)} className="input-field resize-y" /></label>
-        <label className="flex flex-col gap-1.5"><span className="text-xs text-ink-soft">Did unnecessary work appear?</span><textarea rows={2} value={unnecessaryWork} onChange={e => setUnnecessaryWork(e.target.value)} className="input-field resize-y" /></label>
-        <label className="flex flex-col gap-1.5"><span className="text-xs text-ink-soft">Smallest valuable next step<RequiredFieldMark /></span><input required value={nextStep} onChange={e => setNextStep(e.target.value)} className="input-field min-h-11 py-0" /></label>
-        <label className="flex flex-col gap-1.5"><span className="text-xs text-ink-soft">Attention<RequiredFieldMark /></span><select required value={attention} onChange={e => setAttention(e.target.value as Attention)} className="input-field min-h-11 py-0">{ATTENTION.map(value => <option key={value}>{value}</option>)}</select></label>
-      </div>
-
-      <fieldset className="mt-5 rounded-xl border border-line p-3">
-        <legend className="px-1 text-sm font-semibold text-ink">Explicit post-review updates</legend>
-        <p className="mb-3 text-xs text-ink-muted">Every untouched control means “make no change.”</p>
-        {referenced.map(task => (
-          <label key={task.id} className="mb-2 grid items-center gap-2 md:grid-cols-[1fr_220px]"><span className="text-sm text-ink">{task.title}</span><select aria-label={`Review update for ${task.title}`} value={taskActions[task.id] ?? ''} onChange={e => setTaskActions({ ...taskActions, [task.id]: e.target.value as TaskReviewAction | '' })} className="input-field min-h-10 py-0 text-xs"><option value="">Leave Task unchanged</option><option value="complete">Complete</option><option value="reopen">Reopen</option><option value="defer">Defer</option><option value="reactivate">Reactivate</option></select></label>
-        ))}
-        {project && <div className="mt-3 grid gap-3">
-          <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={addBlocker} onChange={e => setAddBlocker(e.target.checked)} /> Add a blocker to Project context</label>{addBlocker && <input value={blocker} onChange={e => setBlocker(e.target.value)} placeholder="Blocker" className="input-field min-h-10 py-0" />}
-          <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={updateNextStep} onChange={e => setUpdateNextStep(e.target.checked)} /> Update the next valuable step to the answer above</label>
-          <label className="flex items-center gap-2 text-sm text-ink"><input type="checkbox" checked={updateMilestone} onChange={e => setUpdateMilestone(e.target.checked)} /> Update the milestone</label>{updateMilestone && <input value={milestone} onChange={e => setMilestone(e.target.value)} className="input-field min-h-10 py-0" />}
-        </div>}
-      </fieldset>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button type="submit" disabled={isBusy || !valid} className="btn-primary min-h-11 px-4 py-0 text-sm">Complete review and create Work session</button>
-        <button type="button" disabled={isBusy} onClick={() => onTransition('continue')} className="btn-secondary min-h-11 px-4 py-0 text-sm">Continue working</button>
-        <button type="button" disabled={isBusy} onClick={() => onTransition('cancel')} className="btn-secondary min-h-11 px-4 py-0 text-sm">Cancel block</button>
-      </div>
-    </form>
-  )
-}
-
-export default function FocusBlockCard({ project, tasks, blocks, isBusy, onPlan, onTransition, onReview }: FocusBlockCardProps) {
+export default function FocusBlockCard({ project, tasks, blocks, isBusy, onPlan, onTransition, onReview, onDelete }: FocusBlockCardProps) {
   const sorted = useMemo(() => [...blocks].sort((a, b) => `${b.scheduledDate}T${b.startTime}`.localeCompare(`${a.scheduledDate}T${a.startTime}`)), [blocks])
   return (
     <section aria-label="Focus blocks" className="surface-section p-5">
@@ -139,13 +41,13 @@ export default function FocusBlockCard({ project, tasks, blocks, isBusy, onPlan,
           const referenced = tasks.filter(task => block.taskIds.includes(task.id))
           return (
             <article key={block.id} className={`rounded-xl border p-4 ${block.status === 'active' ? 'border-accent/50 bg-accent/[0.08]' : 'border-line bg-page'}`}>
-              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">{block.scheduledDate} · {block.startTime} · {block.plannedMinutes} min</p><h3 className="mt-2 text-lg font-semibold text-ink">{project?.target || block.standaloneTitle || block.intendedOutcome}</h3></div><span className="rounded-full border border-line-strong px-2.5 py-1 text-xs font-semibold capitalize text-ink-soft">{block.status}</span></div>
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-[0.12em] text-accent">{block.scheduledDate} · {block.startTime} · {block.plannedMinutes} min</p><h3 className="mt-2 text-lg font-semibold text-ink">{project?.target || block.standaloneTitle || block.intendedOutcome}</h3></div><div className="flex items-center gap-2"><span className="rounded-full border border-line-strong px-2.5 py-1 text-xs font-semibold capitalize text-ink-soft">{block.status}</span>{isDeletable(block.status) && <button type="button" disabled={isBusy} onClick={() => onDelete(block.id)} aria-label={`Delete Focus block ${block.intendedOutcome}`} className="flex h-9 w-9 items-center justify-center rounded-lg text-ink-muted hover:bg-raised hover:text-state-danger"><Trash2 className="h-4 w-4" /></button>}</div></div>
               <p className="mt-3 text-sm text-ink"><span className="font-semibold">Intended outcome:</span> {block.intendedOutcome}</p>
               <p className="mt-1 text-sm text-ink-soft"><span className="font-semibold">Intended evidence:</span> {block.intendedEvidence}</p>
               <p className="mt-2 text-xs text-ink-muted">Referenced Tasks · {referenced.length ? referenced.map(task => task.title).join(', ') : 'None (standalone)'}</p>
               {block.status === 'active' && block.startedAt && <div className="mt-4 rounded-xl border border-accent/30 bg-card p-4"><p className="text-xs uppercase tracking-[0.12em] text-ink-muted">Elapsed from persisted start</p><p className="mt-1 font-mono text-3xl font-semibold text-accent"><Elapsed startedAt={block.startedAt} /></p><div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={isBusy} onClick={() => onTransition(block.id, 'finish')} className="btn-primary min-h-11 px-4 py-0 text-sm">Finish</button><button type="button" disabled={isBusy} onClick={() => onTransition(block.id, 'blocked')} className="btn-secondary min-h-11 px-4 py-0 text-sm">Report blocked</button><button type="button" disabled={isBusy} onClick={() => onTransition(block.id, 'drift')} className="btn-secondary min-h-11 px-4 py-0 text-sm">Report drift</button><button type="button" disabled={isBusy} onClick={() => onTransition(block.id, 'cancel')} className="btn-secondary min-h-11 px-4 py-0 text-sm">Cancel</button></div></div>}
               {block.status === 'planned' && <button type="button" disabled={isBusy} onClick={() => onTransition(block.id, 'start')} className="btn-primary mt-4 inline-flex min-h-11 items-center gap-2 px-4 py-0 text-sm"><Play className="h-4 w-4 fill-current" />Start manually</button>}
-              {block.status === 'reviewing' && <ReviewForm block={block} tasks={tasks} project={project} isBusy={isBusy} onReview={input => onReview(block.id, input)} onTransition={action => onTransition(block.id, action)} />}
+              {block.status === 'reviewing' && <WorkReviewForm block={block} tasks={tasks} project={project} isBusy={isBusy} onReview={input => onReview(block.id, input)} onTransition={action => onTransition(block.id, action)} />}
             </article>
           )
         })}

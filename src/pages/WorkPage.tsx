@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Plus, Square } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type {
@@ -29,10 +29,24 @@ const LAST_SCOPE_KEY = 'healthyflow-work-last-scope'
 
 export default function WorkPage() {
   const navigate = useNavigate()
+  // An explicit ?projectId= wins over the remembered scope, so arriving from a
+  // Today Focus block opens that block's own Project rather than wherever you
+  // happened to be last.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const requestedProjectId = searchParams.get('projectId')
   const [projectId, setProjectId] = useState<string | null>(() => {
+    if (requestedProjectId) return requestedProjectId
     const stored = localStorage.getItem(LAST_SCOPE_KEY)
     return stored && stored !== 'standalone' ? stored : null
   })
+
+  // Consume the parameter once so switching scope by hand afterwards sticks.
+  useEffect(() => {
+    if (!requestedProjectId) return
+    setProjectId(requestedProjectId)
+    searchParams.delete('projectId')
+    setSearchParams(searchParams, { replace: true })
+  }, [requestedProjectId])
   const [modalTab, setModalTab] = useState<RecordTab | null>(null)
   const [prefillTaskId, setPrefillTaskId] = useState<string | null>(null)
   const work = useWorkProject(projectId)
@@ -47,7 +61,7 @@ export default function WorkPage() {
     if (projectId && !work.isProjectsLoading && !work.projects.some(option => option.id === projectId)) setProjectId(null)
   }, [projectId, work.isProjectsLoading, work.projects])
 
-  const mutations = [work.createProject, work.updateProject, work.archiveProject, work.deleteProject, work.addTask, work.updateTask, work.removeTask, work.createFocusBlock, work.transitionFocusBlock, work.completeReview, work.recordSession, work.removeSession]
+  const mutations = [work.createProject, work.updateProject, work.archiveProject, work.deleteProject, work.addTask, work.updateTask, work.removeTask, work.createFocusBlock, work.transitionFocusBlock, work.removeFocusBlock, work.completeReview, work.recordSession, work.removeSession]
   const isBusy = mutations.some(mutation => mutation.isPending)
   const failed = (action: string) => (error: unknown) => {
     const message = (error as any)?.response?.data?.error
@@ -100,7 +114,7 @@ export default function WorkPage() {
           />
         </> : <section className="surface-section p-5"><h2 className="text-lg font-semibold text-ink">Standalone Work</h2><p className="mt-2 max-w-[54ch] text-sm text-ink-soft">Use bounded title and context for focused work that does not belong to a Project. No synthetic Project is created.</p></section>}
 
-        <FocusBlockCard project={project} tasks={tasks} blocks={scope.focusBlocks} isBusy={isBusy} onPlan={() => setModalTab('focus')} onTransition={transition} onReview={review} />
+        <FocusBlockCard project={project} tasks={tasks} blocks={scope.focusBlocks} isBusy={isBusy} onPlan={() => setModalTab('focus')} onTransition={transition} onReview={review} onDelete={focusBlockId => work.removeFocusBlock.mutate(focusBlockId, { onSuccess: () => toast.success('Focus block deleted'), onError: failed('delete the Focus block') })} />
         <WorkSessionsCard sessions={scope.sessions} tasks={tasks} isBusy={isBusy} onRecordSession={() => setModalTab('session')} onRemoveSession={sessionId => work.removeSession.mutate(sessionId, { onSuccess: () => toast.success('Historical Work session deleted'), onError: failed('delete the Work session') })} />
       </>}
 
