@@ -172,6 +172,19 @@ last enabled policy it received. A device with no cached policy is allowed to
 start so a backend outage cannot lock out every installation. Receiving a live
 disabled policy clears the cached policy.
 
+An enabled policy resolves to one of three outcomes:
+
+| Installed version | Outcome | Behaviour |
+|---|---|---|
+| Below `IOS_MINIMUM_VERSION` | blocked | Full-screen update screen; the app does not start |
+| At or above the minimum, below `IOS_LATEST_VERSION` | outdated | The app runs; a dismissible banner offers the update |
+| At or above `IOS_LATEST_VERSION` | supported | No update UI |
+
+The soft banner is dismissed per released version, so raising
+`IOS_LATEST_VERSION` asks again while a repeat dismissal of the same release
+stays hidden. Setting `IOS_LATEST_VERSION` equal to `IOS_MINIMUM_VERSION`
+disables the soft nudge without disabling the gate.
+
 For every App Store release:
 
 1. Increase `MARKETING_VERSION` for the user-visible release, for example
@@ -179,8 +192,8 @@ For every App Store release:
    build. Keep the app and widget target values aligned.
 2. Archive, upload, validate, and release the new build. Confirm it is available
    from the configured App Store URL.
-3. Set `IOS_LATEST_VERSION` to the released marketing version. This records the
-   current release without blocking older compatible clients.
+3. Set `IOS_LATEST_VERSION` to the released marketing version. Older compatible
+   clients keep working and start showing the dismissible update banner.
 4. Raise `IOS_MINIMUM_VERSION` only when older clients are no longer compatible
    or must be retired. Never raise it before the replacement build is available.
 

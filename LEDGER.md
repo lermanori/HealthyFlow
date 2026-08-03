@@ -1,3 +1,9 @@
+### 2026-08-03 13:25 — `main`
+
+Split a mixed working tree into shippable work and moved the rest out of the way. The keeper is a soft update nudge for iOS: the native version gate now resolves to three outcomes instead of two, so a client at or above `IOS_MINIMUM_VERSION` but below `IOS_LATEST_VERSION` keeps running and shows a dismissible App Store banner rather than being either blocked or silently left behind. Dismissal is keyed per released version, so raising `IOS_LATEST_VERSION` asks again while a repeat dismissal of the same release stays hidden; setting the two equal turns the nudge off without disabling the gate. `native_update_opened` gained a `trigger` field and renamed `minimum_version` to `target_version` to tell the blocking gate apart from the nudge — a breaking change for any existing query on that event. Separately, a dev-only Work prototype that had leaked into `App.tsx`, `Layout.tsx`, and `AssistantPage.tsx` was reverted, since the real Work module lives in the `healthyflow-work-impl` worktree; its design spec and delivery plan stay untracked to land with that branch. Production env backups are now gitignored by pattern.
+
+---
+
 ### 2026-08-02 17:45 — `main`
 
 Added a build-time guard so an iOS build fails fast when its Supabase Auth configuration is missing, rather than shipping a bundle whose sign-in is silently unconfigured. `build:ios` now runs `verify:ios-auth-env` first, which checks `VITE_SUPABASE_URL` and a publishable/anon key are present and exits non-zero with the missing names. This closes the loop on the failure that opened today's session, where the committed `.env.production` had lost those vars and Google sign-in reported itself unconfigured only at runtime on device.

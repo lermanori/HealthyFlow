@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ArrowUpCircle, Loader2 } from 'lucide-react'
+import { ArrowUpCircle, Loader2, X } from 'lucide-react'
 import { analytics } from '../lib/analytics'
 import { isNativeApp, openNativeBrowser } from '../lib/native'
-import { checkNativeVersionGate } from '../lib/versionGate'
-import type { NativeVersionDecision } from '../utils/mobileVersion'
+import {
+  checkNativeVersionGate,
+  dismissUpdateNudge,
+  isUpdateNudgeDismissed,
+} from '../lib/versionGate'
+import type { EnabledIosVersionPolicy } from '../../backend/src/mobile-version-contracts'
+import type { NativeVersionDecision, VersionPolicySource } from '../utils/mobileVersion'
 
 type GateState =
   | { status: 'checking' }
@@ -57,6 +62,19 @@ export default function NativeVersionGate({ children }: { children: ReactNode })
 
   if (state.status === 'supported') return <>{children}</>
 
+  if (state.status === 'outdated') {
+    return (
+      <>
+        {children}
+        <UpdateNudge
+          currentVersion={state.currentVersion}
+          policy={state.policy}
+          source={state.source}
+        />
+      </>
+    )
+  }
+
   if (state.status === 'checking') {
     return (
       <div
@@ -77,7 +95,8 @@ export default function NativeVersionGate({ children }: { children: ReactNode })
     try {
       analytics.capture('native_update_opened', {
         current_version: state.currentVersion,
-        minimum_version: state.policy.minimumVersion,
+        target_version: state.policy.minimumVersion,
+        trigger: 'blocked',
       })
       await openNativeBrowser(state.policy.storeUrl)
     } catch {
@@ -118,6 +137,87 @@ export default function NativeVersionGate({ children }: { children: ReactNode })
             The App Store could not be opened. Check your connection and try again.
           </p>
         )}
+      </div>
+    </div>
+  )
+}
+
+function UpdateNudge({
+  currentVersion,
+  policy,
+  source,
+}: {
+  currentVersion: string
+  policy: EnabledIosVersionPolicy
+  source: VersionPolicySource
+}) {
+  const [dismissed, setDismissed] = useState(() => isUpdateNudgeDismissed(policy.latestVersion))
+  const lastSeenVersion = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (dismissed || lastSeenVersion.current === policy.latestVersion) return
+    lastSeenVersion.current = policy.latestVersion
+    analytics.capture('native_update_available', {
+      current_version: currentVersion,
+      latest_version: policy.latestVersion,
+      policy_source: source,
+    })
+  }, [currentVersion, dismissed, policy.latestVersion, source])
+
+  if (dismissed) return null
+
+  const dismiss = () => {
+    dismissUpdateNudge(policy.latestVersion)
+    setDismissed(true)
+    analytics.capture('native_update_dismissed', {
+      current_version: currentVersion,
+      latest_version: policy.latestVersion,
+    })
+  }
+
+  const openStore = () => {
+    analytics.capture('native_update_opened', {
+      current_version: currentVersion,
+      target_version: policy.latestVersion,
+      trigger: 'nudge',
+    })
+    void openNativeBrowser(policy.storeUrl).catch(() => {
+      // The nudge is optional; a failed store hand-off stays silent.
+    })
+  }
+
+  return (
+    <div
+      className="fixed inset-x-0 z-[150] px-4"
+      style={{ bottom: 'calc(var(--mobile-dock-height, 0px) + 0.75rem)' }}
+      role="status"
+      aria-live="polite"
+    >
+      <div className="surface-overlay mx-auto flex w-full max-w-sm items-center gap-3 p-3 shadow-lg">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+          <ArrowUpCircle className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-ink">Update available</p>
+          <p className="text-xs text-ink-muted">
+            HealthyFlow {policy.latestVersion} is ready in the App Store.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn-secondary shrink-0 px-3 py-1.5 text-xs"
+          onClick={openStore}
+        >
+          Update
+        </button>
+        <button
+          type="button"
+          className="shrink-0 rounded-lg p-1 text-ink-muted hover:text-ink"
+          onClick={dismiss}
+          aria-label="Dismiss update notice"
+        >
+          <X className="h-4 w-4" aria-hidden="true" />
+        </button>
       </div>
     </div>
   )

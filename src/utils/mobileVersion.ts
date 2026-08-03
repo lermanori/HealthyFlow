@@ -13,6 +13,14 @@ export type NativeVersionDecision =
       currentVersion: string | null
     }
   | {
+      // Newer than the minimum but older than the current release: the app stays
+      // usable and only nudges towards the App Store.
+      status: 'outdated'
+      currentVersion: string
+      policy: EnabledIosVersionPolicy
+      source: VersionPolicySource
+    }
+  | {
       status: 'blocked'
       currentVersion: string
       policy: EnabledIosVersionPolicy
@@ -24,17 +32,17 @@ export function evaluateIosVersionPolicy(
   policy: IosVersionPolicy,
   source: VersionPolicySource,
 ): NativeVersionDecision {
-  if (
-    !policy.enabled
-    || compareMarketingVersions(currentVersion, policy.minimumVersion) >= 0
-  ) {
+  if (!policy.enabled) {
     return { status: 'supported', currentVersion }
   }
 
-  return {
-    status: 'blocked',
-    currentVersion,
-    policy,
-    source,
+  if (compareMarketingVersions(currentVersion, policy.minimumVersion) < 0) {
+    return { status: 'blocked', currentVersion, policy, source }
   }
+
+  if (compareMarketingVersions(currentVersion, policy.latestVersion) < 0) {
+    return { status: 'outdated', currentVersion, policy, source }
+  }
+
+  return { status: 'supported', currentVersion }
 }

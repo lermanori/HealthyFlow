@@ -17,6 +17,27 @@ const {
 } = MobileVersionContracts
 
 const IOS_VERSION_POLICY_CACHE_KEY = 'healthyflow-ios-version-policy-v1'
+const IOS_UPDATE_NUDGE_DISMISSED_KEY = 'healthyflow-ios-update-nudge-dismissed-v1'
+
+/**
+ * The soft update nudge is dismissed per released version, so a later release
+ * asks again instead of staying hidden forever.
+ */
+export function isUpdateNudgeDismissed(latestVersion: string): boolean {
+  try {
+    return window.localStorage.getItem(IOS_UPDATE_NUDGE_DISMISSED_KEY) === latestVersion
+  } catch {
+    return false
+  }
+}
+
+export function dismissUpdateNudge(latestVersion: string) {
+  try {
+    window.localStorage.setItem(IOS_UPDATE_NUDGE_DISMISSED_KEY, latestVersion)
+  } catch {
+    // A dismissal that cannot be stored only costs one extra nudge.
+  }
+}
 
 function readCachedPolicy(): EnabledIosVersionPolicy | null {
   try {

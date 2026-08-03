@@ -93,9 +93,20 @@ export type AnalyticsEvents = {
     minimum_version: string
     policy_source: 'live' | 'cache'
   }
+  native_update_available: {
+    current_version: string
+    latest_version: string
+    policy_source: 'live' | 'cache'
+  }
+  native_update_dismissed: {
+    current_version: string
+    latest_version: string
+  }
+  // `trigger` separates the blocking gate from the dismissible soft nudge.
   native_update_opened: {
     current_version: string
-    minimum_version: string
+    target_version: string
+    trigger: 'blocked' | 'nudge'
   }
 
   // Monetization
