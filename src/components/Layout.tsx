@@ -11,7 +11,8 @@ import {
   Coins,
   MessageCircle,
   Microscope,
-  HeartPulse
+  HeartPulse,
+  Briefcase
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -104,9 +105,10 @@ export default function Layout({ children }: LayoutProps) {
     {
       id: 'plan',
       label: 'Plan',
-      items: WEEK_VIEW_ENABLED
-        ? [{ name: 'Week', href: '/week', icon: Calendar }]
-        : [],
+      items: [
+        { name: 'Work', href: '/work', icon: Briefcase },
+        ...(WEEK_VIEW_ENABLED ? [{ name: 'Week', href: '/week', icon: Calendar }] : []),
+      ],
     },
     {
       id: 'health',

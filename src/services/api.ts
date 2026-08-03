@@ -1779,4 +1779,138 @@ export const tokenManagerService = {
   },
 }
 
+// ---- Work module ----
+// Types are inferred from the backend Zod contracts rather than restated here,
+// so the client cannot drift from what the API validates.
+
+export type {
+  Attention,
+  ArchiveProjectInput,
+  CompleteWorkReviewInput,
+  CreateFocusBlockInput,
+  CreateTaskRecordInput,
+  CreateWorkProjectInput,
+  FocusBlock,
+  FocusBlockReviewTrigger,
+  FocusBlockStatus,
+  FocusBlockTransitionInput,
+  MilestoneImpact,
+  ProjectContext,
+  ProjectDetailsInput,
+  ProjectStatus,
+  RecordWorkSessionInput,
+  ReviewCompletion,
+  ReviewUpdates,
+  TargetRelation,
+  TaskReviewAction,
+  TaskRecord,
+  TaskRecordStatus,
+  UpdateTaskRecordInput,
+  WorkProject,
+  WorkProjectSummary,
+  WorkReview,
+  WorkScope,
+  WorkSession,
+} from '../../backend/src/work-contracts'
+
+import {
+  type CompleteWorkReviewInput as CompleteWorkReview,
+  type CreateFocusBlockInput as CreateFocusBlock,
+  type CreateTaskRecordInput as CreateTaskRecord,
+  type CreateWorkProjectInput as CreateWorkProject,
+  type FocusBlock as FocusBlockModel,
+  type FocusBlockTransitionInput as FocusBlockTransition,
+  type ProjectDetailsInput as ProjectDetails,
+  type RecordWorkSessionInput as RecordWorkSession,
+  type ReviewCompletion as ReviewCompletionModel,
+  ReviewCompletionSchema,
+  FocusBlockSchema,
+  TargetRelationSchema,
+  TaskRecordSchema,
+  type UpdateTaskRecordInput as UpdateTaskRecord,
+  type WorkProject as WorkProjectModel,
+  WorkProjectSchema,
+  type WorkProjectSummary as WorkProjectSummaryModel,
+  WorkProjectSummarySchema,
+  type WorkScope as WorkScopeModel,
+  WorkScopeSchema,
+  type WorkSession as WorkSessionModel,
+  WorkSessionSchema,
+} from '../../backend/src/work-contracts'
+
+/** Selectable relationships, in the order they are offered. */
+export const TARGET_RELATIONS = TargetRelationSchema.options
+
+export const workProjectsQueryKey = ['work', 'projects'] as const
+export const workScopeQueryKey = (projectId: string | null) => ['work', 'scope', projectId ?? 'standalone'] as const
+
+export const workService = {
+  listProjects: async (): Promise<WorkProjectSummaryModel[]> => {
+    const response = await api.get('/work/projects')
+    return z.array(WorkProjectSummarySchema).parse(response.data)
+  },
+
+  getScope: async (projectId: string | null): Promise<WorkScopeModel> => {
+    const response = await api.get('/work/scope', { params: projectId ? { projectId } : undefined })
+    return WorkScopeSchema.parse(response.data)
+  },
+
+  createProject: async (input: CreateWorkProject): Promise<WorkProjectModel> => {
+    const response = await api.post('/work/projects', input)
+    return WorkProjectSchema.parse(response.data)
+  },
+
+  updateProject: async (projectId: string, input: ProjectDetails): Promise<WorkProjectModel> => {
+    const response = await api.patch(`/work/projects/${projectId}`, input)
+    return WorkProjectSchema.parse(response.data)
+  },
+
+  archiveProject: async (projectId: string, archived: boolean): Promise<WorkProjectModel> => {
+    const response = await api.patch(`/work/projects/${projectId}/archive`, { archived })
+    return WorkProjectSchema.parse(response.data)
+  },
+
+  deleteProject: async (projectId: string): Promise<void> => {
+    await api.delete(`/work/projects/${projectId}`)
+  },
+
+  addTask: async (projectId: string, input: CreateTaskRecord) => {
+    const response = await api.post(`/work/projects/${projectId}/tasks`, input)
+    return TaskRecordSchema.parse(response.data)
+  },
+
+  updateTask: async (projectId: string, taskId: string, input: UpdateTaskRecord) => {
+    const response = await api.patch(`/work/projects/${projectId}/tasks/${taskId}`, input)
+    return TaskRecordSchema.parse(response.data)
+  },
+
+  removeTask: async (projectId: string, taskId: string): Promise<void> => {
+    await api.delete(`/work/projects/${projectId}/tasks/${taskId}`)
+  },
+
+  createFocusBlock: async (input: CreateFocusBlock): Promise<FocusBlockModel> => {
+    const response = await api.post('/work/focus-blocks', input)
+    return FocusBlockSchema.parse(response.data)
+  },
+
+  transitionFocusBlock: async (focusBlockId: string, input: FocusBlockTransition): Promise<FocusBlockModel> => {
+    const response = await api.post(`/work/focus-blocks/${focusBlockId}/transition`, input)
+    return FocusBlockSchema.parse(response.data)
+  },
+
+  completeReview: async (focusBlockId: string, input: CompleteWorkReview): Promise<ReviewCompletionModel> => {
+    const response = await api.post(`/work/focus-blocks/${focusBlockId}/review`, input)
+    return ReviewCompletionSchema.parse(response.data)
+  },
+
+  recordSession: async (input: RecordWorkSession): Promise<WorkSessionModel> => {
+    const response = await api.post('/work/sessions', input)
+    return WorkSessionSchema.parse(response.data)
+  },
+
+  removeSession: async (sessionId: string): Promise<void> => {
+    await api.delete(`/work/sessions/${sessionId}`)
+  },
+}
+
 export default api

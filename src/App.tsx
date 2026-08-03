@@ -5,6 +5,7 @@ import Layout from './components/Layout'
 import TodayPage from './pages/TodayPage'
 import AddItemPage from './pages/AddItemPage'
 import WeekViewPage from './pages/WeekViewPage'
+import WorkPage from './pages/WorkPage'
 import SettingsPage from './pages/SettingsPage'
 import TokenManagerPage from './pages/TokenManagerPage'
 import CaloriesPage from './pages/CaloriesPage'
@@ -147,6 +148,7 @@ function App() {
           <Route path="/" element={<TodayPage />} />
           <Route path="/add" element={<AddItemPage />} />
           <Route path="/week" element={WEEK_VIEW_ENABLED ? <WeekViewPage /> : <Navigate to="/" replace />} />
+          <Route path="/work" element={<WorkPage />} />
           <Route path="/talk" element={<AssistantPage />} />
           <Route path="/assistant" element={<AssistantRedirect />} />
           <Route path="/settings/*" element={<SettingsPage />} />

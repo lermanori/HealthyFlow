@@ -10,7 +10,9 @@ describe('Week View release flag', () => {
 
     assert.match(featureFlags, /VITE_WEEK_VIEW_ENABLED === 'true'/)
     assert.match(app, /WEEK_VIEW_ENABLED \? <WeekViewPage \/> : <Navigate to="\/" replace \/>/)
-    assert.match(layout, /items:\s*WEEK_VIEW_ENABLED[\s\S]*?\{ name: 'Week'/)
+    // Week shares the "Plan" group with Work, so the flag guards the Week entry
+    // itself rather than the whole group.
+    assert.match(layout, /WEEK_VIEW_ENABLED \? \[\{ name: 'Week'/)
   })
 })
 
