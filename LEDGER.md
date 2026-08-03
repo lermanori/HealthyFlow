@@ -1,3 +1,9 @@
+### 2026-08-03 13:32 — `main`
+
+Committed the two Work design documents to main after all: the Talk-orchestration-and-Work design target, which fixes Talk as the coordinator and each module as the source of truth for its own records, and the six-phase delivery plan built on it. Holding them on the worktree branch would have kept the reasoning invisible to anything else based on main, and they describe intent rather than code, so they carry no merge cost. The implementation they govern still lives in the `healthyflow-work-impl` worktree.
+
+---
+
 ### 2026-08-03 13:25 — `main`
 
 Split a mixed working tree into shippable work and moved the rest out of the way. The keeper is a soft update nudge for iOS: the native version gate now resolves to three outcomes instead of two, so a client at or above `IOS_MINIMUM_VERSION` but below `IOS_LATEST_VERSION` keeps running and shows a dismissible App Store banner rather than being either blocked or silently left behind. Dismissal is keyed per released version, so raising `IOS_LATEST_VERSION` asks again while a repeat dismissal of the same release stays hidden; setting the two equal turns the nudge off without disabling the gate. `native_update_opened` gained a `trigger` field and renamed `minimum_version` to `target_version` to tell the blocking gate apart from the nudge — a breaking change for any existing query on that event. Separately, a dev-only Work prototype that had leaked into `App.tsx`, `Layout.tsx`, and `AssistantPage.tsx` was reverted, since the real Work module lives in the `healthyflow-work-impl` worktree; its design spec and delivery plan stay untracked to land with that branch. Production env backups are now gitignored by pattern.
