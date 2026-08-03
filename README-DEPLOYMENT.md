@@ -45,6 +45,10 @@ Apply database migrations with:
 npx supabase db push --linked
 ```
 
+Rehearse the migration on the local Supabase stack first — see
+[docs/local-database.md](docs/local-database.md). `db push --linked` writes
+directly to production, so it should never be a migration's first run.
+
 ### Netlify public build variables
 
 Set these for production, previews, branch deploys, and local Netlify dev:
