@@ -219,6 +219,7 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   const location = type === 'task' ? normalizeLocation(req.body.location) : null
   const parsedTarget = type === 'habit' ? HabitTargetSchema.safeParse(req.body.habitTarget ?? null) : null
   if (parsedTarget && !parsedTarget.success) return res.status(400).json({ error: parsedTarget.error.issues })
+  const projectId = typeof req.body.projectId === 'string' && req.body.projectId ? req.body.projectId : null
   // Normalize at the write boundary (ADR-0002): a time implies a day — start_time
   // with no scheduled_date is scheduled for today. No date and no time stays someday.
   let scheduledDate = req.body.scheduledDate
@@ -230,6 +231,14 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   logger.debug('Backend - Task details:', { title, type, category, startTime, duration, repeat, scheduledDate })
 
   try {
+    // Project identity is never accepted from the body on trust. This route is
+    // also used outside Work, so it must enforce the same ownership boundary.
+    if (projectId) {
+      const project = await db.getProjectById(projectId)
+      if (!project) return res.status(404).json({ error: 'Project not found' })
+      if (project.user_id !== userId) return res.status(403).json({ error: 'Forbidden' })
+    }
+
     // For untimed tasks, append to end of Anytime backlog (MAX position + 1, or null)
     let position: number | null = null
     if (type !== 'habit' && !startTime && scheduledDate) {
@@ -250,6 +259,10 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       // a virtual/materialized instance, never by dating the parent row.
       scheduled_date: type === 'habit' ? null : scheduledDate,
       position,
+      // The client has sent projectId since Projects shipped, but there was no
+      // column to put it in. Persisting it is what makes an Item added here
+      // appear among its Project's Task records in Work.
+      project_id: projectId,
       habit_target_value: parsedTarget?.success ? parsedTarget.data?.value ?? null : null,
       habit_target_unit: parsedTarget?.success ? parsedTarget.data?.unit ?? null : null,
       habit_outcome: null,

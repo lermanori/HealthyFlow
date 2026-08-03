@@ -11,6 +11,7 @@ jest.mock('../src/supabase-client', () => ({
     createTask: jest.fn(),
     getTaskById: jest.fn(),
     updateTask: jest.fn(),
+    getProjectById: jest.fn(),
   },
 }))
 
@@ -61,6 +62,25 @@ beforeEach(() => {
 })
 
 describe('task location API', () => {
+  it('rejects assigning a new Task to another user\'s Project', async () => {
+    mockDb.getProjectById.mockResolvedValue({ id: 'project-2', user_id: 'user-2' })
+
+    const res = await request(app)
+      .post('/api/tasks')
+      .set('Authorization', TOKEN)
+      .send({
+        title: 'Attach this elsewhere',
+        type: 'task',
+        category: 'work',
+        duration: 30,
+        repeat: 'none',
+        projectId: 'project-2',
+      })
+
+    expect(res.status).toBe(403)
+    expect(mockDb.createTask).not.toHaveBeenCalled()
+  })
+
   it('rejects a non-canonical category when creating a task', async () => {
     const res = await request(app)
       .post('/api/tasks')
