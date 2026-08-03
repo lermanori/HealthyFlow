@@ -5,8 +5,8 @@ import {
   DaySummaryItemSchema,
   DaySummaryWeightEntrySchema,
 } from './day-summary-schema'
-import { AchievementSummarySchema } from './achievements'
-import { WorkoutSessionSchema } from './workouts'
+import { AchievementSummarySchema } from './achievement-contracts'
+import { WorkoutSessionSchema } from './workout-contracts'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
