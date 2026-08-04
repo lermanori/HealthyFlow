@@ -156,7 +156,7 @@
       <h1>HealthyFlow capability inventory</h1>
       <p>The bounded control plane for what Talk may read, propose, write, and record. Every entry is generated from the shared internal/MCP capability definitions and their Zod contracts.</p>
       <div class="hero-meta">
-        <span>Generated 2026-08-03T15:34:24.941Z</span>
+        <span>Generated 2026-08-04T12:25:03.279Z</span>
         <span>Source: backend/src/ai-capabilities.ts</span>
         <span>Standalone artifact · no server required</span>
       </div>
@@ -166,7 +166,7 @@
 
     <article class="summary-card">
       <span>Capabilities</span>
-      <strong data-summary="capabilities">42</strong>
+      <strong data-summary="capabilities">43</strong>
       <small>Bounded definitions</small>
     </article>
 
@@ -178,13 +178,13 @@
 
     <article class="summary-card">
       <span>Phase 4 registered</span>
-      <strong data-summary="registered">22</strong>
+      <strong data-summary="registered">23</strong>
       <small>Held from runtime until Phase 5</small>
     </article>
 
     <article class="summary-card">
       <span>Confirmation required</span>
-      <strong data-summary="mutations">21</strong>
+      <strong data-summary="mutations">22</strong>
       <small>Writes and recorded outcomes</small>
     </article>
     </section>
@@ -197,7 +197,7 @@
     <li>
       <div><span>Read</span><strong>16</strong></div>
       <div class="bar-track" aria-label="Read: 16">
-        <span style="width: 38%; background: var(--green)"></span>
+        <span style="width: 37%; background: var(--green)"></span>
       </div>
     </li>
     <li>
@@ -207,9 +207,9 @@
       </div>
     </li>
     <li>
-      <div><span>Write</span><strong>12</strong></div>
-      <div class="bar-track" aria-label="Write: 12">
-        <span style="width: 29%; background: var(--amber)"></span>
+      <div><span>Write</span><strong>13</strong></div>
+      <div class="bar-track" aria-label="Write: 13">
+        <span style="width: 30%; background: var(--amber)"></span>
       </div>
     </li>
     <li>
@@ -239,7 +239,7 @@
     <li>
       <div><span>Nutrition</span><strong>10</strong></div>
       <div class="bar-track" aria-label="Nutrition: 10">
-        <span style="width: 24%; background: var(--green)"></span>
+        <span style="width: 23%; background: var(--green)"></span>
       </div>
     </li>
     <li>
@@ -255,9 +255,9 @@
       </div>
     </li>
     <li>
-      <div><span>Work</span><strong>9</strong></div>
-      <div class="bar-track" aria-label="Work: 9">
-        <span style="width: 21%; background: var(--green)"></span>
+      <div><span>Work</span><strong>10</strong></div>
+      <div class="bar-track" aria-label="Work: 10">
+        <span style="width: 23%; background: var(--green)"></span>
       </div>
     </li>
     <li>
@@ -304,7 +304,7 @@
     </section>
 
     <div class="result-line">
-      <span><strong id="visible-count">42</strong> of 42 capabilities</span>
+      <span><strong id="visible-count">43</strong> of 43 capabilities</span>
       <span>Expand a card to inspect its Zod-derived contracts.</span>
     </div>
     <section id="capability-grid" class="capability-grid" aria-live="polite">
@@ -7618,7 +7618,7 @@
     <article
       class="capability-card"
       data-capability-name="validate_daily_plan"
-      data-search="validate_daily_plan validate and preview a possible timed placement against deterministic daily plan capacity without writing. proposal registered auto  calendar_daily_plan"
+      data-search="validate_daily_plan validate and preview a possible timed placement against the deterministic daily plan without writing. statuses: &quot;invalid&quot; means the placement really overlaps a known item, calendar event, or focus block — the reasons list every conflicts_with:* it hit, so move the start time; &quot;indeterminate&quot; means the user has no usable timezone (timezone_missing / timezone_invalid) so no clock time can be judged at all — ask for the timezone instead of retrying other times; &quot;valid&quot; means the overlap check ran and found no collision. any other reason code on a &quot;valid&quot; result is advisory, not a refusal: planning_window_missing or planning_window_invalid (no usable planning window, so the placement is unbounded), outside_planning_window (allowed, but outside the user&#039;s preferred hours), insufficient_available_minutes (over the window-derived budget), calendar_* (only healthyflow records were checked; an unseen calendar event may still overlap), item_* (a timed item could not be measured). surface advisory reasons to the user; do not retry a different start time because of them. proposal registered auto  calendar_daily_plan"
       data-modules="calendar_daily_plan"
       data-kind="proposal"
       data-availability="registered"
@@ -7631,7 +7631,7 @@
         </div>
         <span class="badge badge-registered">registered</span>
       </div>
-      <p class="description">Validate and preview a possible timed placement against deterministic Daily Plan capacity without writing.</p>
+      <p class="description">Validate and preview a possible timed placement against the deterministic Daily Plan without writing. Statuses: &quot;invalid&quot; means the placement really overlaps a known Item, calendar event, or Focus block — the reasons list every conflicts_with:* it hit, so move the start time; &quot;indeterminate&quot; means the user has no usable timezone (timezone_missing / timezone_invalid) so no clock time can be judged at all — ask for the timezone instead of retrying other times; &quot;valid&quot; means the overlap check ran and found no collision. Any other reason code on a &quot;valid&quot; result is advisory, not a refusal: planning_window_missing or planning_window_invalid (no usable planning window, so the placement is unbounded), outside_planning_window (allowed, but outside the user&#039;s preferred hours), insufficient_available_minutes (over the window-derived budget), calendar_* (only HealthyFlow records were checked; an unseen calendar event may still overlap), item_* (a timed Item could not be measured). Surface advisory reasons to the user; do not retry a different start time because of them.</p>
       <div class="badge-row"><span class="badge badge-module">Calendar Daily Plan</span></div>
       <dl class="policy-grid">
         <div><dt>Risk</dt><dd>auto</dd></div>
@@ -9027,6 +9027,183 @@
   &quot;required&quot;: [
     &quot;project&quot;,
     &quot;tasks&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</pre>
+      </details>
+      <details>
+        <summary>Typed errors <span>7</span></summary>
+        <div class="error-list"><code>unsupported_capability</code><code>invalid_input</code><code>invalid_output</code><code>not_found</code><code>forbidden</code><code>conflict</code><code>execution_failed</code></div>
+      </details>
+    </article>
+    <article
+      class="capability-card"
+      data-capability-name="add_work_task"
+      data-search="add_work_task preview then add one task to a user-owned work project. write registered confirm hf:write:add work"
+      data-modules="work"
+      data-kind="write"
+      data-availability="registered"
+      data-risk="confirm"
+    >
+      <div class="capability-heading">
+        <div>
+          <span class="eyebrow">Write</span>
+          <h2>add_work_task</h2>
+        </div>
+        <span class="badge badge-registered">registered</span>
+      </div>
+      <p class="description">Preview then add one Task to a user-owned Work Project.</p>
+      <div class="badge-row"><span class="badge badge-module">Work</span></div>
+      <dl class="policy-grid">
+        <div><dt>Risk</dt><dd>confirm</dd></div>
+        <div><dt>Confirmation</dt><dd>required</dd></div>
+        <div><dt>Idempotency</dt><dd>request_id</dd></div>
+        <div><dt>Audit</dt><dd>required</dd></div>
+        <div class="policy-wide"><dt>Scope</dt><dd>hf:write:add</dd></div>
+      </dl>
+      <details>
+        <summary>Input contract</summary>
+        <pre>{
+  &quot;$schema&quot;: &quot;https://json-schema.org/draft/2020-12/schema&quot;,
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;title&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;minLength&quot;: 1,
+      &quot;maxLength&quot;: 280
+    },
+    &quot;relation&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;enum&quot;: [
+        &quot;Direct progress&quot;,
+        &quot;Unblocking&quot;,
+        &quot;Maintenance&quot;,
+        &quot;Optional polish&quot;,
+        &quot;Unrelated&quot;
+      ]
+    },
+    &quot;duration&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;integer&quot;,
+          &quot;exclusiveMinimum&quot;: 0,
+          &quot;maximum&quot;: 1440
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ]
+    },
+    &quot;scheduledDate&quot;: {
+      &quot;anyOf&quot;: [
+        {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;date&quot;,
+          &quot;pattern&quot;: &quot;^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$&quot;
+        },
+        {
+          &quot;type&quot;: &quot;null&quot;
+        }
+      ]
+    },
+    &quot;projectId&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;format&quot;: &quot;uuid&quot;,
+      &quot;pattern&quot;: &quot;^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$&quot;
+    },
+    &quot;requestId&quot;: {
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;minLength&quot;: 1,
+      &quot;maxLength&quot;: 120
+    }
+  },
+  &quot;required&quot;: [
+    &quot;title&quot;,
+    &quot;relation&quot;,
+    &quot;projectId&quot;
+  ],
+  &quot;additionalProperties&quot;: false
+}</pre>
+      </details>
+      <details>
+        <summary>Output contract</summary>
+        <pre>{
+  &quot;$schema&quot;: &quot;https://json-schema.org/draft/2020-12/schema&quot;,
+  &quot;type&quot;: &quot;object&quot;,
+  &quot;properties&quot;: {
+    &quot;task&quot;: {
+      &quot;type&quot;: &quot;object&quot;,
+      &quot;properties&quot;: {
+        &quot;id&quot;: {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;format&quot;: &quot;uuid&quot;,
+          &quot;pattern&quot;: &quot;^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$&quot;
+        },
+        &quot;title&quot;: {
+          &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;status&quot;: {
+          &quot;type&quot;: &quot;string&quot;,
+          &quot;enum&quot;: [
+            &quot;open&quot;,
+            &quot;completed&quot;,
+            &quot;deferred&quot;
+          ]
+        },
+        &quot;relation&quot;: {
+          &quot;anyOf&quot;: [
+            {
+              &quot;type&quot;: &quot;string&quot;,
+              &quot;enum&quot;: [
+                &quot;Direct progress&quot;,
+                &quot;Unblocking&quot;,
+                &quot;Maintenance&quot;,
+                &quot;Optional polish&quot;,
+                &quot;Unrelated&quot;
+              ]
+            },
+            {
+              &quot;type&quot;: &quot;null&quot;
+            }
+          ]
+        },
+        &quot;scheduledDate&quot;: {
+          &quot;anyOf&quot;: [
+            {
+              &quot;type&quot;: &quot;string&quot;
+            },
+            {
+              &quot;type&quot;: &quot;null&quot;
+            }
+          ]
+        },
+        &quot;duration&quot;: {
+          &quot;anyOf&quot;: [
+            {
+              &quot;type&quot;: &quot;number&quot;
+            },
+            {
+              &quot;type&quot;: &quot;null&quot;
+            }
+          ]
+        }
+      },
+      &quot;required&quot;: [
+        &quot;id&quot;,
+        &quot;title&quot;,
+        &quot;status&quot;,
+        &quot;relation&quot;,
+        &quot;scheduledDate&quot;,
+        &quot;duration&quot;
+      ],
+      &quot;additionalProperties&quot;: false
+    },
+    &quot;duplicated&quot;: {
+      &quot;type&quot;: &quot;boolean&quot;
+    }
+  },
+  &quot;required&quot;: [
+    &quot;task&quot;
   ],
   &quot;additionalProperties&quot;: false
 }</pre>

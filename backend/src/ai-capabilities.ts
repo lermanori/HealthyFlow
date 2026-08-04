@@ -41,6 +41,7 @@ import { Work } from './work'
 import {
   CompleteWorkReviewInputSchema,
   CreateFocusBlockInputSchema,
+  CreateTaskRecordInputSchema,
   FocusBlockSchema,
   FocusBlockTransitionInputSchema,
   ProjectContextSchema,
@@ -246,6 +247,10 @@ const TransitionFocusBlockCapabilityInput = z.object({
 })
 const CompleteWorkReviewCapabilityInput = CompleteWorkReviewInputSchema.extend({
   focusBlockId: z.string().uuid(),
+  requestId: RequestId,
+})
+const AddWorkTaskCapabilityInput = CreateTaskRecordInputSchema.extend({
+  projectId: z.string().uuid(),
   requestId: RequestId,
 })
 const UpdateWorkTaskCapabilityInput = UpdateTaskRecordInputSchema.and(z.object({
@@ -1036,6 +1041,26 @@ export const AiCapabilities = defineCapabilities({
         }
       })
       return { project: scope.project, tasks: selected }
+    },
+  },
+  add_work_task: {
+    description: 'Preview then add one Task to a user-owned Work Project.',
+    modules: ['work'],
+    kind: 'write',
+    availability: 'registered',
+    scope: 'hf:write:add',
+    inputSchema: AddWorkTaskCapabilityInput,
+    outputSchema: z.object({ task: TaskRecordSchema, ...MutationResultFields }),
+    async preview(ctx, input) {
+      const scope = await Work.getScope(ctx.userId, input.projectId)
+      if (!scope.project) throw Object.assign(new Error('Project not found'), { status: 404 })
+      const { projectId: _projectId, requestId: _requestId, ...task } = input
+      return { action: 'add_work_task', project: scope.project, task }
+    },
+    async apply(ctx, input) {
+      const { projectId, requestId: _requestId, ...taskInput } = input
+      const task = await Work.addTask(ctx.userId, projectId, taskInput)
+      return mutationResult({ task }, [task.id])
     },
   },
   list_tasks: {

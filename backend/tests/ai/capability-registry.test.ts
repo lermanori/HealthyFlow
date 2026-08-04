@@ -19,6 +19,7 @@ const requiredFamilies = {
     'list_work_projects',
     'get_work_scope',
     'review_task_alignment',
+    'add_work_task',
     'create_focus_block',
     'transition_focus_block',
     'complete_work_review',

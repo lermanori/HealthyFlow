@@ -6,6 +6,7 @@ jest.mock('../../src/supabase-client', () => ({
     getAiPendingAction: jest.fn(),
     markAiPendingActionExecuted: jest.fn(),
     getNextPosition: jest.fn().mockResolvedValue(7),
+    getProjectById: jest.fn(),
     getTaskById: jest.fn(),
     updateTask: jest.fn(),
     createTask: jest.fn(async (row) => ({
@@ -140,6 +141,65 @@ describe('AI write capabilities', () => {
     }))
     expect(db.createAiAuditLog).toHaveBeenCalledWith(expect.objectContaining({
       user_id: 'user-1', caller: 'mcp', tool: 'create_focus_block',
+    }))
+  })
+
+  it('adds a confirmed Task to its Project with the target relationship intact', async () => {
+    ;(db.getAiIdempotency as jest.Mock).mockResolvedValueOnce(null)
+    const projectId = '40000000-0000-4000-8000-000000000004'
+    const task = {
+      id: '50000000-0000-4000-8000-000000000005',
+      title: 'Define the App Store submission checklist',
+      status: 'open' as const,
+      relation: 'Direct progress' as const,
+      scheduledDate: null,
+      duration: 30,
+    }
+    ;(db.getProjectById as jest.Mock).mockResolvedValueOnce({
+      id: projectId,
+      user_id: 'user-1',
+    })
+    ;(db.createTask as jest.Mock).mockResolvedValueOnce({
+      id: task.id,
+      user_id: 'user-1',
+      title: task.title,
+      type: 'task',
+      category: 'work',
+      project_id: projectId,
+      target_relation: task.relation,
+      duration: task.duration,
+      scheduled_date: null,
+      completed: false,
+      deferred_at: null,
+    })
+
+    const result = await executeAiCapability(
+      { userId: 'user-1', caller: 'internal' },
+      'add_work_task',
+      {
+        projectId,
+        title: task.title,
+        relation: task.relation,
+        duration: task.duration,
+        scheduledDate: null,
+        requestId: 'work-task-create-1',
+      },
+    )
+
+    expect(db.createTask).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: 'user-1',
+      project_id: projectId,
+      title: task.title,
+      target_relation: task.relation,
+      duration: task.duration,
+      scheduled_date: null,
+    }))
+    expect(result).toEqual({ ok: true, value: { task } })
+    expect(db.createAiIdempotency).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: 'user-1', request_id: 'work-task-create-1', tool: 'add_work_task',
+    }))
+    expect(db.createAiAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: 'user-1', tool: 'add_work_task', target_ids: [task.id],
     }))
   })
 

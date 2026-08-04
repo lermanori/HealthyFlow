@@ -1,3 +1,9 @@
+### 2026-08-04 15:30 — `codex/phase-5-talk-runtime`
+
+Corrected the Phase 4 capability inventory by registering the missing Project-scoped `add_work_task` write through the existing Work module. The capability previews the proposed Task, preserves its target relationship, and inherits the shared confirmation, ownership, idempotency, and audit contract; the generated inventory now contains 43 capabilities. Verification passed the two targeted registry/write suites with 20 tests and the backend typecheck, without database writes; exposing this capability to Talk remains a Phase 6 workflow decision.
+
+---
+
 ### 2026-08-04 14:40 — `codex/phase-5-talk-runtime`
 
 Closed Phase 5 with a narrow server-keyed Talk tracer over the real capability registry: Work now enters a persisted focused-work workflow, the bounded Agents SDK runtime receives the current local time, and deterministic Daily Plan validation blocks known collisions while treating preferences and missing Calendar data as advisory. Drafts remain app-owned and explicitly confirmed, with stale-data revalidation and exactly-once Focus block recovery covered through injected tests rather than writes to hosted user data. Verification passed 66 targeted backend tests, 76 frontend tests, and both typechecks; the roadmap now advances to Phase 6.
