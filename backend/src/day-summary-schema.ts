@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { DayFocusBlockSchema } from './work-contracts'
+import { DayFocusBlockSchema, WorkProjectSchema } from './work-contracts'
 
 export const IsoDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 export const ClockTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
@@ -37,6 +37,14 @@ export const HabitInfoSchema = z.object({
   chunks: z.array(HabitProgressChunkSchema).default([]),
 }).strict()
 
+// Today only needs enough Project context to identify a Task's scope. The
+// fuller Project record remains owned by the Work module.
+export const DaySummaryItemProjectSchema = WorkProjectSchema.pick({
+  id: true,
+  name: true,
+  color: true,
+})
+
 export const DaySummaryItemSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -55,6 +63,8 @@ export const DaySummaryItemSchema = z.object({
   rolledOverFromTaskId: z.string().nullable(),
   originalCreatedAt: z.string().nullable(),
   completedAt: z.string().nullable(),
+  projectId: z.string().uuid().nullable(),
+  project: DaySummaryItemProjectSchema.nullable(),
   position: z.number().int().nullable(),
   googleEventId: z.string().nullable(),
   syncedToGoogle: z.boolean(),

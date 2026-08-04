@@ -226,7 +226,7 @@ export const db = {
   async getTasksByUserId(userId: string, date?: string) {
     let query = supabase
       .from('tasks')
-      .select('*')
+      .select('*, project:projects(id, name, color)')
       .eq('user_id', userId)
       .is('deleted_at', null);
     
@@ -496,7 +496,7 @@ export const db = {
       // Get regular tasks for the specific date (excluding daily habits and rolled-over tasks)
       const { data: regularTasks, error: regularError } = await supabase
         .from('tasks')
-        .select('*')
+        .select('*, project:projects(id, name, color)')
         .eq('user_id', userId)
         .eq('scheduled_date', date)
         .is('deleted_at', null)
@@ -512,7 +512,7 @@ export const db = {
       // instance from it — leaking instances across days.
       const { data: dailyHabits, error: habitsError } = await supabase
         .from('tasks')
-        .select('*')
+        .select('*, project:projects(id, name, color)')
         .eq('user_id', userId)
         .eq('type', 'habit')
         .eq('repeat_type', 'daily')
@@ -525,7 +525,7 @@ export const db = {
       // Get existing habit instances for this date (habit instances have original_habit_id set)
       const { data: existingInstances, error: instancesError } = await supabase
         .from('tasks')
-        .select('*')
+        .select('*, project:projects(id, name, color)')
         .eq('user_id', userId)
         .eq('scheduled_date', date)
         .is('deleted_at', null)

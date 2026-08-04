@@ -122,6 +122,12 @@ export function itemRowToClient(row: any, progressTotal = 0, context: ItemContex
     rolledOverFromTaskId: row.rolled_over_from_task_id ?? row.rolledOverFromTaskId ?? null,
     originalCreatedAt: row.original_created_at ?? row.originalCreatedAt ?? null,
     completedAt: row.completed_at ?? row.completedAt ?? null,
+    projectId: row.project_id ?? row.projectId ?? null,
+    project: row.project ? {
+      id: String(row.project.id),
+      name: String(row.project.name ?? ''),
+      color: String(row.project.color ?? ''),
+    } : null,
     position: numberOrNull(row.position),
     googleEventId: row.google_event_id ?? row.googleEventId ?? null,
     syncedToGoogle: Boolean(row.synced_to_google ?? row.syncedToGoogle),

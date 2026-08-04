@@ -11,7 +11,7 @@ export const Rollover = {
   async listForDay(userId: string, date: string): Promise<any[]> {
     const { data: incomplete, error: incompleteError } = await supabase
       .from('tasks')
-      .select('*')
+      .select('*, project:projects(id, name, color)')
       .eq('user_id', userId)
       .is('start_time', null)
       .is('rolled_over_from_task_id', null)
@@ -26,7 +26,7 @@ export const Rollover = {
     // (struck through) on the day it was completed.
     const { data: completedToday, error: completedError } = await supabase
       .from('tasks')
-      .select('*')
+      .select('*, project:projects(id, name, color)')
       .eq('user_id', userId)
       .is('start_time', null)
       .is('rolled_over_from_task_id', null)

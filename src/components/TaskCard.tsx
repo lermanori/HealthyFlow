@@ -306,15 +306,12 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
             </div>
           </div>
 
-                     {/* Category, Project, and Time Info */}
+                     {/* Project (or category fallback) and Time Info */}
            <div className={`flex min-w-0 items-center overflow-hidden ${compact ? 'mt-0.5 gap-1 whitespace-nowrap leading-4' : 'mt-2 flex-wrap gap-2'}`}>
-             <span className={`shrink-0 rounded-full border text-xs ${compact ? 'px-1 py-0 leading-4' : 'px-2 py-1'} ${getCategoryColor(task.category)}`}>
-               {getCategoryPresentation(task.category).label}
-             </span>
-             
-             {task.project && (
+             {task.project ? (
                <span 
                  className={`flex min-w-0 items-center space-x-1 rounded-full border text-xs ${compact ? 'px-1 py-0 leading-4' : 'px-2 py-1'}`}
+                 aria-label={`Project: ${task.project.name}`}
                  style={{ 
                    borderColor: `${task.project.color}50`,
                    backgroundColor: `${task.project.color}20`,
@@ -323,6 +320,10 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                >
                  <Folder className="h-3 w-3 shrink-0" />
                  <span className="truncate">{task.project.name}</span>
+               </span>
+             ) : (
+               <span className={`shrink-0 rounded-full border text-xs ${compact ? 'px-1 py-0 leading-4' : 'px-2 py-1'} ${getCategoryColor(task.category)}`}>
+                 {getCategoryPresentation(task.category).label}
                </span>
              )}
             

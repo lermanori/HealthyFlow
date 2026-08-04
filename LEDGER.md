@@ -1,3 +1,9 @@
+### 2026-08-04 15:38 — `codex/phase-5-talk-runtime`
+
+Today now identifies a Project-linked Task with its Project badge instead of the generic category, making the relationship between a canonical Task and its separate Focus block visible without merging their records. The canonical day response carries the Project id, name, and color for scheduled, completed, and carried-forward Tasks, with the category retained as the fallback for unassigned Tasks. Verification passed the production build, both typechecks, and 41 focused backend tests.
+
+---
+
 ### 2026-08-04 15:30 — `codex/phase-5-talk-runtime`
 
 Corrected the Phase 4 capability inventory by registering the missing Project-scoped `add_work_task` write through the existing Work module. The capability previews the proposed Task, preserves its target relationship, and inherits the shared confirmation, ownership, idempotency, and audit contract; the generated inventory now contains 43 capabilities. Verification passed the two targeted registry/write suites with 20 tests and the backend typecheck, without database writes; exposing this capability to Talk remains a Phase 6 workflow decision.

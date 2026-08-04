@@ -75,6 +75,8 @@ describe('DaySummary API', () => {
       rolledOverFromTaskId: null,
       originalCreatedAt: null,
       completedAt: null,
+      projectId: null,
+      project: null,
       position: 2,
       googleEventId: null,
       syncedToGoogle: false,

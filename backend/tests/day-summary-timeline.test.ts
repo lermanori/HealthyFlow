@@ -207,6 +207,33 @@ describe('resolvedTime', () => {
   })
 })
 
+describe('Task Project context', () => {
+  it('carries the linked Project metadata needed by the Today badge', () => {
+    const item = itemRowToClient({
+      id: 'task-1',
+      title: 'Test phase 5',
+      type: 'task',
+      category: 'work',
+      completed: true,
+      scheduled_date: '2026-08-04',
+      created_at: '2026-08-04T06:00:00.000Z',
+      project_id: '11111111-1111-4111-8111-111111111111',
+      project: {
+        id: '11111111-1111-4111-8111-111111111111',
+        name: 'HealthyFlow',
+        color: '#0891b2',
+      },
+    })
+
+    expect(item.projectId).toBe('11111111-1111-4111-8111-111111111111')
+    expect(item.project).toEqual({
+      id: '11111111-1111-4111-8111-111111111111',
+      name: 'HealthyFlow',
+      color: '#0891b2',
+    })
+  })
+})
+
 describe('habit progress chunks', () => {
   it('carries each chunk with its own logged time, oldest first', () => {
     const item = itemRowToClient(

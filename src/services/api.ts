@@ -105,6 +105,8 @@ export interface Project {
   isArchived: boolean
 }
 
+type ItemProject = Pick<Project, 'id' | 'name' | 'color'>
+
 // Fields present on every item variant
 interface ItemBase {
   id: string
@@ -122,8 +124,8 @@ interface ItemBase {
   completedAt?: string
   /** Local wall-clock time this item was settled, or null while it is still open. */
   resolvedTime?: string | null
-  projectId?: string
-  project?: Project
+  projectId?: string | null
+  project?: ItemProject | null
   position?: number | null
   googleEventId?: string | null
   syncedToGoogle?: boolean
