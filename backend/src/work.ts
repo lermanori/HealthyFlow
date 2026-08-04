@@ -356,26 +356,42 @@ export const Work = {
     await db.softDeleteTask(taskId)
   },
 
-  async createFocusBlock(userId: string, input: CreateFocusBlockInput): Promise<FocusBlock> {
+  async createFocusBlock(
+    userId: string,
+    input: CreateFocusBlockInput,
+    options: { requestId?: string } = {},
+  ): Promise<FocusBlock> {
     if (input.projectId) await ownedProject(userId, input.projectId)
     await validateTaskReferences(userId, input.projectId, input.taskIds)
-    const row = await db.createFocusBlock({
-      id: uuidv4(),
-      user_id: userId,
-      project_id: input.projectId,
-      task_ids: input.taskIds,
-      standalone_title: input.projectId ? null : input.standaloneTitle,
-      standalone_context: input.projectId ? null : input.standaloneContext ?? null,
-      scheduled_date: input.scheduledDate,
-      start_time: input.startTime,
-      planned_minutes: input.plannedMinutes,
-      intended_outcome: input.intendedOutcome,
-      intended_evidence: input.intendedEvidence,
-      transition_minutes: input.transitionMinutes ?? null,
-      break_minutes: input.breakMinutes ?? null,
-      status: 'planned',
-    })
-    return toFocusBlock(row)
+    try {
+      const row = await db.createFocusBlock({
+        id: uuidv4(),
+        user_id: userId,
+        project_id: input.projectId,
+        task_ids: input.taskIds,
+        standalone_title: input.projectId ? null : input.standaloneTitle,
+        standalone_context: input.projectId ? null : input.standaloneContext ?? null,
+        scheduled_date: input.scheduledDate,
+        start_time: input.startTime,
+        planned_minutes: input.plannedMinutes,
+        intended_outcome: input.intendedOutcome,
+        intended_evidence: input.intendedEvidence,
+        transition_minutes: input.transitionMinutes ?? null,
+        break_minutes: input.breakMinutes ?? null,
+        request_id: options.requestId ?? null,
+        status: 'planned',
+      })
+      return toFocusBlock(row)
+    } catch (error) {
+      const code = typeof error === 'object' && error && 'code' in error
+        ? String((error as { code?: unknown }).code ?? '')
+        : ''
+      if (options.requestId && code === '23505') {
+        const existing = await db.getFocusBlockByRequestId(userId, options.requestId)
+        if (existing) return toFocusBlock(existing)
+      }
+      throw error
+    }
   },
 
   /**

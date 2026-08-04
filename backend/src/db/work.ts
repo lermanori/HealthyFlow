@@ -68,6 +68,17 @@ export const workDb = {
     return data
   },
 
+  async getFocusBlockByRequestId(userId: string, requestId: string) {
+    const { data, error } = await supabase
+      .from('focus_blocks')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('request_id', requestId)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
   async getFocusBlocksByProjectId(userId: string, projectId: string, limit = 50) {
     const { data, error } = await supabase
       .from('focus_blocks')

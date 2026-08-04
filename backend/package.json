@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
+    "@openai/agents": "0.14.2",
     "@supabase/supabase-js": "2.50.2",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",

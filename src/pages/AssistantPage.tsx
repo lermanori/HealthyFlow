@@ -581,7 +581,11 @@ export default function AssistantPage() {
     baseMessages: AssistantChatMessage[] = apiMessages,
     requestModel: AssistantChatModel = model,
     displayContent?: string,
-    options: { forceMock?: boolean } = {}
+    options: {
+      forceMock?: boolean
+      conversationId?: string
+      workflow?: { name: 'plan_focused_work'; anchorDate?: string }
+    } = {}
   ) => {
     const trimmed = content.trim()
     if ((!trimmed && !messageAttachment) || isSending) return
@@ -618,7 +622,10 @@ export default function AssistantPage() {
             }
           : messageAttachment
         : undefined
-      const response = await aiService.chat(nextMessages, requestModel, requestAttachment)
+      const response = await aiService.chat(nextMessages, requestModel, requestAttachment, {
+        conversationId: options.conversationId ?? activeConversationId,
+        workflow: options.workflow ?? workContext?.workflow,
+      })
       setMessages((current) => [
         ...current,
         {
@@ -669,12 +676,20 @@ export default function AssistantPage() {
       try {
         const seed = await pushService.getKickoff(kickoff as 'morning' | 'midday' | 'weekly')
         const kickoffModel: AssistantChatModel = 'gpt-4o-mini'
-        setActiveConversationId(crypto.randomUUID())
+        const kickoffConversationId = crypto.randomUUID()
+        setActiveConversationId(kickoffConversationId)
         setMessages([])
         setDraft('')
         setAttachment(null)
         setModel(kickoffModel)
-        await sendMessage(seed, null, [], kickoffModel, kickoffDisplayLabel(kickoff as 'morning' | 'midday' | 'weekly'))
+        await sendMessage(
+          seed,
+          null,
+          [],
+          kickoffModel,
+          kickoffDisplayLabel(kickoff as 'morning' | 'midday' | 'weekly'),
+          { conversationId: kickoffConversationId },
+        )
       } catch {
         toast.error('Could not start your planning session.')
       }
@@ -756,7 +771,9 @@ export default function AssistantPage() {
         setIsSending(true)
 
         try {
-          const nextResponse = await aiService.chat(nextMessages, model)
+          const nextResponse = await aiService.chat(nextMessages, model, undefined, {
+            conversationId: activeConversationId,
+          })
           setMessages((current) => [
             ...current,
             {

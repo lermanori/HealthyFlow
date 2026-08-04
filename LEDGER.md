@@ -1,3 +1,9 @@
+### 2026-08-04 14:40 — `codex/phase-5-talk-runtime`
+
+Closed Phase 5 with a narrow server-keyed Talk tracer over the real capability registry: Work now enters a persisted focused-work workflow, the bounded Agents SDK runtime receives the current local time, and deterministic Daily Plan validation blocks known collisions while treating preferences and missing Calendar data as advisory. Drafts remain app-owned and explicitly confirmed, with stale-data revalidation and exactly-once Focus block recovery covered through injected tests rather than writes to hosted user data. Verification passed 66 targeted backend tests, 76 frontend tests, and both typechecks; the roadmap now advances to Phase 6.
+
+---
+
 ### 2026-08-03 19:22 — `main`
 
 Fixed the Phase 4 Vite development black screen by restoring the frontend/backend dependency boundary: Achievement and Workout Zod contracts now live in pure contract modules, while their deep services continue to own database behavior and re-export the contracts for compatibility. A real Chromium/Vite startup regression now proves browser imports do not reach the server-only logger and its Node environment, and frontend CI installs Chromium so that safeguard runs on a clean worker. Verification is green across 76 frontend tests, 68 backend suites with 568 tests, both typechecks, the production build, and lint with zero errors and 29 pre-existing warnings.

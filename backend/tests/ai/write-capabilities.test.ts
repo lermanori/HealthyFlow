@@ -129,7 +129,11 @@ describe('AI write capabilities', () => {
       },
     )
 
-    expect(Work.createFocusBlock).toHaveBeenCalledWith('user-1', expect.not.objectContaining({ requestId: expect.anything() }))
+    expect(Work.createFocusBlock).toHaveBeenCalledWith(
+      'user-1',
+      expect.not.objectContaining({ requestId: expect.anything() }),
+      { requestId: 'focus-create-1' },
+    )
     expect(result).toEqual({ ok: true, value: { focusBlock } })
     expect(db.createAiIdempotency).toHaveBeenCalledWith(expect.objectContaining({
       user_id: 'user-1', request_id: 'focus-create-1', tool: 'create_focus_block',

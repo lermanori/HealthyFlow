@@ -756,9 +756,24 @@ export const aiService = {
   chat: async (
     messages: AssistantChatMessage[],
     model?: AssistantChatModel,
-    attachment?: AssistantChatAttachment
+    attachment?: AssistantChatAttachment,
+    options: {
+      conversationId?: string
+      workflow?: { name: 'plan_focused_work'; anchorDate?: string }
+    } = {},
   ): Promise<AssistantChatResponse> => {
-    const response = await api.post('/ai/chat', { messages, model, attachment })
+    const response = await api.post('/ai/chat', {
+      messages,
+      model,
+      attachment,
+      conversationId: options.conversationId,
+      workflow: options.workflow,
+    })
+    return response.data
+  },
+
+  getTalkWorkflow: async (conversationId: string): Promise<AssistantTalkWorkflow | null> => {
+    const response = await api.get(`/ai/chat/workflows/${conversationId}`)
     return response.data
   },
 
@@ -838,6 +853,19 @@ export interface AssistantChatResponse {
   message: string
   toolEvents: AssistantToolEvent[]
   pendingActions: AssistantPendingAction[]
+  workflow?: AssistantTalkWorkflow
+}
+
+export interface AssistantTalkWorkflow {
+  id: string
+  conversationId: string
+  name: 'plan_focused_work'
+  stage: 'interpreting' | 'clarifying' | 'gathering_context' | 'awaiting_confirmation' | 'applied' | 'declined' | 'stale' | 'failed'
+  anchorDate: string
+  timeZone: string
+  confirmationState: 'none' | 'presented' | 'confirmed' | 'declined' | 'stale'
+  revision: number
+  updatedAt: string
 }
 
 export interface AssistantPendingAction {
@@ -846,6 +874,7 @@ export interface AssistantPendingAction {
   args: Record<string, unknown>
   preview: unknown
   expiresAt: string
+  workflowId?: string
 }
 
 export interface AssistantConfirmResponse {

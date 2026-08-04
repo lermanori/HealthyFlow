@@ -2,7 +2,7 @@
 
 **Date:** 2026-08-03  
 **Status:** Active delivery roadmap  
-**Current phase:** Phase 5 — prove the AI runtime through the OpenAI API
+**Current phase:** Phase 6 — ship guided Talk orchestration
 
 ## Purpose
 
@@ -37,7 +37,7 @@ The GitHub Project remains the source of truth for issue status. This document i
 | 2 | Work Focus blocks are executable from Today | Phase 1 | Complete |
 | 3 | Every enabled module has an honest Today representation | Phase 2 | Complete |
 | 4 | Every module exposes a bounded capability contract | Phase 3 | Complete |
-| 5 | The server-keyed AI runtime is researched and proven with evaluations | Phase 4 | Not started |
+| 5 | The server-keyed AI runtime is researched and proven with evaluations | Phase 4 | Complete |
 | 6 | Existing Talk orchestrates the full day and John golden scenario | Phase 5 | Not started |
 
 ---
@@ -223,6 +223,25 @@ Research and prototype how the server-keyed model receives bounded context, disc
 ### Exit scenario
 
 In a controlled environment, the model correctly reads a day, asks the capacity clarification, requests the relevant Work context, proposes a valid Focus block, previews the write, applies it only after confirmation, and resumes the persisted workflow after Talk is reopened.
+
+### Completion evidence — 2026-08-04
+
+- The existing Work → Talk planning handoff selects the persisted
+  `plan_focused_work` workflow; ordinary Talk requests stay on the legacy path.
+- `talk-agent-runtime.ts` uses the pinned OpenAI Agents SDK with versioned,
+  stage-selected instruction packs and six allowlisted read/proposal
+  capabilities from the real registry. No write tool is exposed to the model.
+- `talk-workflow.ts` owns revision-CAS checkpoints, deterministic proposal
+  validation, stale-source fingerprints, confirmation/decline, credit
+  settlement, and crash-safe exactly-once Focus block creation.
+- ADR-0008 records the decision. Deterministic tests cover the named safety and
+  resume cases; an opt-in live evaluation covers the actual OpenAI agent loop,
+  one-question clarification, tool selection, and valid proposal output.
+- A signed-in Work → Talk browser run supplied the current local `HH:mm` anchor,
+  selected the next rounded start time, validated it, and returned a structured
+  proposal after three successful tool calls. The preview remained unconfirmed;
+  confirmation and exactly-once writes are covered with injected deterministic
+  dependencies rather than hosted user data.
 
 ---
 

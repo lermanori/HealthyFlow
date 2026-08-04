@@ -1,4 +1,4 @@
-import type { FocusBlock, TaskRecord, WorkProject } from './services/api'
+import type { TaskRecord, WorkProject } from './services/api'
 
 /**
  * The Work → Talk handoff.
@@ -14,6 +14,9 @@ import type { FocusBlock, TaskRecord, WorkProject } from './services/api'
 export interface WorkTalkContext {
   label: string
   prompt: string
+  workflow?: {
+    name: 'plan_focused_work'
+  }
 }
 
 const MAX_LABEL = 120
@@ -33,6 +36,11 @@ export function workTalkContext(value: unknown): WorkTalkContext | null {
   return {
     label: record.label.slice(0, MAX_LABEL),
     prompt: prompt.slice(0, MAX_PROMPT),
+    workflow: record.workflow
+      && typeof record.workflow === 'object'
+      && (record.workflow as Record<string, unknown>).name === 'plan_focused_work'
+      ? { name: 'plan_focused_work' }
+      : undefined,
   }
 }
 
@@ -74,6 +82,7 @@ export function planInTalkContext(project: WorkProject, tasks: TaskRecord[] = []
 
   return {
     label: `${project.name} · planning`,
+    workflow: { name: 'plan_focused_work' },
     prompt: lines([
       `Help me plan focused work on ${project.name}.`,
       targetBlock(project),
@@ -84,46 +93,19 @@ export function planInTalkContext(project: WorkProject, tasks: TaskRecord[] = []
   }
 }
 
-/** "Discuss in Talk" on a single Task record. */
-export function discussTaskContext(project: WorkProject, task: TaskRecord): WorkTalkContext {
+/**
+ * "Discuss in Talk" — open-ended discussion of the Project.
+ *
+ * Deliberately carries no `workflow`: this is legacy Talk, not the durable
+ * plan_focused_work runtime. Only planInTalkContext routes into a workflow.
+ */
+export function discussProjectContext(project: WorkProject): WorkTalkContext {
   return {
-    label: `${project.name} · ${task.title}`,
+    label: `${project.name} · optional discussion`,
     prompt: lines([
-      `Help me decide how to work on this Task in ${project.name}: ${task.title}`,
+      `Help me think about ${project.name}.`,
       targetBlock(project),
-      task.relation ? `Recorded relationship to the target: ${task.relation}` : null,
-      'Check whether it still serves the target. If it does, help me shape a startable Focus block with observable evidence. If it does not, say so plainly.',
-    ]),
-  }
-}
-
-/** "Start in Talk" — the prepared Focus block handoff. */
-export function startFocusBlockContext(project: WorkProject, block: FocusBlock | null): WorkTalkContext | null {
-  if (!block) return null
-
-  return {
-    label: `${project.name} · Focus block`,
-    prompt: lines([
-      `Start the planned Focus block for ${project.name}.`,
-      `Intended outcome: ${block.intendedOutcome}`,
-      targetBlock(project),
-      `Intended evidence: ${block.intendedEvidence}`,
-      `Duration: ${block.plannedMinutes} focused minutes`,
-      'Keep the target visible, capture blockers without expanding the block, and require a short review before I record a Work session. Starting this block does not complete the Task.',
-    ]),
-  }
-}
-
-/** "Review context in Talk" — checking the record, not rewriting it. */
-export function reviewContextContext(project: WorkProject): WorkTalkContext {
-  return {
-    label: `${project.name} · context review`,
-    prompt: lines([
-      `Review the recorded context for ${project.name} with me.`,
-      targetBlock(project),
-      contextBlock(project),
-      project.context.nextStep ? `Recorded next valuable step: ${project.context.nextStep}` : null,
-      'Tell me what is stale, missing, or no longer true. Do not change my records without asking.',
+      'Do not change records without asking.',
     ]),
   }
 }

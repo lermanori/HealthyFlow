@@ -23,7 +23,7 @@ import TaskRecordsCard from '../components/work/TaskRecordsCard'
 import ProjectContextCard from '../components/work/ProjectContextCard'
 import WorkSessionsCard from '../components/work/WorkSessionsCard'
 import AddRecordModal, { type RecordTab } from '../components/work/AddRecordModal'
-import { workTalkState } from '../workTalk'
+import { discussProjectContext, planInTalkContext, workTalkState } from '../workTalk'
 
 const LAST_SCOPE_KEY = 'healthyflow-work-last-scope'
 
@@ -79,8 +79,9 @@ export default function WorkPage() {
       <header className="flex flex-wrap items-end justify-between gap-4 border-b border-line pb-5">
         <div className="flex min-w-[260px] flex-1 items-start gap-3.5"><span className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-accent/30 bg-accent/10"><Square className="h-4 w-4 text-accent" /></span><div><h1 className="text-[26px] font-semibold text-ink">Work</h1><p className="mt-1.5 max-w-[52ch] text-sm leading-relaxed text-ink-soft">Plan, execute, review, and preserve focused Work manually. Talk is optional.</p></div></div>
         <div className="flex flex-wrap gap-2">
-          {project && <button type="button" onClick={() => navigate('/talk', { state: workTalkState({ label: `${project.name} · optional discussion`, prompt: `Help me think about ${project.name}. Target: ${project.target ?? 'not recorded'}. Milestone: ${project.milestone ?? 'not recorded'}. Do not change records without asking.` }) })} className="btn-secondary min-h-11 px-4 py-0 text-sm">Discuss in Talk</button>}
-          <button type="button" onClick={() => setModalTab('focus')} className="btn-primary inline-flex min-h-11 items-center gap-2 px-4 py-0 text-sm"><Plus className="h-4 w-4" />Add manually</button>
+          {project && <button type="button" onClick={() => navigate('/talk', { state: workTalkState(discussProjectContext(project)) })} className="btn-secondary min-h-11 px-4 py-0 text-sm">Discuss in Talk</button>}
+          {project && <button type="button" onClick={() => navigate('/talk', { state: workTalkState(planInTalkContext(project, tasks)) })} className="btn-primary min-h-11 px-4 py-0 text-sm">Plan in Talk</button>}
+          <button type="button" onClick={() => setModalTab('focus')} className="btn-secondary inline-flex min-h-11 items-center gap-2 px-4 py-0 text-sm"><Plus className="h-4 w-4" />Add manually</button>
         </div>
       </header>
 

@@ -981,7 +981,7 @@ export const AiCapabilities = defineCapabilities({
     },
   },
   validate_daily_plan: {
-    description: 'Validate and preview a possible timed placement against deterministic Daily Plan capacity without writing.',
+    description: 'Validate and preview a possible timed placement against the deterministic Daily Plan without writing. Statuses: "invalid" means the placement really overlaps a known Item, calendar event, or Focus block — the reasons list every conflicts_with:* it hit, so move the start time; "indeterminate" means the user has no usable timezone (timezone_missing / timezone_invalid) so no clock time can be judged at all — ask for the timezone instead of retrying other times; "valid" means the overlap check ran and found no collision. Any other reason code on a "valid" result is advisory, not a refusal: planning_window_missing or planning_window_invalid (no usable planning window, so the placement is unbounded), outside_planning_window (allowed, but outside the user\'s preferred hours), insufficient_available_minutes (over the window-derived budget), calendar_* (only HealthyFlow records were checked; an unseen calendar event may still overlap), item_* (a timed Item could not be measured). Surface advisory reasons to the user; do not retry a different start time because of them.',
     modules: ['calendar_daily_plan'],
     kind: 'proposal',
     availability: 'registered',
@@ -1301,8 +1301,8 @@ export const AiCapabilities = defineCapabilities({
       return addPreview('create_focus_block', { focusBlock: input })
     },
     async apply(ctx, input) {
-      const { requestId: _requestId, ...createInput } = input
-      const focusBlock = await Work.createFocusBlock(ctx.userId, createInput)
+      const { requestId, ...createInput } = input
+      const focusBlock = await Work.createFocusBlock(ctx.userId, createInput, { requestId })
       return mutationResult({ focusBlock }, [focusBlock.id])
     },
   },
@@ -1830,6 +1830,7 @@ function pendingActionToClient(row: any) {
     args: row.args,
     preview: row.preview,
     expiresAt: row.expires_at,
+    workflowId: row.workflow_id ?? undefined,
   }
 }
 
@@ -1849,19 +1850,31 @@ export class DailySignalReviewError extends Error {
 export async function preparePendingAiAction(
   ctx: AiCapabilityContext,
   capabilityName: string,
-  args: unknown
+  args: unknown,
+  options: {
+    id?: string
+    workflowId?: string
+    workflowRevision?: number
+    sourceFingerprint?: string
+    expiresInMs?: number
+  } = {},
 ) {
   const capability = AiCapabilities[capabilityName as AiCapabilityName] as AiCapabilityDefinition | undefined
   if (!capability || capability.risk !== 'confirm') throw new Error('Invalid pending action capability')
   const parsed = capability.inputSchema.parse(args ?? {})
   const preview = await capability.preview?.(ctx, parsed)
   const row = await db.createAiPendingAction({
+    ...(options.id ? { id: options.id } : {}),
     user_id: ctx.userId,
     capability: capability.name,
     args: parsed,
     preview,
     caller: ctx.caller ?? 'internal',
-    expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    expires_at: new Date(Date.now() + (options.expiresInMs ?? 10 * 60 * 1000)).toISOString(),
+    ...(options.workflowId ? { workflow_id: options.workflowId } : {}),
+    ...(options.workflowRevision !== undefined ? { workflow_revision: options.workflowRevision } : {}),
+    ...(options.sourceFingerprint ? { source_fingerprint: options.sourceFingerprint } : {}),
+    status: 'presented',
   })
   return pendingActionToClient(row)
 }
@@ -1898,12 +1911,14 @@ export function aiCapabilityTools(options: {
   scopes?: string[]
   caller?: AiCaller
   includeRegistered?: boolean
+  allowedNames?: readonly string[]
 } = {}) {
   const mode = options.mode ?? 'internal'
   const scopes = options.scopes ?? []
   return (Object.values(AiCapabilities) as AiCapabilityDefinition[]).filter((capability) => {
     if (!options.includeRegistered && capability.availability === 'registered') return false
     if (mode === 'mcp' && capability.scope && !scopes.includes(capability.scope)) return false
+    if (options.allowedNames && !options.allowedNames.includes(capability.name)) return false
     return true
   }).map((capability) => ({
     name: capability.name,

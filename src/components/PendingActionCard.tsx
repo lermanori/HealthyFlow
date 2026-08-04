@@ -222,6 +222,17 @@ function buildEditedArgs(action: AssistantPendingAction, draft: Record<string, u
         notes: nullableText(draft.notes),
         exercises: typeof draft.exercises === 'string' ? JSON.parse(draft.exercises) : base.exercises,
       }
+    case 'create_focus_block':
+      return {
+        ...base,
+        scheduledDate: optionalText(draft.scheduledDate),
+        startTime: optionalText(draft.startTime),
+        plannedMinutes: numberOrUndefined(draft.plannedMinutes),
+        intendedOutcome: String(draft.intendedOutcome ?? '').trim(),
+        intendedEvidence: String(draft.intendedEvidence ?? '').trim(),
+        transitionMinutes: nullableNumber(draft.transitionMinutes),
+        breakMinutes: nullableNumber(draft.breakMinutes),
+      }
     case 'update_item': {
       const edited = { ...base }
       if (hasField(draft, 'title')) edited.title = optionalText(draft.title)
@@ -542,6 +553,22 @@ export default function PendingActionCard({
               </label>
             </>
           )}
+          {action.capability === 'create_focus_block' && (
+            <>
+              <TextField label="Date" value={draft.scheduledDate} type="date" onChange={(value) => setField('scheduledDate', value)} />
+              <TextField label="Start time" value={draft.startTime} type="time" onChange={(value) => setField('startTime', value)} />
+              <TextField label="Focused minutes" value={draft.plannedMinutes} type="number" onChange={(value) => setField('plannedMinutes', value)} />
+              <TextField label="Transition minutes" value={draft.transitionMinutes} type="number" onChange={(value) => setField('transitionMinutes', value)} />
+              <TextField label="Break minutes" value={draft.breakMinutes} type="number" onChange={(value) => setField('breakMinutes', value)} />
+              <div className="hidden sm:block" />
+              <div className="sm:col-span-2">
+                <TextField label="Intended outcome" value={draft.intendedOutcome} onChange={(value) => setField('intendedOutcome', value)} />
+              </div>
+              <div className="sm:col-span-2">
+                <TextField label="Observable evidence" value={draft.intendedEvidence} onChange={(value) => setField('intendedEvidence', value)} />
+              </div>
+            </>
+          )}
           {action.capability === 'update_item' && (
             <>
               {hasField(draft, 'title') && <TextField label="Title" value={draft.title} onChange={(value) => setField('title', value)} />}
@@ -564,7 +591,7 @@ export default function PendingActionCard({
           {action.capability === 'delete_item' && (
             <SelectField label="Delete scope" value={draft.deleteScope ?? 'instance'} options={['instance', 'habit']} onChange={(value) => setField('deleteScope', value)} />
           )}
-          {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'add_weight_entry', 'add_achievement_entry', 'add_workout_session', 'update_item', 'delete_item', 'complete_task'].includes(action.capability) && (
+          {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'add_weight_entry', 'add_achievement_entry', 'add_workout_session', 'create_focus_block', 'update_item', 'delete_item', 'complete_task'].includes(action.capability) && (
             <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-xs text-ink-soft sm:col-span-2">
               {JSON.stringify(action.preview, null, 2)}
             </pre>

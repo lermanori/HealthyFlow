@@ -21,6 +21,16 @@ import {
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 import { isDemoPersonaEmail } from '../demo-personas'
 import { CategorySchema } from '../task-contracts'
+import {
+  cancelTalkWorkflowAction,
+  confirmTalkWorkflowAction,
+  getTalkWorkflow,
+  runTalkWorkflowTurn,
+  TalkProposalStaleError,
+  TalkWorkflowBillingError,
+  TalkWorkflowConflictError,
+  TalkWorkflowUnavailableError,
+} from '../talk-workflow'
 
 const QUERY_TASKS_MODEL = 'gpt-3.5-turbo'
 const QUERY_TASKS_MAX_TOKENS = 500
@@ -98,6 +108,15 @@ const ChatRequest = z.object({
   messages: z.array(ChatMessage).min(1).max(30),
   model: ChatModel.default(CHAT_MODEL),
   attachment: ChatAttachment.optional(),
+  conversationId: z.string().uuid().optional(),
+  workflow: z.object({
+    name: z.literal('plan_focused_work'),
+    anchorDate: z.string().date().optional(),
+  }).optional(),
+}).superRefine((value, ctx) => {
+  if (value.workflow && !value.conversationId) {
+    ctx.addIssue({ code: 'custom', path: ['conversationId'], message: 'A Talk workflow requires a conversation id' })
+  }
 })
 
 const StoredChatMessage = z.object({
@@ -316,6 +335,17 @@ router.get('/conversations', authenticateToken, async (req: AuthRequest, res) =>
   }
 })
 
+router.get('/chat/workflows/:conversationId', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = ConversationParams.safeParse(req.params)
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid conversation id' })
+  try {
+    res.json(await getTalkWorkflow(req.user.userId, parsed.data.conversationId))
+  } catch (error) {
+    console.error('Talk workflow read error:', error)
+    res.status(500).json({ error: 'Failed to load Talk workflow' })
+  }
+})
+
 router.put('/conversations/:conversationId', authenticateToken, async (req: AuthRequest, res) => {
   const params = ConversationParams.safeParse(req.params)
   const body = AssistantConversationSnapshot.safeParse(req.body)
@@ -361,6 +391,43 @@ router.post('/chat', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
   if (!checkChatRateLimit(userId)) {
     return res.status(429).json({ error: 'Too many assistant messages, please try again shortly.', code: 'rate_limited' })
+  }
+
+  const timeZone = normalizeTimeZone(req.header('x-client-time-zone'))
+  try {
+    const existingWorkflow = parsed.data.conversationId
+      ? await getTalkWorkflow(userId, parsed.data.conversationId)
+      : null
+    if (parsed.data.workflow || existingWorkflow) {
+      if (parsed.data.attachment) {
+        return res.status(400).json({ error: 'Attachments are not supported in this Talk workflow yet.' })
+      }
+      const result = await runTalkWorkflowTurn({
+        userId,
+        conversationId: parsed.data.conversationId!,
+        anchorDate: parsed.data.workflow?.anchorDate ?? existingWorkflow?.anchorDate ?? formatLocalDateAtOffset(new Date(), timeZone, 0),
+        timeZone: existingWorkflow?.timeZone ?? timeZone,
+        model: parsed.data.model,
+        messages: parsed.data.messages,
+      })
+      return res.json(result)
+    }
+  } catch (error) {
+    if (error instanceof TalkWorkflowBillingError) {
+      const status = error.code === 'insufficient_credits' ? 402 : 500
+      return res.status(status).json({ error: error.message, code: error.code })
+    }
+    if (error instanceof TalkWorkflowConflictError) {
+      return res.status(409).json({ error: error.message, code: error.code })
+    }
+    if (error instanceof TalkProposalStaleError) {
+      return res.status(409).json({ error: error.message, code: error.code })
+    }
+    console.error('Talk workflow turn error:', error)
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Talk workflow failed',
+      code: 'talk_workflow_failed',
+    })
   }
 
   const capabilityContext = {
@@ -418,8 +485,17 @@ router.post('/chat/confirm', authenticateToken, async (req: AuthRequest, res) =>
   if (!parsed.success) return res.status(400).json({ error: 'Invalid pending action id' })
 
   try {
+    const workflowResult = await confirmTalkWorkflowAction(
+      req.user.userId,
+      parsed.data.actionId,
+      parsed.data.args,
+    )
+    if (workflowResult) return res.json(workflowResult)
     res.json(await executePendingAiAction(req.user.userId, parsed.data.actionId, parsed.data.args))
   } catch (error) {
+    if (error instanceof TalkProposalStaleError || error instanceof TalkWorkflowUnavailableError) {
+      return res.status(409).json({ error: error.message, code: error.code })
+    }
     if (error instanceof PendingAiActionUnavailableError) {
       return res.status(409).json({ error: error.message, code: error.code })
     }
@@ -441,8 +517,13 @@ router.post('/chat/cancel', authenticateToken, async (req: AuthRequest, res) => 
   if (!parsed.success) return res.status(400).json({ error: 'Invalid pending action id' })
 
   try {
+    const workflowResult = await cancelTalkWorkflowAction(req.user.userId, parsed.data.actionId)
+    if (workflowResult) return res.json(workflowResult)
     res.json(await cancelPendingAiAction(req.user.userId, parsed.data.actionId))
   } catch (error) {
+    if (error instanceof TalkWorkflowUnavailableError) {
+      return res.status(409).json({ error: error.message, code: error.code })
+    }
     res.status(400).json({ error: error instanceof Error ? error.message : 'Could not cancel action' })
   }
 })

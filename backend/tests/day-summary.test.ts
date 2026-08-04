@@ -288,6 +288,324 @@ describe('Daily Plan placement validation', () => {
       reasons: ['conflicts_with:item:task-1'],
     })
   })
+
+  it('validates against the HealthyFlow plan when Calendar is not connected', async () => {
+    const planDependencies = dependencies([])
+    planDependencies.getCalendarStatus.mockResolvedValue({ connected: false })
+
+    const result = await validateDailyPlacement(
+      'user-1',
+      {
+        date: '2026-07-27',
+        timeZone: 'UTC',
+        startTime: '09:00',
+        durationMinutes: 90,
+        transitionMinutes: 15,
+      },
+      {
+        now: new Date('2026-07-26T08:00:00.000Z'),
+        dependencies: planDependencies,
+      },
+    )
+
+    expect(result).toMatchObject({
+      status: 'valid',
+      requestedMinutes: 105,
+      availableMinutes: 600,
+      reasons: ['calendar_not_connected'],
+    })
+  })
+
+  it('still rejects a known HealthyFlow conflict when Calendar is unavailable', async () => {
+    const planDependencies = dependencies([
+      item({ id: 'task-1', startTime: '09:30', duration: 60 }),
+    ])
+    planDependencies.getCalendarStatus.mockRejectedValue(new Error('calendar unavailable'))
+
+    const result = await validateDailyPlacement(
+      'user-1',
+      {
+        date: '2026-07-27',
+        timeZone: 'UTC',
+        startTime: '09:00',
+        durationMinutes: 90,
+        transitionMinutes: 0,
+      },
+      {
+        now: new Date('2026-07-26T08:00:00.000Z'),
+        dependencies: planDependencies,
+      },
+    )
+
+    expect(result).toMatchObject({
+      status: 'invalid',
+      reasons: ['calendar_unavailable', 'conflicts_with:item:task-1'],
+    })
+  })
+
+  // Changed from `indeterminate` to `valid`: an Item with an unknown duration is a
+  // data gap, not a known collision, so it no longer refuses every placement on the
+  // day. It is still collision-checked over MINIMUM_OBLIGATION_MINUTES — the 09:00
+  // placement here is clear of the 11:00 Item's minimum interval, so it stays valid.
+  it('reports an unknown HealthyFlow Item duration as a warning, not a refusal', async () => {
+    const planDependencies = dependencies([
+      item({ id: 'task-1', startTime: '11:00', duration: null }),
+    ])
+    planDependencies.getCalendarStatus.mockResolvedValue({ connected: false })
+
+    const result = await validateDailyPlacement(
+      'user-1',
+      {
+        date: '2026-07-27',
+        timeZone: 'UTC',
+        startTime: '09:00',
+        durationMinutes: 60,
+        transitionMinutes: 0,
+      },
+      {
+        now: new Date('2026-07-26T08:00:00.000Z'),
+        dependencies: planDependencies,
+      },
+    )
+
+    expect(result).toMatchObject({
+      status: 'valid',
+      reasons: ['calendar_not_connected', 'item_missing_duration'],
+    })
+  })
+})
+
+describe('Daily Plan placement without a planning window', () => {
+  const dependencies = (
+    items: DaySummaryItem[],
+    settingsOverrides: Record<string, unknown> = {},
+  ) => ({
+    itemsForDay: jest.fn().mockImplementation((_userId, date) => (
+      Promise.resolve(date === '2026-07-27' ? items : [])
+    )),
+    getSettings: jest.fn().mockResolvedValue({
+      weekStartsOn: 1,
+      calorieIntake: true,
+      workoutTracker: true,
+      achievementTracker: true,
+      planningWindow: null,
+      ...settingsOverrides,
+    }),
+    getCalendarStatus: jest.fn().mockResolvedValue({ connected: true }),
+    getCalendarEvents: jest.fn().mockResolvedValue([]),
+    getCalorieEntries: jest.fn().mockResolvedValue([]),
+    getWeightEntry: jest.fn().mockResolvedValue(null),
+    getWorkoutSessions: jest.fn().mockResolvedValue([]),
+    getAchievements: jest.fn().mockResolvedValue([]),
+    listDayFocusBlocks: jest.fn().mockResolvedValue([]),
+  })
+
+  const validate = (
+    overrides: Record<string, unknown>,
+    deps: ReturnType<typeof dependencies>,
+  ) => validateDailyPlacement(
+    'user-1',
+    {
+      date: '2026-07-27',
+      timeZone: 'UTC',
+      startTime: '09:00',
+      durationMinutes: 60,
+      transitionMinutes: 0,
+      ...overrides,
+    } as never,
+    {
+      now: new Date('2026-07-26T08:00:00.000Z'),
+      dependencies: deps,
+    },
+  )
+
+  it('still detects a real Item overlap when no planning window is configured', async () => {
+    const result = await validate(
+      { startTime: '09:00', durationMinutes: 90 },
+      dependencies([item({ id: 'task-1', startTime: '09:30', duration: 60 })]),
+    )
+
+    expect(result.status).toBe('invalid')
+    expect(result.reasons).toContain('conflicts_with:item:task-1')
+    expect(result.reasons).toContain('planning_window_missing')
+  })
+
+  const focusBlockId = '11111111-1111-4111-8111-111111111111'
+
+  it('still detects a Focus block overlap when no planning window is configured', async () => {
+    const deps = dependencies([])
+    deps.listDayFocusBlocks.mockResolvedValue([{
+      id: focusBlockId,
+      projectId: '22222222-2222-4222-8222-222222222222',
+      taskIds: [],
+      standaloneTitle: null,
+      standaloneContext: null,
+      scheduledDate: '2026-07-27',
+      startTime: '09:00',
+      slot: '09:00',
+      plannedMinutes: 60,
+      intendedOutcome: 'Outcome',
+      intendedEvidence: 'Evidence',
+      transitionMinutes: 0,
+      breakMinutes: 0,
+      status: 'planned',
+      reviewTrigger: null,
+      startedAt: null,
+      endedAt: null,
+      project: null,
+      tasks: [],
+      createdAt: '2026-07-20T08:00:00.000Z',
+      updatedAt: '2026-07-20T08:00:00.000Z',
+    }])
+
+    const result = await validate({ startTime: '09:30', durationMinutes: 30 }, deps)
+
+    expect(result.status).toBe('invalid')
+    expect(result.reasons).toContain(`conflicts_with:focus_block:${focusBlockId}`)
+  })
+
+  it('allows a clear slot with no planning window, flagged as unbounded', async () => {
+    const result = await validate({ startTime: '09:00', durationMinutes: 60 }, dependencies([]))
+
+    expect(result).toMatchObject({
+      status: 'valid',
+      availableMinutes: null,
+      reasons: ['planning_window_missing'],
+    })
+  })
+
+  it('treats an out-of-window start time as a warning on a valid placement', async () => {
+    const result = await validate(
+      { startTime: '19:00', durationMinutes: 60 },
+      dependencies([], { planningWindow }),
+    )
+
+    expect(result).toMatchObject({
+      status: 'valid',
+      reasons: ['outside_planning_window'],
+    })
+  })
+
+  it('still rejects a real overlap when a planning window is configured', async () => {
+    const result = await validate(
+      { startTime: '09:00', durationMinutes: 90 },
+      dependencies([item({ id: 'task-1', startTime: '09:30', duration: 60 })], { planningWindow }),
+    )
+
+    expect(result.status).toBe('invalid')
+    expect(result.reasons).toContain('conflicts_with:item:task-1')
+  })
+
+  // An Item with a usable start time is a KNOWN obligation. Not knowing how long it
+  // runs must not erase knowing when it starts, so it is collision-checked over a
+  // MINIMUM_OBLIGATION_MINUTES floor. The advisory reason code is still reported.
+  describe.each([
+    ['a missing duration', null, 'item_missing_duration'],
+    ['an invalid duration', 0, 'item_invalid_duration'],
+  ])('an Item with %s', (_label, duration, warning) => {
+    const unmeasured = () => dependencies(
+      [item({ id: 'task-1', startTime: '14:00', duration: duration as number | null })],
+      { planningWindow },
+    )
+
+    it('conflicts with a placement over its minimum interval', async () => {
+      const result = await validate({ startTime: '14:00', durationMinutes: 60 }, unmeasured())
+
+      expect(result.status).toBe('invalid')
+      expect(result.reasons).toContain('conflicts_with:item:task-1')
+      // The warning survives the refusal — nothing becomes invisible.
+      expect(result.reasons).toContain(warning)
+    })
+
+    it('leaves a placement clear of the minimum interval valid', async () => {
+      const result = await validate({ startTime: '08:00', durationMinutes: 60 }, unmeasured())
+
+      expect(result.status).toBe('valid')
+      expect(result.reasons).toContain(warning)
+      expect(result.reasons.some(reason => reason.startsWith('conflicts_with:'))).toBe(false)
+    })
+
+    // Pins the extent: 14:00 + MINIMUM_OBLIGATION_MINUTES (15) + buffer (15) = 14:30.
+    it('ends exactly at start + MINIMUM_OBLIGATION_MINUTES + buffer', async () => {
+      const inside = await validate({ startTime: '14:15', durationMinutes: 60 }, unmeasured())
+      expect(inside.status).toBe('invalid')
+
+      const outside = await validate({ startTime: '14:30', durationMinutes: 60 }, unmeasured())
+      expect(outside.status).toBe('valid')
+    })
+  })
+
+  // Asymmetry by design: an Item without a usable start time places nowhere, so it
+  // can only ever be advisory. Anytime Items are the reachable form of this — an
+  // unparseable start time is normalised to null by the row mapper before it gets
+  // here, so `item_invalid_start_time` cannot be produced through buildDaySummary.
+  it('contributes no interval for an Item with no start time', async () => {
+    const result = await validate(
+      { startTime: '14:00', durationMinutes: 60 },
+      dependencies(
+        [item({ id: 'task-1', startTime: null, duration: null })],
+        { planningWindow },
+      ),
+    )
+
+    expect(result.status).toBe('valid')
+    expect(result.reasons.some(reason => reason.startsWith('conflicts_with:'))).toBe(false)
+  })
+
+  it('treats a budget shortfall as a warning, not a refusal', async () => {
+    const result = await validate(
+      { startTime: '08:00', durationMinutes: 1200 },
+      dependencies([], { planningWindow }),
+    )
+
+    expect(result.status).toBe('valid')
+    expect(result.reasons).toContain('insufficient_available_minutes')
+  })
+
+  it('is indeterminate only for a missing or invalid timezone', async () => {
+    const missing = await validate({ timeZone: null }, dependencies([]))
+    expect(missing).toMatchObject({
+      status: 'indeterminate',
+      reasons: expect.arrayContaining(['timezone_missing']),
+    })
+
+    const invalid = await validate({ timeZone: 'Not/A_Timezone' }, dependencies([]))
+    expect(invalid).toMatchObject({
+      status: 'indeterminate',
+      reasons: expect.arrayContaining(['timezone_invalid']),
+    })
+  })
+
+  // SAFETY INVARIANT: `valid` must mean the collision check actually ran.
+  // talk-workflow.ts gates Focus block writes on `status === 'valid'`, so any input
+  // that overlaps a known obligation must never come back `valid`, whatever the
+  // capacity status is.
+  it('never returns valid for an overlapping placement, in any capacity state', async () => {
+    const overlapping = item({ id: 'task-1', startTime: '09:30', duration: 60 })
+    const capacityStates: Array<[string, ReturnType<typeof dependencies>]> = [
+      ['no planning window', dependencies([overlapping])],
+      ['planning window set', dependencies([overlapping], { planningWindow })],
+    ]
+    const noCalendar = dependencies([overlapping])
+    noCalendar.getCalendarStatus.mockResolvedValue({ connected: false })
+    capacityStates.push(['calendar not connected', noCalendar])
+    const brokenCalendar = dependencies([overlapping], { planningWindow })
+    brokenCalendar.getCalendarStatus.mockRejectedValue(new Error('calendar unavailable'))
+    capacityStates.push(['calendar unavailable', brokenCalendar])
+    const badWindow = dependencies([overlapping], { planningWindow: { startTime: 'nope' } })
+    capacityStates.push(['invalid planning window', badWindow])
+    // A known start with an unmeasured length is still a known obligation.
+    capacityStates.push([
+      'unmeasured Item duration',
+      dependencies([item({ id: 'task-1', startTime: '09:00', duration: null })]),
+    ])
+
+    for (const [label, deps] of capacityStates) {
+      const result = await validate({ startTime: '09:00', durationMinutes: 90 }, deps)
+      expect([label, result.status]).toEqual([label, 'invalid'])
+      expect(result.reasons).toContain('conflicts_with:item:task-1')
+    }
+  })
 })
 
 describe('DaySummary attention derivation', () => {

@@ -77,6 +77,11 @@ The React app is served under `/app`; `/` serves the marketing page
 - **parse-meals** — plain-language food in, Calorie entries with macros out.
 - Conversational chat over the user's own day, with saved conversations
   (list / rename / delete) and a confirm/cancel step before anything is written.
+- Work's **Plan in Talk** handoff starts a durable focused-work workflow. A
+  bounded single agent reads only Daily Plan and Work capabilities, asks one
+  capacity clarification when needed, and drafts one editable Focus block.
+  Workflow stage and proposal state persist separately from chat messages;
+  confirmation revalidates current records and creates the block exactly once.
 - Voice input (speech-to-text) and text-to-speech playback.
 - Server-keyed only. There is no BYOK flow.
 - AI runs on **credits**; the core app works without them.

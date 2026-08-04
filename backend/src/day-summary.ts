@@ -40,6 +40,25 @@ type MinuteInterval = { start: number; end: number }
 
 const CAPACITY_REASON_ORDER: CapacityReasonCode[] = CapacityReasonCodeSchema.options
 
+// Placement blocks only on what HealthyFlow knows to be true. A missing or
+// invalid timezone is the one gap that makes every clock time meaningless, so
+// nothing can be asserted about a placement at all. Every other reason code —
+// no planning window, an unreadable window, an optional Calendar we cannot see,
+// an Item whose duration is unknown — informs the caller as an advisory warning
+// on a `valid` result, and never refuses the placement on its own.
+const BLOCKING_UNCERTAINTY_REASONS = new Set<CapacityReasonCode>([
+  'timezone_missing',
+  'timezone_invalid',
+])
+
+/**
+ * The floor an obligation occupies when HealthyFlow knows *when* it starts but not
+ * *how long* it runs. It is a minimum, not a guess at the real duration: uncertainty
+ * about length must not erase certainty about the start time, so a placement landing
+ * on top of an unmeasured Item is still a real collision.
+ */
+export const MINIMUM_OBLIGATION_MINUTES = 15
+
 const normalizeClockTime = (value: unknown): string | null => {
   if (typeof value !== 'string') return null
   const candidate = value.slice(0, 5)
@@ -1161,29 +1180,59 @@ function capacityAvailableMinutes(capacity: DaySummaryCapacity): number | null {
   return null
 }
 
+/**
+ * The collision check. It runs for every placement, whatever the capacity status
+ * is, because it depends on the day's obligations — not on the user's preferences.
+ * A planning window contributes exactly one integer here (the transition buffer)
+ * and one advisory boundary; its absence must never disable the check.
+ *
+ * Hard conflicts (real overlaps) and the soft out-of-window warning are returned
+ * separately so only the former can refuse a placement.
+ */
 function placementConflictReasons(
   summary: DaySummary,
   input: DailyPlanPlacementInput,
-): DailyPlanPlacementReason[] {
-  if (summary.capacity.status !== 'complete') return []
+): { conflicts: DailyPlanPlacementReason[]; outsidePlanningWindow: boolean } {
   const start = timeToMinutes(input.startTime)!
   const end = start + input.durationMinutes + input.transitionMinutes
-  const windowStart = timeToMinutes(summary.capacity.window.consideredStartTime)!
-  const windowEnd = timeToMinutes(summary.capacity.window.consideredEndTime)!
+  // `window` is null whenever capacity is unavailable (no window configured, an
+  // unreadable one, or an unusable timezone).
+  const window = summary.capacity.status === 'unavailable' ? null : summary.capacity.window
+  const windowStart = window ? timeToMinutes(window.consideredStartTime)! : null
+  const windowEnd = window ? timeToMinutes(window.consideredEndTime)! : null
+  const outsidePlanningWindow = windowStart != null && windowEnd != null
+    && (start < windowStart || end > windowEnd)
   const reasons: DailyPlanPlacementReason[] = []
-  if (start < windowStart || end > windowEnd) reasons.push('outside_planning_window')
 
-  const buffer = summary.capacity.window.transitionBufferMinutes
+  const buffer = window?.transitionBufferMinutes ?? 0
   const intervals = [
+    // A usable start time is enough to occupy the clock. An Item whose duration is
+    // missing or unusable falls back to MINIMUM_OBLIGATION_MINUTES rather than
+    // dropping out of the check. An Item with no usable start time contributes no
+    // interval — there is nowhere to place it — so it stays advisory only.
     ...summary.items
-      .filter(item => item.startTime && item.duration && !item.completed)
-      .map(item => ({ id: `item:${item.id}`, start: timeToMinutes(item.startTime!)!, end: timeToMinutes(item.startTime!)! + item.duration! + buffer })),
+      .filter(item => !item.completed && item.startTime != null && timeToMinutes(item.startTime) != null)
+      .map(item => {
+        const start = timeToMinutes(item.startTime!)!
+        const measured = item.duration != null && Number.isFinite(item.duration) && item.duration > 0
+          ? Math.round(item.duration)
+          : MINIMUM_OBLIGATION_MINUTES
+        return { id: `item:${item.id}`, start, end: start + measured + buffer }
+      }),
     ...summary.calendar.events
       .filter(event => event.localStartTime && event.localEndTime && !event.completed)
       .map(event => ({ id: `calendar_event:${event.id}`, start: timeToMinutes(event.localStartTime!)!, end: timeToMinutes(event.localEndTime!)! + buffer })),
     ...summary.work.focusBlocks
       .filter(block => block.status !== 'canceled' && block.status !== 'completed')
-      .map(block => ({ id: `focus_block:${block.id}`, start: timeToMinutes(block.startTime)!, end: timeToMinutes(block.startTime)! + block.plannedMinutes + buffer })),
+      .map(block => ({
+        id: `focus_block:${block.id}`,
+        start: timeToMinutes(block.startTime)!,
+        end: timeToMinutes(block.startTime)!
+          + block.plannedMinutes
+          + (block.breakMinutes ?? 0)
+          + (block.transitionMinutes ?? 0)
+          + buffer,
+      })),
   ]
 
   for (const interval of intervals) {
@@ -1191,7 +1240,7 @@ function placementConflictReasons(
       reasons.push(`conflicts_with:${interval.id}` as DailyPlanPlacementReason)
     }
   }
-  return [...new Set(reasons)]
+  return { conflicts: [...new Set(reasons)], outsidePlanningWindow }
 }
 
 export async function validateDailyPlacement(
@@ -1206,21 +1255,32 @@ export async function validateDailyPlacement(
   const summary = await buildDaySummary(userId, input.date, input.timeZone, options)
   const requestedMinutes = input.durationMinutes + input.transitionMinutes
   const reasons: DailyPlanPlacementReason[] = [...summary.capacity.reasonCodes]
-  const conflicts = placementConflictReasons(summary, input)
+  // Always runs — a `valid` status must mean the collision check executed.
+  const { conflicts, outsidePlanningWindow } = placementConflictReasons(summary, input)
+  const availableMinutes = capacityAvailableMinutes(summary.capacity)
+  // A window-derived budget: a preference, so it warns rather than refuses.
+  const insufficientKnownCapacity = availableMinutes != null && requestedMinutes > availableMinutes
+  const hasBlockingUncertainty = summary.capacity.reasonCodes
+    .some(reason => BLOCKING_UNCERTAINTY_REASONS.has(reason))
   let status: DailyPlanPlacementValidation['status']
 
-  if (summary.capacity.status !== 'complete') status = 'indeterminate'
-  else if (requestedMinutes > summary.capacity.availableMinutes || conflicts.length > 0) {
-    status = 'invalid'
-    if (requestedMinutes > summary.capacity.availableMinutes) reasons.push('insufficient_available_minutes')
-    reasons.push(...conflicts)
-  } else status = 'valid'
+  // Only a real overlap refuses. Uncertainty about the clock itself is the only
+  // thing that makes the answer unknowable; everything else is advisory.
+  if (conflicts.length > 0) status = 'invalid'
+  else if (hasBlockingUncertainty) status = 'indeterminate'
+  else status = 'valid'
+
+  // Every reason stays visible, including on a `valid` result, so a caller can
+  // always see why a placement was accepted unbounded.
+  if (insufficientKnownCapacity) reasons.push('insufficient_available_minutes')
+  if (outsidePlanningWindow) reasons.push('outside_planning_window')
+  reasons.push(...conflicts)
 
   return DailyPlanPlacementValidationSchema.parse({
     date: input.date,
     status,
     requestedMinutes,
-    availableMinutes: capacityAvailableMinutes(summary.capacity),
+    availableMinutes,
     reasons,
     preview: {
       startTime: input.startTime,

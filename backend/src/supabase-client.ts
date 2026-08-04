@@ -7,6 +7,7 @@ import { weightDb } from './db/weight'
 import { achievementsDb } from './db/achievements'
 import { pushDb } from './db/push'
 import { assistantConversationsDb } from './db/assistant-conversations'
+import { talkWorkflowsDb } from './db/talk-workflows'
 
 // Re-export the shared client so existing
 // `import { supabase } from './supabase-client'` call sites keep working.
@@ -21,6 +22,7 @@ export const db = {
   ...achievementsDb,
   ...pushDb,
   ...assistantConversationsDb,
+  ...talkWorkflowsDb,
   // Users
   async createUser(userData: {
     email: string
@@ -1892,16 +1894,28 @@ export const db = {
     model?: string | null
     request_id?: string | null
   }) {
+    const payload = {
+      ...row,
+      args_summary: row.args_summary ?? {},
+      target_ids: row.target_ids ?? [],
+      result: row.result ?? {},
+    }
     const { data, error } = await supabase
       .from('ai_audit_log')
-      .insert({
-        ...row,
-        args_summary: row.args_summary ?? {},
-        target_ids: row.target_ids ?? [],
-        result: row.result ?? {},
-      })
+      .insert(payload)
       .select()
       .single()
+    if (error && error.code === '23505' && row.request_id) {
+      const { data: existing, error: lookupError } = await supabase
+        .from('ai_audit_log')
+        .select('*')
+        .eq('user_id', row.user_id)
+        .eq('request_id', row.request_id)
+        .eq('tool', row.tool)
+        .single()
+      if (lookupError) throw lookupError
+      return existing
+    }
     if (error) throw error
     return data
   },
@@ -1929,17 +1943,33 @@ export const db = {
       .insert(row)
       .select()
       .single()
+    if (error && error.code === '23505') {
+      const { data: existing, error: lookupError } = await supabase
+        .from('ai_idempotency')
+        .select('*')
+        .eq('user_id', row.user_id)
+        .eq('request_id', row.request_id)
+        .eq('tool', row.tool)
+        .single()
+      if (lookupError) throw lookupError
+      return existing
+    }
     if (error) throw error
     return data
   },
 
   async createAiPendingAction(row: {
+    id?: string
     user_id: string
     capability: string
     args: unknown
     preview: unknown
     caller: 'internal' | 'mcp'
     expires_at: string
+    workflow_id?: string
+    workflow_revision?: number
+    source_fingerprint?: string
+    status?: 'presented'
   }) {
     const { data, error } = await supabase
       .from('ai_pending_actions')
@@ -1963,7 +1993,11 @@ export const db = {
   async markAiPendingActionExecuted(actionId: string) {
     const { data, error } = await supabase
       .from('ai_pending_actions')
-      .update({ executed_at: new Date().toISOString() })
+      .update({
+        status: 'executed',
+        executed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', actionId)
       .select()
       .single()
@@ -1974,7 +2008,11 @@ export const db = {
   async cancelAiPendingAction(actionId: string, userId: string) {
     const { data, error } = await supabase
       .from('ai_pending_actions')
-      .update({ canceled_at: new Date().toISOString() })
+      .update({
+        status: 'declined',
+        canceled_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', actionId)
       .eq('user_id', userId)
       .select()
