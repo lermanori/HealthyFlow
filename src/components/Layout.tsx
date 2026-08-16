@@ -22,7 +22,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useSettings } from '../hooks/useSettings'
 import type { ModuleNoticeState } from '../App'
 import { useModalFocus } from '../hooks/useModalFocus'
-import { WEEK_VIEW_ENABLED } from '../featureFlags'
+import { WEEK_VIEW_ENABLED, WORK_ENABLED } from '../featureFlags'
 import { MODULE_PRESENTATIONS } from '../modulePresentation'
 import { parseDemoPersonaId } from '../demoPersonas'
 import { analytics } from '../lib/analytics'
@@ -106,7 +106,7 @@ export default function Layout({ children }: LayoutProps) {
       id: 'plan',
       label: 'Plan',
       items: [
-        { name: 'Work', href: '/work', icon: Briefcase },
+        ...(WORK_ENABLED ? [{ name: 'Work', href: '/work', icon: Briefcase }] : []),
         ...(WEEK_VIEW_ENABLED ? [{ name: 'Week', href: '/week', icon: Calendar }] : []),
       ],
     },

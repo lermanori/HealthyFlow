@@ -28,7 +28,7 @@ import {
   type ModuleAvailability,
   type OptionalModule,
 } from './modulePresentation'
-import { WEEK_VIEW_ENABLED } from './featureFlags'
+import { WEEK_VIEW_ENABLED, WORK_ENABLED } from './featureFlags'
 
 export interface ModuleNoticeState {
   moduleNotice: {
@@ -148,7 +148,7 @@ function App() {
           <Route path="/" element={<TodayPage />} />
           <Route path="/add" element={<AddItemPage />} />
           <Route path="/week" element={WEEK_VIEW_ENABLED ? <WeekViewPage /> : <Navigate to="/" replace />} />
-          <Route path="/work" element={<WorkPage />} />
+          <Route path="/work" element={WORK_ENABLED ? <WorkPage /> : <Navigate to="/" replace />} />
           <Route path="/talk" element={<AssistantPage />} />
           <Route path="/assistant" element={<AssistantRedirect />} />
           <Route path="/settings/*" element={<SettingsPage />} />

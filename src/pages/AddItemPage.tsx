@@ -36,6 +36,7 @@ import {
 import AITextAnalyzer from '../components/AITextAnalyzer'
 import MealAnalyzer from '../components/MealAnalyzer'
 import ProjectSelector from '../components/ProjectSelector'
+import { WORK_ENABLED } from '../featureFlags'
 import VoiceInput from '../components/VoiceInput'
 import { useSettings } from '../hooks/useSettings'
 import type { ModuleNoticeState } from '../App'
@@ -454,7 +455,9 @@ export default function AddItemPage() {
               </div>
             </div>
 
-            {todayType === 'task' && (
+            {/* Assigning a Project is only offered when Work is reachable —
+                otherwise the Task lands in a context the user cannot open. */}
+            {todayType === 'task' && WORK_ENABLED && (
               <ProjectSelector selectedProjectId={projectId} onProjectSelect={setProjectId} />
             )}
 
