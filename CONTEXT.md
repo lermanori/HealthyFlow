@@ -109,6 +109,35 @@ _Avoid_: session when you mean the planned Focus block; treating time spent as p
 
 ### AI surfaces
 
+**Talk workflow**:
+A durable, application-owned user goal pursued inside the Talk surface, drawn from
+a closed set (`plan_day`, `plan_work`, `run_focus_block`, `review_focus_block`,
+`replan_day`, `log_outcome`, `review_project`, `quick_chat`). It owns its own
+persisted state, its legal sequence of Talk stages, and its terminal status. The
+application selects the workflow and owns every transition; the model never
+changes the active workflow. One Talk conversation has at most one active Talk
+workflow, and closing one lets another start in the same conversation.
+_Avoid_: "agent", "session", "chat mode" — a Talk workflow is not an agent run
+
+**Talk stage**:
+The current step inside one Talk workflow (e.g. `resolve_scope`, `draft_task`,
+`await_task_confirmation`). A stage is either an **application activity**
+(deterministic code loading authoritative records and branching on facts) or an
+**agent activity** (one bounded model run with only the instructions, tools, and
+structured output contract that stage needs). A stage name states what is being
+done, so a generic `clarifying` is not a stage — `clarify_direction` is. A stage
+result becomes a typed event that the workflow's pure transition function may
+accept or reject; the model does not pick the next stage. Terminal status
+(`active`, `completed`, `declined`, `failed`) is tracked separately from the
+current stage.
+_Avoid_: using "stage" for the workflow itself, or for a capability
+
+Note that a Talk workflow, a Talk stage, and a capability are three different
+things: `plan_work` is a workflow, `draft_task` is one of its stages, and
+`add_work_task` is a reusable confirmed capability that any workflow may invoke.
+Creating a Task is therefore not its own Talk workflow. See
+`docs/adr/0009-application-owned-talk-state-machine.md`.
+
 **parse-tasks**:
 The endpoint and capability that takes free-form natural-language input and emits a structured list of `Item`s (v1: `task` + `habit` only). The user types a paragraph; the parser returns drop-in items the user can confirm or edit before saving.
 _Avoid_: "AI parser" (too vague), "task extractor" (loses the habit case)

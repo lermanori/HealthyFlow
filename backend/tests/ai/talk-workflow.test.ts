@@ -1,9 +1,5 @@
 jest.mock('../../src/supabase-client', () => ({
   db: {
-    getTalkWorkflowByConversation: jest.fn(),
-    getTalkWorkflowById: jest.fn(),
-    createTalkWorkflow: jest.fn(),
-    updateTalkWorkflowCas: jest.fn(),
     createAiPendingAction: jest.fn(),
     getAiPendingAction: jest.fn(),
     claimAiPendingAction: jest.fn(),
@@ -29,65 +25,74 @@ jest.mock('../../src/day-summary', () => ({
   validateDailyPlacement: jest.fn(),
 }))
 
+// Mocked at module level so the capability preview path resolves the same Work
+// scope the workflow does, without reaching Supabase.
 jest.mock('../../src/work', () => ({
-  Work: {
-    getScope: jest.fn(),
-    createFocusBlock: jest.fn(),
-  },
+  Work: { getScope: jest.fn(), createFocusBlock: jest.fn() },
 }))
 
-import { db } from '../../src/supabase-client'
-import { Credits } from '../../src/credits'
+import { executeAiCapability } from '../../src/ai-capabilities'
 import { buildDaySummary, validateDailyPlacement } from '../../src/day-summary'
-import {
-  FOCUSED_WORK_TOOL_NAMES,
-  selectTalkInstructionPacks,
-  type TalkAgentRuntime,
-  type TalkAgentRunResult,
-} from '../../src/talk-agent-runtime'
+import { db } from '../../src/supabase-client'
+import { TalkStageRunError, type TalkStageRunResult, type TalkStageRuntime } from '../../src/talk-agent-runtime'
+import { PLAN_WORK_DEFINITION } from '../../src/talk-workflow-definitions'
+import { createInMemoryTalkWorkflowStore } from '../../src/talk-workflow-store'
+import { Work } from '../../src/work'
 import {
   cancelTalkWorkflowAction,
   confirmTalkWorkflowAction,
+  continueTalkWorkflow,
   runTalkWorkflowTurn,
   TalkProposalStaleError,
+  type TalkWorkflowDeps,
 } from '../../src/talk-workflow'
-import { Work } from '../../src/work'
+
+jest.mock('../../src/ai-capabilities', () => {
+  const actual = jest.requireActual('../../src/ai-capabilities')
+  return { ...actual, executeAiCapability: jest.fn() }
+})
 
 const USER_ID = '10000000-0000-4000-8000-000000000001'
 const CONVERSATION_ID = '20000000-0000-4000-8000-000000000002'
-const WORKFLOW_ID = '30000000-0000-4000-8000-000000000003'
 const PROJECT_ID = '40000000-0000-4000-8000-000000000004'
 const TASK_ID = '50000000-0000-4000-8000-000000000005'
+const NEW_TASK_ID = '70000000-0000-4000-8000-000000000007'
 const FOCUS_BLOCK_ID = '60000000-0000-4000-8000-000000000006'
 const NOW = '2026-08-03T12:00:00.000Z'
+const ANCHOR = '2026-08-03'
 
-let workflowRow: any
 let pendingRows: Map<string, any>
 
-const scope = () => ({
-  project: {
-    id: PROJECT_ID,
-    name: 'HealthyFlow',
-    color: '#123456',
-    isArchived: false,
-    status: 'Active',
-    target: 'Ship Phase 5',
-    milestone: 'Safe Talk tracer',
-    definitionOfDone: null,
-    deadline: null,
-    context: { summary: '', blockers: [], constraints: [], nonGoals: [], decisions: [], links: [], nextStep: '' },
-    createdAt: NOW,
-  },
-  tasks: [{
-    id: TASK_ID,
-    title: 'Finish the Talk tracer',
-    status: 'open',
-    relation: 'Direct progress',
-    scheduledDate: '2026-08-03',
-    duration: 90,
-  }],
+const project = (overrides: Record<string, unknown> = {}) => ({
+  id: PROJECT_ID,
+  name: 'HealthyFlow',
+  isArchived: false,
+  status: 'Active',
+  target: 'Ship Phase 6',
+  milestone: 'Safe Talk orchestration',
+  definitionOfDone: null,
+  deadline: null,
+  context: { summary: '', blockers: [], constraints: [], nonGoals: [], decisions: [], links: [], nextStep: '' },
+  createdAt: NOW,
+  ...overrides,
+})
+
+const openTask = (overrides: Record<string, unknown> = {}) => ({
+  id: TASK_ID,
+  title: 'Finish the Talk tracer',
+  status: 'open',
+  relation: 'Direct progress',
+  scheduledDate: ANCHOR,
+  duration: 90,
+  ...overrides,
+})
+
+const scope = (overrides: Record<string, unknown> = {}) => ({
+  project: project(),
+  tasks: [openTask()],
   focusBlocks: [],
   sessions: [],
+  ...overrides,
 })
 
 const daySummary = () => ({
@@ -109,14 +114,11 @@ const daySummary = () => ({
   },
 })
 
-const proposalDecision = () => ({
-  kind: 'proposal' as const,
+const focusDraft = () => ({
+  kind: 'focus_draft' as const,
   message: 'I prepared one Focus block. Review it before applying.',
   question: null,
   focusMeaning: 'focused_minutes' as const,
-  projectId: PROJECT_ID,
-  taskIds: [TASK_ID],
-  scheduledDate: '2026-08-03',
   startTime: '14:00',
   plannedMinutes: 90,
   intendedOutcome: 'Complete the durable Talk tracer',
@@ -126,42 +128,74 @@ const proposalDecision = () => ({
   reasonCodes: [],
 })
 
-const runtimeResult = (decision: TalkAgentRunResult['decision']): TalkAgentRunResult => ({
-  decision,
-  toolEvents: [{ name: 'validate_daily_plan', args: {}, result: { ok: true } }],
-  usage: { promptTokens: 100, completionTokens: 40, totalTokens: 140 },
-  runtimeVersion: 'fake-runtime/v1',
-  instructionVersions: ['healthyflow-talk@1.0.0'],
-  toolNames: [...FOCUSED_WORK_TOOL_NAMES],
+const taskDraft = () => ({
+  kind: 'task_draft' as const,
+  message: 'This Project has no open Tasks, so I prepared one concrete next Task.',
+  question: null,
+  task: {
+    title: 'Implement the first Phase 6 planning slice',
+    relation: 'Direct progress' as const,
+    duration: 90,
+    scheduledDate: ANCHOR,
+  },
+  reasonCodes: [],
 })
 
-function fakeRuntime(decisions: TalkAgentRunResult['decision'][]): TalkAgentRuntime & { run: jest.Mock } {
+const stageResult = (output: unknown, contract: string, toolNames: string[] = []): TalkStageRunResult => ({
+  output,
+  outputContract: contract,
+  toolEvents: toolNames.map((name) => ({ name, args: {}, result: { ok: true } })),
+  usage: { promptTokens: 100, completionTokens: 40, totalTokens: 140 },
+  runtimeVersion: 'fake-runtime/v1',
+  instructionVersions: ['healthyflow-talk@1.1.0'],
+  toolNames,
+})
+
+/** Records what each stage was actually given, so tool leakage is observable. */
+function fakeRuntime(queue: Array<TalkStageRunResult | Error>): TalkStageRuntime & {
+  run: jest.Mock
+  stages: string[]
+} {
+  const stages: string[] = []
+  const run = jest.fn(async (input: any) => {
+    stages.push(input.stage)
+    const next = queue.shift()
+    if (!next) throw new Error(`No fake stage result queued for ${input.stage}`)
+    if (next instanceof Error) throw next
+    return next
+  })
+  return { run, stages } as any
+}
+
+const getScope = Work.getScope as jest.Mock
+
+function deps(overrides: Partial<TalkWorkflowDeps> = {}): TalkWorkflowDeps {
   return {
-    run: jest.fn(async () => {
-      const decision = decisions.shift()
-      if (!decision) throw new Error('No fake decision queued')
-      return runtimeResult(decision)
-    }),
+    store: createInMemoryTalkWorkflowStore([], () => NOW),
+    runtime: fakeRuntime([]),
+    work: Work as any,
+    now: () => new Date(NOW),
+    ...overrides,
   }
 }
 
-function installPersistenceHarness() {
-  ;(db.getTalkWorkflowByConversation as jest.Mock).mockImplementation(async () => workflowRow)
-  ;(db.getTalkWorkflowById as jest.Mock).mockImplementation(async () => workflowRow)
-  ;(db.createTalkWorkflow as jest.Mock).mockImplementation(async (row) => {
-    workflowRow = { ...row, id: WORKFLOW_ID, updated_at: NOW }
-    return workflowRow
+const turn = (d: TalkWorkflowDeps, messages = [{ role: 'user' as const, content: 'plan two focused hours' }]) =>
+  runTalkWorkflowTurn({
+    userId: USER_ID,
+    conversationId: CONVERSATION_ID,
+    anchorDate: ANCHOR,
+    timeZone: 'Asia/Jerusalem',
+    model: 'gpt-4o-mini',
+    messages,
+    projectId: PROJECT_ID,
+    deps: d,
   })
-  ;(db.updateTalkWorkflowCas as jest.Mock).mockImplementation(async (_userId, _workflowId, expectedRevision, updates) => {
-    if (!workflowRow || workflowRow.revision !== expectedRevision) return null
-    workflowRow = {
-      ...workflowRow,
-      ...updates,
-      revision: expectedRevision + 1,
-      updated_at: NOW,
-    }
-    return workflowRow
-  })
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  pendingRows = new Map()
+  ;(buildDaySummary as jest.Mock).mockResolvedValue(daySummary())
+  ;(validateDailyPlacement as jest.Mock).mockResolvedValue({ status: 'valid', reasons: [] })
   ;(db.createAiPendingAction as jest.Mock).mockImplementation(async (row) => {
     const action = {
       ...row,
@@ -169,341 +203,310 @@ function installPersistenceHarness() {
       executed_at: null,
       canceled_at: null,
       result: null,
-      updated_at: NOW,
       created_at: NOW,
+      updated_at: NOW,
     }
     pendingRows.set(action.id, action)
     return action
   })
-  ;(db.getAiPendingAction as jest.Mock).mockImplementation(async (actionId) => pendingRows.get(actionId) ?? null)
-  ;(db.claimAiPendingAction as jest.Mock).mockImplementation(async (actionId) => {
-    const action = pendingRows.get(actionId)
+  ;(db.getAiPendingAction as jest.Mock).mockImplementation(async (id) => pendingRows.get(id) ?? null)
+  ;(db.claimAiPendingAction as jest.Mock).mockImplementation(async (id) => {
+    const action = pendingRows.get(id)
     if (!action || action.status !== 'presented') return null
     action.status = 'executing'
     return action
   })
-  ;(db.completeAiPendingAction as jest.Mock).mockImplementation(async (actionId, _userId, result) => {
-    const action = pendingRows.get(actionId)
+  ;(db.completeAiPendingAction as jest.Mock).mockImplementation(async (id, _u, result) => {
+    const action = pendingRows.get(id)
     if (!action || action.status !== 'executing') return null
     Object.assign(action, { status: 'executed', result, executed_at: NOW })
     return action
   })
-  ;(db.setAiPendingActionState as jest.Mock).mockImplementation(async (actionId, _userId, status, updates = {}) => {
-    const action = pendingRows.get(actionId)
+  ;(db.setAiPendingActionState as jest.Mock).mockImplementation(async (id, _u, status, updates = {}) => {
+    const action = pendingRows.get(id)
     if (!action) return null
     Object.assign(action, updates, { status })
     if (status === 'declined') action.canceled_at = NOW
     return action
   })
+  getScope.mockResolvedValue(scope())
   ;(db.getAiIdempotency as jest.Mock).mockResolvedValue(null)
   ;(db.createAiIdempotency as jest.Mock).mockResolvedValue({ id: 'idem-1' })
   ;(db.createAiAuditLog as jest.Mock).mockResolvedValue({ id: 'audit-1' })
-}
+})
 
-describe('Phase 5 Talk workflow', () => {
-  beforeEach(() => {
-    jest.clearAllMocks()
-    workflowRow = null
-    pendingRows = new Map()
-    installPersistenceHarness()
-    ;(Work.getScope as jest.Mock).mockImplementation(async () => scope())
-    ;(buildDaySummary as jest.Mock).mockImplementation(async () => daySummary())
-    ;(validateDailyPlacement as jest.Mock).mockResolvedValue({
-      date: '2026-08-03',
-      status: 'valid',
-      requestedMinutes: 115,
-      availableMinutes: 600,
-      reasons: [],
-      preview: { startTime: '14:00', durationMinutes: 105, transitionMinutes: 10 },
-    })
-    ;(Work.createFocusBlock as jest.Mock).mockResolvedValue({
-      id: FOCUS_BLOCK_ID,
+describe('plan_work: aligned open Task', () => {
+  it('resolves Project and scope in application code and goes straight to Focus planning', async () => {
+    const runtime = fakeRuntime([
+      stageResult(focusDraft(), 'plan_work.focus_draft', ['validate_daily_plan']),
+    ])
+    const d = deps({ runtime })
+    const result = await turn(d)
+
+    // No model turn was spent listing Projects or reading Work scope.
+    expect(runtime.stages).toEqual(['draft_focus_block'])
+    expect(result.trace.map((entry) => `${entry.stage}:${entry.event}`)).toEqual([
+      'resolve_project:project_selected',
+      'resolve_scope:scope_aligned_tasks',
+      'draft_focus_block:focus_drafted',
+    ])
+    expect(result.workflow.stage).toBe('await_focus_confirmation')
+    expect(result.workflow.status).toBe('active')
+    expect(result.pendingActions).toHaveLength(1)
+    expect(result.pendingActions[0].capability).toBe('create_focus_block')
+  })
+
+  it('supplies the verified Project, Tasks, and anchor date rather than trusting the model', async () => {
+    const runtime = fakeRuntime([stageResult(focusDraft(), 'plan_work.focus_draft')])
+    const result = await turn(deps({ runtime }))
+    expect(result.pendingActions[0].args).toMatchObject({
       projectId: PROJECT_ID,
       taskIds: [TASK_ID],
-      standaloneTitle: null,
-      standaloneContext: null,
-      scheduledDate: '2026-08-03',
+      scheduledDate: ANCHOR,
       startTime: '14:00',
-      plannedMinutes: 90,
-      intendedOutcome: 'Complete the durable Talk tracer',
-      intendedEvidence: 'Green workflow and safety evals',
-      transitionMinutes: 10,
-      breakMinutes: 15,
-      status: 'planned',
-      reviewTrigger: null,
-      startedAt: null,
-      endedAt: null,
-      createdAt: NOW,
-      updatedAt: NOW,
     })
+    // The Focus stage was told which Tasks are already verified.
+    expect(runtime.run.mock.calls[0][0].stageContext.verifiedTaskIds).toEqual([TASK_ID])
   })
+})
 
-  it('loads only the stage-relevant instruction packs and six bounded non-write tools', () => {
-    expect(selectTalkInstructionPacks('interpreting', false).map((pack) => pack.name))
-      .toContain('one-useful-question')
-    expect(selectTalkInstructionPacks('gathering_context', false).map((pack) => pack.name))
-      .not.toContain('one-useful-question')
-    expect(selectTalkInstructionPacks('clarifying', true).map((pack) => pack.name))
-      .toContain('durable-workflow-resume')
-    expect(FOCUSED_WORK_TOOL_NAMES).toEqual([
-      'get_daily_plan',
-      'compute_daily_availability',
-      'validate_daily_plan',
-      'list_work_projects',
-      'get_work_scope',
-      'review_task_alignment',
+describe('plan_work: Project with no open Tasks', () => {
+  const emptyScope = () => scope({ tasks: [] })
+
+  it('drafts one Task without exposing Daily Plan tools', async () => {
+    const runtime = fakeRuntime([stageResult(taskDraft(), 'plan_work.task_draft')])
+    getScope.mockResolvedValue(emptyScope())
+    const d = deps({ runtime })
+    const result = await turn(d)
+
+    expect(runtime.stages).toEqual(['draft_task'])
+    expect(result.trace.map((entry) => entry.event)).toEqual([
+      'project_selected', 'scope_empty_with_direction', 'task_drafted',
     ])
-    expect(FOCUSED_WORK_TOOL_NAMES).not.toContain('create_focus_block')
+    expect(result.workflow.stage).toBe('await_task_confirmation')
+    expect(result.pendingActions[0].capability).toBe('add_work_task')
+    // The stage profile, not the prompt, is what withholds the tools.
+    expect(PLAN_WORK_DEFINITION.activity.draft_task).toMatchObject({ kind: 'agent', tools: [] })
   })
 
-  it('persists one useful clarification and resumes from that checkpoint', async () => {
+  it('asks one question instead of inventing a Task when direction is missing, without a model call', async () => {
+    const runtime = fakeRuntime([])
+    const bare = scope({
+      project: project({ target: '', milestone: '', definitionOfDone: null }),
+      tasks: [],
+    })
+    getScope.mockResolvedValue(bare)
+    const d = deps({ runtime })
+    const result = await turn(d)
+
+    expect(runtime.run).not.toHaveBeenCalled()
+    expect(result.workflow.stage).toBe('clarify_direction')
+    expect(result.message).toContain('outcome or next step')
+    expect(result.pendingActions).toHaveLength(0)
+  })
+
+  it('creates the confirmed Task exactly once and continues server-side into Focus planning', async () => {
     const runtime = fakeRuntime([
-      {
-        kind: 'ask',
-        message: 'I need one capacity clarification.',
-        question: 'Do you mean 90 focused minutes, or a 90-minute elapsed window including breaks?',
-        focusMeaning: null,
-        projectId: null,
-        taskIds: [],
-        scheduledDate: null,
-        startTime: null,
-        plannedMinutes: null,
-        intendedOutcome: null,
-        intendedEvidence: null,
-        transitionMinutes: null,
-        breakMinutes: null,
-        reasonCodes: [],
-      },
-      {
-        kind: 'blocked',
-        message: 'There is not enough available time today.',
-        question: null,
-        focusMeaning: 'focused_minutes',
-        projectId: null,
-        taskIds: [],
-        scheduledDate: null,
-        startTime: null,
-        plannedMinutes: null,
-        intendedOutcome: null,
-        intendedEvidence: null,
-        transitionMinutes: null,
-        breakMinutes: null,
-        reasonCodes: ['insufficient_available_minutes'],
-      },
+      stageResult(taskDraft(), 'plan_work.task_draft'),
+      stageResult(focusDraft(), 'plan_work.focus_draft', ['validate_daily_plan']),
     ])
+    getScope.mockResolvedValue(emptyScope())
+    const d = deps({ runtime })
+    const first = await turn(d)
+    const actionId = first.pendingActions[0].id
 
-    const first = await runTalkWorkflowTurn({
+    ;(executeAiCapability as jest.Mock).mockResolvedValue({
+      ok: true,
+      value: { task: { id: NEW_TASK_ID, title: 'Implement the first Phase 6 planning slice' } },
+    })
+    const confirmed = await confirmTalkWorkflowAction(USER_ID, actionId, undefined, d)
+    expect(confirmed?.result).toMatchObject({ task: { id: NEW_TASK_ID } })
+    expect(executeAiCapability).toHaveBeenCalledTimes(1)
+
+    const after = await d.store.getActiveByConversation(USER_ID, CONVERSATION_ID)
+    expect(after).toMatchObject({ stage: 'draft_focus_block', status: 'active', confirmationState: 'confirmed' })
+    expect(after!.state).toMatchObject({ createdTaskId: NEW_TASK_ID, selectedTaskIds: [NEW_TASK_ID] })
+
+    // Continuation is a typed application event, not a hidden user message.
+    getScope.mockResolvedValue(scope({ tasks: [openTask({ id: NEW_TASK_ID })] }))
+    const continued = await continueTalkWorkflow({
       userId: USER_ID,
       conversationId: CONVERSATION_ID,
-      anchorDate: '2026-08-03',
-      timeZone: 'Asia/Jerusalem',
       model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: 'Plan 90 minutes of focus.' }],
-      runtime,
+      deps: d,
     })
-    expect(first.message).toContain('focused minutes')
-    expect(first.workflow.stage).toBe('clarifying')
-
-    const second = await runTalkWorkflowTurn({
-      userId: USER_ID,
-      conversationId: CONVERSATION_ID,
-      anchorDate: '2026-08-03',
-      timeZone: 'Asia/Jerusalem',
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: 'Focused minutes.' }],
-      runtime,
-    })
-    expect(second.workflow.lastError).toBe('insufficient_available_minutes')
-    expect(runtime.run.mock.calls[0][0].resumed).toBe(false)
-    expect(runtime.run.mock.calls[1][0]).toEqual(expect.objectContaining({
-      resumed: true,
-      stage: 'clarifying',
-    }))
+    expect(continued!.trace.map((e) => `${e.stage}:${e.event}`)).toEqual([
+      'draft_focus_block:focus_drafted',
+    ])
+    expect(continued!.pendingActions[0].capability).toBe('create_focus_block')
+    expect(continued!.pendingActions[0].args).toMatchObject({ taskIds: [NEW_TASK_ID] })
+    expect(runtime.stages).toEqual(['draft_task', 'draft_focus_block'])
   })
 
-  it('validates schedule arithmetic and persists a confirmable proposal', async () => {
-    const result = await runTalkWorkflowTurn({
-      userId: USER_ID,
-      conversationId: CONVERSATION_ID,
-      anchorDate: '2026-08-03',
-      timeZone: 'Asia/Jerusalem',
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: 'Plan 90 focused minutes on HealthyFlow.' }],
-      runtime: fakeRuntime([proposalDecision()]),
+  it('returns the same result on a repeated confirmation without writing twice', async () => {
+    const runtime = fakeRuntime([stageResult(taskDraft(), 'plan_work.task_draft')])
+    getScope.mockResolvedValue(emptyScope())
+    const d = deps({ runtime })
+    const first = await turn(d)
+    const actionId = first.pendingActions[0].id
+    ;(executeAiCapability as jest.Mock).mockResolvedValue({
+      ok: true,
+      value: { task: { id: NEW_TASK_ID, title: 'Implement the first Phase 6 planning slice' } },
     })
 
-    expect(validateDailyPlacement).toHaveBeenCalledWith(USER_ID, {
-      date: '2026-08-03',
-      timeZone: 'Asia/Jerusalem',
-      startTime: '14:00',
-      durationMinutes: 105,
-      transitionMinutes: 10,
-    })
-    expect(result.workflow.stage).toBe('awaiting_confirmation')
-    expect(result.workflow.confirmationState).toBe('presented')
-    expect(result.pendingActions).toHaveLength(1)
-    expect(result.pendingActions[0]).toEqual(expect.objectContaining({
-      capability: 'create_focus_block',
-      workflowId: WORKFLOW_ID,
-    }))
-    expect(result.pendingActions[0].args.requestId).toBe(result.pendingActions[0].id)
+    await confirmTalkWorkflowAction(USER_ID, actionId, undefined, d)
+    const again = await confirmTalkWorkflowAction(USER_ID, actionId, undefined, d)
+    expect(again?.result).toMatchObject({ task: { id: NEW_TASK_ID } })
+    expect(executeAiCapability).toHaveBeenCalledTimes(1)
   })
 
-  it.each([
-    {
-      name: 'no Project',
-      arrange: () => (Work.getScope as jest.Mock).mockResolvedValue({ ...scope(), project: null }),
-      expected: 'Project is no longer available',
-    },
-    {
-      // `calendar_not_connected` is no longer an indeterminate state — placement
-      // only refuses on what it knows to be true, and an unusable timezone is the
-      // one gap that makes every clock time unjudgeable.
-      name: 'an unusable timezone',
-      arrange: () => (validateDailyPlacement as jest.Mock).mockResolvedValue({
-        date: '2026-08-03',
-        status: 'indeterminate',
-        requestedMinutes: 115,
-        availableMinutes: null,
-        reasons: ['timezone_missing'],
-        preview: { startTime: '14:00', durationMinutes: 105, transitionMinutes: 10 },
-      }),
-      expected: 'timezone_missing',
-    },
-    {
-      name: 'a time conflict',
-      arrange: () => (validateDailyPlacement as jest.Mock).mockResolvedValue({
-        date: '2026-08-03',
-        status: 'invalid',
-        requestedMinutes: 115,
-        availableMinutes: 460,
-        reasons: ['conflicts_with:calendar_event:event-1'],
-        preview: { startTime: '14:00', durationMinutes: 105, transitionMinutes: 10 },
-      }),
-      expected: 'conflicts_with:calendar_event:event-1',
-    },
-  ])('refuses a proposal when there is $name', async ({ arrange, expected }) => {
-    arrange()
-    const result = await runTalkWorkflowTurn({
-      userId: USER_ID,
-      conversationId: CONVERSATION_ID,
-      anchorDate: '2026-08-03',
-      timeZone: 'Asia/Jerusalem',
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: 'Plan my focused work.' }],
-      runtime: fakeRuntime([proposalDecision()]),
-    })
+  it('refuses a stale Task write and returns to drafting', async () => {
+    const runtime = fakeRuntime([stageResult(taskDraft(), 'plan_work.task_draft')])
+    getScope.mockResolvedValue(emptyScope())
+    const d = deps({ runtime })
+    const first = await turn(d)
+    const actionId = first.pendingActions[0].id
 
-    expect(result.pendingActions).toEqual([])
-    expect(result.message).toContain(expected)
-    expect(result.workflow.stage).toBe('clarifying')
+    // Someone added an open Task between preview and confirmation.
+    getScope.mockResolvedValue(scope())
+    await expect(confirmTalkWorkflowAction(USER_ID, actionId, undefined, d))
+      .rejects.toThrow(TalkProposalStaleError)
+    expect(executeAiCapability).not.toHaveBeenCalled()
+
+    const after = await d.store.getActiveByConversation(USER_ID, CONVERSATION_ID)
+    expect(after).toMatchObject({ stage: 'draft_task', status: 'active', confirmationState: 'stale' })
+  })
+})
+
+describe('plan_work: alignment review', () => {
+  it('routes open-but-unaligned Tasks to review_alignment rather than guessing', async () => {
+    const runtime = fakeRuntime([
+      stageResult(
+        { kind: 'alignment', message: 'This Task serves the target.', question: null, taskIds: [TASK_ID], reasonCodes: [] },
+        'plan_work.alignment_decision',
+        ['review_task_alignment'],
+      ),
+      stageResult(focusDraft(), 'plan_work.focus_draft'),
+    ])
+    // Unrecorded relation is the genuinely unclear case the stage exists for.
+    const unclear = scope({ tasks: [openTask({ relation: null })] })
+    getScope.mockResolvedValue(unclear)
+    const d = deps({ runtime })
+    const result = await turn(d)
+
+    expect(runtime.stages).toEqual(['review_alignment', 'draft_focus_block'])
+    expect(result.trace.map((e) => e.event)).toEqual([
+      'project_selected', 'scope_alignment_unclear', 'alignment_resolved', 'focus_drafted',
+    ])
   })
 
-  it('surfaces a runtime or tool-loop failure and persists a resumable failed stage', async () => {
-    const runtime: TalkAgentRuntime = {
-      run: jest.fn().mockRejectedValue(new Error('get_work_scope failed')),
-    }
+  it('rejects a selection that is not one of the loaded open Tasks', async () => {
+    const runtime = fakeRuntime([
+      stageResult(
+        { kind: 'alignment', message: 'ok', question: null, taskIds: ['99999999-9999-4999-8999-999999999999'], reasonCodes: [] },
+        'plan_work.alignment_decision',
+      ),
+    ])
+    getScope.mockResolvedValue(scope({ tasks: [openTask({ relation: null })] }))
+    const d = deps({ runtime })
+    const result = await turn(d)
+    expect(result.workflow.status).toBe('failed')
+    expect(result.trace.at(-1)?.event).toBe('stage_blocked')
+  })
+})
 
-    await expect(runTalkWorkflowTurn({
-      userId: USER_ID,
-      conversationId: CONVERSATION_ID,
-      anchorDate: '2026-08-03',
-      timeZone: 'Asia/Jerusalem',
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: 'Plan my focused work.' }],
-      runtime,
-    })).rejects.toThrow('get_work_scope failed')
+describe('plan_work: explicitly unaligned Tasks', () => {
+  it('will not let the model overturn a recorded Unrelated relation', async () => {
+    const runtime = fakeRuntime([])
+    getScope.mockResolvedValue(scope({ tasks: [openTask({ relation: 'Unrelated' })] }))
+    const result = await turn(deps({ runtime }))
+    expect(runtime.run).not.toHaveBeenCalled()
+    expect(result.workflow.status).toBe('failed')
+    expect(result.trace.at(-1)).toMatchObject({ stage: 'resolve_scope', event: 'stage_blocked' })
+  })
+})
 
-    expect(workflowRow.stage).toBe('failed')
-    expect(workflowRow.last_error).toBe('get_work_scope failed')
-    expect(Credits.settleReserved).toHaveBeenCalledWith(
-      USER_ID,
-      20,
-      { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-      { endpoint: 'talk-phase-5', model: 'gpt-4o-mini' },
-    )
+describe('plan_work: Focus confirmation', () => {
+  const presentFocus = async () => {
+    const runtime = fakeRuntime([stageResult(focusDraft(), 'plan_work.focus_draft')])
+    const d = deps({ runtime })
+    const first = await turn(d)
+    return { d, actionId: first.pendingActions[0].id }
+  }
+
+  it('applies a confirmed Focus block exactly once and completes the workflow', async () => {
+    const { d, actionId } = await presentFocus()
+    ;(executeAiCapability as jest.Mock).mockResolvedValue({
+      ok: true,
+      value: { focusBlock: { id: FOCUS_BLOCK_ID } },
+    })
+    await confirmTalkWorkflowAction(USER_ID, actionId, undefined, d)
+    await confirmTalkWorkflowAction(USER_ID, actionId, undefined, d)
+    expect(executeAiCapability).toHaveBeenCalledTimes(1)
+
+    const all = d.store.getById(USER_ID, (await d.store.listByConversation(USER_ID, CONVERSATION_ID))[0].id)
+    expect(await all).toMatchObject({
+      stage: 'await_focus_confirmation',
+      status: 'completed',
+      confirmationState: 'confirmed',
+    })
+    // The conversation is free to start a new workflow now.
+    expect(await d.store.getActiveByConversation(USER_ID, CONVERSATION_ID)).toBeNull()
   })
 
-  it('revalidates stale Tasks and refuses the write after confirmation', async () => {
-    const turn = await runTalkWorkflowTurn({
-      userId: USER_ID,
-      conversationId: CONVERSATION_ID,
-      anchorDate: '2026-08-03',
-      timeZone: 'Asia/Jerusalem',
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: 'Plan my focused work.' }],
-      runtime: fakeRuntime([proposalDecision()]),
-    })
-    ;(Work.getScope as jest.Mock).mockImplementation(async () => ({
-      ...scope(),
-      tasks: [{ ...scope().tasks[0], status: 'completed' }],
-    }))
-
-    await expect(confirmTalkWorkflowAction(USER_ID, turn.pendingActions[0].id))
-      .rejects.toBeInstanceOf(TalkProposalStaleError)
-    expect(Work.createFocusBlock).not.toHaveBeenCalled()
-    expect(workflowRow.stage).toBe('stale')
-    expect(pendingRows.get(turn.pendingActions[0].id).status).toBe('stale')
+  it('refuses a stale Focus proposal and returns to Focus drafting', async () => {
+    const { d, actionId } = await presentFocus()
+    ;(validateDailyPlacement as jest.Mock).mockResolvedValue({ status: 'conflict', reasons: ['overlap'] })
+    await expect(confirmTalkWorkflowAction(USER_ID, actionId, undefined, d))
+      .rejects.toThrow(TalkProposalStaleError)
+    expect(executeAiCapability).not.toHaveBeenCalled()
+    expect(await d.store.getActiveByConversation(USER_ID, CONVERSATION_ID))
+      .toMatchObject({ stage: 'draft_focus_block', confirmationState: 'stale' })
   })
 
-  it('returns an invalid edited preview to presented state without writing', async () => {
-    const turn = await runTalkWorkflowTurn({
-      userId: USER_ID,
-      conversationId: CONVERSATION_ID,
-      anchorDate: '2026-08-03',
-      timeZone: 'Asia/Jerusalem',
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: 'Plan my focused work.' }],
-      runtime: fakeRuntime([proposalDecision()]),
-    })
-    const actionId = turn.pendingActions[0].id
-
-    await expect(confirmTalkWorkflowAction(USER_ID, actionId, { plannedMinutes: 0 }))
-      .rejects.toMatchObject({ name: 'ZodError' })
-    expect(pendingRows.get(actionId).status).toBe('presented')
-    expect(Work.createFocusBlock).not.toHaveBeenCalled()
+  it('records a decline without writing', async () => {
+    const { d, actionId } = await presentFocus()
+    await cancelTalkWorkflowAction(USER_ID, actionId, d)
+    expect(executeAiCapability).not.toHaveBeenCalled()
+    const history = await d.store.listByConversation(USER_ID, CONVERSATION_ID)
+    expect(history[0]).toMatchObject({ status: 'declined', confirmationState: 'declined' })
   })
 
-  it('applies a proposal exactly once across repeated confirmation requests', async () => {
-    const turn = await runTalkWorkflowTurn({
-      userId: USER_ID,
-      conversationId: CONVERSATION_ID,
-      anchorDate: '2026-08-03',
-      timeZone: 'Asia/Jerusalem',
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: 'Plan my focused work.' }],
-      runtime: fakeRuntime([proposalDecision()]),
+  it('holds the workflow at the preview instead of drafting another proposal', async () => {
+    const { d } = await presentFocus()
+    const second = await turn(d)
+    expect(second.message).toContain('Confirm or Cancel')
+    expect(second.pendingActions).toHaveLength(1)
+    expect(second.trace).toHaveLength(0)
+  })
+})
+
+describe('plan_work: stage failures', () => {
+  it('preserves the completed tool sequence when a stage exceeds its budget', async () => {
+    const failure = new TalkStageRunError('Max turns (6) exceeded', {
+      workflowName: 'plan_work',
+      stage: 'draft_focus_block',
+      toolEvents: [
+        { name: 'validate_daily_plan', args: {}, result: { ok: true } },
+        { name: 'validate_daily_plan', args: {}, result: { ok: true } },
+      ],
     })
-    const actionId = turn.pendingActions[0].id
+    const runtime = fakeRuntime([failure])
+    const d = deps({ runtime })
+    const result = await turn(d)
 
-    const first = await confirmTalkWorkflowAction(USER_ID, actionId)
-    const second = await confirmTalkWorkflowAction(USER_ID, actionId)
-
-    expect(first).toEqual(second)
-    expect(Work.createFocusBlock).toHaveBeenCalledTimes(1)
-    expect(Work.createFocusBlock).toHaveBeenCalledWith(
-      USER_ID,
-      expect.objectContaining({ projectId: PROJECT_ID, taskIds: [TASK_ID] }),
-      { requestId: actionId },
-    )
-    expect(workflowRow.stage).toBe('applied')
-    expect(Credits.settleReserved).toHaveBeenCalledTimes(1)
+    expect(result.workflow.status).toBe('failed')
+    expect(result.workflow.stage).toBe('draft_focus_block')
+    expect(result.toolEvents.map((e) => e.name)).toEqual(['validate_daily_plan', 'validate_daily_plan'])
+    expect(result.workflow.lastError).toContain('Max turns')
+    expect(result.trace.at(-1)).toMatchObject({ event: 'stage_failed', toolNames: ['validate_daily_plan', 'validate_daily_plan'] })
   })
 
-  it('records a declined proposal without writing', async () => {
-    const turn = await runTalkWorkflowTurn({
-      userId: USER_ID,
-      conversationId: CONVERSATION_ID,
-      anchorDate: '2026-08-03',
-      timeZone: 'Asia/Jerusalem',
-      model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: 'Plan my focused work.' }],
-      runtime: fakeRuntime([proposalDecision()]),
-    })
-
-    await cancelTalkWorkflowAction(USER_ID, turn.pendingActions[0].id)
-    expect(workflowRow.stage).toBe('declined')
-    expect(workflowRow.confirmation_state).toBe('declined')
-    expect(Work.createFocusBlock).not.toHaveBeenCalled()
+  it('blocks when the Project is no longer usable', async () => {
+    getScope.mockResolvedValue(scope({ project: project({ isArchived: true }) }))
+    const d = deps()
+    const result = await turn(d)
+    expect(result.workflow.status).toBe('failed')
+    expect(result.trace[0]).toMatchObject({ stage: 'resolve_project', event: 'stage_blocked' })
   })
 })

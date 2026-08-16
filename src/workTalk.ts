@@ -15,8 +15,23 @@ export interface WorkTalkContext {
   label: string
   prompt: string
   workflow?: {
-    name: 'plan_focused_work'
+    name: 'plan_work'
+    /** Verified Project id. The workflow resolves scope from this, not from prompt text. */
+    projectId: string
   }
+}
+
+/**
+ * Accepts the Phase 5 name so router state already in flight keeps working, and
+ * normalises it to plan_work. A handoff without a Project id is not a workflow
+ * handoff: the whole point is that the Project arrives verified.
+ */
+function parseWorkflow(value: unknown): WorkTalkContext['workflow'] {
+  if (!value || typeof value !== 'object') return undefined
+  const record = value as Record<string, unknown>
+  if (record.name !== 'plan_work' && record.name !== 'plan_focused_work') return undefined
+  if (typeof record.projectId !== 'string' || !record.projectId) return undefined
+  return { name: 'plan_work', projectId: record.projectId }
 }
 
 const MAX_LABEL = 120
@@ -36,11 +51,7 @@ export function workTalkContext(value: unknown): WorkTalkContext | null {
   return {
     label: record.label.slice(0, MAX_LABEL),
     prompt: prompt.slice(0, MAX_PROMPT),
-    workflow: record.workflow
-      && typeof record.workflow === 'object'
-      && (record.workflow as Record<string, unknown>).name === 'plan_focused_work'
-      ? { name: 'plan_focused_work' }
-      : undefined,
+    workflow: parseWorkflow(record.workflow),
   }
 }
 
@@ -82,13 +93,17 @@ export function planInTalkContext(project: WorkProject, tasks: TaskRecord[] = []
 
   return {
     label: `${project.name} · planning`,
-    workflow: { name: 'plan_focused_work' },
+    workflow: { name: 'plan_work', projectId: project.id },
     prompt: lines([
       `Help me plan focused work on ${project.name}.`,
       targetBlock(project),
       contextBlock(project),
       `Open Tasks:\n${openList}`,
-      'Check alignment against the target first, then propose one startable Focus block with observable evidence. Do not schedule an ordinary Task instead.',
+      // No architectural commands here. The plan_work workflow definition owns
+      // which stage runs and what it may produce; a prompt line ordering "one
+      // Focus block, never a Task" is exactly what fought the zero-Task branch
+      // in the ADR-0009 regression trace.
+      'Plan focused work that genuinely advances the target.',
     ]),
   }
 }
@@ -97,7 +112,7 @@ export function planInTalkContext(project: WorkProject, tasks: TaskRecord[] = []
  * "Discuss in Talk" — open-ended discussion of the Project.
  *
  * Deliberately carries no `workflow`: this is legacy Talk, not the durable
- * plan_focused_work runtime. Only planInTalkContext routes into a workflow.
+ * plan_work runtime. Only planInTalkContext routes into a workflow.
  */
 export function discussProjectContext(project: WorkProject): WorkTalkContext {
   return {

@@ -38,6 +38,9 @@ export async function invalidatePendingActionQueries(
       queryClient.invalidateQueries({ queryKey: ['workout-exercise-items'] })
     )
   }
+  if (['add_work_task', 'create_focus_block'].includes(action.capability)) {
+    invalidations.push(queryClient.invalidateQueries({ queryKey: ['work'] }))
+  }
 
   await Promise.all(invalidations)
 }

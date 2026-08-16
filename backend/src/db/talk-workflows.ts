@@ -14,6 +14,31 @@ export const talkWorkflowsDb = {
     return data
   },
 
+  // Phase 6: a conversation keeps its workflow history and holds at most one
+  // active workflow, enforced by a partial unique index.
+  async getActiveTalkWorkflowByConversation(userId: string, conversationId: string) {
+    const { data, error } = await supabase
+      .from('talk_workflows')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('conversation_id', conversationId)
+      .eq('status', 'active')
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async listTalkWorkflowsByConversation(userId: string, conversationId: string) {
+    const { data, error } = await supabase
+      .from('talk_workflows')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return data ?? []
+  },
+
   async getTalkWorkflowById(userId: string, workflowId: string) {
     const { data, error } = await supabase
       .from('talk_workflows')

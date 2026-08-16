@@ -584,7 +584,7 @@ export default function AssistantPage() {
     options: {
       forceMock?: boolean
       conversationId?: string
-      workflow?: { name: 'plan_focused_work'; anchorDate?: string }
+      workflow?: { name: 'plan_work'; projectId: string; anchorDate?: string }
     } = {}
   ) => {
     const trimmed = content.trim()
@@ -758,7 +758,31 @@ export default function AssistantPage() {
             }
           : message
       ))
-      if (!hasOtherPendingActions) {
+      // A Talk workflow continues server-side from a typed application event.
+      // Only the legacy assistant loop needs a hidden follow-up message.
+      if (!hasOtherPendingActions && response.action.workflowId && activeConversationId) {
+        setIsSending(true)
+        try {
+          const continued = await aiService.continueChatWorkflow(activeConversationId, model)
+          if (continued) {
+            setMessages((current) => [
+              ...current,
+              {
+                id: crypto.randomUUID(),
+                role: 'assistant',
+                content: continued.message,
+                toolEvents: continued.toolEvents,
+                pendingActions: continued.pendingActions,
+              },
+            ])
+          }
+        } catch (error: any) {
+          const message = error.response?.data?.error ?? 'Assistant unavailable'
+          toast.error(message)
+        } finally {
+          setIsSending(false)
+        }
+      } else if (!hasOtherPendingActions) {
         const hiddenContinuation: ConversationMessage = {
           id: crypto.randomUUID(),
           role: 'user',

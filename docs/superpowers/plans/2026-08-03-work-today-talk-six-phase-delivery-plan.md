@@ -251,6 +251,36 @@ In a controlled environment, the model correctly reads a day, asks the capacity 
 
 The existing Talk surface becomes HealthyFlow's guided coordinator across Calendar, Work, Nutrition, Workouts, Habits, Progress, and Tasks. It follows prototype A: one decision at a time with the day and current target kept visible.
 
+### Architecture
+
+Phase 6 is delivered against
+[the Phase 6 Talk workflow separation and extensibility plan](2026-08-04-phase-6-talk-workflow-separation-and-extensibility-plan.md),
+decided in [ADR-0009](../../adr/0009-application-owned-talk-state-machine.md).
+Talk uses an application-owned hierarchical state machine: the outer state is the
+active Talk workflow, the inner state is its current Talk stage, and one bounded
+agent activity runs per stage. Workflow, stage, and capability are separate
+concepts — `add_work_task` is a reusable confirmed capability, not a workflow.
+
+#### Baseline regression case
+
+The Phase 6 tracer run that motivated the architecture must stay covered. A
+signed-in Work → Talk `plan_work` run against a Project with no open Tasks
+produced:
+
+1. `list_work_projects`
+2. `get_work_scope`
+3. `validate_daily_plan`
+4. `validate_daily_plan`
+5. `validate_daily_plan`
+6. `validate_daily_plan`
+7. `validate_daily_plan`
+8. `validate_daily_plan`
+
+All eight calls succeeded, but the combined agent never returned a structured
+decision. The cause was one agent holding two materially different contracts —
+propose a Task, or plan a Focus block — not invalid time-zone data and not an
+`indeterminate` Daily Plan result. Raising `maxTurns` is not an acceptable fix.
+
 ### Required workflows
 
 - `plan_day`
@@ -307,5 +337,7 @@ Phase 6 is complete only when scenario evaluations, deterministic invariants, AP
 ## Related decisions and designs
 
 - [Talk orchestration and Work module — design target](../specs/2026-08-02-talk-orchestration-and-work-design.md)
+- [Phase 6 Talk workflow separation and extensibility plan](2026-08-04-phase-6-talk-workflow-separation-and-extensibility-plan.md)
+- [ADR-0009 — application-owned Talk state machine](../../adr/0009-application-owned-talk-state-machine.md)
 - [ADR-0003: shared capability layer, internal tools, external MCP](../../adr/0003-llm-data-access-interface.md)
 - [Daily Signals](../../daily-signals.md)

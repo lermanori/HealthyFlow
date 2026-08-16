@@ -24,6 +24,7 @@ import { CategorySchema } from '../task-contracts'
 import {
   cancelTalkWorkflowAction,
   confirmTalkWorkflowAction,
+  continueTalkWorkflow,
   getTalkWorkflow,
   runTalkWorkflowTurn,
   TalkProposalStaleError,
@@ -110,7 +111,11 @@ const ChatRequest = z.object({
   attachment: ChatAttachment.optional(),
   conversationId: z.string().uuid().optional(),
   workflow: z.object({
-    name: z.literal('plan_focused_work'),
+    // 'plan_focused_work' is the Phase 5 alias for plan_work v1 (ADR-0009).
+    name: z.enum(['plan_work', 'plan_focused_work']),
+    // Structured Work -> Talk handoff input: the Project is a verified id, not
+    // something the model recovers from prompt text.
+    projectId: z.string().uuid().optional(),
     anchorDate: z.string().date().optional(),
   }).optional(),
 }).superRefine((value, ctx) => {
@@ -409,6 +414,7 @@ router.post('/chat', authenticateToken, async (req: AuthRequest, res) => {
         timeZone: existingWorkflow?.timeZone ?? timeZone,
         model: parsed.data.model,
         messages: parsed.data.messages,
+        projectId: parsed.data.workflow?.projectId ?? null,
       })
       return res.json(result)
     }
@@ -508,6 +514,42 @@ router.post('/chat/confirm', authenticateToken, async (req: AuthRequest, res) =>
     res.status(400).json({
       error: error instanceof Error ? error.message : 'Could not confirm action',
       code: 'action_failed',
+    })
+  }
+})
+
+const ContinueBody = z.object({
+  conversationId: z.string().uuid(),
+  model: z.string().min(1),
+})
+
+// Typed server-side continuation after a confirmed capability advances the
+// workflow. The frontend calls this instead of sending a hidden user message
+// asking the model what to do next.
+router.post('/chat/continue', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = ContinueBody.safeParse(req.body)
+  if (!parsed.success) return res.status(400).json({ error: 'Invalid continuation request' })
+
+  try {
+    const result = await continueTalkWorkflow({
+      userId: req.user.userId,
+      conversationId: parsed.data.conversationId,
+      model: parsed.data.model,
+    })
+    if (!result) return res.status(204).send()
+    return res.json(result)
+  } catch (error) {
+    if (error instanceof TalkWorkflowBillingError) {
+      return res.status(error.code === 'insufficient_credits' ? 402 : 500)
+        .json({ error: error.message, code: error.code })
+    }
+    if (error instanceof TalkWorkflowConflictError || error instanceof TalkProposalStaleError) {
+      return res.status(409).json({ error: error.message, code: error.code })
+    }
+    console.error('Talk workflow continue error:', error)
+    return res.status(500).json({
+      error: error instanceof Error ? error.message : 'Talk workflow failed',
+      code: 'talk_workflow_failed',
     })
   }
 })

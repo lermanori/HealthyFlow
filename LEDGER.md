@@ -1,3 +1,13 @@
+### 2026-08-16 17:20 — `main`
+
+Committed the Phase 6 Talk work that had been sitting uncommitted in the working tree since 2026-08-04, at the owner's request, so that the documentation branch could merge into a clean tree. The work separates a Talk workflow from a Talk stage: ADR-0009 amends ADR-0008 after the Phase 6 tracer showed the Phase 5 shape — one agent carrying every workflow's instructions and a single combined tool allowlist — already failing at two workflows' worth of contracts, with a captured regression trace of `validate_daily_plan` being called three times in a row. Stages are now either deterministic application activities or bounded agent activities scoped to only the instructions, tools and output contract that stage needs, and the application owns every transition rather than the model.
+
+New modules carry the workflow definitions and a store with both an in-memory and a Supabase implementation, behind migration `20260804120000_phase_6_generic_talk_workflows.sql`, which generalises the Phase 5 tables to the closed set of eight workflows. CONTEXT.md gains the Talk workflow and Talk stage vocabulary along with an explicit note that a workflow, a stage and a capability are three different things.
+
+Verification before committing: both typechecks pass, and the backend suite is 673 passing across 74 suites with one failure. That failure, `tests/day-summary.test.ts`, is **pre-existing and unrelated** — it reproduces identically against clean Phase-5 code in a separate worktree. Its cause is two copies of zod 4.4.3 installed at the repo root and under `backend/`, which makes `z.infer` produce two nominally distinct `DaySummaryItem` types under jest's module resolution while the backend typecheck itself passes. Filed rather than fixed here.
+
+---
+
 ### 2026-08-04 15:38 — `codex/phase-5-talk-runtime`
 
 Today now identifies a Project-linked Task with its Project badge instead of the generic category, making the relationship between a canonical Task and its separate Focus block visible without merging their records. The canonical day response carries the Project id, name, and color for scheduled, completed, and carried-forward Tasks, with the category retained as the fallback for unassigned Tasks. Verification passed the production build, both typechecks, and 41 focused backend tests.

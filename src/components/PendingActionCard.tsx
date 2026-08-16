@@ -27,6 +27,7 @@ type PendingActionCardProps = {
 }
 
 const categories = CATEGORY_IDS
+const alignedWorkRelations = ['Direct progress', 'Unblocking', 'Maintenance']
 
 function compactToolName(name: string) {
   return name.replace(/_/g, ' ')
@@ -45,10 +46,12 @@ function summarizeResult(result: unknown) {
   const entry = value.entry && typeof value.entry === 'object' ? value.entry as Record<string, unknown> : null
   const item = value.item && typeof value.item === 'object' ? value.item as Record<string, unknown> : null
   const session = value.session && typeof value.session === 'object' ? value.session as Record<string, unknown> : null
+  const task = value.task && typeof value.task === 'object' ? value.task as Record<string, unknown> : null
   if (Array.isArray(value.entries)) return `${value.entries.length} Calorie entries created`
   if (entry?.name) return `Entry: ${entry.name}`
   if (item?.title) return `Item: ${item.title}`
   if (session?.title) return `Workout session: ${session.title}`
+  if (task?.title) return `Task: ${task.title}`
   if (value.deleted) return 'Item deleted'
   return 'Action completed'
 }
@@ -233,6 +236,14 @@ function buildEditedArgs(action: AssistantPendingAction, draft: Record<string, u
         transitionMinutes: nullableNumber(draft.transitionMinutes),
         breakMinutes: nullableNumber(draft.breakMinutes),
       }
+    case 'add_work_task':
+      return {
+        ...base,
+        title: String(draft.title ?? '').trim(),
+        relation: draft.relation,
+        duration: nullableNumber(draft.duration),
+        scheduledDate: optionalText(draft.scheduledDate) ?? null,
+      }
     case 'update_item': {
       const edited = { ...base }
       if (hasField(draft, 'title')) edited.title = optionalText(draft.title)
@@ -314,6 +325,60 @@ function assistantQuickDates() {
     { label: 'Tomorrow', value: format(addDays(new Date(), 1), 'yyyy-MM-dd') },
     { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
   ]
+}
+
+function workTaskPreview(action: PendingActionView) {
+  const preview = action.preview && typeof action.preview === 'object' && !Array.isArray(action.preview)
+    ? action.preview as Record<string, unknown>
+    : {}
+  const project = preview.project && typeof preview.project === 'object' && !Array.isArray(preview.project)
+    ? preview.project as Record<string, unknown>
+    : null
+  const result = action.result && typeof action.result === 'object' && !Array.isArray(action.result)
+    ? action.result as Record<string, unknown>
+    : null
+  const resultTask = result?.task && typeof result.task === 'object' && !Array.isArray(result.task)
+    ? result.task as Record<string, unknown>
+    : null
+  return { project, resultTask }
+}
+
+function WorkTaskPreview({
+  action,
+  task,
+}: {
+  action: PendingActionView
+  task: Record<string, unknown>
+}) {
+  const { project } = workTaskPreview(action)
+  const projectTarget = fieldValue(project?.target)
+  return (
+    <div className="grid gap-3 rounded-md border border-card bg-page/60 p-3 text-sm">
+      <div>
+        <div className="text-xs font-medium uppercase tracking-wide text-ink-muted">Project</div>
+        <div className="font-semibold text-ink">{fieldValue(project?.name || 'Selected Project')}</div>
+        {projectTarget && <div className="mt-1 text-xs text-ink-soft">Target: {projectTarget}</div>}
+      </div>
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div className="sm:col-span-3">
+          <div className="text-xs font-medium text-ink-muted">Task</div>
+          <div className="font-medium text-ink">{fieldValue(task.title)}</div>
+        </div>
+        <div>
+          <div className="text-xs font-medium text-ink-muted">Target relationship</div>
+          <div className="text-ink">{fieldValue(task.relation)}</div>
+        </div>
+        <div>
+          <div className="text-xs font-medium text-ink-muted">Duration</div>
+          <div className="text-ink">{task.duration ? `${fieldValue(task.duration)} minutes` : 'Not set'}</div>
+        </div>
+        <div>
+          <div className="text-xs font-medium text-ink-muted">Date</div>
+          <div className="text-ink">{fieldValue(task.scheduledDate) || 'Unscheduled'}</div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function pendingStatusTone(action: PendingActionView): 'pending' | 'confirmed' | 'canceled' | 'error' {
@@ -419,6 +484,8 @@ export default function PendingActionCard({
         ? 'Canceled'
         : pendingStatusLabel
   const updateDraftValue = updateItemDraftValue(action, draft)
+  const currentWorkTaskPreview = workTaskPreview(action)
+  const currentWorkProjectTarget = fieldValue(currentWorkTaskPreview.project?.target)
 
   return (
     <div
@@ -569,6 +636,23 @@ export default function PendingActionCard({
               </div>
             </>
           )}
+          {action.capability === 'add_work_task' && (
+            <>
+              <div className="rounded-md border border-card bg-page/60 p-3 sm:col-span-2">
+                <div className="text-xs font-medium uppercase tracking-wide text-ink-muted">Project</div>
+                <div className="font-semibold text-ink">{fieldValue(currentWorkTaskPreview.project?.name || 'Selected Project')}</div>
+                {currentWorkProjectTarget && (
+                  <div className="mt-1 text-xs text-ink-soft">Target: {currentWorkProjectTarget}</div>
+                )}
+              </div>
+              <div className="sm:col-span-2">
+                <TextField label="Task title" value={draft.title} onChange={(value) => setField('title', value)} />
+              </div>
+              <SelectField label="Target relationship" value={draft.relation} options={alignedWorkRelations} onChange={(value) => setField('relation', value)} />
+              <TextField label="Duration (minutes)" value={draft.duration} type="number" onChange={(value) => setField('duration', value)} />
+              <TextField label="Date (optional)" value={draft.scheduledDate} type="date" onChange={(value) => setField('scheduledDate', value)} />
+            </>
+          )}
           {action.capability === 'update_item' && (
             <>
               {hasField(draft, 'title') && <TextField label="Title" value={draft.title} onChange={(value) => setField('title', value)} />}
@@ -591,7 +675,7 @@ export default function PendingActionCard({
           {action.capability === 'delete_item' && (
             <SelectField label="Delete scope" value={draft.deleteScope ?? 'instance'} options={['instance', 'habit']} onChange={(value) => setField('deleteScope', value)} />
           )}
-          {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'add_weight_entry', 'add_achievement_entry', 'add_workout_session', 'create_focus_block', 'update_item', 'delete_item', 'complete_task'].includes(action.capability) && (
+          {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'add_weight_entry', 'add_achievement_entry', 'add_workout_session', 'create_focus_block', 'add_work_task', 'update_item', 'delete_item', 'complete_task'].includes(action.capability) && (
             <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-xs text-ink-soft sm:col-span-2">
               {JSON.stringify(action.preview, null, 2)}
             </pre>
@@ -615,6 +699,11 @@ export default function PendingActionCard({
             value={updateDraftValue}
             statusLabel={statusLabel}
             statusTone={pendingStatusTone(action)}
+          />
+        ) : action.capability === 'add_work_task' ? (
+          <WorkTaskPreview
+            action={action}
+            task={currentWorkTaskPreview.resultTask ?? draft}
           />
         ) : action.capability === 'delete_item' ? (
           <div className={`rounded-md border px-3 py-2 text-xs ${statusToneClasses(pendingStatusTone(action))}`}>

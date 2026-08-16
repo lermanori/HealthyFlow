@@ -755,13 +755,21 @@ export const aiService = {
     return response.data
   },
 
+  continueChatWorkflow: async (
+    conversationId: string,
+    model: AssistantChatModel,
+  ): Promise<AssistantChatResponse | null> => {
+    const response = await api.post('/ai/chat/continue', { conversationId, model })
+    return response.status === 204 ? null : response.data
+  },
+
   chat: async (
     messages: AssistantChatMessage[],
     model?: AssistantChatModel,
     attachment?: AssistantChatAttachment,
     options: {
       conversationId?: string
-      workflow?: { name: 'plan_focused_work'; anchorDate?: string }
+      workflow?: { name: 'plan_work'; projectId: string; anchorDate?: string }
     } = {},
   ): Promise<AssistantChatResponse> => {
     const response = await api.post('/ai/chat', {
@@ -861,8 +869,11 @@ export interface AssistantChatResponse {
 export interface AssistantTalkWorkflow {
   id: string
   conversationId: string
-  name: 'plan_focused_work'
-  stage: 'interpreting' | 'clarifying' | 'gathering_context' | 'awaiting_confirmation' | 'applied' | 'declined' | 'stale' | 'failed'
+  name: 'plan_work'
+  /** Workflow-specific domain stage; legal values come from the workflow definition. */
+  stage: string
+  /** Terminal status, tracked separately from the domain stage (ADR-0009). */
+  status: 'active' | 'completed' | 'declined' | 'failed'
   anchorDate: string
   timeZone: string
   confirmationState: 'none' | 'presented' | 'confirmed' | 'declined' | 'stale'

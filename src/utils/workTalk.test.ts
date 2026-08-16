@@ -39,7 +39,7 @@ describe('Work → Talk handoff', () => {
       ])
 
     assert.match(label, /InvoiceFlow/)
-    assert.deepEqual(workflow, { name: 'plan_focused_work' })
+    assert.deepEqual(workflow, { name: 'plan_work', projectId: project().id })
     assert.match(prompt, /Target: Submit a review-ready app build this week/)
     assert.match(prompt, /Current milestone: Production login works/)
     assert.match(prompt, /No new dependencies before submission\./)
@@ -78,10 +78,27 @@ describe('Work → Talk handoff', () => {
 
 describe('Work → Talk workflow routing', () => {
   // The workflow field is the only thing that routes Talk into the durable
-  // plan_focused_work runtime, so it must survive the router-state round trip.
-  it('carries plan_focused_work through router state for the planning handoff', () => {
+  // plan_work runtime, so it must survive the router-state round trip.
+  it('carries plan_work and the Project id through router state for the planning handoff', () => {
     const parsed = workTalkContext(workTalkState(planInTalkContext(project(), [])))
-    assert.equal(parsed?.workflow?.name, 'plan_focused_work')
+    assert.equal(parsed?.workflow?.name, 'plan_work')
+    assert.equal(parsed?.workflow?.projectId, project().id)
+  })
+
+  // Router state already in flight from a Phase 5 build must keep working.
+  it('normalises the legacy plan_focused_work name to plan_work', () => {
+    const parsed = workTalkContext({
+      workTalkContext: { label: 'x', prompt: 'y', workflow: { name: 'plan_focused_work', projectId: project().id } },
+    })
+    assert.equal(parsed?.workflow?.name, 'plan_work')
+  })
+
+  // A handoff with no verified Project id is not a workflow handoff.
+  it('drops a workflow handoff that carries no Project id', () => {
+    const parsed = workTalkContext({
+      workTalkContext: { label: 'x', prompt: 'y', workflow: { name: 'plan_work' } },
+    })
+    assert.equal(parsed?.workflow, undefined)
   })
 
   it('carries no workflow through router state for the discussion handoff', () => {

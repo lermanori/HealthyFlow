@@ -79,9 +79,12 @@ The React app is served under `/app`; `/` serves the marketing page
   (list / rename / delete) and a confirm/cancel step before anything is written.
 - Work's **Plan in Talk** handoff starts a durable focused-work workflow. A
   bounded single agent reads only Daily Plan and Work capabilities, asks one
-  capacity clarification when needed, and drafts one editable Focus block.
-  Workflow stage and proposal state persist separately from chat messages;
-  confirmation revalidates current records and creates the block exactly once.
+  useful clarification when needed, and drafts one editable Focus block. If the
+  selected Project has no open Tasks but has enough target context, Talk first
+  previews one aligned Task; confirming it creates the Task exactly once and
+  automatically continues to the Focus block proposal. Workflow stage and
+  proposal state persist separately from chat messages; confirmation revalidates
+  current records before writing.
 - Voice input (speech-to-text) and text-to-speech playback.
 - Server-keyed only. There is no BYOK flow.
 - AI runs on **credits**; the core app works without them.
