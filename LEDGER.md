@@ -1,3 +1,13 @@
+### 2026-08-16 16:08 — `worktree-ios-launch-mission`
+
+Reconciled MARKETING.md with the code without rewriting the strategy, which is still blocked on the iOS launch decision. The margin trap the document has warned about since July turns out to be closed, but not the way it proposed: purchases grant fixed packs (`TOP_UP_PRICE_USD = 5` → `TOP_UP_CREDITS = 250`) rather than running through `APP_TOKENS_PER_USD`, which survives untouched and meters cost only. The real sell rate is 50 credits per dollar, so the 500/$1 and 250/$1 figures written into P0.1 never shipped and are now explicitly marked do-not-implement. The onboarding-credit item is likewise already shipped exactly as specified, and the custom-domain and privacy/ToS items are done.
+
+The document's structural problem was that every payment and channel item assumed web checkout and web signup, with no mention anywhere of iOS, TestFlight or StoreKit. Two banners now bound that: one recording what is verified in code, one marking §4's payment items and §5's channel plan superseded pending #201. P0.3 additionally records the concrete consequence — every purchase CTA is gated behind `!isNativeApp`, so a TestFlight user who exhausts credits currently has no path to more on any surface — and notes that the iOS variant of the paid-path smoke test can be proven for free in the StoreKit sandbox.
+
+A stale founding-member offer in §3 quoting "$1/mo, 500 AI credits" was struck rather than rewritten, since the figures are wrong but the offer's shape is a positioning decision still in flight. §1, §2, §6 and §7 were left alone as judgment and market research rather than claims about this codebase. The documentation audit is now complete across every file the repo map treats as a source of truth.
+
+---
+
 ### 2026-08-16 15:54 — `worktree-ios-launch-mission`
 
 Rewrote CONTEXT.md's opening description, the one edit held back from the earlier passes because it encodes a point of view rather than correcting a fact. The old paragraph introduced HealthyFlow as a tracker where users capture tasks, habits, groceries, meals and workouts and then schedule, complete and roll them over — a description that contradicted the same file two sections later, since grocery and meal have no surface, and that described the codebase as it stood before Work, Capacity, attention and the daily plan existed.
