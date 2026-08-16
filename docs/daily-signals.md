@@ -1,5 +1,12 @@
 # Daily Signals
 
+> **Not visible to any production user.** The surface is gated behind
+> `VITE_DAILY_SIGNALS_ENABLED` (`src/featureFlags.ts`), which is set in neither
+> `.env.production` nor `netlify.toml`. `TodayPage.tsx:1797` renders
+> `<AIRecommendationsBox>` only when the flag is on. The implementation below is
+> intact and the e2e suite forces the flag on so its coverage stays live — but do
+> not describe Daily Signals as a shipped feature.
+
 Daily signals are deterministic, read-only observations derived from an anchored daily context.
 
 `DailyContext` means "context for this date", not "only data from this date". It contains:
@@ -29,7 +36,9 @@ Consumers must switch on `type`, not parse `summary`.
 
 ## Adding a Signal
 
-1. Add a new value to `DailySignalTypeSchema` in `backend/src/daily-context.ts`.
+1. Add a new value to `DailySignalTypeSchema` in
+   `backend/src/daily-context-schema.ts` — that is where it is defined.
+   `daily-context.ts` only re-exports it, so editing there does nothing.
 2. Add one `SignalDetector` to the detector registry.
 3. Add only the bounded context data the detector needs.
 4. Keep detector logic deterministic and testable.

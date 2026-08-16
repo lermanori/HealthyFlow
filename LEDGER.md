@@ -8,6 +8,54 @@ Verification before committing: both typechecks pass, and the backend suite is 6
 
 ---
 
+### 2026-08-16 16:08 — `worktree-ios-launch-mission`
+
+Reconciled MARKETING.md with the code without rewriting the strategy, which is still blocked on the iOS launch decision. The margin trap the document has warned about since July turns out to be closed, but not the way it proposed: purchases grant fixed packs (`TOP_UP_PRICE_USD = 5` → `TOP_UP_CREDITS = 250`) rather than running through `APP_TOKENS_PER_USD`, which survives untouched and meters cost only. The real sell rate is 50 credits per dollar, so the 500/$1 and 250/$1 figures written into P0.1 never shipped and are now explicitly marked do-not-implement. The onboarding-credit item is likewise already shipped exactly as specified, and the custom-domain and privacy/ToS items are done.
+
+The document's structural problem was that every payment and channel item assumed web checkout and web signup, with no mention anywhere of iOS, TestFlight or StoreKit. Two banners now bound that: one recording what is verified in code, one marking §4's payment items and §5's channel plan superseded pending #201. P0.3 additionally records the concrete consequence — every purchase CTA is gated behind `!isNativeApp`, so a TestFlight user who exhausts credits currently has no path to more on any surface — and notes that the iOS variant of the paid-path smoke test can be proven for free in the StoreKit sandbox.
+
+A stale founding-member offer in §3 quoting "$1/mo, 500 AI credits" was struck rather than rewritten, since the figures are wrong but the offer's shape is a positioning decision still in flight. §1, §2, §6 and §7 were left alone as judgment and market research rather than claims about this codebase. The documentation audit is now complete across every file the repo map treats as a source of truth.
+
+---
+
+### 2026-08-16 15:54 — `worktree-ios-launch-mission`
+
+Rewrote CONTEXT.md's opening description, the one edit held back from the earlier passes because it encodes a point of view rather than correcting a fact. The old paragraph introduced HealthyFlow as a tracker where users capture tasks, habits, groceries, meals and workouts and then schedule, complete and roll them over — a description that contradicted the same file two sections later, since grocery and meal have no surface, and that described the codebase as it stood before Work, Capacity, attention and the daily plan existed.
+
+The replacement names the three ideas the day contract is actually built on: what the user plans, what they record, and how much usable capacity is left. It states that plan and actual are distinguished structurally rather than by convention, keeps carry-forward, and makes the refusal to guess an explicit property of the contract rather than an omission. Rollover, item types and every other term below are unchanged.
+
+---
+
+### 2026-08-16 15:47 — `worktree-ios-launch-mission`
+
+Closed out the documentation audit by covering the files the repo map does not list as sources of truth. Most held up: `docs/local-database.md` is accurate down to its `major_version = 17` and container name, `docs/analytics/` still honours its own invariant that only `posthogProvider.ts` imports `posthog-js`, and `docs/archive/README.md` already warns that the v1 PRD reads as false if taken as current — which is the framing the rest of the repo needed.
+
+`docs/daily-signals.md` described Daily Signals throughout as though it were shipped, never mentioning that the whole surface sits behind `VITE_DAILY_SIGNALS_ENABLED` and is off for every production user; it now says so up front. Its instructions for adding a signal also pointed at `daily-context.ts`, which only re-exports `DailySignalTypeSchema` — edits there would have done nothing, so the path now points at `daily-context-schema.ts` where it is actually defined.
+
+The two review directories carried dated findings with no statement that they are dated. `docs/ux-review/` gained a README explaining that it is a point-in-time review from 18 July 2026, and naming two High findings verified as since fixed — the health-route redirect that `ModuleGate`'s loading branch now handles, and the Add page module gating that `useSettings` now resolves — while being explicit that the remaining findings are unverified rather than unfixed. `docs/fixes/redesign-v2-review/` gained the same warning.
+
+---
+
+### 2026-08-16 15:34 — `worktree-ios-launch-mission`
+
+Second pass over the documentation, covering everything the repo map calls a source of truth that the first pass had not reached. README.md claimed `LEDGER.md` is appended on every commit by `.githooks/post-commit`; the hook is explicitly a no-op and says so in its own comment, so the ledger is hand-written and the README now says that. README-DEPLOYMENT.md was largely original scaffold text: it advised upgrading SQLite to Postgres, listed a `DATABASE_URL` nothing reads, instructed editing a hardcoded `API_BASE_URL` constant that is actually `VITE_API_URL`, and published `demo@healthyflow.com` / `demo123` as working login credentials. All corrected, with the untested Render and Heroku options marked as such and the fail-closed signup gate added to troubleshooting.
+
+`docs/ios.md` is added to the repo map in CLAUDE.md as authoritative for anything native — it was a genuine source of truth that the map did not list. Its claim of an iOS 17 minimum, repeated in MISSION.md, is now qualified in both places against the project file's actual disagreement.
+
+Two dead-code findings came out of verifying rather than trusting the docs, both filed separately rather than fixed here. `initDatabase()` is commented out at `backend/src/index.ts:132`, but `backend/src/db/database.ts` opens `healthyflow.db` at import time, so every boot still creates a SQLite file nothing reads — and `sqlite3` remains a dependency of both package manifests. Separately, all credit purchase CTAs in Settings are gated behind `!isNativeApp`, so the iOS app currently offers no path to more credits at all; that is correct given no StoreKit exists, but it is a launch constraint worth stating plainly.
+
+---
+
+### 2026-08-16 15:19 — `worktree-ios-launch-mission`
+
+Audited the root documentation against the source and corrected what the code contradicted. CONTEXT.md carried a live definition of BYOK — a client-side key-passing pattern with zero references anywhere in `src/` and flatly denied by CLAUDE.md — which is now deleted and replaced by a Server-keyed entry that retires the term. The same doc had no vocabulary at all for the day contract's most distinctive concepts, so Daily Plan reference, Capacity, Planning window, Transition buffer, Focus (attention), Next obligation and Module read status are now defined, along with an explicit disambiguation between Focus (attention) and a Work Focus block, which had been sharing a word and nothing else.
+
+FEATURES.md claimed the product was PWA-only and that no Projects view existed; both were false. It now documents the Capacitor iOS app on TestFlight with its widget, native Apple and Google sign-in and server-controlled version gate, carries a Work section, lists Work in the navigation table, and records that the mobile dock holds only Today and Talk. Public signup slots were corrected from a claimed default of 0 to the schema's 10, and the file now states that `planningWindow` defaults to null, so the Capacity panel does not render for a new account at all. CLAUDE.md gained iOS in the stack and `day-summary-schema.ts` in its deep-modules list.
+
+Verifying rather than trusting the docs turned up a genuine defect on the side: the iOS app target declares `IPHONEOS_DEPLOYMENT_TARGET` as 15.0 in one build configuration and 17.0 in the other while the widget is 17.0 in both, so Debug and Release can build against different OS floors. MISSION.md's claim of "iOS 17" does not match the project file. That is filed separately and deliberately left unfixed here. One framing edit — CONTEXT.md's opening description of the product — was identified and held back pending a separate decision.
+
+---
+
 ### 2026-08-04 15:38 — `codex/phase-5-talk-runtime`
 
 Today now identifies a Project-linked Task with its Project badge instead of the generic category, making the relationship between a canonical Task and its separate Focus block visible without merging their records. The canonical day response carries the Project id, name, and color for scheduled, completed, and carried-forward Tasks, with the category retained as the fallback for unassigned Tasks. Verification passed the production build, both typechecks, and 41 focused backend tests.

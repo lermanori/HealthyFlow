@@ -11,7 +11,9 @@ open the app, while preserving Talk's editable, human-in-the-loop review.
 
 ## Constraints
 - HealthyFlow remains a React application inside a Capacitor iOS shell.
-- The iOS deployment target remains iOS 17.
+- The iOS deployment target is intended to be iOS 17. Note the Xcode project
+  currently declares 15.0 in one `App` build configuration and 17.0 in the other
+  — confirm the real floor before depending on a 17-only App Intents API.
 - Captures must work offline and should work while the device is locked.
 - Existing App Group `group.app.healthyflow.mobile` is the native shared store.
 

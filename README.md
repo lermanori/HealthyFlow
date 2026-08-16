@@ -4,7 +4,9 @@ Your whole day in one place. Tasks, habits, food, training and weight live on on
 timeline that carries itself forward.
 
 React + Vite frontend (Netlify), Express + TypeScript backend (Railway), Supabase
-for data. The app is served under `/app`; `/` is the marketing page.
+for data. The app is served under `/app`; `/` is the marketing page. The same
+frontend also ships as a native iOS app through a Capacitor shell, currently
+distributed via TestFlight — see [`docs/ios.md`](./docs/ios.md).
 
 ## Start here
 
@@ -75,9 +77,8 @@ HF_SHOT_FLAGS=VITE_WEEK_VIEW_ENABLED node scripts/capture-landing-shots.mjs
 
 ## Ledger
 
-`LEDGER.md` is appended on every commit by `.githooks/post-commit`. A new clone
-needs this once:
-
-```sh
-git config core.hooksPath .githooks
-```
+`LEDGER.md` is a hand-written session narrative, newest first. **It is not
+automated.** The agent prepends an entry as part of the commit workflow in
+[`CLAUDE.md`](./CLAUDE.md); `.githooks/post-commit` is deliberately a no-op, kept
+only so a `core.hooksPath` config stays valid. If you commit by hand and want a
+ledger entry, write it by hand.
