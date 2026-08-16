@@ -1,3 +1,15 @@
+### 2026-08-16 17:59 — `fix/env-resolution-across-worktrees`
+
+Made a fresh worktree inherit configuration instead of failing on its first database call. `.env` is gitignored, so it never travels to a new checkout, and the old loader resolved it relative to the worktree — where nothing exists. The Supabase client is built at module scope from `process.env.SUPABASE_URL!`, so undefined credentials produced a client that looked fine and then failed every request inside undici with `TypeError: fetch failed`, naming neither the missing variable nor configuration as the cause.
+
+The loader now resolves candidates in precedence order: `HEALTHYFLOW_ENV_FILE`, this checkout's `backend/.env` then `.env`, and finally the same two in the **main** checkout. A worktree can always find the main checkout because its `.git` is a file pointing into the main repository, so `git rev-parse --git-common-dir` resolves there and its parent is the main working tree. No symlink, no per-worktree setup step. `db/client.ts` no longer runs its own `dotenv.config` against a different path than the entrypoint's — both now go through the shared resolver, so the two can never disagree about which file is authoritative. A startup guard names any missing variable and lists the files actually loaded, which is safe because `tests/setup.ts` already injects dummy Supabase credentials for the 47 suites that import the client.
+
+Proven rather than assumed: a throwaway worktree created with no `.env` of its own resolved the main checkout's file and saw both Supabase variables. The backend suite is unchanged at 673 passing with the one pre-existing zod failure, and the backend typechecks.
+
+Two corrections worth recording. The reported `fetch failed` was first diagnosed as missing variables; that was wrong — they are present in the root `.env`, on lines with a leading space that a `^SUPABASE_URL=` grep silently missed while dotenv trims it happily. An attempt to test Supabase reachability from the agent sandbox then failed against every host including GitHub, so it proved nothing about the real network. The recurring worktree failure this change fixes is real and separate; the cause of that particular main-checkout failure remains unidentified.
+
+---
+
 ### 2026-08-16 17:20 — `main`
 
 Committed the Phase 6 Talk work that had been sitting uncommitted in the working tree since 2026-08-04, at the owner's request, so that the documentation branch could merge into a clean tree. The work separates a Talk workflow from a Talk stage: ADR-0009 amends ADR-0008 after the Phase 6 tracer showed the Phase 5 shape — one agent carrying every workflow's instructions and a single combined tool allowlist — already failing at two workflows' worth of contracts, with a captured regression trace of `validate_daily_plan` being called three times in a row. Stages are now either deterministic application activities or bounded agent activities scoped to only the instructions, tools and output contract that stage needs, and the application owns every transition rather than the model.
