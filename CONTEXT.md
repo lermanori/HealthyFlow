@@ -1,6 +1,10 @@
 # HealthyFlow
 
-Personal productivity tracker. Users capture items they want to do — one-shot tasks, recurring habits, groceries, meals, workouts — and the app helps them schedule, complete, and roll them over day to day.
+Personal productivity tracker whose unit is the day. Three things define it: what the user **plans**, what they actually **record**, and how much usable **capacity** is left.
+
+All three resolve onto one clock for a single date — Tasks, Habits, focused Work, Calendar events, meals, training and weight alike — with plan and actual distinguished structurally rather than by convention. Items still carry forward day to day when left incomplete. Where the day cannot answer honestly it says why rather than guessing, and that refusal is a deliberate property of the contract, not a gap in it.
+
+The canonical shape is `DaySummarySchema`; see [The day](#the-day) for its vocabulary.
 
 ## Language
 

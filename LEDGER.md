@@ -1,3 +1,11 @@
+### 2026-08-16 15:54 — `worktree-ios-launch-mission`
+
+Rewrote CONTEXT.md's opening description, the one edit held back from the earlier passes because it encodes a point of view rather than correcting a fact. The old paragraph introduced HealthyFlow as a tracker where users capture tasks, habits, groceries, meals and workouts and then schedule, complete and roll them over — a description that contradicted the same file two sections later, since grocery and meal have no surface, and that described the codebase as it stood before Work, Capacity, attention and the daily plan existed.
+
+The replacement names the three ideas the day contract is actually built on: what the user plans, what they record, and how much usable capacity is left. It states that plan and actual are distinguished structurally rather than by convention, keeps carry-forward, and makes the refusal to guess an explicit property of the contract rather than an omission. Rollover, item types and every other term below are unchanged.
+
+---
+
 ### 2026-08-16 15:47 — `worktree-ios-launch-mission`
 
 Closed out the documentation audit by covering the files the repo map does not list as sources of truth. Most held up: `docs/local-database.md` is accurate down to its `major_version = 17` and container name, `docs/analytics/` still honours its own invariant that only `posthogProvider.ts` imports `posthog-js`, and `docs/archive/README.md` already warns that the v1 PRD reads as false if taken as current — which is the framing the rest of the repo needed.
