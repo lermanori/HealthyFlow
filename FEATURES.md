@@ -1,6 +1,6 @@
 # HealthyFlow — What the app actually does
 
-**Last verified against the code:** 2026-07-28
+**Last verified against the code:** 2026-08-16
 
 This is an inventory, not a pitch. Everything under "Shipped" is reachable by a
 signed-in user today. Anything not built is in the last section, named as such.
@@ -23,9 +23,16 @@ small:
 |---|---|---|
 | Today | Today | `/` |
 | Today | Talk | `/talk` |
+| Plan | Work | `/work` — live, no flag |
 | Plan | Week | `/week` — **behind a release flag, off in production** |
 | Health tools | Health | `/health` → Nutrition `/calories`, Workouts `/workouts`, Progress `/achievements` |
 | Utility | Settings | `/settings` |
+| Utility | OCR Lab, Token Manager | `/meal-ocr-lab`, `/token-manager` — **admin role only** |
+
+**On mobile the bottom dock is only Today and Talk.** Every other destination —
+Work, Health, Settings — is reached through the navigation drawer. Desktop shows
+the full sidebar. Both are rendered from the same navigation groups in
+`src/components/Layout.tsx`.
 
 The React app is served under `/app`; `/` serves the marketing page
 (`public/landing.html`). See `netlify.toml`.
@@ -49,8 +56,36 @@ The React app is served under `/app`; `/` serves the marketing page
 - **Anytime backlog** holds only what still needs a decision. Drag an item onto
   an hour to place it; dragging materialises a real row (ADR-0001).
 - Date navigation across days, with per-day counts for the surrounding week.
-- Focus Now / Next Obligation / Capacity summary strip.
 - Morning planning prompt.
+
+**The day is a typed contract, not a list.** `DaySummarySchema`
+(`backend/src/day-summary-schema.ts`) is versioned (`version: 1`) and carries a
+single ordered **daily plan** of fourteen reference kinds — Calendar events and
+transitions, Focus blocks, Tasks, Habits, meal and workout plans, plus recorded
+Calorie entries, weight, Workout sessions, Habit progress chunks and Progress
+entries. Every reference is tagged `plan`, `actual`, or `boundary`, so intent and
+record are distinguished structurally rather than by convention. References point
+at the records their modules own; nothing is copied or cross-mutated.
+
+**Focus Now / Next Obligation / Capacity summary strip.** Three separate reads:
+
+- **Focus** — the one Item that most deserves attention, with a reason code. Six
+  states, including `nothing_needs_attention`: it declines to pick rather than
+  surfacing something arbitrary.
+- **Next Obligation** — the next time-fixed commitment across both planned Items
+  and Calendar events, with an explicit tie-break (Calendar wins a same-time tie)
+  and the ids of anything competing for the slot.
+- **Capacity** — usable minutes left in the planning window after known
+  obligations and their transition buffers. Reports `complete` (an exact number),
+  `partial` (an upper bound), or `unavailable`, with twelve typed reason codes
+  saying *why* an answer is incomplete. It never returns a guessed number.
+
+> **Capacity is off for a new account.** `planningWindow` defaults to `null`
+> (`backend/src/settings-schema.ts`), and the whole Capacity panel is wrapped in
+> `{capacityEnabled && …}` in `TodayPage.tsx`. Until the user sets a planning
+> window in Settings, Focus and Next Obligation still render but Capacity is
+> absent entirely. This is current behaviour, not a bug report — but it means the
+> feature is invisible by default.
 
 ### Rollover
 
@@ -69,6 +104,32 @@ The React app is served under `/app`; `/` serves the marketing page
   the target.
 - Weekly habits (`repeat_type: 'weekly'`) are **not yet synthesised** — a known
   gap recorded in ADR-0002.
+
+### Work
+
+Live at `/work`, no feature flag. Habits and Work are the two modules with **no
+user-facing toggle** — `ModuleSettingKeySchema` covers only `calorieIntake`,
+`achievementTracker` and `workoutTracker`, so the day contract types Work as
+always enabled.
+
+- **Projects** — a bounded work context recording target, definition of done,
+  current milestone, deadline, status, summary, blockers, constraints, non-goals,
+  decisions, links, and next valuable step. Archive hides without deleting;
+  delete unassigns Tasks and preserves Work history as standalone context.
+- **Focus blocks** — schedulable, startable plans with a real date and start
+  time, planned focused minutes, intended outcome and evidence, referencing
+  canonical Tasks without copying or completing them. Lifecycle
+  `planned → active → reviewing → completed`, with `canceled` terminal. They are
+  primary rows on Today, peers of Items and Calendar events.
+- **Work review** — the structured account required to finish a Focus block
+  (what changed, evidence, milestone impact, blockers, actual minutes, next step,
+  attention). The review, its Work session, confirmed Task/Project updates and
+  the block completion are one atomic write. Elapsed time alone never produces a
+  Work session.
+- **Work sessions** — the durable record of work that happened, including
+  manually entered historical sessions.
+- Standalone mode: bounded title and context for focused work with no Project. No
+  synthetic Project is created.
 
 ### Talk (AI)
 
@@ -114,9 +175,19 @@ when all three are hidden.
 ### Accounts & access
 
 - Email + password auth with JWT.
-- **Signup is gated.** Public slots are a counter that defaults to 0; when it is
-  exhausted the Create-account tab does not render and the login page offers the
-  waitlist instead. An `?invite=` token always opens the form.
+- **Google sign-in** through Supabase Auth with PKCE, exchanged for the normal
+  HealthyFlow session at `POST /api/auth/google`. A verified Google email links
+  to an existing password account rather than creating a duplicate. On iOS this
+  runs natively in-process (`GoogleSignInPlugin`, ADR-0006) rather than through
+  the web redirect.
+- **Sign in with Apple**, native on iOS (`AppleSignInPlugin`).
+- **Signup is gated.** Public slots are a counter whose schema default is **10**
+  (`public_slots_open` in `20260726120000_add_waitlist_access.sql`); the live
+  value is whatever the row currently holds. When slots are exhausted the
+  Create-account tab does not render and the login page offers the waitlist
+  instead. An `?invite=` token always opens the form. The check **fails closed**:
+  if the signup-status call errors, the Create-account tab is hidden rather than
+  showing a form that cannot be honoured.
 - Waitlist capture (landing page and login page) with UTM attribution.
 - Guided **persona demos** at `/app/demo` — four seeded workspaces (Maya, Noam,
   Lina, Amir) walking through the real surfaces with stable demo data, narrated
@@ -134,6 +205,28 @@ when all three are hidden.
 - A configurable daily / weekly touchpoint **rhythm**.
 - Toggles for notifications, daily reminders, weekly reports, AI suggestions,
   smart reminders and completion sounds.
+
+### iOS app
+
+The same React app runs inside a **Capacitor iOS shell** (`ios/`, app id
+`app.healthyflow.mobile`, deployment target iOS 17). It is a real native target,
+not a wrapped web page:
+
+- Marketing version **1.0.1**, build 2 — uploaded to App Store Connect and
+  distributed through **TestFlight**. Not publicly listed on the App Store.
+- Native **Sign in with Apple** and native **Google sign-in** plugins, both
+  confirmed on a physical device.
+- A **WidgetKit Today widget** (`HealthyFlowWidget`) backed by the canonical
+  DaySummary, sharing data through App Group `group.app.healthyflow.mobile`.
+- **Server-controlled version gate** (`backend/src/mobile-version.ts`): three
+  outcomes rather than two. Below `IOS_MINIMUM_VERSION` blocks; at or above the
+  minimum but below `IOS_LATEST_VERSION` shows a dismissible update banner;
+  dismissal is keyed per released version. Setting the two equal disables the
+  nudge without disabling the gate.
+- Native surface also covers deep links, APNs push, notification permissions,
+  haptics, sharing, safe-area handling and a native-style bottom navigation.
+- **No StoreKit / in-app purchase.** There is no purchase code anywhere in
+  `ios/App`, `src`, or `backend/src`.
 
 ### PWA
 
@@ -179,15 +272,15 @@ Listed because the vocabulary, or an older doc, might suggest otherwise.
 
 | Thing | Status |
 |---|---|
-| Grocery list management | `grocery` exists as a category and an Item type; there is no list UI or backend |
-| Meal planning (as Items) | `meal` is an Item type; nutrition is served by Calorie entries instead |
+| Grocery list management | `grocery` exists as a category, an Item type and a daily-plan reference kind; there is no list UI or backend |
+| Meal planning (as Items) | `meal` is an Item type and a daily-plan reference kind; nutrition is served by Calorie entries instead |
 | Weekly Habit instances | `repeat_type: 'weekly'` is accepted but not synthesised per day (ADR-0002) |
-| Projects | Backend routes and a selector on Add Item exist; there is no projects view |
 | Real-time cross-device sync | No Supabase realtime channels anywhere. Data refreshes on query invalidation, not push |
 | Offline data entry | The shell caches; API calls do not. See PWA above |
 | Location-based reminders | Items carry a location field; nothing triggers on it |
-| Payments | Manual fulfilment only. See Billing above |
-| Native mobile app | PWA only |
+| Payments | Manual fulfilment only, on every platform. No Stripe, no StoreKit. See Billing above |
+| Public App Store listing | The iOS app is in TestFlight only; it has not been through full App Review |
+| Android | No Capacitor Android target, no Play Store presence |
 | Team / shared workspaces | Not built |
 
 ---

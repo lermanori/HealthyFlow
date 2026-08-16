@@ -20,6 +20,7 @@ _Avoid_: Routine, ritual
 
 **Grocery / Meal / Workout**:
 Item types with specialised fields (quantity, store, exercise sets, etc.). Out of scope for the `parse-tasks` v1 contract; parse-tasks only emits `task` and `habit`.
+_Status_: `grocery` and `meal` have **no user surface**. Both are accepted by `ItemTypeSchema` and each carries its own Daily Plan reference kind, but neither has a page, an Add target, or a renderer — nutrition is served by Calorie entries instead. Only `workout` has a real surface, through Workout plans. Do not describe either as available.
 
 ### Item lifecycle
 
@@ -47,6 +48,34 @@ An optional measurable goal on a Habit definition, separate from its scheduled d
 **Habit progress chunk**:
 A positive amount recorded against one materialized Habit instance, with an optional note. Chunks accumulate only within that day and are progress logs, not additional scheduled timeline blocks.
 
+### The day
+
+The canonical shape of a day is `DaySummarySchema` in `backend/src/day-summary-schema.ts`. It is a versioned contract (`version: 1`) and the most central type in the codebase; the terms below are its vocabulary.
+
+**Daily Plan reference**:
+One entry in the day's single ordered plan (`dailyPlan.references`). Fourteen kinds span every module — Calendar events and transitions, Focus blocks, Tasks, Habits, grocery, meal plans, workout plans, Habit progress chunks, Calorie entries, Weight entries, Workout sessions, Progress targets, and Progress entries. Every reference carries `semantics`: `plan` (intended), `actual` (recorded), or `boundary` (protected time). A reference points at the record its owning module holds via `sourceId` — it never copies or mutates that record.
+_Avoid_: "timeline row" when you mean a reference; the plan is the data, the timeline is one rendering of it.
+
+**Capacity**:
+Usable time left in the Planning window after known obligations and their Transition buffers. Three statuses: `complete` (an exact `availableMinutes`), `partial` (an upper bound plus reason codes), and `unavailable` (no window or basis at all). **Capacity never guesses** — twelve typed reason codes state why an answer is incomplete rather than returning a wrong number.
+_Avoid_: "free time" (implies leisure), "available time" without saying whether it is exact or an upper bound.
+
+**Planning window**:
+The user's declared usable day: `startTime`, `endTime`, and `transitionBufferMinutes`. Capacity is computed against it. **It defaults to `null`**, and while it is null the Capacity strip does not render — so a new account sees no Capacity until a window is set.
+
+**Transition buffer**:
+Protected minutes reserved after each obligation. The policy is fixed (`bufferPolicy: 'after_each_obligation'`) and buffers appear on the plan as `boundary` references.
+
+**Focus (attention)**:
+The single Item that most deserves the user's attention right now, with a reason code. Six states: `selected`, `empty_day`, `completed_day`, `nothing_needs_attention`, `past_incomplete`, `future_planned`. It declines to pick rather than surfacing something arbitrary.
+_Avoid_: **do not confuse with a Focus block**, which is a scheduled Work plan and a different concept — see the Work section.
+
+**Next obligation**:
+The next time-fixed commitment, resolved across both planned Items and Calendar events with an explicit tie-break (a Calendar event wins a same-time tie). Carries `conflictIds` for anything competing for the same slot.
+
+**Module read status**:
+Within the day contract each module reports its own read status, and `unavailable` (the read failed) is always distinct from an empty result (`not_logged`, `not_recorded`, `not_scheduled`). One module failing must never fail the whole day. Distinct from **Module status semantics** below, which is about how a section is presented.
+
 ### Categories
 
 The closed set of category values the UI offers when creating items: `health`, `work`, `personal`, `fitness`, `grocery`, `nutrition`. AI-generated items must pick from this set; other values get rejected at the parser boundary.
@@ -59,7 +88,10 @@ The presentation parent for the optional Nutrition, Workouts, and Progress secti
 **Module status semantics**:
 Presentation metadata declares a section as a `tracker`, `goal`, or `hybrid`. Nutrition and Workouts are trackers, so an unrecorded day is neutral rather than a failed goal. Progress is hybrid: measurements can be tracked without targets, while individual definitions may optionally include a target.
 
-Today and Talk remain the primary daily destinations. Week remains the `/week` planning view behind its release flag; there is no user-facing Time module. Existing Health routes remain `/calories`, `/workouts`, and `/achievements` even though their display labels are Nutrition, Workouts, and Progress.
+**Which modules are optional**:
+Only three: `calorieIntake`, `achievementTracker`, and `workoutTracker` — that is the whole of `ModuleSettingKeySchema`. **Habits and Work have no user-facing toggle and are always on**, which is why the day contract types them as `z.literal('enabled')`. Do not describe modules as uniformly optional.
+
+Today and Talk remain the primary daily destinations, and on mobile they are the *only* two entries in the bottom dock — Work, Health, and Settings are reached through the navigation drawer. Work is a live, unflagged destination at `/work` in the Plan navigation group. Week remains the `/week` planning view behind its release flag; there is no user-facing Time module. Existing Health routes remain `/calories`, `/workouts`, and `/achievements` even though their display labels are Nutrition, Workouts, and Progress.
 
 ### Calorie tracking
 
@@ -98,7 +130,7 @@ A bounded Work context for a target. It records the target, definition of done, 
 
 **Focus block**:
 A persistent, startable plan for focused Work. It has a stable id, a real scheduled date and start time, planned focused minutes, intended outcome/evidence, optional transition/break minutes, and references canonical Tasks without copying or completing them. A Focus block belongs to a Project or carries bounded standalone title/context. Its lifecycle is `planned → active → reviewing → completed`, with `canceled` as a terminal alternative. A completed Work review, not elapsed time, produces the Work session.
-_Avoid_: storing a Focus block as a Task, calling a display-only time label a schedule, or overwriting an earlier block when planning another one
+_Avoid_: storing a Focus block as a Task, calling a display-only time label a schedule, or overwriting an earlier block when planning another one. **Do not confuse with Focus (attention)** — that is the day contract's choice of what deserves the user now, has no schedule and no lifecycle, and belongs to no module. The two share a word and nothing else; say "Focus block" whenever Work is meant.
 
 **Work review**:
 The structured account required to complete a Focus block: what changed, evidence, milestone impact, blockers, unnecessary work, actual focused minutes, next valuable step, and attention (`Focused`, `Mixed`, or `Drifted`). It also preserves the explicit Task and Project updates the user confirmed. The review, its Work session, those confirmed updates, and the Focus-block completion are one atomic write.
@@ -113,8 +145,9 @@ _Avoid_: session when you mean the planned Focus block; treating time spent as p
 The endpoint and capability that takes free-form natural-language input and emits a structured list of `Item`s (v1: `task` + `habit` only). The user types a paragraph; the parser returns drop-in items the user can confirm or edit before saving.
 _Avoid_: "AI parser" (too vague), "task extractor" (loses the habit case)
 
-**BYOK** (Bring Your Own Key):
-Pattern where the user supplies their own OpenAI API key, stored client-side. The frontend reads it from `localStorage` and sends it to the backend per request, which uses it instead of any server-side default.
+**Server-keyed**:
+The only AI access model. The OpenAI API key lives on the server and is never sent to, stored by, or read from the client. Every AI call is metered against the user's Credits balance server-side.
+_Avoid_: **BYOK / "bring your own key"** — there is no such flow and never has been in shipped code. The term previously appeared here describing a `localStorage` key-passing pattern that does not exist anywhere in `src/`; it is retired vocabulary. Do not add client-side key handling.
 
 ### Authentication
 

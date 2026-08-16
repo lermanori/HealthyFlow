@@ -1,3 +1,13 @@
+### 2026-08-16 15:19 — `worktree-ios-launch-mission`
+
+Audited the root documentation against the source and corrected what the code contradicted. CONTEXT.md carried a live definition of BYOK — a client-side key-passing pattern with zero references anywhere in `src/` and flatly denied by CLAUDE.md — which is now deleted and replaced by a Server-keyed entry that retires the term. The same doc had no vocabulary at all for the day contract's most distinctive concepts, so Daily Plan reference, Capacity, Planning window, Transition buffer, Focus (attention), Next obligation and Module read status are now defined, along with an explicit disambiguation between Focus (attention) and a Work Focus block, which had been sharing a word and nothing else.
+
+FEATURES.md claimed the product was PWA-only and that no Projects view existed; both were false. It now documents the Capacitor iOS app on TestFlight with its widget, native Apple and Google sign-in and server-controlled version gate, carries a Work section, lists Work in the navigation table, and records that the mobile dock holds only Today and Talk. Public signup slots were corrected from a claimed default of 0 to the schema's 10, and the file now states that `planningWindow` defaults to null, so the Capacity panel does not render for a new account at all. CLAUDE.md gained iOS in the stack and `day-summary-schema.ts` in its deep-modules list.
+
+Verifying rather than trusting the docs turned up a genuine defect on the side: the iOS app target declares `IPHONEOS_DEPLOYMENT_TARGET` as 15.0 in one build configuration and 17.0 in the other while the widget is 17.0 in both, so Debug and Release can build against different OS floors. MISSION.md's claim of "iOS 17" does not match the project file. That is filed separately and deliberately left unfixed here. One framing edit — CONTEXT.md's opening description of the product — was identified and held back pending a separate decision.
+
+---
+
 ### 2026-08-04 15:38 — `codex/phase-5-talk-runtime`
 
 Today now identifies a Project-linked Task with its Project badge instead of the generic category, making the relationship between a canonical Task and its separate Focus block visible without merging their records. The canonical day response carries the Project id, name, and color for scheduled, completed, and carried-forward Tasks, with the category retained as the fallback for unassigned Tasks. Verification passed the production build, both typechecks, and 41 focused backend tests.
