@@ -56,6 +56,7 @@ Root-level docs and what each is authoritative for. If it is not listed here, it
 | `CONTEXT.md` | Domain vocabulary | Live |
 | `docs/adr/` | Architecture decisions, numbered | Live |
 | `docs/agents/` | Skill configuration (issue tracker, triage labels, domain layout) | Live |
+| `docs/ios.md` | The iOS app: Capacitor shell, native plugins, widget, signing, APNs, version gate, release order | Live — authoritative for anything native |
 | `LEDGER.md` | Session-by-session narrative history | Live, append-only |
 | `FEATURES.md` | What the app actually does today | Live — carries a "last verified against the code" date; re-verify before trusting it |
 | `MARKETING.md` | Positioning, pricing, go-to-market plan | Live, product-side — not a spec for code |

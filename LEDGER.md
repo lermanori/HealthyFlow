@@ -1,3 +1,13 @@
+### 2026-08-16 15:34 — `worktree-ios-launch-mission`
+
+Second pass over the documentation, covering everything the repo map calls a source of truth that the first pass had not reached. README.md claimed `LEDGER.md` is appended on every commit by `.githooks/post-commit`; the hook is explicitly a no-op and says so in its own comment, so the ledger is hand-written and the README now says that. README-DEPLOYMENT.md was largely original scaffold text: it advised upgrading SQLite to Postgres, listed a `DATABASE_URL` nothing reads, instructed editing a hardcoded `API_BASE_URL` constant that is actually `VITE_API_URL`, and published `demo@healthyflow.com` / `demo123` as working login credentials. All corrected, with the untested Render and Heroku options marked as such and the fail-closed signup gate added to troubleshooting.
+
+`docs/ios.md` is added to the repo map in CLAUDE.md as authoritative for anything native — it was a genuine source of truth that the map did not list. Its claim of an iOS 17 minimum, repeated in MISSION.md, is now qualified in both places against the project file's actual disagreement.
+
+Two dead-code findings came out of verifying rather than trusting the docs, both filed separately rather than fixed here. `initDatabase()` is commented out at `backend/src/index.ts:132`, but `backend/src/db/database.ts` opens `healthyflow.db` at import time, so every boot still creates a SQLite file nothing reads — and `sqlite3` remains a dependency of both package manifests. Separately, all credit purchase CTAs in Settings are gated behind `!isNativeApp`, so the iOS app currently offers no path to more credits at all; that is correct given no StoreKit exists, but it is a launch constraint worth stating plainly.
+
+---
+
 ### 2026-08-16 15:19 — `worktree-ios-launch-mission`
 
 Audited the root documentation against the source and corrected what the code contradicted. CONTEXT.md carried a live definition of BYOK — a client-side key-passing pattern with zero references anywhere in `src/` and flatly denied by CLAUDE.md — which is now deleted and replaced by a Server-keyed entry that retires the term. The same doc had no vocabulary at all for the day contract's most distinctive concepts, so Daily Plan reference, Capacity, Planning window, Transition buffer, Focus (attention), Next obligation and Module read status are now defined, along with an explicit disambiguation between Focus (attention) and a Work Focus block, which had been sharing a word and nothing else.

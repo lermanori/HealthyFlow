@@ -4,7 +4,12 @@ HealthyFlow ships the existing React application inside a Capacitor iOS shell.
 The web application remains the product and source of business logic; native
 code is used at the platform boundary where iOS adds meaningful value.
 
-The current minimum deployment target is iOS 17.
+The intended minimum deployment target is iOS 17, but **the Xcode project does
+not currently agree with itself**: the `App` target declares
+`IPHONEOS_DEPLOYMENT_TARGET = 15.0` in one build configuration and `17.0` in the
+other, while `HealthyFlowWidget` is `17.0` in both. Debug and Release can
+therefore build against different OS floors. Reconcile this before relying on
+any OS-gated API.
 
 ## What is implemented
 
