@@ -1,5 +1,9 @@
 # Redesign v2 — review fix docs
 
+> **Dated review artifact, not a live defect list.** These findings describe
+> `feat/redesign-v2` as it stood on 2026-07-08, before merge. They have not been
+> re-verified since. Check the current code before acting on any of them.
+
 Source: `/code-review` (medium) of `feat/redesign-v2` vs `main`, 2026-07-08. Eight
 findings survived verification; the five below are the CONFIRMED, pre-merge ones.
 Each has its own doc with root cause and an exact fix. The other three (theme

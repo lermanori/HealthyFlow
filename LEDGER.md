@@ -1,3 +1,13 @@
+### 2026-08-16 15:47 — `worktree-ios-launch-mission`
+
+Closed out the documentation audit by covering the files the repo map does not list as sources of truth. Most held up: `docs/local-database.md` is accurate down to its `major_version = 17` and container name, `docs/analytics/` still honours its own invariant that only `posthogProvider.ts` imports `posthog-js`, and `docs/archive/README.md` already warns that the v1 PRD reads as false if taken as current — which is the framing the rest of the repo needed.
+
+`docs/daily-signals.md` described Daily Signals throughout as though it were shipped, never mentioning that the whole surface sits behind `VITE_DAILY_SIGNALS_ENABLED` and is off for every production user; it now says so up front. Its instructions for adding a signal also pointed at `daily-context.ts`, which only re-exports `DailySignalTypeSchema` — edits there would have done nothing, so the path now points at `daily-context-schema.ts` where it is actually defined.
+
+The two review directories carried dated findings with no statement that they are dated. `docs/ux-review/` gained a README explaining that it is a point-in-time review from 18 July 2026, and naming two High findings verified as since fixed — the health-route redirect that `ModuleGate`'s loading branch now handles, and the Add page module gating that `useSettings` now resolves — while being explicit that the remaining findings are unverified rather than unfixed. `docs/fixes/redesign-v2-review/` gained the same warning.
+
+---
+
 ### 2026-08-16 15:34 — `worktree-ios-launch-mission`
 
 Second pass over the documentation, covering everything the repo map calls a source of truth that the first pass had not reached. README.md claimed `LEDGER.md` is appended on every commit by `.githooks/post-commit`; the hook is explicitly a no-op and says so in its own comment, so the ledger is hand-written and the README now says that. README-DEPLOYMENT.md was largely original scaffold text: it advised upgrading SQLite to Postgres, listed a `DATABASE_URL` nothing reads, instructed editing a hardcoded `API_BASE_URL` constant that is actually `VITE_API_URL`, and published `demo@healthyflow.com` / `demo123` as working login credentials. All corrected, with the untested Render and Heroku options marked as such and the fail-closed signup gate added to troubleshooting.
