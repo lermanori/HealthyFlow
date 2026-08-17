@@ -609,11 +609,20 @@ function DecisionBand({ summary, nowMinutes }: { summary: DaySummary; nowMinutes
       ? `At most ${formatMinutes(capacity.availableUpperBoundMinutes)} unallocated`
       : 'Usable time unavailable'
 
+  // The window is shown for every status that has one, including `partial`.
+  // The planning window defaults rather than being chosen, so a number computed
+  // against it must always state its basis — an upper bound with the window
+  // hidden is exactly the unexplained figure Capacity is designed not to give.
+  // Only `unavailable` has no window to show (`window: null`).
+  const capacityWindowLabel = capacity.status === 'unavailable'
+    ? null
+    : `${capacity.window.startTime}–${capacity.window.endTime} window`
+
   const capacityDetail = capacity.status === 'unavailable'
     ? capacityReasonCopy[capacity.reasonCodes[0]]
     : capacity.status === 'partial'
-      ? capacity.reasonCodes.map((reason) => capacityReasonCopy[reason]).join(' ')
-      : `${capacity.window.startTime}–${capacity.window.endTime} window · ${formatMinutes(capacity.basis.knownLoadMinutes)} known load${capacity.window.transitionBufferMinutes ? ` · ${capacity.window.transitionBufferMinutes}m buffers` : ''}`
+      ? `${capacityWindowLabel} · ${capacity.reasonCodes.map((reason) => capacityReasonCopy[reason]).join(' ')}`
+      : `${capacityWindowLabel} · ${formatMinutes(capacity.basis.knownLoadMinutes)} known load${capacity.window.transitionBufferMinutes ? ` · ${capacity.window.transitionBufferMinutes}m buffers` : ''}`
 
   return (
     <section

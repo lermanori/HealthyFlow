@@ -1,4 +1,5 @@
 import { getGoogleCalendarStatus, syncGoogleCalendarEventsForDate } from './calendar'
+import { logger } from './utils/logger'
 import {
   CapacityReasonCodeSchema,
   DaySummaryCalendarEvent,
@@ -965,10 +966,19 @@ export async function buildDaySummary(
         reasonCode: null,
         events,
       }
-    } catch {
+    } catch (error) {
+      // Degrading the day is correct — one module failing must not fail the
+      // whole day — but discarding the cause is not. `sync_failed` reaches the
+      // user as "Calendar obligations could not be checked" and downgrades
+      // Capacity from an exact figure to an upper bound, so the reason it
+      // happened has to survive somewhere.
+      logger.error('Day summary: Google Calendar events could not be fetched', { userId, date, error })
       return { status: 'unavailable', reasonCode: 'sync_failed', events: [] }
     }
-  }, () => ({ status: 'unavailable', reasonCode: 'status_unavailable', events: [] }))
+  }, (error) => {
+    logger.error('Day summary: Google Calendar connection status could not be read', { userId, date, error })
+    return { status: 'unavailable', reasonCode: 'status_unavailable', events: [] }
+  })
 
   const nutritionPromise = nutritionEnabled === true
     ? Promise.allSettled([

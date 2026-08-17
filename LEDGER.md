@@ -1,3 +1,13 @@
+### 2026-08-17 13:47 — `main`
+
+A screenshot of the running app showed Capacity rendering, which confirmed yesterday's default, and exposed two things at once. The panel read "At most 4h 3m unallocated · Calendar obligations could not be checked" — an upper bound computed against a window the user never chose, with no indication of what that window was. The justification for defaulting the planning window had been that Today always renders the window it computed against, and that turned out to hold only for `complete` status: `capacityDetail` swapped the window line out for reason copy in `partial`, which is precisely the state where an unexplained number does the most damage. The window is now shown for every status that has one, and only `unavailable` has none.
+
+The second finding is why the calendar failed, or rather why nobody can tell. The copy maps to `calendar_unavailable`, which the day contract distinguishes from `calendar_not_connected` — the read failed rather than being absent, so Google Calendar is connected and erroring. An `invalid_grant` would have flipped the connection to disconnected, so this is something else: a token refresh failure, an API error, or the status lookup itself rejecting. Both failure paths in `buildDaySummary` swallowed the error with a bare `catch`, so the cause never reached a log. Degrading the day is right and one module failing must never fail the whole day, but discarding the reason is not, and it left a user-visible downgrade of the product's headline number with nothing to debug from. Both paths now log with the user, date and error before returning their status.
+
+Worth noting the severity shift: the known Google-sync defect was filed as a first-session error toast, a credibility problem. Now that Capacity is on by default it also downgrades the one number no competitor can produce from exact to hedged, which moves it onto the critical path for the launch message rather than the polish list.
+
+---
+
 ### 2026-08-17 13:30 — `main`
 
 Turned Capacity on by default, which makes the day contract's most distinctive read visible instead of hidden. `planningWindow` defaulted to `null`, and Capacity cannot be computed without a window, so every new account saw no Capacity at all until it found a Settings toggle it had no reason to look for — the one number no competitor can produce was invisible to everyone who had not already gone looking.
