@@ -30,6 +30,8 @@ const item = (overrides: Partial<DaySummaryItem> = {}): DaySummaryItem => ({
   rolledOverFromTaskId: null,
   originalCreatedAt: null,
   completedAt: null,
+  projectId: null,
+  project: null,
   position: null,
   googleEventId: null,
   syncedToGoogle: false,

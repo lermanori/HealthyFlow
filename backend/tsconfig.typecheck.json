@@ -1,0 +1,14 @@
+{
+  // The build config (`tsconfig.json`) compiles only `src`, because that is what
+  // ships. Checking is a different job from building: nothing type-checked
+  // `tests/`, so a fixture could drift out of sync with a contract and only jest
+  // would ever notice — which is how `day-summary.test.ts` sat uncompilable for
+  // weeks while `npm run typecheck` reported success. `npm run typecheck` uses
+  // this config; the build still uses the narrower one.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "tests/**/*"]
+}

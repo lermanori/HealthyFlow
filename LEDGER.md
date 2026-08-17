@@ -8,6 +8,18 @@ The derivation moved into `src/utils/reminderCandidates.ts` unchanged so it coul
 
 ---
 
+### 2026-08-17 15:12 — `main`
+
+The backend suite is fully green for the first time in this stretch: 724 tests across 77 suites, no failures. The suite that had been failing all along was `day-summary.test.ts`, and the cause was not what had been claimed repeatedly in these entries.
+
+It was diagnosed as two copies of zod 4.4.3 producing nominally distinct inferred types, on the strength of TypeScript's "Two different types with this name exist" elaboration. That was wrong, and testing it settled the matter in seconds: moving `backend/node_modules/zod` aside left the failure byte-for-byte identical. The duplicate install is real — `backend/` has its own `package-lock.json`, so it is a separate install root by design — but it was never the problem. The actual error was in the message all along, one line further down: the test's item fixture was missing `projectId` and `project`, both added to `DaySummaryItemSchema` as required nullable fields by `287e8a2`. With them absent the only source was `...overrides`, typed `Partial<DaySummaryItem>`, so `projectId` arrived as `string | null | undefined` against a required `string | null`. Adding the two fields fixed it.
+
+The more useful finding is why it hid for weeks. `backend/tsconfig.json` sets `include: ["src/**/*"]`, correctly, because `src` is what ships — so `npm run typecheck` never looked at `tests/` and reported success while a test file could not compile. Checking is not the same job as building. `tsconfig.typecheck.json` now extends the build config and adds `tests/**/*`, and `npm run typecheck` uses it while the build keeps the narrower one. It was clean on the first run across both directories, and it was verified to actually bite by deleting `projectId: null` again and confirming the typecheck fails rather than staying silent until jest runs.
+
+This unblocks the `calendar_not_connected` change, which was deliberately held back: it alters capacity semantics and three of the assertions covering it live in the suite that could not run.
+
+---
+
 ### 2026-08-17 14:39 — `main`
 
 Cleared the browser console of the same pollution the backend log had. All six `console.log` calls in `src/` are gone; `console.error` and `console.warn` on real failure paths were left alone.

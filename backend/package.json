@@ -14,7 +14,7 @@
     "inventory:html": "tsx scripts/generate-ai-capability-inventory.ts",
     "test": "jest --config jest.config.cjs",
     "test:ci": "jest --config jest.config.cjs --ci --runInBand --testPathIgnorePatterns=\\.live\\.test\\.ts$",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
