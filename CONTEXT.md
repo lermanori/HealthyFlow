@@ -61,7 +61,9 @@ One entry in the day's single ordered plan (`dailyPlan.references`). Fourteen ki
 _Avoid_: "timeline row" when you mean a reference; the plan is the data, the timeline is one rendering of it.
 
 **Capacity**:
-Usable time left in the Planning window after known obligations and their Transition buffers. Three statuses: `complete` (an exact `availableMinutes`), `partial` (an upper bound plus reason codes), and `unavailable` (no window or basis at all). **Capacity never guesses** — twelve typed reason codes state why an answer is incomplete rather than returning a wrong number.
+Usable time left in the Planning window after known obligations and their Transition buffers. Three statuses: `complete` (an exact `availableMinutes`), `partial` (an upper bound plus reason codes), and `unavailable` (no window or basis at all). **Capacity never guesses** — eleven typed reason codes state why an answer is incomplete rather than returning a wrong number.
+
+A reason code means something the day *should* know and does not. A Calendar the user never connected is **not** one: it is outside the system's world, like an obligation they never wrote down, so it leaves Capacity `complete`. A connected Calendar that could not be read (`calendar_unavailable`) *is* a reason — there the obligations are genuinely part of the day and the read failed.
 _Avoid_: "free time" (implies leisure), "available time" without saying whether it is exact or an upper bound.
 
 **Planning window**:

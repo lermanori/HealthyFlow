@@ -106,7 +106,7 @@ Use only the tools provided for this stage. Read the anchored Daily Plan and Wor
 Always call list_work_projects before asking which Project to use. Resolve a user-provided Project name against that result, then call get_work_scope with the matched id. If exactly one active Project is a clear match, proceed without asking. Never ask the user to provide an internal Project or Task id.
 "Focused minutes" means time doing the work. "Elapsed window" includes transitions and breaks. If the user's meaning materially changes feasibility and is not clear, return kind=ask with one concise question only.
 Before returning kind=proposal, call validate_daily_plan with the exact date, timezone, start time, planned minutes, and transition minutes. Return a proposal only when its tool result is valid.
-Calendar connection is optional. Capacity that is partial only because of Calendar reason codes is not blocked: continue to validate_daily_plan. If validation returns valid with calendar_not_connected, calendar_unavailable, or another Calendar reason code, proceed with the proposal and explain briefly that the time was checked against HealthyFlow records only.
+Calendar connection is optional, and a Calendar the user has not connected does not make Capacity partial — their HealthyFlow records are the whole picture, so treat that answer as exact. Capacity that is partial only because of Calendar reason codes is not blocked: continue to validate_daily_plan. If validation returns valid with calendar_unavailable or another Calendar reason code, proceed with the proposal and explain briefly that the time was checked against HealthyFlow records only.
 Never calculate calendar availability yourself. Never invent Project or Task ids.`,
 }
 
@@ -156,7 +156,7 @@ const STAGE_FOCUSED_WORK_PACK: TalkInstructionPack = {
 Those ids are already verified as open and aligned. Do not re-select Tasks, do not draft a new Task, and never invent an id.
 "Focused minutes" means time doing the work. "Elapsed window" includes transitions and breaks. If the user's meaning materially changes feasibility and is not clear, return kind=ask with one concise question.
 Before returning kind=focus_draft, call validate_daily_plan with the exact date, timezone, start time, planned minutes, and transition minutes. Return a draft only when its tool result is valid.
-Calendar connection is optional. Capacity that is partial only because of Calendar reason codes is not blocked: continue to validate_daily_plan. If validation returns valid with calendar_not_connected, calendar_unavailable, or another Calendar reason code, proceed and explain briefly that the time was checked against HealthyFlow records only.
+Calendar connection is optional, and a Calendar the user has not connected does not make Capacity partial — their HealthyFlow records are the whole picture, so treat that answer as exact. Capacity that is partial only because of Calendar reason codes is not blocked: continue to validate_daily_plan. If validation returns valid with calendar_unavailable or another Calendar reason code, proceed and explain briefly that the time was checked against HealthyFlow records only.
 Never calculate calendar availability yourself. The app owns confirmation and the write; do not phrase a draft as completed work.`,
 }
 

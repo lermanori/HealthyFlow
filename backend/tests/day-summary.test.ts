@@ -174,7 +174,8 @@ describe('DaySummary capacity derivation', () => {
       status: 'partial',
       basis: expect.objectContaining({ knownLoadMinutes: 75 }),
       availableUpperBoundMinutes: 525,
-      reasonCodes: ['calendar_not_connected', 'item_missing_duration'],
+      // A disconnected Calendar is not a reason. The Item with no duration is.
+      reasonCodes: ['item_missing_duration'],
     }))
     expect(capacity).not.toHaveProperty('availableMinutes')
   })
@@ -314,7 +315,9 @@ describe('Daily Plan placement validation', () => {
       status: 'valid',
       requestedMinutes: 105,
       availableMinutes: 600,
-      reasons: ['calendar_not_connected'],
+      // Nothing is unknown: the user has no Calendar connected, so their Items
+      // are the whole picture and the placement is validated without caveat.
+      reasons: [],
     })
   })
 
@@ -372,7 +375,7 @@ describe('Daily Plan placement validation', () => {
 
     expect(result).toMatchObject({
       status: 'valid',
-      reasons: ['calendar_not_connected', 'item_missing_duration'],
+      reasons: ['item_missing_duration'],
     })
   })
 })

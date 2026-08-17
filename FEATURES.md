@@ -77,7 +77,7 @@ at the records their modules own; nothing is copied or cross-mutated.
   and the ids of anything competing for the slot.
 - **Capacity** — usable minutes left in the planning window after known
   obligations and their transition buffers. Reports `complete` (an exact number),
-  `partial` (an upper bound), or `unavailable`, with twelve typed reason codes
+  `partial` (an upper bound), or `unavailable`, with eleven typed reason codes
   saying *why* an answer is incomplete. It never returns a guessed number.
 
 **Capacity is on for a new account.** `planningWindow` defaults to

@@ -8,6 +8,18 @@ The derivation moved into `src/utils/reminderCandidates.ts` unchanged so it coul
 
 ---
 
+### 2026-08-17 15:20 — `main`
+
+A Calendar the user never connected no longer makes Capacity partial. Until now any account without Google Calendar could only ever be told "at most 4h 3m unallocated" — never "3h 40m usable time left" — because `complete` requires an empty `reasonCodes` array and `calendar_not_connected` was pushed unconditionally. That is the default state of every new account, so the product's most distinctive claim was hedged for exactly the people meeting it for the first time.
+
+The distinction the contract already drew is the one that matters. `calendar_not_connected` and `calendar_unavailable` were separate codes because they describe different things: the first is a choice, the second a failure. A Calendar that was never connected is outside the system's world, no different from an obligation the user never wrote down anywhere — treating it as missing data would imply Capacity should always be partial, since something unrecorded always exists. A connected Calendar that could not be read is a genuine unknown, and there Capacity should still refuse to sound certain. Only the second remains a reason.
+
+With no producer left, `calendar_not_connected` was removed from `CapacityReasonCodeSchema` rather than left as an emittable-by-nobody enum member — the same debt shape already documented for `grocery` and `meal`. Reason codes are computed per request and never stored, so nothing can hold a stale one. `calendar.status` still reports `not_connected`, which is the honest place to offer "connect your Calendar for a more accurate number" as a prompt rather than a hedge. Two Talk prompt strings that told the agent to expect the code were rewritten, and a Talk fixture describing a now-impossible state was moved to `calendar_unavailable` so it still covers the case it was written for.
+
+Verified: 724 backend tests across 77 suites with no failures, 93 frontend tests, both typechecks — the backend one now covering `tests/` as well — and a production build. CONTEXT.md and FEATURES.md corrected from twelve reason codes to eleven in the same change.
+
+---
+
 ### 2026-08-17 15:12 — `main`
 
 The backend suite is fully green for the first time in this stretch: 724 tests across 77 suites, no failures. The suite that had been failing all along was `day-summary.test.ts`, and the cause was not what had been claimed repeatedly in these entries.

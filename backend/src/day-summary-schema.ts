@@ -158,7 +158,9 @@ export const CapacityReasonCodeSchema = z.enum([
   'planning_window_invalid',
   'timezone_missing',
   'timezone_invalid',
-  'calendar_not_connected',
+  // No `calendar_not_connected`: a Calendar the user never connected is not a
+  // reason Capacity is uncertain. `calendar.status` still reports it, which is
+  // the right place to offer "connect your Calendar" — a prompt, not a hedge.
   'calendar_unavailable',
   'calendar_event_all_day',
   'calendar_event_missing_time',

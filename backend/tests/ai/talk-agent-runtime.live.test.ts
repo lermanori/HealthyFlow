@@ -113,14 +113,17 @@ describeLive('Phase 5 Talk Agents SDK — live controlled eval', () => {
       },
       basis: { planningWindowMinutes: 600, occupiedMinutes: 120, transitionMinutes: 20 },
       availableUpperBoundMinutes: 460,
-      reasonCodes: ['calendar_not_connected'],
+      // A connected Calendar that could not be read. A *disconnected* one is no
+      // longer a reason code, so this is the remaining way Calendar alone makes
+      // Capacity partial — which is the case this test exists to cover.
+      reasonCodes: ['calendar_unavailable'],
     }
     const fixtureResults: Record<string, unknown> = {
       get_daily_plan: {
         version: 1,
         date: '2026-08-03',
         items: [],
-        calendar: { status: 'not_connected', reasonCode: 'not_connected', events: [] },
+        calendar: { status: 'unavailable', reasonCode: 'sync_failed', events: [] },
         work: { status: 'available', focusBlocks: [] },
         capacity,
       },
@@ -130,7 +133,7 @@ describeLive('Phase 5 Talk Agents SDK — live controlled eval', () => {
         status: 'valid',
         requestedMinutes: 100,
         availableMinutes: 460,
-        reasons: ['calendar_not_connected'],
+        reasons: ['calendar_unavailable'],
         preview: { startTime: '14:00', durationMinutes: 90, transitionMinutes: 10 },
       },
       list_work_projects: {

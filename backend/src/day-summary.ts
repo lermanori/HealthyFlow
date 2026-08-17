@@ -636,7 +636,15 @@ export function deriveCapacity(input: {
     addInterval(start, start + Math.round(item.duration))
   }
 
-  if (input.calendar.status === 'not_connected') reasons.push('calendar_not_connected')
+  // A Calendar the user never connected is outside the system's world, exactly
+  // like an obligation they never wrote down anywhere — it is not missing data,
+  // so it does not make the answer partial. Treating it as a reason meant every
+  // account without Google Calendar could only ever be told "at most X", which
+  // is a hedge against a choice the user made deliberately.
+  //
+  // `unavailable` stays a reason and must: there the user did connect a
+  // Calendar, so its obligations are genuinely part of their day, and the read
+  // failed. That is a real unknown and Capacity should refuse to sound certain.
   if (input.calendar.status === 'unavailable') reasons.push('calendar_unavailable')
 
   for (const event of input.calendar.events) {
