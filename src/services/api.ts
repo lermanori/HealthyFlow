@@ -3,6 +3,7 @@ import axios from 'axios'
 import toast from 'react-hot-toast'
 import { z } from 'zod'
 import { analytics } from '../lib/analytics'
+import { WORK_ENABLED } from '../featureFlags'
 import type { DemoPersonaId } from '../demoPersonas'
 import type { ItemSource, ItemType } from '../lib/analytics/types'
 import type {
@@ -1125,10 +1126,34 @@ export const daySummaryQueryKey = (date: string) => [...DAY_SUMMARY_QUERY_KEY, d
 export const DAILY_SIGNALS_QUERY_KEY = ['daily-context'] as const
 export const dailySignalsQueryKey = (date: string) => [...DAILY_SIGNALS_QUERY_KEY, date] as const
 
+/**
+ * Applies the Work release flag to a day.
+ *
+ * Hiding Work is a presentation decision, not a data one. The server keeps
+ * planning, storing and returning Focus blocks, and Talk's work-planning
+ * workflow keeps running — this only stops them reaching Today. `not_scheduled`
+ * with no blocks is a state the day contract already models, so nothing
+ * downstream needs to learn a new shape.
+ *
+ * Stripping here rather than at each render site is deliberate: Today reads
+ * Focus blocks from two independent places (the timeline rows and the attention
+ * strip), and a third would otherwise reintroduce Work by accident.
+ */
+function applyWorkVisibility(summary: DaySummary): DaySummary {
+  if (WORK_ENABLED) return summary
+  return {
+    ...summary,
+    work: { status: 'not_scheduled', focusBlocks: [] },
+    dailyPlan: {
+      references: summary.dailyPlan.references.filter((reference) => reference.kind !== 'focus_block'),
+    },
+  }
+}
+
 export const daySummaryService = {
   get: async (date: string): Promise<DaySummary> => {
     const response = await api.get('/day-summary', { params: { date } })
-    return DaySummarySchema.parse(response.data)
+    return applyWorkVisibility(DaySummarySchema.parse(response.data))
   },
 }
 

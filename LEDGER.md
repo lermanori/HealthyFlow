@@ -1,3 +1,13 @@
+### 2026-08-16 17:33 — `feat/hide-work-surface`
+
+Made the launch surface cut: Work now sits behind `VITE_WORK_ENABLED`, opt-in like every other release flag, so production hides Projects, Focus blocks and Work sessions while Today and Talk stay the only things in the mobile dock. Nothing is deleted and the server is untouched — Work keeps computing into every day and Talk's work-planning workflow keeps running. The flag governs reachability only.
+
+The interesting part was where to apply it. Today reads Focus blocks from two independent places, the timeline rows and the attention strip, so gating each render site would have left the next one free to reintroduce them. Instead the flag is applied once to the fetched day in `applyWorkVisibility`: the Work slice becomes `not_scheduled` with no blocks and `focus_block` references are filtered out of the daily plan. Both are states the day contract already models, so nothing downstream learns a new shape. Every optimistic cache write on the day transforms already-filtered data and none touch the Work slice, so the gate holds. The Project selector on Add is hidden too, since filing a Task into a Project the user cannot open is a dead end.
+
+Documentation was updated in the same change rather than after it, because the docs had just been corrected to say Work was live and unflagged and would otherwise have been false within the hour. CONTEXT.md now also distinguishes a user setting from a release flag — Work has no user toggle and is simultaneously behind a release flag, which are different mechanisms that were easy to conflate. Verified with both typechecks, 80 frontend tests including new assertions covering all five gates, and a production build.
+
+---
+
 ### 2026-08-16 17:20 — `main`
 
 Committed the Phase 6 Talk work that had been sitting uncommitted in the working tree since 2026-08-04, at the owner's request, so that the documentation branch could merge into a clean tree. The work separates a Talk workflow from a Talk stage: ADR-0009 amends ADR-0008 after the Phase 6 tracer showed the Phase 5 shape — one agent carrying every workflow's instructions and a single combined tool allowlist — already failing at two workflows' worth of contracts, with a captured regression trace of `validate_daily_plan` being called three times in a row. Stages are now either deterministic application activities or bounded agent activities scoped to only the instructions, tools and output contract that stage needs, and the application owns every transition rather than the model.

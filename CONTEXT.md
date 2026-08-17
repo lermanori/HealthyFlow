@@ -95,7 +95,9 @@ Presentation metadata declares a section as a `tracker`, `goal`, or `hybrid`. Nu
 **Which modules are optional**:
 Only three: `calorieIntake`, `achievementTracker`, and `workoutTracker` — that is the whole of `ModuleSettingKeySchema`. **Habits and Work have no user-facing toggle and are always on**, which is why the day contract types them as `z.literal('enabled')`. Do not describe modules as uniformly optional.
 
-Today and Talk remain the primary daily destinations, and on mobile they are the *only* two entries in the bottom dock — Work, Health, and Settings are reached through the navigation drawer. Work is a live, unflagged destination at `/work` in the Plan navigation group. Week remains the `/week` planning view behind its release flag; there is no user-facing Time module. Existing Health routes remain `/calories`, `/workouts`, and `/achievements` even though their display labels are Nutrition, Workouts, and Progress.
+**A user setting and a release flag are different things.** A module setting is the user's choice and hides a section for that account. A release flag is the project's choice and hides a surface from everyone. Work has no user setting *and* is currently behind the `VITE_WORK_ENABLED` release flag: the server still computes Work into every day, and the flag only decides whether the client can reach it.
+
+Today and Talk remain the primary daily destinations, and on mobile they are the *only* two entries in the bottom dock — Health and Settings are reached through the navigation drawer. Work sits at `/work` in the Plan navigation group but is **behind its release flag and hidden in production**, alongside Week at `/week`; there is no user-facing Time module. Existing Health routes remain `/calories`, `/workouts`, and `/achievements` even though their display labels are Nutrition, Workouts, and Progress.
 
 ### Calorie tracking
 

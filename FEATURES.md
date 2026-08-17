@@ -23,7 +23,7 @@ small:
 |---|---|---|
 | Today | Today | `/` |
 | Today | Talk | `/talk` |
-| Plan | Work | `/work` — live, no flag |
+| Plan | Work | `/work` — **behind a release flag, off in production** |
 | Plan | Week | `/week` — **behind a release flag, off in production** |
 | Health tools | Health | `/health` → Nutrition `/calories`, Workouts `/workouts`, Progress `/achievements` |
 | Utility | Settings | `/settings` |
@@ -107,10 +107,15 @@ at the records their modules own; nothing is copied or cross-mutated.
 
 ### Work
 
-Live at `/work`, no feature flag. Habits and Work are the two modules with **no
-user-facing toggle** — `ModuleSettingKeySchema` covers only `calorieIntake`,
-`achievementTracker` and `workoutTracker`, so the day contract types Work as
-always enabled.
+> **Hidden in production.** Work is built and complete, but sits behind
+> `VITE_WORK_ENABLED` and is unreachable for every production user. Everything
+> below describes the surface with the flag on. See "Behind a flag".
+
+Habits and Work are the two modules with **no user-facing toggle** —
+`ModuleSettingKeySchema` covers only `calorieIntake`, `achievementTracker` and
+`workoutTracker`, so the day contract types Work as always enabled. The release
+flag is a separate thing from a user setting: the server keeps computing Work for
+every day regardless, and the flag decides only what the client shows.
 
 - **Projects** — a bounded work context recording target, definition of done,
   current milestone, deadline, status, summary, blockers, constraints, non-goals,
@@ -254,10 +259,18 @@ founder, and fulfilment is manual by design at this stage.
 
 ## Behind a flag
 
-Both flags live in `src/featureFlags.ts` and are set in neither `.env.production`
-nor `netlify.toml`, so both features are invisible to every production user.
-Do not market either until its flag is on.
+All three flags live in `src/featureFlags.ts` and are set in neither
+`.env.production` nor `netlify.toml`, so all three features are invisible to
+every production user. Do not market any of them until its flag is on.
 
+- **Work** (`/work`) — Projects, Focus blocks, Work reviews and Work sessions.
+  `VITE_WORK_ENABLED`. The route redirects to Today, the nav entry is hidden, and
+  the Project selector on Add is hidden so a Task cannot be filed into a context
+  the user has no way to open. Focus blocks are additionally stripped from the
+  fetched day (`applyWorkVisibility` in `src/services/api.ts`) so they cannot
+  reach the Today timeline or the attention strip. **Nothing is deleted and the
+  server is untouched** — Work keeps storing Focus blocks and Talk's
+  work-planning workflow keeps running; the flag governs reachability only.
 - **Week** (`/week`) — a weekly plan with per-day completion and habit
   consistency. `VITE_WEEK_VIEW_ENABLED`. The route redirects to Today and the nav
   entry is hidden. Tracked by
