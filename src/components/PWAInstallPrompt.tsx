@@ -95,12 +95,10 @@ export default function PWAInstallPrompt({ suppressed = false }: PWAInstallPromp
 
     try {
       await deferredPrompt.prompt()
-      const choiceResult = await deferredPrompt.userChoice
-      
-      if (choiceResult.outcome === 'accepted') {
-        console.log('User accepted the install prompt')
-      }
-      
+      // The outcome is not acted on: the prompt is dismissed either way, and the
+      // browser will not re-offer it for this session regardless of the choice.
+      await deferredPrompt.userChoice
+
       setDeferredPrompt(null)
       setShowPrompt(false)
     } catch (error) {

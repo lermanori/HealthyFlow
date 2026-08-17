@@ -1,3 +1,15 @@
+### 2026-08-17 14:39 — `main`
+
+Cleared the browser console of the same pollution the backend log had. All six `console.log` calls in `src/` are gone; `console.error` and `console.warn` on real failure paths were left alone.
+
+Three of the six were in `taskService.getTasks`, which logged its arguments, then its entire response, then filtered every returned task looking for rolled-over ones purely so it could log those too. Since `SmartReminders` calls it unfiltered every sixty seconds, that was an unnecessary pass over the account's whole history, once a minute, to print something nobody reads. The function is now two lines.
+
+Two others turned out to be the only reason their surrounding code existed. `App.tsx` registered a `visibilitychange` listener whose handler did nothing but log, so the listener and its effect went with it and `useEffect` is no longer imported there. `PWAInstallPrompt` branched on the install outcome only to log the accepted case; the outcome is still awaited, because the promise must settle before the prompt is cleared, but the branch is gone and a comment now records that the outcome is deliberately not acted on.
+
+Also verified while looking: `SmartReminders` fetches the entire task history on a sixty-second interval, which is where the `count: 105` in the log comes from. It cannot simply be scoped to today — the overdue branch matches `scheduledDate <= todayStr` on purpose, and narrowing the query would silently stop overdue reminders for past-dated tasks, which is the behaviour issue #20 added. Filed separately rather than fixed in a cleanup commit. Verified with typecheck, lint at zero errors, 80 frontend tests and a production build.
+
+---
+
 ### 2026-08-17 14:19 — `main`
 
 Stopped the task list drowning the backend log. `GET /api/tasks` logged its entire response body at debug level, so every load of Today printed every Item on the account — full objects, hundreds of lines, ending in Node's "... 5 more items" truncation. It buried everything around it, including the Google Calendar failures added an hour earlier specifically so that failure could be diagnosed. `getTasksByUserId` did a smaller version of the same thing, one line per row of an unbounded query.

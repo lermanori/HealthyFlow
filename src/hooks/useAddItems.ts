@@ -10,7 +10,6 @@ export function useAddItems(onSuccess?: () => void) {
 
   const mutation = useMutation({
     mutationFn: async (tasks: Omit<TaskSuggestion, 'id' | 'priority'>[]) => {
-      console.log('AITextAnalyzer - Adding tasks with dates:', tasks)
       const promises = tasks.map(task => {
         const taskData = {
           title: task.title,
