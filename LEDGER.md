@@ -1,3 +1,13 @@
+### 2026-08-17 15:03 — `fix/bound-smart-reminders-query`
+
+Bounded the reminder query that the previous entry filed rather than fixed. `SmartReminders` polled `GET /api/tasks` with no date every sixty seconds per open tab, pulling every Item the account had ever created — 105 rows on a real account, growing forever. It now calls a new `GET /api/tasks/reminders`, which returns only the rows a reminder could actually be raised from: timed, not completed, dated today or earlier, and — the part that does the bounding — past-dated only until the notification has been recorded. Age is never a cutoff, so the issue #20 case of a never-notified item left behind on an earlier day still fires, however old it is. The payload dropped to the six fields the surface reads.
+
+The two tempting alternatives both change behaviour and were rejected. Reusing the day summary for the today-scoped half would pull in virtual habit instances and rollover rows that `getTasksByUserId` never returned, firing reminders that are silent today; a date-range window would drop exactly the old never-notified overdue items the overdue branch exists for. The filter is instead the client's own predicate pushed into SQL, with `not.is.true` rather than `eq.false` because both columns were added by migration and older rows can hold NULL, which the client reads through `Boolean()` as "not yet".
+
+The derivation moved into `src/utils/reminderCandidates.ts` unchanged so it could be tested directly. Writing those tests surfaced a pre-existing limitation, left alone and now documented by a test: the elapsed check compares clock times only and ignores the date, so yesterday's 14:00 item stays quiet until 14:30 today rather than being overdue the moment the day rolls over. Verified with 13 new frontend tests, 8 filter tests driven through the real query builder, 6 route tests against the real Express app, both typechecks, a production build, and an inspection of the PostgREST URL supabase-js actually generates. `tests/day-summary.test.ts` still fails to compile on a zod type clash; confirmed pre-existing by reproducing it on a clean tree.
+
+---
+
 ### 2026-08-17 14:39 — `main`
 
 Cleared the browser console of the same pollution the backend log had. All six `console.log` calls in `src/` are gone; `console.error` and `console.warn` on real failure paths were left alone.

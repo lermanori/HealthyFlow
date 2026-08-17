@@ -4,13 +4,7 @@ import { Bell, X, Clock } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { taskService } from '../services/api'
 import api from '../services/api'
-
-interface Reminder {
-  id: string
-  taskTitle: string
-  time: string
-  type: 'upcoming' | 'overdue'
-}
+import { deriveReminders, localDateKey, type Reminder } from '../utils/reminderCandidates'
 
 function sameReminders(a: Reminder[], b: Reminder[]) {
   if (a.length !== b.length) return false
@@ -33,51 +27,24 @@ export default function SmartReminders() {
     notifiedRef.current = notifiedOverdueIds
   }, [notifiedOverdueIds])
 
-  const { data: tasks = [] } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: () => taskService.getTasks(),
+  // Only the Items that could raise a reminder, not the account's history. The
+  // local day is resolved per fetch rather than per key so the minute poll
+  // rolls onto the new day by itself at midnight. Keeping the key under the
+  // 'tasks' prefix means existing invalidateQueries(['tasks']) calls still
+  // refresh reminders after a mutation.
+  const { data: items = [] } = useQuery({
+    queryKey: ['tasks', 'reminders'],
+    queryFn: () => taskService.getReminderItems(localDateKey(new Date())),
     refetchInterval: 60000, // Check every minute
     enabled: !isDemo,
   })
 
   useEffect(() => {
-    const now = new Date()
-    // Use local date components — toISOString() returns UTC and can be a day ahead in UTC-N zones,
-    // which would make tomorrow's tasks match "today" and trigger false overdue notifications.
-    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-    const currentTime = now.getHours() * 60 + now.getMinutes()
-
-    const newReminders: Reminder[] = []
-    const overdueToNotify: string[] = []
-
-    tasks.forEach(task => {
-      if (task.startTime && !task.completed) {
-        const [hours, minutes] = task.startTime.split(':').map(Number)
-        const taskTime = hours * 60 + minutes
-        const timeDiff = taskTime - currentTime
-
-        // Upcoming task (15 minutes before) — only for today's tasks
-        if (timeDiff > 0 && timeDiff <= 15 && task.scheduledDate === todayStr) {
-          newReminders.push({
-            id: `upcoming-${task.id}`,
-            taskTitle: task.title,
-            time: task.startTime,
-            type: 'upcoming'
-          })
-        }
-
-        // Overdue: scheduledDate must be today or past AND startTime > 30 min ago (issue #20)
-        if (task.scheduledDate <= todayStr && timeDiff < -30 && !task.overdueNotified && !notifiedRef.current.has(task.id)) {
-          newReminders.push({
-            id: `overdue-${task.id}`,
-            taskTitle: task.title,
-            time: task.startTime,
-            type: 'overdue'
-          })
-          overdueToNotify.push(task.id)
-        }
-      }
-    })
+    const { reminders: newReminders, overdueToNotify } = deriveReminders(
+      items,
+      new Date(),
+      notifiedRef.current
+    )
 
     // ponytail: don't filter dismissedIds here — visibleReminders (line below) already does it.
     // Keeping dismissedIds in deps + unconditional setReminders caused the render loop.
@@ -92,7 +59,7 @@ export default function SmartReminders() {
         return updated
       })
     }
-  }, [tasks])
+  }, [items])
 
   const handleDismiss = (id: string) => {
     setDismissedIds(prev => [...prev, id])

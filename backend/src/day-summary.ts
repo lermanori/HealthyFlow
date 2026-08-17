@@ -30,6 +30,7 @@ import {
 import { Achievements } from './achievements'
 import { Rollover } from './rollover'
 import { db } from './supabase-client'
+import { ReminderItem, ReminderItemSchema } from './task-contracts'
 import { parseHabitInstanceId } from './utils/parseHabitInstanceId'
 import { Work } from './work'
 import { Workouts } from './workouts'
@@ -180,6 +181,20 @@ export async function normalizeItemRows(
     const chunkRows = chunksByInstance[row.id] ?? []
     const progressTotal = chunkRows.reduce((sum: number, chunk: any) => sum + Number(chunk.amount), 0)
     return itemRowToClient(row, progressTotal, { timeZone, chunkRows })
+  })
+}
+
+// The reminder projection. Kept beside itemRowToClient and coercing through the
+// same Boolean()/normalizeClockTime helpers, so a row decides a reminder the
+// same way whether it arrives here or on the full day payload.
+export function reminderRowToClient(row: any): ReminderItem {
+  return ReminderItemSchema.parse({
+    id: String(row.id),
+    title: String(row.title ?? ''),
+    startTime: normalizeClockTime(row.start_time ?? row.startTime),
+    completed: Boolean(row.completed),
+    scheduledDate: row.scheduled_date ?? row.scheduledDate ?? null,
+    overdueNotified: Boolean(row.overdue_notified ?? row.overdueNotified),
   })
 }
 

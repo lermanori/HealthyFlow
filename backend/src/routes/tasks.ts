@@ -9,8 +9,8 @@ import { parseHabitInstanceId } from '../utils/parseHabitInstanceId'
 import { isPureDragUpdate } from '../utils/isPureDragUpdate'
 import { deleteGoogleCalendarEvent, isGoogleCalendarNotConnectedError, syncTaskToGoogleCalendar } from '../calendar'
 import { HabitOutcomeInputSchema, HabitProgress, HabitProgressInputSchema, HabitProgressUpdateSchema } from '../habit-progress'
-import { getItemsForDay, normalizeItemRows } from '../day-summary'
-import { CategorySchema, ItemTypeSchema, RollbackDragMaterializationInputSchema } from '../task-contracts'
+import { getItemsForDay, normalizeItemRows, reminderRowToClient } from '../day-summary'
+import { CategorySchema, ItemTypeSchema, ReminderQuerySchema, RollbackDragMaterializationInputSchema } from '../task-contracts'
 
 const router = express.Router()
 
@@ -191,6 +191,22 @@ async function deleteGoogleCalendarEventIfConnected(userId: string, googleEventI
 }
 
 // Get tasks
+// Items the reminder surface could act on. Polled once a minute per open tab,
+// so it returns a bounded, narrow projection rather than the account's history
+// — see db.getReminderCandidates for what the bound is and why it is not today.
+router.get('/reminders', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = ReminderQuerySchema.safeParse(req.query)
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues })
+
+  try {
+    const rows = await db.getReminderCandidates(req.user.userId, parsed.data.today)
+    res.json(rows.map(reminderRowToClient))
+  } catch (error) {
+    console.error('Backend - Error getting reminder items:', error)
+    res.status(500).json({ error: 'Database error' })
+  }
+})
+
 router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
   const { date } = req.query

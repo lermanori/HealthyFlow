@@ -247,6 +247,32 @@ export const db = {
     return data;
   },
 
+  // Rows the reminder surface could act on, for a caller whose local day is
+  // `today`. SmartReminders polls this once a minute per open tab, so it must
+  // not grow with account age — but it also cannot be scoped to today, because
+  // the overdue branch matches earlier days (issue #20).
+  //
+  // What bounds it is the last filter: a past item stays only until it has been
+  // notified, and the client records that the moment it fires. Everything else
+  // is the client's own predicate pushed into SQL. `not.is.true` rather than
+  // `eq.false` because both columns were added by migration and older rows can
+  // hold NULL, which the client reads through Boolean() as "not yet".
+  async getReminderCandidates(userId: string, today: string) {
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('id, title, start_time, completed, scheduled_date, overdue_notified')
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .not('start_time', 'is', null)
+      .not('completed', 'is', true)
+      .lte('scheduled_date', today)
+      .or(`scheduled_date.eq.${today},overdue_notified.is.null,overdue_notified.eq.false`)
+      .order('start_time', { ascending: true });
+
+    if (error) throw error;
+    return data ?? [];
+  },
+
   async getTaskById(taskId: string) {
     const { data, error } = await supabase
       .from('tasks')

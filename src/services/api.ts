@@ -8,6 +8,7 @@ import type { DemoPersonaId } from '../demoPersonas'
 import type { ItemSource, ItemType } from '../lib/analytics/types'
 import type {
   Category,
+  ReminderItem,
   RollbackDragMaterializationInput,
 } from '../../backend/src/task-contracts'
 import {
@@ -615,6 +616,13 @@ export const waitlistService = {
 export const taskService = {
   getTasks: async (date?: string): Promise<Task[]> => {
     const response = await api.get('/tasks', { params: { date } })
+    return response.data
+  },
+
+  // `today` is the caller's local day, not the server's: the reminder day has
+  // to follow the wall clock the user is reading.
+  getReminderItems: async (today: string): Promise<ReminderItem[]> => {
+    const response = await api.get('/tasks/reminders', { params: { today } })
     return response.data
   },
 
