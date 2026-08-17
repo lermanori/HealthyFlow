@@ -1,3 +1,13 @@
+### 2026-08-17 14:19 — `main`
+
+Stopped the task list drowning the backend log. `GET /api/tasks` logged its entire response body at debug level, so every load of Today printed every Item on the account — full objects, hundreds of lines, ending in Node's "... 5 more items" truncation. It buried everything around it, including the Google Calendar failures added an hour earlier specifically so that failure could be diagnosed. `getTasksByUserId` did a smaller version of the same thing, one line per row of an unbounded query.
+
+Both now log a count rather than a payload. An account's whole Item history is not something to write to a log in the first place, and the useful signal — which user, which date, how many — survives at a single line. The two remaining debug traces in the tasks route were already bounded and were left alone.
+
+Noted while verifying: `tests/admin/user-management-routes.test.ts` failed once with a socket hang up and passed both in isolation and on a full re-run, so it is flaky rather than broken and nothing in this change touches admin routes. The suite is otherwise unchanged at 673 passing with the one pre-existing zod failure.
+
+---
+
 ### 2026-08-17 13:47 — `main`
 
 A screenshot of the running app showed Capacity rendering, which confirmed yesterday's default, and exposed two things at once. The panel read "At most 4h 3m unallocated · Calendar obligations could not be checked" — an upper bound computed against a window the user never chose, with no indication of what that window was. The justification for defaulting the planning window had been that Today always renders the window it computed against, and that turned out to hold only for `complete` status: `capacityDetail` swapped the window line out for reason copy in `partial`, which is precisely the state where an unexplained number does the most damage. The window is now shown for every status that has one, and only `unavailable` has none.

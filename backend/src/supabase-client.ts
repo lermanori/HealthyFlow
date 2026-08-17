@@ -240,7 +240,9 @@ export const db = {
     
     if (error) throw error;
     if (data) {
-      logger.debug('getTasksByUserId - Returned tasks:', data.map(t => ({ id: t.id, title: t.title, scheduled_date: t.scheduled_date, rolled_over_from_task_id: t.rolled_over_from_task_id })));
+      // One line per account, not one per row — this returns every Item the
+      // user has ever created.
+      logger.debug('getTasksByUserId - returned rows', { userId, count: data.length });
     }
     return data;
   },

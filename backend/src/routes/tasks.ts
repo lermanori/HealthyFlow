@@ -195,15 +195,17 @@ router.get('/', authenticateToken, async (req: AuthRequest, res) => {
   const userId = req.user.userId
   const { date } = req.query
 
-  logger.debug('Backend - Getting tasks for date:', date)
-  logger.debug('Backend - User ID:', userId)
+  logger.debug('Backend - Getting tasks', { userId, date })
 
   try {
     const formattedTasks = date
       ? await getItemsForDay(userId, date as string)
       : await normalizeItemRows(await db.getTasksByUserId(userId))
 
-    logger.debug('Backend - Formatted tasks being sent:', formattedTasks)
+    // Count, not payload. Dumping the whole response body buried every other
+    // log line — including the calendar failures this trace sits next to — and
+    // an entire account's Items is not something to write to a log anyway.
+    logger.debug('Backend - Tasks being sent', { userId, date, count: formattedTasks.length })
     res.json(formattedTasks)
   } catch (error) {
     console.error('Backend - Error getting tasks:', error)
