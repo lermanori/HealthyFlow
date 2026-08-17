@@ -80,12 +80,19 @@ at the records their modules own; nothing is copied or cross-mutated.
   `partial` (an upper bound), or `unavailable`, with twelve typed reason codes
   saying *why* an answer is incomplete. It never returns a guessed number.
 
-> **Capacity is off for a new account.** `planningWindow` defaults to `null`
-> (`backend/src/settings-schema.ts`), and the whole Capacity panel is wrapped in
-> `{capacityEnabled && …}` in `TodayPage.tsx`. Until the user sets a planning
-> window in Settings, Focus and Next Obligation still render but Capacity is
-> absent entirely. This is current behaviour, not a bug report — but it means the
-> feature is invisible by default.
+**Capacity is on for a new account.** `planningWindow` defaults to
+`DEFAULT_PLANNING_WINDOW` — 08:00–18:00 with 15-minute transition buffers
+(`backend/src/settings-schema.ts`) — so Capacity computes from the first day
+rather than waiting for a Settings toggle nobody knew to look for. Settings are a
+JSONB blob and the default is applied when parsing, so accounts stored without a
+window pick it up with no migration.
+
+This does not weaken the never-guess rule: the panel always renders the window it
+computed against, so the assumption is on screen and editable. Clearing the
+window in Settings sets it back to `null`, which returns Capacity to
+`unavailable` with `planning_window_missing`, and the panel is then hidden by
+`{capacityEnabled && …}` in `TodayPage.tsx` while Focus and Next Obligation keep
+rendering.
 
 ### Rollover
 

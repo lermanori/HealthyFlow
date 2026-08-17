@@ -17,6 +17,28 @@ export const WeekStartsOnSchema = z.union([
   z.literal(6),
 ])
 
+/**
+ * The Planning window a new account starts with.
+ *
+ * Capacity is the day contract's most distinctive read and cannot be computed
+ * without a window, so defaulting to `null` meant every new account saw no
+ * Capacity at all until it found a Settings toggle it had no reason to look for.
+ *
+ * This is a declared, editable assumption rather than a guess — the rule that
+ * Capacity never invents a number still holds. Today always renders the window
+ * it computed against ("08:00–18:00 window · … known load"), and Settings can
+ * change it or clear it back to `null`, which returns Capacity to `unavailable`
+ * with `planning_window_missing`.
+ *
+ * The value matches what the Settings toggle has always enabled, so turning
+ * Capacity off and on again yields the same window as the default.
+ */
+export const DEFAULT_PLANNING_WINDOW: z.infer<typeof PlanningWindowSchema> = {
+  startTime: '08:00',
+  endTime: '18:00',
+  transitionBufferMinutes: 15,
+}
+
 export const SettingsSchema = z.object({
   notifications: z.boolean().default(true),
   dailyReminders: z.boolean().default(true),
@@ -28,7 +50,7 @@ export const SettingsSchema = z.object({
   achievementTracker: z.boolean().default(true),
   workoutTracker: z.boolean().default(true),
   weekStartsOn: WeekStartsOnSchema.default(1),
-  planningWindow: PlanningWindowSchema.nullable().default(null),
+  planningWindow: PlanningWindowSchema.nullable().default(DEFAULT_PLANNING_WINDOW),
   onboardingStatus: z.enum(['active', 'completed', 'skipped']).default('completed'),
   theme: z.enum(['midnight', 'white']).default('midnight'),
 })
@@ -59,6 +81,7 @@ const SettingsContracts = {
   WeekStartsOnSchema,
   SettingsSchema,
   SettingsPatchSchema,
+  DEFAULT_PLANNING_WINDOW,
 }
 
 export default SettingsContracts

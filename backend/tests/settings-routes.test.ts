@@ -2,6 +2,7 @@ import request from 'supertest'
 import jwt from 'jsonwebtoken'
 import { app } from '../src/index'
 import { db } from '../src/supabase-client'
+import { DEFAULT_PLANNING_WINDOW } from '../src/settings-schema'
 
 jest.mock('../src/supabase-client', () => ({
   db: {
@@ -39,7 +40,7 @@ describe('settings API', () => {
       achievementTracker: true,
       workoutTracker: true,
       weekStartsOn: 1,
-      planningWindow: null,
+      planningWindow: DEFAULT_PLANNING_WINDOW,
       onboardingStatus: 'completed',
       theme: 'midnight',
     })
@@ -159,11 +160,11 @@ describe('settings API', () => {
     expect(patchRes.body.weekStartsOn).toBe(0)
   })
 
-  it('defaults capacity to unavailable and accepts an explicit planning window', async () => {
+  it('defaults to the standard planning window and accepts an explicit one', async () => {
     const planningWindow = {
-      startTime: '08:00',
-      endTime: '18:00',
-      transitionBufferMinutes: 15,
+      startTime: '09:30',
+      endTime: '19:00',
+      transitionBufferMinutes: 5,
     }
     mockDb.getUserSettings.mockResolvedValue({})
     mockDb.upsertUserSettings.mockResolvedValue({ planningWindow })
@@ -172,7 +173,9 @@ describe('settings API', () => {
       .get('/api/settings')
       .set('Authorization', TOKEN)
 
-    expect(getRes.body.planningWindow).toBeNull()
+    // Stored settings with no planningWindow resolve to the default rather than
+    // null, so Capacity computes for a new account instead of being hidden.
+    expect(getRes.body.planningWindow).toEqual(DEFAULT_PLANNING_WINDOW)
 
     const patchRes = await request(app)
       .patch('/api/settings')

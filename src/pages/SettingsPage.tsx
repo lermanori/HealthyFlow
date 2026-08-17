@@ -11,6 +11,7 @@ import api, { accountService, ApiTokenRecord, ApiTokenScope, calendarService, Ca
 import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
 import { isNativeApp } from '../lib/native'
+import { DEFAULT_PLANNING_WINDOW } from '../../backend/src/settings-schema'
 import Switch from '../components/Switch'
 import DeleteAccountDialog from '../components/DeleteAccountDialog'
 import { MODULE_PRESENTATIONS } from '../modulePresentation'
@@ -277,14 +278,9 @@ export default function SettingsPage() {
   }
 
   const handlePlanningWindowToggle = (enabled: boolean) => {
-    updateSetting('planningWindow', enabled
-      ? {
-          startTime: '08:00',
-          endTime: '18:00',
-          transitionBufferMinutes: 15,
-        }
-      : null
-    )
+    // Re-enabling restores the same window a new account starts with, so the
+    // toggle and the schema default cannot drift apart.
+    updateSetting('planningWindow', enabled ? DEFAULT_PLANNING_WINDOW : null)
     toast.success(enabled ? 'Usable day window enabled' : 'Capacity calculation disabled')
   }
 

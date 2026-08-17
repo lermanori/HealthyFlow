@@ -65,7 +65,7 @@ Usable time left in the Planning window after known obligations and their Transi
 _Avoid_: "free time" (implies leisure), "available time" without saying whether it is exact or an upper bound.
 
 **Planning window**:
-The user's declared usable day: `startTime`, `endTime`, and `transitionBufferMinutes`. Capacity is computed against it. **It defaults to `null`**, and while it is null the Capacity strip does not render — so a new account sees no Capacity until a window is set.
+The user's declared usable day: `startTime`, `endTime`, and `transitionBufferMinutes`. Capacity is computed against it. It defaults to `DEFAULT_PLANNING_WINDOW` (08:00–18:00, 15-minute buffers), so Capacity is available from a new account's first day. Settings can clear it back to `null`, which makes Capacity `unavailable` with `planning_window_missing` and hides the strip. A default window is a **declared assumption, not a guess** — Today renders the window it computed against, so the basis of the number is always on screen.
 
 **Transition buffer**:
 Protected minutes reserved after each obligation. The policy is fixed (`bufferPolicy: 'after_each_obligation'`) and buffers appear on the plan as `boundary` references.

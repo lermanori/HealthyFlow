@@ -1,3 +1,13 @@
+### 2026-08-17 13:30 — `main`
+
+Turned Capacity on by default, which makes the day contract's most distinctive read visible instead of hidden. `planningWindow` defaulted to `null`, and Capacity cannot be computed without a window, so every new account saw no Capacity at all until it found a Settings toggle it had no reason to look for — the one number no competitor can produce was invisible to everyone who had not already gone looking.
+
+The default value was not invented. The Settings toggle has always enabled 08:00–18:00 with 15-minute buffers, so that literal became `DEFAULT_PLANNING_WINDOW` in the settings schema and the toggle now imports it, meaning re-enabling Capacity restores exactly the window a new account starts with and the two cannot drift. Settings are a JSONB blob and the default is applied at parse time, so accounts stored without a window pick it up with no migration.
+
+The tension worth recording: Capacity's whole design is a refusal to guess, and a default window is an assumption the user never made. It survives scrutiny because the panel already renders the window it computed against — "08:00–18:00 window · 2h 15m known load · 15m buffers" — so the basis of the number is on screen and editable rather than hidden. Clearing the window in Settings still returns Capacity to `unavailable` with `planning_window_missing`. Two settings tests asserting the old null default were updated to assert the new one, and FEATURES.md and CONTEXT.md were corrected in the same change, since both had just been rewritten to document the null behaviour. Verified with both typechecks, 673 backend tests, 80 frontend tests, and a production build.
+
+---
+
 ### 2026-08-16 17:59 — `fix/env-resolution-across-worktrees`
 
 Made a fresh worktree inherit configuration instead of failing on its first database call. `.env` is gitignored, so it never travels to a new checkout, and the old loader resolved it relative to the worktree — where nothing exists. The Supabase client is built at module scope from `process.env.SUPABASE_URL!`, so undefined credentials produced a client that looked fine and then failed every request inside undici with `TypeError: fetch failed`, naming neither the missing variable nor configuration as the cause.
