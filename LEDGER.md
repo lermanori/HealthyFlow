@@ -8,6 +8,18 @@ The derivation moved into `src/utils/reminderCandidates.ts` unchanged so it coul
 
 ---
 
+### 2026-08-17 19:56 — `main`
+
+Recorded the local-first guest design, which settles what the product actually is: free on the device forever and offline, with money charged only for AI credits and for cloud backup and sync. The app stops being something you sign up for and becomes something you download and use, with every reason to refuse moved behind the moment of value rather than in front of it.
+
+Four requirements were stated separately — value before signup, data on the device, guest mode indefinitely, and works offline without AI — and the fourth eliminates the two cheap architectures. An anonymous server account is still a server account, and keeping records local while computing days on a stateless endpoint still needs a round trip to render. Only true local-first satisfies all four, so there is nothing left to choose between.
+
+It is also far smaller than it first appeared, because `buildDaySummary` already takes all nine of its data sources as injected dependencies and everything between them is pure. This is an extraction plus a second adapter, not a rewrite, and the boundary split it needs is the one already performed on the Achievement and Workout contracts. Two decisions were locked in that are cheap now and expensive later: local records carry client-generated UUIDs and an `updatedAt` so that backup-now can become sync-later without a mapping table, and the guest grant cap lives in a row rather than a constant because it is a cost-control dial to be raised when the economics are trusted, not a scarcity device.
+
+Scope was deliberately bounded: Health stays account-only, since four more record types with local persistence roughly doubles the work and account-gating gives signup a second concrete reason. The `calendar_not_connected` change made earlier today turns out to have been a precondition rather than an unrelated fix — an offline guest has no Calendar by definition, and before that commit Capacity could only have told them "at most X unallocated" instead of the exact figure the whole pitch rests on. `MARKETING.md` still describes a subscription for the product and is now wrong in a new way; the real shape is a free app, consumable credits, and a cloud subscription, which happens to map cleanly onto StoreKit's two product types and narrows the open billing decision in #201.
+
+---
+
 ### 2026-08-17 15:20 — `main`
 
 A Calendar the user never connected no longer makes Capacity partial. Until now any account without Google Calendar could only ever be told "at most 4h 3m unallocated" — never "3h 40m usable time left" — because `complete` requires an empty `reasonCodes` array and `calendar_not_connected` was pushed unconditionally. That is the default state of every new account, so the product's most distinctive claim was hedged for exactly the people meeting it for the first time.
