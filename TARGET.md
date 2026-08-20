@@ -1,0 +1,211 @@
+# Target
+
+> **Say it, and it lands on one honest clock.**
+
+*This describes the product being built. Where it differs from what ships
+today, the refusals below say so.*
+
+This document decides what HealthyFlow is for. Everything else — architecture,
+scope, pricing, what gets built next — is derived from it. If a decision
+elsewhere contradicts this file, this file is wrong and should be argued with
+directly, not worked around.
+
+## Who it is for
+
+Someone whose day spans several parts of life at once — work, training, food —
+and who has abandoned task apps before because keeping them tidy was more work
+than the day itself.
+
+Grounded in the founder's own daily use, not in research. That is a real
+limitation and it is written down rather than hidden: the beachhead is people
+like the founder, reachable through a warm network.
+
+## The three axes
+
+The product does three jobs. They are not competing identities — they are the
+input, the subject and the output of one thing. Treating any of them as "the"
+identity is what made the product feel like a pile of parts.
+
+### 1. Input — say it
+
+**The hook.** Getting a day into the app must cost close to nothing. You talk or
+type in whatever order things occur to you, and it becomes real: scheduled,
+dated, structured, reviewable before anything is written.
+
+- **Demands:** Talk is fast, reliable and forgiving. Voice works. No filing, no
+  choosing a category before you can capture, no form.
+- **Fails when:** the user has to think about structure before they can get a
+  thought out of their head.
+- **This is the part the founder actually uses**, and the part most likely to be
+  the reason someone starts.
+
+### 2. Scope — one clock
+
+**The reason to stay.** Everything that belongs to a day is on the same day:
+tasks, habits, meetings, food, training, weight. Not five apps, not five tabs.
+
+- **Demands:** nothing that belongs to a day lives somewhere else.
+- **Fails when:** the user opens a second app for part of their day. That is the
+  moment the product stops being the place their day lives.
+- **Consequence:** food, weight and training are **core, not optional modules.**
+  Cutting them to reduce scope removes the reason to stay.
+
+### 3. Payoff — the honest clock
+
+**The differentiator.** The day tells you the truth: what you planned, what
+actually happened, and how much usable time is genuinely left — and it says why
+when it cannot know.
+
+- **Demands:** capacity visible by default; plan and record distinguished; a
+  refusal to produce a plausible number in place of a real one.
+- **Fails when:** the number is hidden, hedged without cause, or invented.
+- **Nobody else ships this.** It is the reason this is not another planner.
+
+## The razor
+
+> **A part earns its place if it makes input easier, the picture more complete,
+> or the truth clearer.** If it does none of the three, it is clutter — however
+> good it is.
+
+| Part | Input | Scope | Truth | Verdict |
+|---|:--:|:--:|:--:|---|
+| Talk, parse-tasks, voice | ✓ | ✓ | ✓ | Keep — the hook, *and* the way every module is reached |
+| Today timeline | | ✓ | ✓ | Keep |
+| Rollover | | ✓ | ✓ | Keep — nothing is silently dropped |
+| Capacity, attention | | | ✓ | Keep — the differentiator |
+| Habits | | ✓ | ✓ | Keep |
+| Food, weight, training | | ✓ | | **Keep — core, not optional** |
+| Google Calendar | | ✓ | ✓ | Keep — obligations you did not type |
+| Projects, Focus blocks, Work sessions | ✗ | ✓ | ✓ | **Parked.** A Focus block *is* on the day — it fails on **second vocabulary**, not on shape |
+| MCP endpoint, scoped API tokens | ✗ | ✗ | ✗ | Cut from the product story. Real engineering, no user story |
+| Expenses, idea dump | ✗ | ✗ | ✗ | Never build. Not day-shaped |
+
+**Parked is not cut.** *Cut* means it does not belong in this product. *Parked*
+means the code stays, hidden behind a release flag, deliberately absent from the
+story — kept for a future in which it earns its own vocabulary. Work is parked:
+`VITE_WORK_ENABLED` is off, nothing is deleted, and it should not be deleted.
+
+**Talk spans all three axes, and that is the point.** It is not only how things
+get in — it writes into every module and answers questions about the day. So
+"integrating AI with the modules that already exist" is not a feature request; it
+is the work of making one axis carry the other two.
+
+## How we know it is working
+
+One question per axis. Each must be answerable from what the product records, or
+it is an opinion.
+
+### Input — does a day get in without friction?
+
+- Share of parses that succeed, and how they fail when they do not.
+- How much of a parse result is edited before it is confirmed. **A high edit rate
+  is the clearest signal the hook is broken** — it means the user did the work
+  anyway.
+- Items captured per dump, and how often a review is abandoned instead of saved.
+
+*Instrumented today:* `ai_parse_requested` fires. **Nothing records whether it
+succeeded.** Reliability is currently a P0 concern with no telemetry behind it.
+
+### Scope — does the whole day live here?
+
+- How many parts of a day one person touches in a week: tasks, food, training,
+  weight. Someone using one part is using a planner; someone using three is using
+  this product.
+
+*Instrumented today:* `item_created`, `calorie_entry_logged`, `weight_logged` and
+`workout_logged` all fire, and the first two carry `source: manual | ai_parse`.
+Breadth per person is derivable but has never been defined as a measure.
+
+### Truth — is the number seen, right, and acted on?
+
+- Does Capacity render at all, and is it `complete` or `partial`?
+- **Which reason codes fire, and how often.** This is the most valuable number in
+  the product: every reason code is a specific, fixable cause of the headline
+  figure being hedged. If `item_missing_duration` dominates, that is a UX fix,
+  not a mystery.
+- Does anything change after the number is seen — an item moved, deferred, or
+  dropped.
+
+*Instrumented today:* **nothing.** There is no event for Capacity, attention or
+the daily plan. The differentiator is the one part of the product that reports
+nothing about itself.
+
+### The decision this must also answer
+
+The Money section accepts a risk and names what would reverse it: people who
+exhaust their credits stopping rather than continuing manually. That is
+measurable — `credits_exhausted`, followed by whether `item_created` with
+`source: manual` keeps happening. **Make sure it stays measurable**, because it
+is the trigger for a pricing change.
+
+## Money
+
+**The app is free, works offline, and needs no account.** That is not a trial —
+nothing expires, and no part of the day itself is withheld.
+
+**We sell the hook.** Effortless input is the thing people value most and the
+thing that costs us money, so it is the thing that costs them money. Stated
+plainly, without softening:
+
+> **Free is a good planner. Paid is an effortless one.**
+
+With no credits you still get the whole day — capacity, rollover, habits, food,
+weight, calendar, offline — but you type it in yourself. That is a real product
+and someone can live on it. It is deliberately not the frictionless one.
+
+**The risk being accepted:** anyone who starts with credits feels the effortless
+version first, so running dry reads as a downgrade rather than a boundary. This
+is accepted for now rather than solved.
+
+**What would change this:** people who exhaust their credits stop opening the app
+instead of continuing manually. That is the signal that free is a demo rather
+than a product, and the answer would be a small recurring free allowance so the
+hook never fully dies.
+
+Two things are sold:
+
+| | Type | What it buys |
+|---|---|---|
+| **AI credits** | Consumable | Effortless input. 50 credits = $1 |
+| **Cloud** | Subscription | Backup first, multi-device later |
+
+First N devices receive $1 of credits on first open, so the hook can be felt
+before anything is asked for. N is a cost-control dial, not a scarcity device.
+The grant is attempted on first open and **never blocks it** — the app opens
+without a network.
+
+## What we refuse
+
+A refusal is the strongest statement in this document. Two of them are not true
+of the build yet, so they are dated rather than quietly softened — softening a
+rule to survive a release is how the rule dies.
+
+**In force today**
+
+- **Never guess a number.** Say why instead.
+- **No silent fallbacks.** A failure surfaces as a failure.
+- **No second vocabulary.** If a feature needs its own set of nouns, it is a
+  different product.
+
+**True at v1**
+
+- **Never require an account to be useful.** Signing up buys more, never entry.
+  Guest mode is what closes this, and it ships in v1.
+
+**Knowingly broken at v1**
+
+- **Never require a network** except for AI and calendar. v1 requires one for
+  everything: no network means no day, no items, no capacity. This is a recorded
+  decision, not an oversight — Path A ships the account-required online app to
+  reach the App Store, and **closing this refusal is the entirety of v1.1.**
+
+## How to use this document
+
+**Before building:** which axis does this serve? If none, do not build it.
+
+**Before cutting:** which axis does this serve? If it is the only thing serving
+that axis, cutting it breaks the product.
+
+**When they conflict:** input beats scope beats truth for *acquisition*; truth
+beats scope beats input for *retention*. A new user forgives a thin day; a
+returning user does not forgive a wrong number.

@@ -46,7 +46,7 @@ npx supabase db push --linked
 ```
 
 Rehearse the migration on the local Supabase stack first — see
-[docs/local-database.md](docs/local-database.md). `db push --linked` writes
+[local-database.md](local-database.md). `db push --linked` writes
 directly to production, so it should never be a migration's first run.
 
 ### Netlify public build variables
@@ -147,7 +147,7 @@ NODE_ENV=production
 **This list is not exhaustive.** A working production backend also needs
 Supabase credentials (including the Railway-only `SUPABASE_SERVICE_ROLE_KEY`),
 the OpenAI key, Google Calendar OAuth credentials, the APNs block and the iOS
-version-gate block. See `docs/ios.md` for the APNs and version-gate variables,
+version-gate block. See `ios.md` for the APNs and version-gate variables,
 and **`backend/.env.example`** for the current full backend shape
 (`.env.example` at the root covers the frontend). There is no `DATABASE_URL`;
 nothing in `backend/src/` reads one.

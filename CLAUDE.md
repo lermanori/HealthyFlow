@@ -1,100 +1,97 @@
 # HealthyFlow
 
-Personal productivity / habit tracker. React + Vite frontend, Express + TypeScript backend, Supabase (Postgres) for data, deployed on Railway. The same frontend also ships as a native iOS app through a Capacitor shell.
+What the product is for, who it is for, and the razor for what belongs in it:
+**[`TARGET.md`](./TARGET.md)**. Read it before proposing a feature or a cut.
 
-## Stack
+React + Vite frontend (Netlify), Express + TypeScript backend (Railway), Supabase
+(Postgres) for data. The same frontend also ships as a **native iOS app** through
+a Capacitor shell, distributed via TestFlight — **a change to the web app is a
+change to the iOS app.** Check both before assuming a frontend change is web-only.
+The app target declares different `IPHONEOS_DEPLOYMENT_TARGET` values in its two
+build configurations (15.0 and 17.0) while the widget is 17.0 in both; confirm the
+intended floor before relying on an OS-gated API.
 
-- **Frontend**: React 18 + Vite, TypeScript, Tailwind CSS — deployed on Netlify
-- **iOS**: Capacitor shell in `ios/` (app id `app.healthyflow.mobile`) wrapping the same React app. Note the app target's two build configurations declare different `IPHONEOS_DEPLOYMENT_TARGET` values (15.0 and 17.0) while the widget is 17.0 in both — confirm the intended floor before relying on an OS-gated API. Native plugins for Sign in with Apple, Google sign-in, push, haptics and a WidgetKit Today widget. Currently distributed via **TestFlight**; not publicly listed on the App Store. Changes to the web app change the iOS app — check both before assuming a frontend change is web-only.
-- **Backend**: Express + TypeScript — deployed on Railway
-- **Database**: Supabase (Postgres)
-- **AI**: OpenAI API, server-keyed only (no BYOK)
+## Rules that override normal practice
 
-## Architecture decisions
+- **No silent fallbacks.** A failed call surfaces the error. Never substitute a
+  hard-coded response, an empty result, or a guessed value.
+- **A failed read is never an empty result.** `unavailable` means the read broke;
+  `not_logged` / `not_recorded` / `not_scheduled` mean nothing was there. One
+  module failing must never fail the whole day.
+- **Capacity never guesses.** Exact figure, upper bound with typed reasons, or
+  nothing.
+- **Server-keyed AI only.** The OpenAI key lives on the server. There is no BYOK
+  flow and never has been. Do not add client-side key handling.
+- **`callStructured(schema, prompt) → Result<T>`.** Callers get a typed result or
+  an explicit error, never an untyped `any`.
+- **Zod is the single source of truth.** Types are `z.infer<>` of a schema, never
+  written alongside one.
+- **Virtual-first.** A Habit instance is synthesised at query time and becomes a
+  real row only when placed or completed — never on a plain read. See ADR-0001,
+  ADR-0002.
+- **Add to existing deep modules** rather than creating a thin file per feature.
+  `backend/src/day-summary-schema.ts` is the day contract and the most central type in the
+  codebase; read it before changing anything that appears on Today.
+- **Routes stay thin.** Validate with Zod, call a service, return. Business logic
+  lives in service modules.
 
-### Deep modules
-Business logic lives in a small number of fat service files rather than many thin ones. Key modules:
-- `day-summary-schema.ts` — **the day contract**, and the most central type in the codebase. A versioned (`version: 1`) description of everything a day holds: the ordered daily plan of fourteen reference kinds tagged `plan` / `actual` / `boundary`, plus capacity, attention, completion, week load and per-module summaries. Read it before changing anything that appears on Today. Modules own their records; the day only references them.
-- `openai.ts` — all AI calls, prompt construction, structured output parsing
-- `rollover.ts` — all rollover logic (carrying incomplete untimed items across days). Intentionally small: per ADR-0002 this collapsed to a single carry-forward rule, so a thin file here is by design, not missing logic.
+## Where things live
 
-Add logic to existing deep modules rather than creating new files for each feature.
+> **Live docs must be true. Historical docs must be dated. Nothing in between.**
 
-### Zod as single source of truth
-All data shapes are defined as Zod schemas. TypeScript types are derived from schemas (`z.infer<>`), not written separately. Validators, API response shapes, and AI output contracts all reference the same Zod definitions.
+| Location | Holds | Maintained? |
+|---|---|---|
+| `TARGET.md` | What the product is for, and the razor | Yes |
+| `CONTEXT.md` | Domain vocabulary, and the words we refuse | Yes |
+| `README.md` | The door — where to find everything | Yes |
+| `LEDGER.md` | Session narrative, newest first | Append-only |
+| `docs/adr/` | Numbered decisions and their reasoning | Immutable — never edit |
+| `docs/architecture/` | How a subsystem works | Yes |
+| `docs/runbooks/` | How to run, deploy and operate it | Yes |
+| `docs/agents/` | Skill configuration | Yes |
+| `docs/history/` | Plans, specs, reviews, snapshots — dated | **No, by design** |
 
-### Virtual-first data (habit instances)
-Habit instances are synthesized at query time from the parent habit record — they are not written to the database until the user completes one **or drags the instance** (to set a per-day time or position override). This avoids pre-populating rows for every future day. When a habit is completed or dragged into a time slot / the Anytime backlog, a real row is written (with `original_habit_id` set); otherwise the instance is computed on the fly. See `docs/adr/0001-materialize-habit-instance-on-drag.md` for the drag-materialization decision.
+Nothing in `docs/history/` describes the app now. If something there is the only
+place a fact is written down, it needs a home above.
 
-### Thin routes
-Express route handlers do minimal work: validate the request (Zod), call a service function, return the result. Business logic belongs in service modules, not in route files.
-
-## AI harness rules
-
-- **Server-keyed only**: the OpenAI API key lives on the server. There is no BYOK flow. Do not add client-side key handling.
-- **No silent fallbacks**: if an AI call fails, surface the error to the caller. Do not fall back to a hard-coded response or empty result without signalling failure.
-- **callStructured interface**: AI calls use `callStructured(schema, prompt) → Result<T>`. The caller gets a typed `Result<T>` — either a value or an explicit error — never an untyped `any`.
+**What the app does today is answered by code, not prose:** routes in
+`src/App.tsx`, navigation in `src/components/Layout.tsx`, release flags in
+`src/featureFlags.ts`, the shape of a day in `backend/src/day-summary-schema.ts`.
 
 ## Task tracking
 
-- **GitHub Issues**: https://github.com/lermanori/HealthyFlow/issues
-- **GitHub Project (kanban)**: https://github.com/users/lermanori/projects/1/views/1
-- At the start of any AI session, check the kanban board for current task state before acting. Issues are the source of truth for what's in progress and what's next.
-- **Project Ledger**: `LEDGER.md` at the repo root is a hand-written session narrative, newest entries first. The agent prepends an entry as part of the commit workflow below — it is **not** automated by a git hook. (`.githooks/post-commit` exists but is deliberately a no-op.)
-
-## Domain vocabulary
-
-See `CONTEXT.md` at the repo root for the canonical definition of all domain terms (Item, Task, Habit, Rollover, Habit instance, Daily Plan reference, Capacity, Planning window, parse-tasks, etc.). Use the vocabulary there consistently; do not introduce synonyms. "BYOK" is retired vocabulary — see the Server-keyed entry.
-
-## Repo map
-
-Root-level docs and what each is authoritative for. If it is not listed here, it is not a source of truth.
-
-| File | Authoritative for | Status |
-|---|---|---|
-| `CLAUDE.md` | Agent instructions for this repo | Live. `AGENTS.md` is a symlink to it — edit `CLAUDE.md` only. |
-| `CONTEXT.md` | Domain vocabulary | Live |
-| `docs/adr/` | Architecture decisions, numbered | Live |
-| `docs/agents/` | Skill configuration (issue tracker, triage labels, domain layout) | Live |
-| `docs/ios.md` | The iOS app: Capacitor shell, native plugins, widget, signing, APNs, version gate, release order | Live — authoritative for anything native |
-| `LEDGER.md` | Session-by-session narrative history | Live, append-only |
-| `FEATURES.md` | What the app actually does today | Live — carries a "last verified against the code" date; re-verify before trusting it |
-| `MARKETING.md` | Positioning, pricing, go-to-market plan | Live, product-side — not a spec for code |
-| `MISSION.md`, `RESOURCES.md` | The Siri Capture workstream only | Narrow scope; do not read as whole-project mission |
-| `README.md`, `README-DEPLOYMENT.md` | Setup and deploy steps | Live |
-| `ROLLOVER_IMPROVEMENTS.md` | — | **Superseded** by ADR-0002. Historical only; do not implement from it. |
-
-Untracked working directories that may exist locally and are not part of the repo: `.agents/` (skills installer drop), `.board-harness/` (local board-driven agent orchestration), `.scratch/` (throwaway notes).
+GitHub Issues plus [Project 1](https://github.com/users/lermanori/projects/1/views/1)
+are the source of truth for what is in progress. Check the board before acting.
+Record triage state via the project's `Status` field, not a file. See
+`docs/agents/issue-tracker.md`, `docs/agents/triage-labels.md`,
+`docs/agents/domain.md`.
 
 ## Agent commit workflow
 
-When the user says "commit" (with or without a message), the agent should:
+When the user says "commit":
 
-1. Run `git status` to see what has changed.
-2. Write a concise commit message in the form `<type>: <summary>` (e.g. `feat:`, `fix:`, `docs:`, `refactor:`). Use the user's words if they supplied a message.
-3. Prepend a new entry to `LEDGER.md` using this format:
+1. Run `git status` to see what changed.
+2. Write a concise message as `<type>: <summary>` (`feat:`, `fix:`, `docs:`,
+   `refactor:`). Use the user's words if they supplied a message.
+3. Prepend an entry to `LEDGER.md`:
 
 ```
 ### YYYY-MM-DD HH:MM — `<branch>`
 
-<2–4 sentence human-readable narrative of what was accomplished this session and where the project stands. Not a copy of the commit message — write it as a status update.>
+<2–4 sentences on what was accomplished and where the project stands. A status
+update, not a copy of the commit message.>
 
 ---
 ```
 
-4. Stage all changed files plus `LEDGER.md` with `git add`.
-5. Run `git commit -m "<message>"`.
+4. Stage the changed files plus `LEDGER.md`.
+5. Commit.
 
-## Agent skills
+The ledger is written by the agent, not by a hook — `.githooks/post-commit` is
+deliberately a no-op.
 
-### Issue tracker
+## Verification
 
-GitHub Issues + the GitHub Project (kanban) are the single source of truth. Publish issues to the repo and add them to Project 1; record triage/workflow state via the project's `Status` field, not a file. See `docs/agents/issue-tracker.md`.
-
-### Triage labels
-
-Default canonical roles (no overrides): `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Single-context: one `CONTEXT.md` + `docs/adr/` at repo root. Frontend and backend share vocabulary. See `docs/agents/domain.md`.
+`npm run typecheck` (frontend), `npm --prefix backend run typecheck` (covers
+`src` **and** `tests`), `npm run test:unit`, `npm --prefix backend test`,
+`npm run build`. Do not claim work is done without running what is relevant.
