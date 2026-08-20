@@ -48,7 +48,8 @@ router.delete('/', deleteLimiter, async (req: AuthRequest, res) => {
 
   try {
     const user = await getAccountCredentials(req.user.userId)
-    const normalizedEmail = user.email.trim().toLowerCase()
+    // A Guest has no email; they are none of the protected accounts below.
+    const normalizedEmail: string = user.email?.trim().toLowerCase() ?? ''
     if (
       user.role === 'admin' ||
       normalizedEmail === DURABLE_E2E_USER_EMAIL ||

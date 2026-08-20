@@ -284,6 +284,8 @@ export async function getDemoPersonaUser(persona: DemoPersona) {
   return user
 }
 
-export function isDemoPersonaEmail(email: string) {
+export function isDemoPersonaEmail(email: string | null) {
+  // A Guest has no email, and a demo persona is never a Guest.
+  if (!email) return false
   return Object.values(personaUsers).some((user) => user.email === email) || email === 'demo@healthyflow.com'
 }

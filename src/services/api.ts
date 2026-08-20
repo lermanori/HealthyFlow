@@ -370,10 +370,11 @@ export interface TokenManagerOverview {
 
 export const ManagedUserSchema = z.object({
   id: z.string(),
-  email: z.string().email(),
+  // Null for a Guest: an account with no email, not a missing value.
+  email: z.string().email().nullable(),
   name: z.string(),
   role: z.enum(['admin', 'user']),
-  signupMethod: z.enum(['password', 'google', 'apple']),
+  signupMethod: z.enum(['password', 'google', 'apple', 'guest']),
   createdAt: z.string(),
   lastLoginAt: z.string().nullable(),
   disabledAt: z.string().nullable(),
@@ -401,7 +402,7 @@ export const AdminUserDeletionPreviewSchema = z.object({
   totalRecords: z.number().int().nonnegative(),
   users: z.array(z.object({
     id: z.string(),
-    email: z.string().email(),
+    email: z.string().email().nullable(),
     name: z.string(),
     isTest: z.boolean(),
     subscriptionActive: z.boolean(),
@@ -423,7 +424,7 @@ export type AdminUserDeletionPreview = z.infer<typeof AdminUserDeletionPreviewSc
 export const AdminUserAuditEntrySchema = z.object({
   id: z.string(),
   actorEmail: z.string().email(),
-  targetEmail: z.string().email(),
+  targetEmail: z.string().email().nullable(),
   action: z.enum([
     'marked_test',
     'marked_live',

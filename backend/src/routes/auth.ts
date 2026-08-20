@@ -13,6 +13,9 @@ import {
   Auth,
   AuthFlowError,
   GoogleSessionSchema,
+  GUEST_SESSION_LIFETIME,
+  issueSessionToken,
+  sessionUser,
 } from '../auth'
 
 const router = express.Router()
@@ -30,6 +33,8 @@ const DemoSessionSchema = z.object({
   persona: z.enum(DEMO_PERSONAS),
 })
 
+const GuestSessionSchema = z.strictObject({})
+
 const accountCreationBlockedInTestMode = () => process.env.HF_TEST_MODE === '1'
 const testModeAccountCreationResponse = {
   error: 'Account creation is disabled in automated test mode.',
@@ -45,6 +50,17 @@ const signupLimiter = rateLimit({
   // Default keyGenerator uses req.ip (IPv6-safe); requires app-level `trust proxy`
   // so req.ip reflects the real client behind Railway's proxy.
   message: { error: 'Too many signup attempts, please try again later.' },
+})
+
+// Same shape and budget as signup, but its own counter: a burst of people
+// opening the app without an account must not lock real signups out, or vice
+// versa.
+const guestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts, please try again later.' },
 })
 
 const providerSessionLimiter = rateLimit({
@@ -151,6 +167,33 @@ router.post('/signup', signupLimiter, async (req, res) => {
     }
     console.error('Signup error:', error)
     return res.status(500).json({ error: 'Database error' })
+  }
+})
+
+// Start without an account. A Guest is a `users` row with no email, holding a
+// normal `{ userId }` session — every other route, credit and AI call already
+// works on that principal unchanged.
+router.post('/guest', guestLimiter, async (req, res) => {
+  // Nothing is accepted here on purpose: a Guest supplies no details. Parsing
+  // strictly means a client that sends some finds out, instead of being ignored.
+  const parsed = GuestSessionSchema.safeParse(req.body ?? {})
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Starting without an account takes no details.' })
+  }
+  if (accountCreationBlockedInTestMode()) {
+    return res.status(403).json(testModeAccountCreationResponse)
+  }
+
+  try {
+    const session = await Auth.startGuestSession()
+    await recordLogin(session.user.id)
+    return res.json(session)
+  } catch (error) {
+    if (error instanceof AuthFlowError) {
+      return res.status(error.status).json({ error: error.message, reason: error.reason })
+    }
+    console.error('Guest session error:', error)
+    return res.status(500).json({ error: 'Could not start without an account' })
   }
 })
 
@@ -295,11 +338,11 @@ router.get('/verify', async (req, res) => {
     }
 
     res.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role ?? 'user',
-      authMethod: user.signup_method ?? 'password',
+      ...sessionUser(user),
+      // A Guest cannot sign in again, so their session is the only key to their
+      // row. Re-issue it on every verified open — anyone who opens the app
+      // within a year never expires out of their own credits (ADR-0010).
+      ...(user.email ? {} : { token: issueSessionToken(user.id, GUEST_SESSION_LIFETIME) }),
     })
   } catch (error) {
     res.status(401).json({ error: 'Invalid token' })

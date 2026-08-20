@@ -13,6 +13,19 @@ import { talkWorkflowsDb } from './db/talk-workflows'
 // `import { supabase } from './supabase-client'` call sites keep working.
 export { supabase }
 
+// One account row as the rest of the server sees it. `email` is null for a
+// Guest and only for a Guest (CONTEXT.md).
+type AccountRow = {
+  id: string
+  email: string | null
+  name: string
+  role: 'admin' | 'user'
+  signup_method?: 'password' | 'google' | 'apple' | 'guest'
+  disabled_at?: string | null
+  is_test?: boolean
+  last_login_at?: string | null
+}
+
 // The `db` facade. Self-contained domains live in ./db/*.ts and are composed in
 // via spread; the remaining (cross-referencing) domains stay inline below.
 export const db = {
@@ -25,19 +38,20 @@ export const db = {
   ...talkWorkflowsDb,
   // Users
   async createUser(userData: {
-    email: string
+    // A Guest has no email. Every other account shape does.
+    email: string | null
     name: string
     password_hash: string
     role?: 'admin' | 'user'
     google_auth_subject?: string
     apple_auth_subject?: string
-    signup_method?: 'password' | 'google' | 'apple'
+    signup_method?: 'password' | 'google' | 'apple' | 'guest'
     pending_invite_token?: string
     claimed_public_signup_slot?: boolean
   }) {
     const { data, error } = await supabase
       .from('users')
-      .insert({ ...userData, email: userData.email.trim().toLowerCase() })
+      .insert({ ...userData, email: userData.email?.trim().toLowerCase() ?? null })
       .select();
 
     if (error) throw error;
@@ -133,16 +147,7 @@ export const db = {
     if (error) throw error;
   },
 
-  async getUserById(userId: string): Promise<{
-    id: string
-    email: string
-    name: string
-    role: 'admin' | 'user'
-    signup_method?: 'password' | 'google' | 'apple'
-    disabled_at?: string | null
-    is_test?: boolean
-    last_login_at?: string | null
-  }> {
+  async getUserById(userId: string): Promise<AccountRow> {
     const { data, error } = await supabase
       .from('users')
       .select('id, email, name, role, signup_method, disabled_at, is_test, last_login_at')
@@ -150,16 +155,7 @@ export const db = {
       .single();
 
     if (error) throw error;
-    return data as {
-      id: string
-      email: string
-      name: string
-      role: 'admin' | 'user'
-      signup_method?: 'password' | 'google' | 'apple'
-      disabled_at?: string | null
-      is_test?: boolean
-      last_login_at?: string | null
-    };
+    return data as AccountRow;
   },
 
   async getAllUsers() {

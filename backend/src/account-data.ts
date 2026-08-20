@@ -192,10 +192,11 @@ export const AdminUserDeletionPreviewInputSchema = AdminUserDeletionInputSchema.
 
 export const ManagedUserSchema = z.object({
   id: z.string(),
-  email: z.string().email(),
+  // Null for a Guest: an account with no email, not a missing value.
+  email: z.string().email().nullable(),
   name: z.string(),
   role: z.enum(['admin', 'user']),
-  signupMethod: z.enum(['password', 'google', 'apple']),
+  signupMethod: z.enum(['password', 'google', 'apple', 'guest']),
   createdAt: z.string(),
   lastLoginAt: z.string().nullable(),
   disabledAt: z.string().nullable(),
@@ -220,7 +221,7 @@ export type AdminUserDeletionCounts = z.infer<typeof AdminUserDeletionCountsSche
 
 export const AdminUserDeletionTargetSchema = z.object({
   id: z.string(),
-  email: z.string().email(),
+  email: z.string().email().nullable(),
   name: z.string(),
   isTest: z.boolean(),
   subscriptionActive: z.boolean(),
@@ -248,7 +249,7 @@ export type AdminUserDeletionPreview = z.infer<typeof AdminUserDeletionPreviewSc
 export const AdminUserAuditEntrySchema = z.object({
   id: z.string(),
   actorEmail: z.string().email(),
-  targetEmail: z.string().email(),
+  targetEmail: z.string().email().nullable(),
   action: z.enum([
     'marked_test',
     'marked_live',
@@ -265,10 +266,10 @@ export type AdminUserAuditEntry = z.infer<typeof AdminUserAuditEntrySchema>
 
 type AdminUserRow = {
   id: string
-  email: string
+  email: string | null
   name: string
   role: 'admin' | 'user'
-  signup_method: 'password' | 'google' | 'apple' | null
+  signup_method: 'password' | 'google' | 'apple' | 'guest' | null
   google_auth_subject: string | null
   apple_auth_subject: string | null
   created_at: string
@@ -294,7 +295,8 @@ export function adminUserProtectionFor(
 ) {
   if (user.id === actorId) return 'current_admin' as const
   if (user.role === 'admin') return 'administrator' as const
-  const email = user.email.trim().toLowerCase()
+  // A Guest has no email, so it matches none of the protected addresses.
+  const email = user.email?.trim().toLowerCase() ?? ''
   if (email === DURABLE_E2E_USER_EMAIL) return 'test_fixture' as const
   if (email === 'demo@healthyflow.com' || email.startsWith('demo-')) {
     return 'demo_account' as const
@@ -375,7 +377,7 @@ async function balancesByUser(userIds: string[]) {
 async function insertAdminAudit(input: {
   actor: AdminUserRow
   targetUserId?: string | null
-  targetEmail: string
+  targetEmail: string | null
   action: z.infer<typeof AdminUserAuditEntrySchema>['action']
   details?: Record<string, unknown>
 }) {
@@ -564,12 +566,12 @@ export async function deleteManagedTestUsers(
   const previewById = new Map(preview.users.map(user => [user.id, user]))
   const deleted: Array<{
     id: string
-    email: string
+    email: string | null
     warnings: string[]
     waitlistEntriesDeleted: number
     publicSignupSeatsReleased: number
   }> = []
-  const failures: Array<{ id: string; email: string; error: string }> = []
+  const failures: Array<{ id: string; email: string | null; error: string }> = []
 
   for (const user of users) {
     const targetPreview = previewById.get(user.id)

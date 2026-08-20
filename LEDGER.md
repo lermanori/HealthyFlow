@@ -1,3 +1,11 @@
+### 2026-08-20 16:53 — `feat/guest-mode`
+
+Added `POST /auth/guest`: a Guest is a `users` row with no email, holding identity and a credit balance and nothing else. It grants signup credits through the existing path, skips the signup access gate and public slots because a Guest is not a signup, keeps its own signup-shaped rate limit so guest starts and real signups cannot lock each other out, and refuses to create anything in E2E test mode. Scope was cut mid-session once free users' day data was ruled off the server: the Claim path and the signed-out entry into the app were removed rather than shipped, and onboarding seeding was dropped from the guest path because it writes user settings, which are day data.
+
+The one real decision is recorded in ADR-0010. A Guest has no email and no password, so the session token is the only key to their row; expiring it would strand the row silently, which is the failure this project refuses. Guest sessions are therefore issued for a year and re-signed on every verified open, sliding forward for anyone who opens the app at least once a year, while an account with a password goes back to seven days. The residual risk is device storage — durable in the Capacitor shell, evictable within a week in an iOS browser — so whatever ships the entry point has to say so before a Guest starts and say so again if a session cannot be restored. Verified with 11 new endpoint tests, 741 backend tests, 93 frontend tests, both typechecks and a production build.
+
+---
+
 ### 2026-08-17 15:03 — `fix/bound-smart-reminders-query`
 
 Bounded the reminder query that the previous entry filed rather than fixed. `SmartReminders` polled `GET /api/tasks` with no date every sixty seconds per open tab, pulling every Item the account had ever created — 105 rows on a real account, growing forever. It now calls a new `GET /api/tasks/reminders`, which returns only the rows a reminder could actually be raised from: timed, not completed, dated today or earlier, and — the part that does the bounding — past-dated only until the notification has been recorded. Age is never a cutoff, so the issue #20 case of a never-notified item left behind on an earlier day still fires, however old it is. The payload dropped to the six fields the surface reads.

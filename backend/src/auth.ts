@@ -10,6 +10,14 @@ import { Waitlist, type SignupAuthorization } from './waitlist'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
+// A Guest has no email and no password, so the session token is the only key to
+// their row — their credit balance today, their day once local data can be
+// claimed. Expiring it would strand what it points at, so the session is
+// long-lived and re-issued on every verified app open (ADR-0010).
+export const GUEST_SESSION_LIFETIME = '365d'
+const ACCOUNT_SESSION_LIFETIME = '7d'
+const GUEST_DISPLAY_NAME = 'Guest'
+
 export const ProviderSessionSchema = z.object({
   accessToken: z.string().min(1),
   invite: z.string().min(1).optional(),
@@ -22,10 +30,11 @@ export type AuthProvider = 'google' | 'apple'
 
 type AppUser = {
   id: string
-  email: string
+  // Null for a Guest, and only for a Guest.
+  email: string | null
   name: string
   role?: 'admin' | 'user' | null
-  signup_method?: 'password' | AuthProvider | null
+  signup_method?: 'password' | AuthProvider | 'guest' | null
   google_auth_subject?: string | null
   apple_auth_subject?: string | null
   pending_invite_token?: string | null
@@ -43,16 +52,24 @@ export class AuthFlowError extends Error {
   }
 }
 
-function appSession(user: AppUser) {
+export function sessionUser(user: AppUser) {
   return {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role ?? 'user',
-      authMethod: user.signup_method ?? 'password',
-    },
-    token: jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' }),
+    id: user.id,
+    email: user.email ?? null,
+    name: user.name,
+    role: user.role ?? 'user',
+    authMethod: user.signup_method ?? 'password',
+  }
+}
+
+export function issueSessionToken(userId: string, lifetime: string) {
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: lifetime as jwt.SignOptions['expiresIn'] })
+}
+
+function appSession(user: AppUser, lifetime: string = ACCOUNT_SESSION_LIFETIME) {
+  return {
+    user: sessionUser(user),
+    token: issueSessionToken(user.id, lifetime),
   }
 }
 
@@ -255,6 +272,34 @@ async function exchangeProviderSession(
   }
 }
 
+// A Guest is a `users` row with no email: an identity to key credits and AI
+// metering against, and nothing more. Their day does not live here.
+async function startGuestSession() {
+  // The column is NOT NULL and a Guest chose no password, so the row carries an
+  // unguessable one that nothing can sign in with.
+  const password_hash = await bcrypt.hash(randomBytes(32).toString('base64url'), 10)
+  const user = await db.createUser({
+    email: null,
+    name: GUEST_DISPLAY_NAME,
+    password_hash,
+    signup_method: 'guest',
+  })
+  if (!user) {
+    throw new AuthFlowError(500, 'guest_creation_failed', 'Could not start without an account.')
+  }
+
+  // No Waitlist.authorizeSignup and no public slot: a Guest is not a signup.
+  // No onboarding seeding either — that writes user settings, and a Guest's day
+  // data (Items, Habits, settings) is not hosted here. This row carries identity
+  // and a credit balance, nothing else.
+  const signupCredits = await Credits.grantSignupCredits(user.id)
+
+  return {
+    ...appSession(user, GUEST_SESSION_LIFETIME),
+    signupCredits,
+  }
+}
+
 export const Auth = {
   exchangeGoogleSession(input: ProviderSessionInput) {
     return exchangeProviderSession('google', input)
@@ -263,4 +308,6 @@ export const Auth = {
   exchangeAppleSession(input: ProviderSessionInput) {
     return exchangeProviderSession('apple', input)
   },
+
+  startGuestSession,
 }

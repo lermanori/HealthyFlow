@@ -109,7 +109,7 @@ function DeletionDialog({
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold text-ink">{user.name}</p>
-                  <p className="text-xs text-ink-muted">{user.email}</p>
+                  <p className="text-xs text-ink-muted">{user.email ?? 'No email — Guest'}</p>
                 </div>
                 {user.blockers.length === 0 ? (
                   <span className="rounded-full bg-state-success/15 px-2 py-1 text-xs text-state-success">Eligible test user</span>
@@ -210,7 +210,7 @@ export default function UserManagementPanel() {
     return users.filter(user => {
       const matchesQuery = !normalized ||
         user.name.toLowerCase().includes(normalized) ||
-        user.email.toLowerCase().includes(normalized)
+        (user.email ?? '').toLowerCase().includes(normalized)
       const matchesTest =
         testFilter === 'all' ||
         (testFilter === 'test' ? user.isTest : !user.isTest)
@@ -421,7 +421,7 @@ export default function UserManagementPanel() {
                     <td className="py-3 pr-3">
                       <input
                         type="checkbox"
-                        aria-label={`Select ${user.email}`}
+                        aria-label={`Select ${user.email ?? user.name}`}
                         checked={selected.has(user.id)}
                         onChange={() => toggleSelected(user.id)}
                         disabled={Boolean(user.protection)}
@@ -429,7 +429,7 @@ export default function UserManagementPanel() {
                     </td>
                     <td className="py-3 pr-4">
                       <p className="font-medium text-ink">{user.name}</p>
-                      <p className="text-xs text-ink-muted">{user.email}</p>
+                      <p className="text-xs text-ink-muted">{user.email ?? 'No email — Guest'}</p>
                       {user.protection && (
                         <span className="mt-1 inline-flex items-center gap-1 text-xs text-accent">
                           <ShieldCheck className="h-3.5 w-3.5" /> {protectionLabels[user.protection]}
