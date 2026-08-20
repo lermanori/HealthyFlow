@@ -62,12 +62,15 @@ the day always renders the window it computed against.
 copies or mutates it. Not a "timeline row" — the plan is the data, the timeline is
 one rendering.
 
-**Claim** — the one-time upload of a Guest's local records into a new account.
-**Not sync.** There is no conflict resolution and no ongoing relationship.
+**Claim** — the moment a Guest becomes an account holder. It happens **in place**:
+the same row gains an email and a password, so nothing moves and nothing can be
+lost. _Avoid_: "migrate", "import", "transfer", "upload" — every one of them
+implies moving data that never moves.
 
-**Guest** — someone using the app with no account, records on the device.
-Single-device by definition. Not an "anonymous user" (implies a row), not a
-"trial" (nothing expires).
+**Guest** — someone using the app with no account. Their data is real and their
+own; nothing expires and nothing is withheld. _Avoid_: confusing a Guest with a
+**demo persona** — a persona is seeded, shared and disposable, a Guest's day is
+theirs. Not a "trial" either: guest mode does not run out.
 
 ## Words we refuse
 

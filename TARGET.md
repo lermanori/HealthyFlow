@@ -2,6 +2,9 @@
 
 > **Say it, and it lands on one honest clock.**
 
+*This describes the product being built. Where it differs from what ships
+today, the refusals below say so.*
+
 This document decides what HealthyFlow is for. Everything else — architecture,
 scope, pricing, what gets built next — is derived from it. If a decision
 elsewhere contradicts this file, this file is wrong and should be argued with
@@ -173,12 +176,28 @@ without a network.
 
 ## What we refuse
 
-- **Never require an account to be useful.** Signing up buys more, never entry.
-- **Never require a network** except for AI and calendar.
+A refusal is the strongest statement in this document. Two of them are not true
+of the build yet, so they are dated rather than quietly softened — softening a
+rule to survive a release is how the rule dies.
+
+**In force today**
+
 - **Never guess a number.** Say why instead.
 - **No silent fallbacks.** A failure surfaces as a failure.
 - **No second vocabulary.** If a feature needs its own set of nouns, it is a
   different product.
+
+**True at v1**
+
+- **Never require an account to be useful.** Signing up buys more, never entry.
+  Guest mode is what closes this, and it ships in v1.
+
+**Knowingly broken at v1**
+
+- **Never require a network** except for AI and calendar. v1 requires one for
+  everything: no network means no day, no items, no capacity. This is a recorded
+  decision, not an oversight — Path A ships the account-required online app to
+  reach the App Store, and **closing this refusal is the entirety of v1.1.**
 
 ## How to use this document
 

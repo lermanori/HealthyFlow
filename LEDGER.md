@@ -1,3 +1,11 @@
+### 2026-08-20 15:41 — `docs/rebuild-source-of-truth`
+
+Resolved four contradictions between the freshly written documents and the v1 the launch path actually ships. Choosing Path A — ship the account-required online app to reach the App Store, with guest mode pulled forward as the one piece of the target that goes in v1 — collapsed most of yesterday's guest design: because `demo-session` already mints a normal `{ userId }` JWT and credits, day summary and every AI route are keyed on `userId`, a Guest is simply a user row with no email. No guest token type, no device-keyed ledger, and no claim migration, since signing up becomes an in-place update of a row that already holds the data.
+
+That left the vocabulary describing work that no longer exists. `Claim` had been defined as the one-time upload of local records and now names the moment a Guest becomes an account holder, in place, with "migrate", "import", "transfer" and "upload" all refused because they imply moving data that never moves. `Guest` had been defined by where its bytes live, which is implementation and is changing between v1 and v1.1; it is now defined by the user-facing property, and its avoid-line points at the collision that actually matters — a Guest is not a demo persona, which is seeded, shared and disposable.
+
+The two `TARGET.md` problems were not wrong so much as undated. A line under the title now says the document describes the product being built and that the refusals mark where it differs from what ships. The refusals themselves are split three ways: in force today, true at v1, and knowingly broken at v1. Only one falls in the last group — never require a network — and it is recorded as a decision with an owner rather than quietly softened, since softening a rule to survive a release is how the rule dies. Closing it is now the stated entirety of v1.1.
+
 ### 2026-08-20 15:18 — `docs/rebuild-source-of-truth`
 
 Rebuilt the three documents that govern how work happens here, each with exactly one job. The trigger was the founder's own diagnosis: the frustration was never the features, it was the vision and the AI harness, and a drifting harness is what stopped the Talk work mid-flight.
