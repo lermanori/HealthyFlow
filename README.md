@@ -1,7 +1,7 @@
 # HealthyFlow
 
-Your whole day in one place. Tasks, habits, food, training and weight live on one
-timeline that carries itself forward.
+**Say it, and it lands on one honest clock.** What the product is for, who it is
+for, and the razor for what belongs in it: [`TARGET.md`](./TARGET.md).
 
 React + Vite frontend (Netlify), Express + TypeScript backend (Railway), Supabase
 for data. The app is served under `/app`; `/` is the marketing page. The same
@@ -12,13 +12,15 @@ distributed via TestFlight — see [`docs/ios.md`](./docs/ios.md).
 
 | I want to know… | Read |
 |---|---|
-| What the app actually does today | [`FEATURES.md`](./FEATURES.md) |
+| What the product is *for* | [`TARGET.md`](./TARGET.md) |
+| What the app actually does today | The code — routes in `src/App.tsx`, nav in `src/components/Layout.tsx`, flags in `src/featureFlags.ts` |
 | What a word means (Item, Habit instance, Rollover…) | [`CONTEXT.md`](./CONTEXT.md) |
 | Why something is built the way it is | [`docs/adr/`](./docs/adr/) |
-| Positioning, pricing, go-to-market | [`MARKETING.md`](./MARKETING.md) |
-| How the iOS app works | [`docs/ios.md`](./docs/ios.md) |
+| How money works | [`TARGET.md`](./TARGET.md) — Money |
+| How the iOS app works | [`docs/runbooks/ios.md`](./docs/runbooks/ios.md) |
+| Anything dated or finished | [`docs/history/`](./docs/history/) — unmaintained by design |
 | What is in flight | [Issues](https://github.com/lermanori/HealthyFlow/issues) · [Project 1](https://github.com/users/lermanori/projects/1/views/1) |
-| How to deploy | [`README-DEPLOYMENT.md`](./README-DEPLOYMENT.md) |
+| How to deploy | [`docs/runbooks/deploy.md`](./docs/runbooks/deploy.md) |
 
 ## Running locally
 

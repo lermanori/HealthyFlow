@@ -47,3 +47,9 @@ test-results/
 e2e-results.json
 e2e-errors.txt
 .board-harness/
+
+# Generated documentation artifacts — `npm --prefix backend run inventory:html` rebuilds these
+docs/generated/
+
+# Throwaway notes — declared untracked in CLAUDE.md
+.scratch/
