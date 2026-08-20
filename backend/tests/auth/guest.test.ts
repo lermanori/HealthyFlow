@@ -83,17 +83,15 @@ describe('POST /api/auth/guest', () => {
     expect(jwt.verify(res.body.token, JWT_SECRET)).toMatchObject({ userId: 'guest-1' })
   })
 
-  it('grants signup credits through the existing path', async () => {
+  it('never claims a founding seat: the signup grant awards 250 credits and burns one of 100', async () => {
     const res = await request(app).post('/api/auth/guest').set('X-Forwarded-For', '30.0.0.2')
 
     expect(res.status).toBe(200)
-    expect(res.body.signupCredits).toEqual({
-      credits: 250,
-      cohort: 'founding',
-      balance: 250,
-      alreadyGranted: false,
-    })
-    expect(mockDb.claimSignupCreditGrant).toHaveBeenCalledWith('guest-1', expect.any(Object))
+    // claim_signup_credit_grant awards FOUNDING_SIGNUP_CREDITS while founding
+    // seats remain, so routing a Guest through it would hand out five dollars of
+    // credits instead of one and drain the founding count on the login page.
+    expect(mockDb.claimSignupCreditGrant).not.toHaveBeenCalled()
+    expect(res.body.signupCredits).toBeUndefined()
   })
 
   it('writes no day data: the row is identity and credits only', async () => {

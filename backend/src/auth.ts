@@ -292,12 +292,20 @@ async function startGuestSession() {
   // No onboarding seeding either — that writes user settings, and a Guest's day
   // data (Items, Habits, settings) is not hosted here. This row carries identity
   // and a credit balance, nothing else.
-  const signupCredits = await Credits.grantSignupCredits(user.id)
-
-  return {
-    ...appSession(user, GUEST_SESSION_LIFETIME),
-    signupCredits,
-  }
+  //
+  // **No credit grant here, deliberately.** `Credits.grantSignupCredits` routes
+  // through `claim_signup_credit_grant`, which awards FOUNDING_SIGNUP_CREDITS
+  // (250) and consumes one of the FOUNDING_MEMBER_LIMIT (100) seats while any
+  // remain. A Guest would therefore take a founding seat and five dollars of
+  // credits instead of the one dollar TARGET.md specifies, and would drain the
+  // founding count shown on the login page. The RPC rejects a zero founding
+  // limit, so it cannot be neutralised by argument.
+  //
+  // The guest grant needs its own path and its own cap — the "first N devices"
+  // dial in TARGET.md, which does not exist yet. Until it does a Guest starts
+  // with no credits: the app is free and useful without them, and granting the
+  // wrong amount is worse than granting none.
+  return appSession(user, GUEST_SESSION_LIFETIME)
 }
 
 export const Auth = {
