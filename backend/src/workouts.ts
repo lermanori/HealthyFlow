@@ -1,11 +1,16 @@
 import { v4 as uuidv4 } from 'uuid'
 import { db } from './supabase-client'
-import type {
-  WorkoutExerciseInput,
-  WorkoutPlanCreate,
-  WorkoutPlanUpdate,
-  WorkoutSessionCreate,
-  WorkoutSessionUpdate,
+import {
+  workoutExerciseItemToClient,
+  workoutExerciseToClient,
+  workoutPlanExerciseToClient,
+  workoutPlanToClient,
+  workoutSessionToClient,
+  type WorkoutExerciseInput,
+  type WorkoutPlanCreate,
+  type WorkoutPlanUpdate,
+  type WorkoutSessionCreate,
+  type WorkoutSessionUpdate,
 } from './workout-contracts'
 
 export * from './workout-contracts'
@@ -21,74 +26,6 @@ export class ForbiddenError extends Error {
     super('Forbidden')
   }
 }
-
-const numberOrNull = (value: unknown) => value == null ? null : Number(value)
-
-export const workoutExerciseToClient = (row: any) => ({
-  id: row.id,
-  sessionId: row.session_id,
-  name: row.name,
-  sets: numberOrNull(row.sets),
-  reps: numberOrNull(row.reps),
-  weightKg: numberOrNull(row.weight_kg),
-  durationMinutes: numberOrNull(row.duration_minutes),
-  distanceKm: numberOrNull(row.distance_km),
-  notes: row.notes ?? null,
-  position: row.position,
-})
-
-export const workoutSessionToClient = (row: any, exercises: any[] = []) => ({
-  id: row.id,
-  userId: row.user_id,
-  date: row.date,
-  title: row.title ?? null,
-  notes: row.notes ?? null,
-  exercises: exercises.map(workoutExerciseToClient),
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-})
-
-export const workoutExerciseItemToClient = (row: any) => ({
-  id: row.id,
-  userId: row.user_id,
-  name: row.name,
-  normalizedName: row.normalized_name,
-  sets: numberOrNull(row.sets),
-  reps: numberOrNull(row.reps),
-  weightKg: numberOrNull(row.weight_kg),
-  durationMinutes: numberOrNull(row.duration_minutes),
-  distanceKm: numberOrNull(row.distance_km),
-  notes: row.notes ?? null,
-  usageCount: row.usage_count,
-  lastUsedAt: row.last_used_at,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-})
-
-export const workoutPlanExerciseToClient = (row: any) => ({
-  id: row.id,
-  planId: row.plan_id,
-  name: row.name,
-  sets: numberOrNull(row.sets),
-  reps: numberOrNull(row.reps),
-  weightKg: numberOrNull(row.weight_kg),
-  durationMinutes: numberOrNull(row.duration_minutes),
-  distanceKm: numberOrNull(row.distance_km),
-  notes: row.notes ?? null,
-  position: row.position,
-})
-
-export const workoutPlanToClient = (row: any, exercises: any[] = []) => ({
-  id: row.id,
-  userId: row.user_id,
-  name: row.name,
-  color: row.color ?? null,
-  note: row.note ?? null,
-  position: row.position,
-  exercises: exercises.map(workoutPlanExerciseToClient),
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-})
 
 function exerciseToRow(sessionId: string, input: WorkoutExerciseInput, fallbackPosition: number) {
   return {

@@ -1266,6 +1266,19 @@ export interface AccountDeletionResult {
 }
 
 export const accountService = {
+  /**
+   * The account's whole archive, as data rather than a download.
+   *
+   * Signing in on a device reads this to bring the account's day down (ADR-0012).
+   * The route already answers with JSON; only the client asked for a blob.
+   */
+  exportArchive: async (token?: string): Promise<Record<string, unknown>> => {
+    const response = await api.get('/account/export', token
+      ? { headers: { Authorization: `Bearer ${token}` } }
+      : undefined)
+    return response.data as Record<string, unknown>
+  },
+
   exportData: async (): Promise<string> => {
     const response = await api.get<Blob>('/account/export', { responseType: 'blob' })
     const disposition = response.headers['content-disposition'] as string | undefined

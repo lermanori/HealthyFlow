@@ -296,6 +296,18 @@ function upgraded(parsed: unknown): unknown {
   return parsed
 }
 
+/**
+ * Replace the whole document with one belonging to a different account.
+ *
+ * The only writer that may change a document's owner. Everything else refuses a
+ * mismatch, because a document that quietly changed hands would mean someone's
+ * day was overwritten without being asked. Signing in *is* the asking.
+ */
+export async function replaceLocalDay(database: LocalDatabase): Promise<void> {
+  await driver.write(JSON.stringify(database))
+  loaded = database
+}
+
 export class LocalStoreError extends Error {
   readonly cause?: unknown
   constructor(message: string, options?: { cause?: unknown }) {

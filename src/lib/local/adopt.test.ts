@@ -1,0 +1,163 @@
+import assert from 'node:assert/strict'
+import { describe, it } from 'node:test'
+import { adoptAccountDay, countLocalDay, localDayFromExport } from './adopt'
+import { emptyLocalDatabase, type LocalDatabase } from './store'
+
+const ACCOUNT = 'account-1'
+const GUEST = 'guest-1'
+
+const exportPayload = {
+  version: 1,
+  items: [
+    { id: 'server-task', user_id: ACCOUNT, title: 'Server task', type: 'task', category: 'work', scheduled_date: '2026-08-21', created_at: '2026-08-20T09:00:00.000Z', updated_at: '2026-08-20T09:00:00.000Z' },
+  ],
+  habitProgress: [],
+  settings: [
+    { id: 'settings-1', user_id: ACCOUNT, created_at: 'x', updated_at: 'y', weekStartsOn: 0, theme: 'white' },
+  ],
+  health: {
+    calorieEntries: [
+      { id: 'meal-1', user_id: ACCOUNT, date: '2026-08-21', time: '12:30', name: 'Server lunch', calories: 500, protein: 30, carbs: 40, fat: 12, quantity: null, created_at: 'a', updated_at: 'b' },
+    ],
+    calorieHistory: [],
+    weightEntries: [
+      { id: 'weight-1', user_id: ACCOUNT, date: '2026-08-21', weight_kg: 81.2, created_at: 'a', updated_at: 'b' },
+    ],
+    achievementDefinitions: [
+      { id: 'def-1', user_id: ACCOUNT, name: 'Bench', metric_type: 'weight', unit: 'kg', better_direction: 'higher', target_value: 100, created_at: 'a', updated_at: 'b' },
+    ],
+    achievementEntries: [
+      { id: 'entry-1', achievement_id: 'def-1', user_id: ACCOUNT, date: '2026-08-21', value: 92, created_at: 'a', updated_at: 'b' },
+    ],
+    workoutPlans: [{ id: 'plan-1', user_id: ACCOUNT, name: 'Push', position: 0, created_at: 'a', updated_at: 'b' }],
+    workoutPlanItems: [{ id: 'plan-ex-1', plan_id: 'plan-1', name: 'Bench', sets: 5, reps: 5, weight_kg: 80, position: 0 }],
+    workoutSessions: [{ id: 'session-1', user_id: ACCOUNT, date: '2026-08-21', title: 'Push', notes: null, created_at: 'a', updated_at: 'b' }],
+    workoutSessionExercises: [{ id: 'ex-1', session_id: 'session-1', name: 'Bench', sets: 5, reps: 5, weight_kg: 80, position: 0 }],
+    workoutExerciseHistory: [],
+  },
+  calendar: { connections: [], events: [] },
+  assistant: { conversations: [], messages: [], recommendations: [], proposals: [], auditMetadata: [] },
+  billing: { credits: [{ id: 'c1' }], subscriptions: [], usage: [] },
+  contactMessages: [],
+  apiTokens: [{ id: 'token-1' }],
+  mcpOAuthGrants: [],
+}
+
+function deviceDay(): LocalDatabase {
+  return {
+    ...emptyLocalDatabase(GUEST),
+    tasks: [
+      { id: 'device-task', user_id: GUEST, title: 'Device task', type: 'task', category: 'personal', start_time: null, location: null, duration: null, repeat_type: 'none', completed: false, completed_at: null, scheduled_date: '2026-08-21', position: null, original_habit_id: null, habit_target_value: null, habit_target_unit: null, habit_outcome: null, overdue_notified: false, rolled_over_from_task_id: null, original_created_at: null, deleted_at: null, created_at: 'a', updated_at: 'b' },
+    ],
+    calorieEntries: [
+      { id: 'device-meal', userId: GUEST, date: '2026-08-21', name: 'Device lunch', calories: 400 },
+    ] as LocalDatabase['calorieEntries'],
+  }
+}
+
+describe('reading an account export onto the device', () => {
+  it('maps every health shape the server stores into the shape the device does', () => {
+    const day = localDayFromExport(ACCOUNT, exportPayload)
+
+    assert.equal(day.userId, ACCOUNT)
+    assert.equal(day.tasks.length, 1)
+    assert.deepEqual(day.calorieEntries[0], {
+      id: 'meal-1', userId: ACCOUNT, date: '2026-08-21', time: '12:30', name: 'Server lunch',
+      calories: 500, protein: 30, carbs: 40, fat: 12, quantity: null, createdAt: 'a', updatedAt: 'b',
+    })
+    assert.equal((day.weightEntries[0] as unknown as { weightKg: number }).weightKg, 81.2)
+    assert.equal((day.achievementDefinitions[0] as unknown as { betterDirection: string }).betterDirection, 'higher')
+    assert.equal((day.achievementEntries[0] as unknown as { achievementId: string }).achievementId, 'def-1')
+  })
+
+  it('nests exercises inside the session and plan they belong to', () => {
+    const day = localDayFromExport(ACCOUNT, exportPayload)
+
+    const session = day.workoutSessions[0] as unknown as { exercises: { sessionId: string; weightKg: number }[] }
+    assert.equal(session.exercises.length, 1)
+    assert.equal(session.exercises[0].sessionId, 'session-1')
+    assert.equal(session.exercises[0].weightKg, 80)
+
+    const plan = day.workoutPlans[0] as unknown as { exercises: { planId: string }[] }
+    assert.equal(plan.exercises[0].planId, 'plan-1')
+  })
+
+  it('leaves behind everything that belongs to the account rather than the day', () => {
+    const day = localDayFromExport(ACCOUNT, exportPayload) as unknown as Record<string, unknown>
+
+    // Calendar connections, assistant history, billing, tokens and OAuth grants
+    // are the account's, not the day's, and must not land on a device.
+    for (const key of ['calendar', 'assistant', 'billing', 'apiTokens', 'mcpOAuthGrants']) {
+      assert.equal(day[key], undefined, `${key} must not reach the device`)
+    }
+  })
+
+  it('keeps the settings the app can read and drops the row bookkeeping', () => {
+    const day = localDayFromExport(ACCOUNT, exportPayload)
+
+    assert.deepEqual(day.settings, { weekStartsOn: 0, theme: 'white' })
+  })
+
+  it('reads an export with no health at all', () => {
+    const day = localDayFromExport(ACCOUNT, { items: [], habitProgress: [], settings: [] })
+
+    assert.deepEqual(day.calorieEntries, [])
+    assert.deepEqual(day.workoutSessions, [])
+  })
+})
+
+describe('choosing what happens to the day already here', () => {
+  it('keeps both, re-keyed to the account so the document has one owner', () => {
+    const merged = adoptAccountDay(deviceDay(), localDayFromExport(ACCOUNT, exportPayload), 'keep_both')
+
+    assert.equal(merged.userId, ACCOUNT)
+    assert.equal(merged.tasks.length, 2)
+    assert.equal(merged.calorieEntries.length, 2)
+    // Every record now belongs to the account, or loadLocalDatabase would refuse
+    // the document as someone else's.
+    assert.ok(merged.tasks.every((task) => task.user_id === ACCOUNT))
+    assert.ok(merged.calorieEntries.every((entry) => (entry as unknown as { userId: string }).userId === ACCOUNT))
+  })
+
+  it('discards the device day when that is what was chosen', () => {
+    const merged = adoptAccountDay(deviceDay(), localDayFromExport(ACCOUNT, exportPayload), 'discard_device')
+
+    assert.equal(merged.tasks.length, 1)
+    assert.equal(merged.tasks[0].id, 'server-task')
+    assert.equal(merged.calorieEntries.length, 1)
+  })
+
+  it('prefers the account settings, which are the ones they have been living with', () => {
+    const device = { ...deviceDay(), settings: { theme: 'midnight' } }
+    const merged = adoptAccountDay(device, localDayFromExport(ACCOUNT, exportPayload), 'keep_both')
+
+    assert.equal(merged.settings.theme, 'white')
+  })
+
+  it('falls back to the device settings when the account has none', () => {
+    const device = { ...deviceDay(), settings: { theme: 'midnight' } }
+    const account = { ...localDayFromExport(ACCOUNT, exportPayload), settings: {} }
+    const merged = adoptAccountDay(device, account, 'keep_both')
+
+    assert.equal(merged.settings.theme, 'midnight')
+  })
+})
+
+describe('what the person is asked to weigh', () => {
+  it('counts the day in the terms they would recognise', () => {
+    const counts = countLocalDay(deviceDay())
+
+    assert.deepEqual(counts, { items: 1, habits: 0, meals: 1, workouts: 0 })
+  })
+
+  it('does not count a deleted Item or a Habit instance as separate things', () => {
+    const device = deviceDay()
+    device.tasks.push(
+      { ...device.tasks[0], id: 'gone', deleted_at: 'now' },
+      { ...device.tasks[0], id: 'habit-template', type: 'habit', repeat_type: 'daily' },
+      { ...device.tasks[0], id: 'habit-instance', type: 'habit', original_habit_id: 'habit-template' },
+    )
+
+    assert.deepEqual(countLocalDay(device), { items: 1, habits: 1, meals: 1, workouts: 0 })
+  })
+})
