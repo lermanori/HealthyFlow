@@ -39,11 +39,48 @@ import { LocalStoreError, mutateLocalDatabase, type LocalTaskRow } from './store
 let dayUserId: string | null = null
 
 /**
- * Point the day at the device, or back at the server.
+ * Which account this device has written a Local day for.
  *
- * A Guest is an account with no email, and their day is not hosted (`TARGET.md`),
- * so this follows the signed-in identity rather than a separate flag. Called from
- * `AuthContext` whenever that identity changes.
+ * Held separately from the document because the axios request interceptor and
+ * `AuthContext` both need the answer synchronously, and reading the document is
+ * async. Written once when a guest session starts; **Claim never touches it,
+ * because Claim never changes the `userId`** — which is what keeps a claimed
+ * account reading its own day.
+ */
+const LOCAL_DAY_OWNER_KEY = 'healthyflow-local-day-owner-v1'
+
+export function rememberLocalDayOwner(userId: string) {
+  localStorage.setItem(LOCAL_DAY_OWNER_KEY, userId)
+}
+
+export function forgetLocalDayOwner() {
+  localStorage.removeItem(LOCAL_DAY_OWNER_KEY)
+}
+
+/**
+ * Whether this device holds the signed-in user's day.
+ *
+ * True for a Guest, whose day is local by definition even before they write one,
+ * and true for an account this device already holds a day for.
+ *
+ * The second half is not a nicety. The rule used to be "local when the user is a
+ * Guest", and a Guest is an account with no email — so the instant Claim set an
+ * email the day flipped to the server, where a freshly claimed account has
+ * nothing. Claiming would have looked exactly like erasing the day.
+ *
+ * False for an account this device has never seen: their day is on the server
+ * until the download exists, and reading an empty local document would look just
+ * as much like loss from the other direction.
+ */
+export function holdsLocalDay(user: { id: string; email: string | null } | null): boolean {
+  if (!user) return false
+  if (user.email === null) return true
+  return localStorage.getItem(LOCAL_DAY_OWNER_KEY) === user.id
+}
+
+/**
+ * Point the day at the device, or back at the server. Called from `AuthContext`
+ * whenever the signed-in identity changes.
  */
 export function setLocalDayUser(userId: string | null) {
   dayUserId = userId

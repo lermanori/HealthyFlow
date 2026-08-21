@@ -22,9 +22,13 @@ export type AnalyticsEvents = {
   }
   signed_up: {
     method: 'password' | 'google' | 'apple'
-    credit_cohort: 'founding' | 'standard'
-    onboarding_credits: number
-    source?: 'direct' | 'demo'
+    // Optional since ADR-0012: credits and account creation are separate
+    // products, and Claim grants nothing.
+    credit_cohort?: 'founding' | 'standard'
+    onboarding_credits?: number
+    // `guest` is the funnel this whole piece of work exists to open: someone who
+    // used the app first and created an account afterwards.
+    source?: 'direct' | 'demo' | 'guest'
     persona?: 'maya' | 'noam' | 'lina' | 'amir'
   }
   logged_in: { is_demo: boolean; method?: 'password' | 'google' | 'apple' }

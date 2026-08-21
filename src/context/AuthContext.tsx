@@ -21,7 +21,12 @@ import {
 } from '../lib/push'
 import { clearTodayWidget } from '../lib/widget'
 import { clearLocalDay, localDayExists, resetLocalStore } from '../lib/local/store'
-import { setLocalDayUser } from '../lib/local/services'
+import {
+  forgetLocalDayOwner,
+  holdsLocalDay,
+  rememberLocalDayOwner,
+  setLocalDayUser,
+} from '../lib/local/services'
 
 // The identity a session carries. `email` is null for a Guest, and only for a
 // Guest — the whole test for one is the absence of an email.
@@ -40,6 +45,10 @@ interface AuthContextType {
     displayName?: string,
   ) => Promise<void>
   startGuestSession: () => Promise<void>
+  claimAccount: (
+    method: 'password' | AuthProvider,
+    credentials: { email?: string; password?: string; name?: string; accessToken?: string },
+  ) => Promise<void>
   startDemoSession: (persona: DemoPersonaId) => Promise<void>
   leaveDemoSession: () => Promise<boolean>
   signup: (email: string, password: string, name: string, invite?: string) => Promise<void>
@@ -96,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * could land after the first fetch.
    */
   const adoptUser = (userData: User | null) => {
-    setLocalDayUser(userData && isGuestSession(userData) ? userData.id : null)
+    setLocalDayUser(holdsLocalDay(userData) ? userData!.id : null)
     setCurrentUser(userData)
   }
 
@@ -267,6 +276,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setHasDemoReturnSession(false)
       resetLocalStore()
       writeSessionToken(token)
+      rememberLocalDayOwner(userData.id)
       identifyUser(userData)
       analytics.capture('guest_started')
       adoptUser(userData)
@@ -276,6 +286,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // the same failure.
       throw error
     }
+  }
+
+  /**
+   * Become an account holder on the row you already hold.
+   *
+   * The `userId` does not change, so the Local day needs no migration, no upload
+   * and no refetch — `adoptUser` resolves to the same id it already had, and
+   * Today does not even flicker. Every failure throws with the session and the
+   * day untouched.
+   */
+  const claimAccount = async (
+    method: 'password' | AuthProvider,
+    credentials: { email?: string; password?: string; name?: string; accessToken?: string },
+  ) => {
+    const { user: userData, token } = method === 'password'
+      ? await authService.claim(credentials.email!, credentials.password!, credentials.name!)
+      : await authService.claimWithProvider(method, credentials.accessToken!, credentials.name)
+
+    writeSessionToken(token)
+    identifyUser(userData)
+    analytics.capture('signed_up', { method, source: 'guest' })
+    adoptUser(userData)
+    toast.success('Account created. Your day stayed right where it was.')
   }
 
   const startDemoSession = async (persona: DemoPersonaId) => {
@@ -368,6 +401,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void clearLocalDay().catch((error) => {
       console.error('[local] could not erase the day on this device:', error)
     })
+    forgetLocalDayOwner()
     clearSessionToken()
     clearDemoState()
     sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
@@ -388,6 +422,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       loginWithProvider,
       startGuestSession,
+      claimAccount,
       startDemoSession,
       leaveDemoSession,
       signup,
