@@ -58,7 +58,9 @@ Four pieces, in the order they were built:
    local. Every page above that line is unchanged.
 
 **Verification, all green:** both typechecks, 737 backend tests across 78 suites,
-122 frontend tests including the Chromium startup guard, production build.
+122 frontend tests including the Chromium startup guard, production build — **and
+confirmed on a simulator**: a Guest's day survives killing and reopening the app.
+See "Verified end to end" below.
 
 ## What a Guest still does not get, and why it matters
 
@@ -133,31 +135,35 @@ and are not". Do not let it stay unanswered by accident a second time.
   superseded on three more counts: the store, the settings baseline, and the fact
   that the pure-core split is done.
 
-## What was and was not verified on a device
+## Verified end to end, 2026-08-21
 
-**Verified.** The iOS app **builds** with `@capacitor/filesystem@8.1.3`
-(`xcodebuild -scheme App -destination 'generic/platform=iOS Simulator'`,
-BUILD SUCCEEDED), **launches** on an iPhone 16 Pro simulator, and the login
-screen shows **Start without an account** with the ADR-0010 disclosure beneath it.
+**Guest mode works.** On an iPhone 16 Pro simulator, against this branch's backend
+with the guest migration applied: *Start without an account* creates the session,
+a timed Task and a daily Habit with logged progress are written to the device, and
+**the day is still there after killing and reopening the app**. That is the one
+thing no automated test in this repo can prove — the 27 Local-day tests all run
+through the in-memory driver, and the five verification commands run in Node and
+Chromium, so nothing else touches `@capacitor/filesystem` at all.
 
-**Tapping it fails today, and the reason is not the code.** `POST /auth/guest`
-exists only on this branch; production runs `main` and has no such route. The
-bundle built from the repo `.env` points at production, so the button 404s. The
-screen now says so in those terms rather than blaming the network.
+Caveat worth keeping honest: this was the **simulator**, not a physical device.
+The plugin path is identical, but a real iPhone has not run it.
 
-**So this needs a backend running this branch.** What is still unproven:
+Three things had to be true at once, and each was a separate false start:
 
-- the guest session round trip end to end;
-- **the Capacitor Filesystem driver on a real device.** The Local day has 27 unit
-  tests, but they all run through the in-memory driver — nothing in the five
-  verification commands touches the plugin, because they all run in Node and
-  Chromium.
+1. **The guest migration must be applied.** `20260820120000_add_guest_accounts.sql`
+   exists only on this branch. Without it `users.email` is `NOT NULL` and creating
+   a Guest fails with a 500.
+2. **`VITE_API_URL` must be a real environment variable.** `vite build` runs in
+   production mode, so the value comes from `.env.production` — the Railway URL —
+   no matter what `.env` says. Getting this wrong makes the app ask production for
+   `POST /auth/guest`, which only exists here, and the screen reads *"This build is
+   pointed at a server that cannot start a guest session yet."*
+3. **A backend running this branch.** The root `.env` already carries
+   `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `SUPABASE_ANON_KEY` — the three
+   lines are **indented**, so `grep '^SUPABASE'` finds nothing and they look
+   missing. They are not.
 
-To close both, run this branch's backend and point the app at it. The root `.env`
-already carries `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and
-`SUPABASE_ANON_KEY` — verified 2026-08-21, the server boots on 3001 and
-`POST /api/auth/guest` answers. Note the three Supabase lines are **indented**, so
-a `grep '^SUPABASE'` finds nothing and looks like they are missing. They are not.
+To repeat it:
 
 ```sh
 npm run server
@@ -169,30 +175,28 @@ Then, in a second terminal:
 VITE_API_URL=http://localhost:3001/api npm run ios:run
 ```
 
-**The env var is not optional.** `vite build` runs in production mode, so
-`VITE_API_URL` comes from `.env.production` — the Railway URL — and editing `.env`
-changes nothing. A real environment variable beats every `.env` file. Getting this
-wrong is what makes the app 404 on *Start without an account*, since
-`POST /auth/guest` exists only on this branch and production runs `main`.
+**Rebuild without that env var before shipping anything.** A bundle carrying
+`http://localhost:3001/api` reaches no server on anyone else's phone, and a plain
+`npm run build:ios` picks production back up from `.env.production`.
 
-On the simulator: tap *Start without an account*, add a timed Task, add a daily
-Habit, log progress against it, kill the app, reopen it, and confirm the day is
-still there.
+### Answered along the way
 
-**Two traps in that loop.**
-
-- **Cleartext HTTP may be refused.** `Info.plist` has no `NSAppTransportSecurity`
-  block and `capacitor.config.ts` has no `server.cleartext`, so
-  `http://localhost:3001` may never leave the app. Untested. If the tap fails with
-  a network error rather than a status code, that is this — add a dev-only ATS
-  exception or `server: { cleartext: true }`, and do not ship either.
+- **App Transport Security is not an issue for loopback.** `Info.plist` has no
+  `NSAppTransportSecurity` block and `capacitor.config.ts` has no
+  `server.cleartext`, and `http://localhost:3001` still reaches the backend from
+  the WKWebView. No dev-only ATS exception is needed; do not add one.
 - **`ios/App/App/public` holds a *copy* of `dist`**, so an app built after a stale
   `cap copy` renders a blank screen with no error at all. `npm run build:ios`
   orders it correctly (`build` then `cap sync ios`); running `xcodebuild` straight
   after editing web code does not.
+- **`supabase db push` timing out is usually not the network.** A connected VPN
+  takes the default route (`route -n get default` → a `utun*` interface) and free
+  VPNs commonly carry only HTTPS, so Postgres ports 5432/6543 hang while 443 works.
+  Disconnect it before blaming Supabase — and before pushing a service-role
+  credential through it.
 
 **The local `.env` points at the live Supabase project**, so a guest session
-started against a local backend still writes a real row to production.
+started against a local backend writes a real row to production.
 
 ## Open questions nobody has answered
 

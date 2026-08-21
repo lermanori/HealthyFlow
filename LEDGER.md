@@ -1,3 +1,23 @@
+### 2026-08-21 16:05 — `feat/guest-mode`
+
+Guest mode is verified end to end. On a simulator, against this branch's backend
+with the guest migration applied, *Start without an account* creates the session,
+a Task and a Habit with logged progress are written to the device, and the day is
+still there after killing and reopening the app. That was the one claim nothing in
+the repo could make: the 27 Local-day tests all run through the in-memory driver,
+so `@capacitor/filesystem` had never actually been exercised.
+
+Getting there was three false starts, none of them the guest code: the migration
+had never been pushed, `VITE_API_URL` comes from `.env.production` regardless of
+`.env` so the app kept asking production for a route only this branch has, and
+`supabase db push` was timing out because a connected VPN owned the default route
+and carried only HTTPS. Two questions closed as a side effect — loopback is exempt
+from App Transport Security, so no dev-only ATS exception is needed, and a stale
+`cap copy` renders a blank screen with no error at all. All of it is in
+`HANDOFF.md` so the next person loses none of the same hours.
+
+---
+
 ### 2026-08-21 15:05 — `feat/guest-mode`
 
 Tapping *Start without an account* on the simulator failed, and the screen blamed
