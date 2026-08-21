@@ -556,6 +556,18 @@ export const authService = {
     return GuestSessionResponseSchema.parse(response.data)
   },
 
+  // Claim. The Guest's own row becomes an account — same userId, so the Local
+  // day on this device stays keyed correctly and nothing moves (ADR-0012).
+  claim: async (email: string, password: string, name: string) => {
+    const response = await api.post('/auth/claim', { email, password, name })
+    return GuestSessionResponseSchema.parse(response.data)
+  },
+
+  claimWithProvider: async (provider: 'google' | 'apple', accessToken: string, displayName?: string) => {
+    const response = await api.post(`/auth/claim/${provider}`, { accessToken, displayName })
+    return GuestSessionResponseSchema.parse(response.data)
+  },
+
   startDemoSession: async (persona: DemoPersonaId) => {
     const response = await api.post('/auth/demo-session', { persona })
     return response.data
