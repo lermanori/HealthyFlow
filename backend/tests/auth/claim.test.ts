@@ -1,7 +1,7 @@
 import request from 'supertest'
 import jwt from 'jsonwebtoken'
 import { app } from '../../src/index'
-import { db } from '../../src/supabase-client'
+import { db, supabase } from '../../src/supabase-client'
 import { Credits } from '../../src/credits'
 import { Onboarding } from '../../src/onboarding'
 import { Waitlist } from '../../src/waitlist'
@@ -13,6 +13,12 @@ jest.mock('../../src/supabase-client', () => ({
     getUserByGoogleSubject: jest.fn(),
     getUserByAppleSubject: jest.fn(),
     claimGuestAccount: jest.fn(),
+  },
+  supabase: {
+    auth: {
+      getUser: jest.fn(),
+      admin: { deleteUser: jest.fn() },
+    },
   },
 }))
 
@@ -29,6 +35,9 @@ jest.mock('../../src/waitlist', () => ({
 }))
 
 const mockDb = db as jest.Mocked<typeof db>
+const mockSupabaseAuth = (supabase as unknown as {
+  auth: { getUser: jest.Mock }
+}).auth
 const mockCredits = Credits as jest.Mocked<typeof Credits>
 const mockOnboarding = Onboarding as jest.Mocked<typeof Onboarding>
 const mockWaitlist = Waitlist as jest.Mocked<typeof Waitlist>
@@ -160,6 +169,92 @@ describe('POST /api/auth/claim', () => {
       .send({ email: 'someone@example.com', password: 'short', name: 'Someone' })
 
     expect(response.status).toBe(400)
+    expect(mockDb.claimGuestAccount).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/auth/claim/:provider', () => {
+  const providerRow = {
+    id: 'guest-1',
+    email: 'someone@gmail.com',
+    name: 'Someone',
+    role: 'user' as const,
+    signup_method: 'google' as const,
+  }
+
+  beforeEach(() => {
+    mockDb.getUserByGoogleSubject.mockResolvedValue(null as never)
+    mockDb.getUserByAppleSubject.mockResolvedValue(null as never)
+    mockDb.claimGuestAccount.mockResolvedValue(providerRow as never)
+    mockSupabaseAuth.getUser.mockResolvedValue({
+      data: {
+        user: {
+          id: 'supabase-user-1',
+          email: 'someone@gmail.com',
+          email_confirmed_at: '2026-08-21T00:00:00.000Z',
+          app_metadata: { provider: 'google', providers: ['google', 'apple'] },
+          user_metadata: { full_name: 'Someone' },
+          identities: [{ provider: 'google' }, { provider: 'apple' }],
+        },
+      },
+      error: null,
+    })
+  })
+
+  it('attaches a verified Google identity to the Guest row', async () => {
+    const response = await request(app)
+      .post('/api/auth/claim/google')
+      .set('Authorization', `Bearer ${guestToken()}`)
+      .send({ accessToken: 'valid-google-token' })
+
+    expect(response.status).toBe(200)
+    expect(response.body.user).toMatchObject({ id: 'guest-1', authMethod: 'google' })
+
+    const [userId, changes] = mockDb.claimGuestAccount.mock.calls[0] as [string, Record<string, unknown>]
+    expect(userId).toBe('guest-1')
+    expect(changes).toMatchObject({
+      email: 'someone@gmail.com',
+      signup_method: 'google',
+      google_auth_subject: 'supabase-user-1',
+    })
+  })
+
+  it('refuses when that provider identity already belongs to an account', async () => {
+    mockDb.getUserByGoogleSubject.mockResolvedValue({ id: 'other-1' } as never)
+
+    const response = await request(app)
+      .post('/api/auth/claim/google')
+      .set('Authorization', `Bearer ${guestToken()}`)
+      .send({ accessToken: 'valid-google-token' })
+
+    expect(response.status).toBe(409)
+    expect(response.body.reason).toBe('identity_conflict')
+    expect(mockDb.claimGuestAccount).not.toHaveBeenCalled()
+  })
+
+  it('surfaces an expired provider session rather than a generic failure', async () => {
+    mockSupabaseAuth.getUser.mockResolvedValueOnce({ data: { user: null }, error: { message: 'bad token' } })
+
+    const response = await request(app)
+      .post('/api/auth/claim/google')
+      .set('Authorization', `Bearer ${guestToken()}`)
+      .send({ accessToken: 'expired-token' })
+
+    expect(response.status).toBe(401)
+    expect(response.body.reason).toBe('provider_session_invalid')
+    expect(mockDb.claimGuestAccount).not.toHaveBeenCalled()
+  })
+
+  it('refuses when that address already belongs to an account', async () => {
+    mockDb.getUserByEmail.mockResolvedValue({ id: 'other-1' } as never)
+
+    const response = await request(app)
+      .post('/api/auth/claim/apple')
+      .set('Authorization', `Bearer ${guestToken()}`)
+      .send({ accessToken: 'valid-apple-token' })
+
+    expect(response.status).toBe(409)
+    expect(response.body.reason).toBe('email_taken')
     expect(mockDb.claimGuestAccount).not.toHaveBeenCalled()
   })
 })

@@ -227,6 +227,28 @@ router.post('/claim', authenticateToken, async (req: AuthRequest, res) => {
   }
 })
 
+router.post('/claim/:provider', authenticateToken, async (req: AuthRequest, res) => {
+  const provider = req.params.provider
+  if (provider !== 'google' && provider !== 'apple') {
+    return res.status(404).json({ error: 'Unknown provider' })
+  }
+  const parsed = (provider === 'google' ? GoogleSessionSchema : AppleSessionSchema).safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message })
+  }
+
+  try {
+    const session = await Auth.claimGuestAccountWithProvider(req.user.userId, provider, parsed.data)
+    return res.json(session)
+  } catch (error) {
+    if (error instanceof AuthFlowError) {
+      return res.status(error.status).json({ error: error.message, reason: error.reason })
+    }
+    console.error('Provider claim error:', error)
+    return res.status(500).json({ error: 'Could not create your account' })
+  }
+})
+
 // Supabase Auth verifies the Google identity; HealthyFlow then applies its own
 // access gate and returns the same app JWT used by password login.
 router.post('/google', providerSessionLimiter, async (req, res) => {

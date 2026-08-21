@@ -344,6 +344,75 @@ async function claimGuestAccount(userId: string, rawInput: ClaimAccountInput) {
   return appSession(claimed)
 }
 
+// Claim with a verified provider identity. The resolution order is what keeps
+// this safe: an identity or address that already belongs to an account is a
+// refusal, never a merge — merging into an existing account is Sign in, which is
+// a different operation with different consequences (CONTEXT.md).
+async function claimGuestAccountWithProvider(
+  userId: string,
+  provider: AuthProvider,
+  input: ProviderSessionInput,
+) {
+  const providerName = provider === 'google' ? 'Google' : 'Apple'
+  const parsed = ProviderSessionSchema.parse(input)
+
+  let authUser: SupabaseAuthUser
+  try {
+    const { data, error } = await supabase.auth.getUser(parsed.accessToken)
+    if (error || !data.user) {
+      throw new AuthFlowError(401, 'provider_session_invalid', `${providerName} sign-in expired. Please try again.`)
+    }
+    authUser = data.user
+  } catch (error) {
+    if (error instanceof AuthFlowError) throw error
+    throw new AuthFlowError(503, 'provider_unavailable', `${providerName} sign-in is temporarily unavailable.`)
+  }
+
+  if (!isVerifiedProviderUser(authUser, provider) || !authUser.email) {
+    throw new AuthFlowError(
+      401,
+      'provider_identity_invalid',
+      `${providerName} did not provide a verified email address.`,
+    )
+  }
+
+  const email = authUser.email.trim().toLowerCase()
+
+  const bySubject = provider === 'google'
+    ? await db.getUserByGoogleSubject(authUser.id)
+    : await db.getUserByAppleSubject(authUser.id)
+  if (bySubject) {
+    throw new AuthFlowError(
+      409,
+      'identity_conflict',
+      `That ${providerName} account is already linked to a HealthyFlow account.`,
+    )
+  }
+
+  const byEmail = await db.getUserByEmail(email)
+  if (byEmail) {
+    throw new AuthFlowError(409, 'email_taken', 'That address already has a HealthyFlow account. Sign in instead.')
+  }
+
+  const claimed = await db.claimGuestAccount(userId, {
+    // The guest row already carries an unguessable random password_hash from
+    // startGuestSession, so nothing can sign in with it. Rewriting it with
+    // another random value keeps the write shape identical for all three paths.
+    password_hash: await bcrypt.hash(randomBytes(32).toString('base64url'), 10),
+    email,
+    name: displayName(authUser, email, parsed.displayName),
+    signup_method: provider,
+    ...(provider === 'google'
+      ? { google_auth_subject: authUser.id }
+      : { apple_auth_subject: authUser.id }),
+  })
+  if (!claimed) {
+    throw new AuthFlowError(403, 'not_a_guest', 'This session already has an account.')
+  }
+
+  return appSession(claimed)
+}
+
 export const Auth = {
   exchangeGoogleSession(input: ProviderSessionInput) {
     return exchangeProviderSession('google', input)
@@ -355,4 +424,5 @@ export const Auth = {
 
   startGuestSession,
   claimGuestAccount,
+  claimGuestAccountWithProvider,
 }
