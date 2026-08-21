@@ -444,6 +444,19 @@ describe('POST /api/auth/claim/:provider', () => {
     expect(mockDb.claimGuestAccount).not.toHaveBeenCalled()
   })
 
+  it('surfaces an expired provider session rather than a generic failure', async () => {
+    supabaseAuthMock.getUser.mockResolvedValueOnce({ data: { user: null }, error: { message: 'bad token' } })
+
+    const response = await request(app)
+      .post('/api/auth/claim/google')
+      .set('Authorization', `Bearer ${guestToken()}`)
+      .send({ accessToken: 'expired-token' })
+
+    expect(response.status).toBe(401)
+    expect(response.body.reason).toBe('provider_session_invalid')
+    expect(mockDb.claimGuestAccount).not.toHaveBeenCalled()
+  })
+
   it('refuses when that address already belongs to an account', async () => {
     mockDb.getUserByEmail.mockResolvedValue({ id: 'other-1' } as never)
 
@@ -462,26 +475,34 @@ describe('POST /api/auth/claim/:provider', () => {
 This needs the Supabase auth client stubbed. Add to the top of the file, beside the other mocks:
 
 ```ts
+const supabaseAuthMock = {
+  getUser: jest.fn(),
+  admin: { deleteUser: jest.fn() },
+}
+
 jest.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
-    auth: {
-      getUser: jest.fn().mockResolvedValue({
-        data: {
-          user: {
-            id: 'supabase-user-1',
-            email: 'someone@gmail.com',
-            email_confirmed_at: '2026-08-21T00:00:00.000Z',
-            app_metadata: { provider: 'google', providers: ['google', 'apple'] },
-            user_metadata: { full_name: 'Someone' },
-            identities: [{ provider: 'google' }, { provider: 'apple' }],
-          },
-        },
-        error: null,
-      }),
-      admin: { deleteUser: jest.fn() },
-    },
+    auth: supabaseAuthMock,
   }),
 }))
+```
+
+and give it its default inside the provider suite's `beforeEach`:
+
+```ts
+    supabaseAuthMock.getUser.mockResolvedValue({
+      data: {
+        user: {
+          id: 'supabase-user-1',
+          email: 'someone@gmail.com',
+          email_confirmed_at: '2026-08-21T00:00:00.000Z',
+          app_metadata: { provider: 'google', providers: ['google', 'apple'] },
+          user_metadata: { full_name: 'Someone' },
+          identities: [{ provider: 'google' }, { provider: 'apple' }],
+        },
+      },
+      error: null,
+    })
 ```
 
 - [ ] **Step 2: Run and watch it fail**
@@ -599,12 +620,12 @@ Add `ProviderSessionSchema` to the existing `../auth` import if it is not alread
 - [ ] **Step 5: Run the tests**
 
 Run: `npm --prefix backend test -- tests/auth/claim.test.ts`
-Expected: PASS — 11 tests.
+Expected: PASS — 12 tests.
 
 - [ ] **Step 6: Run the whole backend suite**
 
 Run: `npm --prefix backend test`
-Expected: 737 existing + 11 new = 748 passing. If `POST /test/reset — HF_TEST_MODE guard` fails, re-run — it is a known flake across parallel workers.
+Expected: 737 existing + 12 new = 749 passing. If `POST /test/reset — HF_TEST_MODE guard` fails, re-run — it is a known flake across parallel workers.
 
 - [ ] **Step 7: Commit**
 
@@ -859,12 +880,7 @@ Add above `startDemoSession`:
 
     writeSessionToken(token)
     identifyUser(userData)
-    analytics.capture('signed_up', {
-      method,
-      credit_cohort: 'standard',
-      onboarding_credits: 0,
-      source: 'guest',
-    })
+    analytics.capture('signed_up', { method, source: 'guest' })
     adoptUser(userData)
     toast.success('Account created. Your day stayed right where it was.')
   }
@@ -872,12 +888,38 @@ Add above `startDemoSession`:
 
 Add `claimAccount: (method: 'password' | AuthProvider, credentials: { email?: string; password?: string; name?: string; accessToken?: string }) => Promise<void>` to `AuthContextType`, and `claimAccount,` to the provider value.
 
-- [ ] **Step 5: Typecheck**
+- [ ] **Step 5: Teach the analytics event about Claim**
+
+`signed_up` currently requires `credit_cohort` and `onboarding_credits` and its
+`source` is `'direct' | 'demo'`. Claim grants no credits and is a third source, so
+in `src/lib/analytics/types.ts` change:
+
+```ts
+  signed_up: {
+    method: 'password' | 'google' | 'apple'
+    // Optional since ADR-0012: credits and account creation are separate
+    // products, and Claim grants nothing.
+    credit_cohort?: 'founding' | 'standard'
+    onboarding_credits?: number
+    // `guest` is the funnel this whole piece of work exists to open: someone who
+    // used the app first and created an account afterwards.
+    source?: 'direct' | 'demo' | 'guest'
+    persona?: 'maya' | 'noam' | 'lina' | 'amir'
+  }
+```
+
+Then simplify the capture in `claimAccount` to:
+
+```ts
+    analytics.capture('signed_up', { method, source: 'guest' })
+```
+
+- [ ] **Step 6: Typecheck**
 
 Run: `npm run typecheck`
-Expected: no output. If `analytics.capture('signed_up', …)` complains, check `source` accepts `'guest'` in `src/lib/analytics/types.ts` and widen it there if not.
+Expected: no output.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 7: Commit**
 
 ```bash
 git add src/context/AuthContext.tsx src/lib/analytics/types.ts
@@ -931,11 +973,14 @@ export default function ClaimAccountPage() {
     try {
       if (method === 'password') {
         await claimAccount('password', { email, password, name })
+      } else if (method === 'google') {
+        const { accessToken } = await beginNativeGoogleSignIn()
+        await claimAccount('google', { accessToken })
       } else {
-        const { accessToken } = method === 'google'
-          ? await beginNativeGoogleSignIn()
-          : await beginAppleSignIn()
-        await claimAccount(method, { accessToken })
+        // Apple returns a name only on the very first authorization, so it has
+        // to be carried through here or the account is named after its email.
+        const { accessToken, displayName } = await beginAppleSignIn()
+        await claimAccount('apple', { accessToken, name: displayName })
       }
       navigate('/')
     } catch (claimError) {
@@ -1083,7 +1128,7 @@ npm --prefix backend test
 npm run build
 ```
 
-Expected: clean, clean, 126 passing, 748 passing, clean.
+Expected: clean, clean, 126 passing, 749 passing, clean.
 
 - [ ] **Step 2: Update `CONTEXT.md`**
 
