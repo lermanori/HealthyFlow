@@ -23,10 +23,11 @@ and are **not** descriptions of the app now.
 |---|---|
 | `main` | `83f0d05` — has all rebuilt docs and the `docs/history` restructure |
 | `feat/guest-mode` | `e79189d` — 2 commits ahead of `main`. **Not merged, not pushed.** |
-| Uncommitted on `feat/guest-mode` | The credit-grant fix described below, plus a `README.md` edit and an untracked `docs/runbooks/paid-apps-setup.md` that came from elsewhere — check with the owner before committing those two. |
+| Pushed | **Both branches are on `origin`.** Nothing exists only locally. |
 
-**Nothing has been pushed to `origin` all session.** `main` is many commits ahead
-of `origin/main`.
+`README.md` has an uncommitted edit and `docs/runbooks/paid-apps-setup.md` is
+untracked — neither came from the doc work; check with the owner before touching
+them.
 
 ## The credit-grant bug, fixed today
 
@@ -70,23 +71,75 @@ absent from the story. **The code stays. Do not delete it.**
 
 ## The order of work
 
-1. **Local storage layer.** Split the pure day core out of `backend/src/day-summary.ts`
-   so a server adapter and a device adapter can both call it. `buildDaySummary`
-   already takes all nine data sources as injected dependencies and everything
-   between them is pure, so this is an extraction plus a second adapter, not a
+**Local storage is the gate, not a step.** A Guest has to put their day somewhere,
+and free users' data is never hosted — for cost, and because if it were, the cloud
+subscription would have nothing to sell. So:
+
+> **local storage → guest mode → App Store listing**
+
+1. **Local storage layer.** Split the pure day core out of
+   `backend/src/day-summary.ts` so a server adapter and a device adapter can both
+   call it. `buildDaySummary` already takes all nine of its data sources as
+   injected dependencies (`getSettings`, `itemsForDay`, `getCalendarStatus`,
+   `getCalendarEvents`, `getCalorieEntries`, `getWeightEntry`,
+   `getWorkoutSessions`, `getAchievements`, `listDayFocusBlocks`) and everything
+   between them is pure — so this is an extraction plus a second adapter, not a
    rewrite. No behaviour change; provable against the existing backend suite.
-   The precedent for the browser/server split is the Achievement and Workout
-   contract split — a Chromium startup test guards that boundary, and it must
+   Design detail in `docs/history/specs/2026-08-17-local-first-guest-mode-design.md`
+   — read it for the reasoning, but note its guest-token and claim sections are
+   superseded.
+   **iPhone only** (see `TARGET.md`), so the store can be SQLite through a
+   Capacitor plugin rather than browser storage. None is installed yet.
+   The browser/server boundary is guarded by a Chromium startup test — it must
    keep passing.
-2. **Guest identity.** Mostly done — see above.
-3. **Claim** — upload local store to cloud at signup.
-4. **StoreKit** — independent of 1–3, can start any time.
+2. **Guest identity.** Endpoint done; see the known bug below.
+3. **Guest credit grant.** Does not exist. Needs the "first N devices get $1"
+   dial from `TARGET.md`, with N in a database row rather than a constant.
+   **Until this lands a Guest has no credits, so the free experience has no AI —
+   which is the hook the product is supposed to open with.**
+4. **Claim** — upload the local store to cloud at signup.
+5. **StoreKit** — independent of 1–4, can start any time. The Paid Apps
+   Agreement is paperwork with a real-world clock and gates all revenue.
+
+## Known bug on `feat/guest-mode` — not yet fixed
+
+**The guest session renewal is inert.** `GET /api/auth/verify` mints a fresh
+365-day token whenever `user.email` is null, but the client never reads it:
+`authService.verifyToken` returns `response.data` and `AuthContext` uses it only
+as identity. Nothing writes `userData.token` to `localStorage`.
+
+So what ships is a **fixed 365-day fuse from account creation**, not the sliding
+window ADR-0010 describes. On day 366 any call 401s, the `api.ts` interceptor
+clears the token and reloads, and the Guest lands on a login screen they cannot
+pass — no email, no password, row orphaned. That is a silent fallback, which
+`CLAUDE.md` forbids.
+
+Two-line fix: surface the token from `verifyToken`, persist it in `AuthContext`
+when present. No backend test can catch this — supertest's world ends at
+`res.body`. Add a client-level assertion instead.
+
+**Better option now that v1 is iPhone-only:** store the token in the **Keychain**
+rather than `localStorage`. The Keychain survives app deletion, so a Guest could
+delete and reinstall and still be themselves. Device-binding the JWT was
+considered and rejected — it adds a second fragile thing that must survive, which
+increases the orphaning risk it is meant to reduce.
 
 ## Open questions nobody has answered
 
 - **Existing account holders** have server-side data today. Under the new model
   server storage *is* the paid tier. Grandfathered into cloud, or does their data
   become their local store?
+- **Does the App Store date still come first?** The stated priority was reaching
+  the store with monetization. The decisions since — local-first, no hosted free
+  data, guest mode in v1 — put the largest piece of engineering in front of the
+  listing. That trade happened by accumulation, not by being chosen. There is a
+  version where the account-required app ships to the store first and guest mode
+  follows; it contradicts `TARGET.md` as written, which is why it needs a
+  deliberate answer rather than a default.
+- **Nobody owns the analytics gaps.** No task exists for them.
+- **"Who it is for" in `TARGET.md` is weak** — "someone whose day spans several
+  parts of life" is close to everyone. Every other section is sharp; that one
+  was flagged and never fixed.
 - **The guest credit grant** needs its own path and its own cap — the "first N
   devices get $1" dial in `TARGET.md`, which does not exist. `N` must live in a
   database row, not a constant: it is a cost-control dial to be raised when the
