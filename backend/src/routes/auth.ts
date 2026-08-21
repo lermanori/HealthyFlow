@@ -16,7 +16,9 @@ import {
   GUEST_SESSION_LIFETIME,
   issueSessionToken,
   sessionUser,
+  type ClaimAccountInput,
 } from '../auth'
+import { authenticateToken, type AuthRequest } from '../middleware/auth'
 
 const router = express.Router()
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
@@ -34,6 +36,14 @@ const DemoSessionSchema = z.object({
 })
 
 const GuestSessionSchema = z.strictObject({})
+
+const ClaimSchema = z.object({
+  // Trimmed before validating: a phone keyboard appends a space often enough
+  // that refusing one is a 400 for a character the user cannot see.
+  email: z.string().trim().email(),
+  password: z.string().min(8),
+  name: z.string().trim().min(1),
+})
 
 const accountCreationBlockedInTestMode = () => process.env.HF_TEST_MODE === '1'
 const testModeAccountCreationResponse = {
@@ -194,6 +204,26 @@ router.post('/guest', guestLimiter, async (req, res) => {
     }
     console.error('Guest session error:', error)
     return res.status(500).json({ error: 'Could not start without an account' })
+  }
+})
+
+// Claim. The token is the identity — no user id in the body, so a caller can
+// only ever claim their own row.
+router.post('/claim', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = ClaimSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message })
+  }
+
+  try {
+    const session = await Auth.claimGuestAccount(req.user.userId, parsed.data as ClaimAccountInput)
+    return res.json(session)
+  } catch (error) {
+    if (error instanceof AuthFlowError) {
+      return res.status(error.status).json({ error: error.message, reason: error.reason })
+    }
+    console.error('Claim error:', error)
+    return res.status(500).json({ error: 'Could not create your account' })
   }
 })
 

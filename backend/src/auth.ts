@@ -309,6 +309,41 @@ async function startGuestSession() {
   return appSession(user, GUEST_SESSION_LIFETIME)
 }
 
+const ClaimAccountSchema = z.object({
+  email: z.string().trim().email(),
+  password: z.string().min(8),
+  name: z.string().trim().min(1).max(120),
+})
+export type ClaimAccountInput = z.infer<typeof ClaimAccountSchema>
+
+// Claim converts the row the caller already holds. It never creates a row and
+// never deletes one, so every failure leaves the Guest a Guest with their day
+// intact. No Waitlist.authorizeSignup and no public slot: entry is open
+// (ADR-0012). No credit grant: credits are a purchase, and where the $1 taster
+// sits is deliberately unplaced. No Onboarding.seedNewUser: it writes user
+// settings, which are day data and live on the device.
+async function claimGuestAccount(userId: string, rawInput: ClaimAccountInput) {
+  const input = ClaimAccountSchema.parse(rawInput)
+  const email = input.email.trim().toLowerCase()
+
+  const existing = await db.getUserByEmail(email)
+  if (existing) {
+    throw new AuthFlowError(409, 'email_taken', 'That address already has a HealthyFlow account. Sign in instead.')
+  }
+
+  const claimed = await db.claimGuestAccount(userId, {
+    email,
+    password_hash: await bcrypt.hash(input.password, 10),
+    name: input.name.trim(),
+    signup_method: 'password',
+  })
+  if (!claimed) {
+    throw new AuthFlowError(403, 'not_a_guest', 'This session already has an account.')
+  }
+
+  return appSession(claimed)
+}
+
 export const Auth = {
   exchangeGoogleSession(input: ProviderSessionInput) {
     return exchangeProviderSession('google', input)
@@ -319,4 +354,5 @@ export const Auth = {
   },
 
   startGuestSession,
+  claimGuestAccount,
 }

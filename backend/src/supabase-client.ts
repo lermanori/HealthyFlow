@@ -207,6 +207,32 @@ export const db = {
     if (error) throw error;
   },
 
+  // Claim: a Guest's row becomes an account holder's, in place (ADR-0012).
+  //
+  // `.is('email', null)` is what makes "you must still be a Guest" atomic. A
+  // check-then-act would let two concurrent claims both pass the check; here the
+  // second matches no rows and the caller sees `null`. Email and signup_method
+  // must move together or the users_guest_has_no_email CHECK rejects the write.
+  async claimGuestAccount(userId: string, changes: {
+    email: string
+    password_hash: string
+    name: string
+    signup_method: 'password' | 'google' | 'apple'
+    google_auth_subject?: string
+    apple_auth_subject?: string
+  }): Promise<AccountRow | null> {
+    const { data, error } = await supabase
+      .from('users')
+      .update(changes)
+      .eq('id', userId)
+      .is('email', null)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    return data as AccountRow | null;
+  },
+
   // Tasks
   async createTask(taskData: any) {
     const { data, error } = await supabase
