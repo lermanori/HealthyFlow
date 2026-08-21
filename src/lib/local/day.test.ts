@@ -67,16 +67,23 @@ describe('a day held on the device', () => {
     assert.equal(day.items.length, 1)
   })
 
-  it('refuses to invent the modules it does not store', async () => {
+  // Food, weight and training are core rather than optional (TARGET.md). A Guest
+  // holding them was the contradiction ADR-0011 recorded and did not resolve.
+  it('gives a Guest the whole day, food and training included', async () => {
     const day = await summary()
 
-    assert.equal(day.modules.nutrition, 'disabled')
-    assert.equal(day.modules.workouts, 'disabled')
-    assert.equal(day.supporting.nutrition.status, 'disabled')
+    assert.equal(day.modules.nutrition, 'enabled')
+    assert.equal(day.modules.workouts, 'enabled')
+    assert.equal(day.modules.achievements, 'enabled')
+    // Nothing logged yet is `not_logged`, which is emptiness. `disabled` would
+    // mean the user switched it off and `unavailable` would mean the read broke.
+    assert.equal(day.supporting.nutrition.status, 'not_logged')
+    assert.equal(day.supporting.workouts.status, 'not_logged')
+    assert.equal(day.supporting.progress.status, 'not_recorded')
+  })
 
+  it('still refuses to invent a Calendar it cannot see', async () => {
     const dependencies = localDaySummaryDependencies()
-    await assert.rejects(() => dependencies.getCalorieEntries(USER, TODAY), LocalStoreError)
-    await assert.rejects(() => dependencies.getWorkoutSessions(USER, TODAY), LocalStoreError)
     await assert.rejects(() => dependencies.getCalendarEvents(USER, TODAY), LocalStoreError)
   })
 })
@@ -285,7 +292,7 @@ describe('Habits on the device', () => {
 describe('settings on the device', () => {
   it('starts from the local baseline and keeps what the user changed', async () => {
     const initial = await readLocalSettings(USER)
-    assert.equal(initial.calorieIntake, false)
+    assert.equal(initial.calorieIntake, true)
     assert.equal(initial.planningWindow?.startTime, '08:00')
 
     const updated = await updateLocalSettings(USER, {

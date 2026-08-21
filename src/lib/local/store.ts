@@ -22,7 +22,7 @@ const { CategorySchema, ItemTypeSchema } = TaskContracts
  *    "backup now, sync later" cheap, and it costs nothing today.
  */
 
-export const LOCAL_DATABASE_VERSION = 1
+export const LOCAL_DATABASE_VERSION = 2
 const DOCUMENT_NAME = 'healthyflow-day.json'
 /**
  * `Directory.Data` is `Library/NoCloud` on iOS: it survives app updates and is
@@ -81,6 +81,30 @@ export const LocalHabitProgressRowSchema = z.looseObject({
 export type LocalHabitProgressRow = z.infer<typeof LocalHabitProgressRowSchema>
 
 /**
+ * Health records, stored in the client shape rather than the server's.
+ *
+ * Items are stored as server rows because `itemRowToClient` and
+ * `composeDayTaskRows` consume rows. Health is the other way round: the four
+ * health services return client shapes, the day core spreads workout sessions and
+ * reads achievement summaries in client shape, and `calorieRowToClient` and
+ * `weightRowToClient` were already written to accept either. Each side stores
+ * whatever shape its consumers already speak, so no mapping layer exists to get
+ * wrong.
+ *
+ * Deliberately permissive about the fields themselves: these mirror interfaces in
+ * `src/services/api.ts` that this file must not fork, so the schema pins identity
+ * and the dates a day is composed from, and preserves the rest.
+ */
+const HealthRecordSchema = z.looseObject({
+  id: z.string().min(1),
+  userId: z.string().min(1),
+})
+
+const DatedHealthRecordSchema = HealthRecordSchema.extend({
+  date: z.string().min(1),
+})
+
+/**
  * The whole document.
  *
  * `settings` is stored as the patch the user has actually made rather than a
@@ -93,6 +117,19 @@ export const LocalDatabaseSchema = z.object({
   tasks: z.array(LocalTaskRowSchema).default([]),
   habitProgress: z.array(LocalHabitProgressRowSchema).default([]),
   settings: z.record(z.string(), z.unknown()).default({}),
+
+  // Health. Food, weight and training are core rather than optional (TARGET.md),
+  // so a Guest holds them exactly as they hold their Items.
+  calorieEntries: z.array(DatedHealthRecordSchema).default([]),
+  calorieItems: z.array(HealthRecordSchema).default([]),
+  weightEntries: z.array(DatedHealthRecordSchema).default([]),
+  // Sessions and plans carry their exercises inline, as the client shape does —
+  // two arrays the server needs as separate tables and a device does not.
+  workoutSessions: z.array(DatedHealthRecordSchema).default([]),
+  workoutPlans: z.array(HealthRecordSchema).default([]),
+  workoutExerciseItems: z.array(HealthRecordSchema).default([]),
+  achievementDefinitions: z.array(HealthRecordSchema).default([]),
+  achievementEntries: z.array(DatedHealthRecordSchema).default([]),
 })
 export type LocalDatabase = z.infer<typeof LocalDatabaseSchema>
 
@@ -103,6 +140,14 @@ export function emptyLocalDatabase(userId: string): LocalDatabase {
     tasks: [],
     habitProgress: [],
     settings: {},
+    calorieEntries: [],
+    calorieItems: [],
+    weightEntries: [],
+    workoutSessions: [],
+    workoutPlans: [],
+    workoutExerciseItems: [],
+    achievementDefinitions: [],
+    achievementEntries: [],
   }
 }
 
@@ -219,7 +264,7 @@ export async function loadLocalDatabase(userId: string): Promise<LocalDatabase> 
     throw new LocalStoreError('The day stored on this device could not be read.', { cause })
   }
 
-  const result = LocalDatabaseSchema.safeParse(parsed)
+  const result = LocalDatabaseSchema.safeParse(upgraded(parsed))
   if (!result.success) {
     throw new LocalStoreError('The day stored on this device is not in a shape this version understands.', {
       cause: result.error,
@@ -233,6 +278,22 @@ export async function loadLocalDatabase(userId: string): Promise<LocalDatabase> 
 
   loaded = result.data
   return loaded
+}
+
+/**
+ * Bring an older document up to the current version.
+ *
+ * Version 1 held Items, Habit progress and settings; version 2 adds health. A
+ * version-1 document *is* a version-2 document with no health in it, so the
+ * upgrade is the eight empty arrays the schema already defaults, plus the version
+ * stamp. Anything the code does not recognise still throws rather than being read
+ * as an empty day.
+ */
+function upgraded(parsed: unknown): unknown {
+  if (typeof parsed !== 'object' || parsed === null) return parsed
+  const document = parsed as { version?: unknown }
+  if (document.version === 1) return { ...document, version: LOCAL_DATABASE_VERSION }
+  return parsed
 }
 
 export class LocalStoreError extends Error {

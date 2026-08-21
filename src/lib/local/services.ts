@@ -25,6 +25,37 @@ import {
   type LocalTaskUpdates,
 } from './day'
 import { LocalStoreError, mutateLocalDatabase, type LocalTaskRow } from './store'
+import {
+  addLocalAchievementEntry,
+  addLocalWorkoutExercise,
+  createLocalAchievement,
+  createLocalCalorieEntry,
+  createLocalWeightEntry,
+  createLocalWorkoutPlan,
+  createLocalWorkoutSession,
+  localAchievements,
+  localCalorieEntries,
+  localCalorieItems,
+  localWeightEntry,
+  localWeightTrend,
+  localWorkoutExerciseItems,
+  localWorkoutPlans,
+  localWorkoutSessions,
+  removeLocalAchievement,
+  removeLocalAchievementEntry,
+  removeLocalCalorieEntry,
+  removeLocalWeightEntry,
+  removeLocalWorkoutExercise,
+  removeLocalWorkoutPlan,
+  removeLocalWorkoutSession,
+  updateLocalAchievement,
+  updateLocalAchievementEntry,
+  updateLocalCalorieEntry,
+  updateLocalWeightEntry,
+  updateLocalWorkoutExercise,
+  updateLocalWorkoutPlan,
+  updateLocalWorkoutSession,
+} from './health'
 
 /**
  * The device answering the same questions the API answers.
@@ -289,4 +320,71 @@ export const localServices = {
 
   updateSettings: (userId: string, patch: Partial<Settings>): Promise<Settings> =>
     updateLocalSettings(userId, patch),
+}
+
+/**
+ * The device holds health records in the client shape, and this is where that is
+ * asserted.
+ *
+ * The document's health schemas pin identity and the dates a day is composed
+ * from, and preserve the rest — because the full shapes are interfaces in
+ * `src/services/api.ts` that this store must not fork. So the store's static type
+ * is deliberately looser than the caller's, and one named assertion at the
+ * boundary is more honest than a cast at every call site.
+ */
+export const asClientShape = <T>(value: Promise<unknown>) => value as Promise<T>
+
+/**
+ * Health, answered from the device.
+ *
+ * Records are stored client-shaped, so these return what they hold. The one
+ * method that stays hosted is `generatePlan`: it is an AI call, server-keyed and
+ * credit-metered, and `TARGET.md` exempts AI from the offline refusal explicitly.
+ */
+export const localHealthServices = {
+  calorieList: (userId: string, date: string) => localCalorieEntries(userId, date),
+  calorieCreate: (userId: string, entry: Record<string, unknown>) => createLocalCalorieEntry(userId, entry),
+  calorieUpdate: (userId: string, id: string, patch: Record<string, unknown>) =>
+    updateLocalCalorieEntry(userId, id, patch),
+  calorieRemove: (userId: string, id: string) => removeLocalCalorieEntry(userId, id),
+  calorieItems: (userId: string) => localCalorieItems(userId),
+
+  weightByDate: (userId: string, date: string) => localWeightEntry(userId, date),
+  weightRecent: (userId: string, limit?: number) => localWeightTrend(userId, limit),
+  weightCreate: (userId: string, entry: Record<string, unknown>) => createLocalWeightEntry(userId, entry),
+  weightUpdate: (userId: string, id: string, patch: Record<string, unknown>) =>
+    updateLocalWeightEntry(userId, id, patch),
+  weightRemove: (userId: string, id: string) => removeLocalWeightEntry(userId, id),
+
+  workoutPlans: (userId: string) => localWorkoutPlans(userId),
+  workoutCreatePlan: (userId: string, plan: Record<string, unknown>) => createLocalWorkoutPlan(userId, plan),
+  workoutUpdatePlan: (userId: string, id: string, patch: Record<string, unknown>) =>
+    updateLocalWorkoutPlan(userId, id, patch),
+  workoutRemovePlan: (userId: string, id: string) => removeLocalWorkoutPlan(userId, id),
+  workoutList: (userId: string, date?: string) => localWorkoutSessions(userId, date),
+  workoutCreate: (userId: string, session: Record<string, unknown>) => createLocalWorkoutSession(userId, session),
+  workoutUpdate: (userId: string, id: string, patch: Record<string, unknown>) =>
+    updateLocalWorkoutSession(userId, id, patch),
+  workoutRemove: (userId: string, id: string) => removeLocalWorkoutSession(userId, id),
+  workoutAddExercise: (userId: string, sessionId: string, exercise: Record<string, unknown>) =>
+    addLocalWorkoutExercise(userId, sessionId, exercise),
+  workoutUpdateExercise: (userId: string, exerciseId: string, patch: Record<string, unknown>) =>
+    updateLocalWorkoutExercise(userId, exerciseId, patch),
+  workoutRemoveExercise: (userId: string, exerciseId: string) =>
+    removeLocalWorkoutExercise(userId, exerciseId),
+  workoutItems: (userId: string) => localWorkoutExerciseItems(userId),
+
+  achievementList: (userId: string, options?: { includeArchived?: boolean; entryLimit?: number }) =>
+    localAchievements(userId, options),
+  achievementCreate: (userId: string, definition: Record<string, unknown>) =>
+    createLocalAchievement(userId, definition),
+  achievementUpdate: (userId: string, id: string, patch: Record<string, unknown>) =>
+    updateLocalAchievement(userId, id, patch),
+  achievementRemove: (userId: string, id: string) => removeLocalAchievement(userId, id),
+  achievementAddEntry: (userId: string, id: string, entry: Record<string, unknown>) =>
+    addLocalAchievementEntry(userId, id, entry),
+  achievementUpdateEntry: (userId: string, entryId: string, patch: Record<string, unknown>) =>
+    updateLocalAchievementEntry(userId, entryId, patch),
+  achievementRemoveEntry: (userId: string, entryId: string) =>
+    removeLocalAchievementEntry(userId, entryId),
 }

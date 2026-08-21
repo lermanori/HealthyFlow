@@ -8,6 +8,12 @@ import type {
 import HabitContracts, { type HabitOutcome } from '../../../backend/src/habit-contracts'
 import SettingsContracts, { type Settings } from '../../../backend/src/settings-schema'
 import {
+  localAchievements,
+  localCalorieEntries,
+  localWeightEntry,
+  localWorkoutSessions,
+} from './health'
+import {
   loadLocalDatabase,
   localId,
   mutateLocalDatabase,
@@ -40,19 +46,12 @@ const {
 /**
  * The settings a locally-stored day starts from.
  *
- * Nutrition, Workouts and Progress are off because the device does not hold their
- * records yet — this is not a hidden failure but the account's actual setting, and
- * the day contract reports it as `disabled`, which is a state Today already
- * renders. Returning an empty Nutrition instead would be the silent lie.
- *
- * `TARGET.md` calls food, weight and training core rather than optional, so this
- * is a scope boundary that has to close before the App Store listing claims the
- * whole day works without an account.
+ * Every module is on. Food, weight and training are core rather than optional
+ * (`TARGET.md`), and the device now holds their records, so a Guest's day reports
+ * them exactly as an account holder's does. Onboarding is complete because
+ * onboarding seeds server-side settings, which a locally-held day does not have.
  */
 export const LOCAL_SETTINGS_BASELINE: Partial<Settings> = {
-  calorieIntake: false,
-  workoutTracker: false,
-  achievementTracker: false,
   onboardingStatus: 'completed',
 }
 
@@ -118,24 +117,25 @@ export async function localItemsForDay(
  * reached — and throws rather than returning `[]` if it ever is, because an empty
  * result would claim the day has no obligations.
  *
- * Nutrition, Workouts and Progress are switched off by the local settings
- * baseline, so the core never calls them; they throw for the same reason.
- * Focus blocks are genuinely empty — Work is parked behind a release flag and
+ * Focus blocks are genuinely empty: Work is parked behind a release flag and
  * nothing on a device can create one.
+ *
+ * Everything else comes off the document. A read that fails still throws — one
+ * module failing must not fail the whole day, but it must not report `not_logged`
+ * either.
  */
 export function localDaySummaryDependencies(): DaySummaryDependencies {
-  const unreachable = (source: string) => async (): Promise<never> => {
-    throw new LocalStoreError(`${source} is not stored on this device, and an empty result would be a lie.`)
-  }
   return {
     itemsForDay: localItemsForDay,
     getSettings: async (userId) => resolveLocalSettings(await loadLocalDatabase(userId)),
     getCalendarStatus: async () => ({ connected: false }),
-    getCalendarEvents: unreachable('Calendar'),
-    getCalorieEntries: unreachable('Nutrition'),
-    getWeightEntry: unreachable('Weight'),
-    getWorkoutSessions: unreachable('Training'),
-    getAchievements: unreachable('Progress'),
+    getCalendarEvents: async (): Promise<never> => {
+      throw new LocalStoreError('Calendar is not stored on this device, and an empty result would be a lie.')
+    },
+    getCalorieEntries: localCalorieEntries,
+    getWeightEntry: localWeightEntry,
+    getWorkoutSessions: (userId, date) => localWorkoutSessions(userId, date),
+    getAchievements: localAchievements,
     listDayFocusBlocks: async () => [],
   }
 }

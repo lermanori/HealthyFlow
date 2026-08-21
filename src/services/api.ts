@@ -37,7 +37,7 @@ import {
   clearSessionToken,
   readSessionToken,
 } from '../lib/session'
-import { localServices, onDevice } from '../lib/local/services'
+import { asClientShape, localHealthServices, localServices, onDevice } from '../lib/local/services'
 
 const { SettingsSchema } = SettingsContracts
 const { IosVersionPolicySchema } = MobileVersionContracts
@@ -1516,31 +1516,56 @@ export interface CalorieItem {
 }
 
 export const caloriesService = {
-  list: async (date: string): Promise<CalorieEntry[]> => {
-    const response = await api.get('/calories', { params: { date } })
-    return response.data
-  },
+  list: onDevice(
+    (userId, date: string) => asClientShape<CalorieEntry[]>(localHealthServices.calorieList(userId, date)),
+    async (date: string): Promise<CalorieEntry[]> => {
+      const response = await api.get('/calories', { params: { date } })
+      return response.data
+    },
+  ),
 
   create: async (entry: CalorieEntryInput, source: ItemSource = 'manual'): Promise<CalorieEntry> => {
-    const response = await api.post('/calories', entry)
+    const created = await createCalorieEntry(entry)
     analytics.capture('calorie_entry_logged', { source })
-    return response.data
+    return created
   },
 
-  update: async (id: string, patch: Partial<CalorieEntryInput>): Promise<CalorieEntry> => {
-    const response = await api.patch(`/calories/${id}`, patch)
-    return response.data
-  },
+  update: onDevice(
+    (userId, id: string, patch: Partial<CalorieEntryInput>) =>
+      asClientShape<CalorieEntry>(localHealthServices.calorieUpdate(userId, id, patch as never)),
+    async (id: string, patch: Partial<CalorieEntryInput>): Promise<CalorieEntry> => {
+      const response = await api.patch(`/calories/${id}`, patch)
+      return response.data
+    },
+  ),
 
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/calories/${id}`)
-  },
+  remove: onDevice(
+    (userId, id: string) => localHealthServices.calorieRemove(userId, id),
+    async (id: string): Promise<void> => {
+      await api.delete(`/calories/${id}`)
+    },
+  ),
 
-  items: async (sort: 'recent' | 'most-used', limit = 8): Promise<CalorieItem[]> => {
-    const response = await api.get('/calories/items', { params: { sort, limit } })
-    return response.data
-  },
+  items: onDevice(
+    (userId, _sort: 'recent' | 'most-used', _limit?: number) =>
+      asClientShape<CalorieItem[]>(localHealthServices.calorieItems(userId)),
+    async (sort: 'recent' | 'most-used', limit = 8): Promise<CalorieItem[]> => {
+      const response = await api.get('/calories/items', { params: { sort, limit } })
+      return response.data
+    },
+  ),
 }
+
+// `create` keeps its own body because it captures an analytics event on the
+// result; only the write changes side.
+const createCalorieEntry = onDevice(
+  (userId, entry: CalorieEntryInput) =>
+    asClientShape<CalorieEntry>(localHealthServices.calorieCreate(userId, entry as never)),
+  async (entry: CalorieEntryInput): Promise<CalorieEntry> => {
+    const response = await api.post('/calories', entry)
+    return response.data
+  },
+)
 
 export interface WeightEntry {
   id: string
@@ -1564,31 +1589,53 @@ export interface WeightTrend {
 }
 
 export const weightService = {
-  getByDate: async (date: string): Promise<WeightEntry | null> => {
-    const response = await api.get('/weight', { params: { date } })
-    return response.data
-  },
+  getByDate: onDevice(
+    (userId, date: string) => asClientShape<WeightEntry | null>(localHealthServices.weightByDate(userId, date)),
+    async (date: string): Promise<WeightEntry | null> => {
+      const response = await api.get('/weight', { params: { date } })
+      return response.data
+    },
+  ),
 
-  recent: async (limit = 30): Promise<WeightTrend> => {
-    const response = await api.get('/weight/recent', { params: { limit } })
-    return response.data
-  },
+  recent: onDevice(
+    (userId, limit?: number) => asClientShape<WeightTrend>(localHealthServices.weightRecent(userId, limit)),
+    async (limit = 30): Promise<WeightTrend> => {
+      const response = await api.get('/weight/recent', { params: { limit } })
+      return response.data
+    },
+  ),
 
   create: async (entry: WeightEntryInput): Promise<WeightEntry> => {
-    const response = await api.post('/weight', entry)
+    const created = await createWeightEntry(entry)
     analytics.capture('weight_logged')
-    return response.data
+    return created
   },
 
-  update: async (id: string, patch: Partial<WeightEntryInput>): Promise<WeightEntry> => {
-    const response = await api.patch(`/weight/${id}`, patch)
-    return response.data
-  },
+  update: onDevice(
+    (userId, id: string, patch: Partial<WeightEntryInput>) =>
+      asClientShape<WeightEntry>(localHealthServices.weightUpdate(userId, id, patch as never)),
+    async (id: string, patch: Partial<WeightEntryInput>): Promise<WeightEntry> => {
+      const response = await api.patch(`/weight/${id}`, patch)
+      return response.data
+    },
+  ),
 
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/weight/${id}`)
-  },
+  remove: onDevice(
+    (userId, id: string) => localHealthServices.weightRemove(userId, id),
+    async (id: string): Promise<void> => {
+      await api.delete(`/weight/${id}`)
+    },
+  ),
 }
+
+const createWeightEntry = onDevice(
+  (userId, entry: WeightEntryInput) =>
+    asClientShape<WeightEntry>(localHealthServices.weightCreate(userId, entry as never)),
+  async (entry: WeightEntryInput): Promise<WeightEntry> => {
+    const response = await api.post('/weight', entry)
+    return response.data
+  },
+)
 
 export interface WorkoutExercise {
   id: string
@@ -1682,69 +1729,120 @@ export type WorkoutPlanInput = {
 export type WorkoutPlanPatch = Partial<WorkoutPlanInput>
 
 export const workoutsService = {
-  plans: async (): Promise<WorkoutPlan[]> => {
-    const response = await api.get('/workouts/plans')
-    return response.data
-  },
+  plans: onDevice(
+    (userId) => asClientShape<WorkoutPlan[]>(localHealthServices.workoutPlans(userId)),
+    async (): Promise<WorkoutPlan[]> => {
+      const response = await api.get('/workouts/plans')
+      return response.data
+    },
+  ),
 
-  createPlan: async (plan: WorkoutPlanInput): Promise<WorkoutPlan> => {
-    const response = await api.post('/workouts/plans', plan)
-    return response.data
-  },
+  createPlan: onDevice(
+    (userId, plan: WorkoutPlanInput) =>
+      asClientShape<WorkoutPlan>(localHealthServices.workoutCreatePlan(userId, plan as never)),
+    async (plan: WorkoutPlanInput): Promise<WorkoutPlan> => {
+      const response = await api.post('/workouts/plans', plan)
+      return response.data
+    },
+  ),
 
+  // Stays hosted, and always will. Generating a plan is an AI call: server-keyed,
+  // credit-metered, impossible offline by nature. `TARGET.md` exempts AI from the
+  // offline refusal explicitly, so this is the boundary working, not a gap in it.
   generatePlan: async (intent: string): Promise<WorkoutPlanInput> => {
     const response = await api.post('/workouts/plans/generate', { intent })
     return response.data
   },
 
-  updatePlan: async (id: string, patch: WorkoutPlanPatch): Promise<WorkoutPlan> => {
-    const response = await api.patch(`/workouts/plans/${id}`, patch)
-    return response.data
-  },
+  updatePlan: onDevice(
+    (userId, id: string, patch: WorkoutPlanPatch) =>
+      asClientShape<WorkoutPlan>(localHealthServices.workoutUpdatePlan(userId, id, patch as never)),
+    async (id: string, patch: WorkoutPlanPatch): Promise<WorkoutPlan> => {
+      const response = await api.patch(`/workouts/plans/${id}`, patch)
+      return response.data
+    },
+  ),
 
-  removePlan: async (id: string): Promise<void> => {
-    await api.delete(`/workouts/plans/${id}`)
-  },
+  removePlan: onDevice(
+    (userId, id: string) => localHealthServices.workoutRemovePlan(userId, id),
+    async (id: string): Promise<void> => {
+      await api.delete(`/workouts/plans/${id}`)
+    },
+  ),
 
-  list: async (date: string): Promise<WorkoutSession[]> => {
-    const response = await api.get('/workouts', { params: { date } })
-    return response.data
-  },
+  list: onDevice(
+    (userId, date: string) => asClientShape<WorkoutSession[]>(localHealthServices.workoutList(userId, date)),
+    async (date: string): Promise<WorkoutSession[]> => {
+      const response = await api.get('/workouts', { params: { date } })
+      return response.data
+    },
+  ),
 
   create: async (session: WorkoutSessionInput): Promise<WorkoutSession> => {
-    const response = await api.post('/workouts', session)
+    const created = await createWorkoutSession(session)
     analytics.capture('workout_logged')
-    return response.data
+    return created
   },
 
-  update: async (id: string, patch: WorkoutSessionPatch): Promise<WorkoutSession> => {
-    const response = await api.patch(`/workouts/${id}`, patch)
-    return response.data
-  },
+  update: onDevice(
+    (userId, id: string, patch: WorkoutSessionPatch) =>
+      asClientShape<WorkoutSession>(localHealthServices.workoutUpdate(userId, id, patch as never)),
+    async (id: string, patch: WorkoutSessionPatch): Promise<WorkoutSession> => {
+      const response = await api.patch(`/workouts/${id}`, patch)
+      return response.data
+    },
+  ),
 
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/workouts/${id}`)
-  },
+  remove: onDevice(
+    (userId, id: string) => localHealthServices.workoutRemove(userId, id),
+    async (id: string): Promise<void> => {
+      await api.delete(`/workouts/${id}`)
+    },
+  ),
 
-  addExercise: async (sessionId: string, exercise: WorkoutExerciseInput): Promise<WorkoutExercise> => {
-    const response = await api.post(`/workouts/${sessionId}/exercises`, exercise)
-    return response.data
-  },
+  addExercise: onDevice(
+    (userId, sessionId: string, exercise: WorkoutExerciseInput) =>
+      asClientShape<WorkoutExercise>(localHealthServices.workoutAddExercise(userId, sessionId, exercise as never)),
+    async (sessionId: string, exercise: WorkoutExerciseInput): Promise<WorkoutExercise> => {
+      const response = await api.post(`/workouts/${sessionId}/exercises`, exercise)
+      return response.data
+    },
+  ),
 
-  updateExercise: async (exerciseId: string, patch: Partial<WorkoutExerciseInput>): Promise<WorkoutExercise> => {
-    const response = await api.patch(`/workouts/exercises/${exerciseId}`, patch)
-    return response.data
-  },
+  updateExercise: onDevice(
+    (userId, exerciseId: string, patch: Partial<WorkoutExerciseInput>) =>
+      asClientShape<WorkoutExercise>(localHealthServices.workoutUpdateExercise(userId, exerciseId, patch as never)),
+    async (exerciseId: string, patch: Partial<WorkoutExerciseInput>): Promise<WorkoutExercise> => {
+      const response = await api.patch(`/workouts/exercises/${exerciseId}`, patch)
+      return response.data
+    },
+  ),
 
-  removeExercise: async (exerciseId: string): Promise<void> => {
-    await api.delete(`/workouts/exercises/${exerciseId}`)
-  },
+  removeExercise: onDevice(
+    (userId, exerciseId: string) => localHealthServices.workoutRemoveExercise(userId, exerciseId),
+    async (exerciseId: string): Promise<void> => {
+      await api.delete(`/workouts/exercises/${exerciseId}`)
+    },
+  ),
 
-  items: async (sort: 'recent' | 'most-used', limit = 8): Promise<WorkoutExerciseItem[]> => {
-    const response = await api.get('/workouts/exercises', { params: { sort, limit } })
-    return response.data
-  },
+  items: onDevice(
+    (userId, _sort: 'recent' | 'most-used', _limit?: number) =>
+      asClientShape<WorkoutExerciseItem[]>(localHealthServices.workoutItems(userId)),
+    async (sort: 'recent' | 'most-used', limit = 8): Promise<WorkoutExerciseItem[]> => {
+      const response = await api.get('/workouts/exercises', { params: { sort, limit } })
+      return response.data
+    },
+  ),
 }
+
+const createWorkoutSession = onDevice(
+  (userId, session: WorkoutSessionInput) =>
+    asClientShape<WorkoutSession>(localHealthServices.workoutCreate(userId, session as never)),
+  async (session: WorkoutSessionInput): Promise<WorkoutSession> => {
+    const response = await api.post('/workouts', session)
+    return response.data
+  },
+)
 
 export type AchievementMetricType = 'reps' | 'weight' | 'duration' | 'distance' | 'custom'
 export type AchievementBetterDirection = 'higher' | 'lower'
@@ -1808,40 +1906,71 @@ export type AchievementEntryInput = {
 }
 
 export const achievementService = {
-  list: async (options: { includeArchived?: boolean; entryLimit?: number } = {}): Promise<AchievementSummary[]> => {
-    const response = await api.get('/achievements', { params: options })
-    return response.data
-  },
+  list: onDevice(
+    (userId, options?: { includeArchived?: boolean; entryLimit?: number }) =>
+      asClientShape<AchievementSummary[]>(localHealthServices.achievementList(userId, options)),
+    async (options: { includeArchived?: boolean; entryLimit?: number } = {}): Promise<AchievementSummary[]> => {
+      const response = await api.get('/achievements', { params: options })
+      return response.data
+    },
+  ),
 
-  create: async (definition: AchievementDefinitionInput): Promise<AchievementDefinition> => {
-    const response = await api.post('/achievements', definition)
-    return response.data
-  },
+  create: onDevice(
+    (userId, definition: AchievementDefinitionInput) =>
+      asClientShape<AchievementDefinition>(localHealthServices.achievementCreate(userId, definition as never)),
+    async (definition: AchievementDefinitionInput): Promise<AchievementDefinition> => {
+      const response = await api.post('/achievements', definition)
+      return response.data
+    },
+  ),
 
-  update: async (id: string, patch: Partial<AchievementDefinitionInput> & { archived?: boolean }): Promise<AchievementDefinition> => {
-    const response = await api.patch(`/achievements/${id}`, patch)
-    return response.data
-  },
+  update: onDevice(
+    (userId, id: string, patch: Partial<AchievementDefinitionInput> & { archived?: boolean }) =>
+      asClientShape<AchievementDefinition>(localHealthServices.achievementUpdate(userId, id, patch as never)),
+    async (id: string, patch: Partial<AchievementDefinitionInput> & { archived?: boolean }): Promise<AchievementDefinition> => {
+      const response = await api.patch(`/achievements/${id}`, patch)
+      return response.data
+    },
+  ),
 
-  remove: async (id: string): Promise<void> => {
-    await api.delete(`/achievements/${id}`)
-  },
+  remove: onDevice(
+    (userId, id: string) => localHealthServices.achievementRemove(userId, id),
+    async (id: string): Promise<void> => {
+      await api.delete(`/achievements/${id}`)
+    },
+  ),
 
   addEntry: async (achievementId: string, entry: AchievementEntryInput): Promise<AchievementEntry> => {
-    const response = await api.post(`/achievements/${achievementId}/entries`, entry)
+    const created = await addAchievementEntry(achievementId, entry)
     analytics.capture('achievement_recorded')
-    return response.data
+    return created
   },
 
-  updateEntry: async (entryId: string, patch: Partial<AchievementEntryInput>): Promise<AchievementEntry> => {
-    const response = await api.patch(`/achievements/entries/${entryId}`, patch)
-    return response.data
-  },
+  updateEntry: onDevice(
+    (userId, entryId: string, patch: Partial<AchievementEntryInput>) =>
+      asClientShape<AchievementEntry>(localHealthServices.achievementUpdateEntry(userId, entryId, patch as never)),
+    async (entryId: string, patch: Partial<AchievementEntryInput>): Promise<AchievementEntry> => {
+      const response = await api.patch(`/achievements/entries/${entryId}`, patch)
+      return response.data
+    },
+  ),
 
-  removeEntry: async (entryId: string): Promise<void> => {
-    await api.delete(`/achievements/entries/${entryId}`)
-  },
+  removeEntry: onDevice(
+    (userId, entryId: string) => localHealthServices.achievementRemoveEntry(userId, entryId),
+    async (entryId: string): Promise<void> => {
+      await api.delete(`/achievements/entries/${entryId}`)
+    },
+  ),
 }
+
+const addAchievementEntry = onDevice(
+  (userId, achievementId: string, entry: AchievementEntryInput) =>
+    asClientShape<AchievementEntry>(localHealthServices.achievementAddEntry(userId, achievementId, entry as never)),
+  async (achievementId: string, entry: AchievementEntryInput): Promise<AchievementEntry> => {
+    const response = await api.post(`/achievements/${achievementId}/entries`, entry)
+    return response.data
+  },
+)
 
 export const tokenManagerService = {
   getOverview: async (): Promise<TokenManagerOverview> => {
