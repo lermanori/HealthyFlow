@@ -120,10 +120,9 @@ guest mode does not run out.
   reports them `disabled` rather than empty. This contradicts `TARGET.md`, which
   calls food, weight and training core rather than optional; the contradiction is
   recorded in ADR-0011 and is not resolved.
-- **Claim** and **Sign in** — a Guest cannot yet become an account holder by
-  either route. Claim is designed and approved
-  (`docs/history/specs/2026-08-21-claim-by-signup-design.md`) and not implemented;
-  Sign in needs Health on the device first and is not designed.
+- **Sign in** (from a Guest) — a Guest cannot yet move to an account that already
+  exists. It needs Health on the device first, because the download has nowhere to
+  put it. Not designed. **Claim is built.**
 
 ## Closed sets
 
