@@ -64,8 +64,9 @@ copies or mutates it. Not a "timeline row" — the plan is the data, the timelin
 one rendering.
 
 **Local day** — the record of someone's day held on their device rather than on
-the server: Items, Habits, Habit progress and settings, in one document
-(ADR-0011). It is the **source**, not a cache — there is no server copy behind it
+the server: Items, Habits, Habit progress, settings **and health** — Calorie
+entries, Weight entries, Workout sessions and plans, Achievements — in one
+document (ADR-0011). It is the **source**, not a cache — there is no server copy behind it
 to fall back to, which is why a read that fails can never be reported as an empty
 day. _Avoid_: "offline copy", "local cache", "draft".
 
@@ -115,11 +116,6 @@ guest mode does not run out.
 - **Work** — Projects, Focus blocks and Work sessions are complete and **parked
   behind `VITE_WORK_ENABLED`**, deliberately absent from the product story. The
   code stays. See `TARGET.md`.
-- **Health for a Guest** — Nutrition, Weight, Training and Progress are not held
-  in the **Local day**. A Guest's settings switch those modules off, so the day
-  reports them `disabled` rather than empty. This contradicts `TARGET.md`, which
-  calls food, weight and training core rather than optional; the contradiction is
-  recorded in ADR-0011 and is not resolved.
 - **Sign in** (from a Guest) — a Guest cannot yet move to an account that already
   exists. It needs Health on the device first, because the download has nowhere to
   put it. Not designed. **Claim is built.**

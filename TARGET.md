@@ -229,19 +229,17 @@ softening a rule to survive a release is how the rule dies.
   base layer for everyone, so the day is readable and writable with no
   connection. Cloud replicates on top of it; it is not the source.
 
-Half of that is built: a Guest's Items, Habits and settings live on their device
-(ADR-0011). Two gaps remain, and both are known.
+Most of it is built. A Guest's Items, Habits, settings **and health** — food,
+weight, training and progress — live on their device, so nothing is withheld from
+someone without an account. That gap closed on 2026-08-21 and was the contradiction
+ADR-0011 recorded.
 
-**Health is not on the device.** Nutrition, Weight, Training and Progress report
-`disabled` for a Guest, which contradicts this document's own claim that no part of
-the day is withheld, and that food, weight and training are core rather than
-optional. It closes by teaching the device those four record types — not by
-softening the claim.
-
-**An account holder's day is still hosted.** Local is meant to be the source for
-*everyone*, with Cloud replicating on top (ADR-0012); today the device only holds a
-Guest's day. Free users' data is never hosted — for cost, and because if it were,
-the Cloud subscription would have nothing to sell.
+**One gap remains: an account holder's day is still hosted.** Local is meant to be
+the source for *everyone*, with Cloud replicating on top (ADR-0012); today the
+device holds a Guest's day and a claimed account's, but an existing account's data
+comes down only when they sign in on a device. Free users' data is never hosted —
+for cost, and because if it were, the Cloud subscription would have nothing to
+sell.
 
 ## How to use this document
 
