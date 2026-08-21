@@ -1,11 +1,13 @@
 import { v4 as uuidv4 } from 'uuid'
 import { db } from './supabase-client'
-import type {
-  AchievementDefinitionCreate,
-  AchievementDefinitionUpdate,
-  AchievementDirection,
-  AchievementEntryCreate,
-  AchievementEntryUpdate,
+import {
+  achievementDefinitionToClient,
+  achievementEntryToClient,
+  summarizeAchievement,
+  type AchievementDefinitionCreate,
+  type AchievementDefinitionUpdate,
+  type AchievementEntryCreate,
+  type AchievementEntryUpdate,
 } from './achievement-contracts'
 
 export * from './achievement-contracts'
@@ -25,82 +27,6 @@ export class NotFoundError extends Error {
 export class ForbiddenError extends Error {
   constructor() {
     super('Forbidden')
-  }
-}
-
-const numberOrNull = (value: unknown) => value == null ? null : Number(value)
-
-export const achievementDefinitionToClient = (row: any) => ({
-  id: row.id,
-  userId: row.user_id,
-  name: row.name,
-  category: row.category ?? null,
-  metricType: row.metric_type,
-  unit: row.unit,
-  betterDirection: row.better_direction,
-  targetValue: numberOrNull(row.target_value),
-  archivedAt: row.archived_at ?? null,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-})
-
-export const achievementEntryToClient = (row: any) => ({
-  id: row.id,
-  achievementId: row.achievement_id,
-  userId: row.user_id,
-  date: row.date,
-  value: Number(row.value),
-  supportingValue: numberOrNull(row.supporting_value),
-  supportingUnit: row.supporting_unit ?? null,
-  notes: row.notes ?? null,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-})
-
-function compareValues(direction: AchievementDirection, candidate: number, current: number) {
-  return direction === 'higher' ? candidate > current : candidate < current
-}
-
-export function summarizeAchievement(definitionRow: any, entryRows: any[]) {
-  const entries = entryRows.map(achievementEntryToClient).sort((a, b) => a.date.localeCompare(b.date))
-  const definition = achievementDefinitionToClient(definitionRow)
-  const latest = entries[entries.length - 1] ?? null
-  const previous = entries[entries.length - 2] ?? null
-  const personalBest = entries.reduce<(typeof entries)[number] | null>((best, entry) => {
-    if (!best) return entry
-    return compareValues(definition.betterDirection, entry.value, best.value) ? entry : best
-  }, null)
-
-  const delta = latest && previous ? latest.value - previous.value : null
-  const trendDirection: 'none' | 'up' | 'down' | 'flat' = delta == null
-    ? 'none'
-    : delta > 0
-      ? 'up'
-      : delta < 0
-        ? 'down'
-        : 'flat'
-  const isImprovement = delta == null
-    ? null
-    : delta === 0
-      ? false
-      : definition.betterDirection === 'higher'
-        ? delta > 0
-        : delta < 0
-
-  const targetProgress = latest && definition.targetValue
-    ? definition.betterDirection === 'higher'
-      ? Math.min(100, (latest.value / definition.targetValue) * 100)
-      : Math.min(100, (definition.targetValue / latest.value) * 100)
-    : null
-
-  return {
-    definition,
-    entries,
-    latest,
-    previous,
-    personalBest,
-    trend: { delta, direction: trendDirection, isImprovement },
-    targetProgress,
   }
 }
 

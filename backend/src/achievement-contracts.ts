@@ -91,3 +91,107 @@ export type AchievementDefinitionUpdate = z.infer<typeof AchievementDefinitionUp
 export type AchievementEntryCreate = z.infer<typeof AchievementEntryCreateSchema>
 export type AchievementEntryUpdate = z.infer<typeof AchievementEntryUpdateSchema>
 export type AchievementDirection = z.infer<typeof AchievementBetterDirectionSchema>
+
+const numberOrNull = (value: unknown) => value == null ? null : Number(value)
+
+/**
+ * Row mappers that accept either shape.
+ *
+ * The server stores snake_case columns; a device stores the client shape it
+ * already speaks (ADR-0011 and the Health-on-the-device design). Reading both
+ * means one `summarizeAchievement` serves both sides — the same trick
+ * `calorieRowToClient` and `weightRowToClient` already use.
+ */
+export const achievementDefinitionToClient = (row: any) => ({
+  id: row.id,
+  userId: row.user_id ?? row.userId,
+  name: row.name,
+  category: row.category ?? null,
+  metricType: row.metric_type ?? row.metricType,
+  unit: row.unit,
+  betterDirection: row.better_direction ?? row.betterDirection,
+  targetValue: numberOrNull(row.target_value ?? row.targetValue),
+  archivedAt: row.archived_at ?? row.archivedAt ?? null,
+  createdAt: row.created_at ?? row.createdAt,
+  updatedAt: row.updated_at ?? row.updatedAt,
+})
+
+export const achievementEntryToClient = (row: any) => ({
+  id: row.id,
+  achievementId: row.achievement_id ?? row.achievementId,
+  userId: row.user_id ?? row.userId,
+  date: row.date,
+  value: Number(row.value),
+  supportingValue: numberOrNull(row.supporting_value ?? row.supportingValue),
+  supportingUnit: row.supporting_unit ?? row.supportingUnit ?? null,
+  notes: row.notes ?? null,
+  createdAt: row.created_at ?? row.createdAt,
+  updatedAt: row.updated_at ?? row.updatedAt,
+})
+
+function compareValues(direction: AchievementDirection, candidate: number, current: number) {
+  return direction === 'higher' ? candidate > current : candidate < current
+}
+
+/**
+ * What a run of entries says about one Achievement: where it stands, which way it
+ * is moving, and how close the target is.
+ *
+ * Pure, and deliberately here rather than in `achievements.ts`, which imports the
+ * database. A device composing Progress offline runs this exact function.
+ */
+export function summarizeAchievement(definitionRow: any, entryRows: any[]) {
+  const entries = entryRows.map(achievementEntryToClient).sort((a, b) => a.date.localeCompare(b.date))
+  const definition = achievementDefinitionToClient(definitionRow)
+  const latest = entries[entries.length - 1] ?? null
+  const previous = entries[entries.length - 2] ?? null
+  const personalBest = entries.reduce<(typeof entries)[number] | null>((best, entry) => {
+    if (!best) return entry
+    return compareValues(definition.betterDirection, entry.value, best.value) ? entry : best
+  }, null)
+
+  const delta = latest && previous ? latest.value - previous.value : null
+  const trendDirection: 'none' | 'up' | 'down' | 'flat' = delta == null
+    ? 'none'
+    : delta > 0
+      ? 'up'
+      : delta < 0
+        ? 'down'
+        : 'flat'
+  const isImprovement = delta == null
+    ? null
+    : delta === 0
+      ? false
+      : definition.betterDirection === 'higher'
+        ? delta > 0
+        : delta < 0
+
+  const targetProgress = latest && definition.targetValue
+    ? definition.betterDirection === 'higher'
+      ? Math.min(100, (latest.value / definition.targetValue) * 100)
+      : Math.min(100, (definition.targetValue / latest.value) * 100)
+    : null
+
+  return {
+    definition,
+    entries,
+    latest,
+    previous,
+    personalBest,
+    trend: { delta, direction: trendDirection, isImprovement },
+    targetProgress,
+  }
+}
+
+const AchievementContracts = {
+  AchievementMetricTypeSchema,
+  AchievementBetterDirectionSchema,
+  AchievementDefinitionCreateSchema,
+  AchievementDefinitionUpdateSchema,
+  AchievementSummarySchema,
+  achievementDefinitionToClient,
+  achievementEntryToClient,
+  summarizeAchievement,
+}
+
+export default AchievementContracts
