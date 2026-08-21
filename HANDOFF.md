@@ -107,15 +107,23 @@ The work splits into three pieces, in this order:
    Supabase. When someone does, the thing to watch is that **the day is still
    there afterwards**: that is what `holdsLocalDay` exists to guarantee, and it is
    the one part no test can see.
-2. **Health on the device.** The Local day learns calorie entries, weight, workout
-   sessions and achievements; four more services get `onDevice` branches. Closes
-   the contradiction ADR-0011 records and `TARGET.md` names. Not designed.
-3. **Sign in to an existing account.** Authenticate, pull the account's day down
-   via the existing `buildAccountExport`, offer Keep both or Discard in real
-   numbers, rewrite `user_id`, switch identity, forfeit the guest row's credits.
-   **Depends on piece 2** — until Health is local, the download has nowhere to put
-   it. Not designed; its decisions are recorded in the Claim spec so they are not
-   re-litigated.
+2. ~~**Health on the device.**~~ **Built 2026-08-21.** The Local day holds Calorie
+   entries, Weight entries, Workout sessions and plans, and Achievements, all
+   client-shaped; the four day sources answer from the document and the four health
+   services route to the device. `generatePlan` stays hosted — it is an AI call.
+   Closes the contradiction ADR-0011 recorded. Spec:
+   `docs/history/specs/2026-08-21-health-on-the-device-design.md`.
+3. ~~**Sign in to an existing account.**~~ **Built 2026-08-21.** Two halves:
+   authenticate and read the account's archive without writing anything, then let
+   the person choose **Keep both** or **Discard** against real counts on each side.
+   Keep both is a union — safe on identity, but it can produce two of the same
+   habit, and the copy says so. Kept records are re-keyed to the account.
+   Forfeited guest credits are stated before the choice.
+
+**What is left of the three:** the login screen still has no download, so someone
+signing in *there* — on a device that was never a Guest — reads a hosted day. The
+Guest path is the one that brings an account's day down. Closing that is the last
+step of "local is the source for everyone".
 
 Independent of all three:
 

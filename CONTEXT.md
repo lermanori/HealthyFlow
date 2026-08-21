@@ -116,9 +116,9 @@ guest mode does not run out.
 - **Work** — Projects, Focus blocks and Work sessions are complete and **parked
   behind `VITE_WORK_ENABLED`**, deliberately absent from the product story. The
   code stays. See `TARGET.md`.
-- **Sign in** (from a Guest) — a Guest cannot yet move to an account that already
-  exists. It needs Health on the device first, because the download has nowhere to
-  put it. Not designed. **Claim is built.**
+- **Sign in from the login screen** — someone who signs in there, rather than from
+  a Guest session, still reads a hosted day. Only the Guest path brings an
+  account's day down to the device. **Claim and Sign-in-from-a-Guest are built.**
 
 ## Closed sets
 

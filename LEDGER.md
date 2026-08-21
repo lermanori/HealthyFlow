@@ -1,3 +1,30 @@
+### 2026-08-21 17:40 — `feat/guest-mode`
+
+Pieces 2 and 3 are built. **Health is on the device:** the Local day now holds
+Calorie entries, Weight entries, Workout sessions and plans, and Achievements, the
+four day sources answer from the document instead of throwing, and the four health
+services route to the device. That closes the contradiction ADR-0011 recorded and
+`TARGET.md` named — nothing is withheld from someone without an account.
+`generatePlan` stays hosted, because it is an AI call and `TARGET.md` exempts AI
+from the offline refusal explicitly.
+
+**Sign in from a Guest session works too.** It runs in two halves so the choice is
+honest: the first authenticates and reads the account's archive without writing
+anything, the second is the only step that touches the device. The person weighs
+real counts on both sides and picks Keep both or Discard. A union cannot conflict
+on identity — every id comes from one of two generators — but it can leave someone
+with two of the same habit, which the copy says rather than hides.
+
+Health records are stored client-shaped while Items stay server-shaped, because
+each side stores whatever shape its consumers already speak. Two more rules moved
+into `*-contracts.ts` so the device runs the server's code rather than a copy:
+`summarizeAchievement` and the five workout row mappers. Verified: both
+typechecks, 749 backend tests, 153 frontend tests, production build, and both
+surfaces confirmed on a simulator. One gap left — the login screen has no
+download, so signing in there still reads a hosted day.
+
+---
+
 ### 2026-08-21 17:15 — `feat/guest-mode`
 
 Claim is built. A Guest can become an account holder by email, Google or Apple

@@ -234,12 +234,14 @@ weight, training and progress — live on their device, so nothing is withheld f
 someone without an account. That gap closed on 2026-08-21 and was the contradiction
 ADR-0011 recorded.
 
-**One gap remains: an account holder's day is still hosted.** Local is meant to be
-the source for *everyone*, with Cloud replicating on top (ADR-0012); today the
-device holds a Guest's day and a claimed account's, but an existing account's data
-comes down only when they sign in on a device. Free users' data is never hosted —
-for cost, and because if it were, the Cloud subscription would have nothing to
-sell.
+**One gap remains, and it is narrow.** A Guest, a claimed account, and anyone who
+signs in *from* a Guest session all read their day off the device — signing in that
+way brings the account's whole archive down first. What still reads a hosted day is
+someone who signs in at the **login screen**, on a device that was never a Guest.
+That path has no download yet.
+
+Free users' data is never hosted — for cost, and because if it were, the Cloud
+subscription would have nothing to sell.
 
 ## How to use this document
 
