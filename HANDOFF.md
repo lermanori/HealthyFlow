@@ -153,10 +153,11 @@ screen now says so in those terms rather than blaming the network.
   verification commands touches the plugin, because they all run in Node and
   Chromium.
 
-To close both, run this branch's backend and point the app at it. The backend
-needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in the root `.env` — it
-refuses to start without them — and `VITE_API_URL` must be the *last* of its
-duplicates in `.env`, because that is the one Vite bakes in:
+To close both, run this branch's backend and point the app at it. The root `.env`
+already carries `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and
+`SUPABASE_ANON_KEY` — verified 2026-08-21, the server boots on 3001 and
+`POST /api/auth/guest` answers. Note the three Supabase lines are **indented**, so
+a `grep '^SUPABASE'` finds nothing and looks like they are missing. They are not.
 
 ```sh
 npm run server
@@ -165,17 +166,33 @@ npm run server
 Then, in a second terminal:
 
 ```sh
-npm run ios:run
+VITE_API_URL=http://localhost:3001/api npm run ios:run
 ```
+
+**The env var is not optional.** `vite build` runs in production mode, so
+`VITE_API_URL` comes from `.env.production` — the Railway URL — and editing `.env`
+changes nothing. A real environment variable beats every `.env` file. Getting this
+wrong is what makes the app 404 on *Start without an account*, since
+`POST /auth/guest` exists only on this branch and production runs `main`.
 
 On the simulator: tap *Start without an account*, add a timed Task, add a daily
 Habit, log progress against it, kill the app, reopen it, and confirm the day is
 still there.
 
-**One sequencing trap.** `ios/App/App/public` holds a *copy* of `dist`, so an app
-built after a stale `cap copy` renders a blank screen with no error. `npm run
-build:ios` orders it correctly (`build` then `cap sync ios`); running `xcodebuild`
-straight after editing web code does not.
+**Two traps in that loop.**
+
+- **Cleartext HTTP may be refused.** `Info.plist` has no `NSAppTransportSecurity`
+  block and `capacitor.config.ts` has no `server.cleartext`, so
+  `http://localhost:3001` may never leave the app. Untested. If the tap fails with
+  a network error rather than a status code, that is this — add a dev-only ATS
+  exception or `server: { cleartext: true }`, and do not ship either.
+- **`ios/App/App/public` holds a *copy* of `dist`**, so an app built after a stale
+  `cap copy` renders a blank screen with no error at all. `npm run build:ios`
+  orders it correctly (`build` then `cap sync ios`); running `xcodebuild` straight
+  after editing web code does not.
+
+**The local `.env` points at the live Supabase project**, so a guest session
+started against a local backend still writes a real row to production.
 
 ## Open questions nobody has answered
 
