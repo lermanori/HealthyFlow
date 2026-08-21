@@ -18,7 +18,7 @@
     "ios:run": "npm run build:ios && cap run ios",
     "server": "tsx watch backend/src/index.ts",
     "inventory:html": "npm --prefix backend run inventory:html",
-    "test:unit": "tsx --test src/utils/*.test.ts tests/frontend-startup.test.ts",
+    "test:unit": "tsx --test src/utils/*.test.ts src/lib/*.test.ts tests/frontend-startup.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
   },

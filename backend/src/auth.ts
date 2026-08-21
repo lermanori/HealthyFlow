@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs'
 import { randomBytes } from 'crypto'
 import jwt from 'jsonwebtoken'
 import { z } from 'zod'
+import type { SessionUser } from './auth-contracts'
 import type { User as SupabaseAuthUser } from '@supabase/supabase-js'
 import { Credits, type SignupCreditGrant } from './credits'
 import { Onboarding } from './onboarding'
@@ -52,7 +53,7 @@ export class AuthFlowError extends Error {
   }
 }
 
-export function sessionUser(user: AppUser) {
+export function sessionUser(user: AppUser): SessionUser {
   return {
     id: user.id,
     email: user.email ?? null,

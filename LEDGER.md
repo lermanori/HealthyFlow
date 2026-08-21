@@ -1,3 +1,17 @@
+### 2026-08-21 11:59 — `feat/guest-mode`
+
+The Guest session renewal is no longer inert. `GET /auth/verify` had been
+re-issuing a Guest's token on every open since ADR-0010, and the client had been
+throwing it away — so what shipped was a fixed 365-day fuse from account creation
+rather than the sliding year the ADR describes. The re-issued token is now part
+of a typed contract (`backend/src/auth-contracts.ts`) instead of an undocumented
+extra field, and `src/lib/session.ts` owns every read and write of the token, so
+the storage behind it can move to the Keychain without touching callers. Along
+the way, eleven backend tests that had been reaching the live database through
+incomplete dependency fixtures were made hermetic; the suite is 737 green.
+
+---
+
 ### 2026-08-21 09:19 — `feat/guest-mode`
 
 Extracted the browser-safe day composition core behind the existing nine-source dependency seam, leaving `day-summary.ts` as the Supabase-backed adapter while preserving its public interface and validation order. Direct core coverage and the Vite/Chromium startup guard now prove that device code can import the shared assembly without pulling server-only modules; both typechecks, 737 backend tests, 93 frontend tests, and the production build are green. This completes the behavior-preserving extraction; the device-local store and its adapter remain the next step.

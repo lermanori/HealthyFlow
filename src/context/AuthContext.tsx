@@ -3,6 +3,13 @@ import { useQueryClient } from '@tanstack/react-query'
 import { authService } from '../services/api'
 import { analytics } from '../lib/analytics'
 import {
+  clearSessionToken,
+  isGuestSession,
+  readSessionToken,
+  writeSessionToken,
+  type SessionUser,
+} from '../lib/session'
+import {
   clearDemoAcquisition,
   readDemoAcquisition,
   type DemoPersonaId,
@@ -14,13 +21,9 @@ import {
 } from '../lib/push'
 import { clearTodayWidget } from '../lib/widget'
 
-interface User {
-  id: string
-  email: string
-  name: string
-  role: 'admin' | 'user'
-  authMethod: 'password' | 'google' | 'apple'
-}
+// The identity a session carries. `email` is null for a Guest, and only for a
+// Guest — the whole test for one is the absence of an email.
+type User = SessionUser
 
 type AuthProvider = 'google' | 'apple'
 
@@ -40,6 +43,7 @@ interface AuthContextType {
   logout: () => void
   completeAccountDeletion: () => void
   isDemoSession: boolean
+  isGuest: boolean
   hasDemoReturnSession: boolean
 }
 
@@ -48,8 +52,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 const LEGACY_DEMO_EMAIL = 'demo@healthyflow.com'
 const DEMO_RETURN_TOKEN_KEY = 'healthyflow-demo-return-token-v1'
 
-function isDemoEmail(email: string) {
-  return email === LEGACY_DEMO_EMAIL || email.startsWith('demo-')
+// A Guest has no email, so they are never a demo persona: a persona is seeded,
+// shared and disposable, and a Guest's day is their own.
+function isDemoEmail(email: string | null) {
+  return email !== null && (email === LEGACY_DEMO_EMAIL || email.startsWith('demo-'))
 }
 
 function clearDemoState() {
@@ -62,6 +68,7 @@ function identifyUser(userData: User) {
     name: userData.name,
     role: userData.role,
     is_demo: isDemoEmail(userData.email),
+    is_guest: isGuestSession(userData),
   })
   if (!isDemoEmail(userData.email)) {
     void syncNativePushToken().catch((error) => {
@@ -79,15 +86,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
+    const token = readSessionToken()
     const returnToken = sessionStorage.getItem(DEMO_RETURN_TOKEN_KEY)
     const tokenToVerify = token ?? returnToken
     if (tokenToVerify) {
       // Verify token and get user info
       authService.verifyToken(token ? undefined : tokenToVerify)
-        .then(userData => {
+        .then(({ user: userData, renewedToken }) => {
           if (!token && returnToken) {
-            localStorage.setItem('token', returnToken)
+            // A re-issued session supersedes the one we verified with, so store
+            // the fresher of the two.
+            writeSessionToken(renewedToken ?? returnToken)
             sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
             setHasDemoReturnSession(false)
           }
@@ -100,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(userData)
         })
         .catch(() => {
-          localStorage.removeItem('token')
+          clearSessionToken()
           void clearTodayWidget().catch((error) => {
             console.error('[widget] could not clear signed-out Today widget:', error)
           })
@@ -129,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
       setHasDemoReturnSession(false)
       clearDemoAcquisition()
-      localStorage.setItem('token', token)
+      writeSessionToken(token)
       identifyUser(userData)
       analytics.capture('logged_in', { is_demo: isDemoEmail(userData.email) })
       setUser(userData)
@@ -153,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearDemoState()
     sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
     setHasDemoReturnSession(false)
-    localStorage.setItem('token', token)
+    writeSessionToken(token)
     identifyUser(userData)
     if (isNewUser && signupCredits) {
       analytics.identify(userData.id, {
@@ -189,7 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearDemoState()
       sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
       setHasDemoReturnSession(false)
-      localStorage.setItem('token', token)
+      writeSessionToken(token)
       analytics.identify(userData.id, {
         email: userData.email,
         name: userData.name,
@@ -219,7 +228,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const acquisition = readDemoAcquisition()
       const returnToken = user && !isDemoEmail(user.email)
-        ? localStorage.getItem('token')
+        ? readSessionToken()
         : null
       const { user: userData, token } = await authService.startDemoSession(persona)
       queryClient.clear()
@@ -227,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sessionStorage.setItem(DEMO_RETURN_TOKEN_KEY, returnToken)
         setHasDemoReturnSession(true)
       }
-      localStorage.setItem('token', token)
+      writeSessionToken(token)
       localStorage.setItem('demoPersona', persona)
       identifyUser(userData)
       analytics.capture('demo_started', {
@@ -247,7 +256,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const returnToken = sessionStorage.getItem(DEMO_RETURN_TOKEN_KEY)
 
     if (!returnToken) {
-      localStorage.removeItem('token')
+      clearSessionToken()
       clearDemoState()
       queryClient.clear()
       analytics.reset()
@@ -258,15 +267,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
     setHasDemoReturnSession(false)
     try {
-      const userData = await authService.verifyToken(returnToken)
-      localStorage.setItem('token', returnToken)
+      const { user: userData, renewedToken } = await authService.verifyToken(returnToken)
+      writeSessionToken(renewedToken ?? returnToken)
       clearDemoState()
       identifyUser(userData)
       setUser(userData)
       queryClient.clear()
       return true
     } catch {
-      localStorage.removeItem('token')
+      clearSessionToken()
       clearDemoState()
       queryClient.clear()
       analytics.reset()
@@ -276,14 +285,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = () => {
-    const authToken = localStorage.getItem('token')
+    const authToken = readSessionToken()
     void detachNativePushToken(authToken).catch((error) => {
       console.error('[push] could not detach native device during logout:', error)
     })
     void clearTodayWidget().catch((error) => {
       console.error('[widget] could not clear Today widget during logout:', error)
     })
-    localStorage.removeItem('token')
+    clearSessionToken()
     clearDemoState()
     sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
     setHasDemoReturnSession(false)
@@ -298,7 +307,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void clearTodayWidget().catch((error) => {
       console.error('[widget] could not clear Today widget after account deletion:', error)
     })
-    localStorage.removeItem('token')
+    clearSessionToken()
     clearDemoState()
     sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
     setHasDemoReturnSession(false)
@@ -323,6 +332,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       completeAccountDeletion,
       isDemoSession: Boolean(user && isDemoEmail(user.email)),
+      isGuest: isGuestSession(user),
       hasDemoReturnSession,
     }}>
       {children}

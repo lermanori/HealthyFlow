@@ -773,6 +773,10 @@ describe('DaySummary composition', () => {
     getCalorieEntries: jest.fn().mockResolvedValue([]),
     getWeightEntry: jest.fn().mockResolvedValue(null),
     getWorkoutSessions: jest.fn().mockResolvedValue([]),
+    // All nine sources, always. `buildDaySummary` merges a partial override onto
+    // the Supabase-backed defaults, so a source left out here does not fall back
+    // to nothing — it reaches the real database and hangs the test.
+    getAchievements: jest.fn().mockResolvedValue([]),
     listDayFocusBlocks: jest.fn().mockResolvedValue([]),
     ...overrides,
   })
@@ -875,20 +879,12 @@ describe('DaySummary composition', () => {
         },
       }),
     ]
-    const dependencies = {
+    const dependencies = dependenciesFor({
       itemsForDay: jest.fn().mockResolvedValue(coreItems),
-      getSettings: jest.fn().mockResolvedValue({
-        weekStartsOn: 1,
-        calorieIntake: true,
-        workoutTracker: true,
-        planningWindow,
-      }),
       getCalendarStatus: jest.fn().mockRejectedValue(new Error('calendar down')),
-      getCalendarEvents: jest.fn(),
       getCalorieEntries: jest.fn().mockRejectedValue(new Error('calories down')),
-      getWeightEntry: jest.fn().mockResolvedValue(null),
       getWorkoutSessions: jest.fn().mockRejectedValue(new Error('workouts down')),
-    }
+    })
 
     const summary = await buildDaySummary('user-1', '2026-07-27', 'UTC', {
       now: new Date('2026-07-27T10:00:00.000Z'),

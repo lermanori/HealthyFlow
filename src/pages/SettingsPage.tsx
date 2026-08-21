@@ -427,7 +427,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
     }
   }
 
-  const deletionBlocked = user?.role === 'admin' || user?.email === 'demo@healthyflow.com' || Boolean(user?.email.startsWith('demo-'))
+  const deletionBlocked = user?.role === 'admin' || user?.email === 'demo@healthyflow.com' || Boolean(user?.email?.startsWith('demo-'))
 
 
   const CalendarSyncLed = ({ connected }: { connected: boolean }) => (

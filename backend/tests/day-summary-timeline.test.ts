@@ -326,6 +326,10 @@ describe('supporting.progress', () => {
     getWeightEntry: jest.fn().mockResolvedValue(null),
     getWorkoutSessions: jest.fn().mockResolvedValue([]),
     getAchievements: jest.fn().mockResolvedValue([]),
+    // All nine sources, always. `buildDaySummary` merges a partial override onto
+    // the Supabase-backed defaults, so a source left out here does not fall back
+    // to nothing — it reaches the real database and hangs the test.
+    listDayFocusBlocks: jest.fn().mockResolvedValue([]),
     ...overrides,
   })
 

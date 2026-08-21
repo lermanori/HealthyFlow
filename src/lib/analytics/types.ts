@@ -119,10 +119,12 @@ export type AnalyticsEventName = keyof AnalyticsEvents
 
 /** Person properties. `setOnce` variants never overwrite an existing value. */
 export type UserProperties = {
-  email?: string
+  /** Null for a Guest, who has no email. Absent means "unchanged", null means "none". */
+  email?: string | null
   name?: string
   role?: 'admin' | 'user'
   is_demo?: boolean
+  is_guest?: boolean
   onboarding_status?: 'active' | 'completed' | 'skipped'
   subscription_active?: boolean
   credit_balance_bucket?: 'none' | 'low' | 'ok'

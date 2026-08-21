@@ -8,6 +8,7 @@ import {
   navigateNativeUrl,
 } from './native'
 import { pushService } from '../services/api'
+import { readSessionToken } from './session'
 
 const NATIVE_APP_ID = 'app.healthyflow.mobile' as const
 const NATIVE_PUSH_TOKEN_KEY = 'healthyflow-native-push-token'
@@ -63,7 +64,7 @@ function nativeNotificationUrl(action: ActionPerformed) {
 
 async function persistNativeRegistration(token: Token) {
   localStorage.setItem(NATIVE_PUSH_TOKEN_KEY, token.value)
-  if (!localStorage.getItem('token')) return false
+  if (!readSessionToken()) return false
   await pushService.registerNative({
     platform: 'ios',
     deviceToken: token.value,
@@ -104,7 +105,7 @@ async function ensureNativePushListeners() {
 }
 
 async function registerNativePush() {
-  if (!localStorage.getItem('token')) return false
+  if (!readSessionToken()) return false
   await ensureNativePushListeners()
 
   return new Promise<boolean>((resolve) => {
@@ -129,7 +130,7 @@ async function registerNativePush() {
 }
 
 export async function syncNativePushToken() {
-  if (!isNativeApp || !localStorage.getItem('token')) return
+  if (!isNativeApp || !readSessionToken()) return
   const deviceToken = localStorage.getItem(NATIVE_PUSH_TOKEN_KEY)
   if (!deviceToken) return
   await pushService.registerNative({
@@ -157,7 +158,7 @@ export async function detachNativePushToken(authToken?: string | null) {
  */
 export async function ensurePushSubscription(): Promise<void> {
   if (isNativeApp) {
-    if (!localStorage.getItem('token')) return
+    if (!readSessionToken()) return
     await ensureNativePushListeners()
     const permission = await PushNotifications.checkPermissions()
     if (permission.receive === 'granted') {

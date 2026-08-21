@@ -31,9 +31,16 @@ import type { NativePushRegistration } from '../../backend/src/push-contracts'
 import MobileVersionContracts, {
   type IosVersionPolicy,
 } from '../../backend/src/mobile-version-contracts'
+import AuthContracts, { type SessionUser } from '../../backend/src/auth-contracts'
+import {
+  applyVerifiedSession,
+  clearSessionToken,
+  readSessionToken,
+} from '../lib/session'
 
 const { SettingsSchema } = SettingsContracts
 const { IosVersionPolicySchema } = MobileVersionContracts
+const { SessionUserSchema } = AuthContracts
 
 export type {
   Category,
@@ -44,6 +51,7 @@ export type {
   PlanningWindow,
   UserSettings,
   IosVersionPolicy,
+  SessionUser,
 }
 export { isDaySummaryItemAddressed }
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
@@ -55,7 +63,7 @@ const api = axios.create({
 
 // Add auth token to requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
+  const token = readSessionToken()
   if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -72,16 +80,16 @@ api.interceptors.response.use(
   (error) => {
     const isAccountVerification = error.config?.method === 'delete' && error.config?.url === '/account'
     const authReason = error.response?.data?.reason
-    if (error.response?.status === 401 && localStorage.getItem('token') && !isAccountVerification) {
-      localStorage.removeItem('token')
+    if (error.response?.status === 401 && readSessionToken() && !isAccountVerification) {
+      clearSessionToken()
       window.location.reload()
     }
     if (
       error.response?.status === 403 &&
       (authReason === 'account_disabled' || authReason === 'account_unavailable') &&
-      localStorage.getItem('token')
+      readSessionToken()
     ) {
-      localStorage.removeItem('token')
+      clearSessionToken()
       sessionStorage.setItem(
         'healthyflow-auth-notice',
         authReason === 'account_disabled'
@@ -500,22 +508,14 @@ export const SignupStatusSchema = z.object({
 })
 export type SignupStatus = z.infer<typeof SignupStatusSchema>
 
-const AuthUserSchema = z.object({
-  id: z.string(),
-  email: z.string().email(),
-  name: z.string(),
-  role: z.enum(['admin', 'user']),
-  authMethod: z.enum(['password', 'google', 'apple']).default('password'),
-})
-
 const SignupResponseSchema = z.object({
-  user: AuthUserSchema,
+  user: SessionUserSchema,
   token: z.string().min(1),
   signupCredits: SignupCreditGrantSchema,
 })
 
 const ProviderSessionResponseSchema = z.object({
-  user: AuthUserSchema,
+  user: SessionUserSchema,
   token: z.string().min(1),
   isNewUser: z.boolean(),
   signupCredits: SignupCreditGrantSchema.optional(),
@@ -548,11 +548,15 @@ export const authService = {
     return response.data
   },
 
+  // A Guest's session is re-issued on every verified open, because that token is
+  // the only key to their row (ADR-0010). `applyVerifiedSession` persists it here
+  // so no caller can slide back into reading only the identity — which is exactly
+  // how the sliding year became a fixed fuse from account creation.
   verifyToken: async (token?: string) => {
     const response = await api.get('/auth/verify', token
       ? { headers: { Authorization: `Bearer ${token}` } }
       : undefined)
-    return response.data
+    return applyVerifiedSession(response.data)
   },
 }
 
