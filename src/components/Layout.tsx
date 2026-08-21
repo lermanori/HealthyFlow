@@ -48,7 +48,7 @@ interface NavigationGroup {
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { user, logout, isGuest } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -91,6 +91,16 @@ export default function Layout({ children }: LayoutProps) {
     }
     logout()
   }
+
+  /**
+   * A Guest cannot log out.
+   *
+   * There is nothing to sign back in with — no email, no password — and their day
+   * is on this device, so logging out would strand it behind a session that can
+   * never be re-issued (ADR-0010). Deleting the account is still available in
+   * Settings, and that at least says what it does.
+   */
+  const canExitSession = !isGuest
 
   const healthEnabled = Object.values(modules).includes('enabled')
   const navigationGroups = ([
@@ -264,18 +274,20 @@ export default function Layout({ children }: LayoutProps) {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-ink-soft">{user?.name}</p>
-                    <p className="text-xs text-ink-muted">{user?.email}</p>
+                    <p className="text-xs text-ink-muted">{user?.email ?? 'On this iPhone only'}</p>
                   </div>
                 </div>
                 
-                <button
-                  onClick={handleSessionExit}
-                  data-demo-id="logout-button"
-                  className="flex items-center space-x-2 w-full text-ink-muted hover:text-ink-soft transition-colors p-3 rounded-lg hover:bg-card/50"
-                >
-                  <LogOut className="w-5 h-5" />
-                  <span className="font-medium">{isDemo ? 'Exit demo' : 'Logout'}</span>
-                </button>
+                {canExitSession && (
+                  <button
+                    onClick={handleSessionExit}
+                    data-demo-id="logout-button"
+                    className="flex items-center space-x-2 w-full text-ink-muted hover:text-ink-soft transition-colors p-3 rounded-lg hover:bg-card/50"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    <span className="font-medium">{isDemo ? 'Exit demo' : 'Logout'}</span>
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>
@@ -342,14 +354,16 @@ export default function Layout({ children }: LayoutProps) {
                   <span className="text-sm text-ink-soft">Welcome back,</span>
                   <p className="text-sm font-medium text-ink">{user?.name}</p>
                 </div>
-                <button
-                  onClick={handleSessionExit}
-                  data-demo-id="logout-button"
-                  className="flex items-center space-x-2 text-ink-muted hover:text-ink-soft transition-colors p-2 rounded-lg hover:bg-card/50"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span className="text-sm">{isDemo ? 'Exit demo' : 'Logout'}</span>
-                </button>
+                {canExitSession && (
+                  <button
+                    onClick={handleSessionExit}
+                    data-demo-id="logout-button"
+                    className="flex items-center space-x-2 text-ink-muted hover:text-ink-soft transition-colors p-2 rounded-lg hover:bg-card/50"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    <span className="text-sm">{isDemo ? 'Exit demo' : 'Logout'}</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>

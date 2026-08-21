@@ -37,6 +37,7 @@ import {
   clearSessionToken,
   readSessionToken,
 } from '../lib/session'
+import { localServices, onDevice } from '../lib/local/services'
 
 const { SettingsSchema } = SettingsContracts
 const { IosVersionPolicySchema } = MobileVersionContracts
@@ -508,6 +509,11 @@ export const SignupStatusSchema = z.object({
 })
 export type SignupStatus = z.infer<typeof SignupStatusSchema>
 
+const GuestSessionResponseSchema = z.object({
+  user: SessionUserSchema,
+  token: z.string().min(1),
+})
+
 const SignupResponseSchema = z.object({
   user: SessionUserSchema,
   token: z.string().min(1),
@@ -541,6 +547,13 @@ export const authService = {
   ) => {
     const response = await api.post(`/auth/${provider}`, { accessToken, invite, displayName })
     return ProviderSessionResponseSchema.parse(response.data)
+  },
+
+  // Start without an account. The row this creates holds identity and a credit
+  // balance and nothing else — the day itself stays on the device (ADR-0010).
+  startGuestSession: async () => {
+    const response = await api.post('/auth/guest', {})
+    return GuestSessionResponseSchema.parse(response.data)
   },
 
   startDemoSession: async (persona: DemoPersonaId) => {
@@ -618,25 +631,33 @@ export const waitlistService = {
 }
 
 // Task Service
+// A Guest's day is not hosted, so every Item read and write below routes to the
+// device when one is signed in. `onDevice` picks the branch; both sides return
+// the same shape, so no page above this line knows which answered.
 export const taskService = {
-  getTasks: async (date?: string): Promise<Task[]> => {
-    const response = await api.get('/tasks', { params: { date } })
-    return response.data
-  },
+  getTasks: onDevice(
+    (userId, date?: string) => localServices.getTasks(userId, date) as Promise<Task[]>,
+    async (date?: string): Promise<Task[]> => {
+      const response = await api.get('/tasks', { params: { date } })
+      return response.data
+    },
+  ),
 
   // `today` is the caller's local day, not the server's: the reminder day has
   // to follow the wall clock the user is reading.
-  getReminderItems: async (today: string): Promise<ReminderItem[]> => {
-    const response = await api.get('/tasks/reminders', { params: { today } })
-    return response.data
-  },
+  getReminderItems: onDevice(
+    (userId, today: string) => localServices.getReminderItems(userId, today),
+    async (today: string): Promise<ReminderItem[]> => {
+      const response = await api.get('/tasks/reminders', { params: { today } })
+      return response.data
+    },
+  ),
 
   addTask: async (
     task: Omit<Task, 'id' | 'createdAt' | 'completed'>,
     source: ItemSource = 'manual'
   ): Promise<Task> => {
-    const response = await api.post('/tasks', task)
-    const created: Task = response.data
+    const created: Task = await createItem(task)
     analytics.capture('item_created', {
       item_type: created.type as ItemType,
       category: created.category,
@@ -647,18 +668,21 @@ export const taskService = {
     return created
   },
 
-  updateTask: async (
-    id: string,
-    updates: Partial<Task>,
-    editScope?: 'instance' | 'habit'
-  ): Promise<Task> => {
-    const response = await api.put(`/tasks/${id}`, editScope ? { ...updates, editScope } : updates)
-    return response.data
-  },
+  updateTask: onDevice(
+    (userId, id: string, updates: Partial<Task>, editScope?: 'instance' | 'habit') =>
+      localServices.updateTask(userId, id, updates as never, editScope) as Promise<Task>,
+    async (
+      id: string,
+      updates: Partial<Task>,
+      editScope?: 'instance' | 'habit'
+    ): Promise<Task> => {
+      const response = await api.put(`/tasks/${id}`, editScope ? { ...updates, editScope } : updates)
+      return response.data
+    },
+  ),
 
   completeTask: async (id: string): Promise<Task> => {
-    const response = await api.post(`/tasks/complete/${id}`)
-    const completed: Task = response.data
+    const completed: Task = await completeItem(id)
     analytics.capture('item_completed', {
       item_type: completed.type as ItemType,
       category: completed.category,
@@ -666,52 +690,98 @@ export const taskService = {
     return completed
   },
 
-  getHabitProgress: async (id: string, date?: string): Promise<HabitProgressDetail> => {
-    const response = await api.get(`/tasks/${id}/habit-progress`, { params: date ? { date } : undefined })
-    return response.data
-  },
+  getHabitProgress: onDevice(
+    (userId, id: string, date?: string) =>
+      localServices.getHabitProgress(userId, id, date) as Promise<HabitProgressDetail>,
+    async (id: string, date?: string): Promise<HabitProgressDetail> => {
+      const response = await api.get(`/tasks/${id}/habit-progress`, { params: date ? { date } : undefined })
+      return response.data
+    },
+  ),
 
-  addHabitProgress: async (id: string, input: { amount: number; note?: string | null; date?: string }): Promise<HabitProgressDetail> => {
-    const response = await api.post(`/tasks/${id}/habit-progress`, input)
-    return response.data
-  },
+  addHabitProgress: onDevice(
+    (userId, id: string, input: { amount: number; note?: string | null; date?: string }) =>
+      localServices.addHabitProgress(userId, id, input) as Promise<HabitProgressDetail>,
+    async (id: string, input: { amount: number; note?: string | null; date?: string }): Promise<HabitProgressDetail> => {
+      const response = await api.post(`/tasks/${id}/habit-progress`, input)
+      return response.data
+    },
+  ),
 
-  updateHabitProgress: async (id: string, entryId: string, input: { amount?: number; note?: string | null; date?: string }): Promise<HabitProgressDetail> => {
-    const response = await api.patch(`/tasks/${id}/habit-progress/${entryId}`, input)
-    return response.data
-  },
+  updateHabitProgress: onDevice(
+    (userId, id: string, entryId: string, input: { amount?: number; note?: string | null; date?: string }) =>
+      localServices.updateHabitProgress(userId, id, entryId, input) as Promise<HabitProgressDetail>,
+    async (id: string, entryId: string, input: { amount?: number; note?: string | null; date?: string }): Promise<HabitProgressDetail> => {
+      const response = await api.patch(`/tasks/${id}/habit-progress/${entryId}`, input)
+      return response.data
+    },
+  ),
 
-  deleteHabitProgress: async (id: string, entryId: string, date?: string): Promise<HabitProgressDetail> => {
-    const response = await api.delete(`/tasks/${id}/habit-progress/${entryId}`, { params: date ? { date } : undefined })
-    return response.data
-  },
+  deleteHabitProgress: onDevice(
+    (userId, id: string, entryId: string, date?: string) =>
+      localServices.deleteHabitProgress(userId, id, entryId, date) as Promise<HabitProgressDetail>,
+    async (id: string, entryId: string, date?: string): Promise<HabitProgressDetail> => {
+      const response = await api.delete(`/tasks/${id}/habit-progress/${entryId}`, { params: date ? { date } : undefined })
+      return response.data
+    },
+  ),
 
-  setHabitOutcome: async (id: string, outcome: 'pending' | 'completed' | 'failed', date?: string): Promise<HabitProgressDetail> => {
-    const response = await api.put(`/tasks/${id}/habit-outcome`, { outcome, date })
-    return response.data
-  },
+  setHabitOutcome: onDevice(
+    (userId, id: string, outcome: 'pending' | 'completed' | 'failed', date?: string) =>
+      localServices.setHabitOutcome(userId, id, outcome, date) as Promise<HabitProgressDetail>,
+    async (id: string, outcome: 'pending' | 'completed' | 'failed', date?: string): Promise<HabitProgressDetail> => {
+      const response = await api.put(`/tasks/${id}/habit-outcome`, { outcome, date })
+      return response.data
+    },
+  ),
 
-  deleteTask: async (id: string, deleteScope?: DeleteScope): Promise<void> => {
-    await api.delete(`/tasks/${id}`, {
-      data: deleteScope ? { deleteScope } : undefined,
-    })
-  },
+  deleteTask: onDevice(
+    (userId, id: string, deleteScope?: DeleteScope) => localServices.deleteTask(userId, id, deleteScope),
+    async (id: string, deleteScope?: DeleteScope): Promise<void> => {
+      await api.delete(`/tasks/${id}`, {
+        data: deleteScope ? { deleteScope } : undefined,
+      })
+    },
+  ),
 
   // Batch-persist Anytime backlog order; ids ordered front-to-back
-  async reorderTasks(ids: string[]): Promise<void> {
-    await api.patch('/tasks/reorder', { ids })
-  },
+  reorderTasks: onDevice(
+    (userId, ids: string[]) => localServices.reorderTasks(userId, ids),
+    async (ids: string[]): Promise<void> => {
+      await api.patch('/tasks/reorder', { ids })
+    },
+  ),
 
   // Compensating action used only when a virtual Habit drag materialized a row
   // but the remaining drag transaction failed. The server verifies that the
   // real row matches the synthetic Habit instance before removing it.
-  async rollbackDragMaterialization(
-    id: string,
-    input: RollbackDragMaterializationInput
-  ): Promise<void> {
-    await api.post(`/tasks/${id}/rollback-drag-materialization`, input)
-  },
+  rollbackDragMaterialization: onDevice(
+    (userId, id: string, input: RollbackDragMaterializationInput) =>
+      localServices.rollbackDragMaterialization(userId, id, input),
+    async (id: string, input: RollbackDragMaterializationInput): Promise<void> => {
+      await api.post(`/tasks/${id}/rollback-drag-materialization`, input)
+    },
+  ),
 }
+
+// `addTask` and `completeTask` keep their own bodies because both capture an
+// analytics event on the result; only the write itself changes side.
+const createItem = onDevice(
+  (userId, task: Omit<Task, 'id' | 'createdAt' | 'completed'>) =>
+    localServices.addTask(userId, task as never) as Promise<Task>,
+  async (task: Omit<Task, 'id' | 'createdAt' | 'completed'>): Promise<Task> => {
+    const response = await api.post('/tasks', task)
+    return response.data
+  },
+)
+
+const completeItem = onDevice(
+  (userId, id: string) => localServices.completeTask(userId, id) as Promise<Task>,
+  async (id: string): Promise<Task> => {
+    const response = await api.post(`/tasks/complete/${id}`)
+    return response.data
+  },
+)
 
 // Summary Service
 export const summaryService = {
@@ -1114,15 +1184,21 @@ export const contactMessagesService = {
 }
 
 export const settingsService = {
-  getSettings: async (): Promise<UserSettings> => {
-    const response = await api.get('/settings')
-    return SettingsSchema.parse(response.data)
-  },
+  getSettings: onDevice(
+    (userId) => localServices.getSettings(userId),
+    async (): Promise<UserSettings> => {
+      const response = await api.get('/settings')
+      return SettingsSchema.parse(response.data)
+    },
+  ),
 
-  updateSettings: async (partial: Partial<UserSettings>): Promise<UserSettings> => {
-    const response = await api.patch('/settings', partial)
-    return SettingsSchema.parse(response.data)
-  },
+  updateSettings: onDevice(
+    (userId, partial: Partial<UserSettings>) => localServices.updateSettings(userId, partial),
+    async (partial: Partial<UserSettings>): Promise<UserSettings> => {
+      const response = await api.patch('/settings', partial)
+      return SettingsSchema.parse(response.data)
+    },
+  ),
 }
 
 export const DAY_SUMMARY_QUERY_KEY = ['day-summary'] as const
@@ -1155,10 +1231,13 @@ function applyWorkVisibility(summary: DaySummary): DaySummary {
 }
 
 export const daySummaryService = {
-  get: async (date: string): Promise<DaySummary> => {
-    const response = await api.get('/day-summary', { params: { date } })
-    return applyWorkVisibility(DaySummarySchema.parse(response.data))
-  },
+  get: onDevice(
+    async (userId, date: string) => applyWorkVisibility(await localServices.daySummary(userId, date)),
+    async (date: string): Promise<DaySummary> => {
+      const response = await api.get('/day-summary', { params: { date } })
+      return applyWorkVisibility(DaySummarySchema.parse(response.data))
+    },
+  ),
 }
 
 export interface AccountDeletionResult {

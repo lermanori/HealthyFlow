@@ -109,7 +109,8 @@ export default function LoginPage() {
   const [waitlistJoined, setWaitlistJoined] = useState(false)
   const [waitlistError, setWaitlistError] = useState('')
   const [waitlistSubmitting, setWaitlistSubmitting] = useState(false)
-  const { login, loginWithProvider, signup } = useAuth()
+  const { login, loginWithProvider, signup, startGuestSession } = useAuth()
+  const [guestLoading, setGuestLoading] = useState(false)
   const oauthCallbackHandled = useRef(false)
 
   // An invite always opens the form; otherwise the public slot count decides.
@@ -256,6 +257,18 @@ export default function LoginPage() {
     }
   }
 
+  const handleStartWithoutAccount = async () => {
+    setError('')
+    setGuestLoading(true)
+    try {
+      await startGuestSession()
+    } catch {
+      setError('Could not start without an account. Check your connection and try again.')
+    } finally {
+      setGuestLoading(false)
+    }
+  }
+
   const handleGoogleSignIn = async () => {
     setError('')
     setGoogleRetryAvailable(false)
@@ -396,11 +409,35 @@ export default function LoginPage() {
             </>
           )}
 
+          {isNativeIOS && (
+            <section className="mb-5">
+              <button
+                type="button"
+                onClick={handleStartWithoutAccount}
+                disabled={guestLoading || googleLoading || appleLoading || loading}
+                className="btn-primary flex w-full items-center justify-center gap-2 px-3 py-3.5"
+              >
+                {guestLoading ? <LoadingSpinner size="sm" /> : <ArrowRight className="h-5 w-5" />}
+                <span>{guestLoading ? 'Starting…' : 'Start without an account'}</span>
+              </button>
+              {/*
+                ADR-0010 requires this to be said before anyone taps it: a Guest
+                has no email and no password, so the session on this device is the
+                only key back to their day. Nothing here may imply it is safe
+                somewhere else.
+              */}
+              <p className="mt-2 text-center text-xs text-ink-muted">
+                Free, works offline, nothing to fill in. Your day stays on this
+                iPhone — adding an email later is what makes it recoverable.
+              </p>
+            </section>
+          )}
+
           <div className={isNativeIOS ? 'grid grid-cols-2 gap-3' : ''}>
             <button
               type="button"
               onClick={googleRetryAvailable ? retryGoogleExchange : handleGoogleSignIn}
-              disabled={googleLoading || appleLoading || loading}
+              disabled={guestLoading || googleLoading || appleLoading || loading}
               className="btn-secondary flex w-full items-center justify-center gap-2 px-3 py-3.5"
               aria-label={googleRetryAvailable ? 'Retry Google sign-in' : 'Continue with Google'}
             >
@@ -417,7 +454,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={handleAppleSignIn}
-                disabled={appleLoading || googleLoading || loading}
+                disabled={guestLoading || appleLoading || googleLoading || loading}
                 className="flex w-full items-center justify-center gap-2 rounded-control border border-ink bg-ink px-3 py-3.5 text-xs font-semibold text-page transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 aria-label="Continue with Apple"
               >

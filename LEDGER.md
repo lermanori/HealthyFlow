@@ -1,3 +1,26 @@
+### 2026-08-21 14:15 — `feat/guest-mode`
+
+Guest mode works on iPhone. Someone installs the app, taps *Start without an
+account*, and gets a real day — Items, both backlogs, Habits with progress and
+outcomes, rollover, Capacity, attention and settings — written to one JSON
+document on the device and never to the server. Getting there took three shared
+rules out of server modules and into the browser-safe core (`composeDayTaskRows`,
+`isCarryForwardRow`, and the Habit outcome rules in a new `habit-contracts.ts`),
+so the two sides run one copy of each rather than two that can drift; the backend
+suite proves the extraction changed nothing. `onDevice(local, hosted)` in
+`api.ts` picks a side per call, keyed on the identity — a Guest is an account
+with no email — so every page above that line is untouched. ADR-0011 records the
+store decision and `docs/architecture/the-day-on-two-sides.md` explains the shape.
+
+The honest gap: Health is not on the device, so a Guest's Nutrition, Weight,
+Training and Progress report `disabled`. That contradicts `TARGET.md`, which
+calls them core rather than optional, and it has to be answered before the
+listing claims guest mode gives you the whole day. The iOS build was not run —
+the Filesystem plugin synced cleanly but nothing here can prove it round-trips on
+a device. Both are written down in ADR-0011 and `HANDOFF.md`.
+
+---
+
 ### 2026-08-21 11:59 — `feat/guest-mode`
 
 The Guest session renewal is no longer inert. `GET /auth/verify` had been

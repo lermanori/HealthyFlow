@@ -20,6 +20,8 @@ import {
   syncNativePushToken,
 } from '../lib/push'
 import { clearTodayWidget } from '../lib/widget'
+import { clearLocalDay, localDayExists, resetLocalStore } from '../lib/local/store'
+import { setLocalDayUser } from '../lib/local/services'
 
 // The identity a session carries. `email` is null for a Guest, and only for a
 // Guest — the whole test for one is the absence of an email.
@@ -37,6 +39,7 @@ interface AuthContextType {
     invite?: string,
     displayName?: string,
   ) => Promise<void>
+  startGuestSession: () => Promise<void>
   startDemoSession: (persona: DemoPersonaId) => Promise<void>
   leaveDemoSession: () => Promise<boolean>
   signup: (email: string, password: string, name: string, invite?: string) => Promise<void>
@@ -78,12 +81,24 @@ function identifyUser(userData: User) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setCurrentUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
   const [hasDemoReturnSession, setHasDemoReturnSession] = useState(
     () => Boolean(sessionStorage.getItem(DEMO_RETURN_TOKEN_KEY)),
   )
   const queryClient = useQueryClient()
+
+  /**
+   * Take on an identity, and point the day at wherever that identity's day lives.
+   *
+   * A Guest's day is on the device, so the services have to know before any query
+   * runs — which is why this sits beside `setUser` rather than in an effect that
+   * could land after the first fetch.
+   */
+  const adoptUser = (userData: User | null) => {
+    setLocalDayUser(userData && isGuestSession(userData) ? userData.id : null)
+    setCurrentUser(userData)
+  }
 
   useEffect(() => {
     const token = readSessionToken()
@@ -106,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setHasDemoReturnSession(false)
           }
           identifyUser(userData)
-          setUser(userData)
+          adoptUser(userData)
         })
         .catch(() => {
           clearSessionToken()
@@ -117,6 +132,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
             setHasDemoReturnSession(false)
           }
+          // A day still sitting on this device with no session that can reach it
+          // is a stranded Guest, not a first-time visitor. Bouncing them to a
+          // sign-in screen they cannot pass, with no explanation, is the silent
+          // failure ADR-0010 forbids.
+          void localDayExists().then((stranded) => {
+            if (!stranded) return
+            sessionStorage.setItem(
+              'healthyflow-auth-notice',
+              'This iPhone still holds your day, but the session that opened it is gone. Sign in or create an account to keep going.',
+            )
+          }).catch(() => undefined)
           queryClient.clear()
         })
         .finally(() => {
@@ -141,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       writeSessionToken(token)
       identifyUser(userData)
       analytics.capture('logged_in', { is_demo: isDemoEmail(userData.email) })
-      setUser(userData)
+      adoptUser(userData)
       toast.success('Welcome back!')
     } catch (error) {
       toast.error('Invalid credentials')
@@ -187,7 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       analytics.capture('logged_in', { method: provider, is_demo: false })
       toast.success('Welcome back!')
     }
-    setUser(userData)
+    adoptUser(userData)
   }
 
   const signup = async (email: string, password: string, name: string, invite?: string) => {
@@ -215,10 +241,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         source: acquisition ? 'demo' : 'direct',
         persona: acquisition?.persona,
       })
-      setUser(userData)
+      adoptUser(userData)
       toast.success(`Account created with ${signupCredits.credits} AI credits. Welcome to HealthyFlow.`)
     } catch (error: any) {
       const msg = error?.response?.data?.error || 'Signup failed'
+      toast.error(msg)
+      throw error
+    }
+  }
+
+  /**
+   * Start without an account.
+   *
+   * The row created here holds identity and a credit balance; the day itself is
+   * written to this device and nowhere else. There is no email and no password, so
+   * this session is the only key back to it (ADR-0010) — which is what the entry
+   * point has to say before anyone taps it.
+   */
+  const startGuestSession = async () => {
+    try {
+      const { user: userData, token } = await authService.startGuestSession()
+      queryClient.clear()
+      clearDemoState()
+      sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
+      setHasDemoReturnSession(false)
+      resetLocalStore()
+      writeSessionToken(token)
+      identifyUser(userData)
+      analytics.capture('guest_started')
+      adoptUser(userData)
+    } catch (error: any) {
+      const msg = error?.response?.data?.error || 'Could not start without an account'
       toast.error(msg)
       throw error
     }
@@ -243,7 +296,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         persona,
         entry_source: acquisition?.entrySource,
       })
-      setUser(userData)
+      adoptUser(userData)
       toast.success('Demo loaded')
     } catch (error: any) {
       const msg = error?.response?.data?.error || 'Could not start demo'
@@ -260,7 +313,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearDemoState()
       queryClient.clear()
       analytics.reset()
-      setUser(null)
+      adoptUser(null)
       return false
     }
 
@@ -271,7 +324,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       writeSessionToken(renewedToken ?? returnToken)
       clearDemoState()
       identifyUser(userData)
-      setUser(userData)
+      adoptUser(userData)
       queryClient.clear()
       return true
     } catch {
@@ -279,7 +332,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearDemoState()
       queryClient.clear()
       analytics.reset()
-      setUser(null)
+      adoptUser(null)
       return false
     }
   }
@@ -297,15 +350,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
     setHasDemoReturnSession(false)
     clearDemoAcquisition()
+    resetLocalStore()
     queryClient.clear()
     analytics.reset()
-    setUser(null)
+    adoptUser(null)
     toast.success('Logged out successfully')
   }
 
   const completeAccountDeletion = () => {
     void clearTodayWidget().catch((error) => {
       console.error('[widget] could not clear Today widget after account deletion:', error)
+    })
+    // Deleting the account has to take the day with it. For a Guest this file is
+    // the only copy there has ever been, so leaving it behind would both lie about
+    // the deletion and block the next session on this device.
+    void clearLocalDay().catch((error) => {
+      console.error('[local] could not erase the day on this device:', error)
     })
     clearSessionToken()
     clearDemoState()
@@ -316,7 +376,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('healthyflow-assistant-conversations-v1-migrated')
     queryClient.clear()
     analytics.reset()
-    setUser(null)
+    adoptUser(null)
     toast.success('Account deleted')
   }
 
@@ -326,6 +386,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       login,
       loginWithProvider,
+      startGuestSession,
       startDemoSession,
       leaveDemoSession,
       signup,

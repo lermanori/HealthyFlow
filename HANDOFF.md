@@ -1,4 +1,4 @@
-# Handoff — 2026-08-20
+# Handoff — 2026-08-21
 
 Written for whoever picks this up next, in any tool. Self-contained on purpose.
 **Delete this file once the work below has landed** — it is a working note with an
@@ -6,183 +6,166 @@ expiry, not documentation.
 
 ## Read these first, in this order
 
-1. **`TARGET.md`** — what the product is for, the razor, how money works. Everything
-   else derives from it. New today.
-2. **`CONTEXT.md`** — the words. Organised by failure mode: collisions, false
-   friends, refused terms, things that look built and are not.
-3. **`CLAUDE.md`** — rules that override normal practice, where things live, the
-   commit workflow, verification commands.
+1. **`TARGET.md`** — what the product is for, the razor, how money works.
+2. **`CONTEXT.md`** — the words. **Local day** is new today, and the **Claim**
+   entry has been corrected: with a device-held day, Claim no longer "moves
+   nothing".
+3. **`CLAUDE.md`** — rules that override normal practice, the commit workflow,
+   verification commands.
+4. **`docs/architecture/the-day-on-two-sides.md`** — new today. How the same day
+   is composed from Supabase and from a file on the device without two
+   implementations of what a day is. Read it before touching anything under
+   `src/lib/local/` or `backend/src/day-summary-core.ts`.
 
-All three were rebuilt today and are on `main`. They replaced eleven root
-documents; `FEATURES.md` and `MARKETING.md` are archived under `docs/history/`
-and are **not** descriptions of the app now.
-
-## Git state, exactly
+## Git state
 
 | | |
 |---|---|
-| `main` | `83f0d05` — has all rebuilt docs and the `docs/history` restructure |
-| `feat/guest-mode` | `e79189d` — 2 commits ahead of `main`. **Not merged, not pushed.** |
-| Pushed | **Both branches are on `origin`.** Nothing exists only locally. |
+| `main` | `83f0d05` |
+| `feat/guest-mode` | ahead of `main`. **Not merged.** |
 
-`README.md` has an uncommitted edit and `docs/runbooks/paid-apps-setup.md` is
-untracked — neither came from the doc work; check with the owner before touching
-them.
+`README.md` still has an uncommitted edit and `docs/runbooks/paid-apps-setup.md`
+is still untracked — both predate this session and were left alone deliberately.
+`README.md` wants one more row in its Start-here table:
+`| How a subsystem works | docs/architecture/ |`.
 
-## The credit-grant bug, fixed today
+## What landed today
 
-`backend/src/auth.ts` (`startGuestSession`) and `backend/tests/auth/guest.test.ts`.
+**Guest mode works on iPhone.** Someone installs the app, taps *Start without an
+account*, and uses it: Today, the timeline, Items, the Anytime and Someday
+backlogs, Habits with progress and outcomes, rollover, Capacity, attention and
+settings. No account, no network, nothing asked of them. Their day is written to
+one JSON document on the device and never to the server.
 
-**The bug:** the guest endpoint granted credits via `Credits.grantSignupCredits`,
-which routes through the `claim_signup_credit_grant` RPC. That awards
-`FOUNDING_SIGNUP_CREDITS` (250) and consumes one of `FOUNDING_MEMBER_LIMIT` (100)
-seats while any remain. So every Guest would take a founding seat and five dollars
-of credits instead of the one dollar `TARGET.md` specifies, and would drain the
-founding count shown on the login page. The RPC raises on a zero founding limit,
-so it cannot be neutralised by argument.
+Four pieces, in the order they were built:
 
-**The fix as it stands:** the grant is removed from the guest path entirely, with
-a comment explaining why, and the test that asserted the founding grant is
-inverted into a regression guard (`claimSignupCreditGrant` must not be called).
-A Guest currently starts with **zero credits**.
+1. **The session renewal bug is fixed.** `GET /auth/verify` had been re-issuing a
+   Guest's token on every open since ADR-0010, and the client threw it away — a
+   fixed 365-day fuse from account creation rather than the sliding year. The
+   re-issued token is now part of a typed contract (`backend/src/auth-contracts.ts`)
+   and `src/lib/session.ts` owns every read and write of it.
+2. **Shared day rules.** `composeDayTaskRows` (Habit synthesis, dedup, sort) and
+   `isCarryForwardRow` (the rollover rule) moved out of `supabase-client.ts` and
+   `rollover.ts` into the browser-safe core; `deriveHabitOutcome` and
+   `resolveHabitOutcomeRequest` moved out of `habit-progress.ts` into
+   `backend/src/habit-contracts.ts`. Both servers and devices now run one copy of
+   each rule. No behaviour change — proved against the existing backend suite.
+3. **The Local day.** `src/lib/local/` — a document, a driver, the nine day
+   sources and every Item write. **ADR-0011** records the store decision.
+4. **The wiring.** `onDevice(local, hosted)` in `src/services/api.ts` routes
+   `taskService`, `settingsService` and `daySummaryService` per call, keyed on the
+   signed-in identity: a Guest is an account with no email, and a Guest's day is
+   local. Every page above that line is unchanged.
 
-**Verification — all green, and this change is committed.** Both typechecks clean,
-735 backend tests across 78 suites, 93 frontend tests, production build clean.
+**Verification, all green:** both typechecks, 737 backend tests across 78 suites,
+122 frontend tests including the Chromium startup guard, production build.
 
-## What was decided today, and why
+## What a Guest still does not get, and why it matters
 
-**The product target.** Three things that felt like competing identities — *say it
-and it's handled*, *everything on one clock*, *an honest number* — are not
-competitors. They are the **input, scope and payoff** of one product. Input is the
-hook, scope is the reason to stay, truth is the differentiator. The razor follows:
-*a part earns its place if it makes input easier, the picture more complete, or the
-truth clearer.*
+**Health.** Nutrition, Weight, Training and Progress are not stored on the device.
+The local settings baseline switches those modules off, so the day reports them
+`disabled` — an honest state Today already renders, not an empty lie. But
+`TARGET.md` calls food, weight and training **core, not optional**, and says no
+part of the day itself is withheld.
 
-**Local storage is the base layer for everyone; cloud syncs on top.** Free users'
-data is never hosted. Two reasons: the owner will not carry the cost, and more
-importantly, if free users' data is already on the server then the paid "cloud"
-tier has nothing to sell. One code path, so offline works for free and paid alike.
+**That contradiction is the one thing that has to close before the listing claims
+guest mode gives you the whole day.** Two ways out and they are not equivalent:
 
-**Guest mode is in v1.** It makes the App Store listing honest and removes review
-risk, since a reviewer never needs credentials.
+- Teach the device the four record types. Roughly doubles the local store, and
+  four more services need an `onDevice` branch.
+- Change `TARGET.md` to say Health needs an account, and accept that the second
+  axis — *one clock* — is thinner for a Guest than the pitch says.
 
-**Work is parked, not cut.** Complete, behind `VITE_WORK_ENABLED`, deliberately
-absent from the story. **The code stays. Do not delete it.**
+It is written down in ADR-0011 and in `CONTEXT.md` under "things that look built
+and are not". Do not let it stay unanswered by accident a second time.
 
-## The order of work
+## The order of what is left
 
-**Local storage is the gate, not a step.** A Guest has to put their day somewhere,
-and free users' data is never hosted — for cost, and because if it were, the cloud
-subscription would have nothing to sell. So:
+1. **Claim.** A Guest cannot become an account holder. The identity half is easy —
+   the same `users` row gains an email and a password, so credits keep their key —
+   but the Local day has to be uploaded, and that is the half that can fail.
+   Nothing exists yet.
+2. **The guest credit grant.** Still does not exist, so **a Guest starts with zero
+   credits and the free experience has no AI** — the hook the product is meant to
+   open with. Needs the "first N devices get $1" dial from `TARGET.md`, with N in
+   a database row rather than a constant, because it is a cost-control dial to be
+   raised without a deploy. `Credits.grantSignupCredits` must **not** be reused:
+   it awards 250 credits and consumes a founding seat.
+3. **Health on the device**, or the `TARGET.md` change. See above.
+4. **The Keychain.** The token still lives in `localStorage`, which is deleted with
+   the app. `src/lib/session.ts` holds a swappable synchronous token store built
+   for exactly this swap: a Keychain read is async, so hydrate it once at start-up
+   into a store that answers from memory and writes through. No plugin is
+   installed — this session did not add one it could not build-verify.
+5. **StoreKit.** Independent of everything above. The Paid Apps Agreement is
+   paperwork with a real-world clock and gates all revenue.
+6. **The web.** The entry point is iPhone-only. iOS Safari evicts script-writable
+   storage after ~7 days without interaction, so a web Guest could lose their only
+   copy inside a week. The web build needs either an account or an explicit
+   warning before it offers guest mode.
 
-> **local storage → guest mode → App Store listing**
+## Gotchas that cost time today
 
-1. **Local storage layer.** Split the pure day core out of
-   `backend/src/day-summary.ts` so a server adapter and a device adapter can both
-   call it. `buildDaySummary` already takes all nine of its data sources as
-   injected dependencies (`getSettings`, `itemsForDay`, `getCalendarStatus`,
-   `getCalendarEvents`, `getCalorieEntries`, `getWeightEntry`,
-   `getWorkoutSessions`, `getAchievements`, `listDayFocusBlocks`) and everything
-   between them is pure — so this is an extraction plus a second adapter, not a
-   rewrite. No behaviour change; provable against the existing backend suite.
-   Design detail in `docs/history/specs/2026-08-17-local-first-guest-mode-design.md`
-   — read it for the reasoning, but note its guest-token and claim sections are
-   superseded.
-   **iPhone only** (see `TARGET.md`), so the store can be SQLite through a
-   Capacitor plugin rather than browser storage. None is installed yet.
-   The browser/server boundary is guarded by a Chromium startup test — it must
-   keep passing.
-2. **Guest identity.** Endpoint done; see the known bug below.
-3. **Guest credit grant.** Does not exist. Needs the "first N devices get $1"
-   dial from `TARGET.md`, with N in a database row rather than a constant.
-   **Until this lands a Guest has no credits, so the free experience has no AI —
-   which is the hook the product is supposed to open with.**
-4. **Claim** — upload the local store to cloud at signup.
-5. **StoreKit** — independent of 1–4, can start any time. The Paid Apps
-   Agreement is paperwork with a real-world clock and gates all revenue.
+- **The backend package is CommonJS; the frontend is ESM.** Named *value* imports
+  across that line resolve under Vite and fail under `tsx --test`. Shared modules
+  export a **default object** and callers destructure it — `TaskContracts`,
+  `SettingsContracts`, `HabitContracts`, `DaySummaryCore`. Types import by name
+  fine; they are erased.
+- **`buildDaySummary` merges a partial dependency override onto the Supabase-backed
+  defaults.** A test fixture that omits one of the nine does not get a stub — it
+  reaches the real database and times out. Eleven backend tests were failing this
+  way before today's work started; they are fixed and hermetic now.
+- **`tests/day-summary.test.ts` and `tests/day-summary-timeline.test.ts` each had a
+  helper missing exactly one source.** If you add a source to
+  `DaySummaryDependencies`, add it to both helpers in the same commit.
+- **`POST /test/reset — HF_TEST_MODE guard` is intermittently flaky** across
+  parallel workers. It passed on every clean run today; if you see it fail alone,
+  re-run before investigating.
+- **`.env` lives at the repo root, not `backend/`.**
+- **Signup fails closed.** If the signup-status call errors or public slots are
+  exhausted, the Create-account tab does not render. **Verify the live
+  `public_slots_open` value before submitting to App Review** — a reviewer hitting
+  a waitlist is a rejection. Guest mode removes the need for credentials, but the
+  account path is still on that screen.
+- **A change to the web app is a change to the iOS app.** Same React bundle.
+- **`docs/history/` is unmaintained by design.** Nothing in it describes the app
+  now. `docs/history/specs/2026-08-17-local-first-guest-mode-design.md` is now
+  superseded on three more counts: the store, the settings baseline, and the fact
+  that the pure-core split is done.
 
-## Known bug on `feat/guest-mode` — not yet fixed
+## Not verified, and how to verify it
 
-**The guest session renewal is inert.** `GET /api/auth/verify` mints a fresh
-365-day token whenever `user.email` is null, but the client never reads it:
-`authService.verifyToken` returns `response.data` and `AuthContext` uses it only
-as identity. Nothing writes `userData.token` to `localStorage`.
+**The iOS build has not been run.** `@capacitor/filesystem@8.1.3` was installed and
+`npx cap sync ios` wired it into `Package.swift` and `Package.resolved`
+successfully, which is the same mechanical path the ten existing plugins took —
+but no Xcode build and no simulator run happened in this session. Before trusting
+guest mode on a device:
 
-So what ships is a **fixed 365-day fuse from account creation**, not the sliding
-window ADR-0010 describes. On day 366 any call 401s, the `api.ts` interceptor
-clears the token and reloads, and the Guest lands on a login screen they cannot
-pass — no email, no password, row orphaned. That is a silent fallback, which
-`CLAUDE.md` forbids.
+```sh
+npm run ios:run
+```
 
-Two-line fix: surface the token from `verifyToken`, persist it in `AuthContext`
-when present. No backend test can catch this — supertest's world ends at
-`res.body`. Add a client-level assertion instead.
-
-**Better option now that v1 is iPhone-only:** store the token in the **Keychain**
-rather than `localStorage`. The Keychain survives app deletion, so a Guest could
-delete and reinstall and still be themselves. Device-binding the JWT was
-considered and rejected — it adds a second fragile thing that must survive, which
-increases the orphaning risk it is meant to reduce.
+Then, on the simulator: tap *Start without an account*, add a timed Task, add a
+daily Habit, log progress against it, kill the app, reopen it, and confirm the day
+is still there. Nothing in the automated suite can prove the Filesystem plugin
+round-trips on a real device, because all five verification commands run in Node
+and Chromium.
 
 ## Open questions nobody has answered
 
 - **Existing account holders** have server-side data today. Under the new model
   server storage *is* the paid tier. Grandfathered into cloud, or does their data
-  become their local store?
-- **Does the App Store date still come first?** The stated priority was reaching
-  the store with monetization. The decisions since — local-first, no hosted free
-  data, guest mode in v1 — put the largest piece of engineering in front of the
-  listing. That trade happened by accumulation, not by being chosen. There is a
-  version where the account-required app ships to the store first and guest mode
-  follows; it contradicts `TARGET.md` as written, which is why it needs a
-  deliberate answer rather than a default.
-- **Nobody owns the analytics gaps.** No task exists for them.
+  become their Local day?
+- **Does the App Store date still come first?** Guest mode now works, which was
+  the largest piece of engineering in front of the listing. What is left before a
+  listing is honest is the Health question above and the credit grant.
+- **Nobody owns the analytics gaps.** `guest_started` was added today as the
+  counterpart to `signed_up`, so the funnel out of guest mode is measurable. Still
+  nothing for Capacity, attention or the daily plan, and `ai_parse_requested` still
+  has no success/failure counterpart.
 - **"Who it is for" in `TARGET.md` is weak** — "someone whose day spans several
-  parts of life" is close to everyone. Every other section is sharp; that one
-  was flagged and never fixed.
-- **The guest credit grant** needs its own path and its own cap — the "first N
-  devices get $1" dial in `TARGET.md`, which does not exist. `N` must live in a
-  database row, not a constant: it is a cost-control dial to be raised when the
-  economics are trusted.
-- **Web storage durability.** iOS Safari evicts script-writable storage after
-  ~7 days without interaction. Durable inside the Capacitor container, not on the
-  web. With local as the base layer, a web Guest can lose their only copy inside a
-  week. The web build needs either a cloud account or an explicit warning.
-- **Vocabulary gap:** there is no defined word for the row a Guest holds when
-  their day is not on the server. `CONTEXT.md`'s **Guest** entry presumes their
-  data. Real gap, opened by the local-first decision.
-- **`CONTEXT.md`'s Claim entry is knowingly stale.** It says the upgrade happens
-  in place with nothing moving. That was true for half an hour under a different
-  architecture. With local storage, data does move. It was deliberately not
-  re-edited a third time in one day — fix it once the architecture settles.
-
-## Gotchas that cost time today
-
-- **`npm run typecheck` (backend) covers `src` and `tests`.** It did not until
-  today — `tsconfig.typecheck.json` was added because a test fixture had drifted
-  from a contract for weeks and only jest ever noticed.
-- **`.env` lives at the repo root, not `backend/`.** A worktree gets none, so the
-  loader now falls back to the main checkout via `git rev-parse --git-common-dir`.
-  Missing Supabase config surfaces as `TypeError: fetch failed`, which names
-  nothing — there is now a startup guard.
-- **Signup fails closed.** If the signup-status call errors or public slots are
-  exhausted, the Create-account tab does not render and the user sees a waitlist.
-  **Verify the live `public_slots_open` value before submitting to App Review** —
-  a reviewer hitting a waitlist is a rejection.
-- **A change to the web app is a change to the iOS app.** Same React bundle in a
-  Capacitor shell.
-- **`docs/history/` is unmaintained by design.** Nothing in it describes the app
-  now. Do not cite it as current, and do not add to it.
-
-## Analytics gaps worth knowing
-
-32 PostHog events exist and **not one mentions Capacity, attention or the daily
-plan** — the differentiator reports nothing about itself. `ai_parse_requested`
-fires with no success/failure counterpart, so the P0 Talk reliability issue (#199)
-would be fixed blind. Parse **edit rate** — how much of a result gets corrected
-before saving — is the clearest signal of whether the hook works, and is not
-captured.
-
-`item_created` and `calorie_entry_logged` do carry `source: 'manual' | 'ai_parse'`,
-which makes the pricing bet in `TARGET.md` falsifiable: `credits_exhausted`,
-then whether manual creation continues.
+  parts of life" is close to everyone.
+- **A Guest cannot log out**, by design (ADR-0011): there is nothing to sign back
+  in with, and their day is on the device. Account deletion is the only exit and it
+  erases the document. Whether that is the right escape hatch for someone whose
+  session breaks is not settled.

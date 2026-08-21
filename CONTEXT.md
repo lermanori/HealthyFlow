@@ -62,15 +62,26 @@ the day always renders the window it computed against.
 copies or mutates it. Not a "timeline row" — the plan is the data, the timeline is
 one rendering.
 
-**Claim** — the moment a Guest becomes an account holder. It happens **in place**:
-the same row gains an email and a password, so nothing moves and nothing can be
-lost. _Avoid_: "migrate", "import", "transfer", "upload" — every one of them
-implies moving data that never moves.
+**Local day** — the record of someone's day held on their device rather than on
+the server: Items, Habits, Habit progress and settings, in one document
+(ADR-0011). It is the **source**, not a cache — there is no server copy behind it
+to fall back to, which is why a read that fails can never be reported as an empty
+day. _Avoid_: "offline copy", "local cache", "draft".
 
-**Guest** — someone using the app with no account. Their data is real and their
-own; nothing expires and nothing is withheld. _Avoid_: confusing a Guest with a
-**demo persona** — a persona is seeded, shared and disposable, a Guest's day is
-theirs. Not a "trial" either: guest mode does not run out.
+**Claim** — the moment a Guest becomes an account holder. The **identity** changes
+in place: the same `users` row gains an email and a password, so credits and
+history keep their key. The **Local day** does not — it is on the device and has
+to be uploaded, which is the part that can fail and the part that needs a plan.
+Saying Claim "moves nothing" was true for half an hour under an architecture that
+no longer exists. _Avoid_: "migrate" and "import" for the identity half, which
+really does stay put.
+
+**Guest** — someone using the app with no account. Their day is real and their
+own; nothing expires and nothing is withheld. Their **Local day** lives on one
+device, and their `users` row on the server holds identity and a credit balance
+and nothing else. _Avoid_: confusing a Guest with a **demo persona** — a persona
+is seeded, shared and disposable, a Guest's day is theirs. Not a "trial" either:
+guest mode does not run out.
 
 ## Words we refuse
 
@@ -82,6 +93,7 @@ theirs. Not a "trial" either: guest mode does not run out.
 | free time, available time | **Capacity** — and say whether it is exact or an upper bound |
 | timeline row | **Daily Plan reference** |
 | sync, migrate (for signup) | **Claim** |
+| offline copy, local cache | **Local day** — it is the source, not a copy of anything |
 | AI parser, task extractor | **parse-tasks** — "extractor" loses the habit case |
 | agent, session, chat mode | **Talk workflow** |
 
@@ -95,6 +107,13 @@ theirs. Not a "trial" either: guest mode does not run out.
 - **Work** — Projects, Focus blocks and Work sessions are complete and **parked
   behind `VITE_WORK_ENABLED`**, deliberately absent from the product story. The
   code stays. See `TARGET.md`.
+- **Health for a Guest** — Nutrition, Weight, Training and Progress are not held
+  in the **Local day**. A Guest's settings switch those modules off, so the day
+  reports them `disabled` rather than empty. This contradicts `TARGET.md`, which
+  calls food, weight and training core rather than optional; the contradiction is
+  recorded in ADR-0011 and is not resolved.
+- **Claim** — a Guest cannot yet become an account holder. The endpoint, the
+  upload and the credit carry-over do not exist.
 
 ## Closed sets
 

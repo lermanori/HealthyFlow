@@ -1,13 +1,15 @@
+import { isCarryForwardRow } from './day-summary-core'
 import { supabase } from './supabase-client'
 import { sortTasksForTimeline } from './utils/sortTasksForTimeline'
 
 export const Rollover = {
-  // Untimed-task carry-forward, the one rule (ADR-0002): an untimed task shows on
-  // `date` if it is incomplete with scheduled_date NULL or < date, or it was
-  // completed on `date`. (=date is owned by getTasksWithRecurringHabits' regularTasks
-  // query, kept disjoint via the strict `< date` here, so nothing shows twice.)
-  // Rows and ids are REAL — returned unchanged, no synthetic id, no scheduled_date
-  // override. Completion and edits go through the normal task path on the real id.
+  // Untimed-Task carry-forward (ADR-0002). The two queries below narrow the read;
+  // `isCarryForwardRow` in the browser-safe core is the rule, so a device deciding
+  // the same question offline decides it identically.
+  //
+  // Rows and ids are REAL — returned unchanged, no synthetic id, no
+  // scheduled_date override. Completion and edits go through the normal task path
+  // on the real id.
   async listForDay(userId: string, date: string): Promise<any[]> {
     const { data: incomplete, error: incompleteError } = await supabase
       .from('tasks')
@@ -40,6 +42,7 @@ export const Rollover = {
     if (completedError) throw completedError
 
     return [...(incomplete || []), ...(completedToday || [])]
+      .filter((row) => isCarryForwardRow(row, date))
   },
 
   async addCarryForwardRows(userId: string, date: string, datedRows: any[]): Promise<any[]> {

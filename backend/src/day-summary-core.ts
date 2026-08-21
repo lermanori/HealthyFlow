@@ -21,12 +21,12 @@ import {
   DailyPlanPlacementValidation,
   DailyPlanPlacementValidationSchema,
   isDaySummaryItemAddressed,
-  PlanningWindow,
   PlanningWindowSchema,
   type DaySummary,
 } from './day-summary-schema'
 import { ReminderItem, ReminderItemSchema } from './task-contracts'
 import { parseHabitInstanceId } from './utils/parseHabitInstanceId'
+import { sortTasksForTimeline } from './utils/sortTasksForTimeline'
 
 type CalendarSource = DaySummary['calendar']
 type DateMode = DaySummary['dateMode']
@@ -64,6 +64,146 @@ const numberOrNull = (value: unknown): number | null => {
   if (value == null) return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
+}
+
+/**
+ * The three sets of raw rows a day is composed from.
+ *
+ * They are supplied rather than fetched so the same composition runs against
+ * three Supabase queries on the server and three in-memory filters on a device.
+ * The rule for which rows belong to a day is the thing that must not fork; how
+ * they are found is not.
+ */
+export type DayTaskRowSources = {
+  /** Rows dated to `date`, excluding carry-forward rows. */
+  datedRows: any[]
+  /**
+   * Every daily Habit template — `original_habit_id` null. Instance rows share
+   * `type: 'habit'` and `repeat_type: 'daily'`, so without that filter the
+   * synthesis below treats another day's instance as a template and fabricates a
+   * virtual instance from it, leaking instances across days.
+   */
+  habitTemplates: any[]
+  /** Materialized Habit instances dated to `date` — `original_habit_id` set. */
+  habitInstances: any[]
+}
+
+/**
+ * Synthesise the virtual Habit instance for a template that has no real row on
+ * this date (ADR-0001, ADR-0002). It becomes a real row only when placed or
+ * completed, never on a plain read.
+ */
+function virtualHabitInstance(template: any, userId: string, date: string) {
+  return {
+    id: `${template.id}-${date}`,
+    title: template.title,
+    type: 'habit' as const,
+    category: template.category,
+    start_time: template.start_time,
+    duration: template.duration,
+    habit_target_value: template.habit_target_value ?? null,
+    habit_target_unit: template.habit_target_unit ?? null,
+    habit_outcome: 'pending',
+    repeat_type: template.repeat_type,
+    completed: false,
+    completed_at: null,
+    created_at: template.created_at,
+    scheduled_date: date,
+    overdue_notified: false,
+    user_id: userId,
+    original_habit_id: template.original_habit_id || template.id,
+    isHabitInstance: true,
+  }
+}
+
+/**
+ * Every row that belongs to `date`, with exactly one row per Habit per day.
+ *
+ * A parent Habit row is a pure template (`scheduled_date` null) and never appears
+ * as a concrete dated row, so it can collide with neither a materialized nor a
+ * virtual instance. What can still collide is the same materialized instance
+ * arriving through both `datedRows` and `habitInstances`, and — only for rows
+ * predating the cleanup — a legacy dated parent. The ranking resolves both
+ * deterministically.
+ */
+export function composeDayTaskRows(
+  userId: string,
+  date: string,
+  sources: DayTaskRowSources,
+): any[] {
+  const habitIdsWithInstance = new Set(
+    sources.habitInstances.map((instance) => instance.original_habit_id),
+  )
+  const allRows = [
+    ...sources.datedRows,
+    ...sources.habitInstances,
+    ...sources.habitTemplates
+      .filter((template) => !habitIdsWithInstance.has(template.id))
+      .map((template) => virtualHabitInstance(template, userId, date)),
+  ]
+
+  const habitWinners = new Map<string, any>()
+  const deduped: any[] = []
+  for (const row of allRows) {
+    if (row.type !== 'habit') {
+      deduped.push(row)
+      continue
+    }
+    const habitId = row.original_habit_id || row.id
+    const current = habitWinners.get(habitId)
+    if (!current) {
+      habitWinners.set(habitId, row)
+      continue
+    }
+    // A materialized instance beats a virtual one, and either beats a legacy
+    // dated parent template. New parents are always undated; this ordering keeps
+    // reads correct until older rows have been normalized.
+    const rowRank = row.original_habit_id ? (row.id === `${habitId}-${date}` ? 2 : 3) : 1
+    const currentRank = current.original_habit_id ? (current.id === `${habitId}-${date}` ? 2 : 3) : 1
+    if (rowRank !== currentRank) {
+      if (rowRank > currentRank) habitWinners.set(habitId, row)
+      continue
+    }
+    // Both real — only stale pre-cleanup duplicates reach here. Prefer the older
+    // row, which is the one `createHabitInstance` updates in place, so a read
+    // returns what the write path mutates.
+    if (row.created_at && current.created_at && row.created_at < current.created_at) {
+      habitWinners.set(habitId, row)
+    }
+  }
+  deduped.push(...habitWinners.values())
+
+  return sortTasksForTimeline(deduped)
+}
+
+/**
+ * The untimed-Task carry-forward rule, and the whole of it (ADR-0002).
+ *
+ * An untimed Task shows on `date` when it is incomplete and dated before `date`
+ * or not dated at all, or when it was completed on `date` — a carried Task
+ * checked off today still belongs to the day it was checked off. Rows dated
+ * exactly `date` are owned by `composeDayTaskRows`, and the strict `<` here keeps
+ * the two disjoint so nothing shows twice.
+ *
+ * Habits never carry forward; a missed Habit day re-synthesises fresh. The
+ * asymmetry is deliberate.
+ */
+export function isCarryForwardRow(row: any, date: string): boolean {
+  if (row.type !== 'task') return false
+  if (row.start_time) return false
+  if (row.rolled_over_from_task_id) return false
+  if (row.deleted_at) return false
+
+  const scheduledDate = row.scheduled_date ?? null
+  if (scheduledDate !== null && !(scheduledDate < date)) return false
+
+  if (!row.completed) return true
+
+  // Completed rows stay only for the day they were completed. The window is UTC
+  // because `completed_at` is stored as a UTC timestamp.
+  const completedAt = row.completed_at
+  if (typeof completedAt !== 'string') return false
+  return completedAt >= `${date}T00:00:00.000Z` && completedAt < `${date}T23:59:59.999Z`
 }
 
 /** Extra context the timeline needs but the raw row can't supply on its own. */
@@ -1295,3 +1435,22 @@ export function validateDailyPlacementAgainstSummary(
     },
   })
 }
+
+/**
+ * The pieces a device adapter composes a day from.
+ *
+ * The named exports above are the interface; this object exists so a browser
+ * module can reach them through the same default-export shape `task-contracts.ts`
+ * and `settings-schema.ts` already use, which is what survives the CommonJS
+ * boundary between this package and the frontend's test runner.
+ */
+const DaySummaryCore = {
+  buildDaySummaryCore,
+  composeDayTaskRows,
+  isCarryForwardRow,
+  itemRowToClient,
+  sortTasksForTimeline,
+}
+
+export default DaySummaryCore
+export { sortTasksForTimeline }

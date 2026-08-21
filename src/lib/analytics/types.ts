@@ -41,6 +41,12 @@ export type AnalyticsEvents = {
     persona: 'maya' | 'noam' | 'lina' | 'amir'
     entry_source?: string
   }
+  /**
+   * Someone opened the app without an account. The counterpart to `signed_up`:
+   * together they are the only measure of whether removing the account wall is
+   * what actually gets a day into the product.
+   */
+  guest_started: void
   demo_progressed: {
     persona: 'maya' | 'noam' | 'lina' | 'amir'
     step_id: string

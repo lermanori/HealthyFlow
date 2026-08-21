@@ -1,58 +1,34 @@
 import { z } from 'zod'
 import { db } from './supabase-client'
 import { parseHabitInstanceId } from './utils/parseHabitInstanceId'
+import {
+  deriveHabitOutcome,
+  HabitInstanceSchema,
+  HabitOutcomeInputSchema,
+  HabitOutcomeSchema,
+  HabitProgressDetailSchema,
+  HabitProgressEntrySchema,
+  HabitProgressInputSchema,
+  HabitProgressUpdateSchema,
+  HabitTargetUnitSchema,
+  resolveHabitOutcomeRequest,
+  type HabitOutcome,
+} from './habit-contracts'
 
-export const HabitOutcomeSchema = z.enum(['pending', 'partial', 'completed', 'failed'])
-export const HabitTargetUnitSchema = z.enum(['minutes', 'reps', 'count'])
-export const HabitProgressInputSchema = z.object({
-  amount: z.number().positive().max(100000),
-  note: z.string().trim().max(120).nullable().optional(),
-  date: z.string().date().optional(),
-})
-export const HabitOutcomeInputSchema = z.object({
-  outcome: z.enum(['pending', 'completed', 'failed']),
-  date: z.string().date().optional(),
-})
-export const HabitProgressUpdateSchema = z.object({
-  amount: z.number().positive().max(100000).optional(),
-  note: z.string().trim().max(120).nullable().optional(),
-}).refine(value => value.amount !== undefined || value.note !== undefined, 'No progress changes supplied')
-
-export const HabitProgressEntrySchema = z.object({
-  id: z.string(),
-  amount: z.number().positive(),
-  note: z.string().nullable(),
-  createdAt: z.string(),
-  updatedAt: z.string(),
-})
-
-export const HabitInstanceSchema = z.object({
-  id: z.string(),
-  title: z.string(),
-  type: z.literal('habit'),
-  category: z.string().nullable(),
-  startTime: z.string().nullable(),
-  duration: z.number().nullable(),
-  repeat: z.enum(['daily', 'weekly']).nullable(),
-  completed: z.boolean(),
-  scheduledDate: z.string().nullable(),
-  createdAt: z.string(),
-  originalHabitId: z.string().nullable(),
-  isHabitInstance: z.literal(true),
-  position: z.number().int().nullable(),
-  habitInfo: z.object({
-    target: z.object({ value: z.number().positive(), unit: HabitTargetUnitSchema }).nullable(),
-    outcome: HabitOutcomeSchema,
-    progressTotal: z.number().nonnegative(),
-  }),
-})
-
-export const HabitProgressDetailSchema = z.object({
-  habit: HabitInstanceSchema,
-  entries: z.array(HabitProgressEntrySchema),
-})
-
-export type HabitOutcome = z.infer<typeof HabitOutcomeSchema>
+// The schemas and the outcome rules live in `habit-contracts.ts` so a device can
+// run them without a database. Re-exported here because every existing caller
+// imports them from this module.
+export {
+  HabitInstanceSchema,
+  HabitOutcomeInputSchema,
+  HabitOutcomeSchema,
+  HabitProgressDetailSchema,
+  HabitProgressEntrySchema,
+  HabitProgressInputSchema,
+  HabitProgressUpdateSchema,
+  HabitTargetUnitSchema,
+}
+export type { HabitOutcome }
 
 const numberOrNull = (value: unknown) => value == null ? null : Number(value)
 
@@ -112,8 +88,7 @@ async function detail(instance: any) {
 async function deriveFromProgress(instance: any) {
   const rows = await db.getHabitProgressEntries(instance.id)
   const total = rows.reduce((sum: number, row: any) => sum + Number(row.amount), 0)
-  const target = numberOrNull(instance.habit_target_value)
-  const outcome: HabitOutcome = target != null && total >= target ? 'completed' : total > 0 ? 'partial' : 'pending'
+  const outcome = deriveHabitOutcome(total, numberOrNull(instance.habit_target_value))
   const updated = await db.updateTask(instance.id, {
     habit_outcome: outcome,
     completed: outcome === 'completed',
@@ -163,19 +138,23 @@ export const HabitProgress = {
     const instance = await resolveInstance(userId, reference, input.date)
     const rows = await db.getHabitProgressEntries(instance.id)
     const total = rows.reduce((sum: number, row: any) => sum + Number(row.amount), 0)
-    const target = numberOrNull(instance.habit_target_value)
+    const decision = resolveHabitOutcomeRequest({
+      requested: input.outcome,
+      total,
+      target: numberOrNull(instance.habit_target_value),
+    })
 
-    if (input.outcome === 'completed' && target != null && total < target) {
+    if (decision.kind === 'top_up') {
       await db.createHabitProgressEntry({
-        habit_instance_id: instance.id, user_id: userId, amount: target - total, note: 'Completed remaining target',
+        habit_instance_id: instance.id, user_id: userId, amount: decision.amount, note: decision.note,
       })
       return deriveFromProgress(instance)
     }
-    if (input.outcome === 'failed' && target != null && total >= target) {
-      throw Object.assign(new Error('Completed progress must be corrected before marking Not done'), { status: 409 })
+    if (decision.kind === 'refuse') {
+      throw Object.assign(new Error(decision.reason), { status: 409 })
     }
 
-    const outcome: HabitOutcome = input.outcome === 'pending' && total > 0 ? 'partial' : input.outcome
+    const outcome = decision.outcome
     const updated = await db.updateTask(instance.id, {
       habit_outcome: outcome,
       completed: outcome === 'completed',
