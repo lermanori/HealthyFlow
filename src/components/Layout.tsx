@@ -13,7 +13,8 @@ import {
   Microscope,
   HeartPulse,
   Briefcase,
-  UserPlus
+  UserPlus,
+  LogIn
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -290,6 +291,17 @@ export default function Layout({ children }: LayoutProps) {
                   </Link>
                 )}
 
+                {isGuest && (
+                  <Link
+                    to="/sign-in"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center space-x-2 w-full text-ink-muted hover:text-ink-soft transition-colors p-3 rounded-lg hover:bg-card/50"
+                  >
+                    <LogIn className="w-5 h-5" />
+                    <span className="font-medium">Sign in</span>
+                  </Link>
+                )}
+
                 {canExitSession && (
                   <button
                     onClick={handleSessionExit}
@@ -373,6 +385,16 @@ export default function Layout({ children }: LayoutProps) {
                   >
                     <UserPlus className="w-4 h-4" />
                     <span className="text-sm">Create an account</span>
+                  </Link>
+                )}
+
+                {isGuest && (
+                  <Link
+                    to="/sign-in"
+                    className="flex items-center space-x-2 text-ink-muted hover:text-ink-soft transition-colors p-2 rounded-lg hover:bg-card/50"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span className="text-sm">Sign in</span>
                   </Link>
                 )}
 

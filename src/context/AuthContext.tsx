@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { authService } from '../services/api'
+import { accountService, authService } from '../services/api'
 import { analytics } from '../lib/analytics'
 import {
   clearSessionToken,
@@ -20,7 +20,14 @@ import {
   syncNativePushToken,
 } from '../lib/push'
 import { clearTodayWidget } from '../lib/widget'
-import { clearLocalDay, localDayExists, resetLocalStore } from '../lib/local/store'
+import {
+  clearLocalDay,
+  loadLocalDatabase,
+  localDayExists,
+  replaceLocalDay,
+  resetLocalStore,
+} from '../lib/local/store'
+import { adoptAccountDay, countLocalDay, localDayFromExport, type AdoptionChoice } from '../lib/local/adopt'
 import {
   forgetLocalDayOwner,
   holdsLocalDay,
@@ -34,6 +41,19 @@ type User = SessionUser
 
 type AuthProvider = 'google' | 'apple'
 
+/** What signing in would do, worked out before anything is written. */
+export type SignInPreview = {
+  session: { user: User; token: string }
+  accountDay: Awaited<ReturnType<typeof localDayFromExport>>
+  onDevice: ReturnType<typeof countLocalDay> | null
+  fromAccount: ReturnType<typeof countLocalDay>
+  deviceDay: Awaited<ReturnType<typeof loadLocalDatabase>> | null
+}
+
+/** The analytics enum is narrower than the session's; anything else is a password. */
+const method_ = (authMethod: string): 'password' | 'google' | 'apple' =>
+  authMethod === 'google' || authMethod === 'apple' ? authMethod : 'password'
+
 interface AuthContextType {
   user: User | null
   loading: boolean
@@ -45,6 +65,11 @@ interface AuthContextType {
     displayName?: string,
   ) => Promise<void>
   startGuestSession: () => Promise<void>
+  previewSignIn: (
+    method: 'password' | AuthProvider,
+    credentials: { email?: string; password?: string; accessToken?: string },
+  ) => Promise<SignInPreview>
+  completeSignIn: (preview: SignInPreview, choice: AdoptionChoice) => Promise<void>
   claimAccount: (
     method: 'password' | AuthProvider,
     credentials: { email?: string; password?: string; name?: string; accessToken?: string },
@@ -311,6 +336,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     toast.success('Account created. Your day stayed right where it was.')
   }
 
+  /**
+   * Sign in to an account that already exists, from a Guest session.
+   *
+   * Two identities meet here, and so do two days. This runs in two halves on
+   * purpose: `previewSignIn` authenticates and reads the account's day *without
+   * writing anything*, so the person can be shown real numbers before choosing;
+   * `completeSignIn` is the only step that touches their device.
+   *
+   * Splitting it is what makes the choice honest. A single call would have to
+   * decide before asking.
+   */
+  const previewSignIn = async (
+    method: 'password' | AuthProvider,
+    credentials: { email?: string; password?: string; accessToken?: string },
+  ) => {
+    const session = method === 'password'
+      ? await authService.login(credentials.email!, credentials.password!)
+      : await authService.providerSession(method, credentials.accessToken!)
+
+    // Read with the new token explicitly rather than storing it first: nothing is
+    // committed until the person has chosen.
+    const archive = await accountService.exportArchive(session.token)
+    const accountDay = localDayFromExport(session.user.id, archive)
+    const deviceDay = user ? await loadLocalDatabase(user.id) : null
+
+    return {
+      session,
+      accountDay,
+      onDevice: deviceDay ? countLocalDay(deviceDay) : null,
+      fromAccount: countLocalDay(accountDay),
+      deviceDay,
+    }
+  }
+
+  const completeSignIn = async (
+    preview: Awaited<ReturnType<typeof previewSignIn>>,
+    choice: AdoptionChoice,
+  ) => {
+    const { session, accountDay, deviceDay } = preview
+    const adopted = deviceDay ? adoptAccountDay(deviceDay, accountDay, choice) : accountDay
+
+    // The day lands first. If this throws, the session is untouched and the Guest
+    // is still themselves, with their day where it was.
+    await replaceLocalDay(adopted)
+
+    queryClient.clear()
+    clearDemoState()
+    sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
+    setHasDemoReturnSession(false)
+    writeSessionToken(session.token)
+    rememberLocalDayOwner(session.user.id)
+    identifyUser(session.user)
+    analytics.capture('logged_in', { is_demo: false, method: method_(session.user.authMethod) })
+    adoptUser(session.user)
+    toast.success('Signed in. Your day is on this iPhone.')
+  }
+
   const startDemoSession = async (persona: DemoPersonaId) => {
     try {
       const acquisition = readDemoAcquisition()
@@ -423,6 +505,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loginWithProvider,
       startGuestSession,
       claimAccount,
+      previewSignIn,
+      completeSignIn,
       startDemoSession,
       leaveDemoSession,
       signup,

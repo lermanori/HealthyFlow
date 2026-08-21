@@ -16,6 +16,7 @@ import WorkoutsPage from './pages/WorkoutsPage'
 import AssistantPage from './pages/AssistantPage'
 import ClaimAccountPage from './pages/ClaimAccountPage'
 import LoginPage from './pages/LoginPage'
+import SignInPage from './pages/SignInPage'
 import DemoPage from './pages/DemoPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsOfServicePage from './pages/TermsOfServicePage'
@@ -138,6 +139,7 @@ function App() {
           <Route path="/talk" element={<AssistantPage />} />
           <Route path="/assistant" element={<AssistantRedirect />} />
           <Route path="/claim" element={<ClaimAccountPage />} />
+          <Route path="/sign-in" element={<SignInPage />} />
           <Route path="/settings/*" element={<SettingsPage />} />
           <Route path="/token-manager" element={user.role === 'admin' ? <TokenManagerPage /> : <Navigate to="/" replace />} />
           <Route path="/meal-ocr-lab" element={user.role === 'admin' ? <MealParserLabPage /> : <Navigate to="/" replace />} />
