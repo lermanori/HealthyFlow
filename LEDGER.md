@@ -1,3 +1,25 @@
+### 2026-08-21 17:15 — `feat/guest-mode`
+
+Claim is built. A Guest can become an account holder by email, Google or Apple
+from **Create an account** in the menu — the slot Logout occupies for everyone
+else, and which was empty for a Guest because a Guest cannot log out. The server
+side is one guarded `UPDATE` on the row the caller already holds, with
+`.is('email', null)` making "you must still be a Guest" atomic rather than
+check-then-act. It takes no signup slot, grants no credits and seeds no
+onboarding, and all three are asserted rather than assumed, because every
+account-creating path did them before ADR-0012.
+
+Planning caught something the spec had asserted without checking: the local day
+was keyed on `isGuestSession`, which is `email === null`, so the instant Claim set
+an email the day would have flipped to the server and looked erased. The device
+now records which account it holds a day for; Claim never touches it, because
+Claim never changes the `userId`. Verified: both typechecks, 749 backend tests,
+126 frontend tests, production build, and the menu and screen confirmed on a
+simulator. Nobody has submitted the form — it writes a real account to the live
+database.
+
+---
+
 ### 2026-08-21 17:10 — `feat/guest-mode`
 
 Designed Claim — a Guest becoming an account holder — and specced it at

@@ -96,12 +96,17 @@ waitlist.
 
 The work splits into three pieces, in this order:
 
-1. **Claim by signup.** `POST /auth/claim` — one guarded `UPDATE`, no slot, no
-   credits. Entry point in the menu's account block, where Logout sits for
-   everyone else. Designed and specced; next step is an implementation plan.
-   **This is the sharpest gap in what shipped:** a Guest cannot become an account
-   holder, so they cannot buy credits, so the paid product is unreachable from the
-   free one.
+1. ~~**Claim by signup.**~~ **Built 2026-08-21.** `POST /auth/claim` and
+   `/auth/claim/:provider` — one guarded `UPDATE`, no slot, no credits, by email,
+   Google or Apple. Entry point is **Create an account** in the menu's account
+   block, where Logout sits for everyone else. 12 endpoint tests; the menu and the
+   screen were confirmed on a simulator.
+   Spec: `docs/history/specs/2026-08-21-claim-by-signup-design.md`.
+   Plan: `docs/history/plans/2026-08-21-claim-by-signup-plan.md`.
+   **Nobody has submitted the form** — it writes a real account to the live
+   Supabase. When someone does, the thing to watch is that **the day is still
+   there afterwards**: that is what `holdsLocalDay` exists to guarantee, and it is
+   the one part no test can see.
 2. **Health on the device.** The Local day learns calorie entries, weight, workout
    sessions and achievements; four more services get `onDevice` branches. Closes
    the contradiction ADR-0011 records and `TARGET.md` names. Not designed.
@@ -168,6 +173,10 @@ the wrong thing:
   that the pure-core split is done.
 
 ## Verified end to end, 2026-08-21
+
+**Claim is built but not yet exercised end to end.** The endpoint has 12 tests,
+and the menu entry and the account screen were confirmed on a simulator — but
+submitting the form creates a real account in the live database, so nobody has.
 
 **Guest mode works.** On an iPhone 16 Pro simulator, against this branch's backend
 with the guest migration applied: *Start without an account* creates the session,
