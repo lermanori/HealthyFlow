@@ -138,6 +138,21 @@ measurable — `credits_exhausted`, followed by whether `item_created` with
 `source: manual` keeps happening. **Make sure it stays measurable**, because it
 is the trigger for a pricing change.
 
+## Where it runs, and in what order
+
+**Now: iPhone.** The immediate goal is an App Store listing with a working app.
+Not feature completeness, not the web, not every axis at full strength — a real
+listing people can install from. Everything else queues behind it.
+
+**Then: the web reaches guest parity.** The same free, local, no-account
+experience the iPhone app gives. Someone should be able to start on either
+surface without being asked for anything.
+
+**Cross-device is the paid product.** A Guest is single-device by nature — their
+day lives on the device it was created on, because that is where the data is. The
+same day appearing on the phone *and* the web is what signing up and subscribing
+buys. Backup falls out of it; cross-device is the thing being sold.
+
 ## Money
 
 **The app is free, works offline, and needs no account.** That is not a trial —
@@ -167,7 +182,7 @@ Two things are sold:
 | | Type | What it buys |
 |---|---|---|
 | **AI credits** | Consumable | Effortless input. 50 credits = $1 |
-| **Cloud** | Subscription | Backup first, multi-device later |
+| **Cloud** | Subscription | **Your day on every device.** Backup falls out of it |
 
 First N devices receive $1 of credits on first open, so the hook can be felt
 before anything is asked for. N is a cost-control dial, not a scarcity device.
@@ -176,9 +191,9 @@ without a network.
 
 ## What we refuse
 
-A refusal is the strongest statement in this document. Two of them are not true
-of the build yet, so they are dated rather than quietly softened — softening a
-rule to survive a release is how the rule dies.
+A refusal is the strongest statement in this document. Two are not true of the
+build *today*, so they are dated rather than quietly softened — softening a rule
+to survive a release is how the rule dies.
 
 **In force today**
 
@@ -187,17 +202,19 @@ rule to survive a release is how the rule dies.
 - **No second vocabulary.** If a feature needs its own set of nouns, it is a
   different product.
 
-**True at v1**
+**True at v1** — both close in the release that reaches the App Store
 
 - **Never require an account to be useful.** Signing up buys more, never entry.
-  Guest mode is what closes this, and it ships in v1.
+  Guest mode closes this.
+- **Never require a network** except for AI and calendar. Local storage is the
+  base layer for everyone, so the day is readable and writable with no
+  connection. Cloud replicates on top of it; it is not the source.
 
-**Knowingly broken at v1**
-
-- **Never require a network** except for AI and calendar. v1 requires one for
-  everything: no network means no day, no items, no capacity. This is a recorded
-  decision, not an oversight — Path A ships the account-required online app to
-  reach the App Store, and **closing this refusal is the entirety of v1.1.**
+The second one is not a nice-to-have that can slip. Free users' data is never
+hosted — for cost, and because if it were, the cloud subscription would have
+nothing to sell. **So local storage is a prerequisite for guest mode, and guest
+mode is a prerequisite for the listing.** That makes local storage the first
+thing built, not the last.
 
 ## How to use this document
 
