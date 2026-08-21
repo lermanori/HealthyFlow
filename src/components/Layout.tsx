@@ -12,7 +12,8 @@ import {
   MessageCircle,
   Microscope,
   HeartPulse,
-  Briefcase
+  Briefcase,
+  UserPlus
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -278,6 +279,17 @@ export default function Layout({ children }: LayoutProps) {
                   </div>
                 </div>
                 
+                {isGuest && (
+                  <Link
+                    to="/claim"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center space-x-2 w-full text-ink-muted hover:text-ink-soft transition-colors p-3 rounded-lg hover:bg-card/50"
+                  >
+                    <UserPlus className="w-5 h-5" />
+                    <span className="font-medium">Create an account</span>
+                  </Link>
+                )}
+
                 {canExitSession && (
                   <button
                     onClick={handleSessionExit}
@@ -354,6 +366,16 @@ export default function Layout({ children }: LayoutProps) {
                   <span className="text-sm text-ink-soft">Welcome back,</span>
                   <p className="text-sm font-medium text-ink">{user?.name}</p>
                 </div>
+                {isGuest && (
+                  <Link
+                    to="/claim"
+                    className="flex items-center space-x-2 text-ink-muted hover:text-ink-soft transition-colors p-2 rounded-lg hover:bg-card/50"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span className="text-sm">Create an account</span>
+                  </Link>
+                )}
+
                 {canExitSession && (
                   <button
                     onClick={handleSessionExit}
