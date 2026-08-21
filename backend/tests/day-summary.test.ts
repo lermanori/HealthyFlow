@@ -6,6 +6,7 @@ import {
   unionIntervals,
   validateDailyPlacement,
 } from '../src/day-summary'
+import { buildDaySummaryCore } from '../src/day-summary-core'
 import {
   DaySummaryCalendarEvent,
   DaySummaryItem,
@@ -267,6 +268,25 @@ describe('Daily Plan placement validation', () => {
     getWorkoutSessions: jest.fn().mockResolvedValue([]),
     getAchievements: jest.fn().mockResolvedValue([]),
     listDayFocusBlocks: jest.fn().mockResolvedValue([]),
+  })
+
+  it('rejects invalid placement input before reading any day source', async () => {
+    const planDependencies = dependencies([])
+
+    await expect(validateDailyPlacement(
+      'user-1',
+      {
+        date: '2026-07-27',
+        timeZone: 'UTC',
+        startTime: 'not-a-time',
+        durationMinutes: 60,
+        transitionMinutes: 0,
+      } as never,
+      { dependencies: planDependencies },
+    )).rejects.toThrow()
+
+    expect(planDependencies.itemsForDay).not.toHaveBeenCalled()
+    expect(planDependencies.getSettings).not.toHaveBeenCalled()
   })
 
   it('rejects a placement that overlaps an Item and its transition buffer', async () => {
@@ -755,6 +775,49 @@ describe('DaySummary composition', () => {
     getWorkoutSessions: jest.fn().mockResolvedValue([]),
     listDayFocusBlocks: jest.fn().mockResolvedValue([]),
     ...overrides,
+  })
+
+  it('composes through the browser-safe nine-source interface without server defaults', async () => {
+    const dependencies = {
+      itemsForDay: jest.fn().mockResolvedValue([]),
+      getSettings: jest.fn().mockResolvedValue({
+        weekStartsOn: 1,
+        calorieIntake: true,
+        workoutTracker: true,
+        achievementTracker: true,
+        planningWindow,
+      }),
+      getCalendarStatus: jest.fn().mockResolvedValue({ connected: false }),
+      getCalendarEvents: jest.fn().mockResolvedValue([]),
+      getCalorieEntries: jest.fn().mockResolvedValue([]),
+      getWeightEntry: jest.fn().mockResolvedValue(null),
+      getWorkoutSessions: jest.fn().mockResolvedValue([]),
+      getAchievements: jest.fn().mockResolvedValue([]),
+      listDayFocusBlocks: jest.fn().mockResolvedValue([]),
+    }
+
+    const summary = await buildDaySummaryCore('device-user', '2026-07-27', 'UTC', {
+      now: new Date('2026-07-27T10:00:00.000Z'),
+      dependencies,
+    })
+
+    expect(DaySummarySchema.safeParse(summary).success).toBe(true)
+    expect(summary).toMatchObject({
+      date: '2026-07-27',
+      timeZone: 'UTC',
+      items: [],
+      calendar: { status: 'not_connected', reasonCode: 'not_connected', events: [] },
+    })
+    expect(dependencies.itemsForDay).toHaveBeenCalledTimes(7)
+    expect(dependencies.getCalendarEvents).not.toHaveBeenCalled()
+    expect(dependencies.getCalorieEntries).toHaveBeenCalledWith('device-user', '2026-07-27')
+    expect(dependencies.getWeightEntry).toHaveBeenCalledWith('device-user', '2026-07-27')
+    expect(dependencies.getWorkoutSessions).toHaveBeenCalledWith('device-user', '2026-07-27')
+    expect(dependencies.getAchievements).toHaveBeenCalledWith('device-user', {
+      includeArchived: false,
+      entryLimit: 60,
+    })
+    expect(dependencies.listDayFocusBlocks).toHaveBeenCalledWith('device-user', '2026-07-27')
   })
 
   it('counts a failed binary Habit as addressed without counting it as completed', async () => {

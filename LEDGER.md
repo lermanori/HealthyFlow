@@ -1,3 +1,9 @@
+### 2026-08-21 09:19 — `feat/guest-mode`
+
+Extracted the browser-safe day composition core behind the existing nine-source dependency seam, leaving `day-summary.ts` as the Supabase-backed adapter while preserving its public interface and validation order. Direct core coverage and the Vite/Chromium startup guard now prove that device code can import the shared assembly without pulling server-only modules; both typechecks, 737 backend tests, 93 frontend tests, and the production build are green. This completes the behavior-preserving extraction; the device-local store and its adapter remain the next step.
+
+---
+
 ### 2026-08-20 16:53 — `feat/guest-mode`
 
 Added `POST /auth/guest`: a Guest is a `users` row with no email, holding identity and a credit balance and nothing else. It grants signup credits through the existing path, skips the signup access gate and public slots because a Guest is not a signup, keeps its own signup-shaped rate limit so guest starts and real signups cannot lock each other out, and refuses to create anything in E2E test mode. Scope was cut mid-session once free users' day data was ruled off the server: the Claim path and the signed-out entry into the app were removed rather than shipped, and onboarding seeding was dropped from the guest path because it writes user settings, which are day data.

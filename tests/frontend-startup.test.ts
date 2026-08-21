@@ -41,6 +41,13 @@ test('the app starts in a Vite development browser without server-only module er
       await page.locator('#root').evaluate((root) => root.childElementCount > 0),
       'React did not render into #root',
     )
+    const dayCoreExports = await page.evaluate(async (modulePath) => (
+      Object.keys(await import(modulePath))
+    ), '/backend/src/day-summary-core.ts')
+    assert.ok(
+      dayCoreExports.includes('buildDaySummaryCore'),
+      'the browser-safe day core did not load through Vite',
+    )
   } finally {
     await browser?.close()
     await server.close()
