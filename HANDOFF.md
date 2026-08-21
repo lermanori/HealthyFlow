@@ -133,23 +133,39 @@ and are not". Do not let it stay unanswered by accident a second time.
   superseded on three more counts: the store, the settings baseline, and the fact
   that the pure-core split is done.
 
-## Not verified, and how to verify it
+## What was and was not verified on a device
 
-**The iOS build has not been run.** `@capacitor/filesystem@8.1.3` was installed and
-`npx cap sync ios` wired it into `Package.swift` and `Package.resolved`
-successfully, which is the same mechanical path the ten existing plugins took —
-but no Xcode build and no simulator run happened in this session. Before trusting
-guest mode on a device:
+**Verified.** The iOS app **builds** with `@capacitor/filesystem@8.1.3`
+(`xcodebuild -scheme App -destination 'generic/platform=iOS Simulator'`,
+BUILD SUCCEEDED), **launches** on an iPhone 16 Pro simulator, and the login
+screen shows **Start without an account** with the ADR-0010 disclosure beneath it.
+
+**Not verified, and it needs a running backend.** Tapping that button calls
+`POST /auth/guest`, and the bundle built from the repo `.env` points at
+**production** (`healthyflow-production.up.railway.app`). Tapping it in a test
+would create a real Guest row in the live database, so nobody tapped it. What is
+still unproven:
+
+- the guest session round trip end to end;
+- **the Capacitor Filesystem driver on a real device.** The Local day has 27 unit
+  tests, but they all run through the in-memory driver — nothing in the five
+  verification commands touches the plugin, because they all run in Node and
+  Chromium.
+
+To close both, point `VITE_API_URL` at a local backend, then:
 
 ```sh
 npm run ios:run
 ```
 
-Then, on the simulator: tap *Start without an account*, add a timed Task, add a
-daily Habit, log progress against it, kill the app, reopen it, and confirm the day
-is still there. Nothing in the automated suite can prove the Filesystem plugin
-round-trips on a real device, because all five verification commands run in Node
-and Chromium.
+On the simulator: tap *Start without an account*, add a timed Task, add a daily
+Habit, log progress against it, kill the app, reopen it, and confirm the day is
+still there.
+
+**One sequencing trap.** `ios/App/App/public` holds a *copy* of `dist`, so an app
+built after a stale `cap copy` renders a blank screen with no error. `npm run
+build:ios` orders it correctly (`build` then `cap sync ios`); running `xcodebuild`
+straight after editing web code does not.
 
 ## Open questions nobody has answered
 

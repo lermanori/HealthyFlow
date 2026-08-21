@@ -1130,13 +1130,21 @@ export const calendarService = {
     return response.data
   },
 
-  syncTimedTasks: async (date: string): Promise<{ synced: number }> => {
-    const response = await api.post('/calendar/google/sync-timed-tasks', {
-      date,
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    })
-    return response.data
-  },
+  // A Guest has connected no Google Calendar — the day itself reports
+  // `not_connected` for exactly this reason — so there is genuinely nothing to
+  // sync. Zero is the true answer here, not a stand-in for one: Today runs this
+  // whenever a timed Task is added, and a round trip to a Calendar that cannot
+  // exist would be a network call on a device that may have no network.
+  syncTimedTasks: onDevice(
+    async (_userId: string, _date: string): Promise<{ synced: number }> => ({ synced: 0 }),
+    async (date: string): Promise<{ synced: number }> => {
+      const response = await api.post('/calendar/google/sync-timed-tasks', {
+        date,
+        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      })
+      return response.data
+    },
+  ),
 }
 
 // Fire credits_exhausted once per app session, not on every summary fetch.

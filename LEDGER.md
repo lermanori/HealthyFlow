@@ -1,3 +1,16 @@
+### 2026-08-21 14:35 — `feat/guest-mode`
+
+Verified guest mode on an actual simulator rather than only in Node: the iOS app
+builds with the Filesystem plugin, launches, and shows *Start without an account*
+with its disclosure. Tapping it was deliberately not done — the bundle points at
+the production backend, so a test tap would have created a real Guest row. Two
+fixes came out of the review pass: both sides now identify a virtual Habit
+instance through the same `parseHabitInstanceId` rather than a looser local
+regex, and a Guest no longer round-trips to Google Calendar every time they add a
+timed Task, since they have connected no Calendar and zero is the true answer.
+
+---
+
 ### 2026-08-21 14:15 — `feat/guest-mode`
 
 Guest mode works on iPhone. Someone installs the app, taps *Start without an

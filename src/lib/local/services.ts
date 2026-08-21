@@ -4,6 +4,7 @@ import type {
 } from '../../../backend/src/day-summary-schema'
 import type { ReminderItem } from '../../../backend/src/task-contracts'
 import type { Settings } from '../../../backend/src/settings-schema'
+import DaySummaryCore from '../../../backend/src/day-summary-core'
 import {
   addLocalHabitProgress,
   buildLocalDaySummary,
@@ -208,7 +209,7 @@ export const localServices = {
   getHabitProgress: async (userId: string, id: string, date?: string) => {
     // Reading progress must not materialize anything, so an untouched Habit day
     // reports the empty record its virtual instance stands for.
-    const day = /-(\d{4}-\d{2}-\d{2})$/.exec(id)?.[1] ?? date
+    const day = DaySummaryCore.parseHabitInstanceId(id)?.date ?? date
     if (!day) throw new LocalStoreError('Reading a Habit needs the day it belongs to.')
     const items = await localItemsForDay(userId, day)
     const item = items.find((candidate) => candidate.id === id || candidate.originalHabitId === id)

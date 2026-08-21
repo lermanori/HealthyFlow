@@ -1449,8 +1449,9 @@ const DaySummaryCore = {
   composeDayTaskRows,
   isCarryForwardRow,
   itemRowToClient,
+  parseHabitInstanceId,
   sortTasksForTimeline,
 }
 
 export default DaySummaryCore
-export { sortTasksForTimeline }
+export { parseHabitInstanceId, sortTasksForTimeline }

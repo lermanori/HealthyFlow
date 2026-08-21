@@ -24,6 +24,7 @@ const {
   composeDayTaskRows,
   isCarryForwardRow,
   itemRowToClient,
+  parseHabitInstanceId,
   sortTasksForTimeline,
 } = DaySummaryCore
 
@@ -331,11 +332,11 @@ function isPureDrag(overrides: Partial<LocalTaskRow>): boolean {
 
 /** The three identities a Habit interaction can name, resolved to one shape. */
 function habitIdentity(database: LocalDatabase, id: string) {
-  const virtual = /^(.*)-(\d{4}-\d{2}-\d{2})$/.exec(id)
-  const row = liveRows(database).find((candidate) => candidate.id === (virtual?.[1] ?? id))
+  const virtual = parseHabitInstanceId(id)
+  const row = liveRows(database).find((candidate) => candidate.id === (virtual?.originalHabitId ?? id))
   if (!row || row.type !== 'habit') return null
 
-  if (virtual) return { templateId: row.id, instance: null as LocalTaskRow | null, date: virtual[2] }
+  if (virtual) return { templateId: row.id, instance: null as LocalTaskRow | null, date: virtual.date }
   if (row.original_habit_id) {
     return { templateId: row.original_habit_id, instance: row, date: row.scheduled_date }
   }
@@ -438,9 +439,9 @@ export function deleteLocalTask(
   return mutateLocalDatabase(userId, (database) => {
     const timestamp = nowIso()
     const target = liveRows(database).find((row) => row.id === id)
-    const virtual = target ? null : /^(.*)-(\d{4}-\d{2}-\d{2})$/.exec(id)
+    const virtual = target ? null : parseHabitInstanceId(id)
     const templateId = scope === 'habit'
-      ? (target?.original_habit_id ?? target?.id ?? virtual?.[1] ?? null)
+      ? (target?.original_habit_id ?? target?.id ?? virtual?.originalHabitId ?? null)
       : null
 
     if (scope === 'habit' && templateId) {
@@ -556,9 +557,9 @@ function resolveHabitInstance(
   reference: string,
   date?: string,
 ): { next: LocalDatabase; row: LocalTaskRow } {
-  const virtual = /^(.*)-(\d{4}-\d{2}-\d{2})$/.exec(reference)
-  const templateId = virtual?.[1] ?? reference
-  const instanceDate = virtual?.[2] ?? date
+  const virtual = parseHabitInstanceId(reference)
+  const templateId = virtual?.originalHabitId ?? reference
+  const instanceDate = virtual?.date ?? date
 
   const row = liveRows(database).find((candidate) => candidate.id === templateId)
     ?? liveRows(database).find((candidate) => candidate.id === reference)
