@@ -43,6 +43,31 @@ function GoogleIcon() {
   )
 }
 
+/**
+ * Why starting without an account failed, according to what actually came back.
+ *
+ * Never a guess. "Check your connection" is only true when there was no response
+ * at all; a 404 means this build is pointed at a server that has no guest
+ * endpoint, which is a deploy problem and says nothing about the network.
+ */
+function guestStartMessage(error: unknown) {
+  const response = (error as {
+    response?: { status?: number; data?: { error?: unknown } }
+  })?.response
+  if (!response) {
+    return 'Could not reach HealthyFlow to start you off. Check your connection and try again.'
+  }
+  if (response.status === 404) {
+    return 'This build is pointed at a server that cannot start a guest session yet.'
+  }
+  if (response.status === 429) {
+    return 'Too many attempts from here. Wait a few minutes and try again.'
+  }
+  const message = response.data?.error
+  if (typeof message === 'string' && message) return message
+  return `Could not start without an account (server said ${response.status ?? 'nothing'}).`
+}
+
 function providerExchangeMessage(provider: 'Google' | 'Apple', error: unknown) {
   if (error instanceof GoogleOAuthCallbackError || error instanceof AppleSignInError) {
     return error.message
@@ -262,8 +287,8 @@ export default function LoginPage() {
     setGuestLoading(true)
     try {
       await startGuestSession()
-    } catch {
-      setError('Could not start without an account. Check your connection and try again.')
+    } catch (guestError) {
+      setError(guestStartMessage(guestError))
     } finally {
       setGuestLoading(false)
     }

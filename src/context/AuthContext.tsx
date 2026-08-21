@@ -270,9 +270,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       identifyUser(userData)
       analytics.capture('guest_started')
       adoptUser(userData)
-    } catch (error: any) {
-      const msg = error?.response?.data?.error || 'Could not start without an account'
-      toast.error(msg)
+    } catch (error) {
+      // Rethrown unhandled: the entry point owns the message, because only it can
+      // say what actually failed. A toast here would be a second, vaguer copy of
+      // the same failure.
       throw error
     }
   }

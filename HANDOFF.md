@@ -140,11 +140,12 @@ and are not". Do not let it stay unanswered by accident a second time.
 BUILD SUCCEEDED), **launches** on an iPhone 16 Pro simulator, and the login
 screen shows **Start without an account** with the ADR-0010 disclosure beneath it.
 
-**Not verified, and it needs a running backend.** Tapping that button calls
-`POST /auth/guest`, and the bundle built from the repo `.env` points at
-**production** (`healthyflow-production.up.railway.app`). Tapping it in a test
-would create a real Guest row in the live database, so nobody tapped it. What is
-still unproven:
+**Tapping it fails today, and the reason is not the code.** `POST /auth/guest`
+exists only on this branch; production runs `main` and has no such route. The
+bundle built from the repo `.env` points at production, so the button 404s. The
+screen now says so in those terms rather than blaming the network.
+
+**So this needs a backend running this branch.** What is still unproven:
 
 - the guest session round trip end to end;
 - **the Capacitor Filesystem driver on a real device.** The Local day has 27 unit
@@ -152,7 +153,16 @@ still unproven:
   verification commands touches the plugin, because they all run in Node and
   Chromium.
 
-To close both, point `VITE_API_URL` at a local backend, then:
+To close both, run this branch's backend and point the app at it. The backend
+needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` in the root `.env` — it
+refuses to start without them — and `VITE_API_URL` must be the *last* of its
+duplicates in `.env`, because that is the one Vite bakes in:
+
+```sh
+npm run server
+```
+
+Then, in a second terminal:
 
 ```sh
 npm run ios:run

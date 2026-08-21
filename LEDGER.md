@@ -1,3 +1,17 @@
+### 2026-08-21 15:05 — `feat/guest-mode`
+
+Tapping *Start without an account* on the simulator failed, and the screen blamed
+the network. Both halves were wrong. The real cause is that `POST /auth/guest`
+lives only on this branch while production runs `main`, so the app 404s — nothing
+to do with connectivity, and nothing wrong with the guest code. The message was
+mine: it caught the error, threw it away, and printed a guessed diagnosis, which
+is the silent fallback `CLAUDE.md` forbids. It now reports what actually came
+back, and a duplicate toast from `AuthContext` is gone so one failure produces one
+message. Confirmed on the simulator: the screen now reads "This build is pointed
+at a server that cannot start a guest session yet."
+
+---
+
 ### 2026-08-21 14:35 — `feat/guest-mode`
 
 Verified guest mode on an actual simulator rather than only in Node: the iOS app
