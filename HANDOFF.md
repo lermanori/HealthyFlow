@@ -7,12 +7,15 @@ expiry, not documentation.
 ## Read these first, in this order
 
 1. **`TARGET.md`** — what the product is for, the razor, how money works.
-2. **`CONTEXT.md`** — the words. **Local day** is new today, and the **Claim**
-   entry has been corrected: with a device-held day, Claim no longer "moves
-   nothing".
+2. **`CONTEXT.md`** — the words. **Local day** is new today, and **Claim** vs
+   **Sign in** is a new collision: both take a Guest to an account and they are
+   opposites.
 3. **`CLAUDE.md`** — rules that override normal practice, the commit workflow,
    verification commands.
-4. **`docs/architecture/the-day-on-two-sides.md`** — new today. How the same day
+4. **ADR-0012** — entry is open, scarcity belongs to the paid tier. Reverses a
+   recorded consequence of ADR-0010 and rewrites what the waitlist is for. Read it
+   before touching auth, pricing or the waitlist.
+5. **`docs/architecture/the-day-on-two-sides.md`** — new today. How the same day
    is composed from Supabase and from a file on the device without two
    implementations of what a day is. Read it before touching anything under
    `src/lib/local/` or `backend/src/day-summary-core.ts`.
@@ -83,28 +86,57 @@ and are not". Do not let it stay unanswered by accident a second time.
 
 ## The order of what is left
 
-1. **Claim.** A Guest cannot become an account holder. The identity half is easy —
-   the same `users` row gains an email and a password, so credits keep their key —
-   but the Local day has to be uploaded, and that is the half that can fail.
-   Nothing exists yet.
-2. **The guest credit grant.** Still does not exist, so **a Guest starts with zero
-   credits and the free experience has no AI** — the hook the product is meant to
-   open with. Needs the "first N devices get $1" dial from `TARGET.md`, with N in
-   a database row rather than a constant, because it is a cost-control dial to be
-   raised without a deploy. `Credits.grantSignupCredits` must **not** be reused:
-   it awards 250 credits and consumes a founding seat.
-3. **Health on the device**, or the `TARGET.md` change. See above.
-4. **The Keychain.** The token still lives in `localStorage`, which is deleted with
-   the app. `src/lib/session.ts` holds a swappable synchronous token store built
-   for exactly this swap: a Keychain read is async, so hydrate it once at start-up
-   into a store that answers from memory and writes through. No plugin is
-   installed — this session did not add one it could not build-verify.
-5. **StoreKit.** Independent of everything above. The Paid Apps Agreement is
-   paperwork with a real-world clock and gates all revenue.
-6. **The web.** The entry point is iPhone-only. iOS Safari evicts script-writable
-   storage after ~7 days without interaction, so a web Guest could lose their only
-   copy inside a week. The web build needs either an account or an explicit
-   warning before it offers guest mode.
+Claim was designed on 2026-08-21 and the design is approved:
+`docs/history/specs/2026-08-21-claim-by-signup-design.md`. Designing it settled
+four product decisions, recorded in **ADR-0012** — entry is open, the waitlist
+quota moves to Cloud as a founders' discount, credits and Cloud are separate
+products, and local is the source for everyone. Three of those reverse something
+previously written down. Read the ADR before touching auth, pricing or the
+waitlist.
+
+The work splits into three pieces, in this order:
+
+1. **Claim by signup.** `POST /auth/claim` — one guarded `UPDATE`, no slot, no
+   credits. Entry point in the menu's account block, where Logout sits for
+   everyone else. Designed and specced; next step is an implementation plan.
+   **This is the sharpest gap in what shipped:** a Guest cannot become an account
+   holder, so they cannot buy credits, so the paid product is unreachable from the
+   free one.
+2. **Health on the device.** The Local day learns calorie entries, weight, workout
+   sessions and achievements; four more services get `onDevice` branches. Closes
+   the contradiction ADR-0011 records and `TARGET.md` names. Not designed.
+3. **Sign in to an existing account.** Authenticate, pull the account's day down
+   via the existing `buildAccountExport`, offer Keep both or Discard in real
+   numbers, rewrite `user_id`, switch identity, forfeit the guest row's credits.
+   **Depends on piece 2** — until Health is local, the download has nowhere to put
+   it. Not designed; its decisions are recorded in the Claim spec so they are not
+   re-litigated.
+
+Independent of all three:
+
+- **The $1 credit grant.** Deliberately unplaced. Until it lands, anyone who
+  claims has **zero credits** — the whole day, no AI. Where it goes is a growth
+  lever and wants evidence rather than a default.
+- **The Keychain.** The token still lives in `localStorage`, which is deleted with
+  the app. `src/lib/session.ts` holds a swappable synchronous token store built for
+  exactly this swap: a Keychain read is async, so hydrate once at start-up into a
+  store that answers from memory and writes through. No plugin installed.
+- **StoreKit.** The Paid Apps Agreement is paperwork with a real-world clock and
+  gates all revenue.
+- **The web.** The guest entry point is iPhone-only. iOS Safari evicts
+  script-writable storage after ~7 days without interaction, so a web Guest could
+  lose their only copy inside a week. The web build needs either an account or an
+  explicit warning before it offers guest mode.
+
+**Code that now contradicts ADR-0012.** None of it is broken, but all of it says
+the wrong thing:
+
+- `POST /auth/signup` and the provider paths still call `Waitlist.authorizeSignup`
+  and write `claimed_public_signup_slot`.
+- The login page's "N spots left" copy describes account scarcity that no longer
+  exists. It belongs wherever Cloud is sold.
+- `claim_signup_credit_grant` ties "founding" to credits. Founding is now a Cloud
+  price.
 
 ## Gotchas that cost time today
 
@@ -200,12 +232,16 @@ started against a local backend writes a real row to production.
 
 ## Open questions nobody has answered
 
-- **Existing account holders** have server-side data today. Under the new model
-  server storage *is* the paid tier. Grandfathered into cloud, or does their data
-  become their Local day?
-- **Does the App Store date still come first?** Guest mode now works, which was
-  the largest piece of engineering in front of the listing. What is left before a
-  listing is honest is the Health question above and the credit grant.
+- ~~**Existing account holders** and their server-side data.~~ **Answered
+  2026-08-21 (ADR-0012):** local is the source for everyone, so an existing
+  account's hosted day comes *down* to the device the first time they sign in on
+  one. Nothing is grandfathered because there stop being two classes of storage.
+  What happens to the hosted copy afterwards is still open — leaving it
+  contradicts "free users' data is never hosted", deleting it is irreversible.
+- **Does the App Store date still come first?** Guest mode works. What stands
+  between here and a listing that is honest about itself: Health on the device
+  (piece 2), and a way to pay (piece 1). Claim is the smaller of the two and
+  unblocks revenue.
 - **Nobody owns the analytics gaps.** `guest_started` was added today as the
   counterpart to `signed_up`, so the funnel out of guest mode is measurable. Still
   nothing for Capacity, attention or the daily plan, and `ai_parse_requested` still

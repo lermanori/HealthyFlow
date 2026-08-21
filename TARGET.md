@@ -148,10 +148,12 @@ listing people can install from. Everything else queues behind it.
 experience the iPhone app gives. Someone should be able to start on either
 surface without being asked for anything.
 
-**Cross-device is the paid product.** A Guest is single-device by nature — their
+**Cross-device is the paid product.** Everyone is single-device by nature — the
 day lives on the device it was created on, because that is where the data is. The
-same day appearing on the phone *and* the web is what signing up and subscribing
-buys. Backup falls out of it; cross-device is the thing being sold.
+same day appearing on the phone *and* the web is what **subscribing** buys;
+signing up on its own buys a recoverable identity and the ability to spend money,
+not a second device. Backup falls out of the subscription; cross-device is the
+thing being sold.
 
 ## Money
 
@@ -177,23 +179,36 @@ instead of continuing manually. That is the signal that free is a demo rather
 than a product, and the answer would be a small recurring free allowance so the
 hook never fully dies.
 
-Two things are sold:
+Two things are sold, and they are **separate products** with separate economics
+(ADR-0012):
 
-| | Type | What it buys |
-|---|---|---|
-| **AI credits** | Consumable | Effortless input. 50 credits = $1 |
-| **Cloud** | Subscription | **Your day on every device.** Backup falls out of it |
+| | Type | What it buys | Capped? |
+|---|---|---|---|
+| **AI credits** | Consumable | Effortless input. 50 credits = $1 | No. Anyone may buy any amount |
+| **Cloud** | Subscription | **Your day on every device.** Backup falls out of it | The founders' discount is |
 
-First N devices receive $1 of credits on first open, so the hook can be felt
-before anything is asked for. N is a cost-control dial, not a scarcity device.
-The grant is attempted on first open and **never blocks it** — the app opens
-without a network.
+**Entry is open.** Creating an account takes no seat and meets no waitlist —
+neither for someone arriving cold, nor for a Guest who has been using the app and
+now wants to pay. Guest mode removed the wall at the front door; putting one at the
+till would be worse, because it is aimed at the person who already decided.
+
+**Scarcity attaches to what is sold.** The founders' discount on Cloud is capped,
+and that cap is the cost-control dial. "Founding" is a *price*, not a credit
+cohort — a distinction that did not exist before and that the code still needs to
+learn.
+
+**A grant of $1 of credits, so the hook can be felt before anything is asked for,
+is intended but not placed.** First open, signup, or somewhere else entirely — it
+is a growth lever and wants evidence rather than a default. Wherever it lands it
+must **never block** the app opening, which happens without a network. **Until it
+lands, someone who creates an account has zero credits:** the whole day, and no
+AI.
 
 ## What we refuse
 
-A refusal is the strongest statement in this document. Two are not true of the
-build *today*, so they are dated rather than quietly softened — softening a rule
-to survive a release is how the rule dies.
+A refusal is the strongest statement in this document. Where one is not yet true
+of the build, it is **dated and its gap named** rather than quietly softened —
+softening a rule to survive a release is how the rule dies.
 
 **In force today**
 
@@ -202,19 +217,31 @@ to survive a release is how the rule dies.
 - **No second vocabulary.** If a feature needs its own set of nouns, it is a
   different product.
 
-**True at v1** — both close in the release that reaches the App Store
+**In force on iPhone since 2026-08-21**
 
 - **Never require an account to be useful.** Signing up buys more, never entry.
-  Guest mode closes this.
+  Guest mode closes this — on iPhone. The web still asks for an account, and
+  reaches parity later.
+
+**Still not true** — closes before the listing claims otherwise
+
 - **Never require a network** except for AI and calendar. Local storage is the
   base layer for everyone, so the day is readable and writable with no
   connection. Cloud replicates on top of it; it is not the source.
 
-The second one is not a nice-to-have that can slip. Free users' data is never
-hosted — for cost, and because if it were, the cloud subscription would have
-nothing to sell. **So local storage is a prerequisite for guest mode, and guest
-mode is a prerequisite for the listing.** That makes local storage the first
-thing built, not the last.
+Half of that is built: a Guest's Items, Habits and settings live on their device
+(ADR-0011). Two gaps remain, and both are known.
+
+**Health is not on the device.** Nutrition, Weight, Training and Progress report
+`disabled` for a Guest, which contradicts this document's own claim that no part of
+the day is withheld, and that food, weight and training are core rather than
+optional. It closes by teaching the device those four record types — not by
+softening the claim.
+
+**An account holder's day is still hosted.** Local is meant to be the source for
+*everyone*, with Cloud replicating on top (ADR-0012); today the device only holds a
+Guest's day. Free users' data is never hosted — for cost, and because if it were,
+the Cloud subscription would have nothing to sell.
 
 ## How to use this document
 

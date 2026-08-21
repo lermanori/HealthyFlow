@@ -25,6 +25,7 @@ These pairs look interchangeable and are not. Every one has caused a real mix-up
 | **Work session** / **Focus block** | The *Focus block* is the plan; the *Work session* is the durable record of what happened. Only a completed review produces a session — elapsed time never does. |
 | **Achievement** / **Progress** | The same thing. The API, table and route say *Achievement*; the label users see says *Progress*. Do not "fix" either to match the other. |
 | **Talk workflow** / **Talk stage** / **capability** | Three different things. `plan_work` is a workflow, `draft_task` is a stage inside it, `add_work_task` is a reusable capability any workflow may invoke. See ADR-0009. |
+| **Claim** / **Sign in** | Both take a Guest to an account, and they are opposites. *Claim* converts the Guest's **own** row — one identity, nothing moves, nothing can be lost. *Sign in* abandons that row for an account that **already exists** — two identities, the day travels, and the guest row's credits are forfeit. Never say "sign up" for either. |
 | **User setting** / **release flag** | A *setting* is the user's choice and hides a section for that account. A *flag* is the project's choice and hides a surface from everyone. Work has no setting and is behind a flag. |
 
 ## Words that do not mean what they look like
@@ -68,13 +69,20 @@ the server: Items, Habits, Habit progress and settings, in one document
 to fall back to, which is why a read that fails can never be reported as an empty
 day. _Avoid_: "offline copy", "local cache", "draft".
 
-**Claim** — the moment a Guest becomes an account holder. The **identity** changes
-in place: the same `users` row gains an email and a password, so credits and
-history keep their key. The **Local day** does not — it is on the device and has
-to be uploaded, which is the part that can fail and the part that needs a plan.
-Saying Claim "moves nothing" was true for half an hour under an architecture that
-no longer exists. _Avoid_: "migrate" and "import" for the identity half, which
-really does stay put.
+**Claim** — the moment a Guest becomes an account holder **on their own row**. It
+happens in place: the same `users` row gains an email and a password, the `userId`
+never changes, and the **Local day** is still keyed correctly the instant the write
+commits. **Nothing moves and nothing can be lost** — that is the property the
+design exists to preserve, and any change that breaks it is a different design.
+Entry is open: Claim takes no signup slot and meets no waitlist (ADR-0012).
+_Avoid_: "migrate", "import", "transfer", "upload" — every one implies moving data
+that does not move.
+
+**Sign in** (from a Guest) — abandoning a guest identity for an account that
+already exists. Not Claim, and not the reverse of it. Two rows are involved, the
+account's day travels **down** to the device, the Guest chooses whether to keep
+their device day or discard it, and **the guest row's credit balance is forfeit**,
+said plainly before they do it.
 
 **Guest** — someone using the app with no account. Their day is real and their
 own; nothing expires and nothing is withheld. Their **Local day** lives on one
@@ -112,8 +120,10 @@ guest mode does not run out.
   reports them `disabled` rather than empty. This contradicts `TARGET.md`, which
   calls food, weight and training core rather than optional; the contradiction is
   recorded in ADR-0011 and is not resolved.
-- **Claim** — a Guest cannot yet become an account holder. The endpoint, the
-  upload and the credit carry-over do not exist.
+- **Claim** and **Sign in** — a Guest cannot yet become an account holder by
+  either route. Claim is designed and approved
+  (`docs/history/specs/2026-08-21-claim-by-signup-design.md`) and not implemented;
+  Sign in needs Health on the device first and is not designed.
 
 ## Closed sets
 

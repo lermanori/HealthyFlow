@@ -1,3 +1,28 @@
+### 2026-08-21 17:10 — `feat/guest-mode`
+
+Designed Claim — a Guest becoming an account holder — and specced it at
+`docs/history/specs/2026-08-21-claim-by-signup-design.md`. The design itself is
+small: one guarded `UPDATE` on the row the Guest already holds, so the `userId`
+never changes and the Local day is still keyed correctly the instant it commits.
+Nothing moves, which means no failure can leave a day half-moved.
+
+Designing it settled four product decisions, three of which reverse something
+already written down, now recorded in **ADR-0012**: local is the source for
+everyone rather than only for Guests; entry is open, so Claim takes no signup slot
+and meets no waitlist; the waitlist quota moves to Cloud as a founders' discount;
+and credits and Cloud are separate products, so "founding" stops being a credit
+cohort. Claim grants no credits — where the $1 goes is a growth lever that should
+not be settled by accident, and until it lands anyone who claims has the whole day
+and no AI.
+
+`TARGET.md`, `CONTEXT.md` and `HANDOFF.md` are updated to match. `CONTEXT.md`
+gains a **Claim / Sign in** collision, because both take a Guest to an account and
+they are opposites. The work ahead is three pieces: Claim, then Health on the
+device, then Sign in — which cannot start until Health is local, since the
+download has nowhere to put it.
+
+---
+
 ### 2026-08-21 16:05 — `feat/guest-mode`
 
 Guest mode is verified end to end. On a simulator, against this branch's backend
