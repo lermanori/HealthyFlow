@@ -1,3 +1,22 @@
+### 2026-08-23 17:05 — `feat/guest-mode`
+
+The owner tried the real sequence — start as a Guest, sign in to an existing
+account, close, reopen — and could not sign in again, with the wrong day showing.
+The cause was a call site, not a rule. `rememberSessionUser` was written in exactly
+one place, inside `applyVerifiedSession`, so it ran on verify and nowhere else.
+Signing in changed the token, the day and the day's owner, and left the *previous*
+identity cached. Reopening with the server unreachable then trusted that cache and
+came back as the old Guest, holding a day owned by the new account — and every
+attempt to sign in hit the same owner mismatch, which is why it refused.
+
+Fixed in the funnel rather than at the sites: `adoptUser` now records the identity
+it takes on and forgets it when there is none, so no path can miss it. The boot
+path also stops preferring the cache: the document names its own owner and is the
+thing about to be read, so it decides who the app opens as, and a cached identity
+is only the fallback. A test walks the exact sequence.
+
+---
+
 ### 2026-08-23 16:30 — `feat/guest-mode`
 
 The owner's rule, and it is better than the fix it replaced: **a day on the device

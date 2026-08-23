@@ -9,6 +9,7 @@ import {
   isGuestSession,
   readRememberedSessionUser,
   readSessionToken,
+  rememberSessionUser,
   writeSessionToken,
   type SessionUser,
 } from '../lib/session'
@@ -150,7 +151,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!owner) return false
 
     const remembered = readRememberedSessionUser()
-    identifyUserSafely(remembered?.id === owner ? remembered : {
+    establishSession(remembered?.id === owner ? remembered : {
       id: owner,
       email: null,
       name: 'Guest',
@@ -160,12 +161,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return true
   }
 
-  const identifyUserSafely = (userData: User) => {
+  /**
+   * Take on an identity, and record it.
+   *
+   * Every path that establishes a session goes through here, because the one path
+   * that did not is exactly what broke. `applyVerifiedSession` recorded the
+   * identity on verify and nothing else did — so signing in from a guest session
+   * left the *previous* identity cached. Reopen the app with the server
+   * unreachable after that, and it came back as whoever you used to be, holding a
+   * day that belonged to whoever you now are, and refusing to let you sign in
+   * because the two did not match.
+   */
+  const establishSession = (userData: User) => {
     identifyUser(userData)
     adoptUser(userData)
   }
 
   const adoptUser = (userData: User | null) => {
+    // Recorded here rather than at each call site, because a call site is exactly
+    // what got missed: only `applyVerifiedSession` remembered the identity, so
+    // signing in from a guest session left the previous one cached, and reopening
+    // offline came back as whoever you used to be. Every path funnels through
+    // `adoptUser`, so putting it here makes forgetting impossible.
+    if (userData) rememberSessionUser(userData)
+    else forgetSessionUser()
     setLocalDayUser(holdsLocalDay(userData) ? userData!.id : null)
     setCurrentUser(userData)
   }
@@ -190,21 +209,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
             setHasDemoReturnSession(false)
           }
-          identifyUser(userData)
-          adoptUser(userData)
+          establishSession(userData)
         })
         .catch(async (error) => {
-          // The app must open without a network (TARGET.md), and for a Guest the
-          // stakes are absolute: their day is on this device, and their session is
-          // the only key to it (ADR-0010). Clearing it because a server could not
-          // be reached strands the day permanently — starting again mints a new
-          // identity, and the document belongs to the old one.
-          //
-          // So only an answer ends a session. No answer changes nothing.
+          // Only an answer ends a session. A server that could not be reached
+          // changes nothing — the day is on this device and does not need it
+          // (TARGET.md), and for a Guest the session is the only key to their row
+          // (ADR-0010), so discarding it over a network blip strands the day.
+          if (endedTheSession(error)) {
+            // The server answered and refused. That token is dead, so stop
+            // sending it — but the day here is untouched by that.
+            clearSessionToken()
+            forgetSessionUser()
+          }
+
+          // The document names its own owner, and it is the thing we are about to
+          // read, so it decides who we open as — ahead of any cached identity,
+          // which can be one session out of date.
+          if (await adoptLocalDayOwner().catch(() => false)) {
+            toast('Your day is on this iPhone. Sign in or create an account to use AI.')
+            return
+          }
+
           const remembered = readRememberedSessionUser()
           if (!endedTheSession(error) && token && remembered) {
-            identifyUser(remembered)
-            adoptUser(remembered)
+            establishSession(remembered)
             return
           }
 
@@ -212,13 +241,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           forgetSessionUser()
           // The session is gone, but the day is not. Opening it beats a login
           // screen whose only action would destroy it.
-          // Awaited, not fired and forgotten: `finally` clears the loading flag,
-          // and clearing it before the day is adopted flashes the login screen —
-          // the one screen a Guest with a day here must never be shown.
-          const opened = await adoptLocalDayOwner().catch(() => false)
-          if (opened) {
-            toast('Your day is on this iPhone. Sign in or create an account to use AI.')
-          }
           void clearTodayWidget().catch((error) => {
             console.error('[widget] could not clear signed-out Today widget:', error)
           })
