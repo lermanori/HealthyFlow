@@ -151,6 +151,31 @@ the wrong thing:
 - `claim_signup_credit_grant` ties "founding" to credits. Founding is now a Cloud
   price.
 
+## Corrections to what is already written down
+
+**ADR-0011 is wrong about where the day is stored.** It says `Directory.Data` is
+`Library/NoCloud` on iOS and therefore excluded from iCloud backup. It is not: on
+iOS Capacitor maps `Directory.Data` to **`Documents`**, which *is* backed up.
+Verified on 2026-08-23 — the document sits at
+`<container>/Documents/healthyflow-day.json`.
+
+The decision (a JSON document through `@capacitor/filesystem`) stands and works.
+What is false is the reasoning attached to it, and that reasoning was load-bearing:
+the point of excluding it from backup was that cross-device is what Cloud sells, so
+a free day should not travel to a new phone by itself. Today it would, through an
+iCloud restore.
+
+Two ways to settle it, and it is a product call, not a cleanup:
+
+- **Accept it.** A device backup is migration, not sync — it does not put the same
+  day on two phones at once. Then ADR-0011's reasoning needs an erratum.
+- **Move to `Directory.LibraryNoCloud`**, which is what the ADR describes. **This
+  cannot be a one-line change**: every existing document would be stranded exactly
+  the way one just was, so it needs a read-old-write-new migration first.
+
+ADRs are immutable in this project, so the correction is recorded here rather than
+edited into ADR-0011.
+
 ## Gotchas that cost time today
 
 - **The backend package is CommonJS; the frontend is ESM.** Named *value* imports
@@ -169,6 +194,12 @@ the wrong thing:
   parallel workers. It passed on every clean run today; if you see it fail alone,
   re-run before investigating.
 - **`.env` lives at the repo root, not `backend/`.**
+- **A Guest opening the app offline used to be signed out**, which stranded their
+  day permanently: starting again mints a new identity, and the document belongs to
+  the old one. Fixed 2026-08-23 — only a server that *answers* ends a session. If
+  you touch the verify path, keep that distinction.
+- **A test that freezes the date will pass on the day it is written and fail
+  later** if the code under it stamps the real clock. One did.
 - **Signup fails closed.** If the signup-status call errors or public slots are
   exhausted, the Create-account tab does not render. **Verify the live
   `public_slots_open` value before submitting to App Review** — a reviewer hitting
