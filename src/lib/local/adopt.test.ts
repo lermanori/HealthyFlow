@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { adoptAccountDay, countLocalDay, localDayFromExport } from './adopt'
-import { emptyLocalDatabase, type LocalDatabase } from './store'
+import { emptyLocalDatabase, LocalDatabaseSchema, LocalStoreError, replaceLocalDay, memoryDriver, setLocalStoreDriver, type LocalDatabase } from './store'
 
 const ACCOUNT = 'account-1'
 const GUEST = 'guest-1'
@@ -159,5 +159,80 @@ describe('what the person is asked to weigh', () => {
     )
 
     assert.deepEqual(countLocalDay(device), { items: 1, habits: 1, meals: 1, workouts: 0 })
+  })
+})
+
+describe('a day downloaded from a real account', () => {
+  // Taken from an actual phone. Signing in pulled 110 real task rows down, wrote
+  // them, and made the document unreadable — because `updated_at` was required
+  // and the server's `tasks` table has no such column. The write reported
+  // success and destroyed access to the day.
+  const serverTaskRow = {
+    id: 'server-1',
+    user_id: 'account-1',
+    title: 'A row as the server actually stores it',
+    type: 'task',
+    category: 'work',
+    start_time: null,
+    duration: null,
+    repeat_type: 'none',
+    completed: false,
+    completed_at: null,
+    created_at: '2026-08-20T09:00:00.000Z',
+    scheduled_date: '2026-08-23',
+    overdue_notified: false,
+    original_habit_id: null,
+    rolled_over_from_task_id: null,
+    original_created_at: null,
+    google_event_id: null,
+    synced_to_google: false,
+    google_sync_status: 'pending',
+    position: null,
+    deleted_at: null,
+    location: null,
+    habit_target_value: null,
+    habit_target_unit: null,
+    habit_outcome: null,
+    project_id: null,
+    target_relation: null,
+    deferred_at: null,
+    workout_plan_id: null,
+    // and deliberately no updated_at
+  }
+
+  it('reads a server row that has no updated_at', () => {
+    const day = localDayFromExport('account-1', {
+      items: [serverTaskRow], habitProgress: [], settings: [],
+    })
+
+    assert.equal(day.tasks.length, 1)
+    // Filled from when the row is last known to have changed, not invented.
+    assert.equal(day.tasks[0].updated_at, '2026-08-20T09:00:00.000Z')
+    assert.equal(LocalDatabaseSchema.safeParse(day).success, true)
+  })
+
+  it('refuses to save a day it could not read back', async () => {
+    setLocalStoreDriver(memoryDriver(null))
+    const broken = {
+      ...emptyLocalDatabase('account-1'),
+      tasks: [{ id: 'x' }],
+    } as unknown as LocalDatabase
+
+    // The failure that must never be silent: writing succeeds, reading never
+    // will, and the day is gone while the app says it saved.
+    await assert.rejects(() => replaceLocalDay(broken), LocalStoreError)
+  })
+
+  it('saves a day it can read back', async () => {
+    const driver = memoryDriver(null)
+    setLocalStoreDriver(driver)
+    const day = localDayFromExport('account-1', {
+      items: [serverTaskRow], habitProgress: [], settings: [],
+    })
+
+    await replaceLocalDay(day)
+
+    assert.ok(driver.contents)
+    assert.equal(LocalDatabaseSchema.safeParse(JSON.parse(driver.contents!)).success, true)
   })
 })

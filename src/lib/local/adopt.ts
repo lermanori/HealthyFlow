@@ -32,6 +32,11 @@ type Rows = Record<string, unknown>[]
 const rows = (value: unknown): Rows => (Array.isArray(value) ? (value as Rows) : [])
 const numberOrNull = (value: unknown) => (value == null ? null : Number(value))
 
+const sinceCreated = (row: Rows[number]) => ({
+  ...row,
+  updated_at: row.updated_at ?? row.created_at,
+})
+
 /** Group child rows by the parent id they point at. */
 function groupBy(children: Rows, key: string): Record<string, Rows> {
   return children.reduce<Record<string, Rows>>((grouped, child) => {
@@ -102,8 +107,11 @@ export function localDayFromExport(userId: string, exported: Record<string, unkn
 
   return {
     ...emptyLocalDatabase(userId),
-    tasks: rows(exported.items) as LocalDatabase['tasks'],
-    habitProgress: rows(exported.habitProgress) as LocalDatabase['habitProgress'],
+    // `updated_at` is device bookkeeping and the server's tables have no such
+    // column, so it is filled from the last time the row is known to have
+    // changed rather than left absent or invented.
+    tasks: rows(exported.items).map(sinceCreated) as LocalDatabase['tasks'],
+    habitProgress: rows(exported.habitProgress).map(sinceCreated) as LocalDatabase['habitProgress'],
     // The export carries one settings row per account; the device stores the
     // patch, so the row's own bookkeeping columns are left behind.
     settings: settingsFromExport(rows(exported.settings)[0]),

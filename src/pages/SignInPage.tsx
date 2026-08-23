@@ -6,10 +6,15 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import { beginNativeGoogleSignIn } from '../services/googleAuth'
 import { beginAppleSignIn } from '../services/appleAuth'
 import { isNativeIOS } from '../lib/native'
+import { LocalStoreError } from '../lib/local/store'
 import type { AdoptionChoice } from '../lib/local/adopt'
 
 /** Why signing in failed, according to what came back. Never a guess. */
 function signInMessage(error: unknown) {
+  // A failure with no HTTP response is not automatically the network: reading or
+  // writing this device's own day can fail too, and saying "check your
+  // connection" about that sends someone to fix the wrong thing.
+  if (error instanceof LocalStoreError) return error.message
   const response = (error as { response?: { status?: number; data?: { error?: unknown } } })?.response
   if (!response) return 'Could not reach HealthyFlow. Check your connection and try again.'
   if (response.status === 401) return 'That email and password do not match an account.'

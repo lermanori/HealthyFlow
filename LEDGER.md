@@ -1,3 +1,26 @@
+### 2026-08-23 17:15 — `feat/guest-mode`
+
+Signing in on a real iPhone downloaded the account's day — 110 Items, 48 Calorie
+entries, 4 Workout sessions — wrote it, reported success, and made the document
+permanently unreadable. `LocalTaskRowSchema` required `updated_at`, which is
+device bookkeeping the server's `tasks` table does not have, so 106 of 110 rows
+failed the schema on the way back in. The day was never lost; it simply could not
+be read.
+
+Three fixes, and the middle one is the real one. `updated_at` is optional, and the
+export fills it from `created_at` rather than inventing a time. **`replaceLocalDay`
+now validates before writing** — a write that succeeds and can never be read back
+destroys access to a day while reporting that it saved one, which is the worst
+failure available and exactly what happened. And the sign-in and claim screens no
+longer report a local failure as "check your connection": an error without an HTTP
+response is not automatically the network, and saying so sent the owner to fix the
+wrong thing twice.
+
+The owner's real document is the regression test's source: it now loads, and the
+day builds with exact Capacity.
+
+---
+
 ### 2026-08-23 17:05 — `feat/guest-mode`
 
 The owner tried the real sequence — start as a Guest, sign in to an existing

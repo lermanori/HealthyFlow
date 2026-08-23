@@ -65,7 +65,10 @@ export const LocalTaskRowSchema = z.looseObject({
   original_created_at: nullableString,
   deleted_at: nullableString,
   created_at: z.string(),
-  updated_at: z.string(),
+  // Optional because the server's `tasks` table has no such column: it is device
+  // bookkeeping, kept so records are born sync-ready. Requiring it meant 110 real
+  // rows downloaded from an account could be written and never read back.
+  updated_at: z.string().optional(),
 })
 export type LocalTaskRow = z.infer<typeof LocalTaskRowSchema>
 
@@ -76,7 +79,7 @@ export const LocalHabitProgressRowSchema = z.looseObject({
   amount: z.number().positive(),
   note: nullableString,
   created_at: z.string(),
-  updated_at: z.string(),
+  updated_at: z.string().optional(),
 })
 export type LocalHabitProgressRow = z.infer<typeof LocalHabitProgressRowSchema>
 
@@ -330,8 +333,20 @@ function upgraded(parsed: unknown): unknown {
  * day was overwritten without being asked. Signing in *is* the asking.
  */
 export async function replaceLocalDay(database: LocalDatabase): Promise<void> {
-  await driver.write(JSON.stringify(database))
-  loaded = database
+  // Validated before it is written, and this is the write that most needs it: it
+  // is the only one carrying records this device did not create. A document that
+  // is written successfully and cannot be read back is the worst failure
+  // available — it destroys access to a day while reporting that it saved one.
+  // That is exactly what signing in did.
+  const checked = LocalDatabaseSchema.safeParse(database)
+  if (!checked.success) {
+    throw new LocalStoreError(
+      'That day could not be saved to this iPhone in a shape it can read back.',
+      { cause: checked.error, reason: 'unknown_version' },
+    )
+  }
+  await driver.write(JSON.stringify(checked.data))
+  loaded = checked.data
 }
 
 /**
