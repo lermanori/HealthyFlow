@@ -20,7 +20,7 @@ import {
   isStrandedLocalDay,
   LocalStoreError,
   loadLocalDatabase,
-  localDayExists,
+  readLocalDayOwner,
   memoryDriver,
   setLocalStoreDriver,
 } from './store'
@@ -349,12 +349,35 @@ describe('the stored document', () => {
 
   it('erases the day only when the deletion was asked for by name', async () => {
     await createLocalTask(USER, { title: 'Gone for good', type: 'task', category: 'personal', scheduledDate: TODAY })
-    assert.equal(await localDayExists(), true)
+    assert.equal(await readLocalDayOwner(), USER)
 
     await clearLocalDay()
 
-    assert.equal(await localDayExists(), false)
+    assert.equal(await readLocalDayOwner(), null)
     assert.deepEqual(await localItemsForDay(USER, TODAY), [])
+  })
+
+  // The rule this whole path exists to serve: a day on the device must never send
+  // anyone to the login screen, because the only thing a Guest can do there is
+  // start again — and starting again mints an identity that cannot read the day
+  // sitting under it. The document names its own owner so that never has to happen.
+  it('names its own owner, so a day can be opened with no token and no network', async () => {
+    await createLocalTask(USER, { title: 'Mine', type: 'task', category: 'work', scheduledDate: TODAY })
+
+    // A fresh process with no session at all, exactly as after a failed verify.
+    setLocalStoreDriver(memoryDriver(driver.contents))
+
+    assert.equal(await readLocalDayOwner(), USER)
+    assert.deepEqual((await localItemsForDay(USER, TODAY)).map((item) => item.title), ['Mine'])
+  })
+
+  it('names no owner when there is nothing here, so a stranger is still a stranger', async () => {
+    assert.equal(await readLocalDayOwner(), null)
+  })
+
+  it('names no owner it cannot read, rather than guessing at an identity', async () => {
+    setLocalStoreDriver(memoryDriver('{"userId":'))
+    assert.equal(await readLocalDayOwner(), null)
   })
 
   it('refuses a document belonging to a different session, and says it can be escaped', async () => {

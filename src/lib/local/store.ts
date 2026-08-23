@@ -232,8 +232,27 @@ export function resetLocalStore() {
  * stranded and the app has to say so rather than bounce them to a sign-in screen
  * they have no way to pass (ADR-0010).
  */
-export async function localDayExists(): Promise<boolean> {
-  return (await driver.read()) !== null
+/**
+ * Whose day this device is holding, read from the document itself.
+ *
+ * The one read that does not need to be told the answer first. A session token is
+ * how the *server* knows who someone is; the day is already here, and it says who
+ * it belongs to. That is what lets the app open a Guest's day with no token, no
+ * network, and no login screen — the screen whose only action for a Guest is the
+ * one that strands the day sitting under it.
+ *
+ * Returns null when there is no document, or when there is one this version
+ * cannot read — an unreadable document is not an identity to guess at.
+ */
+export async function readLocalDayOwner(): Promise<string | null> {
+  const contents = await driver.read()
+  if (contents === null) return null
+  try {
+    const parsed = JSON.parse(contents) as { userId?: unknown }
+    return typeof parsed.userId === 'string' && parsed.userId ? parsed.userId : null
+  } catch {
+    return null
+  }
 }
 
 /**

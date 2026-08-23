@@ -26,7 +26,7 @@ import { clearTodayWidget } from '../lib/widget'
 import {
   clearLocalDay,
   loadLocalDatabase,
-  localDayExists,
+  readLocalDayOwner,
   replaceLocalDay,
   resetLocalStore,
 } from '../lib/local/store'
@@ -132,6 +132,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * runs — which is why this sits beside `setUser` rather than in an effect that
    * could land after the first fetch.
    */
+  /**
+   * Open the day this device is holding, whoever the server thinks we are.
+   *
+   * A day on the device must never send anyone to the login screen: the only
+   * thing a Guest can do there is start again, and starting again mints a new
+   * identity that cannot read the day sitting under it. That is how a real day
+   * was lost.
+   *
+   * The document names its own owner, so no token and no network are needed to
+   * know who to open it as. A Guest is by definition an account with no email,
+   * which is the whole identity Today needs. The remembered identity is preferred
+   * when it matches, because it carries the real name.
+   */
+  const adoptLocalDayOwner = async (): Promise<boolean> => {
+    const owner = await readLocalDayOwner().catch(() => null)
+    if (!owner) return false
+
+    const remembered = readRememberedSessionUser()
+    identifyUserSafely(remembered?.id === owner ? remembered : {
+      id: owner,
+      email: null,
+      name: 'Guest',
+      role: 'user',
+      authMethod: 'guest',
+    })
+    return true
+  }
+
+  const identifyUserSafely = (userData: User) => {
+    identifyUser(userData)
+    adoptUser(userData)
+  }
+
   const adoptUser = (userData: User | null) => {
     setLocalDayUser(holdsLocalDay(userData) ? userData!.id : null)
     setCurrentUser(userData)
@@ -160,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           identifyUser(userData)
           adoptUser(userData)
         })
-        .catch((error) => {
+        .catch(async (error) => {
           // The app must open without a network (TARGET.md), and for a Guest the
           // stakes are absolute: their day is on this device, and their session is
           // the only key to it (ADR-0010). Clearing it because a server could not
@@ -177,6 +210,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           clearSessionToken()
           forgetSessionUser()
+          // The session is gone, but the day is not. Opening it beats a login
+          // screen whose only action would destroy it.
+          // Awaited, not fired and forgotten: `finally` clears the loading flag,
+          // and clearing it before the day is adopted flashes the login screen —
+          // the one screen a Guest with a day here must never be shown.
+          const opened = await adoptLocalDayOwner().catch(() => false)
+          if (opened) {
+            toast('Your day is on this iPhone. Sign in or create an account to use AI.')
+          }
           void clearTodayWidget().catch((error) => {
             console.error('[widget] could not clear signed-out Today widget:', error)
           })
@@ -184,27 +226,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
             setHasDemoReturnSession(false)
           }
-          // A day still sitting on this device with no session that can reach it
-          // is a stranded Guest, not a first-time visitor. Bouncing them to a
-          // sign-in screen they cannot pass, with no explanation, is the silent
-          // failure ADR-0010 forbids.
-          void localDayExists().then((stranded) => {
-            if (!stranded) return
-            sessionStorage.setItem(
-              'healthyflow-auth-notice',
-              'This iPhone still holds your day, but the session that opened it is gone. Sign in or create an account to keep going.',
-            )
-          }).catch(() => undefined)
           queryClient.clear()
         })
         .finally(() => {
           setLoading(false)
         })
     } else {
-      void clearTodayWidget().catch((error) => {
-        console.error('[widget] could not clear signed-out Today widget:', error)
-      })
-      setLoading(false)
+      // No token at all — but a day on this device is still someone's day, and it
+      // says whose. Opening it is the difference between a returning Guest and a
+      // stranger.
+      void adoptLocalDayOwner()
+        .catch(() => false)
+        .then((opened) => {
+          if (!opened) {
+            void clearTodayWidget().catch((error) => {
+              console.error('[widget] could not clear signed-out Today widget:', error)
+            })
+          }
+        })
+        .finally(() => setLoading(false))
     }
   }, [queryClient])
 

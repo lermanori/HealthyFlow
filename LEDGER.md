@@ -1,3 +1,24 @@
+### 2026-08-23 16:30 — `feat/guest-mode`
+
+The owner's rule, and it is better than the fix it replaced: **a day on the device
+means never show a login screen.** The earlier fix covered one route into that
+screen — an unreachable server with a cached identity. But the screen itself is
+the trap: the only thing a Guest can do there is start again, and starting again
+mints an identity that cannot read the day sitting under it. Every route in was
+dangerous, not just the one that happened.
+
+So the document now names its own owner. A session token is how the *server* knows
+who someone is; the day is already on the device and says whose it is, which is
+enough to open it with no token, no cached identity and no network. Proved by
+planting a day, wiping the entire web-view storage, and launching: the app opened
+the day, computed Capacity and fired the overdue reminder, with nothing to
+authenticate against.
+
+`localDayExists` is gone, superseded by `readLocalDayOwner` — asking *whether*
+there is a day was never as useful as asking *whose*.
+
+---
+
 ### 2026-08-23 15:40 — `feat/guest-mode`
 
 A Guest on the simulator came back to "Could not load this daily plan" and lost
