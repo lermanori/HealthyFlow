@@ -261,19 +261,26 @@ export async function loadLocalDatabase(userId: string): Promise<LocalDatabase> 
   try {
     parsed = JSON.parse(contents)
   } catch (cause) {
-    throw new LocalStoreError('The day stored on this device could not be read.', { cause })
+    throw new LocalStoreError('The day stored on this device could not be read.', {
+      cause,
+      reason: 'unreadable',
+    })
   }
 
   const result = LocalDatabaseSchema.safeParse(upgraded(parsed))
   if (!result.success) {
     throw new LocalStoreError('The day stored on this device is not in a shape this version understands.', {
       cause: result.error,
+      reason: 'unknown_version',
     })
   }
   if (result.data.userId !== userId) {
     // The document belongs to someone else. Overwriting it would destroy a day
     // that is the only copy of itself, so this stops rather than guesses.
-    throw new LocalStoreError('The day stored on this device belongs to a different session.')
+    throw new LocalStoreError(
+      'The day on this iPhone was saved by a different session, which cannot be reopened.',
+      { reason: 'owner_mismatch' },
+    )
   }
 
   loaded = result.data
@@ -308,13 +315,29 @@ export async function replaceLocalDay(database: LocalDatabase): Promise<void> {
   loaded = database
 }
 
+/**
+ * Why a local read failed, when the caller can do something about it.
+ *
+ * `owner_mismatch` is the one worth naming: the document belongs to a session
+ * this device can no longer produce, so retrying will never work and the person
+ * needs a way out rather than a wall.
+ */
+export type LocalStoreErrorReason = 'unreadable' | 'unknown_version' | 'owner_mismatch' | 'missing'
+
 export class LocalStoreError extends Error {
   readonly cause?: unknown
-  constructor(message: string, options?: { cause?: unknown }) {
+  readonly reason: LocalStoreErrorReason
+  constructor(message: string, options?: { cause?: unknown; reason?: LocalStoreErrorReason }) {
     super(message)
     this.name = 'LocalStoreError'
     this.cause = options?.cause
+    this.reason = options?.reason ?? 'missing'
   }
+}
+
+/** Whether this error is the stranded-day one, which retrying cannot fix. */
+export function isStrandedLocalDay(error: unknown): boolean {
+  return error instanceof LocalStoreError && error.reason === 'owner_mismatch'
 }
 
 /**

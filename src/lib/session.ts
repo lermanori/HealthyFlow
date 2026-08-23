@@ -1,6 +1,6 @@
 import AuthContracts, { type SessionUser } from '../../backend/src/auth-contracts'
 
-const { VerifiedSessionSchema } = AuthContracts
+const { SessionUserSchema, VerifiedSessionSchema } = AuthContracts
 
 export type { SessionUser }
 
@@ -54,6 +54,47 @@ export function clearSessionToken() {
   tokenStore.clear()
 }
 
+/**
+ * The last identity the server confirmed.
+ *
+ * A Guest's day is on this device and the app is supposed to open without a
+ * network (`TARGET.md`). Verifying the session needs one — so when the server
+ * cannot be reached, this is what the app opens as. It is a cache of something
+ * already proved, never a substitute for proving it: a server that answers and
+ * *rejects* still ends the session.
+ */
+const SESSION_USER_KEY = 'healthyflow-session-user-v1'
+
+export function rememberSessionUser(user: SessionUser) {
+  localStorage.setItem(SESSION_USER_KEY, JSON.stringify(user))
+}
+
+export function forgetSessionUser() {
+  localStorage.removeItem(SESSION_USER_KEY)
+}
+
+export function readRememberedSessionUser(): SessionUser | null {
+  const raw = localStorage.getItem(SESSION_USER_KEY)
+  if (!raw) return null
+  try {
+    return SessionUserSchema.parse(JSON.parse(raw))
+  } catch {
+    // Unreadable means it cannot be trusted as an identity, and an identity is
+    // not something to guess at. Treat it as absent.
+    return null
+  }
+}
+
+/**
+ * Whether a failed verify actually ended the session.
+ *
+ * A server that answered and refused is an answer. No response at all is the
+ * network being absent, which for a locally-held day must change nothing.
+ */
+export function endedTheSession(error: unknown): boolean {
+  return Boolean((error as { response?: unknown } | null)?.response)
+}
+
 export type AppliedSession = {
   user: SessionUser
   /** The re-issued token, if the server sent one. Already persisted. */
@@ -72,6 +113,7 @@ export type AppliedSession = {
 export function applyVerifiedSession(raw: unknown): AppliedSession {
   const { token, ...user } = VerifiedSessionSchema.parse(raw)
   if (token) writeSessionToken(token)
+  rememberSessionUser(user)
   return { user, renewedToken: token ?? null }
 }
 

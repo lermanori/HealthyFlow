@@ -4,7 +4,10 @@ import { accountService, authService } from '../services/api'
 import { analytics } from '../lib/analytics'
 import {
   clearSessionToken,
+  endedTheSession,
+  forgetSessionUser,
   isGuestSession,
+  readRememberedSessionUser,
   readSessionToken,
   writeSessionToken,
   type SessionUser,
@@ -157,8 +160,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           identifyUser(userData)
           adoptUser(userData)
         })
-        .catch(() => {
+        .catch((error) => {
+          // The app must open without a network (TARGET.md), and for a Guest the
+          // stakes are absolute: their day is on this device, and their session is
+          // the only key to it (ADR-0010). Clearing it because a server could not
+          // be reached strands the day permanently — starting again mints a new
+          // identity, and the document belongs to the old one.
+          //
+          // So only an answer ends a session. No answer changes nothing.
+          const remembered = readRememberedSessionUser()
+          if (!endedTheSession(error) && token && remembered) {
+            identifyUser(remembered)
+            adoptUser(remembered)
+            return
+          }
+
           clearSessionToken()
+          forgetSessionUser()
           void clearTodayWidget().catch((error) => {
             console.error('[widget] could not clear signed-out Today widget:', error)
           })
@@ -462,6 +480,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('[widget] could not clear Today widget during logout:', error)
     })
     clearSessionToken()
+    forgetSessionUser()
     clearDemoState()
     sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
     setHasDemoReturnSession(false)
@@ -485,6 +504,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
     forgetLocalDayOwner()
     clearSessionToken()
+    forgetSessionUser()
     clearDemoState()
     sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
     setHasDemoReturnSession(false)

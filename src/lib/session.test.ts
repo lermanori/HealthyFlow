@@ -2,11 +2,23 @@ import assert from 'node:assert/strict'
 import { beforeEach, describe, it } from 'node:test'
 import {
   applyVerifiedSession,
+  endedTheSession,
+  forgetSessionUser,
+  readRememberedSessionUser,
   isGuestSession,
   readSessionToken,
   setSessionTokenStore,
   type SessionTokenStore,
 } from './session'
+
+function installStorage() {
+  const values = new Map<string, string>()
+  ;(globalThis as { localStorage?: unknown }).localStorage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => { values.set(key, value) },
+    removeItem: (key: string) => { values.delete(key) },
+  }
+}
 
 function memoryTokenStore(initial: string | null = null): SessionTokenStore & { value: string | null } {
   const store = {
@@ -38,6 +50,7 @@ const ACCOUNT_VERIFY_RESPONSE = {
 let store: ReturnType<typeof memoryTokenStore>
 
 beforeEach(() => {
+  installStorage()
   store = memoryTokenStore('the-token-we-verified-with')
   setSessionTokenStore(store)
 })
@@ -79,5 +92,47 @@ describe('recognising a Guest', () => {
     assert.equal(isGuestSession({ email: 'someone@example.com' }), false)
     assert.equal(isGuestSession(null), false)
     assert.equal(isGuestSession(undefined), false)
+  })
+})
+
+describe('opening without a network', () => {
+  // The bug this exists for cost a real day. A Guest opened the app while the
+  // server was unreachable, `verifyToken` rejected, the session was cleared, and
+  // starting again minted a new identity — so the document on the device belonged
+  // to a session that could never be produced again. The day was stranded by a
+  // failed *network call*, in an app whose whole promise is that it does not need
+  // one.
+  it('tells a refusal apart from an absent network', () => {
+    assert.equal(endedTheSession({ response: { status: 401 } }), true)
+    assert.equal(endedTheSession({ response: { status: 403 } }), true)
+    // axios leaves `response` undefined when nothing answered at all.
+    assert.equal(endedTheSession({ message: 'Network Error' }), false)
+    assert.equal(endedTheSession(new Error('boom')), false)
+    assert.equal(endedTheSession(null), false)
+  })
+
+  it('remembers the identity the server last confirmed', () => {
+    applyVerifiedSession(GUEST_VERIFY_RESPONSE)
+
+    const remembered = readRememberedSessionUser()
+
+    assert.equal(remembered?.id, 'guest-1')
+    assert.equal(remembered?.email, null)
+    assert.equal(remembered?.authMethod, 'guest')
+  })
+
+  it('forgets it when the session really ends', () => {
+    applyVerifiedSession(GUEST_VERIFY_RESPONSE)
+    forgetSessionUser()
+
+    assert.equal(readRememberedSessionUser(), null)
+  })
+
+  it('treats an unreadable cached identity as absent rather than guessing at one', () => {
+    localStorage.setItem('healthyflow-session-user-v1', '{"id":')
+    assert.equal(readRememberedSessionUser(), null)
+
+    localStorage.setItem('healthyflow-session-user-v1', '{"id":"x"}')
+    assert.equal(readRememberedSessionUser(), null)
   })
 })

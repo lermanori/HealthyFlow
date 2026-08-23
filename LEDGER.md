@@ -1,3 +1,25 @@
+### 2026-08-23 15:40 — `feat/guest-mode`
+
+A Guest on the simulator came back to "Could not load this daily plan" and lost
+their day. The cause was mine, in two parts. `AuthContext` cleared the session on
+**any** verify failure, including an unreachable server — so a Guest who opened
+the app offline was signed out, and starting again minted a new identity while the
+document on the device still belonged to the old one. Every read then hit the
+owner guard, which was correct and had no way out: the screen said Retry, and
+retrying could never work.
+
+Both are fixed. Only an *answer* ends a session now — no response at all means the
+app opens as the identity the server last confirmed, which is what "never require
+a network" has to mean when the day is on the device. And a stranded document is
+recognised by name, so the app offers to start fresh with the loss stated instead
+of a wall. Verified by recovering the actual stranded simulator.
+
+A third, smaller thing fell out: the carry-forward test froze its dates while
+`completeLocalTask` stamps the real clock, so it passed on the day it was written
+and failed two days later. It measures the rule now, not the calendar.
+
+---
+
 ### 2026-08-21 17:40 — `feat/guest-mode`
 
 Pieces 2 and 3 are built. **Health is on the device:** the Local day now holds

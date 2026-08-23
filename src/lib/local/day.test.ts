@@ -17,6 +17,7 @@ import {
 import {
   clearLocalDay,
   emptyLocalDatabase,
+  isStrandedLocalDay,
   LocalStoreError,
   loadLocalDatabase,
   localDayExists,
@@ -103,21 +104,34 @@ describe('Items on the device', () => {
   })
 
   it('carries an undated Task forward until it is completed, then keeps it on the day it was', async () => {
+    // Completion stamps the real clock, so this case has to be expressed against
+    // the real clock too. Written with frozen dates it passed on the day it was
+    // written and failed two days later, which is a test measuring the calendar
+    // rather than the rule.
+    const shiftDays = (days: number) => {
+      const date = new Date()
+      date.setUTCDate(date.getUTCDate() + days)
+      return date.toISOString().slice(0, 10)
+    }
+    const completionDay = shiftDays(0)
+    const earlier = shiftDays(-1)
+    const later = shiftDays(1)
+
     const task = await createLocalTask(USER, {
-      title: 'Renew the certificate', type: 'task', category: 'work', scheduledDate: YESTERDAY,
+      title: 'Renew the certificate', type: 'task', category: 'work', scheduledDate: earlier,
     })
 
-    const before = await localItemsForDay(USER, TODAY)
+    const before = await localItemsForDay(USER, completionDay)
     assert.deepEqual(before.map((item) => item.id), [task.id])
 
     await completeLocalTask(USER, task.id)
-    const after = await localItemsForDay(USER, TODAY)
+    const after = await localItemsForDay(USER, completionDay)
     assert.equal(after.length, 1)
     assert.equal(after[0].completed, true)
 
-    // Completed yesterday-and-earlier is not today's business.
-    const tomorrow = await localItemsForDay(USER, '2026-08-22')
-    assert.deepEqual(tomorrow, [])
+    // A carried Task checked off belongs to the day it was checked off, and to no
+    // day after it.
+    assert.deepEqual(await localItemsForDay(USER, later), [])
   })
 
   it('orders the Anytime backlog by the order it was given', async () => {
@@ -343,8 +357,28 @@ describe('the stored document', () => {
     assert.deepEqual(await localItemsForDay(USER, TODAY), [])
   })
 
-  it('refuses a document belonging to a different session', async () => {
+  it('refuses a document belonging to a different session, and says it can be escaped', async () => {
     setLocalStoreDriver(memoryDriver(JSON.stringify(emptyLocalDatabase('someone-else'))))
-    await assert.rejects(() => localItemsForDay(USER, TODAY), LocalStoreError)
+
+    // Retrying can never reach a day whose session cannot be produced again, so
+    // the caller has to be able to tell this apart from a transient failure and
+    // offer a way out instead of a wall.
+    await assert.rejects(() => localItemsForDay(USER, TODAY), (error: unknown) => {
+      assert.ok(error instanceof LocalStoreError)
+      assert.equal(error.reason, 'owner_mismatch')
+      assert.equal(isStrandedLocalDay(error), true)
+      return true
+    })
+  })
+
+  it('does not mistake an unreadable document for a stranded one', async () => {
+    setLocalStoreDriver(memoryDriver('{"version":2,"userId":'))
+
+    await assert.rejects(() => localItemsForDay(USER, TODAY), (error: unknown) => {
+      assert.ok(error instanceof LocalStoreError)
+      assert.equal(error.reason, 'unreadable')
+      assert.equal(isStrandedLocalDay(error), false)
+      return true
+    })
   })
 })

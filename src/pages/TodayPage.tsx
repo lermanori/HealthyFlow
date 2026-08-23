@@ -74,6 +74,7 @@ import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { useSettings } from '../hooks/useSettings'
+import { clearLocalDay, isStrandedLocalDay } from '../lib/local/store'
 import HabitOutcomeSheet from '../components/HabitOutcomeSheet'
 import { enabledModulePresentations, getModulePresentation, moduleHealthHref } from '../modulePresentation'
 import {
@@ -1124,6 +1125,7 @@ export default function TodayPage() {
     data: daySummary,
     isLoading,
     isError: isDaySummaryError,
+    error: daySummaryError,
     refetch: retryDaySummary,
   } = useQuery({
     queryKey: daySummaryQueryKey(selectedDateKey),
@@ -1627,6 +1629,36 @@ export default function TodayPage() {
   }
 
   if (isDaySummaryError) {
+    // A day saved by a session this device can no longer produce is stranded:
+    // retrying cannot reach it, and saying "retry" forever is the dead end, not
+    // the fix. The only way on is to start again, and that has to be chosen with
+    // the loss stated (ADR-0010, ADR-0011).
+    if (isStrandedLocalDay(daySummaryError)) {
+      return (
+        <div className="mx-auto max-w-lg rounded-xl border border-state-danger/30 bg-state-danger/10 p-5 text-center">
+          <h1 className="text-lg font-semibold text-ink">This iPhone holds a day from an earlier session</h1>
+          <p className="mt-2 text-sm text-ink-muted">
+            It was saved before this session began, and there is no way to reopen
+            it — a guest session is the only key to its own day.
+          </p>
+          <p className="mt-2 text-sm text-ink-muted">
+            Starting fresh erases it permanently.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              void clearLocalDay()
+                .then(() => window.location.reload())
+                .catch((error) => console.error('[local] could not erase the stranded day:', error))
+            }}
+            className="btn-secondary mt-4 min-h-11 px-4 py-2 text-sm"
+          >
+            Start fresh on this iPhone
+          </button>
+        </div>
+      )
+    }
+
     return (
       <div className="mx-auto max-w-lg rounded-xl border border-state-danger/30 bg-state-danger/10 p-5 text-center">
         <h1 className="text-lg font-semibold text-ink">Could not load this daily plan</h1>
