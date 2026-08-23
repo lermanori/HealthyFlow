@@ -75,13 +75,29 @@ export default function SignInPage() {
     const hasDeviceDay = Boolean(preview.onDevice && (
       preview.onDevice.items + preview.onDevice.habits + preview.onDevice.meals + preview.onDevice.workouts > 0
     ))
+    // Signing in to the account this device already holds is not two days meeting
+    // — it is the same day, and the only difference is what has been done here
+    // since. Calling that "keep both" would describe a merge that is not
+    // happening, and hide what discarding would actually cost.
+    const sameAccount = preview.deviceDay?.userId === preview.session.user.id
 
     return (
       <div className="mx-auto w-full max-w-md space-y-5 py-6">
         <header className="text-center">
           <h1 className="text-2xl font-bold text-ink">
-            {hasDeviceDay ? 'What happens to the day on this iPhone?' : 'Signing in'}
+            {!hasDeviceDay
+              ? 'Signing in'
+              : sameAccount
+                ? 'You have already been using this account here'
+                : 'What happens to the day on this iPhone?'}
           </h1>
+          {sameAccount && hasDeviceDay && (
+            <p className="mt-2 text-sm text-ink-muted">
+              Anything you did on this iPhone since you last signed in is not on the
+              server yet, because nothing uploads. Keeping it is almost always what
+              you want.
+            </p>
+          )}
         </header>
 
         <div className="card space-y-2">
@@ -118,11 +134,14 @@ export default function SignInPage() {
               disabled={busy !== null}
               className="btn-primary w-full px-3 py-3.5"
             >
-              {busy === 'applying' ? <LoadingSpinner size="sm" /> : 'Keep both'}
+              {busy === 'applying'
+                ? <LoadingSpinner size="sm" />
+                : sameAccount ? 'Keep what I did on this iPhone' : 'Keep both'}
             </button>
             <p className="text-center text-xs text-ink-muted">
-              Nothing is lost. If you kept the same habit in both places you will
-              have two of it, and can delete one.
+              {sameAccount
+                ? 'Where the same Item exists in both, the more recent one wins — so completing something here is not undone.'
+                : 'Nothing is lost. If you kept the same habit in both places you will have two of it, and can delete one.'}
             </p>
             <button
               type="button"
@@ -130,10 +149,12 @@ export default function SignInPage() {
               disabled={busy !== null}
               className="btn-secondary w-full px-3 py-3.5"
             >
-              Discard the day on this iPhone
+              {sameAccount ? 'Replace it with the server\u2019s copy' : 'Discard the day on this iPhone'}
             </button>
             <p className="text-center text-xs text-ink-muted">
-              Permanent. Only your account&rsquo;s day remains.
+              {sameAccount
+                ? 'Permanent. Anything done on this iPhone since you last signed in is lost.'
+                : 'Permanent. Only your account\u2019s day remains.'}
             </p>
           </div>
         ) : (

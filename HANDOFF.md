@@ -151,6 +151,26 @@ the wrong thing:
 - `claim_signup_credit_grant` ties "founding" to credits. Founding is now a Cloud
   price.
 
+## The gap that keeps producing bugs: nothing uploads
+
+**Local is the source and the server is never updated from it.** ADR-0012 says
+Cloud replicates on top; that replication does not exist. So:
+
+- Anything done on a device is invisible to the server.
+- Signing in **downloads and overwrites**, so it reverts everything done since the
+  last sign-in unless the merge preserves it.
+- A user hit exactly this: Items they had completed and deleted on their phone came
+  back, because each sign-in re-downloaded the server's older copy.
+
+The merge now unions by id with the more recently changed row winning, which
+preserves device work and is also what stops a second sign-in duplicating the whole
+account. But that is a mitigation, not the fix. **The fix is an upload**, and until
+it exists a device's day and the server's copy drift apart permanently.
+
+The related correction: the Claim design says ids "come from two generators and
+cannot collide". That is true the *first* time a Guest signs in and false every time
+after, because by then the device holds the account's own rows.
+
 ## Corrections to what is already written down
 
 **ADR-0011 is wrong about where the day is stored.** It says `Directory.Data` is

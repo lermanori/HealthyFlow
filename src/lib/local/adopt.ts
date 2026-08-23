@@ -20,11 +20,16 @@ const {
  * account's day has to come **down** to the device, because local is the source
  * for everyone (ADR-0012).
  *
- * Two days then meet. Joining them is a union and cannot conflict — every id is
- * either client-generated or server-generated and no two can collide — but it can
- * produce *semantic* duplicates, two "Run 5k" habits where the person has one
- * habit. That is a real cost, it is why the choice is offered rather than made,
- * and the copy says so.
+ * Two days then meet, and they overlap far more than they look like they should.
+ * The first time someone signs in, the two are genuinely separate and no id can
+ * collide. Every time after, the device is holding *the account's own day* — so
+ * every row collides with itself, one copy carrying whatever was done on the
+ * device since. Joining by concatenation would duplicate the entire account.
+ *
+ * So the join is by id, and the more recently changed row wins. What it still
+ * cannot resolve is a *semantic* duplicate — two "Run 5k" habits where the person
+ * has one habit — which is why the choice is offered rather than made, and why the
+ * copy says so.
  */
 
 type Rows = Record<string, unknown>[]
@@ -141,6 +146,28 @@ function settingsFromExport(row: Rows[number] | undefined): Record<string, unkno
   return Object.fromEntries(Object.entries(settings).filter(([key]) => !key.includes('_')))
 }
 
+/** When a record last changed, in whichever shape it is stored. */
+const changedAt = (record: unknown): string => {
+  const fields = record as Record<string, unknown>
+  return String(fields.updated_at ?? fields.updatedAt ?? fields.created_at ?? fields.createdAt ?? '')
+}
+
+/**
+ * Union two sets of records by id, keeping the more recently changed of any pair.
+ *
+ * The device is processed second, so a tie goes to it — it is where the person was
+ * working, and a server copy that has not moved should not undo them.
+ */
+function mergeById<T>(fromAccount: T[], fromDevice: T[]): T[] {
+  const merged = new Map<string, T>()
+  for (const record of [...fromAccount, ...fromDevice]) {
+    const id = String((record as { id?: unknown }).id)
+    const existing = merged.get(id)
+    if (!existing || changedAt(record) >= changedAt(existing)) merged.set(id, record)
+  }
+  return [...merged.values()]
+}
+
 export type AdoptionChoice = 'keep_both' | 'discard_device'
 
 /** What is at stake, in the numbers the person is being asked to weigh. */
@@ -188,15 +215,15 @@ export function adoptAccountDay(
     // The account's settings win: they are the ones the person has been living
     // with, and two settings objects cannot be unioned meaningfully.
     settings: Object.keys(account.settings).length > 0 ? account.settings : device.settings,
-    tasks: [...account.tasks, ...reKeyed(device.tasks)],
-    habitProgress: [...account.habitProgress, ...reKeyed(device.habitProgress)],
-    calorieEntries: [...account.calorieEntries, ...reKeyed(device.calorieEntries)],
-    calorieItems: [...account.calorieItems, ...reKeyed(device.calorieItems)],
-    weightEntries: [...account.weightEntries, ...reKeyed(device.weightEntries)],
-    workoutSessions: [...account.workoutSessions, ...reKeyed(device.workoutSessions)],
-    workoutPlans: [...account.workoutPlans, ...reKeyed(device.workoutPlans)],
-    workoutExerciseItems: [...account.workoutExerciseItems, ...reKeyed(device.workoutExerciseItems)],
-    achievementDefinitions: [...account.achievementDefinitions, ...reKeyed(device.achievementDefinitions)],
-    achievementEntries: [...account.achievementEntries, ...reKeyed(device.achievementEntries)],
+    tasks: mergeById(account.tasks, reKeyed(device.tasks)),
+    habitProgress: mergeById(account.habitProgress, reKeyed(device.habitProgress)),
+    calorieEntries: mergeById(account.calorieEntries, reKeyed(device.calorieEntries)),
+    calorieItems: mergeById(account.calorieItems, reKeyed(device.calorieItems)),
+    weightEntries: mergeById(account.weightEntries, reKeyed(device.weightEntries)),
+    workoutSessions: mergeById(account.workoutSessions, reKeyed(device.workoutSessions)),
+    workoutPlans: mergeById(account.workoutPlans, reKeyed(device.workoutPlans)),
+    workoutExerciseItems: mergeById(account.workoutExerciseItems, reKeyed(device.workoutExerciseItems)),
+    achievementDefinitions: mergeById(account.achievementDefinitions, reKeyed(device.achievementDefinitions)),
+    achievementEntries: mergeById(account.achievementEntries, reKeyed(device.achievementEntries)),
   }
 }

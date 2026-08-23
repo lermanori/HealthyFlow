@@ -236,3 +236,85 @@ describe('a day downloaded from a real account', () => {
     assert.equal(LocalDatabaseSchema.safeParse(JSON.parse(driver.contents!)).success, true)
   })
 })
+
+describe('signing in again, when the device already holds this account\'s day', () => {
+  // The case the first design missed. "Ids come from two generators and cannot
+  // collide" is true the first time someone signs in and false every time after,
+  // because by then the device is holding the account's own rows. Concatenating
+  // would have duplicated an entire account — 109 rows, in the report that found
+  // this — and reverted everything done on the device since.
+  const serverRow = {
+    id: 'task-1', user_id: 'account-1', title: 'Gmail integration task', type: 'task',
+    category: 'work', completed: false, deleted_at: null,
+    created_at: '2025-09-02T15:48:26.000Z', updated_at: '2025-09-02T15:48:26.000Z',
+  }
+  const account = () => ({
+    ...emptyLocalDatabase('account-1'),
+    tasks: [serverRow],
+  } as unknown as LocalDatabase)
+
+  it('does not duplicate a row the device already has', () => {
+    const device = {
+      ...emptyLocalDatabase('account-1'),
+      tasks: [serverRow],
+    } as unknown as LocalDatabase
+
+    const merged = adoptAccountDay(device, account(), 'keep_both')
+
+    assert.equal(merged.tasks.length, 1)
+  })
+
+  it('keeps what was done on the device over a server copy that has not moved', () => {
+    // Marked done on the phone. The server still says open, and re-downloading
+    // must not undo it.
+    const device = {
+      ...emptyLocalDatabase('account-1'),
+      tasks: [{
+        ...serverRow,
+        completed: true,
+        completed_at: '2026-08-23T10:00:00.000Z',
+        updated_at: '2026-08-23T10:00:00.000Z',
+      }],
+    } as unknown as LocalDatabase
+
+    const merged = adoptAccountDay(device, account(), 'keep_both')
+
+    assert.equal(merged.tasks.length, 1)
+    assert.equal(merged.tasks[0].completed, true)
+  })
+
+  it('keeps a deletion made on the device', () => {
+    const device = {
+      ...emptyLocalDatabase('account-1'),
+      tasks: [{ ...serverRow, deleted_at: '2026-08-23T10:00:00.000Z', updated_at: '2026-08-23T10:00:00.000Z' }],
+    } as unknown as LocalDatabase
+
+    const merged = adoptAccountDay(device, account(), 'keep_both')
+
+    assert.equal(merged.tasks.length, 1)
+    assert.ok(merged.tasks[0].deleted_at)
+  })
+
+  it('takes the server row when it is the newer of the two', () => {
+    const device = {
+      ...emptyLocalDatabase('account-1'),
+      tasks: [{ ...serverRow, title: 'Stale device copy', updated_at: '2025-01-01T00:00:00.000Z' }],
+    } as unknown as LocalDatabase
+
+    const merged = adoptAccountDay(device, account(), 'keep_both')
+
+    assert.equal(merged.tasks[0].title, 'Gmail integration task')
+  })
+
+  it('still keeps a genuinely separate day from a guest session', () => {
+    const guestDay = {
+      ...emptyLocalDatabase('guest-1'),
+      tasks: [{ ...serverRow, id: 'guest-task', user_id: 'guest-1', title: 'Written as a Guest' }],
+    } as unknown as LocalDatabase
+
+    const merged = adoptAccountDay(guestDay, account(), 'keep_both')
+
+    assert.equal(merged.tasks.length, 2)
+    assert.ok(merged.tasks.every((task) => task.user_id === 'account-1'))
+  })
+})

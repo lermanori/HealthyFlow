@@ -1,3 +1,28 @@
+### 2026-08-23 17:30 — `feat/guest-mode`
+
+The owner reported Items they had completed and deleted coming back. Not rollover,
+and not the display: **nothing uploads.** Local is the source and the server is
+never updated from it, so every sign-in re-downloaded the server's older copy and
+reverted whatever had been done on the device since.
+
+Behind it sat a worse one, unshipped. `adoptAccountDay` concatenated the two days
+on the claim that ids "come from two generators and cannot collide" — true the
+first time a Guest signs in, false every time after, because by then the device
+holds the account's own rows. Choosing "Keep both" a second time would have
+duplicated the entire account, 109 rows in this case. The adopt tests all used
+disjoint ids, so none of them could catch it.
+
+The merge is now a union by id with the more recently changed row winning, which
+both stops the duplication and preserves what was done on the device. The sign-in
+screen also tells the truth when the device already holds that same account: it is
+not two days meeting, it is the same day plus whatever has happened here since, and
+discarding costs exactly that.
+
+None of this replaces the real fix, which is an upload. Recorded in `HANDOFF.md` as
+the gap that keeps producing bugs.
+
+---
+
 ### 2026-08-23 17:15 — `feat/guest-mode`
 
 Signing in on a real iPhone downloaded the account's day — 110 Items, 48 Calorie
