@@ -491,18 +491,18 @@ Create `backend/tests/sync/endpoint.test.ts`:
 import request from 'supertest'
 import jwt from 'jsonwebtoken'
 import { app } from '../../src/index'
-import { Credits } from '../../src/credits'
+import { db } from '../../src/supabase-client'
 import { Sync } from '../../src/sync'
 
-jest.mock('../../src/credits', () => ({
-  Credits: { getSummary: jest.fn() },
+jest.mock('../../src/supabase-client', () => ({
+  db: { getUserCreditSubscription: jest.fn() },
 }))
 
 jest.mock('../../src/sync', () => ({
   Sync: { exchange: jest.fn() },
 }))
 
-const mockCredits = Credits as jest.Mocked<typeof Credits>
+const mockDb = db as jest.Mocked<typeof db>
 const mockSync = Sync as jest.Mocked<typeof Sync>
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret'
@@ -517,7 +517,7 @@ const emptyPayload = {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockCredits.getSummary.mockResolvedValue({ subscription: { active: true } } as never)
+  mockDb.getUserCreditSubscription.mockResolvedValue({ active: true } as never)
   mockSync.exchange.mockResolvedValue({
     syncedAt: '2026-08-23T12:00:00.000Z',
     changed: emptyPayload,
@@ -550,7 +550,7 @@ describe('POST /api/sync', () => {
   it('refuses an account without a Cloud subscription', async () => {
     // Cloud is what hosting is sold as. A free user's data is never hosted
     // (TARGET.md, ADR-0012), so this is a boundary, not an error.
-    mockCredits.getSummary.mockResolvedValue({ subscription: { active: false } } as never)
+    mockDb.getUserCreditSubscription.mockResolvedValue({ active: false } as never)
 
     const response = await request(app)
       .post('/api/sync')
@@ -688,7 +688,7 @@ Create `backend/src/routes/sync.ts`:
 
 ```ts
 import express from 'express'
-import { Credits } from '../credits'
+import { db } from '../supabase-client'
 import { Sync, SyncClockError } from '../sync'
 import { SyncRequestSchema } from '../sync-contracts'
 import { authenticateToken, type AuthRequest } from '../middleware/auth'
@@ -704,8 +704,10 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
     // Cloud is what hosting is sold as, so this is a boundary rather than a
     // failure: a free account's day is never hosted (TARGET.md, ADR-0012).
-    const summary = await Credits.getSummary(req.user.userId)
-    if (!summary.subscription?.active) {
+    // One row, not `Credits.getCreditSummary`, which runs five queries including
+    // a month of usage logs. This gate runs on every exchange.
+    const subscription = await db.getUserCreditSubscription(req.user.userId)
+    if (!subscription?.active) {
       return res.status(403).json({
         error: 'Cloud is not active on this account.',
         reason: 'cloud_not_active',
@@ -745,15 +747,88 @@ app.use('/api/sync', syncRoutes)
 Run: `npm --prefix backend test -- tests/sync/endpoint.test.ts`
 Expected: PASS — 5 tests.
 
-- [ ] **Step 7: Run the whole backend suite**
+- [ ] **Step 7: Assert the server keeps the id the device chose**
+
+The duplication risk from client-generated ids has no test yet, and it is the same
+failure that would have duplicated an entire account during sign-in. Create
+`backend/tests/sync/service.test.ts`:
+
+```ts
+import { Sync } from '../../src/sync'
+import { supabase } from '../../src/supabase-client'
+
+const upsert = jest.fn().mockResolvedValue({ error: null })
+const select = jest.fn()
+
+jest.mock('../../src/supabase-client', () => ({
+  supabase: { from: jest.fn() },
+}))
+
+const emptyPayload = {
+  tasks: [], habitProgress: [], calorieEntries: [], calorieItems: [],
+  weightEntries: [], workoutSessions: [], workoutPlans: [],
+  workoutExerciseItems: [], achievementDefinitions: [], achievementEntries: [],
+  settings: null,
+}
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  select.mockReturnValue({ eq: () => ({ gt: () => ({ data: [], error: null }) }) })
+  ;(supabase.from as jest.Mock).mockReturnValue({ select, upsert })
+})
+
+describe('accepting what a device sent', () => {
+  it('upserts on the id the device chose, so a replay is not a second row', async () => {
+    await Sync.exchange('user-1', {
+      since: null,
+      changed: {
+        ...emptyPayload,
+        tasks: [{ id: 'chosen-by-the-device', title: 'A task', updated_at: '2026-08-23T10:00:00.000Z' }],
+      },
+    } as never)
+
+    const [rows, options] = upsert.mock.calls[0]
+    expect(rows[0].id).toBe('chosen-by-the-device')
+    expect(options).toEqual({ onConflict: 'id' })
+  })
+
+  it('stamps the caller as the owner, whatever the device claimed', async () => {
+    await Sync.exchange('user-1', {
+      since: null,
+      changed: {
+        ...emptyPayload,
+        tasks: [{ id: 'a', user_id: 'somebody-else', updated_at: '2026-08-23T10:00:00.000Z' }],
+      },
+    } as never)
+
+    expect(upsert.mock.calls[0][0][0].user_id).toBe('user-1')
+  })
+
+  it('refuses a row from a clock that is far ahead, writing nothing', async () => {
+    const ahead = new Date(Date.now() + 60 * 60 * 1000).toISOString()
+
+    await expect(Sync.exchange('user-1', {
+      since: null,
+      changed: { ...emptyPayload, tasks: [{ id: 'a', updated_at: ahead }] },
+    } as never)).rejects.toThrow()
+
+    expect(upsert).not.toHaveBeenCalled()
+  })
+})
+```
+
+Run: `npm --prefix backend test -- tests/sync/service.test.ts`
+Expected: PASS — 3 tests.
+
+- [ ] **Step 8: Run the whole backend suite**
 
 Run: `npm --prefix backend test`
-Expected: 749 existing + 13 new = 762 passing. If `POST /test/reset — HF_TEST_MODE guard` fails, re-run — it is a known flake across parallel workers.
+Expected: 749 existing + 16 new = 765 passing. If `POST /test/reset — HF_TEST_MODE guard` fails, re-run — it is a known flake across parallel workers.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add backend/src/sync.ts backend/src/sync-contracts.ts backend/src/routes/sync.ts backend/src/index.ts backend/tests/sync/endpoint.test.ts
+git add backend/src/sync.ts backend/src/routes/sync.ts backend/src/index.ts backend/tests/sync/
 git commit -m "feat: POST /sync exchanges a delta with a Cloud subscriber"
 ```
 
@@ -801,9 +876,32 @@ In `src/lib/local/store.ts`, add to `LocalDatabaseSchema` after `settings`:
    * against this document — a fresh document has seen nothing.
    */
   syncedAt: z.string().nullable().default(null),
+  /**
+   * When settings last changed. They are stored as a patch object rather than
+   * rows, so they carry no per-row timestamp and would otherwise never appear in
+   * a delta — they would sync once on a first push and never again.
+   */
+  settingsUpdatedAt: z.string().nullable().default(null),
 ```
 
-Add `syncedAt: null,` to `emptyLocalDatabase`, and export:
+Add `syncedAt: null,` and `settingsUpdatedAt: null,` to `emptyLocalDatabase`. Stamp
+the settings timestamp wherever settings are written — in
+`src/lib/local/day.ts`, `updateLocalSettings` becomes:
+
+```ts
+export function updateLocalSettings(userId: string, patch: Partial<Settings>): Promise<Settings> {
+  return mutateLocalDatabase(userId, (database) => {
+    const next: LocalDatabase = {
+      ...database,
+      settings: { ...database.settings, ...patch },
+      settingsUpdatedAt: new Date().toISOString(),
+    }
+    return { next, result: resolveLocalSettings(next) }
+  })
+}
+```
+
+Then export from `store.ts`:
 
 ```ts
 export function recordSyncedAt(userId: string, syncedAt: string): Promise<void> {
@@ -956,6 +1054,14 @@ export function collectDelta(database: LocalDatabase): Payload {
       ? rows.filter((row) => changedAt(row) > since)
       : [...rows]
   }
+  // Settings are one record with one timestamp, not rows, so they are compared
+  // whole. Omitting them entirely would mean they synced on a first push and
+  // never again.
+  const settingsChanged = !since
+    || (database.settingsUpdatedAt !== null && database.settingsUpdatedAt > since)
+  ;(delta as Record<string, unknown>).settings = settingsChanged
+    ? { ...database.settings, updated_at: database.settingsUpdatedAt }
+    : null
   return delta
 }
 
@@ -1018,10 +1124,69 @@ export const syncService = {
 Run: `npm run test:unit`
 Expected: all passing, including the seven new ones.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 6: Run a whole account export through the whole path**
+
+The spec asks for this by name, and it is the gap every device bug this week came
+through: the tests all used rows the *device* creates, and every failure came from
+rows the *server* creates. Append to `src/lib/local/adopt.test.ts`:
+
+```ts
+describe('a complete server export, end to end', () => {
+  // Server rows for every collection, in the shapes the tables actually have —
+  // snake_case, no updated_at on tasks, health carrying its own timestamps.
+  const exported = {
+    items: [{
+      id: 'srv-task', user_id: 'account-1', title: 'From the server', type: 'task',
+      category: 'work', completed: false, deleted_at: null, scheduled_date: '2026-08-23',
+      created_at: '2026-08-20T09:00:00.000Z',
+    }],
+    habitProgress: [{
+      id: 'srv-progress', habit_instance_id: 'srv-habit', user_id: 'account-1',
+      amount: 10, note: null, created_at: '2026-08-20T09:00:00.000Z',
+    }],
+    settings: [{ user_id: 'account-1', week_starts_on: 1 }],
+    health: {
+      calorieEntries: [{
+        id: 'srv-meal', user_id: 'account-1', date: '2026-08-23', name: 'Porridge',
+        calories: 300, created_at: '2026-08-23T08:00:00.000Z',
+        updated_at: '2026-08-23T08:00:00.000Z',
+      }],
+      weightEntries: [{
+        id: 'srv-weight', user_id: 'account-1', date: '2026-08-23', weight_kg: 80,
+        created_at: '2026-08-23T07:00:00.000Z', updated_at: '2026-08-23T07:00:00.000Z',
+      }],
+    },
+  }
+
+  it('imports, saves, reads back, and builds a day', async () => {
+    setLocalStoreDriver(memoryDriver(null))
+
+    const day = localDayFromExport('account-1', exported as never)
+    await replaceLocalDay(day)
+
+    const reloaded = await loadLocalDatabase('account-1')
+    assert.equal(reloaded.tasks.length, 1)
+    // The write that succeeded and could never be read back is the failure this
+    // guards: every row has to survive the round trip, not just parse going in.
+    assert.equal(LocalDatabaseSchema.safeParse(reloaded).success, true)
+
+    const summary = await buildLocalDaySummary('account-1', '2026-08-23', 'UTC')
+    assert.equal(summary.items.length, 1)
+    assert.equal(summary.capacity.status, 'complete')
+  })
+})
+```
+
+Add `loadLocalDatabase`, `buildLocalDaySummary` and `setLocalStoreDriver` to the
+imports if the file does not already have them.
+
+Run: `npm run test:unit`
+Expected: all passing.
+
+- [ ] **Step 7: Commit**
 
 ```bash
-git add src/lib/local/sync.ts src/lib/local/sync.test.ts src/services/api.ts
+git add src/lib/local/sync.ts src/lib/local/sync.test.ts src/lib/local/adopt.test.ts src/services/api.ts
 git commit -m "feat: the device half of the sync exchange"
 ```
 
@@ -1171,9 +1336,31 @@ different question, and that one *is* answered by the device's `updated_at`.
 
 - [ ] **Step 3: Update `HANDOFF.md`**
 
-Replace the "nothing uploads" section with what now happens, and add the two
-follow-ups this deliberately leaves: the deletion job after the grace period, and
-Realtime.
+Replace the whole "The gap that keeps producing bugs: nothing uploads" section
+with:
+
+```markdown
+## Cloud sync, and what it still leaves
+
+A Cloud subscriber's day now syncs both ways: the device sends rows changed since
+its watermark, the server returns rows changed since the same watermark, and both
+sides merge with most-recently-changed-wins. Offline is not a special case — the
+watermark does not advance and the next exchange carries whatever accumulated.
+
+**A free registered account still has no backup**, deliberately: hosting is what
+Cloud sells. Whoever ships the paywall copy should say so plainly, because people
+otherwise discover it by losing a phone.
+
+Two follow-ups this deliberately left:
+
+- **The deletion job.** On lapse the hosted copy freezes, and the plan was to
+  delete it after a grace period. Only the freeze is built. The deletion needs a
+  scheduler, warning emails and a clock — and it is what bounds the storage cost
+  that made a grace period preferable to keeping data forever.
+- **Realtime.** A Supabase subscription becomes a nudge to run the same exchange,
+  not a second code path. The pull was shaped as "everything since a watermark"
+  specifically so this stays cheap.
+```
 
 - [ ] **Step 4: Prepend the `LEDGER.md` entry**
 
