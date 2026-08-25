@@ -22,7 +22,6 @@ import {
   loadLocalDatabase,
   readLocalDayOwner,
   memoryDriver,
-  recordSyncedAt,
   setLocalStoreDriver,
 } from './store'
 
@@ -330,14 +329,6 @@ describe('settings on the device', () => {
 })
 
 describe('the stored document', () => {
-  it('remembers the watermark the server gave it', async () => {
-    await createLocalTask(USER, { title: 'Anything', type: 'task', category: 'work', scheduledDate: TODAY })
-
-    await recordSyncedAt(USER, '2026-08-23T12:00:00.000Z')
-
-    assert.equal((await loadLocalDatabase(USER)).syncedAt, '2026-08-23T12:00:00.000Z')
-  })
-
   it('starts with no watermark, so the first exchange sends everything', async () => {
     assert.equal((await loadLocalDatabase(USER)).syncedAt, null)
   })

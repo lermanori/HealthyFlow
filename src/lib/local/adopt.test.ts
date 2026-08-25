@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { adoptAccountDay, countLocalDay, localDayFromExport } from './adopt'
-import { emptyLocalDatabase, LocalDatabaseSchema, LocalStoreError, replaceLocalDay, memoryDriver, setLocalStoreDriver, type LocalDatabase } from './store'
+import { emptyLocalDatabase, LocalDatabaseSchema, LocalStoreError, loadLocalDatabase, replaceLocalDay, memoryDriver, setLocalStoreDriver, type LocalDatabase } from './store'
+import { buildLocalDaySummary } from './day'
+import { collectDelta, runSync } from './sync'
 
 const ACCOUNT = 'account-1'
 const GUEST = 'guest-1'
@@ -316,5 +318,111 @@ describe('signing in again, when the device already holds this account\'s day', 
 
     assert.equal(merged.tasks.length, 2)
     assert.ok(merged.tasks.every((task) => task.user_id === 'account-1'))
+  })
+})
+
+describe('a complete server export, through the whole path', () => {
+  // Server rows for every collection, in the shapes the tables actually have —
+  // snake_case, no updated_at on tasks, health carrying its own timestamps.
+  // Every device bug this week came from data the *server* creates, while every
+  // test used data the *device* creates. This is that gap.
+  const exported = {
+    items: [{
+      id: 'srv-task', user_id: ACCOUNT, title: 'From the server', type: 'task',
+      category: 'work', completed: false, deleted_at: null, scheduled_date: '2026-08-23',
+      created_at: '2026-08-20T09:00:00.000Z',
+    }],
+    habitProgress: [{
+      id: 'srv-progress', habit_instance_id: 'srv-habit', user_id: ACCOUNT,
+      amount: 10, note: null, created_at: '2026-08-20T09:00:00.000Z',
+    }],
+    settings: [{ user_id: ACCOUNT, weekStartsOn: 1 }],
+    health: {
+      calorieEntries: [{
+        id: 'srv-meal', user_id: ACCOUNT, date: '2026-08-23', name: 'Porridge',
+        calories: 300, created_at: '2026-08-23T08:00:00.000Z',
+        updated_at: '2026-08-23T08:00:00.000Z',
+      }],
+      weightEntries: [{
+        id: 'srv-weight', user_id: ACCOUNT, date: '2026-08-23', weight_kg: 80,
+        created_at: '2026-08-23T07:00:00.000Z', updated_at: '2026-08-23T07:00:00.000Z',
+      }],
+      workoutSessions: [{
+        id: 'srv-session', user_id: ACCOUNT, date: '2026-08-23', title: 'Legs', notes: null,
+        created_at: '2026-08-23T18:00:00.000Z', updated_at: '2026-08-23T18:00:00.000Z',
+      }],
+      workoutSessionExercises: [{
+        id: 'srv-ex', session_id: 'srv-session', name: 'Squat', sets: 5, reps: 5,
+        weight_kg: 100, duration_minutes: null, distance_km: null, notes: null, position: 0,
+      }],
+    },
+  }
+
+  it('imports, saves, reads back, and builds a day', async () => {
+    setLocalStoreDriver(memoryDriver(null))
+
+    const day = localDayFromExport(ACCOUNT, exported as never)
+    await replaceLocalDay(day)
+
+    const reloaded = await loadLocalDatabase(ACCOUNT)
+    assert.equal(reloaded.tasks.length, 1)
+    // The write that succeeded and could never be read back is the failure this
+    // guards: every row has to survive the round trip, not just parse going in.
+    assert.equal(LocalDatabaseSchema.safeParse(reloaded).success, true)
+
+    const summary = await buildLocalDaySummary(ACCOUNT, '2026-08-23', 'UTC')
+    assert.equal(summary.items.length, 1)
+    assert.equal(summary.capacity.status, 'complete')
+  })
+
+  it('pushes that whole day up on the first exchange, then nothing on the second', async () => {
+    setLocalStoreDriver(memoryDriver(null))
+    await replaceLocalDay(localDayFromExport(ACCOUNT, exported as never))
+
+    const sent: { since: string | null; changed: Record<string, any> }[] = []
+    const exchange = async (body: any) => {
+      sent.push(body)
+      return { syncedAt: '2026-08-24T00:00:00.000Z', changed: {} }
+    }
+
+    await runSync(ACCOUNT, exchange as never)
+    await runSync(ACCOUNT, exchange as never)
+
+    assert.equal(sent[0].since, null)
+    assert.equal(sent[0].changed.tasks.length, 1)
+    assert.equal(sent[0].changed.workoutSessions.length, 1)
+    assert.deepEqual(sent[0].changed.settings, { weekStartsOn: 1, updated_at: null })
+
+    // The watermark advanced, and nothing moved in between.
+    assert.equal(sent[1].since, '2026-08-24T00:00:00.000Z')
+    assert.equal(sent[1].changed.tasks.length, 0)
+    assert.equal(sent[1].changed.workoutSessions.length, 0)
+    assert.equal(sent[1].changed.settings, null)
+  })
+
+  it('keeps the id the server gave a row, so a push is not a second copy', async () => {
+    setLocalStoreDriver(memoryDriver(null))
+    await replaceLocalDay(localDayFromExport(ACCOUNT, exported as never))
+
+    const delta = collectDelta(await loadLocalDatabase(ACCOUNT))
+
+    assert.deepEqual(delta.tasks.map((row) => row.id), ['srv-task'])
+    assert.deepEqual(delta.weightEntries.map((row) => row.id), ['srv-weight'])
+  })
+
+  it('does not bring a deleted server record back to life', async () => {
+    setLocalStoreDriver(memoryDriver(null))
+    const withDeleted = {
+      ...exported,
+      health: {
+        ...exported.health,
+        calorieEntries: [{ ...exported.health.calorieEntries[0], deleted_at: '2026-08-23T09:00:00.000Z' }],
+      },
+    }
+
+    await replaceLocalDay(localDayFromExport(ACCOUNT, withDeleted as never))
+    const summary = await buildLocalDaySummary(ACCOUNT, '2026-08-23', 'UTC')
+
+    assert.equal(summary.supporting.nutrition.status, 'not_logged')
   })
 })

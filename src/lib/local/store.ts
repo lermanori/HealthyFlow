@@ -412,19 +412,6 @@ export async function mutateLocalDatabase<T>(
 }
 
 /**
- * Remember how far the server has seen.
- *
- * Through `mutateLocalDatabase` like every other write, so the watermark is
- * persisted by the same funnel and cannot be advanced in memory only.
- */
-export function recordSyncedAt(userId: string, syncedAt: string): Promise<void> {
-  return mutateLocalDatabase(userId, (database) => ({
-    next: { ...database, syncedAt },
-    result: undefined,
-  }))
-}
-
-/**
  * A client-generated identifier.
  *
  * `crypto.randomUUID` needs iOS 15.4, and one of the app target's two build

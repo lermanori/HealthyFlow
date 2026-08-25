@@ -32,6 +32,7 @@ import MobileVersionContracts, {
   type IosVersionPolicy,
 } from '../../backend/src/mobile-version-contracts'
 import AuthContracts, { type SessionUser } from '../../backend/src/auth-contracts'
+import type { SyncDelta, SyncIncoming } from '../lib/local/sync'
 import {
   applyVerifiedSession,
   clearSessionToken,
@@ -1258,6 +1259,16 @@ export const daySummaryService = {
       return applyWorkVisibility(DaySummarySchema.parse(response.data))
     },
   ),
+}
+
+export const syncService = {
+  // Deliberately not routed through `onDevice`: this *is* the network half. A
+  // device with no Cloud subscription gets a 403, which is a boundary rather than
+  // a failure (ADR-0012).
+  exchange: async (body: { since: string | null; changed: SyncDelta }) => {
+    const response = await api.post('/sync', body)
+    return response.data as { syncedAt: string; changed: SyncIncoming }
+  },
 }
 
 export interface AccountDeletionResult {
