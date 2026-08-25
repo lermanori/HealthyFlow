@@ -183,6 +183,38 @@ export function summarizeAchievement(definitionRow: any, entryRows: any[]) {
   }
 }
 
+/**
+ * The other direction, for the sync exchange — beside the twins they mirror.
+ */
+export const achievementDefinitionToRow = (definition: any, userId: string) => ({
+  id: String(definition.id),
+  user_id: userId,
+  name: String(definition.name ?? ''),
+  category: definition.category ?? null,
+  metric_type: definition.metricType ?? definition.metric_type,
+  unit: String(definition.unit ?? ''),
+  better_direction: definition.betterDirection ?? definition.better_direction,
+  target_value: numberOrNull(definition.targetValue ?? definition.target_value),
+  archived_at: definition.archivedAt ?? definition.archived_at ?? null,
+  created_at: definition.createdAt ?? definition.created_at ?? null,
+  updated_at: definition.updatedAt ?? definition.updated_at ?? null,
+  deleted_at: definition.deletedAt ?? definition.deleted_at ?? null,
+})
+
+export const achievementEntryToRow = (entry: any, userId: string) => ({
+  id: String(entry.id),
+  user_id: userId,
+  achievement_id: String(entry.achievementId ?? entry.achievement_id),
+  date: String(entry.date),
+  value: Number(entry.value),
+  supporting_value: numberOrNull(entry.supportingValue ?? entry.supporting_value),
+  supporting_unit: entry.supportingUnit ?? entry.supporting_unit ?? null,
+  notes: entry.notes ?? null,
+  created_at: entry.createdAt ?? entry.created_at ?? null,
+  updated_at: entry.updatedAt ?? entry.updated_at ?? null,
+  deleted_at: entry.deletedAt ?? entry.deleted_at ?? null,
+})
+
 const AchievementContracts = {
   AchievementMetricTypeSchema,
   AchievementBetterDirectionSchema,
@@ -191,6 +223,8 @@ const AchievementContracts = {
   AchievementSummarySchema,
   achievementDefinitionToClient,
   achievementEntryToClient,
+  achievementDefinitionToRow,
+  achievementEntryToRow,
   summarizeAchievement,
 }
 

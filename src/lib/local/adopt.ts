@@ -1,4 +1,5 @@
 import AchievementContracts from '../../../backend/src/achievement-contracts'
+import HealthContracts from '../../../backend/src/health-contracts'
 import SyncContracts from '../../../backend/src/sync-contracts'
 import WorkoutContracts from '../../../backend/src/workout-contracts'
 import {
@@ -8,6 +9,12 @@ import {
 
 const { achievementDefinitionToClient, achievementEntryToClient } = AchievementContracts
 const { SYNC_IDENTITY, mergeRows } = SyncContracts
+const {
+  calorieEntryToClient,
+  calorieItemToClient,
+  weightEntryToClient,
+  withDeletion,
+} = HealthContracts
 const {
   workoutSessionToClient,
   workoutPlanToClient,
@@ -37,7 +44,6 @@ const {
 type Rows = Record<string, unknown>[]
 
 const rows = (value: unknown): Rows => (Array.isArray(value) ? (value as Rows) : [])
-const numberOrNull = (value: unknown) => (value == null ? null : Number(value))
 
 const sinceCreated = (row: Rows[number]) => ({
   ...row,
@@ -53,47 +59,6 @@ function groupBy(children: Rows, key: string): Record<string, Rows> {
   }, {})
 }
 
-const calorieEntryToClient = (row: Rows[number]) => ({
-  id: String(row.id),
-  userId: String(row.user_id),
-  date: String(row.date),
-  time: (row.time as string | null) ?? null,
-  name: String(row.name ?? ''),
-  calories: Number(row.calories),
-  protein: numberOrNull(row.protein),
-  carbs: numberOrNull(row.carbs),
-  fat: numberOrNull(row.fat),
-  quantity: (row.quantity as string | null) ?? null,
-  createdAt: String(row.created_at),
-  updatedAt: String(row.updated_at),
-})
-
-const calorieItemToClient = (row: Rows[number]) => ({
-  id: String(row.id),
-  userId: String(row.user_id),
-  name: String(row.name ?? ''),
-  normalizedName: String(row.normalized_name ?? ''),
-  quantity: (row.quantity as string | null) ?? null,
-  normalizedQuantity: String(row.normalized_quantity ?? ''),
-  calories: Number(row.calories),
-  protein: numberOrNull(row.protein),
-  carbs: numberOrNull(row.carbs),
-  fat: numberOrNull(row.fat),
-  usageCount: Number(row.usage_count ?? 0),
-  lastUsedAt: String(row.last_used_at ?? row.updated_at),
-  createdAt: String(row.created_at),
-  updatedAt: String(row.updated_at),
-})
-
-const weightEntryToClient = (row: Rows[number]) => ({
-  id: String(row.id),
-  userId: String(row.user_id),
-  date: String(row.date),
-  weightKg: Number(row.weight_kg),
-  createdAt: String(row.created_at),
-  updatedAt: String(row.updated_at),
-})
-
 /**
  * Read an account export into a Local day.
  *
@@ -102,6 +67,10 @@ const weightEntryToClient = (row: Rows[number]) => ({
  * client-shaped, so it is mapped here through the same functions the API uses,
  * which is why those live in `*-contracts.ts` rather than behind a database
  * import.
+ *
+ * A deletion is carried, not dropped. The server's health tables gained
+ * `deleted_at` when sync did, and a mapper that built only the live fields would
+ * bring every deleted meal back to life on the device that downloaded them.
  *
  * Everything else in the export is deliberately dropped: Calendar connections,
  * assistant history, billing, API tokens and OAuth grants belong to the account on
@@ -125,16 +94,18 @@ export function localDayFromExport(userId: string, exported: Record<string, unkn
     calorieEntries: rows(health.calorieEntries).map(calorieEntryToClient) as LocalDatabase['calorieEntries'],
     calorieItems: rows(health.calorieHistory).map(calorieItemToClient) as LocalDatabase['calorieItems'],
     weightEntries: rows(health.weightEntries).map(weightEntryToClient) as LocalDatabase['weightEntries'],
-    workoutSessions: rows(health.workoutSessions).map((session) =>
-      workoutSessionToClient(session, sessionExercises[String(session.id)] ?? [])) as LocalDatabase['workoutSessions'],
-    workoutPlans: rows(health.workoutPlans).map((plan) =>
-      workoutPlanToClient(plan, planItems[String(plan.id)] ?? [])) as LocalDatabase['workoutPlans'],
+    workoutSessions: rows(health.workoutSessions).map((session) => withDeletion(
+      workoutSessionToClient(session, sessionExercises[String(session.id)] ?? []), session,
+    )) as LocalDatabase['workoutSessions'],
+    workoutPlans: rows(health.workoutPlans).map((plan) => withDeletion(
+      workoutPlanToClient(plan, planItems[String(plan.id)] ?? []), plan,
+    )) as LocalDatabase['workoutPlans'],
     workoutExerciseItems: rows(health.workoutExerciseHistory)
-      .map(workoutExerciseItemToClient) as LocalDatabase['workoutExerciseItems'],
+      .map((row) => withDeletion(workoutExerciseItemToClient(row), row)) as LocalDatabase['workoutExerciseItems'],
     achievementDefinitions: rows(health.achievementDefinitions)
-      .map(achievementDefinitionToClient) as LocalDatabase['achievementDefinitions'],
+      .map((row) => withDeletion(achievementDefinitionToClient(row), row)) as LocalDatabase['achievementDefinitions'],
     achievementEntries: rows(health.achievementEntries)
-      .map(achievementEntryToClient) as LocalDatabase['achievementEntries'],
+      .map((row) => withDeletion(achievementEntryToClient(row), row)) as LocalDatabase['achievementEntries'],
   }
 }
 
