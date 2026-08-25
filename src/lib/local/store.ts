@@ -23,6 +23,16 @@ const { CategorySchema, ItemTypeSchema } = TaskContracts
  */
 
 export const LOCAL_DATABASE_VERSION = 2
+
+/**
+ * Announced whenever the document changes, so the sync can run shortly after.
+ *
+ * Dispatched from `mutateLocalDatabase`, the funnel every write already goes
+ * through, rather than from the call sites. Identity caching was added at one
+ * call site and missed at the others, and signing in then came back as the
+ * previous user; a rule at the funnel cannot be forgotten by the next writer.
+ */
+export const LOCAL_DAY_CHANGED_EVENT = 'healthyflow:local-day-changed'
 const DOCUMENT_NAME = 'healthyflow-day.json'
 /**
  * `Directory.Data` is `Library/NoCloud` on iOS: it survives app updates and is
@@ -408,7 +418,20 @@ export async function mutateLocalDatabase<T>(
   const { next, result } = change(current)
   await driver.write(JSON.stringify(next))
   loaded = next
+  announceChange()
   return result
+}
+
+/**
+ * Tell anything listening that the day moved.
+ *
+ * Guarded because this module runs under `tsx --test` in Node as well as in a
+ * WKWebView, and there is no `window` there. A store that could only be used in a
+ * browser would take the Local day's whole test suite with it.
+ */
+function announceChange() {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(LOCAL_DAY_CHANGED_EVENT))
 }
 
 /**

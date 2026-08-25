@@ -24,6 +24,7 @@ import OAuthConsentPage from './pages/OAuthConsentPage'
 import LoadingSpinner from './components/LoadingSpinner'
 import OfflineNotification from './components/OfflineNotification'
 import { useSettings } from './hooks/useSettings'
+import { useCloudSync } from './hooks/useCloudSync'
 import {
   MODULE_PRESENTATIONS,
   resolveHealthAvailability,
@@ -88,6 +89,7 @@ function App() {
   const { user, loading } = useAuth()
   const location = useLocation()
   const { modules, retry } = useSettings(Boolean(user) && location.pathname !== '/demo')
+  useCloudSync()
   const healthAvailability = resolveHealthAvailability(modules)
   const modulePages: Record<OptionalModule, ReactNode> = {
     calories: <CaloriesPage />,
