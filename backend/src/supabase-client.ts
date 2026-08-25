@@ -766,6 +766,7 @@ export const db = {
       .select('*')
       .eq('user_id', userId)
       .eq('date', date)
+      .is('deleted_at', null)
       .order('time', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true })
     if (error) throw error
@@ -808,6 +809,7 @@ export const db = {
       .from('calorie_entries')
       .select('*')
       .eq('id', entryId)
+      .is('deleted_at', null)
       .maybeSingle()
     if (error) throw error
     return data
@@ -825,9 +827,10 @@ export const db = {
   },
 
   async deleteCalorieEntry(entryId: string) {
+    const now = new Date().toISOString()
     const { error } = await supabase
       .from('calorie_entries')
-      .delete()
+      .update({ deleted_at: now, updated_at: now })
       .eq('id', entryId)
     if (error) throw error
   },
@@ -1500,6 +1503,7 @@ export const db = {
       .select('*')
       .eq('user_id', userId)
       .eq('normalized_name', normalizedName)
+      .is('deleted_at', null)
       .order('last_used_at', { ascending: false })
       .limit(1)
       .maybeSingle()
@@ -1512,6 +1516,7 @@ export const db = {
       .from('calorie_items')
       .select('*')
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .order('usage_count', { ascending: false })
       .order('last_used_at', { ascending: false })
       .limit(limit)
@@ -1524,6 +1529,7 @@ export const db = {
       .from('calorie_items')
       .select('*')
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .order('last_used_at', { ascending: false })
       .limit(limit)
     if (error) throw error
@@ -1536,6 +1542,7 @@ export const db = {
       .from('workout_plans')
       .select('*')
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .order('position', { ascending: true })
       .order('created_at', { ascending: true })
     if (error) throw error
@@ -1547,6 +1554,7 @@ export const db = {
       .from('workout_plans')
       .select('*')
       .eq('id', planId)
+      .is('deleted_at', null)
       .maybeSingle()
     if (error) throw error
     return data
@@ -1581,9 +1589,10 @@ export const db = {
   },
 
   async deleteWorkoutPlan(planId: string) {
+    const now = new Date().toISOString()
     const { error } = await supabase
       .from('workout_plans')
-      .delete()
+      .update({ deleted_at: now, updated_at: now })
       .eq('id', planId)
     if (error) throw error
   },
@@ -1633,6 +1642,7 @@ export const db = {
       .select('*')
       .eq('user_id', userId)
       .eq('date', date)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false })
     if (error) throw error
     return data ?? []
@@ -1643,6 +1653,7 @@ export const db = {
       .from('workout_sessions')
       .select('*')
       .eq('id', sessionId)
+      .is('deleted_at', null)
       .maybeSingle()
     if (error) throw error
     return data
@@ -1676,9 +1687,10 @@ export const db = {
   },
 
   async deleteWorkoutSession(sessionId: string) {
+    const now = new Date().toISOString()
     const { error } = await supabase
       .from('workout_sessions')
-      .delete()
+      .update({ deleted_at: now, updated_at: now })
       .eq('id', sessionId)
     if (error) throw error
   },
@@ -1830,6 +1842,7 @@ export const db = {
       .from('workout_exercise_items')
       .select('*')
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .order('usage_count', { ascending: false })
       .order('last_used_at', { ascending: false })
       .limit(limit)
@@ -1842,6 +1855,7 @@ export const db = {
       .from('workout_exercise_items')
       .select('*')
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .order('last_used_at', { ascending: false })
       .limit(limit)
     if (error) throw error

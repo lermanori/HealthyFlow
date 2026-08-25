@@ -8,6 +8,7 @@ export const achievementsDb = {
       .from('achievement_definitions')
       .select('*')
       .eq('user_id', userId)
+      .is('deleted_at', null)
 
     if (!includeArchived) {
       query = query.is('archived_at', null)
@@ -42,6 +43,7 @@ export const achievementsDb = {
       .from('achievement_definitions')
       .select('*')
       .eq('id', achievementId)
+      .is('deleted_at', null)
       .maybeSingle()
     if (error) throw error
     return data
@@ -59,9 +61,17 @@ export const achievementsDb = {
   },
 
   async deleteAchievementDefinition(achievementId: string) {
+    const now = new Date().toISOString()
+    const { error: entriesError } = await supabase
+      .from('achievement_entries')
+      .update({ deleted_at: now, updated_at: now })
+      .eq('achievement_id', achievementId)
+      .is('deleted_at', null)
+    if (entriesError) throw entriesError
+
     const { error } = await supabase
       .from('achievement_definitions')
-      .delete()
+      .update({ deleted_at: now, updated_at: now })
       .eq('id', achievementId)
     if (error) throw error
   },
@@ -72,6 +82,7 @@ export const achievementsDb = {
       .select('*')
       .eq('achievement_id', achievementId)
       .eq('user_id', userId)
+      .is('deleted_at', null)
       .order('date', { ascending: false })
       .limit(limit)
     if (error) throw error
@@ -85,6 +96,7 @@ export const achievementsDb = {
       .eq('achievement_id', achievementId)
       .eq('user_id', userId)
       .eq('date', date)
+      .is('deleted_at', null)
       .maybeSingle()
     if (error) throw error
     return data
@@ -102,7 +114,10 @@ export const achievementsDb = {
   }) {
     const { data, error } = await supabase
       .from('achievement_entries')
-      .insert(entryData)
+      .upsert(
+        { ...entryData, deleted_at: null, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id,achievement_id,date' },
+      )
       .select()
       .single()
     if (error) throw error
@@ -114,6 +129,7 @@ export const achievementsDb = {
       .from('achievement_entries')
       .select('*')
       .eq('id', entryId)
+      .is('deleted_at', null)
       .maybeSingle()
     if (error) throw error
     return data
@@ -131,9 +147,10 @@ export const achievementsDb = {
   },
 
   async deleteAchievementEntry(entryId: string) {
+    const now = new Date().toISOString()
     const { error } = await supabase
       .from('achievement_entries')
-      .delete()
+      .update({ deleted_at: now, updated_at: now })
       .eq('id', entryId)
     if (error) throw error
   },

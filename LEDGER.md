@@ -1,3 +1,9 @@
+### 2026-08-25 15:23 — `feat/guest-mode`
+
+Audited the Cloud sync handoff and closed the gaps that made it unsafe to ship: stale device rows no longer overwrite newer server data, a successful exchange no longer retriggers itself, hosted Health deletions travel as tombstones, Workout exercise edits move their parent, and foreign record ids are refused. The owner has applied the two Supabase migrations; both typechecks, 223 frontend tests, 808 backend tests and the production build are green, with simulator verification now in progress.
+
+---
+
 ### 2026-08-25 — `feat/guest-mode`
 
 Logging out of a registered account did not close its day: the next launch

@@ -17,6 +17,12 @@ jest.mock('../../src/sync', () => ({
       this.name = 'SyncClockError'
     }
   },
+  SyncOwnershipError: class SyncOwnershipError extends Error {
+    constructor() {
+      super('A record id belongs to another account.')
+      this.name = 'SyncOwnershipError'
+    }
+  },
 }))
 
 const mockDb = db as jest.Mocked<typeof db>
@@ -107,6 +113,19 @@ describe('POST /api/sync', () => {
     expect(mockSync.exchange).not.toHaveBeenCalled()
   })
 
+  it('rejects a changed row with no usable timestamp', async () => {
+    const response = await request(app)
+      .post('/api/sync')
+      .set('Authorization', TOKEN)
+      .send({
+        since: null,
+        changed: { ...emptyPayload, tasks: [{ id: 'task-with-no-time' }] },
+      })
+
+    expect(response.status).toBe(400)
+    expect(mockSync.exchange).not.toHaveBeenCalled()
+  })
+
   it('names the clock when a device is too far ahead, rather than blaming the network', async () => {
     // "Check your connection" was shown twice this week for problems that had
     // nothing to do with the network. The message has to name what actually failed.
@@ -122,6 +141,21 @@ describe('POST /api/sync', () => {
 
     expect(response.status).toBe(409)
     expect(response.body.reason).toBe('device_clock_ahead')
+  })
+
+  it('refuses a record id owned by another account', async () => {
+    const { SyncOwnershipError } = jest.requireMock('../../src/sync') as {
+      SyncOwnershipError: new () => Error
+    }
+    mockSync.exchange.mockRejectedValue(new SyncOwnershipError() as never)
+
+    const response = await request(app)
+      .post('/api/sync')
+      .set('Authorization', TOKEN)
+      .send({ since: null, changed: emptyPayload })
+
+    expect(response.status).toBe(409)
+    expect(response.body.reason).toBe('record_owner_conflict')
   })
 
   it('reports a failed exchange as a failure rather than an empty day', async () => {

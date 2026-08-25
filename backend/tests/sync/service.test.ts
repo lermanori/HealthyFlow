@@ -1,4 +1,4 @@
-import { Sync, SyncClockError } from '../../src/sync'
+import { Sync, SyncClockError, SyncOwnershipError } from '../../src/sync'
 import { supabase } from '../../src/supabase-client'
 
 jest.mock('../../src/supabase-client', () => ({
@@ -83,6 +83,33 @@ describe('accepting what a device sent', () => {
     const response = await push({}, '2019-01-01T00:00:00.000Z')
 
     expect(Date.parse(response.syncedAt)).toBeGreaterThanOrEqual(before)
+  })
+
+  it('does not let an older device row overwrite a newer server row', async () => {
+    stored.tasks = [{
+      id: 'same-task', user_id: 'user-1', title: 'Newer server copy',
+      updated_at: '2026-08-23T11:00:00.000Z',
+    }]
+
+    await push({ tasks: [{
+      id: 'same-task', user_id: 'user-1', title: 'Older device copy',
+      updated_at: '2026-08-23T10:00:00.000Z',
+    }] }, '2026-08-23T09:00:00.000Z')
+
+    expect(upsertsTo('tasks')).toHaveLength(0)
+  })
+
+  it('refuses an id already owned by another account', async () => {
+    stored.tasks = [{
+      id: 'somebody-elses-task', user_id: 'user-2', title: 'Private',
+      updated_at: '2026-08-23T10:00:00.000Z',
+    }]
+
+    await expect(push({ tasks: [{
+      id: 'somebody-elses-task', title: 'Taken over', updated_at: AT,
+    }] })).rejects.toThrow(SyncOwnershipError)
+
+    expect(upsertsTo('tasks')).toHaveLength(0)
   })
 })
 
@@ -192,6 +219,19 @@ describe('settings, which are one record rather than rows', () => {
     const response = await push({})
 
     expect(response.changed.settings).toBeNull()
+  })
+
+  it('does not let older device settings overwrite newer server settings', async () => {
+    stored.user_settings = [{
+      user_id: 'user-1', settings: { weekStartsOn: 1 },
+      updated_at: '2026-08-23T11:00:00.000Z',
+    }]
+
+    await push({
+      settings: { weekStartsOn: 0, updated_at: '2026-08-23T10:00:00.000Z' },
+    }, '2026-08-23T09:00:00.000Z')
+
+    expect(upsertsTo('user_settings')).toHaveLength(0)
   })
 })
 

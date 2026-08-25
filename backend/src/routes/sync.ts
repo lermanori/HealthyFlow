@@ -1,6 +1,6 @@
 import express from 'express'
 import { db } from '../supabase-client'
-import { Sync, SyncClockError } from '../sync'
+import { Sync, SyncClockError, SyncOwnershipError } from '../sync'
 import { SyncRequestSchema } from '../sync-contracts'
 import { authenticateToken, type AuthRequest } from '../middleware/auth'
 
@@ -34,6 +34,12 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
       return res.status(409).json({
         error: 'This device’s clock is too far ahead to sync safely.',
         reason: 'device_clock_ahead',
+      })
+    }
+    if (error instanceof SyncOwnershipError) {
+      return res.status(409).json({
+        error: 'A record on this device conflicts with another account.',
+        reason: 'record_owner_conflict',
       })
     }
     console.error('Sync error:', error)

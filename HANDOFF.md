@@ -197,11 +197,17 @@ could not, all now handled:
 
 ### Not verified on a device
 
-Every test passes — 203 frontend, 803 backend, both typechecks, the production
+Every test passes — 223 frontend, 808 backend, both typechecks, the production
 build. **Nothing has run against a real database or a real phone**, because the
 migrations are unapplied. Green tests have not been sufficient in this codebase:
 five bugs were found on a device this week after the tests were green. The first
 exchange on a real account is the thing to watch.
+
+An audit on 2026-08-25 closed four gaps before that first exchange: a successful
+sync no longer schedules another sync from its own watermark write; the server
+now applies the shared most-recent-change rule instead of blindly upserting the
+device; hosted Health deletes leave tombstones and Workout exercise changes bump
+their parent; and an id already owned by another account is refused.
 
 ### What this deliberately leaves
 

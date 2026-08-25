@@ -3,7 +3,9 @@ import AchievementContracts from './achievement-contracts'
 import HealthContracts from './health-contracts'
 import WorkoutContracts from './workout-contracts'
 import {
+  changedAt,
   isFromTheFuture,
+  mergeRows,
   SYNC_COLLECTIONS,
   SYNC_IDENTITY,
   type SyncCollection,
@@ -120,6 +122,13 @@ export class SyncClockError extends Error {
   }
 }
 
+export class SyncOwnershipError extends Error {
+  constructor() {
+    super('A record id belongs to another account.')
+    this.name = 'SyncOwnershipError'
+  }
+}
+
 async function rowsChangedSince(table: string, userId: string, since: string | null): Promise<Row[]> {
   let query = supabase.from(table).select('*').eq('user_id', userId)
   if (since) query = query.gt('updated_at', since)
@@ -153,10 +162,50 @@ function conflictTarget(collection: SyncCollection): string {
   return ['user_id', ...identity].join(',')
 }
 
-async function acceptRows(collection: SyncCollection, userId: string, records: Row[]) {
+async function refuseForeignIds(table: string, userId: string, rows: Row[]) {
+  const ids = [...new Set(rows.map((row) => String(row.id)))]
+  if (ids.length === 0) return
+  const { data, error } = await supabase.from(table).select('id,user_id').in('id', ids)
+  if (error) throw error
+  if ((data ?? []).some((row: Row) => row.user_id !== userId)) throw new SyncOwnershipError()
+}
+
+async function refuseForeignChildIds(
+  table: string,
+  parent: string,
+  parentId: string,
+  rows: Row[],
+) {
+  const ids = [...new Set(rows.map((row) => String(row.id)))]
+  if (ids.length === 0) return
+  const { data, error } = await supabase.from(table).select(`id,${parent}`).in('id', ids)
+  if (error) throw error
+  if ((data ?? []).some((row: Row) => String(row[parent]) !== parentId)) {
+    throw new SyncOwnershipError()
+  }
+}
+
+async function acceptRows(
+  collection: SyncCollection,
+  userId: string,
+  records: Row[],
+  stored: Row[],
+) {
   if (records.length === 0) return
 
-  const mapped = records.map((record) => SHAPES[collection].toRows(record, userId))
+  // `stored` is the server delta read before this device writes. If both sides
+  // changed since the watermark, only the merge winner may reach Postgres;
+  // otherwise an older device row would overwrite a newer server row.
+  const winners = new Set(mergeRows(
+    stored as SyncRow[],
+    records as SyncRow[],
+    SYNC_IDENTITY[collection],
+  ))
+  const mapped = records
+    .filter((record) => winners.has(record as SyncRow))
+    .map((record) => SHAPES[collection].toRows(record, userId))
+  if (mapped.length === 0) return
+  await refuseForeignIds(TABLES[collection], userId, mapped.map((entry) => entry.row))
   const { error } = await supabase
     .from(TABLES[collection])
     .upsert(mapped.map((entry) => entry.row), { onConflict: conflictTarget(collection) })
@@ -171,6 +220,7 @@ async function acceptRows(collection: SyncCollection, userId: string, records: R
   // rather than a session that lost all of them.
   for (const entry of mapped) {
     const exercises = entry.exercises ?? []
+    await refuseForeignChildIds(child.table, child.parent, String(entry.row.id), exercises)
     if (exercises.length > 0) {
       const { error: childError } = await supabase
         .from(child.table)
@@ -229,21 +279,33 @@ async function exchange(userId: string, input: SyncRequest): Promise<SyncRespons
   before.settings = await settingsChangedSince(userId, input.since)
 
   for (const collection of SYNC_COLLECTIONS) {
-    await acceptRows(collection, userId, input.changed[collection] as Row[])
+    await acceptRows(
+      collection,
+      userId,
+      input.changed[collection] as Row[],
+      before[collection] as Row[],
+    )
   }
 
   if (input.changed.settings) {
     // One row, one JSONB column, one timestamp. Last write wins for the whole
     // object: merging individual keys would mean a schema for something already
     // small enough to lose whole.
-    const { updated_at: _updatedAt, ...settings } = input.changed.settings as Row
-    const { error } = await supabase
-      .from('user_settings')
-      .upsert(
-        { user_id: userId, settings, updated_at: now.toISOString() },
-        { onConflict: 'user_id' },
-      )
-    if (error) throw error
+    const incoming = input.changed.settings as Row
+    const serverAt = before.settings
+      ? changedAt({ id: 'settings', ...before.settings } as SyncRow)
+      : ''
+    const incomingAt = changedAt({ id: 'settings', ...incoming } as SyncRow)
+    if (!before.settings || (incomingAt !== '' && incomingAt >= serverAt)) {
+      const { updated_at: _updatedAt, ...settings } = incoming
+      const { error } = await supabase
+        .from('user_settings')
+        .upsert(
+          { user_id: userId, settings, updated_at: incomingAt || now.toISOString() },
+          { onConflict: 'user_id' },
+        )
+      if (error) throw error
+    }
   }
 
   return { syncedAt: now.toISOString(), changed: before }

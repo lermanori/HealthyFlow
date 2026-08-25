@@ -478,6 +478,9 @@ describe('workout API', () => {
       reps: 10,
       weight_kg: null,
     }))
+    expect(mockDb.updateWorkoutSession).toHaveBeenCalledWith('session-1', {
+      updated_at: expect.any(String),
+    })
 
     const remove = await request(app)
       .delete('/api/workouts/exercises/exercise-1')
@@ -485,5 +488,6 @@ describe('workout API', () => {
 
     expect(remove.status).toBe(204)
     expect(mockDb.deleteWorkoutSessionExercise).toHaveBeenCalledWith('exercise-1')
+    expect(mockDb.updateWorkoutSession).toHaveBeenCalledTimes(2)
   })
 })

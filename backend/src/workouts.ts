@@ -199,6 +199,7 @@ export const Workouts = {
     await db.upsertWorkoutExerciseItem(userId, input)
     const current = await db.getWorkoutSessionExercises(session.id)
     const row = await db.createWorkoutSessionExercise(exerciseToRow(session.id, input, current.length))
+    await db.updateWorkoutSession(session.id, { updated_at: new Date().toISOString() })
     return workoutExerciseToClient(row)
   },
 
@@ -208,6 +209,7 @@ export const Workouts = {
     await assertSessionOwner(userId, existing.session_id)
 
     const row = await db.updateWorkoutSessionExercise(exerciseId, exerciseUpdates(input))
+    await db.updateWorkoutSession(existing.session_id, { updated_at: new Date().toISOString() })
     if (input.name !== undefined) {
       await db.upsertWorkoutExerciseItem(userId, workoutExerciseToClient(row))
     }
@@ -219,5 +221,6 @@ export const Workouts = {
     if (!existing) throw new NotFoundError('Workout exercise not found')
     await assertSessionOwner(userId, existing.session_id)
     await db.deleteWorkoutSessionExercise(exerciseId)
+    await db.updateWorkoutSession(existing.session_id, { updated_at: new Date().toISOString() })
   },
 }

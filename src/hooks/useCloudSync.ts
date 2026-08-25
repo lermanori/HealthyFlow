@@ -57,6 +57,9 @@ export function useCloudSync() {
     void sync()
     const onOnline = () => { void sync() }
     const onChange = () => {
+      // ponytail: a sync writes its watermark through the same store funnel;
+      // ignore that write instead of adding a second event or store API.
+      if (running.current) return
       if (timer) clearTimeout(timer)
       timer = setTimeout(() => { void sync() }, AFTER_A_CHANGE_MS)
     }

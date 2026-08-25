@@ -36,3 +36,53 @@ CREATE INDEX IF NOT EXISTS idx_achievement_definitions_user_updated_at
   ON achievement_definitions (user_id, updated_at);
 CREATE INDEX IF NOT EXISTS idx_achievement_entries_user_updated_at
   ON achievement_entries (user_id, updated_at);
+
+-- Reusing a history item revives it. The natural-key row must stay in place so
+-- another device can receive its tombstone, but logging the same food/exercise
+-- again makes it live history once more.
+CREATE OR REPLACE FUNCTION upsert_calorie_item_usage(
+    p_user_id UUID,
+    p_normalized_name TEXT,
+    p_normalized_quantity TEXT,
+    p_now TIMESTAMP WITH TIME ZONE
+)
+RETURNS calorie_items LANGUAGE sql AS $$
+  UPDATE calorie_items
+     SET usage_count = usage_count + 1,
+         last_used_at = p_now,
+         updated_at = p_now,
+         deleted_at = NULL
+   WHERE user_id = p_user_id
+     AND normalized_name = p_normalized_name
+     AND normalized_quantity = p_normalized_quantity
+  RETURNING *;
+$$;
+
+CREATE OR REPLACE FUNCTION upsert_workout_exercise_item_usage(
+    p_user_id UUID,
+    p_normalized_name TEXT,
+    p_name TEXT,
+    p_sets NUMERIC,
+    p_reps NUMERIC,
+    p_weight_kg NUMERIC,
+    p_duration_minutes NUMERIC,
+    p_distance_km NUMERIC,
+    p_notes TEXT,
+    p_now TIMESTAMP WITH TIME ZONE
+)
+RETURNS workout_exercise_items LANGUAGE sql AS $$
+  UPDATE workout_exercise_items
+     SET name = p_name,
+         sets = p_sets,
+         reps = p_reps,
+         weight_kg = p_weight_kg,
+         duration_minutes = p_duration_minutes,
+         distance_km = p_distance_km,
+         notes = p_notes,
+         usage_count = usage_count + 1,
+         last_used_at = p_now,
+         updated_at = p_now,
+         deleted_at = NULL
+   WHERE user_id = p_user_id AND normalized_name = p_normalized_name
+  RETURNING *;
+$$;
