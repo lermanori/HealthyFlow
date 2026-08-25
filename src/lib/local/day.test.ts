@@ -21,8 +21,10 @@ import {
   LocalStoreError,
   loadLocalDatabase,
   readLocalDayIdentity,
+  legacyDocumentExists,
   memoryDriver,
   setLocalStoreDriver,
+  LEGACY_DOCUMENT_NAME,
 } from './store'
 
 const USER = 'guest-1'
@@ -428,5 +430,62 @@ describe('the stored document', () => {
       assert.equal(isStrandedLocalDay(error), false)
       return true
     })
+  })
+})
+
+describe('one document per person', () => {
+  const OTHER = 'guest-2'
+
+  it('keeps two people\u2019s days apart on the same iPhone', async () => {
+    // One fixed filename with the owner stamped inside meant every identity
+    // change was a collision to defend against. A name per owner means there is
+    // nothing to collide.
+    await createLocalTask(USER, { title: 'Mine', type: 'task', category: 'work', scheduledDate: TODAY })
+    await createLocalTask(OTHER, { title: 'Theirs', type: 'task', category: 'work', scheduledDate: TODAY })
+
+    assert.deepEqual((await localItemsForDay(USER, TODAY)).map((item) => item.title), ['Mine'])
+    assert.deepEqual((await localItemsForDay(OTHER, TODAY)).map((item) => item.title), ['Theirs'])
+  })
+
+  it('gives a newcomer an empty day rather than someone else\u2019s error', async () => {
+    await createLocalTask(USER, { title: 'Mine', type: 'task', category: 'work', scheduledDate: TODAY })
+
+    assert.deepEqual(await localItemsForDay(OTHER, TODAY), [])
+  })
+})
+
+describe('a document written before there was one per person', () => {
+  it('moves it to its owner\u2019s name and reads the same day', async () => {
+    const legacy = { ...emptyLocalDatabase(USER), tasks: [] }
+    setLocalStoreDriver(memoryDriver(JSON.stringify(legacy)))
+
+    await createLocalTask(USER, { title: 'Still here', type: 'task', category: 'work', scheduledDate: TODAY })
+
+    assert.deepEqual((await localItemsForDay(USER, TODAY)).map((item) => item.title), ['Still here'])
+    assert.equal(await legacyDocumentExists(), false)
+  })
+
+  it('still refuses one that belongs to somebody else', async () => {
+    setLocalStoreDriver(memoryDriver(JSON.stringify(emptyLocalDatabase('someone-else'))))
+
+    await assert.rejects(() => localItemsForDay(USER, TODAY), LocalStoreError)
+    // And it is left where it is: it is the only copy of somebody's day.
+    assert.equal(await legacyDocumentExists(), true)
+  })
+
+  it('keeps the old one until the new one can be read back', async () => {
+    // A write that succeeds and cannot be read back destroys access to a day
+    // while reporting that it saved one. Deleting the original first is exactly
+    // how that happens.
+    const legacy = JSON.stringify(emptyLocalDatabase(USER))
+    const failing = memoryDriver(legacy)
+    const write = failing.write
+    failing.write = async (name: string, contents: string) => {
+      await write(name, name.includes(USER) ? '{ not readable' : contents)
+    }
+    setLocalStoreDriver(failing)
+
+    await assert.rejects(() => localItemsForDay(USER, TODAY), LocalStoreError)
+    assert.equal(await failing.read(LEGACY_DOCUMENT_NAME), legacy)
   })
 })

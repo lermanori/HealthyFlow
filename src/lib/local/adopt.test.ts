@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { adoptAccountDay, countLocalDay, localDayFromExport } from './adopt'
-import { emptyLocalDatabase, LocalDatabaseSchema, LocalStoreError, loadLocalDatabase, replaceLocalDay, memoryDriver, setLocalStoreDriver, type LocalDatabase } from './store'
+import { emptyLocalDatabase, LocalDatabaseSchema, LocalStoreError, loadLocalDatabase, opensWithoutSession, readLocalDayIdentity, replaceLocalDay, memoryDriver, setLocalStoreDriver, type LocalDatabase } from './store'
 import { buildLocalDaySummary } from './day'
 import { collectDelta, runSync } from './sync'
 
@@ -458,5 +458,34 @@ describe('recording who an adopted day belongs to', () => {
     const merged = adoptAccountDay(emptyLocalDatabase(GUEST), account, 'keep_both')
 
     assert.equal(merged.ownerEmail, 'someone@example.com')
+  })
+})
+
+describe('handing this device from a Guest to the account they signed in to', () => {
+  // Signing in abandons the guest identity (CONTEXT.md). With a document per
+  // person the guest's day is no longer overwritten by the account's — it sits
+  // there — and it is the one a no-token launch would prefer, because a Guest's
+  // day is the only kind that opens without a session. The device would come
+  // back as the guest they just left.
+  const accountDay = () => ({ ...emptyLocalDatabase(ACCOUNT), ownerEmail: 'someone@example.com' })
+
+  it('retires the guest\u2019s day rather than leaving it to be reopened', async () => {
+    setLocalStoreDriver(memoryDriver(null))
+    await replaceLocalDay(emptyLocalDatabase(GUEST))
+
+    await replaceLocalDay(accountDay(), GUEST)
+
+    const identity = await readLocalDayIdentity()
+    assert.equal(identity?.id, ACCOUNT)
+    assert.equal(opensWithoutSession(identity), false)
+  })
+
+  it('leaves every other day on the device alone', async () => {
+    setLocalStoreDriver(memoryDriver(null))
+    await replaceLocalDay(emptyLocalDatabase('someone-elses-guest'))
+
+    await replaceLocalDay(accountDay(), GUEST)
+
+    assert.equal((await loadLocalDatabase('someone-elses-guest')).userId, 'someone-elses-guest')
   })
 })

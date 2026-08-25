@@ -465,8 +465,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const adopted = deviceDay ? adoptAccountDay(deviceDay, accountDay, choice) : accountDay
 
     // The day lands first. If this throws, the session is untouched and the Guest
-    // is still themselves, with their day where it was.
-    await replaceLocalDay(adopted)
+    // is still themselves, with their day where it was. The guest's own document
+    // is retired in the same call, once the account's is safely stored.
+    await replaceLocalDay(adopted, user?.id ?? null)
 
     queryClient.clear()
     clearDemoState()
@@ -568,7 +569,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Deleting the account has to take the day with it. For a Guest this file is
     // the only copy there has ever been, so leaving it behind would both lie about
     // the deletion and block the next session on this device.
-    void clearLocalDay().catch((error) => {
+    void clearLocalDay(user?.id).catch((error) => {
       console.error('[local] could not erase the day on this device:', error)
     })
     forgetLocalDayOwner()

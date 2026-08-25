@@ -33,7 +33,19 @@ export const LOCAL_DATABASE_VERSION = 2
  * previous user; a rule at the funnel cannot be forgotten by the next writer.
  */
 export const LOCAL_DAY_CHANGED_EVENT = 'healthyflow:local-day-changed'
-const DOCUMENT_NAME = 'healthyflow-day.json'
+/**
+ * The one document every device used to have, whoever it belonged to.
+ *
+ * A single fixed name with the owner stamped inside meant two identities on one
+ * device were a collision to defend against rather than two files. Kept only so
+ * a document written under it can be moved to its owner's name on first read.
+ */
+export const LEGACY_DOCUMENT_NAME = 'healthyflow-day.json'
+
+/** One document per person. Nothing to collide, so nothing to guard. */
+export function documentName(userId: string): string {
+  return `healthyflow-day-${userId}.json`
+}
 /**
  * `Directory.Data` is `Library/NoCloud` on iOS: it survives app updates and is
  * excluded from iCloud backup. Excluded is the deliberate half — cross-device is
@@ -206,49 +218,72 @@ export function emptyLocalDatabase(userId: string): LocalDatabase {
  * returning Guest on a blank day would destroy their only copy on the next write.
  */
 export type LocalStoreDriver = {
-  read: () => Promise<string | null>
-  write: (contents: string) => Promise<void>
-  /** Erase the document. Only ever called for an explicit, user-chosen deletion. */
-  clear: () => Promise<void>
+  read: (name: string) => Promise<string | null>
+  write: (name: string, contents: string) => Promise<void>
+  /** Erase one document. Only ever called for an explicit, user-chosen deletion. */
+  remove: (name: string) => Promise<void>
+  /** Every day document on this device, by name. */
+  list: () => Promise<string[]>
 }
 
+const isDayDocument = (name: string) =>
+  name === LEGACY_DOCUMENT_NAME || (name.startsWith('healthyflow-day-') && name.endsWith('.json'))
+
 export const capacitorFilesystemDriver: LocalStoreDriver = {
-  read: async () => {
+  read: async (name) => {
     // Existence is checked by listing the directory rather than by catching the
     // read error, so "no document yet" is never confused with "the read broke".
     const listing = await Filesystem.readdir({ path: '', directory: DOCUMENT_DIRECTORY })
-    if (!listing.files.some((entry) => entry.name === DOCUMENT_NAME)) return null
+    if (!listing.files.some((entry) => entry.name === name)) return null
     const file = await Filesystem.readFile({
-      path: DOCUMENT_NAME,
+      path: name,
       directory: DOCUMENT_DIRECTORY,
       encoding: Encoding.UTF8,
     })
     return typeof file.data === 'string' ? file.data : await file.data.text()
   },
-  write: async (contents) => {
+  write: async (name, contents) => {
     await Filesystem.writeFile({
-      path: DOCUMENT_NAME,
+      path: name,
       directory: DOCUMENT_DIRECTORY,
       encoding: Encoding.UTF8,
       data: contents,
     })
   },
-  clear: async () => {
+  remove: async (name) => {
     const listing = await Filesystem.readdir({ path: '', directory: DOCUMENT_DIRECTORY })
-    if (!listing.files.some((entry) => entry.name === DOCUMENT_NAME)) return
-    await Filesystem.deleteFile({ path: DOCUMENT_NAME, directory: DOCUMENT_DIRECTORY })
+    if (!listing.files.some((entry) => entry.name === name)) return
+    await Filesystem.deleteFile({ path: name, directory: DOCUMENT_DIRECTORY })
+  },
+  list: async () => {
+    const listing = await Filesystem.readdir({ path: '', directory: DOCUMENT_DIRECTORY })
+    return listing.files.map((entry) => entry.name).filter(isDayDocument)
   },
 }
 
-/** An in-process driver, for tests and for the day core's own unit coverage. */
+/**
+ * An in-process driver, for tests and for the day core's own unit coverage.
+ *
+ * Seeds whatever it is given under the legacy name, so a test that hands it one
+ * document exercises the same move onto a per-owner name a real device performs.
+ */
 export function memoryDriver(initial: string | null = null): LocalStoreDriver & { contents: string | null } {
-  const driver = {
-    contents: initial,
-    read: async () => driver.contents,
-    write: async (contents: string) => { driver.contents = contents },
-    clear: async () => { driver.contents = null },
+  const files = new Map<string, string>()
+  if (initial !== null) files.set(LEGACY_DOCUMENT_NAME, initial)
+  return {
+    get contents() {
+      const stored = [...files.values()]
+      return stored.length === 1 ? stored[0] : null
+    },
+    set contents(value: string | null) {
+      files.clear()
+      if (value !== null) files.set(LEGACY_DOCUMENT_NAME, value)
+    },
+    read: async (name: string) => files.get(name) ?? null,
+    write: async (name: string, contents: string) => { files.set(name, contents) },
+    remove: async (name: string) => { files.delete(name) },
+    list: async () => [...files.keys()],
   }
-  return driver
 }
 
 let driver: LocalStoreDriver = capacitorFilesystemDriver
@@ -338,7 +373,19 @@ export function heldDayRecovery(identity: LocalDayIdentity | null):
  * cannot read — an unreadable document is not an identity to guess at.
  */
 export async function readLocalDayIdentity(): Promise<LocalDayIdentity | null> {
-  const contents = await driver.read()
+  const held: LocalDayIdentity[] = []
+  for (const name of await driver.list()) {
+    const identity = await identityOfDocument(name)
+    // A Guest's day answers first wherever one is here: it is the only one that
+    // can be opened with no session, and leaving it unopened strands it.
+    if (identity?.ownerEmail === null) return identity
+    if (identity) held.push(identity)
+  }
+  return held[0] ?? null
+}
+
+async function identityOfDocument(name: string): Promise<LocalDayIdentity | null> {
+  const contents = await driver.read(name)
   if (contents === null) return null
   try {
     const parsed = JSON.parse(contents) as { userId?: unknown; ownerEmail?: unknown }
@@ -352,6 +399,11 @@ export async function readLocalDayIdentity(): Promise<LocalDayIdentity | null> {
   }
 }
 
+/** Whether a document written before there was one per person is still here. */
+export async function legacyDocumentExists(): Promise<boolean> {
+  return (await driver.read(LEGACY_DOCUMENT_NAME)) !== null
+}
+
 /**
  * Erase the day on this device.
  *
@@ -359,15 +411,24 @@ export async function readLocalDayIdentity(): Promise<LocalDayIdentity | null> {
  * place, so nothing else may reach this — not a failed read, not a session that
  * could not be restored, not a sign-out.
  */
-export async function clearLocalDay(): Promise<void> {
-  await driver.clear()
+export async function clearLocalDay(userId?: string | null): Promise<void> {
+  // Defaults to whoever's day is currently open, which is what "erase the day on
+  // this device" means from inside a session. The stranded screen has no session
+  // and passes nothing, and there the blocker is the legacy document below.
+  const owner = userId ?? loaded?.userId ?? null
+  if (owner) await driver.remove(documentName(owner))
+  // The legacy document goes too. It is at most one file, both callers mean "get
+  // rid of what is on this iPhone", and an account only gets this far if that
+  // document is theirs — anyone else's would have refused to load.
+  await driver.remove(LEGACY_DOCUMENT_NAME)
   loaded = null
 }
 
 export async function loadLocalDatabase(userId: string): Promise<LocalDatabase> {
   if (loaded && loaded.userId === userId) return loaded
 
-  const contents = await driver.read()
+  const own = await driver.read(documentName(userId))
+  const contents = own ?? await driver.read(LEGACY_DOCUMENT_NAME)
   if (contents === null) {
     loaded = emptyLocalDatabase(userId)
     return loaded
@@ -399,8 +460,39 @@ export async function loadLocalDatabase(userId: string): Promise<LocalDatabase> 
     )
   }
 
+  if (own === null) await moveOntoItsOwnersName(result.data)
+
   loaded = result.data
   return loaded
+}
+
+/**
+ * Move a document written under the old shared name onto its owner's own name.
+ *
+ * Written, read back, and only then is the original removed. A write that
+ * succeeds and cannot be read back destroys access to a day while reporting that
+ * it saved one, and deleting the original first is exactly how that happens.
+ */
+async function moveOntoItsOwnersName(database: LocalDatabase): Promise<void> {
+  const name = documentName(database.userId)
+  await driver.write(name, JSON.stringify(database))
+
+  const readBack = await driver.read(name)
+  if (readBack === null || !readsBackAsADay(readBack)) {
+    throw new LocalStoreError(
+      'That day could not be moved to this iPhone in a shape it can read back.',
+      { reason: 'unknown_version' },
+    )
+  }
+  await driver.remove(LEGACY_DOCUMENT_NAME)
+}
+
+function readsBackAsADay(contents: string): boolean {
+  try {
+    return LocalDatabaseSchema.safeParse(JSON.parse(contents)).success
+  } catch {
+    return false
+  }
 }
 
 /**
@@ -426,7 +518,10 @@ function upgraded(parsed: unknown): unknown {
  * mismatch, because a document that quietly changed hands would mean someone's
  * day was overwritten without being asked. Signing in *is* the asking.
  */
-export async function replaceLocalDay(database: LocalDatabase): Promise<void> {
+export async function replaceLocalDay(
+  database: LocalDatabase,
+  abandoning?: string | null,
+): Promise<void> {
   // Validated before it is written, and this is the write that most needs it: it
   // is the only one carrying records this device did not create. A document that
   // is written successfully and cannot be read back is the worst failure
@@ -439,8 +534,16 @@ export async function replaceLocalDay(database: LocalDatabase): Promise<void> {
       { cause: checked.error, reason: 'unknown_version' },
     )
   }
-  await driver.write(JSON.stringify(checked.data))
+  await driver.write(documentName(checked.data.userId), JSON.stringify(checked.data))
   loaded = checked.data
+
+  // The identity being left behind is retired only once the new day is safely
+  // stored. With a document per person the old one is no longer overwritten, and
+  // a Guest's day is the one a no-token launch prefers — so leaving it here would
+  // bring the device back as the guest the person just signed out of.
+  if (abandoning && abandoning !== checked.data.userId) {
+    await driver.remove(documentName(abandoning))
+  }
 }
 
 /**
@@ -485,7 +588,7 @@ export async function mutateLocalDatabase<T>(
   // erases one already recorded: forgetting that an account owns this day is the
   // failure being fixed, and a write must not be able to reintroduce it.
   const stamped = dayOwnerEmail === null ? next : { ...next, ownerEmail: dayOwnerEmail }
-  await driver.write(JSON.stringify(stamped))
+  await driver.write(documentName(userId), JSON.stringify(stamped))
   loaded = stamped
   announceChange()
   return result
