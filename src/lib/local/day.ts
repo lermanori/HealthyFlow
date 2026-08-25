@@ -715,6 +715,9 @@ export function updateLocalSettings(userId: string, patch: Partial<Settings>): P
     const next: LocalDatabase = {
       ...database,
       settings: { ...database.settings, ...patch },
+      // Settings are one record, not rows, so this is the only timestamp they
+      // have. Without it they would appear in a first push and never in a delta.
+      settingsUpdatedAt: new Date().toISOString(),
     }
     return { next, result: resolveLocalSettings(next) }
   })

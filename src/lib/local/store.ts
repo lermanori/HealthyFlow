@@ -120,6 +120,23 @@ export const LocalDatabaseSchema = z.object({
   tasks: z.array(LocalTaskRowSchema).default([]),
   habitProgress: z.array(LocalHabitProgressRowSchema).default([]),
   settings: z.record(z.string(), z.unknown()).default({}),
+  /**
+   * The server's clock at the end of the last successful exchange, or null if
+   * there has not been one. Stored beside the day because it is only meaningful
+   * against this document — a fresh document has seen nothing.
+   *
+   * Deliberately the *server's* clock. A device clock decides which of two edits
+   * happened later, which is about when a person did something; it must never
+   * decide what has already been seen, or a skewed device either misses rows
+   * forever or re-sends everything on every exchange.
+   */
+  syncedAt: z.string().nullable().default(null),
+  /**
+   * When settings last changed. They are stored as a patch object rather than
+   * rows, so they carry no per-row timestamp and would otherwise never appear in
+   * a delta — they would sync once on a first push and never again.
+   */
+  settingsUpdatedAt: z.string().nullable().default(null),
 
   // Health. Food, weight and training are core rather than optional (TARGET.md),
   // so a Guest holds them exactly as they hold their Items.
@@ -143,6 +160,8 @@ export function emptyLocalDatabase(userId: string): LocalDatabase {
     tasks: [],
     habitProgress: [],
     settings: {},
+    syncedAt: null,
+    settingsUpdatedAt: null,
     calorieEntries: [],
     calorieItems: [],
     weightEntries: [],
@@ -390,6 +409,19 @@ export async function mutateLocalDatabase<T>(
   await driver.write(JSON.stringify(next))
   loaded = next
   return result
+}
+
+/**
+ * Remember how far the server has seen.
+ *
+ * Through `mutateLocalDatabase` like every other write, so the watermark is
+ * persisted by the same funnel and cannot be advanced in memory only.
+ */
+export function recordSyncedAt(userId: string, syncedAt: string): Promise<void> {
+  return mutateLocalDatabase(userId, (database) => ({
+    next: { ...database, syncedAt },
+    result: undefined,
+  }))
 }
 
 /**

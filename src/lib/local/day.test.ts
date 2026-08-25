@@ -22,6 +22,7 @@ import {
   loadLocalDatabase,
   readLocalDayOwner,
   memoryDriver,
+  recordSyncedAt,
   setLocalStoreDriver,
 } from './store'
 
@@ -329,6 +330,39 @@ describe('settings on the device', () => {
 })
 
 describe('the stored document', () => {
+  it('remembers the watermark the server gave it', async () => {
+    await createLocalTask(USER, { title: 'Anything', type: 'task', category: 'work', scheduledDate: TODAY })
+
+    await recordSyncedAt(USER, '2026-08-23T12:00:00.000Z')
+
+    assert.equal((await loadLocalDatabase(USER)).syncedAt, '2026-08-23T12:00:00.000Z')
+  })
+
+  it('starts with no watermark, so the first exchange sends everything', async () => {
+    assert.equal((await loadLocalDatabase(USER)).syncedAt, null)
+  })
+
+  it('reads a document written before the watermark existed', async () => {
+    // Every stored document predates this field. One that cannot be read back is
+    // a day destroyed while reporting success, which is what signing in once did.
+    const legacy = { ...emptyLocalDatabase(USER) } as Record<string, unknown>
+    delete legacy.syncedAt
+    delete legacy.settingsUpdatedAt
+    setLocalStoreDriver(memoryDriver(JSON.stringify(legacy)))
+
+    assert.equal((await loadLocalDatabase(USER)).syncedAt, null)
+  })
+
+  it('stamps when settings changed, because they carry no per-row timestamp', async () => {
+    // Settings are a patch object, not rows. Without their own timestamp they
+    // would sync once on a first push and never again.
+    assert.equal((await loadLocalDatabase(USER)).settingsUpdatedAt, null)
+
+    await updateLocalSettings(USER, { calorieIntake: false })
+
+    assert.notEqual((await loadLocalDatabase(USER)).settingsUpdatedAt, null)
+  })
+
   it('survives a round trip through the driver', async () => {
     await createLocalTask(USER, { title: 'Persisted', type: 'task', category: 'work', scheduledDate: TODAY })
 
