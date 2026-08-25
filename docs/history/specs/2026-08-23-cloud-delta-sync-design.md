@@ -71,9 +71,14 @@ already paid for three times — `composeDayTaskRows`, `deriveHabitOutcome` and
 
 ## The merge rule
 
-For each row, by id: **the row whose `updated_at` is later wins.** A tie goes to
-the incoming row, so a device that just wrote something is not overruled by a copy
-that has not moved.
+For each row, by id: **the row whose `updated_at` is later wins. On an exact tie,
+the device's row wins** — on both sides of the exchange, not "whichever arrived
+last".
+
+Saying "the incoming row wins" would mean opposite things on the server and on the
+device, and the two would disagree about the same pair forever. Naming the device
+explicitly makes the rule symmetric, and it matches the reason already given for
+the sign-in merge: the device is where the person was working.
 
 Deletions are rows like any other — `deleted_at` set, `updated_at` bumped — so a
 delete competes on the same terms as an edit, and the later one wins. This is why
@@ -89,9 +94,11 @@ everything on every sync. "Which edit happened later?" is about when a person di
 something, which only the device knows.
 
 The risk that remains is a device whose clock is far ahead winning every conflict
-until real time catches up. The server therefore **rejects rows dated more than a
-few minutes into the future** rather than storing them, which bounds the damage to
-one refused sync instead of a permanently poisoned row.
+until real time catches up. The server therefore **rejects any row whose
+`updated_at` is more than five minutes ahead of its own clock**, and answers with
+the reason rather than storing it. Five minutes is loose enough to absorb ordinary
+drift and tight enough that a badly wrong clock is caught on the first exchange
+instead of poisoning a row permanently.
 
 ## Settings
 
@@ -153,6 +160,19 @@ are the ones that have already caused damage:
 path.** Every bug found on a device this week came from data the server creates,
 while every test used data the device creates. That gap is the reason this list
 exists.
+
+## Sequencing
+
+The two prerequisites come first and land on their own, because until both are
+true nothing else in this spec can be tested: a table that cannot say what changed
+has no delta, and a delete that does not travel makes every sync wrong in a way
+that looks like sync working. In order:
+
+1. `updated_at` on `tasks` — migration, backfill, write path.
+2. Soft deletes for the four health kinds.
+3. The merge rule, pure and tested on its own.
+4. `POST /sync` on the server.
+5. The client exchange, its cadence, and the subscription gate.
 
 ## Out of scope
 
