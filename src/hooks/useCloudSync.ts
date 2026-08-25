@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { Network } from '@capacitor/network'
 import { useQueryClient } from '@tanstack/react-query'
 import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
@@ -10,6 +11,13 @@ import { LOCAL_DAY_CHANGED_EVENT } from '../lib/local/store'
 const AFTER_A_CHANGE_MS = 3_000
 const CLOUD_SYNC_FAILURE_TOAST = 'cloud-sync-failure'
 
+function showCloudStatusUnavailable() {
+  toast.error('Cloud status unavailable. Changes are safe on this device.', {
+    id: CLOUD_SYNC_FAILURE_TOAST,
+    duration: Infinity,
+  })
+}
+
 export function reportCloudSyncFailure(error: unknown) {
   console.error('[sync] exchange failed:', error)
   toast.error('Cloud sync paused. Changes are safe on this device.', {
@@ -20,10 +28,7 @@ export function reportCloudSyncFailure(error: unknown) {
 
 export function reportCloudStatusFailure(error: unknown) {
   console.error('[sync] subscription check failed:', error)
-  toast.error('Cloud status unavailable. Changes are safe on this device.', {
-    id: CLOUD_SYNC_FAILURE_TOAST,
-    duration: Infinity,
-  })
+  showCloudStatusUnavailable()
 }
 
 export function clearCloudSyncFailure() {
@@ -60,6 +65,20 @@ export function useCloudSync() {
       if (running.current || cancelled) return
       running.current = true
       try {
+        let connected: boolean
+        try {
+          connected = (await Network.getStatus()).connected
+        } catch (error) {
+          if (!cancelled) reportCloudStatusFailure(error)
+          return
+        }
+        // Capacitor knows the native connection state even when WKWebView has
+        // not yet rejected an HTTP promise or updated navigator.onLine.
+        if (!connected) {
+          if (!cancelled) showCloudStatusUnavailable()
+          return
+        }
+
         let summary: Awaited<ReturnType<typeof creditsService.getSummary>>
         try {
           summary = await creditsService.getSummary()
@@ -91,6 +110,11 @@ export function useCloudSync() {
 
     void sync()
     const onOnline = () => { void sync() }
+    const onOffline = () => {
+      if (timer) clearTimeout(timer)
+      timer = undefined
+      showCloudStatusUnavailable()
+    }
     const onChange = () => {
       // ponytail: a sync writes its watermark through the same store funnel;
       // ignore that write instead of adding a second event or store API.
@@ -100,12 +124,14 @@ export function useCloudSync() {
     }
 
     window.addEventListener('online', onOnline)
+    window.addEventListener('offline', onOffline)
     window.addEventListener(LOCAL_DAY_CHANGED_EVENT, onChange)
     return () => {
       cancelled = true
       clearCloudSyncFailure()
       if (timer) clearTimeout(timer)
       window.removeEventListener('online', onOnline)
+      window.removeEventListener('offline', onOffline)
       window.removeEventListener(LOCAL_DAY_CHANGED_EVENT, onChange)
     }
   }, [user, queryClient])

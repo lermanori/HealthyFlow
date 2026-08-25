@@ -1,3 +1,9 @@
+### 2026-08-25 16:25 — `main`
+
+Real-device Airplane Mode verification exposed that Cloud status waited for an HTTP rejection and never listened for the native offline boundary, so iOS could remain silent while a request hung. Cloud sync now checks Capacitor's connection state before every attempt and surfaces the persistent safe-on-device notice immediately on an offline event; the exact browser reproduction and all 223 frontend tests are green.
+
+---
+
 ### 2026-08-25 16:09 — `main`
 
 Closed the final Local-day account-entry gap: password login, provider login and signup now download, merge and validate the account day before opening the session, while a failed download leaves the prior session untouched. Cloud subscribers now see a persistent failure notice without risking their Local changes, and the notice clears on recovery. The focused browser regression, all 223 frontend tests, lint, typecheck and the production build are green.

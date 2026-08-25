@@ -215,6 +215,16 @@ test('the app starts in a Vite development browser without server-only module er
     assert.equal(localLogin.activeUserId, accountId, 'login did not switch the account onto its Local day')
     assert.deepEqual(localLogin.taskTitles, ['Downloaded onto this device'])
     await page.getByText(syncNotice).waitFor({ state: 'visible' })
+
+    await page.evaluate(async (modulePath) => {
+      const sync = await import(modulePath)
+      sync.clearCloudSyncFailure()
+      window.dispatchEvent(new Event('offline'))
+    }, '/src/hooks/useCloudSync.ts')
+    await page.getByText('Cloud status unavailable. Changes are safe on this device.').waitFor({
+      state: 'visible',
+      timeout: 3_000,
+    })
   } finally {
     await browser?.close()
     await server.close()
