@@ -1,3 +1,9 @@
+### 2026-08-25 15:50 — `main`
+
+Cleared the main-branch CI lint gate by removing a no-op `try`/`catch` from Guest session startup; failures still propagate to the entry point exactly as before. Frontend lint, typecheck, all 223 unit tests and the production build are green locally.
+
+---
+
 ### 2026-08-25 15:23 — `feat/guest-mode`
 
 Audited the Cloud sync handoff and closed the gaps that made it unsafe to ship: stale device rows no longer overwrite newer server data, a successful exchange no longer retriggers itself, hosted Health deletions travel as tombstones, Workout exercise edits move their parent, and foreign record ids are refused. The owner has applied the two Supabase migrations; both typechecks, 223 frontend tests, 808 backend tests and the production build are green, with simulator verification now in progress.

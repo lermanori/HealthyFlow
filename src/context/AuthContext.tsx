@@ -380,24 +380,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * point has to say before anyone taps it.
    */
   const startGuestSession = async () => {
-    try {
-      const { user: userData, token } = await authService.startGuestSession()
-      queryClient.clear()
-      clearDemoState()
-      sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
-      setHasDemoReturnSession(false)
-      resetLocalStore()
-      writeSessionToken(token)
-      rememberLocalDayOwner(userData.id)
-      identifyUser(userData)
-      analytics.capture('guest_started')
-      adoptUser(userData)
-    } catch (error) {
-      // Rethrown unhandled: the entry point owns the message, because only it can
-      // say what actually failed. A toast here would be a second, vaguer copy of
-      // the same failure.
-      throw error
-    }
+    const { user: userData, token } = await authService.startGuestSession()
+    queryClient.clear()
+    clearDemoState()
+    sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
+    setHasDemoReturnSession(false)
+    resetLocalStore()
+    writeSessionToken(token)
+    rememberLocalDayOwner(userData.id)
+    identifyUser(userData)
+    analytics.capture('guest_started')
+    adoptUser(userData)
   }
 
   /**
