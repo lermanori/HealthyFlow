@@ -1,5 +1,25 @@
 ### 2026-08-25 — `feat/guest-mode`
 
+Logging out of a registered account did not close its day: the next launch
+reopened it with no token and no password, labelled *Guest*, because
+`adoptLocalDayOwner` had only an id and invented the rest. Fixed in three steps —
+the document now records whether its owner is a Guest and only a Guest's day
+opens without a session; the login and stranded-day screens say whose day the
+device is holding instead of offering a guest session on top of it or permanent
+erasure as the only exit; and there is now one document per person rather than
+one per device, which is what made every identity change a collision.
+
+Nothing is deleted on logout, deliberately: a free registered account has no
+server copy and no export, so "delete" would be destruction with no recourse. All
+five verification commands are green (223 frontend, 803 backend). **The move onto
+per-owner filenames has never run on a real device** — it is written to read back
+before it removes anything, but that ordering is the whole safety argument and it
+is untested outside the memory driver.
+
+---
+
+### 2026-08-25 — `feat/guest-mode`
+
 Cloud delta sync is built, closing the gap the last three sessions were mitigating:
 a subscriber's changes now travel to the server and back through one `POST
 /api/sync`, with a single `mergeRows` in `backend/src/sync-contracts.ts` running on

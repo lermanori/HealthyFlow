@@ -224,6 +224,61 @@ exchange on a real account is the thing to watch.
 - **Field-level conflict resolution.** Row-level, most-recent-wins, tie to the
   device.
 
+## Logging out, and who a day belongs to
+
+**Fixed 2026-08-25.** Logging out of a registered account left its day openable
+on the next launch: `adoptLocalDayOwner` had only an id to go on, so it invented
+the rest — and `email: null` is what this app means by Guest. The account's whole
+day reopened with no token and no password, labelled *Guest*, with the Logout
+button gone (it is hidden for Guests) and Claim pointed at a row already claimed.
+The same path fires when the server *refuses* a token, so it was reachable
+without anyone tapping Logout.
+
+Three changes, in the order they landed:
+
+1. **The document records whether its owner is a Guest** (`ownerEmail`, absent
+   means Guest — correct for every document written before the field existed).
+   `opensWithoutSession` is the rule, in one place. Carried on the existing
+   funnel: `setLocalDayUser(userId, email)` from `adoptUser`, stamped by
+   `mutateLocalDatabase` on every write, and set by `localDayFromExport` for a
+   day downloaded at sign-in.
+2. **The login screen and the stranded-day screen say whose day this is.**
+   Neither did, so starting a guest session sat one tap from an account's day,
+   and the stranded screen offered permanent erasure as the only way out of a
+   state signing in would have resolved. `heldDayRecovery` decides; both screens
+   render it.
+3. **One document per person** — `healthyflow-day-<userId>.json`. The single
+   fixed name with the owner stamped inside is what made every identity change a
+   collision to defend against.
+
+**Nothing is deleted on logout.** The day stays on the device and signing back in
+opens it. That is deliberate while a free registered account has no server copy
+(sync is subscriber-only) and no export — `/account/export` reads Supabase, so it
+comes back empty for them.
+
+### The migration runs on the device, and has not
+
+A document written under the old shared name is moved onto its owner's name on
+first read: written, read back, and only then is the original removed. That
+ordering is the point — a write that succeeds and cannot be read back destroys a
+day while reporting that it saved one. It is covered by tests through the memory
+driver, but **no real device has performed it**. It is the riskiest thing in this
+change.
+
+### Left deliberately
+
+- **The keep-or-delete dialog at logout.** UpNote's model is the right one — ask,
+  with *Delete* offered only when the server provably has everything (`collectDelta`
+  empty plus an active subscription). It needs a **local export** first, or the
+  answer for a free account is destruction with no recourse.
+- **`holdsLocalDay` still reads a `localStorage` key.** With a document per person
+  it could ask the filesystem instead, which nothing can overwrite. Signing in at
+  the login screen still has no download, so whether an account's day comes back
+  depends on that key surviving.
+- **An ADR.** "One document per person, and a day opens without a session only for
+  a Guest" is a real decision that amends the model in ADR-0011. It is recorded
+  here and in `CONTEXT.md`, not yet in `docs/adr/`.
+
 ## Corrections to what is already written down
 
 **ADR-0011 is wrong about where the day is stored.** It says `Directory.Data` is

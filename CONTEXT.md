@@ -77,10 +77,18 @@ one rendering.
 
 **Local day** — the record of someone's day held on their device rather than on
 the server: Items, Habits, Habit progress, settings **and health** — Calorie
-entries, Weight entries, Workout sessions and plans, Achievements — in one
-document (ADR-0011). It is the **source**, not a cache — there is no server copy behind it
-to fall back to, which is why a read that fails can never be reported as an empty
-day. _Avoid_: "offline copy", "local cache", "draft".
+entries, Weight entries, Workout sessions and plans, Achievements — in **one
+document per person** (ADR-0011, amended 2026-08-25 — it was one per device). It is
+the **source**, not a cache — there is no server copy behind it to fall back to,
+which is why a read that fails can never be reported as an empty day. _Avoid_:
+"offline copy", "local cache", "draft".
+
+**A day opens without a session only for a Guest.** The document records whether
+its owner has an email. A Guest has nothing to sign in with, so a login screen is
+a dead end and their day has to open on the strength of the document alone
+(ADR-0010). An account holder has credentials, so refusing costs them one sign-in
+— and not refusing meant logging out never closed anything: the account's day
+reopened on the next launch, labelled *Guest*, with no token and no password.
 
 **Claim** — the moment a Guest becomes an account holder **on their own row**. It
 happens in place: the same `users` row gains an email and a password, the `userId`
