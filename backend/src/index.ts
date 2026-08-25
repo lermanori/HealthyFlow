@@ -14,6 +14,7 @@ import { workRoutes } from './routes/work'
 import { calendarRoutes } from './routes/calendar'
 import { creditsRoutes } from './routes/credits'
 import { settingsRoutes } from './routes/settings'
+import { syncRoutes } from './routes/sync'
 import { caloriesRoutes } from './routes/calories'
 import { weightRoutes } from './routes/weight'
 import { achievementRoutes } from './routes/achievements'
@@ -144,6 +145,7 @@ app.use('/api/work', workRoutes)
 app.use('/api/calendar', calendarRoutes)
 app.use('/api/credits', creditsRoutes)
 app.use('/api/settings', settingsRoutes)
+app.use('/api/sync', syncRoutes)
 app.use('/api/calories', caloriesRoutes)
 app.use('/api/weight', weightRoutes)
 app.use('/api/achievements', achievementRoutes)
