@@ -1,3 +1,9 @@
+### 2026-08-25 16:09 — `main`
+
+Closed the final Local-day account-entry gap: password login, provider login and signup now download, merge and validate the account day before opening the session, while a failed download leaves the prior session untouched. Cloud subscribers now see a persistent failure notice without risking their Local changes, and the notice clears on recovery. The focused browser regression, all 223 frontend tests, lint, typecheck and the production build are green.
+
+---
+
 ### 2026-08-25 15:50 — `main`
 
 Cleared the main-branch CI lint gate by removing a no-op `try`/`catch` from Guest session startup; failures still propagate to the entry point exactly as before. Frontend lint, typecheck, all 223 unit tests and the production build are green locally.

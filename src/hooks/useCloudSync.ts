@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
+import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 import { creditsService, syncService, DAY_SUMMARY_QUERY_KEY } from '../services/api'
 import { runSync } from '../lib/local/sync'
@@ -7,6 +8,27 @@ import { localDayUser } from '../lib/local/services'
 import { LOCAL_DAY_CHANGED_EVENT } from '../lib/local/store'
 
 const AFTER_A_CHANGE_MS = 3_000
+const CLOUD_SYNC_FAILURE_TOAST = 'cloud-sync-failure'
+
+export function reportCloudSyncFailure(error: unknown) {
+  console.error('[sync] exchange failed:', error)
+  toast.error('Cloud sync paused. Changes are safe on this device.', {
+    id: CLOUD_SYNC_FAILURE_TOAST,
+    duration: Infinity,
+  })
+}
+
+export function reportCloudStatusFailure(error: unknown) {
+  console.error('[sync] subscription check failed:', error)
+  toast.error('Cloud status unavailable. Changes are safe on this device.', {
+    id: CLOUD_SYNC_FAILURE_TOAST,
+    duration: Infinity,
+  })
+}
+
+export function clearCloudSyncFailure() {
+  toast.dismiss(CLOUD_SYNC_FAILURE_TOAST)
+}
 
 /**
  * Keep a Cloud subscriber's day and the server in step.
@@ -26,9 +48,9 @@ export function useCloudSync() {
 
   useEffect(() => {
     const userId = localDayUser()
-    // No local day means there is nothing on this device to send. The web has no
-    // local day at all, and someone signing in at the login screen still reads a
-    // hosted day; neither is in scope here.
+    // No local day means there is nothing on this device to send. A Guest has no
+    // subscription; every account-entry path opens a Local day before it opens
+    // the session, so registered Cloud subscribers reach this branch.
     if (!user || !userId) return
 
     let cancelled = false
@@ -38,17 +60,30 @@ export function useCloudSync() {
       if (running.current || cancelled) return
       running.current = true
       try {
-        const summary = await creditsService.getSummary()
-        if (!summary.subscription.active) return
-        await runSync(userId, syncService.exchange)
+        let summary: Awaited<ReturnType<typeof creditsService.getSummary>>
+        try {
+          summary = await creditsService.getSummary()
+        } catch (error) {
+          // This account may not subscribe, so a failed status read cannot
+          // honestly be called a failed sync. It still surfaces: unavailable is
+          // not the same thing as inactive.
+          if (!cancelled) reportCloudStatusFailure(error)
+          return
+        }
+        if (!summary.subscription.active) {
+          clearCloudSyncFailure()
+          return
+        }
+        try {
+          await runSync(userId, syncService.exchange)
+        } catch (error) {
+          // A failed exchange changes nothing: the watermark did not move, so
+          // the next one carries the same delta plus whatever happened since.
+          if (!cancelled) reportCloudSyncFailure(error)
+          return
+        }
+        clearCloudSyncFailure()
         if (!cancelled) queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
-      } catch (error) {
-        // A failed exchange changes nothing: the watermark did not move, so the
-        // next one carries the same delta plus whatever has happened since. The
-        // error is reported as itself rather than as a connection problem — what
-        // a subscriber should *see* while sync is failing is still undesigned,
-        // and guessing at it here would put a wrong message in front of them.
-        console.error('[sync] exchange failed:', error)
       } finally {
         running.current = false
       }
@@ -68,6 +103,7 @@ export function useCloudSync() {
     window.addEventListener(LOCAL_DAY_CHANGED_EVENT, onChange)
     return () => {
       cancelled = true
+      clearCloudSyncFailure()
       if (timer) clearTimeout(timer)
       window.removeEventListener('online', onOnline)
       window.removeEventListener(LOCAL_DAY_CHANGED_EVENT, onChange)

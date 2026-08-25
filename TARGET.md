@@ -216,6 +216,9 @@ softening a rule to survive a release is how the rule dies.
 - **No silent fallbacks.** A failure surfaces as a failure.
 - **No second vocabulary.** If a feature needs its own set of nouns, it is a
   different product.
+- **Never require a network** except for AI and calendar. Local storage is the
+  base layer for everyone, so the day is readable and writable with no
+  connection. Cloud replicates on top of it; it is not the source.
 
 **In force on iPhone since 2026-08-21**
 
@@ -223,22 +226,16 @@ softening a rule to survive a release is how the rule dies.
   Guest mode closes this — on iPhone. The web still asks for an account, and
   reaches parity later.
 
-**Still not true** — closes before the listing claims otherwise
-
-- **Never require a network** except for AI and calendar. Local storage is the
-  base layer for everyone, so the day is readable and writable with no
-  connection. Cloud replicates on top of it; it is not the source.
-
-Most of it is built. A Guest's Items, Habits, settings **and health** — food,
+A Guest's Items, Habits, settings **and health** — food,
 weight, training and progress — live on their device, so nothing is withheld from
 someone without an account. That gap closed on 2026-08-21 and was the contradiction
 ADR-0011 recorded.
 
-**One gap remains, and it is narrow.** A Guest, a claimed account, and anyone who
-signs in *from* a Guest session all read their day off the device — signing in that
-way brings the account's whole archive down first. What still reads a hosted day is
-someone who signs in at the **login screen**, on a device that was never a Guest.
-That path has no download yet.
+Account entry closed the remaining gap on 2026-08-25. Password login, provider
+login and new-account signup bring the account's archive down, merge it with any
+newer Local changes already held for that identity, and validate the document
+before the session opens. A failed download or write leaves the prior session
+untouched and surfaces the failure.
 
 Free users' data is never hosted — for cost, and because if it were, the Cloud
 subscription would have nothing to sell.

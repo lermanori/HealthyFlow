@@ -277,23 +277,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [queryClient])
 
+  /**
+   * Bring an account's day onto this device before opening its session.
+   *
+   * A returning account may already have newer Local changes left here after a
+   * logout, so this is the same identity-aware join used by Cloud sync rather
+   * than a blind replacement. A first login reads an empty document and simply
+   * takes the archive. Nothing that establishes the session happens until the
+   * resulting document has been validated and written successfully.
+   */
+  const placeAccountDayOnDevice = async (session: { user: User; token: string }) => {
+    const archive = await accountService.exportArchive(session.token)
+    const accountDay = localDayFromExport(session.user.id, archive)
+    const deviceDay = await loadLocalDatabase(session.user.id)
+    const adopted = adoptAccountDay(deviceDay, accountDay, 'keep_both')
+    await replaceLocalDay(adopted)
+    rememberLocalDayOwner(session.user.id)
+  }
+
   const login = async (email: string, password: string) => {
+    let session: Awaited<ReturnType<typeof authService.login>>
     try {
-      const { user: userData, token } = await authService.login(email, password)
-      queryClient.clear()
-      if (!isDemoEmail(userData.email)) clearDemoState()
-      sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
-      setHasDemoReturnSession(false)
-      clearDemoAcquisition()
-      writeSessionToken(token)
-      identifyUser(userData)
-      analytics.capture('logged_in', { is_demo: isDemoEmail(userData.email) })
-      adoptUser(userData)
-      toast.success('Welcome back!')
+      session = await authService.login(email, password)
     } catch (error) {
       toast.error('Invalid credentials')
       throw error
     }
+
+    try {
+      await placeAccountDayOnDevice(session)
+    } catch (error) {
+      toast.error('Could not bring your day onto this device. Nothing was changed.')
+      throw error
+    }
+
+    const { user: userData, token } = session
+    queryClient.clear()
+    if (!isDemoEmail(userData.email)) clearDemoState()
+    sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
+    setHasDemoReturnSession(false)
+    clearDemoAcquisition()
+    writeSessionToken(token)
+    identifyUser(userData)
+    analytics.capture('logged_in', { is_demo: isDemoEmail(userData.email) })
+    adoptUser(userData)
+    toast.success('Welcome back! Your day is on this device.')
   }
 
   const loginWithProvider = async (
@@ -305,6 +333,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const acquisition = readDemoAcquisition()
     const result = await authService.providerSession(provider, accessToken, invite, displayName)
     const { user: userData, token, isNewUser, signupCredits } = result
+    try {
+      await placeAccountDayOnDevice(result)
+    } catch (error) {
+      toast.error(isNewUser
+        ? 'Your account was created, but its day could not be saved on this device. Sign in to retry.'
+        : 'Could not bring your day onto this device. Nothing was changed.')
+      throw error
+    }
     queryClient.clear()
     clearDemoState()
     sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
@@ -338,37 +374,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signup = async (email: string, password: string, name: string, invite?: string) => {
+    let result: Awaited<ReturnType<typeof authService.signup>>
     try {
-      const acquisition = readDemoAcquisition()
-      const { user: userData, token, signupCredits } = await authService.signup(email, password, name, invite)
-      queryClient.clear()
-      clearDemoState()
-      sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
-      setHasDemoReturnSession(false)
-      writeSessionToken(token)
-      analytics.identify(userData.id, {
-        email: userData.email,
-        name: userData.name,
-        role: userData.role,
-        is_demo: isDemoEmail(userData.email),
-        onboarding_status: 'active',
-        signup_credit_cohort: signupCredits.cohort,
-        onboarding_credit_grant: signupCredits.credits,
-      }, { signed_up_at: new Date().toISOString() })
-      analytics.capture('signed_up', {
-        method: 'password',
-        credit_cohort: signupCredits.cohort,
-        onboarding_credits: signupCredits.credits,
-        source: acquisition ? 'demo' : 'direct',
-        persona: acquisition?.persona,
-      })
-      adoptUser(userData)
-      toast.success(`Account created with ${signupCredits.credits} AI credits. Welcome to HealthyFlow.`)
+      result = await authService.signup(email, password, name, invite)
     } catch (error: any) {
       const msg = error?.response?.data?.error || 'Signup failed'
       toast.error(msg)
       throw error
     }
+
+    try {
+      await placeAccountDayOnDevice(result)
+    } catch (error) {
+      toast.error('Your account was created, but its day could not be saved on this device. Sign in to retry.')
+      throw error
+    }
+
+    const acquisition = readDemoAcquisition()
+    const { user: userData, token, signupCredits } = result
+    queryClient.clear()
+    clearDemoState()
+    sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
+    setHasDemoReturnSession(false)
+    writeSessionToken(token)
+    analytics.identify(userData.id, {
+      email: userData.email,
+      name: userData.name,
+      role: userData.role,
+      is_demo: isDemoEmail(userData.email),
+      onboarding_status: 'active',
+      signup_credit_cohort: signupCredits.cohort,
+      onboarding_credit_grant: signupCredits.credits,
+    }, { signed_up_at: new Date().toISOString() })
+    analytics.capture('signed_up', {
+      method: 'password',
+      credit_cohort: signupCredits.cohort,
+      onboarding_credits: signupCredits.credits,
+      source: acquisition ? 'demo' : 'direct',
+      persona: acquisition?.persona,
+    })
+    adoptUser(userData)
+    toast.success(`Account created with ${signupCredits.credits} AI credits. Welcome to HealthyFlow.`)
   }
 
   /**
