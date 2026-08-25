@@ -11,12 +11,20 @@ import {
   localCalorieEntries,
   localWeightEntry,
   localWorkoutSessions,
+  localWeightTrend,
   removeLocalAchievement,
   removeLocalCalorieEntry,
+  removeLocalWeightEntry,
   updateLocalAchievement,
 } from './health'
 import { buildLocalDaySummary } from './day'
-import { LocalStoreError, emptyLocalDatabase, memoryDriver, setLocalStoreDriver } from './store'
+import {
+  LocalStoreError,
+  emptyLocalDatabase,
+  loadLocalDatabase,
+  memoryDriver,
+  setLocalStoreDriver,
+} from './store'
 
 const USER = 'guest-1'
 const TODAY = '2026-08-21'
@@ -196,5 +204,65 @@ describe('a health read that fails', () => {
 
     assert.deepEqual(await localCalorieEntries(USER, TODAY), [])
     assert.equal((await summary()).supporting.nutrition.status, 'not_logged')
+  })
+})
+
+describe('deleting a health record', () => {
+  // Absent and deleted look identical to a server. A meal removed from the array
+  // is a meal the next sync will put back, and nothing will report an error.
+  it('keeps the row and marks it, the way Items already do', async () => {
+    const entry = await createLocalCalorieEntry(USER, {
+      date: TODAY, name: 'Porridge', calories: 300,
+    })
+
+    await removeLocalCalorieEntry(USER, entry.id)
+
+    assert.deepEqual(await localCalorieEntries(USER, TODAY), [])
+    const database = await loadLocalDatabase(USER)
+    assert.equal(database.calorieEntries.length, 1)
+    assert.ok((database.calorieEntries[0] as { deletedAt?: string }).deletedAt)
+  })
+
+  it('hides it from every read, not just the day', async () => {
+    const entry = await createLocalWeightEntry(USER, { date: TODAY, weightKg: 80 })
+    await removeLocalWeightEntry(USER, entry.id)
+
+    assert.equal(await localWeightEntry(USER, TODAY), null)
+    assert.deepEqual((await localWeightTrend(USER)).entries, [])
+  })
+
+  it('refuses to delete something twice', async () => {
+    const entry = await createLocalCalorieEntry(USER, {
+      date: TODAY, name: 'Porridge', calories: 300,
+    })
+    await removeLocalCalorieEntry(USER, entry.id)
+
+    await assert.rejects(() => removeLocalCalorieEntry(USER, entry.id), LocalStoreError)
+  })
+
+  it('marks an Achievement\u2019s entries too, so those deletions travel as well', async () => {
+    const achievement = await createLocalAchievement(USER, {
+      name: 'Deadlift', metricType: 'weight', unit: 'kg', betterDirection: 'higher',
+    })
+    await addLocalAchievementEntry(USER, achievement.id, { date: TODAY, value: 100 })
+
+    await removeLocalAchievement(USER, achievement.id)
+
+    const database = await loadLocalDatabase(USER)
+    assert.equal(database.achievementEntries.length, 1)
+    assert.ok((database.achievementEntries[0] as { deletedAt?: string }).deletedAt)
+    assert.ok((database.achievementDefinitions[0] as { deletedAt?: string }).deletedAt)
+  })
+
+  it('lets the same natural key be recorded again after a deletion', async () => {
+    // A weight is one per day. Deleting today's and logging another must not
+    // amend the deleted row back to life.
+    const first = await createLocalWeightEntry(USER, { date: TODAY, weightKg: 80 })
+    await removeLocalWeightEntry(USER, first.id)
+
+    const second = await createLocalWeightEntry(USER, { date: TODAY, weightKg: 81 })
+
+    assert.notEqual(second.id, first.id)
+    assert.equal((await localWeightEntry(USER, TODAY))?.weightKg, 81)
   })
 })

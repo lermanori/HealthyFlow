@@ -18,7 +18,7 @@ const { summarizeAchievement } = AchievementContracts
  * stored is what the services return.
  */
 
-type Record_ = { id: string; userId: string; [key: string]: unknown }
+type Record_ = { id: string; userId: string; deletedAt?: string | null; [key: string]: unknown }
 type DatedRecord = Record_ & { date: string }
 
 /** Which array of the document a kind of record lives in. */
@@ -38,9 +38,12 @@ function collection<T extends Record_>(database: LocalDatabase, name: HealthColl
   return database[name] as unknown as T[]
 }
 
+/** Every live record of a kind. Deleted rows stay stored and are never returned. */
 async function read<T extends Record_>(userId: string, name: HealthCollection): Promise<T[]> {
-  return collection<T>(await loadLocalDatabase(userId), name)
+  return live(collection<T>(await loadLocalDatabase(userId), name))
 }
+
+const live = <T extends Record_>(rows: T[]): T[] => rows.filter((row) => !row.deletedAt)
 
 function insert<T extends Record_>(userId: string, name: HealthCollection, record: Omit<T, 'id' | 'userId'>): Promise<T> {
   return mutateLocalDatabase(userId, (database) => {
@@ -67,7 +70,9 @@ function amend<T extends Record_>(
 ): Promise<T> {
   return mutateLocalDatabase(userId, (database) => {
     const rows = collection<T>(database, name)
-    const existing = rows.find((row) => row.id === id)
+    // A deleted row is not there to be amended. Reviving one by editing it would
+    // undo a deletion that has already travelled, without anyone asking.
+    const existing = rows.find((row) => row.id === id && !row.deletedAt)
     if (!existing) throw new LocalStoreError(`Nothing on this device with id ${id}.`)
     const updated = { ...existing, ...changes, updatedAt: nowIso() } as T
     return {
@@ -77,13 +82,30 @@ function amend<T extends Record_>(
   })
 }
 
+/**
+ * Mark a record deleted rather than removing it.
+ *
+ * A removed row and a row that was never there are the same thing to anything
+ * downstream, so a delete has to travel as data. Items have always done this;
+ * health did not, and a sync would have resurrected every deleted meal without
+ * reporting anything.
+ */
 function discard(userId: string, name: HealthCollection, id: string): Promise<void> {
   return mutateLocalDatabase(userId, (database) => {
     const rows = collection(database, name)
-    if (!rows.some((row) => row.id === id)) {
+    if (!rows.some((row) => row.id === id && !row.deletedAt)) {
       throw new LocalStoreError(`Nothing on this device with id ${id}.`)
     }
-    return { next: { ...database, [name]: rows.filter((row) => row.id !== id) }, result: undefined }
+    const timestamp = nowIso()
+    return {
+      next: {
+        ...database,
+        [name]: rows.map((row) => (
+          row.id === id ? { ...row, deletedAt: timestamp, updatedAt: timestamp } : row
+        )),
+      },
+      result: undefined,
+    }
   })
 }
 
@@ -315,8 +337,8 @@ export async function localAchievements(
   options: { includeArchived?: boolean; entryLimit?: number } = {},
 ) {
   const database = await loadLocalDatabase(userId)
-  const definitions = collection<Record_>(database, 'achievementDefinitions')
-  const allEntries = collection<DatedRecord>(database, 'achievementEntries')
+  const definitions = live(collection<Record_>(database, 'achievementDefinitions'))
+  const allEntries = live(collection<DatedRecord>(database, 'achievementEntries'))
   const entryLimit = options.entryLimit ?? 60
 
   return definitions
@@ -343,15 +365,22 @@ export function updateLocalAchievement(userId: string, id: string, patch: Record
 
 export async function removeLocalAchievement(userId: string, id: string) {
   // Its entries go with it: an entry that points at nothing would be a record
-  // nobody can read and nobody can delete.
-  await mutateLocalDatabase(userId, (database) => ({
-    next: {
-      ...database,
-      achievementEntries: collection<DatedRecord>(database, 'achievementEntries')
-        .filter((entry) => entry.achievementId !== id),
-    },
-    result: undefined,
-  }))
+  // nobody can read and nobody can delete. Marked, not removed, so the deletion
+  // reaches the server the same way the definition's does.
+  await mutateLocalDatabase(userId, (database) => {
+    const timestamp = nowIso()
+    return {
+      next: {
+        ...database,
+        achievementEntries: collection<DatedRecord>(database, 'achievementEntries').map((entry) => (
+          entry.achievementId === id && !entry.deletedAt
+            ? { ...entry, deletedAt: timestamp, updatedAt: timestamp }
+            : entry
+        )),
+      },
+      result: undefined,
+    }
+  })
   return discard(userId, 'achievementDefinitions', id)
 }
 
