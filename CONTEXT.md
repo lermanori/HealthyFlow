@@ -44,6 +44,18 @@ shows on every day until placed or completed. Easy to conflate; different rows.
 **Rollover** — Tasks carry forward; **Habits do not.** A missed Habit day
 re-synthesises fresh. The asymmetry is deliberate (ADR-0002).
 
+**Sync watermark** — the server's clock at the end of the last successful
+exchange, stored on the device. It answers "what have I already seen", and it is
+deliberately *not* the device's clock: a skewed device would otherwise either miss
+rows forever or re-send everything every time. Which of two edits was later is a
+different question, and that one *is* answered by the device's `updated_at`.
+
+**A deletion is a record, not an absence.** Every synced kind soft-deletes:
+`deleted_at` is set and the row stays, so the deletion travels and competes on the
+same terms as an edit. A row that is simply gone is indistinguishable from one
+that was never there, and the next pull would put it back with nothing reporting
+an error. Health worked that way until 2026-08-25 and no longer does.
+
 **`unavailable`** — the read *failed*. It is never an empty result. Empty is
 `not_logged` / `not_recorded` / `not_scheduled`. Confusing the two turns a broken
 module into a quiet lie.

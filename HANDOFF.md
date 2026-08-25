@@ -65,24 +65,15 @@ Four pieces, in the order they were built:
 confirmed on a simulator**: a Guest's day survives killing and reopening the app.
 See "Verified end to end" below.
 
-## What a Guest still does not get, and why it matters
+## What a Guest gets
 
-**Health.** Nutrition, Weight, Training and Progress are not stored on the device.
-The local settings baseline switches those modules off, so the day reports them
-`disabled` — an honest state Today already renders, not an empty lie. But
-`TARGET.md` calls food, weight and training **core, not optional**, and says no
-part of the day itself is withheld.
+**The whole day, including Health.** Nutrition, Weight, Training and Progress live
+on the device alongside Items, Habits and settings — built 2026-08-21, closing the
+contradiction ADR-0011 recorded. `TARGET.md` calls food, weight and training core
+rather than optional, and nothing is withheld from someone without an account.
 
-**That contradiction is the one thing that has to close before the listing claims
-guest mode gives you the whole day.** Two ways out and they are not equivalent:
-
-- Teach the device the four record types. Roughly doubles the local store, and
-  four more services need an `onDevice` branch.
-- Change `TARGET.md` to say Health needs an account, and accept that the second
-  axis — *one clock* — is thinner for a Guest than the pitch says.
-
-It is written down in ADR-0011 and in `CONTEXT.md` under "things that look built
-and are not". Do not let it stay unanswered by accident a second time.
+This section previously said the opposite; it had gone stale against the work
+listed below and is corrected here rather than left to mislead the next reader.
 
 ## The order of what is left
 
@@ -151,25 +142,87 @@ the wrong thing:
 - `claim_signup_credit_grant` ties "founding" to credits. Founding is now a Cloud
   price.
 
-## The gap that keeps producing bugs: nothing uploads
+## Cloud sync, and what it still leaves
 
-**Local is the source and the server is never updated from it.** ADR-0012 says
-Cloud replicates on top; that replication does not exist. So:
+**Built 2026-08-25.** A Cloud subscriber's day now syncs both ways: the device
+sends rows changed since its **Sync watermark**, the server returns rows changed
+since the same watermark, and both sides merge with most-recently-changed-wins
+through one `mergeRows` in `backend/src/sync-contracts.ts`. Offline is not a
+special case — the watermark does not advance and the next exchange carries
+whatever accumulated. `POST /api/sync`, gated on an active subscription.
 
-- Anything done on a device is invisible to the server.
-- Signing in **downloads and overwrites**, so it reverts everything done since the
-  last sign-in unless the merge preserves it.
-- A user hit exactly this: Items they had completed and deleted on their phone came
-  back, because each sign-in re-downloaded the server's older copy.
+`src/lib/local/adopt.ts` no longer carries its own copy of that rule; the sign-in
+merge and the sync merge are now the same function, with the same per-collection
+identity.
 
-The merge now unions by id with the more recently changed row winning, which
-preserves device work and is also what stops a second sign-in duplicating the whole
-account. But that is a mitigation, not the fix. **The fix is an upload**, and until
-it exists a device's day and the server's copy drift apart permanently.
+### Two migrations are written and NOT applied
 
-The related correction: the Claim design says ids "come from two generators and
-cannot collide". That is true the *first* time a Guest signs in and false every time
-after, because by then the device holds the account's own rows.
+Both are on this branch and the live database has neither. **Nothing syncs until
+they are applied**, and `POST /api/sync` will 500 against production as it stands:
+
+- `supabase/migrations/20260823120000_add_tasks_updated_at.sql` — the column, a
+  backfill from `created_at`, a `BEFORE UPDATE` trigger and an index.
+- `supabase/migrations/20260823120001_add_health_deleted_at.sql` — `deleted_at`
+  on the eight health tables, plus a `(user_id, updated_at)` index on each.
+
+```sh
+supabase db push
+```
+
+If Postgres ports hang, check `route -n get default` for a `utun*` interface — a
+VPN is the usual cause. Otherwise paste both into the dashboard SQL editor and
+record them in `supabase_migrations.schema_migrations`.
+
+### What had to be built that the plan did not anticipate
+
+The plan assumed rows could be upserted straight through. Three reasons they
+could not, all now handled:
+
+1. **Health is stored client-shaped on the device and relationally on the
+   server** — `userId` vs `user_id`, and a session's exercises live *inside* the
+   session on one side and in `workout_session_exercises` on the other. The
+   translation runs at the server boundary, in `health-contracts.ts` and beside
+   the existing `*ToClient` twins in `workout-contracts.ts` and
+   `achievement-contracts.ts`.
+2. **No health table had `deleted_at`**, so a device-side deletion had nowhere to
+   go. Hence the second migration.
+3. **Four tables carry a unique constraint on a natural key** —
+   `weight_entries (user_id, date)`, `achievement_entries (user_id,
+   achievement_id, date)`, `calorie_items (user_id, normalized_name,
+   normalized_quantity)`, `workout_exercise_items (user_id, normalized_name)`.
+   Two devices that each log today's weight produce two ids for one row, and an
+   upsert on the id would violate the constraint and fail the *whole* exchange.
+   `SYNC_IDENTITY` names the natural key per collection and both the merge and
+   the `ON CONFLICT` use it.
+
+### Not verified on a device
+
+Every test passes — 203 frontend, 803 backend, both typechecks, the production
+build. **Nothing has run against a real database or a real phone**, because the
+migrations are unapplied. Green tests have not been sufficient in this codebase:
+five bugs were found on a device this week after the tests were green. The first
+exchange on a real account is the thing to watch.
+
+### What this deliberately leaves
+
+- **A free registered account still has no backup**, deliberately: hosting is
+  what Cloud sells. Whoever ships the paywall copy should say so plainly, because
+  people otherwise discover it by losing a phone.
+- **The deletion job.** On lapse the hosted copy freezes, and the plan was to
+  delete it after a grace period. **Only the freeze is built** — and the freeze is
+  simply the subscription gate refusing the exchange. The deletion needs a
+  scheduler, warning emails and a clock, and it is what bounds the storage cost
+  that made a grace period preferable to keeping data forever. Do not let this be
+  quietly forgotten.
+- **Realtime.** A Supabase subscription becomes a nudge to run the same exchange,
+  not a second code path. The pull was shaped as "everything since a watermark"
+  specifically so this stays cheap.
+- **What a subscriber sees while a sync is failing.** Undesigned, and deliberately
+  not guessed at: the hook logs the real error and shows nothing. Silence is
+  wrong and a permanent banner is worse.
+- **The web app syncing.** It has no local day.
+- **Field-level conflict resolution.** Row-level, most-recent-wins, tie to the
+  device.
 
 ## Corrections to what is already written down
 

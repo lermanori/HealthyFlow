@@ -1,3 +1,25 @@
+### 2026-08-25 — `feat/guest-mode`
+
+Cloud delta sync is built, closing the gap the last three sessions were mitigating:
+a subscriber's changes now travel to the server and back through one `POST
+/api/sync`, with a single `mergeRows` in `backend/src/sync-contracts.ts` running on
+both sides and `adopt.ts` folded onto it so the rule exists once. Executing the
+plan turned up three things it had not anticipated — health is stored
+client-shaped on the device and relationally on the server, no health table had
+`deleted_at`, and four tables carry unique constraints on natural keys that two
+devices will collide on — so the work also includes a translation layer beside the
+existing `*ToClient` twins and a `SYNC_IDENTITY` table that both the merge and the
+`ON CONFLICT` read.
+
+**Two migrations are written and unapplied, and nothing syncs until they are.**
+All five verification commands are green (203 frontend, 803 backend), but nothing
+has run against a real database or a real phone — which in this codebase has not
+been sufficient. The lapsed-subscription deletion job is deliberately not built
+and must not be forgotten; only the freeze exists, and it is just the subscription
+gate refusing the exchange.
+
+---
+
 ### 2026-08-23 17:30 — `feat/guest-mode`
 
 The owner reported Items they had completed and deleted coming back. Not rollover,
