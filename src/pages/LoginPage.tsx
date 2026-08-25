@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { Apple, ArrowRight, Eye, EyeOff, Lock, Mail, Play, User } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useHeldDay } from '../hooks/useHeldDay'
 import { waitlistService, type SignupStatus } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import AppMark from '../components/AppMark'
@@ -135,6 +136,8 @@ export default function LoginPage() {
   const [waitlistError, setWaitlistError] = useState('')
   const [waitlistSubmitting, setWaitlistSubmitting] = useState(false)
   const { login, loginWithProvider, signup, startGuestSession } = useAuth()
+  const heldDay = useHeldDay()
+  const [guestConfirmNeeded, setGuestConfirmNeeded] = useState(false)
   const [guestLoading, setGuestLoading] = useState(false)
   const oauthCallbackHandled = useRef(false)
 
@@ -283,6 +286,15 @@ export default function LoginPage() {
   }
 
   const handleStartWithoutAccount = async () => {
+    // This iPhone is holding an account's day. Starting a guest session on top of
+    // it does not open it and does not erase it — it leaves it sitting here
+    // unreachable until that account signs in again. Nobody should trip into that
+    // by tapping the button they were looking for.
+    if (heldDay.kind === 'sign_in' && !guestConfirmNeeded) {
+      setGuestConfirmNeeded(true)
+      return
+    }
+    setGuestConfirmNeeded(false)
     setError('')
     setGuestLoading(true)
     try {
@@ -434,8 +446,24 @@ export default function LoginPage() {
             </>
           )}
 
+          {heldDay.kind === 'sign_in' && (
+            <div className="mb-5 rounded-xl border border-brand/30 bg-brand/10 p-4 text-sm text-ink-soft">
+              <p className="font-medium text-ink">This iPhone is holding a day</p>
+              <p className="mt-1 text-ink-muted">
+                It belongs to {heldDay.email}. Sign in with that account to open it —
+                it is still here and nothing has been lost.
+              </p>
+            </div>
+          )}
+
           {isNativeIOS && (
             <section className="mb-5">
+              {guestConfirmNeeded && heldDay.kind === 'sign_in' && (
+                <p className="mb-2 rounded-lg border border-state-danger/30 bg-state-danger/10 p-3 text-sm text-ink-soft">
+                  {heldDay.email}&rsquo;s day stays on this iPhone, but a guest session
+                  cannot open it. Tap again to start without an account anyway.
+                </p>
+              )}
               <button
                 type="button"
                 onClick={handleStartWithoutAccount}
@@ -443,7 +471,13 @@ export default function LoginPage() {
                 className="btn-primary flex w-full items-center justify-center gap-2 px-3 py-3.5"
               >
                 {guestLoading ? <LoadingSpinner size="sm" /> : <ArrowRight className="h-5 w-5" />}
-                <span>{guestLoading ? 'Starting…' : 'Start without an account'}</span>
+                <span>
+                  {guestLoading
+                    ? 'Starting…'
+                    : guestConfirmNeeded
+                      ? 'Start without an account anyway'
+                      : 'Start without an account'}
+                </span>
               </button>
               {/*
                 ADR-0010 requires this to be said before anyone taps it: a Guest

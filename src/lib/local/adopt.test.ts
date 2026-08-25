@@ -426,3 +426,37 @@ describe('a complete server export, through the whole path', () => {
     assert.equal(summary.supporting.nutrition.status, 'not_logged')
   })
 })
+
+describe('recording who an adopted day belongs to', () => {
+  // Signing in writes an account's day onto a device. If that document does not
+  // say the owner has an email, logging out later leaves it looking exactly like
+  // a Guest's, and the next launch reopens it with no session at all.
+  it('records the account\u2019s email from the export', () => {
+    const day = localDayFromExport(ACCOUNT, {
+      ...exportPayload,
+      account: { id: ACCOUNT, email: 'someone@example.com' },
+    } as never)
+
+    assert.equal(day.ownerEmail, 'someone@example.com')
+  })
+
+  it('records no email for a Guest, who has none', () => {
+    const day = localDayFromExport(GUEST, {
+      ...exportPayload,
+      account: { id: GUEST, email: null },
+    } as never)
+
+    assert.equal(day.ownerEmail, null)
+  })
+
+  it('keeps it through a keep-both merge with the device\u2019s day', () => {
+    const account = localDayFromExport(ACCOUNT, {
+      ...exportPayload,
+      account: { id: ACCOUNT, email: 'someone@example.com' },
+    } as never)
+
+    const merged = adoptAccountDay(emptyLocalDatabase(GUEST), account, 'keep_both')
+
+    assert.equal(merged.ownerEmail, 'someone@example.com')
+  })
+})

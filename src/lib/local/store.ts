@@ -131,6 +131,19 @@ export const LocalDatabaseSchema = z.object({
   habitProgress: z.array(LocalHabitProgressRowSchema).default([]),
   settings: z.record(z.string(), z.unknown()).default({}),
   /**
+   * The owner's email, or null when the owner is a Guest.
+   *
+   * The one fact the document could not state about itself, and the reason
+   * logging out of an account used to reopen its day as a Guest: with only an id
+   * to go on, `adoptLocalDayOwner` had to invent the rest, and `email === null`
+   * is what this app means by Guest.
+   *
+   * Absent means Guest, which is correct for every document written before this
+   * field existed — they all belong to Guests. Defaulting the other way would
+   * lock real Guests out of the only copy of their day (ADR-0010).
+   */
+  ownerEmail: z.string().nullable().default(null),
+  /**
    * The server's clock at the end of the last successful exchange, or null if
    * there has not been one. Stored beside the day because it is only meaningful
    * against this document — a fresh document has seen nothing.
@@ -170,6 +183,7 @@ export function emptyLocalDatabase(userId: string): LocalDatabase {
     tasks: [],
     habitProgress: [],
     settings: {},
+    ownerEmail: null,
     syncedAt: null,
     settingsUpdatedAt: null,
     calorieEntries: [],
@@ -239,6 +253,18 @@ export function memoryDriver(initial: string | null = null): LocalStoreDriver & 
 
 let driver: LocalStoreDriver = capacitorFilesystemDriver
 let loaded: LocalDatabase | null = null
+let dayOwnerEmail: string | null = null
+
+/**
+ * Tell the store who the signed-in owner is, so every write can record it.
+ *
+ * Set from `adoptUser` by way of `setLocalDayUser` — the funnel the identity
+ * already flows through. A rule added at one call site and missed at the others
+ * is how this codebase came back as the previous user once already.
+ */
+export function setLocalDayOwnerEmail(email: string | null) {
+  dayOwnerEmail = email
+}
 
 /**
  * Point the store at a different driver, discarding anything already loaded.
@@ -265,6 +291,41 @@ export function resetLocalStore() {
  * they have no way to pass (ADR-0010).
  */
 /**
+ * Who a stored day belongs to: an id, and whether that owner is a Guest.
+ */
+export type LocalDayIdentity = { id: string; ownerEmail: string | null }
+
+/**
+ * Whether this day may be opened with no session at all.
+ *
+ * True only for a Guest. A Guest has nothing to sign in with, so a login screen
+ * is a dead end and their day has to open on the strength of the document alone
+ * (ADR-0010). An account holder has credentials, so refusing costs them one
+ * sign-in — and not refusing means logging out never actually closes anything.
+ */
+export function opensWithoutSession(identity: LocalDayIdentity | null): boolean {
+  return identity !== null && identity.ownerEmail === null
+}
+
+/**
+ * What can be done about a day this device holds that the session cannot open.
+ *
+ * The two cases are not alike, and treating them alike is how the stranded-day
+ * screen came to offer permanent erasure as the only way out. A Guest's day
+ * genuinely has no key but its own session, so starting fresh is the only move.
+ * An account's day is reachable — signing in as that account opens it — so
+ * erasing it would destroy something recoverable.
+ */
+export function heldDayRecovery(identity: LocalDayIdentity | null):
+  | { kind: 'none' }
+  | { kind: 'sign_in'; email: string }
+  | { kind: 'start_fresh' } {
+  if (!identity) return { kind: 'none' }
+  if (identity.ownerEmail !== null) return { kind: 'sign_in', email: identity.ownerEmail }
+  return { kind: 'start_fresh' }
+}
+
+/**
  * Whose day this device is holding, read from the document itself.
  *
  * The one read that does not need to be told the answer first. A session token is
@@ -276,12 +337,16 @@ export function resetLocalStore() {
  * Returns null when there is no document, or when there is one this version
  * cannot read — an unreadable document is not an identity to guess at.
  */
-export async function readLocalDayOwner(): Promise<string | null> {
+export async function readLocalDayIdentity(): Promise<LocalDayIdentity | null> {
   const contents = await driver.read()
   if (contents === null) return null
   try {
-    const parsed = JSON.parse(contents) as { userId?: unknown }
-    return typeof parsed.userId === 'string' && parsed.userId ? parsed.userId : null
+    const parsed = JSON.parse(contents) as { userId?: unknown; ownerEmail?: unknown }
+    if (typeof parsed.userId !== 'string' || !parsed.userId) return null
+    return {
+      id: parsed.userId,
+      ownerEmail: typeof parsed.ownerEmail === 'string' ? parsed.ownerEmail : null,
+    }
   } catch {
     return null
   }
@@ -416,8 +481,12 @@ export async function mutateLocalDatabase<T>(
 ): Promise<T> {
   const current = await loadLocalDatabase(userId)
   const { next, result } = change(current)
-  await driver.write(JSON.stringify(next))
-  loaded = next
+  // Stamped only when there is something to stamp. A null owner email never
+  // erases one already recorded: forgetting that an account owns this day is the
+  // failure being fixed, and a write must not be able to reintroduce it.
+  const stamped = dayOwnerEmail === null ? next : { ...next, ownerEmail: dayOwnerEmail }
+  await driver.write(JSON.stringify(stamped))
+  loaded = stamped
   announceChange()
   return result
 }

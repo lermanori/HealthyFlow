@@ -81,8 +81,14 @@ export function localDayFromExport(userId: string, exported: Record<string, unkn
   const sessionExercises = groupBy(rows(health.workoutSessionExercises), 'session_id')
   const planItems = groupBy(rows(health.workoutPlanItems), 'plan_id')
 
+  const account = (exported.account ?? {}) as Record<string, unknown>
+
   return {
     ...emptyLocalDatabase(userId),
+    // Whether this day's owner is a Guest, taken from the account the export
+    // belongs to. Without it a signed-out account's document is indistinguishable
+    // from a Guest's, and the next launch reopens it with no session.
+    ownerEmail: typeof account.email === 'string' ? account.email : null,
     // `updated_at` is device bookkeeping and the server's tables have no such
     // column, so it is filled from the last time the row is known to have
     // changed rather than left absent or invented.

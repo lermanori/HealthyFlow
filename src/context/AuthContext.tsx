@@ -27,7 +27,8 @@ import { clearTodayWidget } from '../lib/widget'
 import {
   clearLocalDay,
   loadLocalDatabase,
-  readLocalDayOwner,
+  opensWithoutSession,
+  readLocalDayIdentity,
   replaceLocalDay,
   resetLocalStore,
 } from '../lib/local/store'
@@ -145,14 +146,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * know who to open it as. A Guest is by definition an account with no email,
    * which is the whole identity Today needs. The remembered identity is preferred
    * when it matches, because it carries the real name.
+   *
+   * **Only a Guest's day.** This used to open whatever the document held, and an
+   * account that logged out was reopened as a Guest on the next launch — its whole
+   * day readable and writable with no token and no password, and no Logout button
+   * left to try again. An account holder has credentials, so the login screen is a
+   * front door for them rather than the dead end it is for a Guest.
    */
   const adoptLocalDayOwner = async (): Promise<boolean> => {
-    const owner = await readLocalDayOwner().catch(() => null)
-    if (!owner) return false
+    const owner = await readLocalDayIdentity().catch(() => null)
+    if (!owner || !opensWithoutSession(owner)) return false
 
     const remembered = readRememberedSessionUser()
-    establishSession(remembered?.id === owner ? remembered : {
-      id: owner,
+    establishSession(remembered?.id === owner.id ? remembered : {
+      id: owner.id,
       email: null,
       name: 'Guest',
       role: 'user',
@@ -185,7 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // `adoptUser`, so putting it here makes forgetting impossible.
     if (userData) rememberSessionUser(userData)
     else forgetSessionUser()
-    setLocalDayUser(holdsLocalDay(userData) ? userData!.id : null)
+    setLocalDayUser(holdsLocalDay(userData) ? userData!.id : null, userData?.email ?? null)
     setCurrentUser(userData)
   }
 

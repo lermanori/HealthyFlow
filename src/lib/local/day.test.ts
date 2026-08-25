@@ -20,7 +20,7 @@ import {
   isStrandedLocalDay,
   LocalStoreError,
   loadLocalDatabase,
-  readLocalDayOwner,
+  readLocalDayIdentity,
   memoryDriver,
   setLocalStoreDriver,
 } from './store'
@@ -374,11 +374,11 @@ describe('the stored document', () => {
 
   it('erases the day only when the deletion was asked for by name', async () => {
     await createLocalTask(USER, { title: 'Gone for good', type: 'task', category: 'personal', scheduledDate: TODAY })
-    assert.equal(await readLocalDayOwner(), USER)
+    assert.equal((await readLocalDayIdentity())?.id, USER)
 
     await clearLocalDay()
 
-    assert.equal(await readLocalDayOwner(), null)
+    assert.equal(await readLocalDayIdentity(), null)
     assert.deepEqual(await localItemsForDay(USER, TODAY), [])
   })
 
@@ -392,17 +392,17 @@ describe('the stored document', () => {
     // A fresh process with no session at all, exactly as after a failed verify.
     setLocalStoreDriver(memoryDriver(driver.contents))
 
-    assert.equal(await readLocalDayOwner(), USER)
+    assert.equal((await readLocalDayIdentity())?.id, USER)
     assert.deepEqual((await localItemsForDay(USER, TODAY)).map((item) => item.title), ['Mine'])
   })
 
   it('names no owner when there is nothing here, so a stranger is still a stranger', async () => {
-    assert.equal(await readLocalDayOwner(), null)
+    assert.equal(await readLocalDayIdentity(), null)
   })
 
   it('names no owner it cannot read, rather than guessing at an identity', async () => {
     setLocalStoreDriver(memoryDriver('{"userId":'))
-    assert.equal(await readLocalDayOwner(), null)
+    assert.equal(await readLocalDayIdentity(), null)
   })
 
   it('refuses a document belonging to a different session, and says it can be escaped', async () => {

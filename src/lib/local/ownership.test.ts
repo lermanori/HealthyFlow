@@ -1,12 +1,21 @@
 import assert from 'node:assert/strict'
 import { beforeEach, describe, it } from 'node:test'
-import { forgetLocalDayOwner, holdsLocalDay, rememberLocalDayOwner } from './services'
+import { forgetLocalDayOwner, holdsLocalDay, rememberLocalDayOwner, setLocalDayUser } from './services'
+import { updateLocalSettings } from './day'
 import {
   forgetSessionUser,
   rememberSessionUser,
   readRememberedSessionUser,
 } from '../session'
-import { memoryDriver, readLocalDayOwner, replaceLocalDay, setLocalStoreDriver, emptyLocalDatabase } from './store'
+import {
+  heldDayRecovery,
+  memoryDriver,
+  opensWithoutSession,
+  readLocalDayIdentity,
+  replaceLocalDay,
+  setLocalStoreDriver,
+  emptyLocalDatabase,
+} from './store'
 
 // A minimal localStorage, because node has none.
 function installStorage() {
@@ -86,7 +95,7 @@ describe('a Guest who signs in to an account, then reopens the app', () => {
     rememberSessionUser(accountUser)
 
     assert.equal(readRememberedSessionUser()?.id, ACCOUNT)
-    assert.equal(await readLocalDayOwner(), ACCOUNT)
+    assert.equal((await readLocalDayIdentity())?.id, ACCOUNT)
     // And the account still reads its own day, which is what broke.
     assert.equal(holdsLocalDay(accountUser), true)
   })
@@ -96,7 +105,7 @@ describe('a Guest who signs in to an account, then reopens the app', () => {
     rememberLocalDayOwner(ACCOUNT)
     rememberSessionUser(accountUser)
 
-    const owner = await readLocalDayOwner()
+    const owner = (await readLocalDayIdentity())?.id
     const remembered = readRememberedSessionUser()
 
     assert.equal(owner, remembered?.id)
@@ -108,5 +117,82 @@ describe('a Guest who signs in to an account, then reopens the app', () => {
 
     assert.equal(readRememberedSessionUser(), null)
     assert.equal(holdsLocalDay(accountUser), false)
+  })
+})
+
+describe('what the document says about its owner', () => {
+  const GUEST = 'guest-9'
+  const ACCOUNT = 'account-9'
+
+  beforeEach(() => {
+    setLocalStoreDriver(memoryDriver(null))
+    setLocalDayUser(null, null)
+  })
+
+  it('records the owner\u2019s email, so a logged-out account is not mistaken for a Guest', async () => {
+    setLocalDayUser(ACCOUNT, 'someone@example.com')
+    await updateLocalSettings(ACCOUNT, { calorieIntake: false })
+
+    assert.equal((await readLocalDayIdentity())?.ownerEmail, 'someone@example.com')
+  })
+
+  it('records nothing for a Guest, who has no email by definition', async () => {
+    setLocalDayUser(GUEST, null)
+    await updateLocalSettings(GUEST, { calorieIntake: false })
+
+    assert.equal((await readLocalDayIdentity())?.ownerEmail, null)
+  })
+
+  it('reads a document written before the field existed as a Guest\u2019s', async () => {
+    // Every document in the field predates this, and they all belong to Guests.
+    // Defaulting the other way would lock real Guests out of their only copy.
+    const legacy = { ...emptyLocalDatabase(GUEST) } as Record<string, unknown>
+    delete legacy.ownerEmail
+    setLocalStoreDriver(memoryDriver(JSON.stringify(legacy)))
+
+    assert.equal((await readLocalDayIdentity())?.ownerEmail, null)
+  })
+
+  it('keeps the email after the account signs out, because the document is untouched', async () => {
+    setLocalDayUser(ACCOUNT, 'someone@example.com')
+    await updateLocalSettings(ACCOUNT, { calorieIntake: false })
+
+    setLocalDayUser(null, null)
+
+    assert.equal((await readLocalDayIdentity())?.ownerEmail, 'someone@example.com')
+  })
+})
+
+describe('opening a day with no session', () => {
+  it('opens a Guest\u2019s day, which is the only key to itself', () => {
+    // ADR-0010: a login screen is a trap for a Guest \u2014 the only action there
+    // mints a new identity that cannot read the document sitting under it.
+    assert.equal(opensWithoutSession({ id: 'guest-9', ownerEmail: null }), true)
+  })
+
+  it('refuses an account\u2019s day, which has credentials to come back with', () => {
+    assert.equal(opensWithoutSession({ id: 'account-9', ownerEmail: 'someone@example.com' }), false)
+  })
+
+  it('refuses when this device holds no day at all', () => {
+    assert.equal(opensWithoutSession(null), false)
+  })
+})
+
+describe('a day this device holds that the current session cannot open', () => {
+  it('sends an account holder to sign in, because their day is reachable', () => {
+    // The stranded-day screen used to say there was no way to reopen it and offer
+    // permanent erasure as the only action. For an account that is simply false.
+    assert.deepEqual(heldDayRecovery({ id: 'account-9', ownerEmail: 'someone@example.com' }), {
+      kind: 'sign_in', email: 'someone@example.com',
+    })
+  })
+
+  it('offers a fresh start only for a Guest\u2019s day, which nobody can reopen', () => {
+    assert.deepEqual(heldDayRecovery({ id: 'guest-9', ownerEmail: null }), { kind: 'start_fresh' })
+  })
+
+  it('offers nothing when this device holds no day', () => {
+    assert.deepEqual(heldDayRecovery(null), { kind: 'none' })
   })
 })

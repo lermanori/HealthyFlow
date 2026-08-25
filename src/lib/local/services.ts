@@ -5,6 +5,7 @@ import type {
 import type { ReminderItem } from '../../../backend/src/task-contracts'
 import type { Settings } from '../../../backend/src/settings-schema'
 import DaySummaryCore from '../../../backend/src/day-summary-core'
+import { setLocalDayOwnerEmail } from './store'
 import {
   addLocalHabitProgress,
   buildLocalDaySummary,
@@ -112,9 +113,14 @@ export function holdsLocalDay(user: { id: string; email: string | null } | null)
 /**
  * Point the day at the device, or back at the server. Called from `AuthContext`
  * whenever the signed-in identity changes.
+ *
+ * The owner's email travels with the id because the document has to record it:
+ * without it, a day left on the device by an account that signed out is
+ * indistinguishable from a Guest's, and gets reopened as one.
  */
-export function setLocalDayUser(userId: string | null) {
+export function setLocalDayUser(userId: string | null, ownerEmail: string | null = null) {
   dayUserId = userId
+  setLocalDayOwnerEmail(userId === null ? null : ownerEmail)
 }
 
 export function localDayUser(): string | null {

@@ -75,6 +75,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
 import { useSettings } from '../hooks/useSettings'
 import { clearLocalDay, isStrandedLocalDay } from '../lib/local/store'
+import { useHeldDay } from '../hooks/useHeldDay'
 import HabitOutcomeSheet from '../components/HabitOutcomeSheet'
 import { enabledModulePresentations, getModulePresentation, moduleHealthHref } from '../modulePresentation'
 import {
@@ -1097,6 +1098,9 @@ export default function TodayPage() {
   const daySwipeGesture = useRef<DaySwipeGesture | null>(null)
   const queryClient = useQueryClient()
   const location = useLocation()
+  // Read once at mount, not inside the error branch: a hook cannot be called
+  // conditionally, and the screens below need to know whose day this device holds.
+  const heldDay = useHeldDay()
 
   const { settings, modules } = useSettings()
   const enabledTodaySummaries = new Set(
@@ -1634,6 +1638,25 @@ export default function TodayPage() {
     // the fix. The only way on is to start again, and that has to be chosen with
     // the loss stated (ADR-0010, ADR-0011).
     if (isStrandedLocalDay(daySummaryError)) {
+      // An account's day and a Guest's are not alike here. An account's is
+      // reachable — signing in as it opens it — so offering to erase it as the
+      // only way out would destroy something recoverable. Only a Guest's day
+      // genuinely has no key but its own session.
+      if (heldDay.kind === 'sign_in') {
+        return (
+          <div className="mx-auto max-w-lg rounded-xl border border-brand/30 bg-brand/10 p-5 text-center">
+            <h1 className="text-lg font-semibold text-ink">This iPhone is holding another account&rsquo;s day</h1>
+            <p className="mt-2 text-sm text-ink-muted">
+              It belongs to {heldDay.email}. Signing in with that account opens it.
+              Nothing has been lost and nothing needs to be erased.
+            </p>
+            <Link to="/login" className="btn-primary mt-4 inline-flex min-h-11 items-center px-4 py-2 text-sm">
+              Go to sign in
+            </Link>
+          </div>
+        )
+      }
+
       return (
         <div className="mx-auto max-w-lg rounded-xl border border-state-danger/30 bg-state-danger/10 p-5 text-center">
           <h1 className="text-lg font-semibold text-ink">This iPhone holds a day from an earlier session</h1>
