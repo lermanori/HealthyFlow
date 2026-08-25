@@ -1,4 +1,5 @@
 import AchievementContracts from '../../../backend/src/achievement-contracts'
+import SyncContracts from '../../../backend/src/sync-contracts'
 import WorkoutContracts from '../../../backend/src/workout-contracts'
 import {
   emptyLocalDatabase,
@@ -6,6 +7,7 @@ import {
 } from './store'
 
 const { achievementDefinitionToClient, achievementEntryToClient } = AchievementContracts
+const { SYNC_IDENTITY, mergeRows } = SyncContracts
 const {
   workoutSessionToClient,
   workoutPlanToClient,
@@ -26,10 +28,10 @@ const {
  * every row collides with itself, one copy carrying whatever was done on the
  * device since. Joining by concatenation would duplicate the entire account.
  *
- * So the join is by id, and the more recently changed row wins. What it still
- * cannot resolve is a *semantic* duplicate — two "Run 5k" habits where the person
- * has one habit — which is why the choice is offered rather than made, and why the
- * copy says so.
+ * So the join is by identity, and the more recently changed row wins. What it
+ * still cannot resolve is a *semantic* duplicate — two "Run 5k" habits where the
+ * person has one habit — which is why the choice is offered rather than made, and
+ * why the copy says so.
  */
 
 type Rows = Record<string, unknown>[]
@@ -146,26 +148,25 @@ function settingsFromExport(row: Rows[number] | undefined): Record<string, unkno
   return Object.fromEntries(Object.entries(settings).filter(([key]) => !key.includes('_')))
 }
 
-/** When a record last changed, in whichever shape it is stored. */
-const changedAt = (record: unknown): string => {
-  const fields = record as Record<string, unknown>
-  return String(fields.updated_at ?? fields.updatedAt ?? fields.created_at ?? fields.createdAt ?? '')
-}
-
 /**
- * Union two sets of records by id, keeping the more recently changed of any pair.
+ * Union two sets of records, keeping the more recently changed of any pair.
  *
  * The device is processed second, so a tie goes to it — it is where the person was
  * working, and a server copy that has not moved should not undo them.
+ *
+ * `mergeRows` rather than a copy of it: this is the same rule the sync exchange
+ * runs on both sides, and a rule written twice in this codebase has drifted every
+ * time. It also brings the natural-key identity with it, which matters here for
+ * the same reason it matters there — an account and a device that each hold
+ * today's weight hold *one* record under two ids, and keeping both would fail the
+ * first upsert that followed.
  */
-function mergeById<T>(fromAccount: T[], fromDevice: T[]): T[] {
-  const merged = new Map<string, T>()
-  for (const record of [...fromAccount, ...fromDevice]) {
-    const id = String((record as { id?: unknown }).id)
-    const existing = merged.get(id)
-    if (!existing || changedAt(record) >= changedAt(existing)) merged.set(id, record)
-  }
-  return [...merged.values()]
+function merged<T>(collection: keyof typeof SYNC_IDENTITY, fromAccount: T[], fromDevice: T[]): T[] {
+  return mergeRows(
+    fromAccount as never,
+    fromDevice as never,
+    SYNC_IDENTITY[collection],
+  ) as unknown as T[]
 }
 
 export type AdoptionChoice = 'keep_both' | 'discard_device'
@@ -175,8 +176,11 @@ export function countLocalDay(database: LocalDatabase) {
   return {
     items: database.tasks.filter((row) => !row.deleted_at && row.type !== 'habit').length,
     habits: database.tasks.filter((row) => !row.deleted_at && row.type === 'habit' && !row.original_habit_id).length,
-    meals: database.calorieEntries.length,
-    workouts: database.workoutSessions.length,
+    // Health soft-deletes now, so a deleted meal is still a stored row. Counting
+    // it would overstate what is at stake in the one place the number has to be
+    // exact: the person is weighing this against losing it.
+    meals: database.calorieEntries.filter((row) => !row.deletedAt).length,
+    workouts: database.workoutSessions.filter((row) => !row.deletedAt).length,
   }
 }
 
@@ -184,9 +188,11 @@ export function countLocalDay(database: LocalDatabase) {
  * Put the account's day and the device's day together, or replace one with the
  * other.
  *
- * A union is safe on identity: ids are UUIDs from two generators and cannot
- * collide. What it cannot prevent is a person ending up with two of the same
- * habit, which is why `discard_device` exists and why the choice is theirs.
+ * The union joins by identity, not by concatenation. Ids only fail to collide the
+ * *first* time someone signs in; every time after, the device is holding the
+ * account's own day, so every row collides with itself. What the union still
+ * cannot prevent is a *semantic* duplicate — two "Run 5k" habits where the person
+ * has one habit — which is why `discard_device` exists and why the choice is theirs.
  *
  * Every kept device record is re-keyed to the account, because the document
  * belongs to one identity and `loadLocalDatabase` refuses one that does not match.
@@ -215,15 +221,15 @@ export function adoptAccountDay(
     // The account's settings win: they are the ones the person has been living
     // with, and two settings objects cannot be unioned meaningfully.
     settings: Object.keys(account.settings).length > 0 ? account.settings : device.settings,
-    tasks: mergeById(account.tasks, reKeyed(device.tasks)),
-    habitProgress: mergeById(account.habitProgress, reKeyed(device.habitProgress)),
-    calorieEntries: mergeById(account.calorieEntries, reKeyed(device.calorieEntries)),
-    calorieItems: mergeById(account.calorieItems, reKeyed(device.calorieItems)),
-    weightEntries: mergeById(account.weightEntries, reKeyed(device.weightEntries)),
-    workoutSessions: mergeById(account.workoutSessions, reKeyed(device.workoutSessions)),
-    workoutPlans: mergeById(account.workoutPlans, reKeyed(device.workoutPlans)),
-    workoutExerciseItems: mergeById(account.workoutExerciseItems, reKeyed(device.workoutExerciseItems)),
-    achievementDefinitions: mergeById(account.achievementDefinitions, reKeyed(device.achievementDefinitions)),
-    achievementEntries: mergeById(account.achievementEntries, reKeyed(device.achievementEntries)),
+    tasks: merged('tasks', account.tasks, reKeyed(device.tasks)),
+    habitProgress: merged('habitProgress', account.habitProgress, reKeyed(device.habitProgress)),
+    calorieEntries: merged('calorieEntries', account.calorieEntries, reKeyed(device.calorieEntries)),
+    calorieItems: merged('calorieItems', account.calorieItems, reKeyed(device.calorieItems)),
+    weightEntries: merged('weightEntries', account.weightEntries, reKeyed(device.weightEntries)),
+    workoutSessions: merged('workoutSessions', account.workoutSessions, reKeyed(device.workoutSessions)),
+    workoutPlans: merged('workoutPlans', account.workoutPlans, reKeyed(device.workoutPlans)),
+    workoutExerciseItems: merged('workoutExerciseItems', account.workoutExerciseItems, reKeyed(device.workoutExerciseItems)),
+    achievementDefinitions: merged('achievementDefinitions', account.achievementDefinitions, reKeyed(device.achievementDefinitions)),
+    achievementEntries: merged('achievementEntries', account.achievementEntries, reKeyed(device.achievementEntries)),
   }
 }
