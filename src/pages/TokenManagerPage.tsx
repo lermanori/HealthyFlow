@@ -485,7 +485,7 @@ export default function TokenManagerPage() {
                         <span>
                           {user.subscription?.active
                             ? 'Deactivate'
-                            : `Subscribe +${overview.subscriptionPricing.monthlyCredits}`}
+                            : 'Subscribe'}
                         </span>
                       </button>
                     </div>

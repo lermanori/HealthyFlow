@@ -55,19 +55,35 @@ function sweepExpiredChatRateLimits(now: number) {
   }
 }
 
+/**
+ * HTTP status per cost-guard refusal. Every guard gets its own status and its own
+ * message: a client that cannot tell "you are out of credits" from "we paused AI
+ * for everyone today" cannot tell the user what to do, and a guard that answers
+ * 500 looks like a bug we should fix rather than a limit we chose.
+ */
+export const AI_REFUSAL_STATUS: Record<string, number> = {
+  insufficient_credits: 402,
+  account_daily_cap: 429,
+  global_ceiling: 503,
+  prompt_too_large: 413,
+  too_many_images: 413,
+  unpriced_model: 500,
+  billing_error: 500,
+}
+
 function aiCallErrorResponse(
   res: express.Response,
-  result: { code: string },
+  result: { code: string; message?: string },
   fallback: { error: string; code: string }
 ) {
-  if (result.code === 'insufficient_credits') {
-    return res.status(402).json({ error: 'Insufficient AI tokens', code: 'insufficient_credits' })
-  }
-  if (result.code === 'unpriced_model') {
-    return res.status(500).json({ error: 'AI model pricing is not configured', code: 'unpriced_model' })
-  }
-  if (result.code === 'billing_error') {
-    return res.status(500).json({ error: 'AI billing failed', code: 'billing_error' })
+  const status = AI_REFUSAL_STATUS[result.code]
+  if (status) {
+    // The message comes from the refusal itself. Substituting a generic string
+    // here is exactly the silent fallback the project refuses.
+    return res.status(status).json({
+      error: result.message ?? fallback.error,
+      code: result.code,
+    })
   }
   return res.status(500).json(fallback)
 }
@@ -420,7 +436,7 @@ router.post('/chat', authenticateToken, async (req: AuthRequest, res) => {
     }
   } catch (error) {
     if (error instanceof TalkWorkflowBillingError) {
-      const status = error.code === 'insufficient_credits' ? 402 : 500
+      const status = AI_REFUSAL_STATUS[error.code] ?? 500
       return res.status(status).json({ error: error.message, code: error.code })
     }
     if (error instanceof TalkWorkflowConflictError) {
@@ -540,7 +556,7 @@ router.post('/chat/continue', authenticateToken, async (req: AuthRequest, res) =
     return res.json(result)
   } catch (error) {
     if (error instanceof TalkWorkflowBillingError) {
-      return res.status(error.code === 'insufficient_credits' ? 402 : 500)
+      return res.status(AI_REFUSAL_STATUS[error.code] ?? 500)
         .json({ error: error.message, code: error.code })
     }
     if (error instanceof TalkWorkflowConflictError || error instanceof TalkProposalStaleError) {

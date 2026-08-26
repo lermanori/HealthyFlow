@@ -82,9 +82,8 @@ export default function SettingsPage() {
   const { permission, requestPermission } = useNotifications()
   const { balance, summary: creditSummary, isLoading: creditsLoading } = useCredits()
   const planPrice = creditSummary?.pricing.priceUsd ?? 9
-  const monthlyCredits = creditSummary?.pricing.monthlyCredits ?? 500
   const topUpPrice = creditSummary?.pricing.topUpPriceUsd ?? 5
-  const topUpCredits = creditSummary?.pricing.topUpCredits ?? 250
+  const topUpCredits = creditSummary?.pricing.topUpCredits ?? 300
   const { settings, updateSetting, resolution, retry: retrySettings } = useSettings()
   const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
   const [calendarLoading, setCalendarLoading] = useState(true)
@@ -94,7 +93,7 @@ export default function SettingsPage() {
     analytics.capture('upgrade_cta_clicked', {
       kind,
       price_usd: kind === 'subscribe' ? planPrice : topUpPrice,
-      credits: kind === 'subscribe' ? monthlyCredits : topUpCredits,
+      credits: kind === 'subscribe' ? 0 : topUpCredits,
     })
     setContactFlow(kind)
   }
@@ -369,7 +368,7 @@ export default function SettingsPage() {
   const contactSubject = contactFlow === 'topup' ? 'HealthyFlow credit top-up' : 'HealthyFlow monthly credits'
   const contactBody = contactFlow === 'topup'
     ? `Hi Ori, I want to buy ${topUpCredits} non-expiring HealthyFlow AI credits for $${topUpPrice} for ${user?.email ?? 'my account'}.`
-    : `Hi Ori, I want to subscribe to HealthyFlow for $${planPrice}/month with ${monthlyCredits} monthly AI credits for ${user?.email ?? 'my account'}.`
+    : `Hi Ori, I want to subscribe to HealthyFlow Cloud for $${planPrice}/month — my day on every device, with AI included — for ${user?.email ?? 'my account'}.`
   const encodedSubject = encodeURIComponent(contactSubject)
   const encodedBody = encodeURIComponent(contactBody)
   const whatsappUrl = `https://wa.me/972523221702?text=${encodedBody}`
@@ -393,7 +392,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       kind: contactFlow ?? 'subscribe',
       message: contactBody,
       priceUsd: contactFlow === 'topup' ? topUpPrice : planPrice,
-      credits: contactFlow === 'topup' ? topUpCredits : monthlyCredits,
+      credits: contactFlow === 'topup' ? topUpCredits : 0,
     }),
     onSuccess: () => {
       toast.success('Message sent to admin')
@@ -607,7 +606,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
               <p className="mt-1 text-sm text-ink-soft">
                 {isNativeApp
                   ? 'AI credit purchases are not yet available in the iOS app.'
-                  : `Subscribe for ${monthlyCredits} credits each month, or buy ${topUpCredits} non-expiring credits for $${topUpPrice}.`}
+                  : `Subscribe for your day on every device, with AI included, or buy ${topUpCredits} non-expiring actions for $${topUpPrice}.`}
               </p>
               {!isNativeApp && (
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -666,7 +665,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                   <p className="font-semibold text-accent">
                     ${planPrice} / month
                   </p>
-                  <p className="text-sm text-ink-soft">{monthlyCredits} credits / month, refreshed monthly with no rollover.</p>
+                  <p className="text-sm text-ink-soft">Your day on every device, with AI included.</p>
                   <p className="mt-1 text-xs text-ink-muted">
                     {creditSummary.pricing.promoActive
                       ? 'Founding price stays locked while your subscription remains active.'
@@ -707,7 +706,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                 <p className="text-sm text-ink-muted">
                   {contactFlow === 'topup'
                     ? `$${topUpPrice} for ${topUpCredits} non-expiring AI credits. Manual fulfillment for now.`
-                    : `$${planPrice}/month for ${monthlyCredits} AI credits, refreshed monthly with no rollover. Manual fulfillment for now.`}
+                    : `$${planPrice}/month for your day on every device, with AI included. Manual fulfillment for now.`}
                 </p>
               </div>
               <button type="button" className="text-ink-muted hover:text-ink-soft" onClick={() => setContactFlow(null)} aria-label="Close">

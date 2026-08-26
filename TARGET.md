@@ -160,32 +160,33 @@ thing being sold.
 **The app is free, works offline, and needs no account.** That is not a trial —
 nothing expires, and no part of the day itself is withheld.
 
-**We sell the hook.** Effortless input is the thing people value most and the
-thing that costs us money, so it is the thing that costs them money. Stated
-plainly, without softening:
+**We sell the day on every device, and we give the hook away.** This reverses what
+this section said until 2026-08-26, and it was measurement that reversed it: at the
+models this product calls, a text action costs **$0.0003** to serve. Effortless input
+is the thing people value most; it is *not* the thing that costs us money, and pricing
+it as though it were made the paid tier run out for exactly the daily user this product
+is built for. See ADR-0013.
 
-> **Free is a good planner. Paid is an effortless one.**
+What survives unchanged is the shape of the promise:
 
-With no credits you still get the whole day — capacity, rollover, habits, food,
-weight, calendar, offline — but you type it in yourself. That is a real product
-and someone can live on it. It is deliberately not the frictionless one.
+> **Free is a good planner. Paid is an effortless one — on every device.**
 
-**The risk being accepted:** anyone who starts with credits feels the effortless
-version first, so running dry reads as a downgrade rather than a boundary. This
-is accepted for now rather than solved.
+A free account gets the whole day, and enough AI that the hook never fully dies: a
+welcome grant, then a small allowance every month. Beyond that they type it in
+themselves, or buy a pack. That is a real product and someone can live on it.
 
-**What would change this:** people who exhaust their credits stop opening the app
-instead of continuing manually. That is the signal that free is a demo rather
-than a product, and the answer would be a small recurring free allowance so the
-hook never fully dies.
+**The risk this accepts:** a free user who exhausts a month's allowance still feels a
+boundary. It is a far smaller boundary than before — the monthly refill exists
+precisely so the hook survives it — and it is watched rather than assumed.
 
-Two things are sold, and they are **separate products** with separate economics
-(ADR-0012):
+**A credit is one action, not a unit of cost** (ADR-0013). Text costs 1, a photo 5, a
+premium model 10. Two things are sold, and they are **separate products** with separate
+economics (ADR-0012):
 
 | | Type | What it buys | Capped? |
 |---|---|---|---|
-| **AI credits** | Consumable | Effortless input. 50 credits = $1 | No. Anyone may buy any amount |
-| **Cloud** | Subscription | **Your day on every device.** Backup falls out of it | The founders' discount is |
+| **Credits** | Consumable | Actions. Sold in packs, never expiring | No. Anyone may buy any pack |
+| **Cloud** | Subscription | **Your day on every device**, plus text AI without a balance. Backup falls out of it | The founders' discount is. Photo and premium actions are |
 
 **Entry is open.** Creating an account takes no seat and meets no waitlist —
 neither for someone arriving cold, nor for a Guest who has been using the app and
@@ -197,12 +198,12 @@ and that cap is the cost-control dial. "Founding" is a *price*, not a credit
 cohort — a distinction that did not exist before and that the code still needs to
 learn.
 
-**A grant of $1 of credits, so the hook can be felt before anything is asked for,
-is intended but not placed.** First open, signup, or somewhere else entirely — it
-is a growth lever and wants evidence rather than a default. Wherever it lands it
-must **never block** the app opening, which happens without a network. **Until it
-lands, someone who creates an account has zero credits:** the whole day, and no
-AI.
+**The welcome grant is placed.** Every new account receives `WELCOME_CREDITS`, and
+every free account receives `MONTHLY_FREE_CREDITS` on the first action of each month.
+This was written here as an unplaced growth lever wanting evidence; the evidence that
+placed it is cost — the monthly refill runs to under five dollars a month across a
+thousand free users. It must **never block** the app opening, which happens without a
+network.
 
 ## What we refuse
 

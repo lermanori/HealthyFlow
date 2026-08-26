@@ -9,9 +9,9 @@ import { app } from '../../src/index'
 jest.mock('../../src/credits', () => ({
   Credits: {
     reserve: jest.fn().mockResolvedValue(true),
-    estimateReserve: jest.fn().mockResolvedValue(10),
-    settleReserved: jest.fn().mockResolvedValue({ ok: true, chargeTokens: 6, adjustmentTokens: 4 }),
-    refundReserve: jest.fn().mockResolvedValue(undefined),
+    authorizeAction: jest.fn().mockResolvedValue({ ok: true, actionClass: 'text' as const, credits: 1, charged: 1, coveredBy: 'balance' as const }),
+    settleAction: jest.fn().mockResolvedValue(undefined),
+    refundAction: jest.fn().mockResolvedValue(undefined),
     grant: jest.fn().mockResolvedValue(undefined),
     getBalance: jest.fn(),
   },
@@ -1064,13 +1064,13 @@ describe('POST /api/ai/chat', () => {
 
     expect(res.status).toBe(500)
     expect(res.body).toEqual({ error: 'Unknown tool: missing_tool', code: 'tool_error' })
-    expect(Credits.settleReserved).toHaveBeenCalledWith(
+    expect(Credits.settleAction).toHaveBeenCalledWith(
       'chat-user-billing-failure',
-      10,
+      expect.objectContaining({ ok: true }),
       { promptTokens: 200, completionTokens: 40, totalTokens: 240 },
       { endpoint: 'ai-chat', model: 'gpt-4o-mini' }
     )
-    expect(Credits.refundReserve).not.toHaveBeenCalled()
+    expect(Credits.refundAction).not.toHaveBeenCalled()
   })
 
   it('rate limits per user', async () => {

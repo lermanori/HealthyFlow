@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { v4 as uuidv4 } from 'uuid'
 import { z } from 'zod'
 import { executeAiCapability, preparePendingAiAction } from './ai-capabilities'
-import { Credits, UnpricedModelError } from './credits'
+import { Credits, UnpricedModelError , type ActionRefusal } from './credits'
 import { buildDaySummary, validateDailyPlacement } from './day-summary'
 import { db } from './supabase-client'
 import {
@@ -105,7 +105,13 @@ export class TalkWorkflowUnavailableError extends Error {
 }
 
 export class TalkWorkflowBillingError extends Error {
-  constructor(message: string, readonly code: 'insufficient_credits' | 'unpriced_model' | 'billing_error') {
+  constructor(
+    message: string,
+    // Every cost guard gets its own code out of Talk too. Collapsing them into
+    // 'billing_error' would tell the person nothing about what to do next, and
+    // would hide a tripped global ceiling behind what looks like a bug.
+    readonly code: ActionRefusal | 'unpriced_model' | 'billing_error'
+  ) {
     super(message)
   }
 }
@@ -238,24 +244,37 @@ async function proposalSnapshot(
   return { sourceFingerprint, placement }
 }
 
+/** What a refused Talk stage tells the user. One message per real cause. */
+const TALK_REFUSAL_MESSAGE: Record<string, string> = {
+  insufficient_credits: 'You are out of AI credits.',
+  account_daily_cap: 'This account has reached its daily AI limit. It resets tomorrow.',
+  global_ceiling: 'AI is paused for today while we check unusual usage. Your day is unaffected.',
+  prompt_too_large: 'This conversation is too long to continue. Start a new one.',
+  too_many_images: 'Too many images in one request.',
+}
+
 async function reserveStageRun(input: {
   userId: string
+  endpoint: string
   model: string
   instructions: string
   maxTurns: number
   messages: TalkRuntimeMessage[]
 }) {
   try {
-    const reservedTokens = await Credits.estimateReserve({
+    // One stage is one action to the person running it, whatever the stage does
+    // internally. The price no longer follows the token budget — it follows the
+    // action class (ADR-0013), so maxTurns has stopped being a billing input.
+    const decision = await Credits.authorizeAction(input.userId, {
+      endpoint: input.endpoint,
       model: input.model,
       systemPrompt: input.instructions,
       userPrompt: JSON.stringify(input.messages.slice(-12)),
-      // Budget follows the stage, not one global product-workflow limit.
-      maxOutputTokens: TALK_AGENT_MAX_TOKENS * input.maxTurns,
     })
-    const ok = await Credits.reserve(input.userId, reservedTokens)
-    if (!ok) throw new TalkWorkflowBillingError('Insufficient AI tokens', 'insufficient_credits')
-    return reservedTokens
+    if (!decision.ok) {
+      throw new TalkWorkflowBillingError(TALK_REFUSAL_MESSAGE[decision.code], decision.code)
+    }
+    return decision
   } catch (error) {
     if (error instanceof TalkWorkflowBillingError) throw error
     if (error instanceof UnpricedModelError) {
@@ -411,8 +430,9 @@ async function runAgentStage(ctx: StageContext, stage: PlanWorkStage) {
         }
       : await projectStageContext(ctx)
 
-  const reservedTokens = await reserveStageRun({
+  const authorization = await reserveStageRun({
     userId: ctx.userId,
+    endpoint: `talk-${stage}`,
     model: ctx.model,
     instructions: plan.instructions,
     maxTurns: plan.maxTurns,
@@ -436,7 +456,7 @@ async function runAgentStage(ctx: StageContext, stage: PlanWorkStage) {
     usage = result.usage
     return { result, plan }
   } finally {
-    await Credits.settleReserved(ctx.userId, reservedTokens, usage, {
+    await Credits.settleAction(ctx.userId, authorization, usage, {
       endpoint: `talk-${stage}`,
       model: ctx.model,
     })

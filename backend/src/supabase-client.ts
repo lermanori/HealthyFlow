@@ -1105,10 +1105,15 @@ export const db = {
     user_id: string
     endpoint?: string
     model?: string
+    /** Which price applied: text | photo | premium. Null for non-AI ledger rows. */
+    action_class?: string
     prompt_tokens?: number
     completion_tokens?: number
     total_tokens?: number
+    /** What the USER paid, in credits (actions). Never the same unit as cost_usd. */
     credits_delta: number
+    /** What the call COST US, in dollars. Never summed with credits_delta. */
+    cost_usd?: number
     reason?: string
     request_id?: string
     reserved_tokens?: number
@@ -1120,6 +1125,59 @@ export const db = {
   }) {
     const { error } = await supabase.from('ai_usage_log').insert(row)
     if (error) throw error
+  },
+
+  /**
+   * What every user together has cost us on OpenAI since `sinceIso`. Backs the
+   * global daily ceiling: the one number standing between a runaway loop and a
+   * bill nobody authorised. Reads cost_usd, which is dollars — never credits.
+   */
+  async sumAiCostUsdSince(sinceIso: string): Promise<number> {
+    const { data, error } = await supabase
+      .from('ai_usage_log')
+      .select('cost_usd')
+      .gte('created_at', sinceIso)
+      .not('cost_usd', 'is', null)
+    if (error) throw error
+    return (data ?? []).reduce((sum: number, row: any) => sum + Number(row.cost_usd ?? 0), 0)
+  },
+
+  /**
+   * How many AI actions one account has taken since `sinceIso`, optionally of one
+   * class. Backs both the per-account daily cap and the Cloud monthly caps.
+   * Counts rows rather than summing credits: an action covered by a subscription
+   * has a zero delta and must still count against its cap.
+   */
+  async countUserActionsSince(
+    userId: string,
+    sinceIso: string,
+    actionClass?: string
+  ): Promise<number> {
+    let query = supabase
+      .from('ai_usage_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', sinceIso)
+      .not('action_class', 'is', null)
+    if (actionClass) query = query.eq('action_class', actionClass)
+    const { count, error } = await query
+    if (error) throw error
+    return count ?? 0
+  },
+
+  /**
+   * Grants the monthly free allowance if this account has not had it this calendar
+   * month. Atomic in one statement — two devices opening the app at midnight must
+   * not both be granted. Returns the new balance, or null if already claimed.
+   */
+  async claimMonthlyFreeCredits(userId: string, credits: number): Promise<number | null> {
+    const { data, error } = await supabase.rpc('claim_monthly_free_credits', {
+      p_user_id: userId,
+      p_credits: credits,
+    })
+    if (error) throw error
+    const balance = Array.isArray(data) ? data[0]?.balance : (data as any)?.balance
+    return balance === undefined || balance === null ? null : Number(balance)
   },
 
   async setCreditBalance(userId: string, balance: number): Promise<number> {

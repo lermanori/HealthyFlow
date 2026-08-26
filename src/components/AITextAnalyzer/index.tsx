@@ -164,7 +164,7 @@ export default function AITextAnalyzer({ onClose, onConfirmed, enableTTS = false
     { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
   ]
   const selectedQuickDate = quickDates.find(date => date.value === defaultScheduleDate)
-  const monthlyCredits = creditSummary?.pricing.monthlyCredits ?? 500
+  const topUpCredits = creditSummary?.pricing.topUpCredits ?? 300
 
   const handleScheduleDateChange = (value: string) => {
     if (value === 'custom') {
@@ -235,7 +235,7 @@ export default function AITextAnalyzer({ onClose, onConfirmed, enableTTS = false
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <p>
               {balance <= 0
-                ? `You need credits to use AI. Subscribe for ${monthlyCredits} credits/month or buy more in Settings.`
+                ? `You are out of AI credits. Subscribe for unlimited typing, or add ${topUpCredits} actions in Settings.`
                 : `You have ${balance} AI credits. Most quick task analyses use about 5-15 credits.`}
             </p>
             {balance < 25 && (

@@ -1,3 +1,20 @@
+### 2026-08-26 — `worktree-pricing-actions`
+
+Implemented ADR-0013: a credit is now one action (text 1, photo 5, premium model 10)
+rather than a milli-dollar of OpenAI spend, closing a twenty-fold drift between the
+sale unit and the cost meter that nothing in the code could detect. `authorizeAction`
+now decides shape guards, the global daily spend ceiling, the per-account daily cap,
+Cloud entitlement and balance in one typed call before any tokens are spent, and
+settlement records price and cost as separate columns; the reserve/adjust/settle
+reconciliation, including the branch that drained a balance to zero, is deleted.
+Cost guards and vendor limits are documented in `docs/runbooks/cost-guards.md`, and
+what a payment rail still has to build is in the dated handoff under `docs/history/`.
+All five verification commands are green (828 backend, 222/223 frontend — the one
+failure is the container's missing Playwright binary). **The migration is written
+and unapplied, and the global ceiling does not work until it is.**
+
+---
+
 ### 2026-08-25 16:25 — `main`
 
 Real-device Airplane Mode verification exposed that Cloud status waited for an HTTP rejection and never listened for the native offline boundary, so iOS could remain silent while a request hung. Cloud sync now checks Capacitor's connection state before every attempt and surfaces the persistent safe-on-device notice immediately on an offline event; the exact browser reproduction and all 223 frontend tests are green.

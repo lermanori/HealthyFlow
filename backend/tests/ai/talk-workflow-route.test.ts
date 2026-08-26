@@ -4,8 +4,8 @@ import jwt from 'jsonwebtoken'
 jest.mock('../../src/credits', () => ({
   Credits: {
     reserve: jest.fn().mockResolvedValue(true),
-    estimateReserve: jest.fn().mockResolvedValue(10),
-    settleReserved: jest.fn().mockResolvedValue({ ok: true }),
+    authorizeAction: jest.fn().mockResolvedValue({ ok: true, actionClass: 'text' as const, credits: 1, charged: 1, coveredBy: 'balance' as const }),
+    settleAction: jest.fn().mockResolvedValue(undefined),
   },
   UnpricedModelError: class UnpricedModelError extends Error {},
 }))

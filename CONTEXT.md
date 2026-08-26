@@ -26,6 +26,7 @@ These pairs look interchangeable and are not. Every one has caused a real mix-up
 | **Achievement** / **Progress** | The same thing. The API, table and route say *Achievement*; the label users see says *Progress*. Do not "fix" either to match the other. |
 | **Talk workflow** / **Talk stage** / **capability** | Three different things. `plan_work` is a workflow, `draft_task` is a stage inside it, `add_work_task` is a reusable capability any workflow may invoke. See ADR-0009. |
 | **Claim** / **Sign in** | Both take a Guest to an account, and they are opposites. *Claim* converts the Guest's **own** row — one identity, nothing moves, nothing can be lost. *Sign in* abandons that row for an account that **already exists** — two identities, the day travels, and the guest row's credits are forfeit. Never say "sign up" for either. |
+| **Credit** / **app token** | A *Credit* is what a user spends: one action, priced at 1, 5 or 10 (ADR-0013). An *app token* is the internal cost unit — one milli-dollar of OpenAI spend, `APP_TOKENS_PER_USD`. They are different currencies in the same ledger row and were the same number until 2026-08-26. Never price anything in app tokens. |
 | **User setting** / **release flag** | A *setting* is the user's choice and hides a section for that account. A *flag* is the project's choice and hides a surface from everyone. Work has no setting and is behind a flag. |
 
 ## Words that do not mean what they look like
@@ -65,6 +66,17 @@ should know is missing, and a reason code says what. **A Calendar the user never
 connected is not a reason** — it is outside the system's world, like an obligation
 never written down, so Capacity stays `complete`. A connected Calendar that failed
 to read *is* a reason.
+
+**Credit** — one *action*, not a quantity of money or tokens. A text action (a parse,
+a Talk turn, a question) costs 1; a photo action costs 5; a premium-model action costs
+10. The price is known before the call is made and does not move with actual usage. A
+credit was a milli-dollar of OpenAI spend until 2026-08-26, and the balance in an old
+account still carries that older, smaller meaning — worth roughly six times more now.
+See ADR-0013. _Avoid_: "token" for anything a user holds or buys.
+
+**Action class** — which of the three prices applies: `text`, `photo` or `premium`.
+Decided from the endpoint, whether the prompt carries an image, and which model was
+selected — all three known at the moment credits are reserved.
 
 **Planning window** — the user's declared usable day. It has a default, so
 Capacity works on day one. A default is a **declared assumption, not a guess**:
@@ -124,6 +136,7 @@ guest mode does not run out.
 | sync, migrate (for signup) | **Claim** |
 | offline copy, local cache | **Local day** — it is the source, not a copy of anything |
 | AI parser, task extractor | **parse-tasks** — "extractor" loses the habit case |
+| AI token, token balance (to a user) | **Credit** — a user holds actions, not tokens |
 | agent, session, chat mode | **Talk workflow** |
 
 ## Things that look built and are not

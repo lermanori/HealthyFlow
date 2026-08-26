@@ -7,10 +7,10 @@ import { db } from '../src/supabase-client'
 
 jest.mock('../src/credits', () => ({
   Credits: {
-    estimateReserve: jest.fn(),
+    authorizeAction: jest.fn(),
     reserve: jest.fn(),
-    settleReserved: jest.fn(),
-    refundReserve: jest.fn(),
+    settleAction: jest.fn(),
+    refundAction: jest.fn(),
   },
   UnpricedModelError: class UnpricedModelError extends Error {},
 }))
@@ -131,10 +131,10 @@ function planExerciseRow(overrides: Record<string, unknown> = {}) {
 beforeEach(() => {
   jest.clearAllMocks()
   nock.cleanAll()
-  mockCredits.estimateReserve.mockResolvedValue(100)
+  mockCredits.authorizeAction.mockResolvedValue({ ok: true, actionClass: 'text', credits: 1, charged: 1, coveredBy: 'balance' })
   mockCredits.reserve.mockResolvedValue(true)
-  mockCredits.settleReserved.mockResolvedValue({ ok: true, chargeTokens: 20, adjustmentTokens: 80 })
-  mockCredits.refundReserve.mockResolvedValue(undefined)
+  mockCredits.settleAction.mockResolvedValue(undefined)
+  mockCredits.refundAction.mockResolvedValue(undefined)
 })
 
 describe('workout API', () => {
@@ -177,7 +177,7 @@ describe('workout API', () => {
       ],
     }))
     expect(observedSystemPrompt).toMatch(/strength, calisthenics, running.*yoga, mobility/i)
-    expect(mockCredits.settleReserved).toHaveBeenCalledWith(USER_ID, 100, {
+    expect(mockCredits.settleAction).toHaveBeenCalledWith(USER_ID, expect.objectContaining({ ok: true }), {
       promptTokens: 100,
       completionTokens: 50,
       totalTokens: 150,
@@ -200,13 +200,13 @@ describe('workout API', () => {
 
     expect(res.status).toBe(500)
     expect(res.body).toEqual({ error: 'Could not generate workout plan', code: 'ai_generation_failed' })
-    expect(mockCredits.refundReserve).toHaveBeenCalledWith(USER_ID, 100, 'refund_failed_call')
+    expect(mockCredits.refundAction).toHaveBeenCalledWith(USER_ID, expect.objectContaining({ ok: true }), 'refund_failed_call')
     expect(mockDb.createWorkoutPlan).not.toHaveBeenCalled()
     errorSpy.mockRestore()
   })
 
   it('returns 402 when workout-plan generation has insufficient credits', async () => {
-    mockCredits.reserve.mockResolvedValue(false)
+    mockCredits.authorizeAction.mockResolvedValue({ ok: false, code: 'insufficient_credits' })
 
     const res = await request(app)
       .post('/api/workouts/plans/generate')
@@ -214,7 +214,7 @@ describe('workout API', () => {
       .send({ intent: 'Bodyweight strength plan' })
 
     expect(res.status).toBe(402)
-    expect(res.body).toEqual({ error: 'Insufficient AI tokens', code: 'insufficient_credits' })
+    expect(res.body).toEqual({ error: 'You are out of AI credits.', code: 'insufficient_credits' })
     expect(mockDb.createWorkoutPlan).not.toHaveBeenCalled()
   })
 

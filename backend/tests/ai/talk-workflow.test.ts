@@ -13,9 +13,9 @@ jest.mock('../../src/supabase-client', () => ({
 
 jest.mock('../../src/credits', () => ({
   Credits: {
-    estimateReserve: jest.fn().mockResolvedValue(20),
+    authorizeAction: jest.fn().mockResolvedValue({ ok: true, actionClass: 'text' as const, credits: 1, charged: 1, coveredBy: 'balance' as const }),
     reserve: jest.fn().mockResolvedValue(true),
-    settleReserved: jest.fn().mockResolvedValue({ ok: true, chargeTokens: 8, adjustmentTokens: 12 }),
+    settleAction: jest.fn().mockResolvedValue(undefined),
   },
   UnpricedModelError: class UnpricedModelError extends Error {},
 }))
