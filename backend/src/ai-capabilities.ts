@@ -1103,7 +1103,7 @@ export const AiCapabilities = defineCapabilities({
     },
   },
   update_goal: {
-    description: 'After the user explicitly asks to change an existing Goal or its supporting context, prepare an editable confirmation card using an id from list_goals. This only proposes a client-owned change.',
+    description: 'After the user explicitly asks to change an existing Goal or its supporting context, prepare an editable confirmation card using an id from list_goals. Do not append dated activity or completed work to Goal context; those outcomes belong in the module that owns the record. This only proposes a client-owned change.',
     modules: ['goals'],
     kind: 'proposal',
     inputSchema: UpdateGoalProposalInput,
@@ -1934,6 +1934,18 @@ function zodDetails(error: z.ZodError) {
   return error.issues.map(issue => ({ path: issue.path.join('.'), message: issue.message }))
 }
 
+function parseModelToolInput(capability: AiCapabilityDefinition, args: unknown) {
+  const parsed = capability.inputSchema.safeParse(args ?? {})
+  if (parsed.success) return parsed.data
+
+  const details = zodDetails(parsed.error)
+    .map(detail => `${detail.path || 'input'}: ${detail.message}`)
+    .join('; ')
+  throw new RecoverableToolError(
+    `Invalid arguments for ${capability.name}: ${details}. Retry using only the fields declared by this tool.`,
+  )
+}
+
 function executionError(error: unknown): AiCapabilityError {
   const status = typeof error === 'object' && error && 'status' in error
     ? Number((error as { status?: unknown }).status)
@@ -2117,7 +2129,7 @@ export function aiCapabilityTools(options: {
     outputSchema: capability.outputSchema,
     parameters: z.toJSONSchema(capability.inputSchema),
     execute: async (ctx: AiCapabilityContext, args: unknown) => {
-      let parsed: any = capability.inputSchema.parse(args ?? {})
+      let parsed: any = parseModelToolInput(capability, args)
       if (capability.name === 'add_calorie_entry' && ctx.photo && ctx.groundedMeals?.length === 1) {
         const meal = ctx.groundedMeals[0]
         parsed = {

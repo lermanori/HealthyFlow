@@ -1,3 +1,9 @@
+### 2026-08-26 19:57 — `fix/talk-goal-tool-recovery`
+
+Production Goal-context smoke testing exposed GPT-4o mini copying JSON-Schema `format` metadata into an `update_goal` call, which strict validation correctly rejected but Talk incorrectly surfaced as a fatal raw error. Model-originated input mistakes now return recoverable tool feedback without weakening any schema, and the effective prompt/tool boundary explicitly redirects dated work updates away from Goal context because it is not a progress journal. The exact route-level regression, 45 focused assistant tests, backend typecheck, all 830 backend tests and lint with no new errors are green.
+
+---
+
 ### 2026-08-26 19:24 — `codex/personal-assistant-prototype`
 
 Turned Talk into a goal-aware personal assistant: user-owned Goals and context now guide macro-to-micro planning, Habit history supplies honest 30-day evidence, and every AI-proposed Goal change remains editable and confirmation-gated. Talk is now resilient across mobile composition, attachments, long conversations, cancellation, retry and text-to-speech playback, while Local-day adoption and Cloud timestamp failures surface explicitly instead of losing or inventing state. Both typechecks, 234 frontend tests, 828 backend tests, focused browser coverage, lint, the production build and the iOS sync build are green; real-device smoke testing passed for the new assistant flow.
