@@ -155,10 +155,10 @@ whatever accumulated. `POST /api/sync`, gated on an active subscription.
 merge and the sync merge are now the same function, with the same per-collection
 identity.
 
-### Two migrations are written and NOT applied
+### The two sync migrations were applied on 2026-08-25
 
-Both are on this branch and the live database has neither. **Nothing syncs until
-they are applied**, and `POST /api/sync` will 500 against production as it stands:
+The owner applied both with `supabase db push`. The deployed backend now depends
+on these columns being present:
 
 - `supabase/migrations/20260823120000_add_tasks_updated_at.sql` — the column, a
   backfill from `created_at`, a `BEFORE UPDATE` trigger and an index.
@@ -198,10 +198,10 @@ could not, all now handled:
 ### Not verified on a device
 
 Every test passes — 223 frontend, 808 backend, both typechecks, the production
-build. **Nothing has run against a real database or a real phone**, because the
-migrations are unapplied. Green tests have not been sufficient in this codebase:
-five bugs were found on a device this week after the tests were green. The first
-exchange on a real account is the thing to watch.
+build. The migrations are live and simulator testing has started, but a complete
+first exchange on a real account has not yet been confirmed. Green tests have not
+been sufficient in this codebase: five bugs were found on a device this week after
+the tests were green. The first exchange is still the thing to watch.
 
 An audit on 2026-08-25 closed four gaps before that first exchange: a successful
 sync no longer schedules another sync from its own watermark write; the server
@@ -223,9 +223,9 @@ their parent; and an id already owned by another account is refused.
 - **Realtime.** A Supabase subscription becomes a nudge to run the same exchange,
   not a second code path. The pull was shaped as "everything since a watermark"
   specifically so this stays cheap.
-- **What a subscriber sees while a sync is failing.** Undesigned, and deliberately
-  not guessed at: the hook logs the real error and shows nothing. Silence is
-  wrong and a permanent banner is worse.
+- **A failed sync is visible.** One persistent, deduplicated toast says Cloud sync
+  is paused and that changes remain safe on the iPhone. It clears only after a
+  successful exchange or when the Local day closes.
 - **The web app syncing.** It has no local day.
 - **Field-level conflict resolution.** Row-level, most-recent-wins, tie to the
   device.

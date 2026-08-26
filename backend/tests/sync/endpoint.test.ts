@@ -31,7 +31,7 @@ const mockSync = Sync as jest.Mocked<typeof Sync>
 const TOKEN = `Bearer ${jwt.sign({ userId: 'user-1' }, process.env.JWT_SECRET!)}`
 
 const emptyPayload = {
-  tasks: [], habitProgress: [], calorieEntries: [], calorieItems: [],
+  tasks: [], habitProgress: [], goals: [], calorieEntries: [], calorieItems: [],
   weightEntries: [], workoutSessions: [], workoutPlans: [],
   workoutExerciseItems: [], achievementDefinitions: [], achievementEntries: [],
   settings: null,

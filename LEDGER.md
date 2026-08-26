@@ -1,3 +1,9 @@
+### 2026-08-26 19:24 — `codex/personal-assistant-prototype`
+
+Turned Talk into a goal-aware personal assistant: user-owned Goals and context now guide macro-to-micro planning, Habit history supplies honest 30-day evidence, and every AI-proposed Goal change remains editable and confirmation-gated. Talk is now resilient across mobile composition, attachments, long conversations, cancellation, retry and text-to-speech playback, while Local-day adoption and Cloud timestamp failures surface explicitly instead of losing or inventing state. Both typechecks, 234 frontend tests, 828 backend tests, focused browser coverage, lint, the production build and the iOS sync build are green; real-device smoke testing passed for the new assistant flow.
+
+---
+
 ### 2026-08-25 16:25 — `main`
 
 Real-device Airplane Mode verification exposed that Cloud status waited for an HTTP rejection and never listened for the native offline boundary, so iOS could remain silent while a request hung. Cloud sync now checks Capacitor's connection state before every attempt and surfaces the persistent safe-on-device notice immediately on an offline event; the exact browser reproduction and all 223 frontend tests are green.

@@ -484,6 +484,49 @@ export const db = {
     return data;
   },
 
+  /**
+   * The bounded raw record a Habit-history composer needs. Missing dates are not
+   * rows and stay missing here; the domain layer labels them `not_recorded`
+   * without materializing anything.
+   */
+  async getHabitHistoryRows(userId: string, from: string, to: string) {
+    const [{ data: habits, error: habitsError }, { data: instances, error: instancesError }] = await Promise.all([
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('type', 'habit')
+        .eq('repeat_type', 'daily')
+        .is('original_habit_id', null)
+        .is('deleted_at', null)
+        .order('created_at', { ascending: true })
+        .limit(51),
+      supabase
+        .from('tasks')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('type', 'habit')
+        .not('original_habit_id', 'is', null)
+        .is('deleted_at', null)
+        .gte('scheduled_date', from)
+        .lte('scheduled_date', to)
+        .order('scheduled_date', { ascending: true })
+        .order('created_at', { ascending: true })
+        .limit(1501),
+    ])
+    if (habitsError) throw habitsError
+    if (instancesError) throw instancesError
+    if ((habits?.length ?? 0) > 50 || (instances?.length ?? 0) > 1500) {
+      throw new Error('Habit history exceeds its bounded read limit')
+    }
+    const instanceIds = (instances ?? []).map(instance => String(instance.id))
+    return {
+      habits: habits ?? [],
+      instances: instances ?? [],
+      progressByInstance: await this.getHabitProgressEntriesForInstances(instanceIds),
+    }
+  },
+
   async getTimeDistribution(userId: string) {
     const { data, error } = await supabase
       .from('tasks')
@@ -833,6 +876,51 @@ export const db = {
       .update({ deleted_at: now, updated_at: now })
       .eq('id', entryId)
     if (error) throw error
+  },
+
+  // Goals — free-speech direction owned by an existing HealthyFlow module.
+  async getGoalsByUserId(userId: string, includeArchived = false): Promise<any[]> {
+    let query = supabase
+      .from('goals')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+    if (!includeArchived) query = query.is('deleted_at', null)
+    const { data, error } = await query
+    if (error) throw error
+    return data ?? []
+  },
+
+  async getGoalById(goalId: string): Promise<any | null> {
+    const { data, error } = await supabase
+      .from('goals')
+      .select('*')
+      .eq('id', goalId)
+      .maybeSingle()
+    if (error) throw error
+    return data ?? null
+  },
+
+  async createGoal(row: Record<string, unknown>): Promise<any> {
+    const { data, error } = await supabase
+      .from('goals')
+      .insert(row)
+      .select()
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  async updateGoal(goalId: string, userId: string, updates: Record<string, unknown>): Promise<any> {
+    const { data, error } = await supabase
+      .from('goals')
+      .update(updates)
+      .eq('id', goalId)
+      .eq('user_id', userId)
+      .select()
+      .single()
+    if (error) throw error
+    return data
   },
 
   // Settings — single JSONB column, upsert keeps it to one row per user

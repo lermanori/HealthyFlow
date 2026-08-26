@@ -23,8 +23,9 @@ function signInMessage(error: unknown) {
   return `Could not sign in (server said ${response.status ?? 'nothing'}).`
 }
 
-const countLine = (counts: { items: number; habits: number; meals: number; workouts: number }) => {
+const countLine = (counts: { goals: number; items: number; habits: number; meals: number; workouts: number }) => {
   const parts = [
+    counts.goals === 1 ? '1 Goal' : `${counts.goals} Goals`,
     counts.items === 1 ? '1 Item' : `${counts.items} Items`,
     counts.habits === 1 ? '1 Habit' : `${counts.habits} Habits`,
     counts.meals === 1 ? '1 meal' : `${counts.meals} meals`,

@@ -48,6 +48,7 @@ const TABLES: Record<SyncCollection, string> = {
   workoutExerciseItems: 'workout_exercise_items',
   achievementDefinitions: 'achievement_definitions',
   achievementEntries: 'achievement_entries',
+  goals: 'goals',
 }
 
 /**
@@ -112,6 +113,10 @@ const SHAPES: Record<SyncCollection, {
   achievementEntries: {
     toClient: (row) => withDeletion(achievementEntryToClient(row), row),
     toRows: (record, userId) => ({ row: achievementEntryToRow(record, userId) }),
+  },
+  goals: {
+    toClient: (row) => row,
+    toRows: (record, userId) => ({ row: { ...record, user_id: userId } }),
   },
 }
 

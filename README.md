@@ -18,6 +18,7 @@ distributed via TestFlight — see [`docs/ios.md`](./docs/ios.md).
 | Why something is built the way it is | [`docs/adr/`](./docs/adr/) |
 | How money works | [`TARGET.md`](./TARGET.md) — Money |
 | How the iOS app works | [`docs/runbooks/ios.md`](./docs/runbooks/ios.md) |
+| How to take money on iOS | [`docs/runbooks/paid-apps-setup.md`](./docs/runbooks/paid-apps-setup.md) |
 | Anything dated or finished | [`docs/history/`](./docs/history/) — unmaintained by design |
 | What is in flight | [Issues](https://github.com/lermanori/HealthyFlow/issues) · [Project 1](https://github.com/users/lermanori/projects/1/views/1) |
 | How to deploy | [`docs/runbooks/deploy.md`](./docs/runbooks/deploy.md) |

@@ -1,5 +1,7 @@
 import { z } from 'zod'
 import { PlanningWindowSchema } from './day-summary-schema'
+import { GoalContextSchema } from './goals-schema'
+import { HabitHistoryContextSchema } from './habit-contracts'
 
 export const ModuleSettingKeySchema = z.enum([
   'calorieIntake',
@@ -16,6 +18,38 @@ export const WeekStartsOnSchema = z.union([
   z.literal(5),
   z.literal(6),
 ])
+
+export const AssistantResponseStyleSchema = z.enum(['concise', 'balanced', 'detailed'])
+export const AssistantPlanningStyleSchema = z.enum(['one_step_at_a_time', 'guided', 'direct'])
+export const AssistantFollowUpModeSchema = z.enum(['ask_about_outcomes', 'only_when_asked'])
+
+/**
+ * User-owned context for Talk.
+ *
+ * This is intentionally small and structured. It is not hidden model memory:
+ * Settings control communication behavior, while Goals carry free-speech
+ * direction. Items, Projects and the Daily Plan remain the source of truth for
+ * what is planned or completed.
+ */
+const AssistantProfileFieldsSchema = z.object({
+  preferredName: z.string().trim().min(1).max(80).nullable().default(null),
+  responseStyle: AssistantResponseStyleSchema.default('concise'),
+  planningStyle: AssistantPlanningStyleSchema.default('one_step_at_a_time'),
+  followUpMode: AssistantFollowUpModeSchema.default('ask_about_outcomes'),
+})
+
+export const AssistantProfileSchema = AssistantProfileFieldsSchema.prefault({})
+export const AssistantProfilePatchSchema = AssistantProfileFieldsSchema.strict()
+
+export const DEFAULT_ASSISTANT_PROFILE = AssistantProfileSchema.parse({})
+
+/** A bounded snapshot sent with a Talk turn so Local-first sessions work too. */
+export const AssistantContextSchema = z.object({
+  ownerName: z.string().trim().min(1).max(80).nullable().default(null),
+  profile: AssistantProfileSchema,
+  goals: GoalContextSchema,
+  habitHistory: HabitHistoryContextSchema.default({ status: 'unavailable' }),
+}).strict()
 
 /**
  * The Planning window a new account starts with.
@@ -51,6 +85,7 @@ export const SettingsSchema = z.object({
   workoutTracker: z.boolean().default(true),
   weekStartsOn: WeekStartsOnSchema.default(1),
   planningWindow: PlanningWindowSchema.nullable().default(DEFAULT_PLANNING_WINDOW),
+  assistantProfile: AssistantProfileSchema,
   onboardingStatus: z.enum(['active', 'completed', 'skipped']).default('completed'),
   theme: z.enum(['midnight', 'white']).default('midnight'),
 })
@@ -69,19 +104,29 @@ export const SettingsPatchSchema = z.object({
   workoutTracker: z.boolean(),
   weekStartsOn: WeekStartsOnSchema,
   planningWindow: PlanningWindowSchema.nullable(),
+  assistantProfile: AssistantProfilePatchSchema,
   onboardingStatus: z.enum(['active', 'completed', 'skipped']),
   theme: z.enum(['midnight', 'white']),
 }).partial().strict()
 
 export type ModuleSettingKey = z.infer<typeof ModuleSettingKeySchema>
+export type AssistantProfile = z.infer<typeof AssistantProfileSchema>
+export type AssistantContext = z.infer<typeof AssistantContextSchema>
 export type Settings = z.infer<typeof SettingsSchema>
 
 const SettingsContracts = {
   ModuleSettingKeySchema,
   WeekStartsOnSchema,
+  AssistantResponseStyleSchema,
+  AssistantPlanningStyleSchema,
+  AssistantFollowUpModeSchema,
+  AssistantProfileSchema,
+  AssistantProfilePatchSchema,
+  AssistantContextSchema,
   SettingsSchema,
   SettingsPatchSchema,
   DEFAULT_PLANNING_WINDOW,
+  DEFAULT_ASSISTANT_PROFILE,
 }
 
 export default SettingsContracts

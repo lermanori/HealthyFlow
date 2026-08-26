@@ -37,6 +37,7 @@ import {
   type TalkWorkflowStore,
 } from './talk-workflow-store'
 import { Work } from './work'
+import type { AssistantContext } from './settings-schema'
 
 // The deep Talk orchestration module (ADR-0009).
 //
@@ -286,6 +287,7 @@ type StageContext = {
   record: TalkWorkflowRecord
   state: PlanWorkState
   messages: TalkRuntimeMessage[]
+  assistantContext?: AssistantContext
   deps: TalkWorkflowDeps
   resumed: boolean
 }
@@ -394,7 +396,9 @@ async function runAgentStage(ctx: StageContext, stage: PlanWorkStage) {
     stage,
     resumed: ctx.resumed,
   })
-  const stageContext = stage === 'draft_focus_block'
+  const stageContext = {
+    ...(ctx.assistantContext ? { assistant: ctx.assistantContext } : {}),
+    ...(stage === 'draft_focus_block'
     ? {
         ...(await projectStageContext(ctx)),
         // Already verified: the model selects a placement, not the work.
@@ -409,7 +413,8 @@ async function runAgentStage(ctx: StageContext, stage: PlanWorkStage) {
             .slice(0, 20)
             .map((task) => ({ id: task.id, title: task.title, relation: task.relation ?? null })),
         }
-      : await projectStageContext(ctx)
+      : await projectStageContext(ctx)),
+  }
 
   const reservedTokens = await reserveStageRun({
     userId: ctx.userId,
@@ -657,6 +662,7 @@ async function driveWorkflow(input: {
   conversationId: string
   model: string
   messages: TalkRuntimeMessage[]
+  assistantContext?: AssistantContext
   deps: TalkWorkflowDeps
   record: TalkWorkflowRecord
   resumed: boolean
@@ -740,6 +746,7 @@ async function driveWorkflow(input: {
       record,
       state,
       messages: input.messages,
+      assistantContext: input.assistantContext,
       deps: input.deps,
       resumed: input.resumed,
     }
@@ -788,6 +795,7 @@ export async function runTalkWorkflowTurn(input: {
   timeZone: string
   model: string
   messages: TalkRuntimeMessage[]
+  assistantContext?: AssistantContext
   /** Structured Work → Talk handoff input. */
   projectId?: string | null
   deps?: TalkWorkflowDeps
@@ -842,6 +850,7 @@ export async function runTalkWorkflowTurn(input: {
     conversationId: input.conversationId,
     model: input.model,
     messages: input.messages,
+    assistantContext: input.assistantContext,
     deps,
     record,
     resumed,
@@ -859,6 +868,7 @@ export async function continueTalkWorkflow(input: {
   conversationId: string
   model: string
   messages?: TalkRuntimeMessage[]
+  assistantContext?: AssistantContext
   deps?: TalkWorkflowDeps
 }): Promise<TalkWorkflowTurnResult | null> {
   const deps = input.deps ?? defaultTalkWorkflowDeps()
@@ -872,6 +882,7 @@ export async function continueTalkWorkflow(input: {
     conversationId: input.conversationId,
     model: input.model,
     messages: input.messages ?? [],
+    assistantContext: input.assistantContext,
     deps,
     record,
     resumed: true,

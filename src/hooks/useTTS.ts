@@ -42,9 +42,11 @@ export function useTTS() {
   return {
     // State
     isSpeaking: state.isSpeaking,
+    isPaused: state.isPaused,
     currentText: state.currentText,
     progress: state.progress,
     availableVoices: state.availableVoices,
+    error: state.error,
     
     // Actions
     speak,
@@ -57,4 +59,4 @@ export function useTTS() {
     // Utilities
     isSupported
   }
-} 
+}

@@ -14,7 +14,8 @@ import {
   HeartPulse,
   Briefcase,
   UserPlus,
-  LogIn
+  LogIn,
+  Target,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -118,6 +119,7 @@ export default function Layout({ children }: LayoutProps) {
       id: 'plan',
       label: 'Plan',
       items: [
+        { name: 'Goals', href: '/goals', icon: Target },
         ...(WORK_ENABLED ? [{ name: 'Work', href: '/work', icon: Briefcase }] : []),
         ...(WEEK_VIEW_ENABLED ? [{ name: 'Week', href: '/week', icon: Calendar }] : []),
       ],
@@ -160,7 +162,7 @@ export default function Layout({ children }: LayoutProps) {
   }
 
   const primaryMobileNavigation = navigation.filter((item) => (
-    item.href === '/' || item.href === '/talk'
+    item.href === '/' || item.href === '/goals' || item.href === '/talk'
   ))
 
   const MobileNavigation = () => createPortal((
@@ -520,7 +522,7 @@ export default function Layout({ children }: LayoutProps) {
       {/* Mobile Bottom Navigation — hidden while the drawer is open so it doesn't cover the drawer's Logout button */}
       {isMobile && !isMobileMenuOpen && (
         <div className="mobile-bottom-dock fixed bottom-0 left-0 right-0 z-30 border-t border-line/50 bg-page/95 backdrop-blur-xl">
-          <nav aria-label="Primary" className="mx-auto grid h-[var(--mobile-dock-content-height)] max-w-sm grid-cols-2 px-4 py-1">
+          <nav aria-label="Primary" className="mx-auto grid h-[var(--mobile-dock-content-height)] max-w-sm grid-cols-3 px-4 py-1">
             {primaryMobileNavigation.map((item) => {
               const isActive = isNavigationActive(item)
               return (

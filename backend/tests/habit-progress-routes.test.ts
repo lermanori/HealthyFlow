@@ -9,6 +9,7 @@ jest.mock('../src/supabase-client', () => ({
     createHabitInstance: jest.fn(),
     createHabitProgressEntry: jest.fn(),
     getHabitProgressEntries: jest.fn(),
+    getHabitHistoryRows: jest.fn(),
     updateTask: jest.fn(),
   },
 }))
@@ -37,6 +38,7 @@ const parent = {
   original_habit_id: null,
   habit_target_value: 45,
   habit_target_unit: 'minutes',
+  created_at: '2026-07-14T08:00:00.000Z',
 }
 
 const instance = {
@@ -52,6 +54,28 @@ const instance = {
 
 describe('Habit progress API', () => {
   beforeEach(() => jest.clearAllMocks())
+
+  it('returns bounded Habit history without materializing untouched days', async () => {
+    mockDb.getHabitHistoryRows.mockResolvedValue({
+      habits: [parent],
+      instances: [{ ...instance, habit_outcome: 'completed', completed: true }],
+      progressByInstance: {
+        [INSTANCE_ID]: [{ id: 'entry-1', habit_instance_id: INSTANCE_ID, amount: 45 }],
+      },
+    } as any)
+
+    const response = await request(app)
+      .get(`/api/tasks/habits/history?to=${DATE}&days=3`)
+      .set('Authorization', TOKEN)
+
+    expect(response.status).toBe(200)
+    expect(response.body.habits[0].days).toEqual([
+      expect.objectContaining({ date: '2026-07-14', recordState: 'not_recorded', outcome: null }),
+      expect.objectContaining({ date: '2026-07-15', recordState: 'not_recorded', outcome: null }),
+      expect.objectContaining({ date: DATE, recordState: 'recorded', outcome: 'completed', progressTotal: 45 }),
+    ])
+    expect(mockDb.createHabitInstance).not.toHaveBeenCalled()
+  })
 
   it('records progress against a virtual target Habit and returns a partial day', async () => {
     mockDb.getTaskById.mockResolvedValue(parent as any)

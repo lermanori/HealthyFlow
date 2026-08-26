@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures/ai-stubs'
+import type { Page } from '@playwright/test'
 import { daySummaryFixture } from './fixtures/day-summary'
 
 function formatLocalDate(date: Date) {
@@ -7,6 +8,20 @@ function formatLocalDate(date: Date) {
     String(date.getMonth() + 1).padStart(2, '0'),
     String(date.getDate()).padStart(2, '0'),
   ].join('-')
+}
+
+async function pasteImageFiles(page: Page, files: Array<{ name: string; type: string; size?: number }>) {
+  await page.getByPlaceholder(/Add anything/).evaluate((element, pastedFiles) => {
+    const transfer = new DataTransfer()
+    for (const file of pastedFiles) {
+      transfer.items.add(new File(
+        [new Uint8Array(file.size ?? 4)],
+        file.name,
+        { type: file.type },
+      ))
+    }
+    element.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, cancelable: true, clipboardData: transfer }))
+  }, files)
 }
 
 test.beforeEach(async ({ page }) => {
@@ -34,6 +49,602 @@ test('Demo Talk stays deterministic without calling the billable chat API', asyn
 
   await expect(page.getByText("Here's a stable reset plan for Noam:")).toBeVisible()
   expect(billableChatRequests).toBe(0)
+})
+
+test('Talk can speak an assistant response without adding speech controls to user messages', async ({ page }) => {
+  await page.addInitScript(() => {
+    const spokenTexts: string[] = []
+    Object.defineProperty(window, '__healthyFlowSpokenTexts', {
+      configurable: true,
+      value: spokenTexts,
+    })
+    window.speechSynthesis.speak = (utterance) => {
+      spokenTexts.push(utterance.text)
+      utterance.onstart?.(new SpeechSynthesisEvent('start', { utterance }))
+    }
+  })
+  await page.route('**/api/ai/conversations', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ contentType: 'application/json', body: '[]' })
+      return
+    }
+    await route.fulfill({
+      contentType: 'application/json',
+      body: route.request().postData() ?? '{}',
+    })
+  })
+  await page.route('**/api/ai/chat', (route) => route.fulfill({
+    contentType: 'application/json',
+    body: JSON.stringify({
+      message: 'This Talk response should be spoken.',
+      toolEvents: [],
+      pendingActions: [],
+    }),
+  }))
+
+  await page.goto('/app/talk')
+  await page.getByPlaceholder(/Add anything/).fill('Give me one small next step.')
+  await page.getByRole('button', { name: 'Send' }).click()
+
+  const response = 'This Talk response should be spoken.'
+  await expect(page.getByText(response)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Speak response' })).toHaveCount(1)
+  await page.getByRole('button', { name: 'Speak response' }).click()
+
+  await expect.poll(() => page.evaluate(() => (
+    (window as typeof window & { __healthyFlowSpokenTexts?: string[] }).__healthyFlowSpokenTexts ?? []
+  ))).toEqual([expect.stringContaining(response)])
+})
+
+test('Native iOS Talk uses keyboard dictation instead of showing the custom microphone', async ({ page }) => {
+  await page.addInitScript(() => {
+    const nativeWindow = window as typeof window & { CapacitorCustomPlatform?: { name: string } }
+    nativeWindow.CapacitorCustomPlatform = { name: 'ios' }
+  })
+
+  await page.goto('/talk')
+  await page.getByRole('navigation', { name: 'Application' }).waitFor()
+  await page.evaluate(() => {
+    window.history.pushState({}, '', '/talk')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  })
+
+  await expect(page.getByPlaceholder(/Add anything/)).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Start dictation' })).toHaveCount(0)
+})
+
+test('Talk sends a bounded verified Habit-history snapshot with the turn', async ({ page }) => {
+  const to = formatLocalDate(new Date())
+  let requestBody: { assistantContext?: { habitHistory?: unknown } } | null = null
+  await page.route('**/api/ai/chat', async (route) => {
+    requestBody = route.request().postDataJSON() as typeof requestBody
+    await route.fulfill({ json: { message: 'History received.', toolEvents: [], pendingActions: [] } })
+  })
+
+  await page.goto('/app/talk')
+  await page.getByPlaceholder(/Add anything/).fill('What should I focus on today?')
+  await page.getByRole('button', { name: 'Send' }).click()
+
+  await expect(page.getByText('History received.')).toBeVisible()
+  await expect.poll(() => requestBody?.assistantContext?.habitHistory).toEqual(
+    expect.objectContaining({
+      status: 'ready',
+      record: expect.objectContaining({
+        to,
+        habits: expect.any(Array),
+      }),
+    }),
+  )
+})
+
+test('Talk pauses, resumes, switches, and stops response playback predictably', async ({ page }) => {
+  await page.addInitScript(() => {
+    const playback = {
+      spoken: [] as string[],
+      pauses: 0,
+      resumes: 0,
+      cancels: 0,
+      speaking: false,
+      paused: false,
+    }
+    Object.defineProperty(window, '__healthyFlowPlayback', {
+      configurable: true,
+      value: playback,
+    })
+    Object.defineProperty(window.speechSynthesis, 'speaking', {
+      configurable: true,
+      get: () => playback.speaking,
+    })
+    Object.defineProperty(window.speechSynthesis, 'paused', {
+      configurable: true,
+      get: () => playback.paused,
+    })
+    window.speechSynthesis.speak = (utterance) => {
+      playback.spoken.push(utterance.text)
+      playback.speaking = true
+      playback.paused = false
+      utterance.onstart?.(new SpeechSynthesisEvent('start', { utterance }))
+    }
+    window.speechSynthesis.pause = () => {
+      playback.pauses += 1
+      playback.speaking = false
+      playback.paused = true
+    }
+    window.speechSynthesis.resume = () => {
+      playback.resumes += 1
+      playback.speaking = true
+      playback.paused = false
+    }
+    window.speechSynthesis.cancel = () => {
+      playback.cancels += 1
+      playback.speaking = false
+      playback.paused = false
+    }
+  })
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: [] })
+      return
+    }
+    await route.fulfill({ json: route.request().postDataJSON() })
+  })
+  let responseNumber = 0
+  await page.route('**/api/ai/chat', async (route) => {
+    responseNumber += 1
+    await route.fulfill({
+      json: {
+        message: responseNumber === 1 ? 'First spoken response.' : 'Second spoken response.',
+        toolEvents: [],
+        pendingActions: [],
+      },
+    })
+  })
+
+  await page.goto('/app/talk')
+  await page.getByPlaceholder(/Add anything/).fill('First turn')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByText('First spoken response.')).toBeVisible()
+  await page.getByRole('button', { name: 'Speak response' }).click()
+
+  await page.getByRole('button', { name: 'Pause response' }).click()
+  await expect(page.getByRole('button', { name: 'Resume response' })).toBeVisible()
+  await page.getByRole('button', { name: 'Resume response' }).click()
+
+  await page.getByPlaceholder(/Add anything/).fill('Second turn')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByText('Second spoken response.')).toBeVisible()
+  await page.getByRole('button', { name: 'Speak response' }).click()
+  await page.getByRole('button', { name: 'Stop response' }).click()
+
+  await expect.poll(() => page.evaluate(() => (
+    window as typeof window & {
+      __healthyFlowPlayback?: {
+        spoken: string[]
+        pauses: number
+        resumes: number
+        cancels: number
+      }
+    }
+  ).__healthyFlowPlayback)).toMatchObject({
+    spoken: ['First spoken response.', 'Second spoken response.'],
+    pauses: 1,
+    resumes: 1,
+    cancels: 2,
+  })
+  await expect(page.getByRole('button', { name: 'Replay response' })).toBeVisible()
+})
+
+test('A Talk playback failure leaves the response readable and conversation usable', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.speechSynthesis.speak = (utterance) => {
+      utterance.onerror?.(new SpeechSynthesisErrorEvent('error', {
+        utterance,
+        error: 'synthesis-failed',
+      }))
+    }
+  })
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: [] })
+      return
+    }
+    await route.fulfill({ json: route.request().postDataJSON() })
+  })
+  await page.route('**/api/ai/chat', (route) => route.fulfill({
+    json: {
+      message: 'Readable even when audio fails.',
+      toolEvents: [],
+      pendingActions: [],
+    },
+  }))
+
+  await page.goto('/app/talk')
+  await page.getByPlaceholder(/Add anything/).fill('Give me a readable answer')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await page.getByRole('button', { name: 'Speak response' }).click()
+
+  await expect(page.getByText('Could not play this response. You can still read and continue.')).toBeVisible()
+  await expect(page.getByText('Readable even when audio fails.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Replay response' })).toBeVisible()
+  await expect(page.getByPlaceholder(/Add anything/)).toBeEnabled()
+})
+
+test('Backgrounding Talk pauses audio until the user resumes it', async ({ page }) => {
+  await page.addInitScript(() => {
+    const playback = { speaking: false, paused: false }
+    Object.defineProperty(window.speechSynthesis, 'speaking', {
+      configurable: true,
+      get: () => playback.speaking,
+    })
+    Object.defineProperty(window.speechSynthesis, 'paused', {
+      configurable: true,
+      get: () => playback.paused,
+    })
+    window.speechSynthesis.speak = (utterance) => {
+      playback.speaking = true
+      utterance.onstart?.(new SpeechSynthesisEvent('start', { utterance }))
+    }
+    window.speechSynthesis.pause = () => {
+      playback.speaking = false
+      playback.paused = true
+    }
+    window.speechSynthesis.resume = () => {
+      playback.speaking = true
+      playback.paused = false
+    }
+  })
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: [] })
+      return
+    }
+    await route.fulfill({ json: route.request().postDataJSON() })
+  })
+  await page.route('**/api/ai/chat', (route) => route.fulfill({
+    json: { message: 'Pause me in the background.', toolEvents: [], pendingActions: [] },
+  }))
+
+  await page.goto('/app/talk')
+  await page.getByPlaceholder(/Add anything/).fill('Read this aloud')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await page.getByRole('button', { name: 'Speak response' }).click()
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+
+  await expect(page.getByRole('button', { name: 'Resume response' })).toBeVisible()
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await expect(page.getByRole('button', { name: 'Resume response' })).toBeVisible()
+  await page.getByRole('button', { name: 'Resume response' }).click()
+  await expect(page.getByRole('button', { name: 'Pause response' })).toBeVisible()
+})
+
+test('Talk remains usable when the browser does not support speech synthesis', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: undefined })
+    Object.defineProperty(window, 'SpeechSynthesisUtterance', { configurable: true, value: undefined })
+  })
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: [] })
+      return
+    }
+    await route.fulfill({ json: route.request().postDataJSON() })
+  })
+  await page.route('**/api/ai/chat', (route) => route.fulfill({
+    json: { message: 'Text still works without speech.', toolEvents: [], pendingActions: [] },
+  }))
+
+  await page.goto('/app/talk')
+  await page.getByPlaceholder(/Add anything/).fill('Use text only')
+  await page.getByRole('button', { name: 'Send' }).click()
+
+  await expect(page.getByText('Text still works without speech.')).toBeVisible()
+  await expect(page.getByRole('button', { name: /Speak response|Replay response/ })).toHaveCount(0)
+  await expect(page.getByPlaceholder(/Add anything/)).toBeEnabled()
+})
+
+test('A user can cancel an in-flight Talk response and retry without duplicating their message', async ({ page }) => {
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: [] })
+      return
+    }
+    await route.fulfill({ json: route.request().postDataJSON() })
+  })
+  let chatRequests = 0
+  await page.route('**/api/ai/chat', async (route) => {
+    chatRequests += 1
+    if (chatRequests === 1) {
+      await new Promise((resolve) => setTimeout(resolve, 10_000))
+      await route.fulfill({
+        json: { message: 'Too late', toolEvents: [], pendingActions: [] },
+      }).catch(() => undefined)
+      return
+    }
+    await route.fulfill({
+      json: { message: 'Recovered response.', toolEvents: [], pendingActions: [] },
+    })
+  })
+
+  await page.goto('/app/talk')
+  await page.getByPlaceholder(/Add anything/).fill('Keep this message once')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByRole('button', { name: 'Cancel response' })).toBeVisible()
+  await page.getByRole('button', { name: 'Cancel response' }).click()
+
+  await expect(page.getByText('Response canceled.')).toBeVisible()
+  await page.getByRole('button', { name: 'Retry response' }).click()
+  await expect(page.getByText('Recovered response.')).toBeVisible()
+  await expect(page.locator('.assistant-messages-scroll').getByText('Keep this message once', { exact: true })).toHaveCount(1)
+  expect(chatRequests).toBe(2)
+})
+
+test('A failed Talk turn exposes an explicit retry that replaces the error', async ({ page }) => {
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: [] })
+      return
+    }
+    await route.fulfill({ json: route.request().postDataJSON() })
+  })
+  let chatRequests = 0
+  await page.route('**/api/ai/chat', async (route) => {
+    chatRequests += 1
+    if (chatRequests === 1) {
+      await route.fulfill({ status: 503, json: { error: 'Temporary model failure' } })
+      return
+    }
+    await route.fulfill({
+      json: { message: 'Retry succeeded.', toolEvents: [], pendingActions: [] },
+    })
+  })
+
+  await page.goto('/app/talk')
+  await page.getByPlaceholder(/Add anything/).fill('Try this once')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByText('Temporary model failure').first()).toBeVisible()
+  await expect(page.getByText('Response failed.')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Retry response' }).click()
+  await expect(page.getByText('Retry succeeded.')).toBeVisible()
+  await expect(page.locator('.assistant-messages-scroll').getByText('Temporary model failure')).toHaveCount(0)
+  await expect(page.locator('.assistant-messages-scroll').getByText('Try this once', { exact: true })).toHaveCount(1)
+  expect(chatRequests).toBe(2)
+})
+
+test('A long saved conversation continues with the latest 30 messages while preserving full history', async ({ page }) => {
+  const now = new Date().toISOString()
+  const storedMessages = Array.from({ length: 35 }, (_, index) => ({
+    id: crypto.randomUUID(),
+    role: index % 2 === 0 ? 'user' as const : 'assistant' as const,
+    content: `Stored message ${index}`,
+    createdAt: now,
+  }))
+  const conversation = {
+    id: '77777777-7777-4777-8777-777777777777',
+    title: 'Long conversation',
+    model: 'gpt-4o-mini',
+    createdAt: now,
+    updatedAt: now,
+    messages: storedMessages,
+  }
+  let chatMessages: Array<{ role: string; content: string }> = []
+  let latestSavedMessageCount = 0
+
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: [conversation] })
+      return
+    }
+    const body = route.request().postDataJSON() as { messages: unknown[] }
+    latestSavedMessageCount = body.messages.length
+    await route.fulfill({ json: body })
+  })
+  await page.route('**/api/ai/chat', async (route) => {
+    chatMessages = (route.request().postDataJSON() as { messages: Array<{ role: string; content: string }> }).messages
+    await route.fulfill({
+      json: { message: 'Long conversation continued.', toolEvents: [], pendingActions: [] },
+    })
+  })
+
+  await page.goto('/app/talk')
+  await expect(page.getByText('Talk uses the latest 30 messages as context; your full chat remains saved.')).toBeVisible()
+  await page.getByPlaceholder(/Add anything/).fill('Newest user turn')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByText('Long conversation continued.')).toBeVisible()
+
+  expect(chatMessages).toHaveLength(30)
+  expect(chatMessages[0].content).toBe('Stored message 6')
+  expect(chatMessages.at(-1)?.content).toBe('Newest user turn')
+  await expect.poll(() => latestSavedMessageCount).toBe(37)
+})
+
+test('Pasting one supported image attaches it without losing the Talk draft', async ({ page }) => {
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: [] })
+      return
+    }
+    await route.fulfill({ json: route.request().postDataJSON() })
+  })
+  let sentAttachment: { kind?: string; name?: string; mimeType?: string; data?: string } | undefined
+  await page.route('**/api/ai/chat', async (route) => {
+    sentAttachment = (route.request().postDataJSON() as { attachment?: typeof sentAttachment }).attachment
+    await route.fulfill({
+      json: { message: 'Image received.', toolEvents: [], pendingActions: [] },
+    })
+  })
+
+  await page.goto('/app/talk')
+  const composer = page.getByPlaceholder(/Add anything/)
+  await composer.fill('Keep this draft')
+  await pasteImageFiles(page, [{ name: 'clipboard.png', type: 'image/png' }])
+
+  await expect(composer).toHaveValue('Keep this draft')
+  await expect(page.getByText('clipboard.png')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Replace attachment' })).toBeVisible()
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByText('Image received.')).toBeVisible()
+  expect(sentAttachment).toMatchObject({
+    kind: 'image',
+    name: 'clipboard.png',
+    mimeType: 'image/png',
+  })
+  expect(sentAttachment?.data).toBeTruthy()
+})
+
+test('Pasting multiple images is rejected without losing the Talk draft', async ({ page }) => {
+  await page.goto('/app/talk')
+  const composer = page.getByPlaceholder(/Add anything/)
+  await composer.fill('Draft survives multiple images')
+  await pasteImageFiles(page, [
+    { name: 'first.png', type: 'image/png' },
+    { name: 'second.jpg', type: 'image/jpeg' },
+  ])
+
+  await expect(page.getByText('Paste one image at a time')).toBeVisible()
+  await expect(composer).toHaveValue('Draft survives multiple images')
+  await expect(page.getByText('first.png')).toHaveCount(0)
+  await expect(page.getByText('second.jpg')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Attach file' })).toBeVisible()
+})
+
+test('Pasting an unsupported image is rejected without losing the Talk draft', async ({ page }) => {
+  await page.goto('/app/talk')
+  const composer = page.getByPlaceholder(/Add anything/)
+  await composer.fill('Draft survives unsupported image')
+  await pasteImageFiles(page, [{ name: 'vector.svg', type: 'image/svg+xml' }])
+
+  await expect(page.getByText('Attach a JPG, PNG, WebP, TXT, or MD file')).toBeVisible()
+  await expect(composer).toHaveValue('Draft survives unsupported image')
+  await expect(page.getByText('vector.svg')).toHaveCount(0)
+})
+
+test('Pasting an oversized image is rejected without losing the Talk draft', async ({ page }) => {
+  await page.goto('/app/talk')
+  const composer = page.getByPlaceholder(/Add anything/)
+  await composer.fill('Draft survives oversized image')
+  await pasteImageFiles(page, [{
+    name: 'too-large.png',
+    type: 'image/png',
+    size: (4 * 1024 * 1024) + 1,
+  }])
+
+  await expect(page.getByText('Image attachment must be 4MB or smaller')).toBeVisible()
+  await expect(composer).toHaveValue('Draft survives oversized image')
+  await expect(page.getByText('too-large.png')).toHaveCount(0)
+})
+
+test('Pasting a new supported image replaces the existing attachment and keeps the draft', async ({ page }) => {
+  await page.goto('/app/talk')
+  const composer = page.getByPlaceholder(/Add anything/)
+  await composer.fill('Draft survives replacement')
+  await pasteImageFiles(page, [{ name: 'first.png', type: 'image/png' }])
+  await expect(page.getByText('first.png')).toBeVisible()
+
+  await pasteImageFiles(page, [{ name: 'replacement.webp', type: 'image/webp' }])
+  await expect(page.getByText('replacement.webp')).toBeVisible()
+  await expect(page.getByText('first.png')).toHaveCount(0)
+  await expect(composer).toHaveValue('Draft survives replacement')
+})
+
+test('Talk mobile composer grows to the caret and keeps every control usable at narrow widths', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 })
+  await page.goto('/app/talk')
+
+  const composer = page.getByPlaceholder(/Add anything/)
+  const initialBox = await composer.boundingBox()
+  expect(initialBox).toBeTruthy()
+
+  const multilineDraft = Array.from({ length: 10 }, (_, index) => `Planning line ${index + 1}`).join('\n')
+  await composer.fill(multilineDraft)
+  const grownBox = await composer.boundingBox()
+  expect(grownBox).toBeTruthy()
+  expect(grownBox!.height).toBeGreaterThan(initialBox!.height + 24)
+  expect(grownBox!.height).toBeLessThanOrEqual(112)
+
+  const caretState = await composer.evaluate((element) => {
+    const textarea = element as HTMLTextAreaElement
+    return {
+      selectionStart: textarea.selectionStart,
+      valueLength: textarea.value.length,
+      scrollBottom: textarea.scrollTop + textarea.clientHeight,
+      scrollHeight: textarea.scrollHeight,
+    }
+  })
+  expect(caretState.selectionStart).toBe(caretState.valueLength)
+  expect(caretState.scrollBottom).toBeGreaterThanOrEqual(caretState.scrollHeight - 1)
+
+  const controls = await Promise.all([
+    page.getByRole('button', { name: 'Attach file' }).boundingBox(),
+    page.getByLabel('Assistant model').boundingBox(),
+    page.getByRole('button', { name: /dictation/i }).boundingBox(),
+    page.getByRole('button', { name: 'Send' }).boundingBox(),
+  ])
+  for (const box of controls) {
+    expect(box).toBeTruthy()
+    expect(box!.x).toBeGreaterThanOrEqual(0)
+    expect(box!.x + box!.width).toBeLessThanOrEqual(320)
+  }
+  for (let index = 1; index < controls.length; index += 1) {
+    expect(controls[index]!.x).toBeGreaterThanOrEqual(controls[index - 1]!.x + controls[index - 1]!.width)
+  }
+
+  await page.setViewportSize({ width: 568, height: 320 })
+  await expect(composer).toBeFocused()
+  const landscapeBox = await composer.boundingBox()
+  expect(landscapeBox).toBeTruthy()
+  expect(landscapeBox!.x + landscapeBox!.width).toBeLessThanOrEqual(568)
+})
+
+test('Talk keeps the latest turn visible and restores composer focus on mobile', async ({ page }) => {
+  const now = new Date().toISOString()
+  const conversation = {
+    id: '88888888-8888-4888-8888-888888888888',
+    title: 'Scrollable mobile chat',
+    model: 'gpt-4o-mini',
+    createdAt: now,
+    updatedAt: now,
+    messages: Array.from({ length: 18 }, (_, index) => ({
+      id: crypto.randomUUID(),
+      role: index % 2 === 0 ? 'user' as const : 'assistant' as const,
+      content: `Existing mobile message ${index} with enough text to occupy a visible line`,
+      createdAt: now,
+    })),
+  }
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: [conversation] })
+      return
+    }
+    await route.fulfill({ json: route.request().postDataJSON() })
+  })
+  await page.route('**/api/ai/chat', async (route) => {
+    await route.fulfill({
+      json: { message: 'Newest mobile response.', toolEvents: [], pendingActions: [] },
+    })
+  })
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/app/talk')
+  const scroll = page.locator('.assistant-messages-scroll')
+  await expect.poll(() => scroll.evaluate((element) => (
+    element.scrollTop + element.clientHeight >= element.scrollHeight - 1
+  ))).toBe(true)
+
+  const composer = page.getByPlaceholder(/Add anything/)
+  await composer.fill('Newest mobile question')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByText('Newest mobile response.')).toBeVisible()
+  await expect(composer).toBeFocused()
+  await expect.poll(() => scroll.evaluate((element) => (
+    element.scrollTop + element.clientHeight >= element.scrollHeight - 1
+  ))).toBe(true)
 })
 
 test('Migrates browser chat history without triggering a duplicate autosave', async ({ page }) => {

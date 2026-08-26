@@ -147,7 +147,7 @@ const stageResult = (output: unknown, contract: string, toolNames: string[] = []
   toolEvents: toolNames.map((name) => ({ name, args: {}, result: { ok: true } })),
   usage: { promptTokens: 100, completionTokens: 40, totalTokens: 140 },
   runtimeVersion: 'fake-runtime/v1',
-  instructionVersions: ['healthyflow-talk@1.1.0'],
+  instructionVersions: ['healthyflow-talk@1.2.0'],
   toolNames,
 })
 
@@ -179,7 +179,11 @@ function deps(overrides: Partial<TalkWorkflowDeps> = {}): TalkWorkflowDeps {
   }
 }
 
-const turn = (d: TalkWorkflowDeps, messages = [{ role: 'user' as const, content: 'plan two focused hours' }]) =>
+const turn = (
+  d: TalkWorkflowDeps,
+  messages = [{ role: 'user' as const, content: 'plan two focused hours' }],
+  assistantContext?: Parameters<typeof runTalkWorkflowTurn>[0]['assistantContext'],
+) =>
   runTalkWorkflowTurn({
     userId: USER_ID,
     conversationId: CONVERSATION_ID,
@@ -187,6 +191,7 @@ const turn = (d: TalkWorkflowDeps, messages = [{ role: 'user' as const, content:
     timeZone: 'Asia/Jerusalem',
     model: 'gpt-4o-mini',
     messages,
+    assistantContext,
     projectId: PROJECT_ID,
     deps: d,
   })
@@ -267,6 +272,27 @@ describe('plan_work: aligned open Task', () => {
     })
     // The Focus stage was told which Tasks are already verified.
     expect(runtime.run.mock.calls[0][0].stageContext.verifiedTaskIds).toEqual([TASK_ID])
+  })
+
+  it('passes bounded personal context to an agent stage without persisting it as workflow state', async () => {
+    const runtime = fakeRuntime([stageResult(focusDraft(), 'plan_work.focus_draft')])
+    const assistantContext = {
+      ownerName: 'Ori',
+      profile: {
+        preferredName: null,
+        responseStyle: 'concise' as const,
+        planningStyle: 'one_step_at_a_time' as const,
+        followUpMode: 'ask_about_outcomes' as const,
+      },
+      goals: { status: 'ready' as const, records: [] },
+      habitHistory: { status: 'unavailable' as const },
+    }
+
+    const result = await turn(deps({ runtime }), undefined, assistantContext)
+
+    expect(runtime.run.mock.calls[0][0].stageContext.assistant).toEqual(assistantContext)
+    expect(result.workflow.state).not.toHaveProperty('assistant')
+    expect(result.workflow.state).not.toHaveProperty('assistantContext')
   })
 })
 

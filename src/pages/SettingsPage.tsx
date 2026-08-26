@@ -7,11 +7,11 @@ import { useNotifications } from '../hooks/useNotifications'
 import { useCredits } from '../hooks/useCredits'
 import { useSettings, applyTheme } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
-import api, { accountService, ApiTokenRecord, ApiTokenScope, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DAILY_SIGNALS_QUERY_KEY, DailyTouchpointRhythm, DAY_SUMMARY_QUERY_KEY, McpOAuthGrant, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
+import api, { accountService, ApiTokenRecord, ApiTokenScope, AssistantProfile, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DAILY_SIGNALS_QUERY_KEY, DailyTouchpointRhythm, DAY_SUMMARY_QUERY_KEY, McpOAuthGrant, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
 import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
 import { isNativeApp } from '../lib/native'
-import { DEFAULT_PLANNING_WINDOW } from '../../backend/src/settings-schema'
+import { AssistantProfileSchema, DEFAULT_PLANNING_WINDOW } from '../../backend/src/settings-schema'
 import Switch from '../components/Switch'
 import DeleteAccountDialog from '../components/DeleteAccountDialog'
 import { MODULE_PRESENTATIONS } from '../modulePresentation'
@@ -72,6 +72,118 @@ function mergeRhythm(current: UserRhythm, patch: UserRhythmPatch): UserRhythm {
     midday: patch.midday ? { ...current.midday, ...patch.midday } : current.midday,
     weekly: patch.weekly ? { ...current.weekly, ...patch.weekly } : current.weekly,
   }
+}
+
+function AssistantProfileEditor({
+  profile,
+  onSave,
+}: {
+  profile: AssistantProfile
+  onSave: (profile: AssistantProfile) => void
+}) {
+  const [draft, setDraft] = useState(profile)
+
+  useEffect(() => {
+    setDraft(profile)
+  }, [profile])
+
+  const commit = (candidate: AssistantProfile) => {
+    const parsed = AssistantProfileSchema.safeParse(candidate)
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? 'Assistant preferences are invalid')
+      return
+    }
+    setDraft(parsed.data)
+    onSave(parsed.data)
+  }
+
+  const choose = <K extends 'responseStyle' | 'planningStyle' | 'followUpMode'>(
+    key: K,
+    value: AssistantProfile[K],
+  ) => {
+    const next = { ...draft, [key]: value }
+    setDraft(next)
+    commit(next)
+  }
+
+  return (
+    <div className="card">
+      <div className="mb-5 flex items-start space-x-3">
+        <Sparkles className="mt-0.5 h-5 w-5 flex-none text-accent" />
+        <div>
+          <h2 className="text-lg font-semibold text-ink">Personal assistant</h2>
+          <p className="text-sm text-ink-muted">
+            Settings control how Talk works with you. Bigger direction belongs in Goals, while actual plans and outcomes remain in their owning modules.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid gap-5">
+        <label className="grid gap-1.5 text-sm text-ink-muted">
+          What should Talk call you?
+          <input
+            type="text"
+            value={draft.preferredName ?? ''}
+            maxLength={80}
+            placeholder="Use my account name"
+            className="input-field min-h-11"
+            onChange={(event) => setDraft({ ...draft, preferredName: event.target.value || null })}
+            onBlur={() => commit({ ...draft, preferredName: draft.preferredName?.trim() || null })}
+          />
+        </label>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          <label className="grid gap-1.5 text-sm text-ink-muted">
+            Response detail
+            <select
+              className="input-field min-h-11"
+              value={draft.responseStyle}
+              onChange={(event) => choose('responseStyle', event.target.value as AssistantProfile['responseStyle'])}
+            >
+              <option value="concise">Concise</option>
+              <option value="balanced">Balanced</option>
+              <option value="detailed">Detailed</option>
+            </select>
+          </label>
+
+          <label className="grid gap-1.5 text-sm text-ink-muted">
+            Planning approach
+            <select
+              className="input-field min-h-11"
+              value={draft.planningStyle}
+              onChange={(event) => choose('planningStyle', event.target.value as AssistantProfile['planningStyle'])}
+            >
+              <option value="one_step_at_a_time">One step at a time</option>
+              <option value="guided">Guided</option>
+              <option value="direct">Direct</option>
+            </select>
+          </label>
+
+          <label className="grid gap-1.5 text-sm text-ink-muted">
+            Follow up
+            <select
+              className="input-field min-h-11"
+              value={draft.followUpMode}
+              onChange={(event) => choose('followUpMode', event.target.value as AssistantProfile['followUpMode'])}
+            >
+              <option value="ask_about_outcomes">Ask what happened</option>
+              <option value="only_when_asked">Only when I ask</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-lg border border-line/70 bg-sunken/25 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-ink">Bigger direction</h3>
+            <p className="text-sm text-ink-muted">Manage free-speech direction per module in Goals.</p>
+          </div>
+          <Link to="/goals" className="btn-secondary inline-flex min-h-11 items-center justify-center px-4 py-2 text-sm">
+            Open Goals
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function SettingsPage() {
@@ -1085,6 +1197,32 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         )}
       </div>
         </>
+      )}
+
+      {activeCategory === 'planning' && settings?.assistantProfile && (
+        <AssistantProfileEditor
+          profile={settings.assistantProfile}
+          onSave={(profile) => {
+            updateSetting('assistantProfile', profile)
+            toast.success('Assistant preferences updated')
+          }}
+        />
+      )}
+
+      {activeCategory === 'planning' && resolution === 'loading' && (
+        <div className="card flex items-center gap-2 text-sm text-ink-muted" role="status">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading assistant preferences
+        </div>
+      )}
+
+      {activeCategory === 'planning' && resolution === 'error' && (
+        <div className="card flex items-center justify-between gap-3 text-sm text-state-danger" role="alert">
+          <span>Assistant preferences are unavailable.</span>
+          <button type="button" onClick={() => void retrySettings()} className="btn-secondary px-3 py-2 text-sm">
+            Retry
+          </button>
+        </div>
       )}
 
       {activeCategory === 'planning' && (

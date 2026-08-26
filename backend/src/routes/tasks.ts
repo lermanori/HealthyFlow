@@ -8,7 +8,7 @@ import { positionsFromIds } from '../utils/positionsFromIds'
 import { parseHabitInstanceId } from '../utils/parseHabitInstanceId'
 import { isPureDragUpdate } from '../utils/isPureDragUpdate'
 import { deleteGoogleCalendarEvent, isGoogleCalendarNotConnectedError, syncTaskToGoogleCalendar } from '../calendar'
-import { HabitOutcomeInputSchema, HabitProgress, HabitProgressInputSchema, HabitProgressUpdateSchema } from '../habit-progress'
+import { HabitHistoryQuerySchema, HabitOutcomeInputSchema, HabitProgress, HabitProgressInputSchema, HabitProgressUpdateSchema } from '../habit-progress'
 import { getItemsForDay, normalizeItemRows, reminderRowToClient } from '../day-summary'
 import { CategorySchema, ItemTypeSchema, ReminderQuerySchema, RollbackDragMaterializationInputSchema } from '../task-contracts'
 
@@ -22,6 +22,16 @@ const HabitTargetSchema = z.object({
   value: z.number().positive().max(100000),
   unit: z.enum(['minutes', 'reps', 'count']),
 }).nullable()
+
+router.get('/habits/history', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = HabitHistoryQuerySchema.safeParse(req.query)
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.issues })
+  try {
+    res.json(await HabitProgress.history(req.user.userId, parsed.data))
+  } catch (error: any) {
+    res.status(error.status ?? 500).json({ error: error.message ?? 'Database error' })
+  }
+})
 
 router.post('/:id/habit-progress', authenticateToken, async (req: AuthRequest, res) => {
   const parsed = HabitProgressInputSchema.safeParse(req.body)
