@@ -1,8 +1,10 @@
 import { z } from 'zod'
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem'
 import TaskContracts from '../../../backend/src/task-contracts'
+import GoalContracts from '../../../backend/src/goals-schema'
 
 const { CategorySchema, ItemTypeSchema } = TaskContracts
+const { GoalRowSchema } = GoalContracts
 
 /**
  * Where a Guest's day actually lives.
@@ -22,7 +24,7 @@ const { CategorySchema, ItemTypeSchema } = TaskContracts
  *    "backup now, sync later" cheap, and it costs nothing today.
  */
 
-export const LOCAL_DATABASE_VERSION = 2
+export const LOCAL_DATABASE_VERSION = 4
 
 /**
  * Announced whenever the document changes, so the sync can run shortly after.
@@ -141,6 +143,7 @@ export const LocalDatabaseSchema = z.object({
   userId: z.string().min(1),
   tasks: z.array(LocalTaskRowSchema).default([]),
   habitProgress: z.array(LocalHabitProgressRowSchema).default([]),
+  goals: z.array(GoalRowSchema).default([]),
   settings: z.record(z.string(), z.unknown()).default({}),
   /**
    * The owner's email, or null when the owner is a Guest.
@@ -194,6 +197,7 @@ export function emptyLocalDatabase(userId: string): LocalDatabase {
     userId,
     tasks: [],
     habitProgress: [],
+    goals: [],
     settings: {},
     ownerEmail: null,
     syncedAt: null,
@@ -498,16 +502,97 @@ function readsBackAsADay(contents: string): boolean {
 /**
  * Bring an older document up to the current version.
  *
- * Version 1 held Items, Habit progress and settings; version 2 adds health. A
- * version-1 document *is* a version-2 document with no health in it, so the
- * upgrade is the eight empty arrays the schema already defaults, plus the version
- * stamp. Anything the code does not recognise still throws rather than being read
- * as an empty day.
+ * Version 1 held Items, Habit progress and settings; version 2 adds health;
+ * version 3 adds Goals. Older documents are current documents with those newer
+ * collections empty, so the schemas' defaults plus the version stamp are the
+ * complete upgrade. Anything unknown still throws rather than being read as an
+ * empty day.
  */
+function legacyAssistantDirections(document: Record<string, unknown>): string[] {
+  const settings = document.settings
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return []
+  const assistantProfile = (settings as Record<string, unknown>).assistantProfile
+  if (!assistantProfile || typeof assistantProfile !== 'object' || Array.isArray(assistantProfile)) return []
+  const profile = assistantProfile as Record<string, unknown>
+  const values = [profile.priorities, profile.constraints]
+    .flatMap(value => Array.isArray(value) ? value : [])
+    .filter((value): value is string => typeof value === 'string')
+    .map(value => value.trim())
+    .filter(value => value.length > 0 && value.length <= 500)
+  return [...new Set(values)]
+}
+
+function migrationUuid(seed: string): string {
+  const hashPart = (suffix: number) => {
+    let hash = (0x811c9dc5 ^ suffix) >>> 0
+    for (const character of `${seed}:${suffix}`) {
+      hash ^= character.charCodeAt(0)
+      hash = Math.imul(hash, 0x01000193) >>> 0
+    }
+    return hash.toString(16).padStart(8, '0')
+  }
+  const hex = [0, 1, 2, 3].map(hashPart).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20)}`
+}
+
+function withoutLegacyAssistantDirection(settings: unknown) {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return settings
+  const record = settings as Record<string, unknown>
+  const assistantProfile = record.assistantProfile
+  if (!assistantProfile || typeof assistantProfile !== 'object' || Array.isArray(assistantProfile)) return settings
+  const { priorities: _priorities, constraints: _constraints, ...profile } = assistantProfile as Record<string, unknown>
+  return { ...record, assistantProfile: profile }
+}
+
+export function migrateLegacyAssistantDirection(
+  userId: string,
+  settings: unknown,
+  existingGoals: LocalDatabase['goals'] = [],
+  migratedAt = new Date().toISOString(),
+) {
+  const document = { userId, settings }
+  const existingStatements = new Set(existingGoals.map(goal => goal.statement))
+  const migratedGoals = legacyAssistantDirections(document)
+    .filter(statement => !existingStatements.has(statement))
+    .map((statement, index) => ({
+      id: migrationUuid(`${userId}:${index}:${statement}`),
+      user_id: userId,
+      module: 'whole_day' as const,
+      statement,
+      context: '',
+      created_at: migratedAt,
+      updated_at: migratedAt,
+      deleted_at: null,
+    }))
+  return {
+    settings: withoutLegacyAssistantDirection(settings) as Record<string, unknown>,
+    goals: [...existingGoals, ...migratedGoals],
+  }
+}
+
 function upgraded(parsed: unknown): unknown {
   if (typeof parsed !== 'object' || parsed === null) return parsed
-  const document = parsed as { version?: unknown }
-  if (document.version === 1) return { ...document, version: LOCAL_DATABASE_VERSION }
+  const document = parsed as Record<string, unknown>
+  if (document.version === 1 || document.version === 2) {
+    const owner = typeof document.userId === 'string' ? document.userId : ''
+    const migrated = migrateLegacyAssistantDirection(owner, document.settings)
+    return {
+      ...document,
+      version: LOCAL_DATABASE_VERSION,
+      goals: migrated.goals,
+      settings: migrated.settings,
+    }
+  }
+  if (document.version === 3) {
+    const goals = Array.isArray(document.goals)
+      ? document.goals.map((goal) => (
+          goal && typeof goal === 'object' && !Array.isArray(goal)
+            ? { ...goal, context: typeof (goal as Record<string, unknown>).context === 'string' ? (goal as Record<string, unknown>).context : '' }
+            : goal
+        ))
+      : document.goals
+    return { ...document, version: LOCAL_DATABASE_VERSION, goals }
+  }
   return parsed
 }
 

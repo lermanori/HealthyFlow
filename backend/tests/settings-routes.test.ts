@@ -2,7 +2,7 @@ import request from 'supertest'
 import jwt from 'jsonwebtoken'
 import { app } from '../src/index'
 import { db } from '../src/supabase-client'
-import { DEFAULT_PLANNING_WINDOW } from '../src/settings-schema'
+import { DEFAULT_ASSISTANT_PROFILE, DEFAULT_PLANNING_WINDOW } from '../src/settings-schema'
 
 jest.mock('../src/supabase-client', () => ({
   db: {
@@ -41,6 +41,7 @@ describe('settings API', () => {
       workoutTracker: true,
       weekStartsOn: 1,
       planningWindow: DEFAULT_PLANNING_WINDOW,
+      assistantProfile: DEFAULT_ASSISTANT_PROFILE,
       onboardingStatus: 'completed',
       theme: 'midnight',
     })
@@ -75,6 +76,55 @@ describe('settings API', () => {
       .patch('/api/settings')
       .set('Authorization', TOKEN)
       .send({ aiSuggestions: 'yes' })
+
+    expect(res.status).toBe(400)
+    expect(mockDb.upsertUserSettings).not.toHaveBeenCalled()
+  })
+
+  it('PATCH persists a validated personal assistant profile', async () => {
+    const assistantProfile = {
+      preferredName: 'Ori',
+      responseStyle: 'concise',
+      planningStyle: 'one_step_at_a_time',
+      followUpMode: 'ask_about_outcomes',
+    }
+    mockDb.upsertUserSettings.mockResolvedValue({ assistantProfile })
+
+    const res = await request(app)
+      .patch('/api/settings')
+      .set('Authorization', TOKEN)
+      .send({ assistantProfile })
+
+    expect(res.status).toBe(200)
+    expect(mockDb.upsertUserSettings).toHaveBeenCalledWith(USER_ID, { assistantProfile })
+    expect(res.body.assistantProfile).toEqual(assistantProfile)
+  })
+
+  it('PATCH rejects an invalid assistant response style', async () => {
+    const res = await request(app)
+      .patch('/api/settings')
+      .set('Authorization', TOKEN)
+      .send({
+        assistantProfile: {
+          ...DEFAULT_ASSISTANT_PROFILE,
+          responseStyle: 'chatty',
+        },
+      })
+
+    expect(res.status).toBe(400)
+    expect(mockDb.upsertUserSettings).not.toHaveBeenCalled()
+  })
+
+  it('PATCH refuses retired priority fields instead of silently dropping them', async () => {
+    const res = await request(app)
+      .patch('/api/settings')
+      .set('Authorization', TOKEN)
+      .send({
+        assistantProfile: {
+          ...DEFAULT_ASSISTANT_PROFILE,
+          priorities: ['Launch HealthyFlow'],
+        },
+      })
 
     expect(res.status).toBe(400)
     expect(mockDb.upsertUserSettings).not.toHaveBeenCalled()

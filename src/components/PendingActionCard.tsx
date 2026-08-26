@@ -6,6 +6,7 @@ import type { AssistantPendingAction } from '../services/api'
 import CalorieEntryDraftCard, { type CalorieEntryDraftValue } from './CalorieEntryDraftCard'
 import TaskDraftCard, { type TaskDraftCardValue } from './TaskDraftCard'
 import { CATEGORY_IDS } from '../categoryPresentation'
+import { GOAL_MODULES } from '../../backend/src/goals-schema'
 
 export type PendingActionView = AssistantPendingAction & {
   status?: 'pending' | 'confirmed' | 'canceled'
@@ -47,11 +48,13 @@ function summarizeResult(result: unknown) {
   const item = value.item && typeof value.item === 'object' ? value.item as Record<string, unknown> : null
   const session = value.session && typeof value.session === 'object' ? value.session as Record<string, unknown> : null
   const task = value.task && typeof value.task === 'object' ? value.task as Record<string, unknown> : null
+  const goal = value.goal && typeof value.goal === 'object' ? value.goal as Record<string, unknown> : null
   if (Array.isArray(value.entries)) return `${value.entries.length} Calorie entries created`
   if (entry?.name) return `Entry: ${entry.name}`
   if (item?.title) return `Item: ${item.title}`
   if (session?.title) return `Workout session: ${session.title}`
   if (task?.title) return `Task: ${task.title}`
+  if (goal?.statement) return `Goal: ${goal.statement}`
   if (value.deleted) return 'Item deleted'
   return 'Action completed'
 }
@@ -102,6 +105,7 @@ function iconForCapability(capability: string) {
   if (capability.includes('calorie')) return <Flame className="h-4 w-4" />
   if (capability.includes('weight')) return <Scale className="h-4 w-4" />
   if (capability.includes('achievement')) return <Target className="h-4 w-4" />
+  if (capability.includes('goal')) return <Target className="h-4 w-4" />
   if (capability.includes('workout')) return <Dumbbell className="h-4 w-4" />
   if (capability.includes('delete')) return <Trash2 className="h-4 w-4" />
   return <Pencil className="h-4 w-4" />
@@ -256,9 +260,56 @@ function buildEditedArgs(action: AssistantPendingAction, draft: Record<string, u
     }
     case 'delete_item':
       return { ...base, deleteScope: draft.deleteScope }
+    case 'add_goal':
+      return {
+        module: draft.module,
+        statement: String(draft.statement ?? '').trim(),
+        context: String(draft.context ?? '').trim(),
+      }
+    case 'update_goal':
+      return {
+        goalId: base.goalId,
+        module: draft.module,
+        statement: String(draft.statement ?? '').trim(),
+        context: String(draft.context ?? '').trim(),
+      }
+    case 'archive_goal':
+      return { goalId: base.goalId }
     default:
       return base
   }
+}
+
+function goalModuleLabel(value: unknown) {
+  return GOAL_MODULES.find((module) => module.id === value)?.label ?? fieldValue(value)
+}
+
+function goalCurrentPreview(action: PendingActionView) {
+  if (!action.preview || typeof action.preview !== 'object' || Array.isArray(action.preview)) return null
+  const current = (action.preview as { current?: unknown }).current
+  return current && typeof current === 'object' && !Array.isArray(current)
+    ? current as Record<string, unknown>
+    : null
+}
+
+function GoalPreview({ action, draft }: { action: PendingActionView; draft: Record<string, unknown> }) {
+  const current = goalCurrentPreview(action)
+  const module = draft.module ?? current?.module
+  const statement = draft.statement ?? current?.statement
+  const context = draft.context ?? current?.context
+  return (
+    <div className="rounded-md border border-card bg-page/60 p-3">
+      <div className="text-xs font-medium uppercase tracking-wide text-ink-muted">{goalModuleLabel(module)}</div>
+      <div className="mt-1 whitespace-pre-wrap text-sm leading-6 text-ink">{fieldValue(statement)}</div>
+      {fieldValue(context) && (
+        <div className="mt-3 border-t border-card pt-3">
+          <div className="text-xs font-medium uppercase tracking-wide text-ink-muted">Context</div>
+          <div className="mt-1 whitespace-pre-wrap text-sm leading-6 text-ink-soft">{fieldValue(context)}</div>
+        </div>
+      )}
+      {action.capability === 'archive_goal' && <div className="mt-2 text-xs text-ink-muted">This Goal will move to Archived Goals and can be restored later.</div>}
+    </div>
+  )
 }
 
 function taskDraftValueFromPendingAction(action: AssistantPendingAction, draft: Record<string, unknown>): TaskDraftCardValue {
@@ -433,6 +484,7 @@ export default function PendingActionCard({
   isBusy = false,
 }: PendingActionCardProps) {
   const [draft, setDraft] = useState<Record<string, unknown>>(() => ({
+    ...(action.capability === 'update_goal' ? goalCurrentPreview(action) ?? {} : {}),
     ...(action.args ?? {}),
     exercises: action.capability === 'add_workout_session'
       ? JSON.stringify(action.args?.exercises ?? [], null, 2)
@@ -675,7 +727,28 @@ export default function PendingActionCard({
           {action.capability === 'delete_item' && (
             <SelectField label="Delete scope" value={draft.deleteScope ?? 'instance'} options={['instance', 'habit']} onChange={(value) => setField('deleteScope', value)} />
           )}
-          {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'add_weight_entry', 'add_achievement_entry', 'add_workout_session', 'create_focus_block', 'add_work_task', 'update_item', 'delete_item', 'complete_task'].includes(action.capability) && (
+          {['add_goal', 'update_goal'].includes(action.capability) && (
+            <>
+              <label className="grid gap-1 text-xs font-medium text-ink-muted">
+                <span>Module</span>
+                <select className={inputClass()} value={fieldValue(draft.module)} onChange={(event) => setField('module', event.target.value)}>
+                  {GOAL_MODULES.map((module) => <option key={module.id} value={module.id}>{module.label}</option>)}
+                </select>
+              </label>
+              <label className="grid gap-1 text-xs font-medium text-ink-muted sm:col-span-2">
+                <span>Goal</span>
+                <textarea className="min-h-28 rounded-md border border-line bg-sunken px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-accent" maxLength={500} value={fieldValue(draft.statement)} onChange={(event) => setField('statement', event.target.value)} />
+              </label>
+              <label className="grid gap-1 text-xs font-medium text-ink-muted sm:col-span-2">
+                <span>Context</span>
+                <textarea className="min-h-36 rounded-md border border-line bg-sunken px-3 py-2 text-sm text-ink outline-none transition-colors focus:border-accent" maxLength={4000} value={fieldValue(draft.context)} onChange={(event) => setField('context', event.target.value)} />
+              </label>
+            </>
+          )}
+          {action.capability === 'archive_goal' && (
+            <div className="sm:col-span-2"><GoalPreview action={action} draft={draft} /></div>
+          )}
+          {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'add_weight_entry', 'add_achievement_entry', 'add_workout_session', 'create_focus_block', 'add_work_task', 'update_item', 'delete_item', 'complete_task', 'add_goal', 'update_goal', 'archive_goal'].includes(action.capability) && (
             <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-xs text-ink-soft sm:col-span-2">
               {JSON.stringify(action.preview, null, 2)}
             </pre>
@@ -710,6 +783,8 @@ export default function PendingActionCard({
             {statusLabel}
             {deleteItemTitle(action) && <span className="ml-1 font-medium">{deleteItemTitle(action)}</span>}
           </div>
+        ) : ['add_goal', 'update_goal', 'archive_goal'].includes(action.capability) ? (
+          <GoalPreview action={action} draft={draft} />
         ) : (
           <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-xs text-ink-soft">
             {JSON.stringify(status === 'confirmed' ? { args: action.args, result: action.result } : buildEditedArgs(action, draft), null, 2)}

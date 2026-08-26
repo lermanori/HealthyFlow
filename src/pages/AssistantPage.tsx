@@ -1,13 +1,20 @@
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { ClipboardEvent as ReactClipboardEvent, FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { format } from 'date-fns'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import { Bot, ChevronDown, Image as ImageIcon, Mic, MessageSquare, Paperclip, Plus, Send, UserRound, Wrench, X } from 'lucide-react'
+import { Bot, ChevronDown, Image as ImageIcon, Mic, MessageSquare, Paperclip, Pause, Play, Plus, Send, Square, UserRound, Volume2, Wrench, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantConversation, AssistantPendingAction, AssistantStoredMessage, AssistantToolEvent, pushService } from '../services/api'
+import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantContext, AssistantConversation, AssistantPendingAction, AssistantStoredMessage, AssistantToolEvent, GOALS_QUERY_KEY, HABIT_HISTORY_QUERY_KEY, goalService, pushService, taskService, type Goal } from '../services/api'
+import { GoalCreateInputSchema, GoalUpdateInputSchema } from '../../backend/src/goals-schema'
 import { useDictatedText } from '../hooks/useDictatedText'
 import PendingActionCard, { type PendingActionView } from '../components/PendingActionCard'
 import { invalidatePendingActionQueries } from '../utils/pendingActionInvalidation'
 import { workTalkContext, type WorkTalkContext } from '../workTalk'
+import { useTTS } from '../hooks/useTTS'
+import { useAuth } from '../context/AuthContext'
+import { useSettings } from '../hooks/useSettings'
+import { useGoals } from '../hooks/useGoals'
+import { isNativeIOS } from '../lib/native'
 
 type ConversationPendingAction = PendingActionView
 
@@ -16,6 +23,22 @@ type ConversationMessage = AssistantStoredMessage & {
 }
 
 type StoredConversation = AssistantConversation
+
+type TalkRequest = {
+  messages: AssistantChatMessage[]
+  model: AssistantChatModel
+  attachment?: AssistantChatAttachment
+  conversationId: string
+  workflow?: { name: 'plan_work'; projectId: string; anchorDate?: string }
+  assistantContext?: AssistantContext
+  forceMock: boolean
+}
+
+type TalkRecovery = {
+  kind: 'canceled' | 'failed'
+  request: TalkRequest
+  errorMessageId?: string
+}
 
 type DailySignalTalkContext = {
   date: string
@@ -27,11 +50,17 @@ type DailySignalTalkContext = {
 const ASSISTANT_CONVERSATIONS_KEY = 'healthyflow-assistant-conversations-v1'
 const ASSISTANT_CONVERSATIONS_MIGRATED_KEY = 'healthyflow-assistant-conversations-v1-migrated'
 const MAX_STORED_CONVERSATIONS = 20
+const MAX_CHAT_CONTEXT_MESSAGES = 30
 const MAX_IMAGE_ATTACHMENT_BYTES = 4 * 1024 * 1024
 const MAX_TEXT_ATTACHMENT_BYTES = 64 * 1024
 const MAX_TEXT_ATTACHMENT_CHARS = 12_000
 const IMAGE_ATTACHMENT_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
 const TEXT_ATTACHMENT_TYPES = ['text/plain', 'text/markdown'] as const
+const GOAL_PENDING_CAPABILITIES = ['add_goal', 'update_goal', 'archive_goal'] as const
+
+function isGoalPendingAction(action: AssistantPendingAction | undefined) {
+  return Boolean(action && GOAL_PENDING_CAPABILITIES.some((capability) => capability === action.capability))
+}
 
 function dailySignalTalkContext(value: unknown): DailySignalTalkContext | null {
   if (!value || typeof value !== 'object') return null
@@ -300,6 +329,20 @@ function attachmentFromFile(file: File): Promise<ComposerAttachment> {
   })
 }
 
+function abortableDelay(milliseconds: number, signal: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(resolve, milliseconds)
+    signal.addEventListener('abort', () => {
+      window.clearTimeout(timer)
+      reject(new DOMException('Request canceled', 'AbortError'))
+    }, { once: true })
+  })
+}
+
+function boundedChatContext(messages: AssistantChatMessage[]) {
+  return messages.slice(-MAX_CHAT_CONTEXT_MESSAGES)
+}
+
 function compactToolName(name: string) {
   return name.replace(/_/g, ' ')
 }
@@ -405,6 +448,46 @@ function AssistantReasoningStages({ events }: { events: AssistantToolEvent[] }) 
 export default function AssistantPage() {
   const queryClient = useQueryClient()
   const location = useLocation()
+  const { user } = useAuth()
+  const {
+    settings: assistantSettings,
+    resolution: assistantSettingsResolution,
+    retry: retryAssistantSettings,
+  } = useSettings()
+  const {
+    goals,
+    resolution: goalsResolution,
+    retry: retryGoals,
+  } = useGoals()
+  const habitHistoryDate = format(new Date(), 'yyyy-MM-dd')
+  const habitHistoryQuery = useQuery({
+    queryKey: [...HABIT_HISTORY_QUERY_KEY, habitHistoryDate],
+    queryFn: () => taskService.getHabitHistory(habitHistoryDate, 30),
+  })
+  const assistantContext = useMemo<AssistantContext | undefined>(() => {
+    if (!assistantSettings || goalsResolution === 'loading' || habitHistoryQuery.isLoading) return undefined
+    const ownerName = user?.authMethod === 'guest' ? null : user?.name.trim() || null
+    return {
+      ownerName,
+      profile: assistantSettings.assistantProfile,
+      goals: goalsResolution === 'ready'
+        ? { status: 'ready', records: (goals ?? []).filter((goal) => !goal.archivedAt) }
+        : { status: 'unavailable' },
+      habitHistory: habitHistoryQuery.data
+        ? { status: 'ready', record: habitHistoryQuery.data }
+        : { status: 'unavailable' },
+    }
+  }, [assistantSettings, goals, goalsResolution, habitHistoryQuery.data, habitHistoryQuery.isLoading, user?.authMethod, user?.name])
+  const {
+    speak,
+    pause: pauseSpeech,
+    resume: resumeSpeech,
+    stop: stopSpeech,
+    isSpeaking,
+    isPaused,
+    error: ttsError,
+    isSupported: isTTSSupported,
+  } = useTTS()
   const demoSession = isDemoSession()
   const [signalContext, setSignalContext] = useState<DailySignalTalkContext | null>(() => dailySignalTalkContext(location.state))
   // Work hands off a finished, editable prompt. Talk only carries it in —
@@ -420,20 +503,77 @@ export default function AssistantPage() {
   const [isSending, setIsSending] = useState(false)
   const [model, setModel] = useState<AssistantChatModel>('gpt-4o-mini')
   const [attachment, setAttachment] = useState<ComposerAttachment | null>(null)
+  const [activeSpeechMessageId, setActiveSpeechMessageId] = useState<string | null>(null)
+  const [talkRecovery, setTalkRecovery] = useState<TalkRecovery | null>(null)
   const [isHistoryLoaded, setIsHistoryLoaded] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const messagesScrollRef = useRef<HTMLDivElement>(null)
   const opensFreshSignalChatRef = useRef(signalContext !== null || workContext !== null)
   const skipNextPersistRef = useRef(false)
   const saveTimerRef = useRef<number | null>(null)
   const conversationsRef = useRef<StoredConversation[]>([])
   const saveQueuesRef = useRef(new Map<string, Promise<AssistantConversation>>())
+  const activeRequestRef = useRef<AbortController | null>(null)
+  const shouldRefocusComposerRef = useRef(false)
   const {
     isListening,
     isDictationSupported,
     dictationError,
     toggleDictation,
   } = useDictatedText({ text: draft, setText: setDraft, disabled: isSending })
+
+  useLayoutEffect(() => {
+    const input = inputRef.current
+    if (!input) return
+
+    input.style.height = 'auto'
+    const maxHeight = Number.parseFloat(window.getComputedStyle(input).maxHeight)
+    const nextHeight = Math.min(input.scrollHeight, Number.isFinite(maxHeight) ? maxHeight : input.scrollHeight)
+    input.style.height = `${nextHeight}px`
+    input.style.overflowY = input.scrollHeight > nextHeight ? 'auto' : 'hidden'
+
+    if (document.activeElement === input && input.selectionStart === input.value.length) {
+      input.scrollTop = input.scrollHeight
+    }
+  }, [draft])
+
+  useLayoutEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const scroll = messagesScrollRef.current
+      if (scroll) scroll.scrollTop = scroll.scrollHeight
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [messages])
+
+  useEffect(() => {
+    if (isSending || !shouldRefocusComposerRef.current) return
+    shouldRefocusComposerRef.current = false
+    inputRef.current?.focus({ preventScroll: true })
+  }, [isSending])
+
+  useEffect(() => {
+    if (!ttsError) return
+    toast.error('Could not play this response. You can still read and continue.')
+  }, [ttsError])
+
+  useEffect(() => {
+    const pauseWhenHidden = () => {
+      if (document.visibilityState === 'hidden') pauseSpeech()
+    }
+    document.addEventListener('visibilitychange', pauseWhenHidden)
+    return () => {
+      document.removeEventListener('visibilitychange', pauseWhenHidden)
+      stopSpeech()
+    }
+  }, [pauseSpeech, stopSpeech])
+
+  useEffect(() => () => activeRequestRef.current?.abort(), [])
+
+  const playResponse = (message: ConversationMessage) => {
+    setActiveSpeechMessageId(message.id)
+    speak(message.content)
+  }
 
   const queueConversationSave = useCallback((conversation: StoredConversation) => {
     const previousSave = saveQueuesRef.current.get(conversation.id) ?? Promise.resolve()
@@ -575,6 +715,62 @@ export default function AssistantPage() {
     [messages]
   )
 
+  const runTalkRequest = async (request: TalkRequest) => {
+    if (activeRequestRef.current) return
+    const controller = new AbortController()
+    activeRequestRef.current = controller
+    setTalkRecovery(null)
+    setIsSending(true)
+
+    try {
+      if (request.forceMock || demoSession) {
+        await abortableDelay(900, controller.signal)
+        setMessages((current) => [...current, demoAssistantMessage()])
+        return
+      }
+
+      const response = await aiService.chat(request.messages, request.model, request.attachment, {
+        conversationId: request.conversationId,
+        workflow: request.workflow,
+        assistantContext: request.assistantContext,
+        signal: controller.signal,
+      })
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: response.message,
+          toolEvents: response.toolEvents,
+          pendingActions: response.pendingActions,
+        },
+      ])
+    } catch (error: any) {
+      if (controller.signal.aborted || error?.name === 'AbortError' || error?.code === 'ERR_CANCELED') {
+        setTalkRecovery({ kind: 'canceled', request })
+        return
+      }
+
+      const message = error.response?.data?.error ?? 'Assistant unavailable'
+      const errorMessageId = crypto.randomUUID()
+      toast.error(message)
+      setMessages((current) => [
+        ...current,
+        {
+          id: errorMessageId,
+          role: 'assistant',
+          content: message,
+          error: true,
+        },
+      ])
+      setTalkRecovery({ kind: 'failed', request, errorMessageId })
+    } finally {
+      if (activeRequestRef.current === controller) activeRequestRef.current = null
+      shouldRefocusComposerRef.current = true
+      setIsSending(false)
+    }
+  }
+
   const sendMessage = async (
     content: string,
     messageAttachment: ComposerAttachment | null = attachment,
@@ -588,7 +784,7 @@ export default function AssistantPage() {
     } = {}
   ) => {
     const trimmed = content.trim()
-    if ((!trimmed && !messageAttachment) || isSending) return
+    if ((!trimmed && !messageAttachment) || activeRequestRef.current) return
     const userContent = trimmed || `Review the attached ${messageAttachment?.kind === 'image' ? 'image' : 'file'}.`
 
     const userMessage: ConversationMessage = {
@@ -598,60 +794,45 @@ export default function AssistantPage() {
       displayContent,
       attachment: messageAttachment ? attachmentMetadata(messageAttachment) : undefined,
     }
-    const nextMessages = [...baseMessages, { role: 'user' as const, content: userContent }]
+    const nextMessages = boundedChatContext([
+      ...baseMessages,
+      { role: 'user' as const, content: userContent },
+    ])
 
     setMessages((current) => [...current, userMessage])
     setDraft('')
     setAttachment(null)
-    setIsSending(true)
+    const requestAttachment = messageAttachment
+      ? messageAttachment.kind === 'image'
+        ? {
+            kind: 'image' as const,
+            name: messageAttachment.name,
+            mimeType: messageAttachment.mimeType,
+            data: messageAttachment.data,
+          }
+        : messageAttachment
+      : undefined
+    await runTalkRequest({
+      messages: nextMessages,
+      model: requestModel,
+      attachment: requestAttachment,
+      conversationId: options.conversationId ?? activeConversationId,
+      workflow: options.workflow ?? workContext?.workflow,
+      assistantContext,
+      forceMock: Boolean(options.forceMock),
+    })
+  }
 
-    try {
-      if (options.forceMock || demoSession) {
-        await new Promise((resolve) => window.setTimeout(resolve, 900))
-        setMessages((current) => [...current, demoAssistantMessage()])
-        return
-      }
+  const cancelTalkRequest = () => {
+    activeRequestRef.current?.abort()
+  }
 
-      const requestAttachment = messageAttachment
-        ? messageAttachment.kind === 'image'
-          ? {
-              kind: 'image' as const,
-              name: messageAttachment.name,
-              mimeType: messageAttachment.mimeType,
-              data: messageAttachment.data,
-            }
-          : messageAttachment
-        : undefined
-      const response = await aiService.chat(nextMessages, requestModel, requestAttachment, {
-        conversationId: options.conversationId ?? activeConversationId,
-        workflow: options.workflow ?? workContext?.workflow,
-      })
-      setMessages((current) => [
-        ...current,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: response.message,
-          toolEvents: response.toolEvents,
-          pendingActions: response.pendingActions,
-        },
-      ])
-    } catch (error: any) {
-      const message = error.response?.data?.error ?? 'Assistant unavailable'
-      toast.error(message)
-      setMessages((current) => [
-        ...current,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: message,
-          error: true,
-        },
-      ])
-    } finally {
-      setIsSending(false)
-      inputRef.current?.focus()
+  const retryTalkRequest = async () => {
+    if (!talkRecovery || activeRequestRef.current) return
+    if (talkRecovery.errorMessageId) {
+      setMessages((current) => current.filter((message) => message.id !== talkRecovery.errorMessageId))
     }
+    await runTalkRequest(talkRecovery.request)
   }
 
   const submit = (event: FormEvent) => {
@@ -664,7 +845,12 @@ export default function AssistantPage() {
 
   useEffect(() => {
     const kickoff = searchParams.get('kickoff')
-    if (!kickoff || kickoffFiredRef.current) return
+    if (
+      !kickoff
+      || kickoffFiredRef.current
+      || assistantSettingsResolution === 'loading'
+      || goalsResolution === 'loading'
+    ) return
     if (!['morning', 'midday', 'weekly'].includes(kickoff)) return
     kickoffFiredRef.current = true
     // Clear the param so a refresh doesn't re-fire the kickoff.
@@ -694,8 +880,9 @@ export default function AssistantPage() {
         toast.error('Could not start your planning session.')
       }
     })()
+    // The kickoff intentionally waits for the user-owned assistant context read.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [assistantSettingsResolution, goalsResolution])
 
   const handleAttachmentChange = async (file: File | undefined) => {
     if (!file) return
@@ -708,7 +895,28 @@ export default function AssistantPage() {
     }
   }
 
+  const handleComposerPaste = async (event: ReactClipboardEvent<HTMLTextAreaElement>) => {
+    const imageItems = Array.from(event.clipboardData.items)
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+    if (imageItems.length === 0) return
+
+    event.preventDefault()
+    if (imageItems.length > 1) {
+      toast.error('Paste one image at a time')
+      return
+    }
+
+    const file = imageItems[0].getAsFile()
+    if (!file) {
+      toast.error('Could not read pasted image')
+      return
+    }
+    await handleAttachmentChange(file)
+  }
+
   const startNewChat = () => {
+    stopSpeech()
+    setActiveSpeechMessageId(null)
     skipNextPersistRef.current = false
     setActiveConversationId(crypto.randomUUID())
     setMessages([])
@@ -716,12 +924,15 @@ export default function AssistantPage() {
     setSignalContext(null)
     setWorkContext(null)
     setAttachment(null)
+    setTalkRecovery(null)
     setModel('gpt-4o-mini')
     inputRef.current?.focus()
   }
 
   const openConversation = (conversation: StoredConversation) => {
     if (isSending) return
+    stopSpeech()
+    setActiveSpeechMessageId(null)
     skipNextPersistRef.current = true
     setActiveConversationId(conversation.id)
     setMessages(conversation.messages)
@@ -729,9 +940,91 @@ export default function AssistantPage() {
     setDraft('')
     setSignalContext(null)
     setAttachment(null)
+    setTalkRecovery(null)
   }
 
   const confirmAction = async (actionId: string, args?: Record<string, unknown>) => {
+    const pendingAction = messages
+      .flatMap((message) => message.pendingActions ?? [])
+      .find((action) => action.id === actionId)
+
+    if (isGoalPendingAction(pendingAction)) {
+      try {
+        if (new Date(pendingAction!.expiresAt).getTime() <= Date.now()) {
+          throw new Error('This Goal change expired. Ask Talk to prepare it again.')
+        }
+
+        const editedArgs = { ...(pendingAction!.args ?? {}), ...(args ?? {}) }
+        let goal: Goal
+        let appliedArgs: Record<string, unknown>
+
+        if (pendingAction!.capability === 'add_goal') {
+          const input = GoalCreateInputSchema.parse(editedArgs)
+          goal = await goalService.createGoal(input)
+          appliedArgs = input
+        } else {
+          const goalId = typeof editedArgs.goalId === 'string' ? editedArgs.goalId : ''
+          if (!goalId) throw new Error('This Goal change is missing its Goal id.')
+
+          if (pendingAction!.capability === 'archive_goal') {
+            goal = await goalService.updateGoal(goalId, { archived: true })
+            appliedArgs = { goalId }
+          } else {
+            const updateCandidate = {
+              ...(editedArgs.module !== undefined ? { module: editedArgs.module } : {}),
+              ...(editedArgs.statement !== undefined ? { statement: editedArgs.statement } : {}),
+              ...(editedArgs.context !== undefined ? { context: editedArgs.context } : {}),
+            }
+            const input = GoalUpdateInputSchema.parse(updateCandidate)
+            goal = await goalService.updateGoal(goalId, input)
+            appliedArgs = { goalId, ...input }
+          }
+        }
+
+        queryClient.setQueryData<Goal[]>(GOALS_QUERY_KEY, (current) => {
+          if (!current) return current
+          return pendingAction!.capability === 'add_goal'
+            ? [...current, goal]
+            : current.map((record) => record.id === goal.id ? goal : record)
+        })
+        await queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY })
+        setMessages((current) => current.map((message) =>
+          message.pendingActions?.some((action) => action.id === actionId)
+            ? {
+                ...message,
+                pendingActions: message.pendingActions.map((action) =>
+                  action.id === actionId
+                    ? {
+                        ...action,
+                        args: appliedArgs,
+                        status: 'confirmed',
+                        result: { goal },
+                        error: undefined,
+                        completedAt: new Date().toISOString(),
+                      }
+                    : action
+                ),
+              }
+            : message
+        ))
+        toast.success('Goal change confirmed')
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Could not confirm Goal change'
+        toast.error(message)
+        setMessages((current) => current.map((item) =>
+          item.pendingActions?.some((action) => action.id === actionId)
+            ? {
+                ...item,
+                pendingActions: item.pendingActions.map((action) =>
+                  action.id === actionId ? { ...action, error: message } : action
+                ),
+              }
+            : item
+        ))
+      }
+      return
+    }
+
     try {
       const hasOtherPendingActions = messages.some((message) =>
         message.pendingActions?.some((action) =>
@@ -763,7 +1056,7 @@ export default function AssistantPage() {
       if (!hasOtherPendingActions && response.action.workflowId && activeConversationId) {
         setIsSending(true)
         try {
-          const continued = await aiService.continueChatWorkflow(activeConversationId, model)
+          const continued = await aiService.continueChatWorkflow(activeConversationId, model, assistantContext)
           if (continued) {
             setMessages((current) => [
               ...current,
@@ -790,13 +1083,17 @@ export default function AssistantPage() {
           displayContent: 'Confirmed',
           hidden: true,
         }
-        const nextMessages = [...apiMessages, { role: 'user' as const, content: hiddenContinuation.content }]
+        const nextMessages = boundedChatContext([
+          ...apiMessages,
+          { role: 'user' as const, content: hiddenContinuation.content },
+        ])
         setMessages((current) => [...current, hiddenContinuation])
         setIsSending(true)
 
         try {
           const nextResponse = await aiService.chat(nextMessages, model, undefined, {
             conversationId: activeConversationId,
+            assistantContext,
           })
           setMessages((current) => [
             ...current,
@@ -842,6 +1139,31 @@ export default function AssistantPage() {
   }
 
   const cancelAction = async (actionId: string) => {
+    const pendingAction = messages
+      .flatMap((message) => message.pendingActions ?? [])
+      .find((action) => action.id === actionId)
+    if (isGoalPendingAction(pendingAction)) {
+      setMessages((current) => current.map((message) =>
+        message.pendingActions?.some((action) => action.id === actionId)
+          ? {
+              ...message,
+              pendingActions: message.pendingActions.map((action) =>
+                action.id === actionId
+                  ? {
+                      ...action,
+                      status: 'canceled',
+                      error: undefined,
+                      completedAt: new Date().toISOString(),
+                    }
+                  : action
+              ),
+            }
+          : message
+      ))
+      toast.success('Goal change canceled')
+      return
+    }
+
     try {
       const canceled = await aiService.cancelChatAction(actionId)
       toast.success('Action canceled')
@@ -960,11 +1282,65 @@ export default function AssistantPage() {
           >
             <Plus className="h-4 w-4" />
           </button>
-          {isSending && <span className="text-sm text-accent">Thinking</span>}
+          {isSending && activeRequestRef.current ? (
+            <button
+              type="button"
+              onClick={cancelTalkRequest}
+              className="rounded-md border border-card bg-page px-3 py-2 text-sm font-medium text-accent transition-colors hover:border-accent/50"
+              aria-label="Cancel response"
+            >
+              Cancel
+            </button>
+          ) : isSending ? <span className="text-sm text-accent">Thinking</span> : null}
         </div>
       </div>
 
-      <div className="assistant-messages-scroll flex-1 space-y-4 overflow-y-auto px-4 pt-5 md:pb-5">
+      {apiMessages.length >= MAX_CHAT_CONTEXT_MESSAGES && (
+        <p className="border-b border-card bg-page/60 px-4 py-2 text-xs text-ink-muted" role="note">
+          Talk uses the latest 30 messages as context; your full chat remains saved.
+        </p>
+      )}
+
+      {assistantSettingsResolution === 'error' && (
+        <div className="flex items-center justify-between gap-3 border-b border-state-warning/30 bg-state-warning/10 px-4 py-2 text-xs text-ink-muted" role="alert">
+          <span>Personal assistant context is unavailable. Talk can continue without it.</span>
+          <button
+            type="button"
+            onClick={() => void retryAssistantSettings()}
+            className="font-medium text-accent underline underline-offset-2"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {goalsResolution === 'error' && (
+        <div className="flex items-center justify-between gap-3 border-b border-state-warning/30 bg-state-warning/10 px-4 py-2 text-xs text-ink-muted" role="alert">
+          <span>Goals are unavailable. Talk can continue, but will not treat that failed read as an empty Goal list.</span>
+          <button
+            type="button"
+            onClick={() => void retryGoals()}
+            className="font-medium text-accent underline underline-offset-2"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {habitHistoryQuery.isError && (
+        <div className="flex items-center justify-between gap-3 border-b border-state-warning/30 bg-state-warning/10 px-4 py-2 text-xs text-ink-muted" role="alert">
+          <span>Habit history is unavailable. Talk can continue, but will not treat the failed read as an empty history.</span>
+          <button
+            type="button"
+            onClick={() => void habitHistoryQuery.refetch()}
+            className="font-medium text-accent underline underline-offset-2"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      <div ref={messagesScrollRef} className="assistant-messages-scroll flex-1 space-y-4 overflow-y-auto px-4 pt-5 md:pb-5">
         {messages.length === 0 ? (
           <div className="grid gap-2 sm:grid-cols-3">
             {starterPrompts.map((prompt) => (
@@ -1012,6 +1388,52 @@ export default function AssistantPage() {
                     </div>
                   )}
                 </div>
+                {message.role === 'assistant' && !message.error && isTTSSupported && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    {activeSpeechMessageId === message.id && isSpeaking ? (
+                      <button
+                        type="button"
+                        onClick={pauseSpeech}
+                        aria-label="Pause response"
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-card bg-page px-2.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent/50 hover:text-accent"
+                      >
+                        <Pause className="h-3.5 w-3.5" aria-hidden="true" />
+                        Pause
+                      </button>
+                    ) : activeSpeechMessageId === message.id && isPaused ? (
+                      <button
+                        type="button"
+                        onClick={resumeSpeech}
+                        aria-label="Resume response"
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-card bg-page px-2.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent/50 hover:text-accent"
+                      >
+                        <Play className="h-3.5 w-3.5" aria-hidden="true" />
+                        Resume
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => playResponse(message)}
+                        aria-label={activeSpeechMessageId === message.id ? 'Replay response' : 'Speak response'}
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-card bg-page px-2.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent/50 hover:text-accent"
+                      >
+                        <Volume2 className="h-3.5 w-3.5" aria-hidden="true" />
+                        {activeSpeechMessageId === message.id ? 'Replay' : 'Speak'}
+                      </button>
+                    )}
+                    {activeSpeechMessageId === message.id && (isSpeaking || isPaused) && (
+                      <button
+                        type="button"
+                        onClick={stopSpeech}
+                        aria-label="Stop response"
+                        className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-card bg-page px-2.5 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:border-accent/50 hover:text-accent"
+                      >
+                        <Square className="h-3.5 w-3.5" aria-hidden="true" />
+                        Stop
+                      </button>
+                    )}
+                  </div>
+                )}
                 {message.toolEvents && message.toolEvents.length > 0 && (
                   <AssistantReasoningStages events={message.toolEvents} />
                 )}
@@ -1030,6 +1452,22 @@ export default function AssistantPage() {
       </div>
 
       <form onSubmit={submit} className="assistant-composer-form fixed left-0 right-0 z-20 border-t border-card bg-sunken/95 px-2.5 pt-2.5 backdrop-blur-xl md:static md:bg-transparent md:p-3 md:backdrop-blur-none">
+        {talkRecovery && (
+          <div className="mb-2 flex min-h-11 items-center justify-between gap-3 rounded-lg border border-state-warning/40 bg-state-warning/10 px-3 py-2 text-sm" role="status">
+            <span className="text-ink">
+              {talkRecovery.kind === 'canceled' ? 'Response canceled.' : 'Response failed.'}
+            </span>
+            <button
+              type="button"
+              onClick={() => void retryTalkRequest()}
+              disabled={isSending}
+              className="flex-none font-medium text-accent underline underline-offset-2 disabled:opacity-50"
+              aria-label="Retry response"
+            >
+              Retry
+            </button>
+          </div>
+        )}
         {workContext && (
           <div className="mb-2 flex min-h-11 items-center justify-between gap-3 rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-xs text-accent">
             <span className="min-w-0 truncate">From Work · {workContext.label}</span>
@@ -1092,6 +1530,7 @@ export default function AssistantPage() {
               className="max-h-28 min-h-8 w-full resize-none bg-transparent px-1 py-1 text-base leading-6 text-ink outline-none placeholder:text-ink-muted disabled:cursor-not-allowed disabled:opacity-60 sm:max-h-36"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
+              onPaste={(event) => void handleComposerPaste(event)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && !event.shiftKey) {
                   event.preventDefault()
@@ -1127,15 +1566,17 @@ export default function AssistantPage() {
               ))}
             </select>
             <div className="min-w-0 flex-1" />
-            <button
-              type="button"
-              onClick={toggleDictation}
-              disabled={isSending || !isDictationSupported}
-              className={`flex h-11 w-11 flex-none items-center justify-center rounded-full bg-sunken text-ink-soft transition-colors hover:bg-card hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 ${isListening ? 'bg-accent/20 text-accent' : ''}`}
-              aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
-            >
-              <Mic size={20} className="flex-none" />
-            </button>
+            {!isNativeIOS && (
+              <button
+                type="button"
+                onClick={toggleDictation}
+                disabled={isSending || !isDictationSupported}
+                className={`flex h-11 w-11 flex-none items-center justify-center rounded-full bg-sunken text-ink-soft transition-colors hover:bg-card hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 ${isListening ? 'bg-accent/20 text-accent' : ''}`}
+                aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
+              >
+                <Mic size={20} className="flex-none" />
+              </button>
+            )}
             <button
               type="submit"
               data-demo-id="talk-send-button"

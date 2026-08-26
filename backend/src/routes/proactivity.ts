@@ -127,7 +127,11 @@ router.get('/kickoff', authenticateToken, async (req: AuthRequest, res) => {
     return res.status(400).json({ error: 'Invalid kickoff type' })
   }
   try {
-    const message = await buildKickoffMessage(req.user.userId, type as TouchpointType)
+    const message = await buildKickoffMessage(
+      req.user.userId,
+      type as TouchpointType,
+      req.header('x-client-time-zone'),
+    )
     res.json({ message })
   } catch (err) {
     // No silent fallback — surface the failure so the assistant shows its error state.

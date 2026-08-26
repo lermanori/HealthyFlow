@@ -407,19 +407,60 @@ const KICKOFF_STYLE: Record<TouchpointType, string> = {
 
 const KICKOFF_FIRST_TOPIC: Record<TouchpointType, string> = {
   morning: 'Start with the day shape: what needs a time, what can stay flexible, and what should be protected.',
-  midday: 'Start with the next block only: what is open now, what changed, and what should move or be dropped.',
+  midday: 'Start with an actual-vs-planned check on the next block: ask what happened, what is open now, and what should move or be dropped.',
   weekly: 'Start with the week shape: the biggest commitments, pressure points, and what needs a home first.',
+}
+
+function validTimeZone(value?: string) {
+  if (!value) return 'UTC'
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: value }).format(new Date())
+    return value
+  } catch {
+    return 'UTC'
+  }
+}
+
+function localDateAtOffset(now: Date, timeZone: string, dayOffset: number) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const year = Number(parts.find((part) => part.type === 'year')?.value)
+  const month = Number(parts.find((part) => part.type === 'month')?.value)
+  const day = Number(parts.find((part) => part.type === 'day')?.value)
+  return new Date(Date.UTC(year, month - 1, day + dayOffset)).toISOString().slice(0, 10)
+}
+
+function openItemsSummary(context: Awaited<ReturnType<typeof buildDailyContext>>) {
+  const tasks = context.day.tasks.filter((task) => !task.completed)
+  if (tasks.length === 0) return '- (nothing scheduled)'
+
+  const visible = tasks.slice(0, 12)
+    .map((task) => `- ${task.title}${task.startTime ? ` at ${task.startTime}` : ''}`)
+  if (tasks.length > visible.length) visible.push(`- (+${tasks.length - visible.length} more open Items)`)
+  return visible.join('\n')
 }
 
 // Server-built seed message the assistant responds to. No AI here — the assistant
 // chat endpoint runs the model when the client sends this as the first user turn.
-export async function buildKickoffMessage(userId: string, type: TouchpointType): Promise<string> {
-  const context = await buildDailyContext(userId)
-  const tasks = context.day.tasks
-    .filter((t) => !t.completed)
-    .map((t) => `- ${t.title}${t.startTime ? ` at ${t.startTime}` : ''}`)
-    .join('\n')
-  const summary = tasks || '- (nothing scheduled yet)'
+export async function buildKickoffMessage(
+  userId: string,
+  type: TouchpointType,
+  timeZoneHeader?: string,
+  now = new Date(),
+): Promise<string> {
+  const timeZone = validTimeZone(timeZoneHeader)
+  const dates = type === 'weekly'
+    ? Array.from({ length: 7 }, (_, offset) => localDateAtOffset(now, timeZone, offset))
+    : [localDateAtOffset(now, timeZone, 0)]
+  const contexts = await Promise.all(dates.map((date) => buildDailyContext(userId, date)))
+  const contextBlock = type === 'weekly'
+    ? contexts.map((context) => `${context.date}:\n${openItemsSummary(context)}`).join('\n\n')
+    : `Date: ${contexts[0].date}\nOpen Items today:\n${openItemsSummary(contexts[0])}`
+
   return `${KICKOFF_INTROS[type]}
 
 ${KICKOFF_STYLE[type]}
@@ -437,7 +478,6 @@ For the first response:
 - Do not show JSON, tool traces, or generic assistant phrasing.
 
 Context:
-Date: ${context.date}
-Open items today:
-${summary}`
+${type === 'weekly' ? 'Coming 7 days:' : ''}
+${contextBlock}`
 }

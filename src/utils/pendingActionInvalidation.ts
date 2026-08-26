@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query'
 import {
   DAILY_SIGNALS_QUERY_KEY,
   DAY_SUMMARY_QUERY_KEY,
+  HABIT_HISTORY_QUERY_KEY,
   type AssistantPendingAction,
 } from '../services/api'
 
@@ -14,10 +15,11 @@ export async function invalidatePendingActionQueries(
     queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY }),
   ]
 
-  if (['add_task', 'add_habit', 'update_item', 'complete_task', 'delete_item'].includes(action.capability)) {
+  if (['add_task', 'add_habit', 'update_item', 'complete_task', 'delete_item', 'record_habit_outcome', 'record_habit_progress'].includes(action.capability)) {
     invalidations.push(
       queryClient.invalidateQueries({ queryKey: ['tasks'] }),
-      queryClient.invalidateQueries({ queryKey: ['habit-streaks'] })
+      queryClient.invalidateQueries({ queryKey: ['habit-streaks'] }),
+      queryClient.invalidateQueries({ queryKey: HABIT_HISTORY_QUERY_KEY })
     )
   }
   if (['add_calorie_entry', 'add_calorie_entries'].includes(action.capability)) {

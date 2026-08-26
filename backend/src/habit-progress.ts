@@ -3,6 +3,9 @@ import { db } from './supabase-client'
 import { parseHabitInstanceId } from './utils/parseHabitInstanceId'
 import {
   deriveHabitOutcome,
+  composeHabitHistory,
+  HabitHistoryQuerySchema,
+  HabitHistorySchema,
   HabitInstanceSchema,
   HabitOutcomeInputSchema,
   HabitOutcomeSchema,
@@ -27,10 +30,25 @@ export {
   HabitProgressInputSchema,
   HabitProgressUpdateSchema,
   HabitTargetUnitSchema,
+  HabitHistoryQuerySchema,
+  HabitHistorySchema,
 }
 export type { HabitOutcome }
 
 const numberOrNull = (value: unknown) => value == null ? null : Number(value)
+
+const habitTarget = (row: any) => {
+  const value = numberOrNull(row.habit_target_value)
+  return value == null || !['minutes', 'reps', 'count'].includes(row.habit_target_unit)
+    ? null
+    : { value, unit: row.habit_target_unit as 'minutes' | 'reps' | 'count' }
+}
+
+function historyStart(to: string, days: number) {
+  const date = new Date(`${to}T00:00:00.000Z`)
+  date.setUTCDate(date.getUTCDate() - (days - 1))
+  return date.toISOString().slice(0, 10)
+}
 
 function entryToClient(row: any) {
   return {
@@ -98,6 +116,29 @@ async function deriveFromProgress(instance: any) {
 }
 
 export const HabitProgress = {
+  async history(userId: string, rawQuery: unknown) {
+    const query = HabitHistoryQuerySchema.parse(rawQuery)
+    const source = await db.getHabitHistoryRows(userId, historyStart(query.to, query.days), query.to)
+    return composeHabitHistory({
+      ...query,
+      habits: source.habits.map((row: any) => ({
+        id: row.id,
+        title: row.title,
+        category: row.category ?? null,
+        createdDate: String(row.created_at).slice(0, 10),
+        target: habitTarget(row),
+      })),
+      instances: source.instances.map((row: any) => ({
+        habitId: row.original_habit_id,
+        date: row.scheduled_date,
+        outcome: row.habit_outcome ?? (row.completed ? 'completed' : 'pending'),
+        progressTotal: (source.progressByInstance[row.id] ?? [])
+          .reduce((total: number, entry: any) => total + Number(entry.amount), 0),
+        target: habitTarget(row),
+      })),
+    })
+  },
+
   async get(userId: string, reference: string, date?: string) {
     return detail(await resolveInstance(userId, reference, date))
   },

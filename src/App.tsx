@@ -14,6 +14,7 @@ import MealParserLabPage from './pages/MealParserLabPage'
 import AchievementsPage from './pages/AchievementsPage'
 import WorkoutsPage from './pages/WorkoutsPage'
 import AssistantPage from './pages/AssistantPage'
+import GoalsPage from './pages/GoalsPage'
 import ClaimAccountPage from './pages/ClaimAccountPage'
 import LoginPage from './pages/LoginPage'
 import SignInPage from './pages/SignInPage'
@@ -139,6 +140,7 @@ function App() {
           <Route path="/week" element={WEEK_VIEW_ENABLED ? <WeekViewPage /> : <Navigate to="/" replace />} />
           <Route path="/work" element={WORK_ENABLED ? <WorkPage /> : <Navigate to="/" replace />} />
           <Route path="/talk" element={<AssistantPage />} />
+          <Route path="/goals" element={<GoalsPage />} />
           <Route path="/assistant" element={<AssistantRedirect />} />
           <Route path="/claim" element={<ClaimAccountPage />} />
           <Route path="/sign-in" element={<SignInPage />} />

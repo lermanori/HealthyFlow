@@ -67,6 +67,16 @@ describe('Phase 5 Talk workflow routes', () => {
         workflow: { name: 'plan_focused_work', anchorDate: '2026-08-03' },
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: 'Plan focused work.' }],
+        assistantContext: {
+          ownerName: 'Ori',
+          profile: {
+            preferredName: null,
+            responseStyle: 'concise',
+            planningStyle: 'one_step_at_a_time',
+            followUpMode: 'ask_about_outcomes',
+          },
+          goals: { status: 'ready', records: [] },
+        },
       })
 
     expect(res.status).toBe(200)
@@ -75,6 +85,7 @@ describe('Phase 5 Talk workflow routes', () => {
       conversationId: CONVERSATION_ID,
       anchorDate: '2026-08-03',
       timeZone: 'Asia/Jerusalem',
+      assistantContext: expect.objectContaining({ ownerName: 'Ori' }),
     }))
   })
 

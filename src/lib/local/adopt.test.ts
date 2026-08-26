@@ -10,6 +10,9 @@ const GUEST = 'guest-1'
 
 const exportPayload = {
   version: 1,
+  goals: [
+    { id: '11111111-1111-4111-8111-111111111111', user_id: ACCOUNT, module: 'whole_day', statement: 'Launch HealthyFlow.', created_at: '2026-08-26T08:00:00.000Z', updated_at: '2026-08-26T08:00:00.000Z', deleted_at: null },
+  ],
   items: [
     { id: 'server-task', user_id: ACCOUNT, title: 'Server task', type: 'task', category: 'work', scheduled_date: '2026-08-21', created_at: '2026-08-20T09:00:00.000Z', updated_at: '2026-08-20T09:00:00.000Z' },
   ],
@@ -62,6 +65,7 @@ describe('reading an account export onto the device', () => {
     const day = localDayFromExport(ACCOUNT, exportPayload)
 
     assert.equal(day.userId, ACCOUNT)
+    assert.equal(day.goals[0].statement, 'Launch HealthyFlow.')
     assert.equal(day.tasks.length, 1)
     assert.deepEqual(day.calorieEntries[0], {
       id: 'meal-1', userId: ACCOUNT, date: '2026-08-21', time: '12:30', name: 'Server lunch',
@@ -98,6 +102,40 @@ describe('reading an account export onto the device', () => {
     const day = localDayFromExport(ACCOUNT, exportPayload)
 
     assert.deepEqual(day.settings, { weekStartsOn: 0, theme: 'white' })
+  })
+
+  it('unwraps hosted JSON settings and preserves old assistant direction as Goals', () => {
+    const day = localDayFromExport(ACCOUNT, {
+      items: [],
+      habitProgress: [],
+      goals: [],
+      settings: [{
+        user_id: ACCOUNT,
+        settings: {
+          theme: 'white',
+          assistantProfile: {
+            preferredName: 'Ori',
+            responseStyle: 'concise',
+            planningStyle: 'one_step_at_a_time',
+            followUpMode: 'ask_about_outcomes',
+            priorities: ['Launch HealthyFlow'],
+            constraints: ['Protect training consistency'],
+          },
+        },
+      }],
+    })
+
+    assert.equal(day.settings.theme, 'white')
+    assert.deepEqual(day.goals.map(goal => goal.statement), [
+      'Launch HealthyFlow',
+      'Protect training consistency',
+    ])
+    assert.deepEqual(day.settings.assistantProfile, {
+      preferredName: 'Ori',
+      responseStyle: 'concise',
+      planningStyle: 'one_step_at_a_time',
+      followUpMode: 'ask_about_outcomes',
+    })
   })
 
   it('reads an export with no health at all', () => {
@@ -149,7 +187,7 @@ describe('what the person is asked to weigh', () => {
   it('counts the day in the terms they would recognise', () => {
     const counts = countLocalDay(deviceDay())
 
-    assert.deepEqual(counts, { items: 1, habits: 0, meals: 1, workouts: 0 })
+    assert.deepEqual(counts, { goals: 0, items: 1, habits: 0, meals: 1, workouts: 0 })
   })
 
   it('does not count a deleted Item or a Habit instance as separate things', () => {
@@ -160,7 +198,7 @@ describe('what the person is asked to weigh', () => {
       { ...device.tasks[0], id: 'habit-instance', type: 'habit', original_habit_id: 'habit-template' },
     )
 
-    assert.deepEqual(countLocalDay(device), { items: 1, habits: 1, meals: 1, workouts: 0 })
+    assert.deepEqual(countLocalDay(device), { goals: 0, items: 1, habits: 1, meals: 1, workouts: 0 })
   })
 })
 

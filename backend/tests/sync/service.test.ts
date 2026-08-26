@@ -35,7 +35,7 @@ beforeEach(() => {
 })
 
 const emptyPayload = {
-  tasks: [], habitProgress: [], calorieEntries: [], calorieItems: [],
+  tasks: [], habitProgress: [], goals: [], calorieEntries: [], calorieItems: [],
   weightEntries: [], workoutSessions: [], workoutPlans: [],
   workoutExerciseItems: [], achievementDefinitions: [], achievementEntries: [],
   settings: null,

@@ -3,6 +3,7 @@ import { beforeEach, describe, it } from 'node:test'
 import {
   addLocalHabitProgress,
   buildLocalDaySummary,
+  buildLocalHabitHistory,
   completeLocalTask,
   createLocalTask,
   deleteLocalTask,
@@ -199,6 +200,20 @@ describe('Habits on the device', () => {
     const items = await localItemsForDay(USER, TODAY)
     assert.equal(items[0].habitInfo?.progressTotal, 15)
     assert.equal(items[0].habitInfo?.outcome, 'partial')
+  })
+
+  it('builds Talk history from the Local day including recorded progress', async () => {
+    const today = new Date().toISOString().slice(0, 10)
+    const habit = await dailyHabit()
+    await addLocalHabitProgress(USER, `${habit.id}-${today}`, { amount: 20 })
+
+    const history = await buildLocalHabitHistory(USER, { to: today, days: 30 })
+
+    assert.equal(history.habits.length, 1)
+    assert.equal(history.habits[0].habitId, habit.id)
+    assert.equal(history.habits[0].days.at(-1)?.recordState, 'recorded')
+    assert.equal(history.habits[0].days.at(-1)?.outcome, 'completed')
+    assert.equal(history.habits[0].days.at(-1)?.progressTotal, 20)
   })
 
   it('does not carry a missed Habit day forward — it re-synthesises fresh', async () => {

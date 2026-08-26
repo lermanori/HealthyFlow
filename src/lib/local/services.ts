@@ -8,6 +8,7 @@ import DaySummaryCore from '../../../backend/src/day-summary-core'
 import { setLocalDayOwnerEmail } from './store'
 import {
   addLocalHabitProgress,
+  buildLocalHabitHistory,
   buildLocalDaySummary,
   completeLocalTask,
   createLocalTask,
@@ -57,6 +58,7 @@ import {
   updateLocalWorkoutPlan,
   updateLocalWorkoutSession,
 } from './health'
+import { createLocalGoal, listLocalGoals, updateLocalGoal } from './goals'
 
 /**
  * The device answering the same questions the API answers.
@@ -215,6 +217,10 @@ function progressToClient(progress: LocalHabitProgress) {
 }
 
 export const localServices = {
+  getGoals: (userId: string, includeArchived = false) => listLocalGoals(userId, includeArchived),
+  createGoal: createLocalGoal,
+  updateGoal: updateLocalGoal,
+
   daySummary: (userId: string, date: string): Promise<DaySummary> =>
     buildLocalDaySummary(userId, date, Intl.DateTimeFormat().resolvedOptions().timeZone),
 
@@ -226,6 +232,9 @@ export const localServices = {
     }
     return (await localItemsForDay(userId, date)).map(itemToClient)
   },
+
+  getHabitHistory: (userId: string, to: string, days = 30) =>
+    buildLocalHabitHistory(userId, { to, days }),
 
   getReminderItems: async (userId: string, today: string): Promise<ReminderItem[]> => {
     const items = await localItemsForDay(userId, today)

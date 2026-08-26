@@ -4,6 +4,7 @@ import SyncContracts from '../../../backend/src/sync-contracts'
 import WorkoutContracts from '../../../backend/src/workout-contracts'
 import {
   emptyLocalDatabase,
+  migrateLegacyAssistantDirection,
   type LocalDatabase,
 } from './store'
 
@@ -82,6 +83,9 @@ export function localDayFromExport(userId: string, exported: Record<string, unkn
   const planItems = groupBy(rows(health.workoutPlanItems), 'plan_id')
 
   const account = (exported.account ?? {}) as Record<string, unknown>
+  const settings = settingsFromExport(rows(exported.settings)[0])
+  const exportedGoals = rows(exported.goals).map(sinceCreated) as LocalDatabase['goals']
+  const migratedDirection = migrateLegacyAssistantDirection(userId, settings, exportedGoals)
 
   return {
     ...emptyLocalDatabase(userId),
@@ -94,9 +98,10 @@ export function localDayFromExport(userId: string, exported: Record<string, unkn
     // changed rather than left absent or invented.
     tasks: rows(exported.items).map(sinceCreated) as LocalDatabase['tasks'],
     habitProgress: rows(exported.habitProgress).map(sinceCreated) as LocalDatabase['habitProgress'],
+    goals: migratedDirection.goals,
     // The export carries one settings row per account; the device stores the
     // patch, so the row's own bookkeeping columns are left behind.
-    settings: settingsFromExport(rows(exported.settings)[0]),
+    settings: migratedDirection.settings,
     calorieEntries: rows(health.calorieEntries).map(calorieEntryToClient) as LocalDatabase['calorieEntries'],
     calorieItems: rows(health.calorieHistory).map(calorieItemToClient) as LocalDatabase['calorieItems'],
     weightEntries: rows(health.weightEntries).map(weightEntryToClient) as LocalDatabase['weightEntries'],
@@ -118,6 +123,9 @@ export function localDayFromExport(userId: string, exported: Record<string, unkn
 /** The columns of a `user_settings` row that are actually settings. */
 function settingsFromExport(row: Rows[number] | undefined): Record<string, unknown> {
   if (!row) return {}
+  if (row.settings && typeof row.settings === 'object' && !Array.isArray(row.settings)) {
+    return row.settings as Record<string, unknown>
+  }
   const { id: _id, user_id: _userId, created_at: _created, updated_at: _updated, ...settings } = row
   // The row is snake_case and the device stores the camelCase patch the client
   // sends, so only keys that already match are carried; anything else would be a
@@ -153,6 +161,7 @@ export function countLocalDay(database: LocalDatabase) {
   return {
     items: database.tasks.filter((row) => !row.deleted_at && row.type !== 'habit').length,
     habits: database.tasks.filter((row) => !row.deleted_at && row.type === 'habit' && !row.original_habit_id).length,
+    goals: database.goals.filter((row) => !row.deleted_at).length,
     // Health soft-deletes now, so a deleted meal is still a stored row. Counting
     // it would overstate what is at stake in the one place the number has to be
     // exact: the person is weighing this against losing it.
@@ -200,6 +209,7 @@ export function adoptAccountDay(
     settings: Object.keys(account.settings).length > 0 ? account.settings : device.settings,
     tasks: merged('tasks', account.tasks, reKeyed(device.tasks)),
     habitProgress: merged('habitProgress', account.habitProgress, reKeyed(device.habitProgress)),
+    goals: merged('goals', account.goals, reKeyed(device.goals)),
     calorieEntries: merged('calorieEntries', account.calorieEntries, reKeyed(device.calorieEntries)),
     calorieItems: merged('calorieItems', account.calorieItems, reKeyed(device.calorieItems)),
     weightEntries: merged('weightEntries', account.weightEntries, reKeyed(device.weightEntries)),

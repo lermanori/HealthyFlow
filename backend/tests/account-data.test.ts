@@ -2,6 +2,7 @@ const taskRows = Array.from({ length: 501 }, (_, index) => ({ id: `task-${index}
 const tables: Record<string, Array<Record<string, unknown>>> = {
   users: [{ id: 'user-1', email: 'user@example.com', name: 'User', role: 'user', created_at: '2026-01-01T00:00:00Z', password_hash: 'secret' }],
   tasks: taskRows,
+  goals: [{ id: 'goal-1', user_id: 'user-1', module: 'whole_day', statement: 'Launch HealthyFlow.' }],
   workout_plans: [{ id: 'plan-1', user_id: 'user-1', name: 'Plan' }],
   workout_plan_items: [{ id: 'plan-item-1', plan_id: 'plan-1', name: 'Squat' }],
   workout_sessions: [{ id: 'session-1', user_id: 'user-1', date: '2026-01-02' }],
@@ -53,6 +54,7 @@ test('builds a schema-valid, paginated archive with soft-deleted Items and batch
   const archive = await buildAccountExport('user-1')
   expect(AccountExportV1Schema.safeParse(archive).success).toBe(true)
   expect(archive.items).toHaveLength(501)
+  expect(archive.goals).toEqual([{ id: 'goal-1', user_id: 'user-1', module: 'whole_day', statement: 'Launch HealthyFlow.' }])
   expect(archive.items[0].deleted_at).toBeTruthy()
   expect(archive.health.workoutPlanItems).toEqual([{ id: 'plan-item-1', plan_id: 'plan-1', name: 'Squat' }])
   expect(archive.health.workoutSessionExercises).toEqual([{ id: 'session-item-1', session_id: 'session-1', name: 'Run' }])

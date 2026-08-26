@@ -40,6 +40,7 @@ export const SyncPayloadSchema = z.object({
   workoutExerciseItems: z.array(SyncRowSchema).default([]),
   achievementDefinitions: z.array(SyncRowSchema).default([]),
   achievementEntries: z.array(SyncRowSchema).default([]),
+  goals: z.array(SyncRowSchema).default([]),
   /**
    * Settings are a patch object, not rows, so they sync as one record with one
    * timestamp. Last write wins for the whole object: merging individual keys
@@ -64,7 +65,7 @@ export type SyncResponse = z.infer<typeof SyncResponseSchema>
 export const SYNC_COLLECTIONS = [
   'tasks', 'habitProgress', 'calorieEntries', 'calorieItems', 'weightEntries',
   'workoutSessions', 'workoutPlans', 'workoutExerciseItems',
-  'achievementDefinitions', 'achievementEntries',
+  'achievementDefinitions', 'achievementEntries', 'goals',
 ] as const
 export type SyncCollection = (typeof SYNC_COLLECTIONS)[number]
 
@@ -104,6 +105,7 @@ export const SYNC_IDENTITY: Record<SyncCollection, readonly string[]> = {
   // UNIQUE (user_id, achievement_id, date)
   achievementEntries: ['achievement_id', 'date'],
   achievementDefinitions: ['id'],
+  goals: ['id'],
 }
 
 /** `normalized_name` and `normalizedName` are the same field in two shapes. */

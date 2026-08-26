@@ -25,13 +25,19 @@ import {
   type DaySummary,
   type PlanningWindow,
 } from '../../backend/src/day-summary-schema'
-import SettingsContracts, { type Settings as UserSettings } from '../../backend/src/settings-schema'
+import SettingsContracts, {
+  type AssistantContext,
+  type AssistantProfile,
+  type Settings as UserSettings,
+} from '../../backend/src/settings-schema'
 import type { WaitlistJoinInput } from '../../backend/src/waitlist'
 import type { NativePushRegistration } from '../../backend/src/push-contracts'
 import MobileVersionContracts, {
   type IosVersionPolicy,
 } from '../../backend/src/mobile-version-contracts'
 import AuthContracts, { type SessionUser } from '../../backend/src/auth-contracts'
+import { GoalSchema, type Goal, type GoalCreateInput, type GoalUpdateInput } from '../../backend/src/goals-schema'
+import HabitContracts, { type HabitHistory } from '../../backend/src/habit-contracts'
 import type { SyncDelta, SyncIncoming } from '../lib/local/sync'
 import {
   applyVerifiedSession,
@@ -43,6 +49,7 @@ import { asClientShape, localHealthServices, localServices, onDevice } from '../
 const { SettingsSchema } = SettingsContracts
 const { IosVersionPolicySchema } = MobileVersionContracts
 const { SessionUserSchema } = AuthContracts
+const { HabitHistorySchema } = HabitContracts
 
 export type {
   Category,
@@ -52,8 +59,14 @@ export type {
   DaySummary,
   PlanningWindow,
   UserSettings,
+  AssistantContext,
+  AssistantProfile,
   IosVersionPolicy,
   SessionUser,
+  Goal,
+  GoalCreateInput,
+  GoalUpdateInput,
+  HabitHistory,
 }
 export { isDaySummaryItemAddressed }
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
@@ -656,6 +669,14 @@ export const taskService = {
     },
   ),
 
+  getHabitHistory: onDevice(
+    (userId, to: string, days: number = 30): Promise<HabitHistory> => localServices.getHabitHistory(userId, to, days),
+    async (to: string, days: number = 30): Promise<HabitHistory> => {
+      const response = await api.get('/tasks/habits/history', { params: { to, days } })
+      return HabitHistorySchema.parse(response.data)
+    },
+  ),
+
   // `today` is the caller's local day, not the server's: the reminder day has
   // to follow the wall clock the user is reading.
   getReminderItems: onDevice(
@@ -846,8 +867,9 @@ export const aiService = {
   continueChatWorkflow: async (
     conversationId: string,
     model: AssistantChatModel,
+    assistantContext?: AssistantContext,
   ): Promise<AssistantChatResponse | null> => {
-    const response = await api.post('/ai/chat/continue', { conversationId, model })
+    const response = await api.post('/ai/chat/continue', { conversationId, model, assistantContext })
     return response.status === 204 ? null : response.data
   },
 
@@ -858,6 +880,8 @@ export const aiService = {
     options: {
       conversationId?: string
       workflow?: { name: 'plan_work'; projectId: string; anchorDate?: string }
+      assistantContext?: AssistantContext
+      signal?: AbortSignal
     } = {},
   ): Promise<AssistantChatResponse> => {
     const response = await api.post('/ai/chat', {
@@ -866,7 +890,8 @@ export const aiService = {
       attachment,
       conversationId: options.conversationId,
       workflow: options.workflow,
-    })
+      assistantContext: options.assistantContext,
+    }, { signal: options.signal })
     return response.data
   },
 
@@ -1221,6 +1246,35 @@ export const settingsService = {
     },
   ),
 }
+
+export const goalService = {
+  getGoals: onDevice(
+    (userId: string, includeArchived: boolean = true) => localServices.getGoals(userId, includeArchived),
+    async (includeArchived = true): Promise<Goal[]> => {
+      const response = await api.get('/goals', { params: { includeArchived } })
+      return z.array(GoalSchema).parse(response.data)
+    },
+  ),
+
+  createGoal: onDevice(
+    (userId, input: GoalCreateInput) => localServices.createGoal(userId, input),
+    async (input: GoalCreateInput): Promise<Goal> => {
+      const response = await api.post('/goals', input)
+      return GoalSchema.parse(response.data)
+    },
+  ),
+
+  updateGoal: onDevice(
+    (userId, goalId: string, input: GoalUpdateInput) => localServices.updateGoal(userId, goalId, input),
+    async (goalId: string, input: GoalUpdateInput): Promise<Goal> => {
+      const response = await api.patch(`/goals/${goalId}`, input)
+      return GoalSchema.parse(response.data)
+    },
+  ),
+}
+
+export const GOALS_QUERY_KEY = ['goals'] as const
+export const HABIT_HISTORY_QUERY_KEY = ['habit-history'] as const
 
 export const DAY_SUMMARY_QUERY_KEY = ['day-summary'] as const
 export const daySummaryQueryKey = (date: string) => [...DAY_SUMMARY_QUERY_KEY, date] as const

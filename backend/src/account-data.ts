@@ -13,6 +13,7 @@ export const AccountExportV1Schema = z.object({
   settings: ExportRowsSchema,
   planningRhythm: ExportRowsSchema,
   projects: ExportRowsSchema,
+  goals: ExportRowsSchema.default([]),
   items: ExportRowsSchema,
   habitProgress: ExportRowsSchema,
   health: z.object({
@@ -87,7 +88,7 @@ export async function buildAccountExport(userId: string): Promise<AccountExportV
   if (accountError) throw accountError
 
   const [
-    settings, planningRhythm, projects, items, habitProgress,
+    settings, planningRhythm, projects, goals, items, habitProgress,
     calorieEntries, calorieHistory, weightEntries,
     achievementDefinitions, achievementEntries,
     workoutPlans, workoutSessions, workoutExerciseHistory,
@@ -98,6 +99,7 @@ export async function buildAccountExport(userId: string): Promise<AccountExportV
     paginatedUserRows('user_settings', userId),
     paginatedUserRows('user_rhythm', userId),
     paginatedUserRows('projects', userId),
+    paginatedUserRows('goals', userId),
     paginatedUserRows('tasks', userId),
     paginatedUserRows('habit_progress_entries', userId),
     paginatedUserRows('calorie_entries', userId),
@@ -133,6 +135,7 @@ export async function buildAccountExport(userId: string): Promise<AccountExportV
     settings,
     planningRhythm,
     projects,
+    goals,
     items,
     habitProgress,
     health: {

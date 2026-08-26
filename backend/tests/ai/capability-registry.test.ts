@@ -7,8 +7,15 @@ import {
   aiCapabilityTools,
   executeAiCapability,
 } from '../../src/ai-capabilities'
+import { HabitHistorySchema } from '../../src/habit-contracts'
 
 const requiredFamilies = {
+  goals: [
+    'list_goals',
+    'add_goal',
+    'update_goal',
+    'archive_goal',
+  ],
   calendar_daily_plan: [
     'get_daily_plan',
     'compute_daily_availability',
@@ -43,6 +50,7 @@ const requiredFamilies = {
   ],
   habits: [
     'list_habit_instances',
+    'get_habit_history',
     'add_habit',
     'record_habit_outcome',
     'record_habit_progress',
@@ -183,6 +191,107 @@ describe('Phase 4 AI capability registry contract', () => {
     )).resolves.toEqual({
       ok: false,
       error: expect.objectContaining({ code: 'invalid_input', retryable: false }),
+    })
+  })
+
+  it('reads the client-owned Goal snapshot and prepares changes without a server write', async () => {
+    const goal = {
+      id: '11111111-1111-4111-8111-111111111111',
+      module: 'whole_day' as const,
+      statement: 'Launch HealthyFlow without sacrificing training consistency.',
+      context: 'The launch can move, but the training routine should remain stable.',
+      createdAt: '2026-08-26T08:00:00.000Z',
+      updatedAt: '2026-08-26T08:00:00.000Z',
+      archivedAt: null,
+    }
+    const context = {
+      userId: 'user-1',
+      caller: 'internal' as const,
+      goals: { status: 'ready' as const, records: [goal] },
+    }
+
+    await expect(executeAiCapability(context, 'list_goals', {})).resolves.toEqual({
+      ok: true,
+      value: { goals: [goal] },
+    })
+    await expect(executeAiCapability(context, 'update_goal', {
+      goalId: goal.id,
+      context: 'Protect three training sessions per week through launch.',
+    })).resolves.toEqual({
+      ok: true,
+      value: {
+        pendingAction: expect.objectContaining({
+          capability: 'update_goal',
+          args: {
+            goalId: goal.id,
+            context: 'Protect three training sessions per week through launch.',
+          },
+          expiresAt: expect.any(String),
+        }),
+      },
+    })
+  })
+
+  it('surfaces an unavailable Goal read instead of treating it as no Goals', async () => {
+    const result = await executeAiCapability(
+      { userId: 'user-1', caller: 'internal', goals: { status: 'unavailable' } },
+      'list_goals',
+      {},
+    )
+
+    expect(result).toEqual({
+      ok: false,
+      error: expect.objectContaining({ message: expect.stringContaining('Goal read failed') }),
+    })
+  })
+
+  it('reads the client-owned bounded Habit history without querying hidden model memory', async () => {
+    const history = HabitHistorySchema.parse({
+      from: '2026-08-24',
+      to: '2026-08-26',
+      habits: [{
+        habitId: 'habit-1',
+        title: 'Do not smoke before 11:00',
+        category: 'health',
+        days: [
+          { date: '2026-08-24', recordState: 'recorded', outcome: 'completed', progressTotal: 0, target: null },
+          { date: '2026-08-25', recordState: 'recorded', outcome: 'failed', progressTotal: 0, target: null },
+          { date: '2026-08-26', recordState: 'not_recorded', outcome: null, progressTotal: 0, target: null },
+        ],
+        summary: {
+          completedDays: 1,
+          partialDays: 0,
+          failedDays: 1,
+          pendingDays: 0,
+          recordedDays: 2,
+          notRecordedDays: 1,
+          currentStreak: 0,
+          bestStreak: 1,
+          completionRate: 0.5,
+        },
+      }],
+    })
+
+    await expect(executeAiCapability({
+      userId: 'user-1',
+      caller: 'internal',
+      habitHistory: { status: 'ready', record: history },
+    }, 'get_habit_history', { habitId: 'habit-1' })).resolves.toEqual({
+      ok: true,
+      value: history,
+    })
+  })
+
+  it('surfaces an unavailable Habit-history read instead of treating it as no history', async () => {
+    const result = await executeAiCapability({
+      userId: 'user-1',
+      caller: 'internal',
+      habitHistory: { status: 'unavailable' },
+    }, 'get_habit_history', {})
+
+    expect(result).toEqual({
+      ok: false,
+      error: expect.objectContaining({ message: expect.stringContaining('Habit history is unavailable') }),
     })
   })
 })

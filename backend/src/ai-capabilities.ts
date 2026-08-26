@@ -21,6 +21,10 @@ import {
   HabitProgressInputSchema,
   HabitOutcomeInputSchema,
 } from './habit-progress'
+import {
+  HabitHistorySchema,
+  type HabitHistoryContext,
+} from './habit-contracts'
 import { Rollover } from './rollover'
 import { db } from './supabase-client'
 import { parseHabitInstanceId } from './utils/parseHabitInstanceId'
@@ -37,6 +41,14 @@ import {
   type DailySignal,
 } from './daily-context'
 import { CapabilityItemSchema, CategorySchema } from './task-contracts'
+import {
+  GoalContext,
+  GoalContextTextSchema,
+  GoalCreateInputSchema,
+  GoalModuleSchema,
+  GoalSchema,
+  goalModuleLabel,
+} from './goals-schema'
 import { Work } from './work'
 import {
   CompleteWorkReviewInputSchema,
@@ -264,6 +276,25 @@ const UpdateProjectContextInput = z.object({
   requestId: RequestId,
 })
 
+const UpdateGoalProposalInput = z.object({
+  goalId: z.string().uuid(),
+  module: GoalModuleSchema.optional(),
+  statement: GoalCreateInputSchema.shape.statement.optional(),
+  context: GoalContextTextSchema.optional(),
+}).strict().refine(
+  value => value.module !== undefined || value.statement !== undefined || value.context !== undefined,
+  'A Goal update needs at least one change.',
+)
+const ArchiveGoalProposalInput = z.object({ goalId: z.string().uuid() }).strict()
+const GoalPendingActionSchema = z.object({
+  id: z.string().uuid(),
+  capability: z.enum(['add_goal', 'update_goal', 'archive_goal']),
+  args: z.record(z.string(), z.unknown()),
+  preview: z.unknown(),
+  expiresAt: z.string().datetime(),
+}).strict()
+const GoalProposalOutputSchema = z.object({ pendingAction: GoalPendingActionSchema }).strict()
+
 const PlanMealTimingInput = DayPlanInput.extend({
   meal: z.string().trim().min(1).max(120),
   preferredTime: z.string().regex(TIME_RE),
@@ -292,6 +323,9 @@ const HabitReferenceInput = z.object({
   date: z.string().regex(DATE_RE).optional(),
   requestId: RequestId,
 })
+const HabitHistoryInput = z.object({
+  habitId: z.string().min(1).optional(),
+}).strict()
 const RecordHabitOutcomeInput = HabitReferenceInput.extend({
   outcome: HabitOutcomeInputSchema.shape.outcome,
 })
@@ -619,6 +653,7 @@ export type AiCapabilityRisk = 'auto' | 'confirm'
 export type AiCaller = 'internal' | 'mcp'
 export const AiCapabilityModuleSchema = z.enum([
   'calendar_daily_plan',
+  'goals',
   'work',
   'nutrition',
   'workouts',
@@ -670,6 +705,8 @@ export type AiCapabilityContext = {
   model?: string | null
   photo?: ParseMealsPhoto
   groundedMeals?: Array<z.infer<typeof ParsedMeal>>
+  goals?: GoalContext
+  habitHistory?: HabitHistoryContext
 }
 
 export type AiCapabilityDefinition<
@@ -885,6 +922,50 @@ function addPreview(action: string, value: unknown) {
   return { action, willCreate: value }
 }
 
+function availableGoals(ctx: AiCapabilityContext) {
+  if (!ctx.goals || ctx.goals.status === 'unavailable') {
+    throw new RecoverableToolError(
+      'Goals are unavailable because the user-owned Goal read failed. Do not treat this as an empty Goal list or invent Goal ids.',
+    )
+  }
+  return ctx.goals.records.filter(goal => !goal.archivedAt)
+}
+
+function availableHabitHistory(ctx: AiCapabilityContext) {
+  if (!ctx.habitHistory || ctx.habitHistory.status === 'unavailable') {
+    throw new RecoverableToolError(
+      'Habit history is unavailable because the user-owned history read failed. Do not treat this as no Habit history.',
+    )
+  }
+  return ctx.habitHistory.record
+}
+
+function ownedActiveGoal(ctx: AiCapabilityContext, goalId: string) {
+  const goal = availableGoals(ctx).find(candidate => candidate.id === goalId)
+  if (!goal) {
+    throw new RecoverableToolError(
+      `No active Goal found with id "${goalId}". Call list_goals to get current Goal ids, then retry.`,
+    )
+  }
+  return goal
+}
+
+function goalPendingAction(
+  capability: 'add_goal' | 'update_goal' | 'archive_goal',
+  args: Record<string, unknown>,
+  preview: unknown,
+) {
+  return {
+    pendingAction: {
+      id: uuidv4(),
+      capability,
+      args,
+      preview,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+    },
+  }
+}
+
 async function createPlannedItem(
   ctx: AiCapabilityContext,
   input: {
@@ -996,6 +1077,70 @@ export const AiCapabilities = defineCapabilities({
       return validateDailyPlacement(ctx.userId, input)
     },
   },
+  list_goals: {
+    description: 'Read the bounded active Goal snapshot supplied by the authenticated HealthyFlow client. A failed Goal read is unavailable, never an empty list.',
+    modules: ['goals'],
+    kind: 'read',
+    inputSchema: EmptyInput,
+    outputSchema: z.object({ goals: z.array(GoalSchema).max(50) }).strict(),
+    async execute(ctx) {
+      return { goals: availableGoals(ctx) }
+    },
+  },
+  add_goal: {
+    description: 'After the user explicitly asks to add a Goal, prepare an editable confirmation card. Context is optional supporting knowledge such as why it matters, background, constraints, and useful facts. This only proposes a client-owned change; it does not persist anything.',
+    modules: ['goals'],
+    kind: 'proposal',
+    inputSchema: GoalCreateInputSchema,
+    outputSchema: GoalProposalOutputSchema,
+    async execute(_ctx, input) {
+      return goalPendingAction('add_goal', input, {
+        action: 'add_goal',
+        module: goalModuleLabel(input.module),
+        statement: input.statement,
+        context: input.context ?? '',
+      })
+    },
+  },
+  update_goal: {
+    description: 'After the user explicitly asks to change an existing Goal or its supporting context, prepare an editable confirmation card using an id from list_goals. This only proposes a client-owned change.',
+    modules: ['goals'],
+    kind: 'proposal',
+    inputSchema: UpdateGoalProposalInput,
+    outputSchema: GoalProposalOutputSchema,
+    async execute(ctx, input) {
+      const current = ownedActiveGoal(ctx, input.goalId)
+      const args = {
+        goalId: current.id,
+        ...(input.module !== undefined ? { module: input.module } : {}),
+        ...(input.statement !== undefined ? { statement: input.statement } : {}),
+        ...(input.context !== undefined ? { context: input.context } : {}),
+      }
+      return goalPendingAction('update_goal', args, {
+        action: 'update_goal',
+        current,
+        willBecome: {
+          module: goalModuleLabel(input.module ?? current.module),
+          statement: input.statement ?? current.statement,
+          context: input.context ?? current.context,
+        },
+      })
+    },
+  },
+  archive_goal: {
+    description: 'After the user explicitly asks to remove an active Goal, prepare an archive confirmation card using an id from list_goals. Archiving is reversible and this tool does not persist it.',
+    modules: ['goals'],
+    kind: 'proposal',
+    inputSchema: ArchiveGoalProposalInput,
+    outputSchema: GoalProposalOutputSchema,
+    async execute(ctx, input) {
+      const current = ownedActiveGoal(ctx, input.goalId)
+      return goalPendingAction('archive_goal', { goalId: current.id }, {
+        action: 'archive_goal',
+        current,
+      })
+    },
+  },
   list_work_projects: {
     description: 'List the authenticated user’s bounded Work Projects and open Task counts.',
     modules: ['work'],
@@ -1092,6 +1237,22 @@ export const AiCapabilities = defineCapabilities({
       const date = input.date ?? todayIso()
       const items = await tasksForDay(ctx.userId, date, input.limit)
       return { date, habits: items.filter(item => item.type === 'habit') }
+    },
+  },
+  get_habit_history: {
+    description: 'Read the bounded user-owned Habit record, including per-day outcomes, progress, targets, and deterministic streak summaries.',
+    modules: ['habits'],
+    kind: 'read',
+    inputSchema: HabitHistoryInput,
+    outputSchema: HabitHistorySchema,
+    async execute(ctx, input) {
+      const history = availableHabitHistory(ctx)
+      if (!input.habitId) return history
+      const habit = history.habits.find(candidate => candidate.habitId === input.habitId)
+      if (!habit) {
+        throw new RecoverableToolError(`No Habit history found with id "${input.habitId}".`)
+      }
+      return { ...history, habits: [habit] }
     },
   },
   explain_rollover: {

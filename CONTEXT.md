@@ -24,6 +24,7 @@ These pairs look interchangeable and are not. Every one has caused a real mix-up
 | **Workout session** / **`workout` Item** | A *Workout session* is a dated training record. The `workout` Item type is a scheduled thing on the day. Different tables, different meanings. |
 | **Work session** / **Focus block** | The *Focus block* is the plan; the *Work session* is the durable record of what happened. Only a completed review produces a session — elapsed time never does. |
 | **Achievement** / **Progress** | The same thing. The API, table and route say *Achievement*; the label users see says *Progress*. Do not "fix" either to match the other. |
+| **Goal** / **Goal context** / **Project target** / **Achievement target** | A *Goal* is free-speech direction assigned to a module. *Goal context* is supporting knowledge about that direction, not progress evidence. A *Project target* is the outcome one Work Project owns and Work Tasks relate to. An *Achievement target* is the numeric value a Progress record measures against. Never copy one into another or report a Goal as measured progress. |
 | **Talk workflow** / **Talk stage** / **capability** | Three different things. `plan_work` is a workflow, `draft_task` is a stage inside it, `add_work_task` is a reusable capability any workflow may invoke. See ADR-0009. |
 | **Claim** / **Sign in** | Both take a Guest to an account, and they are opposites. *Claim* converts the Guest's **own** row — one identity, nothing moves, nothing can be lost. *Sign in* abandons that row for an account that **already exists** — two identities, the day travels, and the guest row's credits are forfeit. Never say "sign up" for either. |
 | **User setting** / **release flag** | A *setting* is the user's choice and hides a section for that account. A *flag* is the project's choice and hides a surface from everyone. Work has no setting and is behind a flag. |
@@ -70,13 +71,23 @@ to read *is* a reason.
 Capacity works on day one. A default is a **declared assumption, not a guess**:
 the day always renders the window it computed against.
 
+**Goal** — free-speech, longer-horizon direction assigned to one existing module
+(`whole_day`, `work`, `tasks`, `habits`, `nutrition`, `workouts`, `progress`). A
+Goal carries a separate free-speech **context** for why it matters, background,
+constraints, decisions and useful facts. Context is not a status or progress log.
+A Goal has an active/archived state but no due date, completion, percentage,
+child Tasks or copied module records. Talk may prepare a specific add, edit or
+archive proposal, including a context-only edit, but the app applies it only
+after confirmation. The owning module remains the truth for what was planned
+and what happened.
+
 **Daily Plan reference** — an entry in the day's single ordered plan, tagged
 `plan`, `actual` or `boundary`. It points at the record its module owns; it never
 copies or mutates it. Not a "timeline row" — the plan is the data, the timeline is
 one rendering.
 
 **Local day** — the record of someone's day held on their device rather than on
-the server: Items, Habits, Habit progress, settings **and health** — Calorie
+the server: Goals, Items, Habits, Habit progress, settings **and health** — Calorie
 entries, Weight entries, Workout sessions and plans, Achievements — in **one
 document per person** (ADR-0011, amended 2026-08-25 — it was one per device). It is
 the **source**, not a cache — there is no server copy behind it to fall back to,
@@ -143,3 +154,7 @@ guest mode does not run out.
 AI output must pick from this set; anything else is rejected at the parser
 boundary. The authority is `CategorySchema`; an e2e test asserts the UI offers
 exactly these.
+
+**Goal modules** — `whole_day`, `work`, `tasks`, `habits`, `nutrition`,
+`workouts`, `progress`. These assign direction to existing ownership; they do
+not create new record types inside the Goal.

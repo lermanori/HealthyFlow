@@ -6,6 +6,7 @@ import type {
   DaySummaryItem,
 } from '../../../backend/src/day-summary-schema'
 import HabitContracts, { type HabitOutcome } from '../../../backend/src/habit-contracts'
+import type { HabitHistory } from '../../../backend/src/habit-contracts'
 import SettingsContracts, { type Settings } from '../../../backend/src/settings-schema'
 import {
   localAchievements,
@@ -24,7 +25,12 @@ import {
 } from './store'
 
 const { SettingsSchema } = SettingsContracts
-const { deriveHabitOutcome, resolveHabitOutcomeRequest } = HabitContracts
+const {
+  composeHabitHistory,
+  deriveHabitOutcome,
+  HabitHistoryQuerySchema,
+  resolveHabitOutcomeRequest,
+} = HabitContracts
 const {
   buildDaySummaryCore,
   composeDayTaskRows,
@@ -105,6 +111,65 @@ export async function localItemsForDay(
     const chunkRows = grouped[String(row.id)] ?? []
     const progressTotal = chunkRows.reduce((sum, chunk) => sum + Number(chunk.amount), 0)
     return itemRowToClient(row, progressTotal, { timeZone, chunkRows })
+  })
+}
+
+/**
+ * A bounded Habit record for Talk, composed from the same Local day that Today
+ * reads. An absent instance is deliberately `not_recorded`; reading history must
+ * never materialize a virtual Habit day or turn missing evidence into failure.
+ */
+export async function buildLocalHabitHistory(
+  userId: string,
+  rawQuery: unknown,
+): Promise<HabitHistory> {
+  const query = HabitHistoryQuerySchema.parse(rawQuery)
+  const database = await loadLocalDatabase(userId)
+  const fromDate = new Date(`${query.to}T00:00:00.000Z`)
+  fromDate.setUTCDate(fromDate.getUTCDate() - (query.days - 1))
+  const from = fromDate.toISOString().slice(0, 10)
+  const rows = liveRows(database)
+  const totals = database.habitProgress.reduce((byInstance, entry) => {
+    byInstance.set(entry.habit_instance_id, (byInstance.get(entry.habit_instance_id) ?? 0) + Number(entry.amount))
+    return byInstance
+  }, new Map<string, number>())
+
+  return composeHabitHistory({
+    ...query,
+    habits: rows
+      .filter(row => row.type === 'habit' && row.repeat_type === 'daily' && !row.original_habit_id)
+      .map(row => ({
+        id: row.id,
+        title: row.title,
+        category: row.category,
+        createdDate: row.created_at.slice(0, 10),
+        target: row.habit_target_value == null || !['minutes', 'reps', 'count'].includes(row.habit_target_unit ?? '')
+          ? null
+          : {
+              value: row.habit_target_value,
+              unit: row.habit_target_unit as 'minutes' | 'reps' | 'count',
+            },
+      })),
+    instances: rows
+      .filter(row => (
+        row.type === 'habit'
+        && Boolean(row.original_habit_id)
+        && Boolean(row.scheduled_date)
+        && row.scheduled_date! >= from
+        && row.scheduled_date! <= query.to
+      ))
+      .map(row => ({
+        habitId: row.original_habit_id!,
+        date: row.scheduled_date!,
+        outcome: row.habit_outcome ?? (row.completed ? 'completed' as const : 'pending' as const),
+        progressTotal: totals.get(row.id) ?? 0,
+        target: row.habit_target_value == null || !['minutes', 'reps', 'count'].includes(row.habit_target_unit ?? '')
+          ? null
+          : {
+              value: row.habit_target_value,
+              unit: row.habit_target_unit as 'minutes' | 'reps' | 'count',
+            },
+      })),
   })
 }
 

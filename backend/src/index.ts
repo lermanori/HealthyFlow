@@ -28,6 +28,7 @@ import { accountRoutes } from './routes/account'
 import { daySummaryRoutes } from './routes/day-summary'
 import { waitlistRoutes } from './routes/waitlist'
 import { mobileRoutes } from './routes/mobile'
+import { goalRoutes } from './routes/goals'
 import { initDatabase } from './db/database'
 import { db } from './supabase-client'
 import { startProactivityScheduler } from './proactivity'
@@ -145,6 +146,7 @@ app.use('/api/work', workRoutes)
 app.use('/api/calendar', calendarRoutes)
 app.use('/api/credits', creditsRoutes)
 app.use('/api/settings', settingsRoutes)
+app.use('/api/goals', goalRoutes)
 app.use('/api/sync', syncRoutes)
 app.use('/api/calories', caloriesRoutes)
 app.use('/api/weight', weightRoutes)

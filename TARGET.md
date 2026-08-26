@@ -73,6 +73,7 @@ when it cannot know.
 | Today timeline | | ✓ | ✓ | Keep |
 | Rollover | | ✓ | ✓ | Keep — nothing is silently dropped |
 | Capacity, attention | | | ✓ | Keep — the differentiator |
+| Goals | ✓ | | ✓ | Keep — remembered direction makes Talk easier and separates intention from plan or outcome; **direction only, never a second task lifecycle** |
 | Habits | | ✓ | ✓ | Keep |
 | Food, weight, training | | ✓ | | **Keep — core, not optional** |
 | Google Calendar | | ✓ | ✓ | Keep — obligations you did not type |
@@ -226,7 +227,7 @@ softening a rule to survive a release is how the rule dies.
   Guest mode closes this — on iPhone. The web still asks for an account, and
   reaches parity later.
 
-A Guest's Items, Habits, settings **and health** — food,
+A Guest's Goals, Items, Habits, settings **and health** — food,
 weight, training and progress — live on their device, so nothing is withheld from
 someone without an account. That gap closed on 2026-08-21 and was the contradiction
 ADR-0011 recorded.
