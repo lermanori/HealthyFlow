@@ -1,3 +1,16 @@
+### 2026-08-26 — `claude/marketing-strategy-focus-6eveei`
+
+Wrote a marketing focus report grounded in what the code actually ships today, not
+in the July plan's assumptions. The finding is that the funnel is closed by
+construction — no install path on the landing page, cold signup still slot-gated
+against ADR-0012, guest mode iPhone-only, and no payment rail on any surface — so
+the recommended order is App Store listing, then the till, then the web door,
+before any outreach. It also records four documents that are now false, including
+`TARGET.md`'s stale parse-telemetry claim and a project board untouched since
+2026-07-30.
+
+---
+
 ### 2026-08-25 16:25 — `main`
 
 Real-device Airplane Mode verification exposed that Cloud status waited for an HTTP rejection and never listened for the native offline boundary, so iOS could remain silent while a request hung. Cloud sync now checks Capacitor's connection state before every attempt and surfaces the persistent safe-on-device notice immediately on an offline event; the exact browser reproduction and all 223 frontend tests are green.
