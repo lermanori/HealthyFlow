@@ -668,6 +668,30 @@ describe('POST /api/ai/chat', () => {
     expect(systemPrompt).toContain('never proves that an Item exists, is scheduled, or is complete')
   })
 
+  it('keeps dated progress reports out of Goal context at the effective model boundary', async () => {
+    let observedBody: any
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions', (body: any) => {
+        observedBody = body
+        return true
+      })
+      .reply(200, finalAnswerResponse)
+
+    const response = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-goal-progress-boundary'))
+      .send({
+        messages: [{ role: 'user', content: 'Update my Goal context that today I worked on the Talk algorithm.' }],
+      })
+
+    expect(response.status).toBe(200)
+    const systemMessage = observedBody.messages.find((message: any) => message.role === 'system')
+    expect(systemMessage.content).toContain('do not call add_goal or update_goal')
+    expect(systemMessage.content).toContain('"today I worked on"')
+    const updateGoalTool = observedBody.tools.find((tool: any) => tool.function?.name === 'update_goal')
+    expect(updateGoalTool.function.description).toContain('Do not append dated activity or completed work')
+  })
+
   it('passes assistant context from a chat request into the system prompt', async () => {
     let observedBody: any
     nock('https://api.openai.com')
@@ -822,6 +846,70 @@ describe('POST /api/ai/chat', () => {
       expiresAt: expect.any(String),
     })])
     expect(db.createAiPendingAction).not.toHaveBeenCalled()
+  })
+
+  it('recovers when the model copies JSON Schema format metadata into a Goal edit', async () => {
+    const goal = {
+      id: '22222222-2222-4222-8222-222222222222',
+      module: 'whole_day',
+      statement: 'Launch HealthyFlow.',
+      context: 'Prepare the first App Store release.',
+      createdAt: '2026-08-26T08:00:00.000Z',
+      updatedAt: '2026-08-26T08:00:00.000Z',
+      archivedAt: null,
+    }
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, multiToolCallResponse([
+        { name: 'list_goals' },
+        {
+          name: 'update_goal',
+          args: {
+            goalId: goal.id,
+            context: 'Protect the launch review before submission.',
+            format: 'uuid',
+          },
+        },
+      ]))
+      .post('/v1/chat/completions')
+      .reply(200, toolCallResponse('update_goal', {
+        goalId: goal.id,
+        context: 'Protect the launch review before submission.',
+      }))
+      .post('/v1/chat/completions')
+      .reply(200, {
+        choices: [{ message: { content: 'I corrected the Goal change. Confirm it to save.' } }],
+        usage: { prompt_tokens: 120, completion_tokens: 12, total_tokens: 132 },
+      })
+
+    const response = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-goal-format-recovery'))
+      .send({
+        messages: [{ role: 'user', content: 'Update my launch Goal context.' }],
+        assistantContext: {
+          ownerName: 'Ori',
+          profile: {
+            preferredName: null,
+            responseStyle: 'concise',
+            planningStyle: 'one_step_at_a_time',
+            followUpMode: 'ask_about_outcomes',
+          },
+          goals: { status: 'ready', records: [goal] },
+        },
+      })
+
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual(expect.objectContaining({
+      message: 'I corrected the Goal change. Confirm it to save.',
+      pendingActions: [expect.objectContaining({
+        capability: 'update_goal',
+        args: {
+          goalId: goal.id,
+          context: 'Protect the launch review before submission.',
+        },
+      })],
+    }))
   })
 
   it('uses nutrition lookup tools before preparing a Hebrew food-log preview', async () => {
