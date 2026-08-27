@@ -488,18 +488,25 @@
     padding-bottom: calc(var(--mobile-dock-height) + 1rem);
   }
 
+  .talk-main-content {
+    height: max(0px, calc(
+      var(--talk-viewport-bottom, 100dvh)
+      - var(--mobile-header-height)
+      - var(--talk-dock-reserve, var(--mobile-dock-height))
+    ));
+  }
+
   .mobile-bottom-dock {
     height: var(--mobile-dock-height);
     padding-bottom: env(safe-area-inset-bottom);
   }
 
   .assistant-composer-form {
-    bottom: var(--mobile-dock-height);
     padding-bottom: 0.625rem;
   }
 
   .assistant-messages-scroll {
-    padding-bottom: calc(var(--mobile-dock-height) + 8rem);
+    padding-bottom: 1.25rem;
   }
 }
 

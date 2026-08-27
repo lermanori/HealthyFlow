@@ -364,6 +364,31 @@ function shortValue(value: unknown) {
   return JSON.stringify(value)
 }
 
+function measureTextareaContentHeight(input: HTMLTextAreaElement) {
+  const clone = input.cloneNode() as HTMLTextAreaElement
+  clone.removeAttribute('data-demo-id')
+  clone.removeAttribute('id')
+  clone.setAttribute('aria-hidden', 'true')
+  clone.tabIndex = -1
+  clone.value = input.value
+  clone.placeholder = ''
+  Object.assign(clone.style, {
+    position: 'fixed',
+    visibility: 'hidden',
+    pointerEvents: 'none',
+    inset: '0 auto auto 0',
+    width: `${input.getBoundingClientRect().width}px`,
+    height: '0px',
+    minHeight: '0px',
+    maxHeight: 'none',
+    overflow: 'hidden',
+  })
+  document.body.appendChild(clone)
+  const contentHeight = clone.scrollHeight
+  clone.remove()
+  return contentHeight
+}
+
 function summarizeArgs(args: unknown) {
   if (!args || typeof args !== 'object' || Array.isArray(args)) return ''
   const value = args as Record<string, unknown>
@@ -522,6 +547,7 @@ export default function AssistantPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesScrollRef = useRef<HTMLDivElement>(null)
+  const transcriptScrollStateRef = useRef({ scrollTop: 0, distanceFromBottom: 0 })
   const opensFreshSignalChatRef = useRef(signalContext !== null || workContext !== null || handoffContext !== null)
   const skipNextPersistRef = useRef(false)
   const saveTimerRef = useRef<number | null>(null)
@@ -555,24 +581,92 @@ export default function AssistantPage() {
     const input = inputRef.current
     if (!input) return
 
-    input.style.height = 'auto'
-    const maxHeight = Number.parseFloat(window.getComputedStyle(input).maxHeight)
-    const nextHeight = Math.min(input.scrollHeight, Number.isFinite(maxHeight) ? maxHeight : input.scrollHeight)
-    input.style.height = `${nextHeight}px`
-    input.style.overflowY = input.scrollHeight > nextHeight ? 'auto' : 'hidden'
+    const resizeInput = () => {
+      const styles = window.getComputedStyle(input)
+      const minHeight = Number.parseFloat(styles.minHeight)
+      const maxHeight = Number.parseFloat(styles.maxHeight)
+      // A textarea in a flex item's intrinsic-size pass can report the flex
+      // allocation as scrollHeight. Measure an off-flow twin at the same width so
+      // the composer grows from its content instead of feeding back its container.
+      const contentHeight = measureTextareaContentHeight(input)
+      const nextHeight = Math.max(
+        Number.isFinite(minHeight) ? minHeight : 0,
+        Math.min(contentHeight, Number.isFinite(maxHeight) ? maxHeight : contentHeight),
+      )
+      input.style.height = `${nextHeight}px`
+      input.style.overflowY = contentHeight > nextHeight ? 'auto' : 'hidden'
 
-    if (document.activeElement === input && input.selectionStart === input.value.length) {
-      input.scrollTop = input.scrollHeight
+      if (document.activeElement === input && input.selectionStart === input.value.length) {
+        input.scrollTop = input.scrollHeight
+      }
+    }
+
+    let measuredWidth = input.getBoundingClientRect().width
+    const resizeObserver = new ResizeObserver(([entry]) => {
+      const nextWidth = entry.contentRect.width
+      if (Math.abs(nextWidth - measuredWidth) < 0.5) return
+      measuredWidth = nextWidth
+      resizeInput()
+    })
+    resizeInput()
+    resizeObserver.observe(input)
+    const frame = window.requestAnimationFrame(resizeInput)
+    return () => {
+      resizeObserver.disconnect()
+      window.cancelAnimationFrame(frame)
     }
   }, [draft])
 
   useLayoutEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       const scroll = messagesScrollRef.current
-      if (scroll) scroll.scrollTop = scroll.scrollHeight
+      if (scroll) {
+        scroll.scrollTop = scroll.scrollHeight
+        transcriptScrollStateRef.current = {
+          scrollTop: scroll.scrollTop,
+          distanceFromBottom: Math.max(0, scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight),
+        }
+      }
     })
     return () => window.cancelAnimationFrame(frame)
   }, [messages])
+
+  useEffect(() => {
+    const scroll = messagesScrollRef.current
+    if (!scroll) return
+
+    let frame: number | null = null
+    const rememberScrollPosition = () => {
+      transcriptScrollStateRef.current = {
+        scrollTop: scroll.scrollTop,
+        distanceFromBottom: Math.max(0, scroll.scrollHeight - scroll.scrollTop - scroll.clientHeight),
+      }
+    }
+    const resizeObserver = new ResizeObserver(() => {
+      if (frame !== null) window.cancelAnimationFrame(frame)
+      const previous = transcriptScrollStateRef.current
+      frame = window.requestAnimationFrame(() => {
+        if (previous.distanceFromBottom <= 48) {
+          scroll.scrollTop = Math.max(
+            0,
+            scroll.scrollHeight - scroll.clientHeight - previous.distanceFromBottom,
+          )
+        } else {
+          scroll.scrollTop = previous.scrollTop
+        }
+        rememberScrollPosition()
+      })
+    })
+
+    rememberScrollPosition()
+    scroll.addEventListener('scroll', rememberScrollPosition, { passive: true })
+    resizeObserver.observe(scroll)
+    return () => {
+      scroll.removeEventListener('scroll', rememberScrollPosition)
+      resizeObserver.disconnect()
+      if (frame !== null) window.cancelAnimationFrame(frame)
+    }
+  }, [])
 
   useEffect(() => {
     if (isSending || !shouldRefocusComposerRef.current) return
@@ -1382,7 +1476,7 @@ export default function AssistantPage() {
         </div>
       )}
 
-      <div ref={messagesScrollRef} className="assistant-messages-scroll flex-1 space-y-4 overflow-y-auto px-4 pt-5 md:pb-5">
+      <div ref={messagesScrollRef} className="assistant-messages-scroll min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 pt-5 md:pb-5">
         {messages.length === 0 ? (
           <div className="grid gap-2 sm:grid-cols-3">
             {starterPrompts.map((prompt) => (
@@ -1493,7 +1587,7 @@ export default function AssistantPage() {
         )}
       </div>
 
-      <form onSubmit={submit} className="assistant-composer-form fixed left-0 right-0 z-20 border-t border-card bg-sunken/95 px-2.5 pt-2.5 backdrop-blur-xl md:static md:bg-transparent md:p-3 md:backdrop-blur-none">
+      <form onSubmit={submit} className="assistant-composer-form z-20 flex-none border-t border-card bg-sunken/95 px-2.5 pt-2.5 backdrop-blur-xl md:bg-transparent md:p-3 md:backdrop-blur-none">
         {talkRecovery && (
           <div className="mb-2 flex min-h-11 items-center justify-between gap-3 rounded-lg border border-state-warning/40 bg-state-warning/10 px-3 py-2 text-sm" role="status">
             <span className="text-ink">

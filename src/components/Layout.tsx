@@ -1,5 +1,7 @@
-import { ReactNode, useEffect, useState, useRef } from 'react'
+import { ReactNode, useEffect, useState, useRef, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
+import { Capacitor } from '@capacitor/core'
+import { Keyboard } from '@capacitor/keyboard'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   Home,
@@ -29,7 +31,7 @@ import { WEEK_VIEW_ENABLED, WORK_ENABLED } from '../featureFlags'
 import { MODULE_PRESENTATIONS } from '../modulePresentation'
 import { parseDemoPersonaId } from '../demoPersonas'
 import { analytics } from '../lib/analytics'
-import { isNativeApp } from '../lib/native'
+import { isNativeApp, isNativeIOS } from '../lib/native'
 
 interface LayoutProps {
   children: ReactNode
@@ -48,12 +50,29 @@ interface NavigationGroup {
   items: NavigationItem[]
 }
 
+type TalkViewport = {
+  bottom: number
+  keyboardOpen: boolean
+}
+
+function currentViewportBottom() {
+  const visualViewport = window.visualViewport
+  return Math.min(
+    window.innerHeight,
+    visualViewport ? visualViewport.offsetTop + visualViewport.height : window.innerHeight,
+  )
+}
+
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout, isGuest } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [talkViewport, setTalkViewport] = useState<TalkViewport>(() => ({
+    bottom: currentViewportBottom(),
+    keyboardOpen: false,
+  }))
   const contentRef = useRef<HTMLDivElement>(null)
   const mobileMenuRef = useRef<HTMLDivElement>(null)
   const mobileMenuCloseRef = useRef<HTMLButtonElement>(null)
@@ -83,6 +102,97 @@ export default function Layout({ children }: LayoutProps) {
 
   const { modules, resolution, retry } = useSettings()
   const isTalkPage = location.pathname === '/talk'
+
+  useEffect(() => {
+    if (!isMobile || !isTalkPage) return
+
+    let disposed = false
+    let nativeKeyboardHeight = 0
+    let closedViewportBottom = Math.max(window.innerHeight, currentViewportBottom())
+    const nativeListenerHandles: Array<{ remove: () => Promise<void> }> = []
+
+    const measure = () => {
+      const visibleBottom = currentViewportBottom()
+      const composerFocused = document.activeElement?.matches('[data-demo-id="talk-input"]') ?? false
+      const visuallyShrunk = composerFocused && visibleBottom < closedViewportBottom - 80
+
+      if (nativeKeyboardHeight === 0 && !visuallyShrunk) {
+        closedViewportBottom = Math.max(window.innerHeight, visibleBottom)
+      }
+
+      const nativeKeyboardTop = nativeKeyboardHeight > 0
+        ? Math.max(0, closedViewportBottom - nativeKeyboardHeight)
+        : visibleBottom
+      const nextViewport = {
+        bottom: Math.min(visibleBottom, nativeKeyboardTop),
+        keyboardOpen: nativeKeyboardHeight > 0 || visuallyShrunk,
+      }
+      setTalkViewport((current) => (
+        current.bottom === nextViewport.bottom && current.keyboardOpen === nextViewport.keyboardOpen
+          ? current
+          : nextViewport
+      ))
+    }
+
+    const visualViewport = window.visualViewport
+    window.addEventListener('resize', measure)
+    window.addEventListener('focusin', measure)
+    window.addEventListener('focusout', measure)
+    visualViewport?.addEventListener('resize', measure)
+    visualViewport?.addEventListener('scroll', measure)
+    measure()
+
+    if (isNativeIOS && Capacitor.isPluginAvailable('Keyboard')) {
+      void Promise.all([
+        Keyboard.addListener('keyboardWillShow', ({ keyboardHeight }) => {
+          nativeKeyboardHeight = keyboardHeight
+          measure()
+        }),
+        Keyboard.addListener('keyboardDidShow', ({ keyboardHeight }) => {
+          nativeKeyboardHeight = keyboardHeight
+          measure()
+        }),
+        Keyboard.addListener('keyboardWillHide', () => {
+          nativeKeyboardHeight = 0
+          measure()
+        }),
+        Keyboard.addListener('keyboardDidHide', () => {
+          nativeKeyboardHeight = 0
+          measure()
+        }),
+      ]).then((handles) => {
+        if (disposed) {
+          void Promise.all(handles.map((handle) => handle.remove())).catch((error) => {
+            console.error('[talk-viewport] Could not remove late Keyboard listeners.', error)
+          })
+          return
+        }
+        nativeListenerHandles.push(...handles)
+      }).catch((error) => {
+        console.error('[talk-viewport] Could not register Keyboard listeners.', error)
+      })
+    }
+
+    return () => {
+      disposed = true
+      window.removeEventListener('resize', measure)
+      window.removeEventListener('focusin', measure)
+      window.removeEventListener('focusout', measure)
+      visualViewport?.removeEventListener('resize', measure)
+      visualViewport?.removeEventListener('scroll', measure)
+      void Promise.all(nativeListenerHandles.map((handle) => handle.remove())).catch((error) => {
+        console.error('[talk-viewport] Could not remove Keyboard listeners.', error)
+      })
+      setTalkViewport({ bottom: currentViewportBottom(), keyboardOpen: false })
+    }
+  }, [isMobile, isTalkPage])
+
+  const talkMainStyle = isMobile && isTalkPage
+    ? {
+        '--talk-viewport-bottom': `${talkViewport.bottom}px`,
+        '--talk-dock-reserve': talkViewport.keyboardOpen ? '0px' : 'var(--mobile-dock-height)',
+      } as CSSProperties
+    : undefined
   const searchParams = new URLSearchParams(location.search)
   const isDemo = location.pathname === '/demo' || Boolean(searchParams.get('demo')) || Boolean(localStorage.getItem('demoPersona'))
   const handleSessionExit = () => {
@@ -479,10 +589,11 @@ export default function Layout({ children }: LayoutProps) {
           className={`min-w-0 flex-1 overflow-x-hidden ${
             isMobile
               ? isTalkPage
-                ? 'mt-[var(--mobile-header-height)] h-[calc(100dvh-var(--mobile-header-height))] p-0'
+                ? 'talk-main-content mt-[var(--mobile-header-height)] p-0'
                 : 'mobile-main-content mt-[var(--mobile-header-height)] p-4'
               : 'p-6'
           }`}
+          style={talkMainStyle}
           ref={contentRef}
         >
           <div className={`min-w-0 ${isMobile ? `max-w-full ${isTalkPage ? 'h-full' : ''}` : 'max-w-6xl'} mx-auto`}>
@@ -524,7 +635,7 @@ export default function Layout({ children }: LayoutProps) {
       </div>
 
       {/* Mobile Bottom Navigation — hidden while the drawer is open so it doesn't cover the drawer's Logout button */}
-      {isMobile && !isMobileMenuOpen && (
+      {isMobile && !isMobileMenuOpen && !(isTalkPage && talkViewport.keyboardOpen) && (
         <div className="mobile-bottom-dock fixed bottom-0 left-0 right-0 z-30 border-t border-line/50 bg-page/95 backdrop-blur-xl">
           <nav aria-label="Primary" className="mx-auto grid h-[var(--mobile-dock-content-height)] max-w-sm grid-cols-3 px-4 py-1">
             {primaryMobileNavigation.map((item) => {

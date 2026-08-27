@@ -1,3 +1,9 @@
+### 2026-08-27 20:29 — `codex/fix-talk-ios-keyboard-214`
+
+Fixed Talk treating the iPhone keyboard as if the full layout viewport were still usable. Talk now follows the visual viewport with Capacitor keyboard-height backup, removes the bottom dock while typing, keeps the composer and caret above the keyboard, and preserves either the latest turn or the user's scrolled-back reading position through resize and rotation. Both typechecks, 272 frontend tests, 830 backend tests, 23 focused Talk browser tests, production/iOS builds and the supplied real-iPhone screenshot are green.
+
+---
+
 ### 2026-08-27 19:06 — `fix/talk-local-day-refresh-213`
 
 Fixed Talk confirmations leaving the iPhone's Local day stale until the app restarted. Confirmed Task, Habit, nutrition, weight, Workout and Achievement changes now enter the device document immediately with their server ids, while hosted Work remains hosted and unknown future writes fail visibly. The focused no-restart browser regression, 272 frontend tests, 830 backend tests, both typechecks, lint, production/iOS builds and a real-device smoke test are green.
