@@ -113,6 +113,23 @@ test('Native iOS Talk uses keyboard dictation instead of showing the custom micr
   await expect(page.getByRole('button', { name: 'Start dictation' })).toHaveCount(0)
 })
 
+test('Mobile Add handoff focuses Talk and Back returns to the manual form', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.route('**/api/ai/conversations', (route) => route.fulfill({ json: [] }))
+
+  await page.goto('/app/add')
+  await page.getByRole('button', { name: 'Open Talk', exact: true }).click()
+
+  await expect(page).toHaveURL(/\/app\/talk$/)
+  const composer = page.getByPlaceholder(/Add anything/)
+  await expect(composer).toHaveValue(/Help me add a Task/)
+  await expect(composer).toBeFocused()
+
+  await page.goBack()
+  await expect(page).toHaveURL(/\/app\/add$/)
+  await expect(page.getByRole('heading', { name: 'Add Item' })).toBeVisible()
+})
+
 test('Talk sends a bounded verified Habit-history snapshot with the turn', async ({ page }) => {
   const to = formatLocalDate(new Date())
   let requestBody: { assistantContext?: { habitHistory?: unknown } } | null = null

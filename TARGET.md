@@ -104,8 +104,11 @@ it is an opinion.
   anyway.
 - Items captured per dump, and how often a review is abandoned instead of saved.
 
-*Instrumented today:* `ai_parse_requested` fires. **Nothing records whether it
-succeeded.** Reliability is currently a P0 concern with no telemetry behind it.
+*Instrumented today:* every Talk send emits `ai_question_asked` with a structured
+entry point, model and attachment presence, but never the user's text. Server
+usage logs identify `ai-chat` and its capability calls with token counts. The
+funnel is visible; parse-result edit distance and abandoned proposal review are
+still not measured.
 
 ### Scope — does the whole day live here?
 
@@ -114,8 +117,9 @@ succeeded.** Reliability is currently a P0 concern with no telemetry behind it.
   this product.
 
 *Instrumented today:* `item_created`, `calorie_entry_logged`, `weight_logged` and
-`workout_logged` all fire, and the first two carry `source: manual | ai_parse`.
-Breadth per person is derivable but has never been defined as a measure.
+`workout_logged` all fire. The first two retain their historical
+`source: manual | ai_parse` contract; AI creation now starts in Talk. Breadth per
+person is derivable but has never been defined as a measure.
 
 ### Truth — is the number seen, right, and acted on?
 

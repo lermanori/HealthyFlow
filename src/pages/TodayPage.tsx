@@ -12,7 +12,6 @@ import { format, addDays, subDays, isSameDay, isBefore } from 'date-fns'
 import {
   AlertTriangle,
   Award,
-  Brain,
   Calendar,
   CalendarDays,
   CheckCircle2,
@@ -21,6 +20,7 @@ import {
   Clock,
   Dumbbell,
   HeartPulse,
+  MessageSquare,
   Plus,
   RotateCcw,
   Share2,
@@ -28,7 +28,7 @@ import {
   Trash2,
   Utensils,
 } from 'lucide-react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import FocusBlockRow from '../components/today/FocusBlockRow'
 import FocusBlockOverlay from '../components/today/FocusBlockOverlay'
 import WorkReviewSheet from '../components/work/WorkReviewSheet'
@@ -58,7 +58,6 @@ import AIRecommendationsBox from '../components/AIRecommendationsBox'
 import { DAILY_SIGNALS_ENABLED } from '../featureFlags'
 import TaskEditModal from '../components/TaskEditModal'
 import SmartReminders from '../components/SmartReminders'
-import AITextAnalyzer from '../components/AITextAnalyzer'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { showUndoToast } from '../components/UndoToast'
 import {
@@ -72,7 +71,6 @@ import {
 } from '../utils/dateHelpers'
 import toast from 'react-hot-toast'
 import { motion, AnimatePresence } from 'framer-motion'
-import { createPortal } from 'react-dom'
 import { useSettings } from '../hooks/useSettings'
 import { clearLocalDay, isStrandedLocalDay } from '../lib/local/store'
 import { useHeldDay } from '../hooks/useHeldDay'
@@ -86,6 +84,7 @@ import {
 import { analytics } from '../lib/analytics'
 import { completionHaptic, shareFromHealthyFlow } from '../lib/native'
 import { updateTodayWidget } from '../lib/widget'
+import { talkHandoffState } from '../talkHandoff'
 
 const touchpointCtas: Record<TouchpointType, { title: string; body: string; button: string }> = {
   morning: {
@@ -1089,7 +1088,6 @@ export default function TodayPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [now, setNow] = useState(new Date())
   const [editingTask, setEditingTask] = useState<Task | null>(null)
-  const [showAIAnalyzer, setShowAIAnalyzer] = useState(false)
   const [habitDeleteCandidate, setHabitDeleteCandidate] = useState<Task | null>(null)
   const [habitCheckIn, setHabitCheckIn] = useState<HabitItem | null>(null)
   const [daySwipeOffset, setDaySwipeOffset] = useState(0)
@@ -1098,6 +1096,7 @@ export default function TodayPage() {
   const daySwipeGesture = useRef<DaySwipeGesture | null>(null)
   const queryClient = useQueryClient()
   const location = useLocation()
+  const navigate = useNavigate()
   // Read once at mount, not inside the error branch: a hook cannot be called
   // conditionally, and the screens below need to know whose day this device holds.
   const heldDay = useHeldDay()
@@ -1110,15 +1109,20 @@ export default function TodayPage() {
   )
   const selectedDateKey = format(selectedDate, 'yyyy-MM-dd')
 
-  // Check for AI parameter in URL
+  // Old AI deep links now enter the one Talk composer with typed context.
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     if (params.get('ai') === 'true') {
-      setShowAIAnalyzer(true)
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname)
+      navigate('/talk', {
+        replace: true,
+        state: talkHandoffState({
+          source: 'today',
+          intent: 'plan_day',
+          date: selectedDateKey,
+        }),
+      })
     }
-  }, [location])
+  }, [location.search, navigate, selectedDateKey])
 
   useEffect(() => {
     const intervalId = window.setInterval(() => setNow(new Date()), 60_000)
@@ -1432,16 +1436,6 @@ export default function TodayPage() {
     },
   })
 
-  const completeOnboardingMutation = useMutation({
-    mutationFn: onboardingService.complete,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
-      queryClient.invalidateQueries({ queryKey: ['achievements'] })
-      toast.success('Onboarding complete. Achievement unlocked!')
-    },
-    onError: () => toast.error('Failed to complete onboarding'),
-  })
-
   const skipOnboardingMutation = useMutation({
     mutationFn: onboardingService.skip,
     onSuccess: () => {
@@ -1552,7 +1546,7 @@ export default function TodayPage() {
       resetDaySwipe()
       return
     }
-    if (showAIAnalyzer || habitDeleteCandidate || editingTask || habitCheckIn) {
+    if (habitDeleteCandidate || editingTask || habitCheckIn) {
       resetDaySwipe()
       return
     }
@@ -1881,47 +1875,22 @@ export default function TodayPage() {
             </button>
             <button
               type="button"
-              onClick={() => setShowAIAnalyzer(true)}
+              onClick={() => navigate('/talk', {
+                state: talkHandoffState({
+                  source: 'today',
+                  intent: 'plan_day',
+                  date: selectedDateKey,
+                  onboarding: true,
+                  demoPersona: demoAcquisition?.persona,
+                }),
+              })}
               className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-action px-4 text-sm font-semibold text-on-action hover:bg-action-hover"
             >
-              <Brain className="h-4 w-4" aria-hidden="true" />
-              Start
+              <MessageSquare className="h-4 w-4" aria-hidden="true" />
+              Open Talk
             </button>
           </div>
         </section>
-      )}
-
-      {/* AI Text Analyzer Modal */}
-      {createPortal(
-        <AnimatePresence>
-          {showAIAnalyzer && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed left-0 top-0 z-[9999] flex h-dvh w-dvw items-start justify-center overflow-y-auto bg-sunken/80 px-2 py-3 backdrop-blur-sm sm:items-center sm:p-4"
-              onClick={() => setShowAIAnalyzer(false)}
-            >
-              <div onClick={(e) => e.stopPropagation()} className="flex w-full max-w-4xl items-stretch sm:block">
-                <AITextAnalyzer
-                  onClose={() => setShowAIAnalyzer(false)}
-                  onConfirmed={() => {
-                    if (demoAcquisition) {
-                      analytics.capture('first_real_day_activation_completed', {
-                        persona: demoAcquisition.persona,
-                      })
-                      clearDemoAcquisition()
-                      setDemoAcquisition(null)
-                    }
-                    if (settings?.onboardingStatus === 'active') completeOnboardingMutation.mutate()
-                  }}
-                  scheduledDate={format(selectedDate, 'yyyy-MM-dd')}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>,
-        document.body
       )}
 
       <AnimatePresence>

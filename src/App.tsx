@@ -10,7 +10,6 @@ import SettingsPage from './pages/SettingsPage'
 import TokenManagerPage from './pages/TokenManagerPage'
 import CaloriesPage from './pages/CaloriesPage'
 import HealthPage from './pages/HealthPage'
-import MealParserLabPage from './pages/MealParserLabPage'
 import AchievementsPage from './pages/AchievementsPage'
 import WorkoutsPage from './pages/WorkoutsPage'
 import AssistantPage from './pages/AssistantPage'
@@ -34,6 +33,7 @@ import {
   type OptionalModule,
 } from './modulePresentation'
 import { WEEK_VIEW_ENABLED, WORK_ENABLED } from './featureFlags'
+import { talkHandoffState } from './talkHandoff'
 
 export interface ModuleNoticeState {
   moduleNotice: {
@@ -148,7 +148,16 @@ function App() {
           <Route path="/sign-in" element={<SignInPage />} />
           <Route path="/settings/*" element={<SettingsPage />} />
           <Route path="/token-manager" element={user.role === 'admin' ? <TokenManagerPage /> : <Navigate to="/" replace />} />
-          <Route path="/meal-ocr-lab" element={user.role === 'admin' ? <MealParserLabPage /> : <Navigate to="/" replace />} />
+          <Route
+            path="/meal-ocr-lab"
+            element={(
+              <Navigate
+                to="/talk"
+                replace
+                state={talkHandoffState({ source: 'nutrition', intent: 'log_nutrition' })}
+              />
+            )}
+          />
           <Route
             path="/health"
             element={(

@@ -1534,19 +1534,41 @@ export const connectionsService = {
   },
 }
 
+const completeOnboarding = onDevice(
+  async (userId): Promise<{ status: 'completed' }> => {
+    await localServices.updateSettings(userId, { onboardingStatus: 'completed' })
+    return { status: 'completed' }
+  },
+  async (): Promise<{ status: 'completed' }> => {
+    const response = await api.post('/onboarding/complete')
+    return response.data
+  },
+)
+
+const skipOnboarding = onDevice(
+  async (userId): Promise<{ status: 'skipped' }> => {
+    await localServices.updateSettings(userId, { onboardingStatus: 'skipped' })
+    return { status: 'skipped' }
+  },
+  async (): Promise<{ status: 'skipped' }> => {
+    const response = await api.post('/onboarding/skip')
+    return response.data
+  },
+)
+
 export const onboardingService = {
   complete: async (): Promise<{ status: 'completed' }> => {
-    const response = await api.post('/onboarding/complete')
+    const result = await completeOnboarding()
     analytics.capture('onboarding_completed')
     analytics.setUserProperties({ onboarding_status: 'completed' })
-    return response.data
+    return result
   },
 
   skip: async (): Promise<{ status: 'skipped' }> => {
-    const response = await api.post('/onboarding/skip')
+    const result = await skipOnboarding()
     analytics.capture('onboarding_skipped')
     analytics.setUserProperties({ onboarding_status: 'skipped' })
-    return response.data
+    return result
   },
 }
 

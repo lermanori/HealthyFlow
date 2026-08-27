@@ -1,19 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AnimatePresence } from 'framer-motion'
 import { createPortal } from 'react-dom'
-import { useSearchParams } from 'react-router-dom'
-import { Activity, Utensils, Plus, Trash2, Pencil, X, Check, Sparkles, Clock, Scale, TrendingDown, TrendingUp, Minus } from 'lucide-react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Activity, Utensils, Plus, Trash2, Pencil, X, Check, MessageSquare, Clock, Scale, TrendingDown, TrendingUp, Minus } from 'lucide-react'
 import { format } from 'date-fns'
 import { useCalorieEntries } from '../hooks/useCalorieEntries'
 import { CalorieEntry, CalorieEntryInput, CalorieItem, WeightEntry } from '../services/api'
 import { useWeightTracking } from '../hooks/useWeightTracking'
-import MealAnalyzer from '../components/MealAnalyzer'
 import { useCalorieItems } from '../hooks/useCalorieItems'
 import { useModalFocus } from '../hooks/useModalFocus'
 import IconButton from '../components/IconButton'
 import HealthDayNavigator from '../components/HealthDayNavigator'
 import HealthNavigation from '../components/HealthNavigation'
 import { showUndoToast } from '../components/UndoToast'
+import { talkHandoffState } from '../talkHandoff'
 
 const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 const currentTime = () => new Date().toTimeString().slice(0, 5)
@@ -133,6 +132,7 @@ function WeightSparkline({ entries }: { entries: WeightEntry[] }) {
 }
 
 export default function CaloriesPage() {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedDate = searchParams.get('date')
   const date = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : todayStr()
@@ -159,7 +159,6 @@ export default function CaloriesPage() {
   const [highlightedQuickInsertIndex, setHighlightedQuickInsertIndex] = useState(0)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<FormState>(() => emptyForm())
-  const [showAiAnalyzer, setShowAiAnalyzer] = useState(false)
   const [weightDraft, setWeightDraft] = useState('')
   const [isEditingWeight, setIsEditingWeight] = useState(false)
   const quickInsertSearchRef = useRef<HTMLInputElement | null>(null)
@@ -344,9 +343,15 @@ export default function CaloriesPage() {
         <div className="flex flex-wrap gap-2">
           <button
             className="btn-secondary inline-flex min-h-11 items-center gap-2 px-4 py-2 text-sm"
-            onClick={() => setShowAiAnalyzer(true)}
+            onClick={() => navigate('/talk', {
+              state: talkHandoffState({
+                source: 'nutrition',
+                intent: 'log_nutrition',
+                date,
+              }),
+            })}
           >
-            <Sparkles className="h-4 w-4" /> Add with AI
+            <MessageSquare className="h-4 w-4" /> Open Talk
           </button>
           <button
             className="btn-primary inline-flex min-h-11 items-center gap-2 px-4 py-2 text-sm"
@@ -357,12 +362,6 @@ export default function CaloriesPage() {
           </button>
         </div>
       </header>
-
-      <AnimatePresence>
-        {showAiAnalyzer && (
-          <MealAnalyzer date={date} onClose={() => setShowAiAnalyzer(false)} />
-        )}
-      </AnimatePresence>
 
       <section className="overflow-hidden rounded-section border border-line bg-card shadow-section" data-demo-id="nutrition-daily-overview">
         <div className="flex flex-col gap-4 border-b border-line/70 p-4 lg:flex-row lg:items-center lg:justify-between lg:p-5">

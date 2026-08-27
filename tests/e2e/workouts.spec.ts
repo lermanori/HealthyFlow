@@ -95,16 +95,6 @@ test('Workout plans persist, reorder exercises, and pre-fill an editable session
     const url = new URL(route.request().url())
     const planId = url.pathname.match(/\/plans\/([^/]+)$/)?.[1]
     if (method === 'GET') return route.fulfill({ json: plans })
-    if (method === 'POST' && url.pathname.endsWith('/plans/generate')) {
-      return route.fulfill({ json: {
-        name: 'AI mixed draft',
-        color: '#8b5cf6',
-        note: 'Generated draft to review',
-        exercises: [
-          { name: 'Air Squat', sets: 3, reps: 12, weightKg: null, durationMinutes: null, distanceKm: null, notes: null },
-        ],
-      } })
-    }
     if (method === 'POST') {
       const input = route.request().postDataJSON() as WorkoutPlanInput
       const plan: WorkoutPlan = {
@@ -143,14 +133,23 @@ test('Workout plans persist, reorder exercises, and pre-fill an editable session
   await page.getByTestId('workout-mode-plan').click()
   await page.getByRole('button', { name: 'New Plan' }).click()
 
+  await page.getByTestId('workout-plan-editor').getByRole('button', { name: 'Open Talk' }).click()
+  await expect(page).toHaveURL(/\/app\/talk$/)
+  await expect(page.getByPlaceholder(/Add anything/)).toHaveValue(/Help me design a reusable Workout plan/)
+  await expect(page.getByPlaceholder(/Add anything/)).toBeFocused()
+  await page.goBack()
+
+  await page.getByTestId('workout-mode-plan').click()
+  await page.getByRole('button', { name: 'New Plan' }).click()
   const editor = page.getByTestId('workout-plan-editor')
-  await editor.getByTestId('workout-plan-intent').fill('A mixed strength and mobility workout')
-  await editor.getByRole('button', { name: 'Generate Draft' }).click()
-  await expect(editor.getByTestId('workout-plan-name')).toHaveValue('AI mixed draft')
-  await expect(editor.getByTestId('workout-plan-exercises').getByText('Air Squat')).toBeVisible()
 
   await editor.getByTestId('workout-plan-name').fill('Mixed training')
   await editor.getByTestId('workout-plan-note').fill('Editable before logging')
+
+  await editor.getByTestId('workout-exercise-name').fill('Air Squat')
+  await editor.getByTestId('workout-exercise-sets').fill('3')
+  await editor.getByTestId('workout-exercise-reps').fill('12')
+  await editor.getByRole('button', { name: 'Add to Plan' }).click()
 
   await editor.getByTestId('workout-exercise-name').fill('Bench Press')
   await editor.getByTestId('workout-exercise-sets').fill('3')

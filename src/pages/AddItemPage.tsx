@@ -6,17 +6,16 @@ import toast from 'react-hot-toast'
 import {
   ArrowLeft,
   Award,
-  Brain,
   CalendarDays,
   CheckSquare,
   Clock,
   Dumbbell,
   Flame,
   MapPin,
+  MessageSquare,
   Mic,
   Plus,
   Scale,
-  Sparkles,
   Target,
   Utensils,
   Zap,
@@ -33,8 +32,6 @@ import {
   type Category,
   type WorkoutPlan,
 } from '../services/api'
-import AITextAnalyzer from '../components/AITextAnalyzer'
-import MealAnalyzer from '../components/MealAnalyzer'
 import ProjectSelector from '../components/ProjectSelector'
 import { WORK_ENABLED } from '../featureFlags'
 import VoiceInput from '../components/VoiceInput'
@@ -46,6 +43,7 @@ import {
   type ModulePresentation,
 } from '../modulePresentation'
 import { CATEGORY_PRESENTATIONS } from '../categoryPresentation'
+import { talkHandoffState } from '../talkHandoff'
 
 const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 
@@ -93,9 +91,6 @@ export default function AddItemPage() {
   const workoutAvailability = modules.workouts
   const achievementAvailability = modules.achievements
   const [activeTab, setActiveTab] = useState<DomainTab>('today')
-  const [showTaskAi, setShowTaskAi] = useState(false)
-  const [showMealAi, setShowMealAi] = useState(false)
-
   const [todayType, setTodayType] = useState<TodayType>('task')
   const [todayInputMode, setTodayInputMode] = useState<'form' | 'voice'>('form')
   const [title, setTitle] = useState('')
@@ -313,10 +308,6 @@ export default function AddItemPage() {
     })
   }
 
-  if (showTaskAi) {
-    return <AITextAnalyzer onClose={() => setShowTaskAi(false)} scheduledDate={scheduledDate} />
-  }
-
   return (
     <div className="mx-auto max-w-4xl space-y-6 p-4 pb-28 md:pb-0">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -325,20 +316,37 @@ export default function AddItemPage() {
           Back to Today
         </button>
         {activeTab === 'today' && (
-          <button onClick={() => setShowTaskAi(true)} className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm">
-            <Brain className="h-4 w-4" />
-            Talk
+          <button
+            onClick={() => navigate('/talk', {
+              state: talkHandoffState({
+                source: 'add',
+                intent: 'add_items',
+                date: scheduledDate,
+                itemType: todayType,
+              }),
+            })}
+            className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Open Talk
           </button>
         )}
         {activeTab === 'calories' && calorieMode === 'entry' && (
-          <button onClick={() => setShowMealAi(true)} className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm">
-            <Sparkles className="h-4 w-4" />
-            Add with AI
+          <button
+            onClick={() => navigate('/talk', {
+              state: talkHandoffState({
+                source: 'nutrition',
+                intent: 'log_nutrition',
+                date: calorieDate,
+              }),
+            })}
+            className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm"
+          >
+            <MessageSquare className="h-4 w-4" />
+            Open Talk
           </button>
         )}
       </div>
-
-      {showMealAi && <MealAnalyzer date={calorieDate} onClose={() => setShowMealAi(false)} />}
 
       <div className="card">
         <div className="mb-6 flex items-center gap-3">
