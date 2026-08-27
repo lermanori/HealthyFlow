@@ -41,8 +41,8 @@ import {
   DAILY_SIGNALS_QUERY_KEY,
   DAY_SUMMARY_QUERY_KEY,
   isDaySummaryItemAddressed,
-  onboardingService,
   rhythmService,
+  settingsService,
   taskService,
   ExternalCalendarEvent,
   FocusBlockTransitionInput,
@@ -1433,24 +1433,23 @@ export default function TodayPage() {
   })
 
   const completeOnboardingMutation = useMutation({
-    mutationFn: onboardingService.complete,
+    mutationFn: () => settingsService.updateSettings({ onboardingStatus: 'completed' }),
     onSuccess: () => {
+      analytics.capture('onboarding_completed')
+      analytics.setUserProperties({ onboarding_status: 'completed' })
       queryClient.invalidateQueries({ queryKey: ['settings'] })
-      queryClient.invalidateQueries({ queryKey: ['achievements'] })
-      toast.success('Onboarding complete. Achievement unlocked!')
     },
-    onError: () => toast.error('Failed to complete onboarding'),
+    onError: () => toast.error('Failed to complete day setup'),
   })
 
   const skipOnboardingMutation = useMutation({
-    mutationFn: onboardingService.skip,
+    mutationFn: () => settingsService.updateSettings({ onboardingStatus: 'skipped' }),
     onSuccess: () => {
+      analytics.capture('onboarding_skipped')
+      analytics.setUserProperties({ onboarding_status: 'skipped' })
       queryClient.invalidateQueries({ queryKey: ['settings'] })
-      clearDemoAcquisition()
-      setDemoAcquisition(null)
-      toast.success('Onboarding skipped')
     },
-    onError: () => toast.error('Failed to skip onboarding'),
+    onError: () => toast.error('Failed to skip day setup'),
   })
 
   const handleCompleteTask = (id: string) => {

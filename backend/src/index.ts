@@ -19,7 +19,6 @@ import { caloriesRoutes } from './routes/calories'
 import { weightRoutes } from './routes/weight'
 import { achievementRoutes } from './routes/achievements'
 import { workoutRoutes } from './routes/workouts'
-import { onboardingRoutes } from './routes/onboarding'
 import { contactMessageRoutes } from './routes/contact-messages'
 import { mcpRoutes } from './routes/mcp'
 import { oauthRoutes } from './routes/oauth'
@@ -152,7 +151,6 @@ app.use('/api/calories', caloriesRoutes)
 app.use('/api/weight', weightRoutes)
 app.use('/api/achievements', achievementRoutes)
 app.use('/api/workouts', workoutRoutes)
-app.use('/api/onboarding', onboardingRoutes)
 app.use('/api/contact-messages', contactMessageRoutes)
 app.use('/mcp/chatgpt', mcpRoutes)
 app.use('/mcp', mcpRoutes)

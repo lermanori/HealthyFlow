@@ -35,7 +35,6 @@ test('shared test user sees brain-dump onboarding, parses a day, and completion 
   await page.getByRole('button', { name: /Add Selected Tasks/ }).click()
 
   // Confirming the parse completes onboarding automatically.
-  await expect(page.getByText('Onboarding complete. Achievement unlocked!')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toBeHidden()
 
   await page.reload()
@@ -46,7 +45,6 @@ test('skip link completes onboarding without parsing', async ({ page }) => {
   await page.goto('/app')
   await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toBeVisible({ timeout: 10_000 })
   await page.getByRole('button', { name: 'Later', exact: true }).click()
-  await expect(page.getByText('Onboarding skipped')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toBeHidden()
 
   await page.reload()
