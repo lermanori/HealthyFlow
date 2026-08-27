@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import SettingsContracts from '../../backend/src/settings-schema'
-import { DAY_SETUP_STEPS, TALK_STYLE_PRESETS, answersFromSettings, mapAnswersToWrites } from '../interview'
+import {
+  DAY_SETUP_STEPS,
+  TALK_STYLE_PRESETS,
+  answersFromSettings,
+  commitDaySetup,
+  mapAnswersToWrites,
+} from '../interview'
 
 const { SettingsSchema } = SettingsContracts
 
@@ -167,5 +173,75 @@ describe('mapAnswersToWrites', () => {
 
     assert.deepEqual(writes.habits, [{ title: 'Walk', startTime: '07:00' }])
     assert.deepEqual(writes.goals, [{ module: 'nutrition', statement: 'Eat enough protein' }])
+  })
+})
+
+const writesFixture = {
+  settingsPatch: { calorieIntake: false },
+  goals: [{ module: 'nutrition' as const, statement: 'Eat enough protein' }],
+  habits: [{ title: 'Walk', startTime: '07:00' }],
+  changedWindow: true,
+}
+
+function recordingDeps(failing?: 'settings' | 'goals' | 'habits') {
+  const calls: string[] = []
+  return {
+    calls,
+    deps: {
+      updateSettings: async () => {
+        calls.push('settings')
+        if (failing === 'settings') throw new Error('settings write failed')
+      },
+      createGoal: async () => {
+        calls.push('goals')
+        if (failing === 'goals') throw new Error('goal write failed')
+      },
+      addHabit: async () => {
+        calls.push('habits')
+        if (failing === 'habits') throw new Error('habit write failed')
+      },
+    },
+  }
+}
+
+describe('commitDaySetup', () => {
+  it('writes settings first, then Goals, then Habits', async () => {
+    const { calls, deps } = recordingDeps()
+    const result = await commitDaySetup(writesFixture, deps)
+
+    assert.deepEqual(calls, ['settings', 'goals', 'habits'])
+    assert.equal(result.ok, true)
+    assert.deepEqual(result.failures, [])
+  })
+
+  it('reports a failure instead of claiming success', async () => {
+    const { deps } = recordingDeps('habits')
+    const result = await commitDaySetup(writesFixture, deps)
+
+    assert.equal(result.ok, false)
+    assert.deepEqual(result.applied, ['settings', 'goals'])
+    assert.equal(result.failures.length, 1)
+    assert.equal(result.failures[0].stage, 'habits')
+    assert.match(result.failures[0].message, /habit write failed/)
+  })
+
+  it('still writes Habits when a Goal fails, because the stages are independent', async () => {
+    const { calls, deps } = recordingDeps('goals')
+    const result = await commitDaySetup(writesFixture, deps)
+
+    assert.deepEqual(calls, ['settings', 'goals', 'habits'])
+    assert.deepEqual(result.applied, ['settings', 'habits'])
+    assert.equal(result.ok, false)
+  })
+
+  it('skips a stage with nothing to write', async () => {
+    const { calls, deps } = recordingDeps()
+    const result = await commitDaySetup(
+      { settingsPatch: {}, goals: [], habits: [], changedWindow: false },
+      deps,
+    )
+
+    assert.deepEqual(calls, [])
+    assert.equal(result.ok, true)
   })
 })

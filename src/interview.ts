@@ -202,3 +202,62 @@ export function mapAnswersToWrites(
       .filter((goal) => goal.statement.length > 0),
   }
 }
+
+export type DaySetupStage = 'settings' | 'goals' | 'habits'
+
+export type DaySetupDeps = {
+  updateSettings: (patch: Partial<UserSettings>) => Promise<unknown>
+  createGoal: (goal: DaySetupGoalAnswer) => Promise<unknown>
+  addHabit: (habit: DaySetupHabitAnswer) => Promise<unknown>
+}
+
+export type DaySetupResult = {
+  ok: boolean
+  applied: DaySetupStage[]
+  failures: { stage: DaySetupStage; message: string }[]
+}
+
+/**
+ * Applies a write set and says exactly what landed.
+ *
+ * Three services and no transaction, so this is **not atomic and does not pretend
+ * to be** — a partial commit reports itself rather than rendering success over a
+ * failed write. Stages run in descending order of value: settings first, so that
+ * a Habit failure still leaves the window, modules and assistant profile
+ * correctly set. A failure does not abort the remaining stages; they are
+ * independent, and the caller decides what to say.
+ *
+ * Recovery is re-running day setup, which opens prefilled — nothing is retyped.
+ */
+export async function commitDaySetup(
+  writes: DaySetupWrites,
+  deps: DaySetupDeps,
+): Promise<DaySetupResult> {
+  const applied: DaySetupStage[] = []
+  const failures: DaySetupResult['failures'] = []
+
+  const run = async (stage: DaySetupStage, work: () => Promise<unknown>) => {
+    try {
+      await work()
+      applied.push(stage)
+    } catch (error) {
+      failures.push({ stage, message: error instanceof Error ? error.message : String(error) })
+    }
+  }
+
+  if (Object.keys(writes.settingsPatch).length > 0) {
+    await run('settings', () => deps.updateSettings(writes.settingsPatch))
+  }
+  if (writes.goals.length > 0) {
+    await run('goals', async () => {
+      for (const goal of writes.goals) await deps.createGoal(goal)
+    })
+  }
+  if (writes.habits.length > 0) {
+    await run('habits', async () => {
+      for (const habit of writes.habits) await deps.addHabit(habit)
+    })
+  }
+
+  return { ok: failures.length === 0, applied, failures }
+}
