@@ -23,6 +23,8 @@ import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsOfServicePage from './pages/TermsOfServicePage'
 import SupportPage from './pages/SupportPage'
 import OAuthConsentPage from './pages/OAuthConsentPage'
+import DaySetup from './components/DaySetup'
+import FirstRunChoice from './components/DaySetup/FirstRunChoice'
 import LoadingSpinner from './components/LoadingSpinner'
 import OfflineNotification from './components/OfflineNotification'
 import { useSettings } from './hooks/useSettings'
@@ -87,6 +89,16 @@ function AssistantRedirect() {
   return <Navigate to={`/talk${location.search}`} replace />
 }
 
+// Conditional render, not a redirect: a first-run user sees the choice screen
+// in place at "/", so there is no URL to bounce back from and no loop to
+// create. While settings are still loading, `onboardingStatus` reads as
+// undefined (not 'active'), so a returning user's Today never flashes the
+// choice screen while the fetch is in flight.
+function HomeGate() {
+  const { settings } = useSettings()
+  return settings?.onboardingStatus === 'active' ? <FirstRunChoice /> : <TodayPage />
+}
+
 function App() {
   const { user, loading } = useAuth()
   const location = useLocation()
@@ -137,7 +149,8 @@ function App() {
       <OfflineNotification />
       <Layout>
         <Routes>
-          <Route path="/" element={<TodayPage />} />
+          <Route path="/" element={<HomeGate />} />
+          <Route path="/day-setup" element={<DaySetup />} />
           <Route path="/add" element={<AddItemPage />} />
           <Route path="/week" element={WEEK_VIEW_ENABLED ? <WeekViewPage /> : <Navigate to="/" replace />} />
           <Route path="/work" element={WORK_ENABLED ? <WorkPage /> : <Navigate to="/" replace />} />

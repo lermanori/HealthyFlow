@@ -54,11 +54,15 @@ const {
  *
  * Every module is on. Food, weight and training are core rather than optional
  * (`TARGET.md`), and the device now holds their records, so a Guest's day reports
- * them exactly as an account holder's does. Onboarding is complete because
- * onboarding seeds server-side settings, which a locally-held day does not have.
+ * them exactly as an account holder's does.
+ *
+ * Day setup is offered rather than completed. A Guest is the front door on
+ * iPhone, so starting them at `'completed'` meant the primary user was the only
+ * one never asked about their day. `onboardingStatus` is the disposition of the
+ * first-run offer, not the state of day setup itself, which is re-runnable.
  */
 export const LOCAL_SETTINGS_BASELINE: Partial<Settings> = {
-  onboardingStatus: 'completed',
+  onboardingStatus: 'active',
 }
 
 export function resolveLocalSettings(database: LocalDatabase): Settings {

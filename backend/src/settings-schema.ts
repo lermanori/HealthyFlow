@@ -36,6 +36,16 @@ const AssistantProfileFieldsSchema = z.object({
   responseStyle: AssistantResponseStyleSchema.default('concise'),
   planningStyle: AssistantPlanningStyleSchema.default('one_step_at_a_time'),
   followUpMode: AssistantFollowUpModeSchema.default('ask_about_outcomes'),
+  /**
+   * Free-speech background about the person's day, written by them in day setup
+   * and editable in Settings → Personal assistant.
+   *
+   * This is user-owned context, not hidden model memory: it is visible and
+   * editable wherever it is used. Goals carry direction; this carries the
+   * constraints and facts that do not belong to any one module. It is not a
+   * progress log and nothing writes to it but the user.
+   */
+  dayContext: z.string().trim().max(2000).nullable().default(null),
 })
 
 export const AssistantProfileSchema = AssistantProfileFieldsSchema.prefault({})

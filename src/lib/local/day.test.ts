@@ -343,6 +343,17 @@ describe('settings on the device', () => {
     assert.equal(day.capacity.status, 'unavailable')
     assert.ok(day.capacity.reasonCodes.includes('planning_window_missing'))
   })
+
+  it('offers day setup to a Guest, and remembers when it is finished', async () => {
+    const initial = await readLocalSettings(USER)
+    assert.equal(initial.onboardingStatus, 'active')
+
+    await updateLocalSettings(USER, { onboardingStatus: 'skipped' })
+    assert.equal((await readLocalSettings(USER)).onboardingStatus, 'skipped')
+
+    await updateLocalSettings(USER, { onboardingStatus: 'completed' })
+    assert.equal((await readLocalSettings(USER)).onboardingStatus, 'completed')
+  })
 })
 
 describe('the stored document', () => {

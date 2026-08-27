@@ -172,6 +172,21 @@ function AssistantProfileEditor({
           </label>
         </div>
 
+        <label className="grid gap-1.5 text-sm text-ink-muted">
+          About your day
+          <textarea
+            rows={5}
+            maxLength={2000}
+            value={draft.dayContext ?? ''}
+            className="input-field w-full"
+            onChange={(event) => setDraft({ ...draft, dayContext: event.target.value || null })}
+            onBlur={() => commit({ ...draft, dayContext: draft.dayContext?.trim() || null })}
+          />
+          <span className="text-xs text-ink-muted">
+            Background HealthyFlow reads when it helps you plan. Yours to edit or clear.
+          </span>
+        </label>
+
         <div className="flex flex-col gap-3 rounded-lg border border-line/70 bg-sunken/25 p-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-sm font-medium text-ink">Bigger direction</h3>
@@ -181,6 +196,10 @@ function AssistantProfileEditor({
             Open Goals
           </Link>
         </div>
+
+        <Link to="/day-setup" className="btn-secondary inline-flex min-h-11 items-center justify-center px-4 text-sm">
+          Run day setup again
+        </Link>
       </div>
     </div>
   )

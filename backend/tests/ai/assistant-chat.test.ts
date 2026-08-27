@@ -642,6 +642,7 @@ describe('POST /api/ai/chat', () => {
           responseStyle: 'concise',
           planningStyle: 'one_step_at_a_time',
           followUpMode: 'ask_about_outcomes',
+          dayContext: null,
         },
         goals: {
           status: 'ready',

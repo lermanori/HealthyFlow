@@ -70,6 +70,19 @@ export type AnalyticsEvents = {
   }
   onboarding_completed: void
   onboarding_skipped: void
+  /**
+   * Every day setup completion, including re-runs. `changed_window` is the first
+   * event in the product that says whether anyone declares their real usable day
+   * — the largest available lever on `planning_window_missing`.
+   */
+  day_setup_completed: {
+    run: 'first' | 'repeat'
+    steps_answered: number
+    wrote_goals: boolean
+    wrote_habits: boolean
+    changed_window: boolean
+  }
+  day_setup_abandoned: { step_id: string }
 
   // Core loop (captured at the taskService layer, covering all UI paths)
   item_created: {
@@ -144,6 +157,8 @@ export type UserProperties = {
 
 export type UserPropertiesOnce = {
   signed_up_at?: string
+  /** Set once, ever. Survives the identity merge when a Guest Claims. */
+  day_setup_first_completed_at?: string
 }
 
 /**

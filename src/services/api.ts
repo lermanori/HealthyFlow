@@ -1534,22 +1534,6 @@ export const connectionsService = {
   },
 }
 
-export const onboardingService = {
-  complete: async (): Promise<{ status: 'completed' }> => {
-    const response = await api.post('/onboarding/complete')
-    analytics.capture('onboarding_completed')
-    analytics.setUserProperties({ onboarding_status: 'completed' })
-    return response.data
-  },
-
-  skip: async (): Promise<{ status: 'skipped' }> => {
-    const response = await api.post('/onboarding/skip')
-    analytics.capture('onboarding_skipped')
-    analytics.setUserProperties({ onboarding_status: 'skipped' })
-    return response.data
-  },
-}
-
 export interface CalorieEntry {
   id: string
   userId: string
