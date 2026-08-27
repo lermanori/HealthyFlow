@@ -216,6 +216,7 @@ export const achievementEntryToRow = (entry: any, userId: string) => ({
 })
 
 const AchievementContracts = {
+  AchievementEntrySchema,
   AchievementMetricTypeSchema,
   AchievementBetterDirectionSchema,
   AchievementDefinitionCreateSchema,
