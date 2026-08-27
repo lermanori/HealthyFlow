@@ -16,4 +16,14 @@ describe('Netlify production routing', () => {
       'the root rewrite must bypass Netlify file shadowing from dist/index.html'
     )
   })
+
+  it('keeps the public support URL outside the authenticated app entrance', () => {
+    const config = readFileSync('netlify.toml', 'utf8')
+
+    assert.match(
+      config,
+      /\[\[redirects\]\]\s+from = "\/support"\s+to = "\/app\/support"\s+status = 301/,
+      'missing the public /support → /app/support redirect',
+    )
+  })
 })
