@@ -122,3 +122,83 @@ export function answersFromSettings(settings: UserSettings): DaySetupAnswers {
     dayContext: profile.dayContext,
   }
 }
+
+export type DaySetupWrites = {
+  /** Only the fields this run changed. An untouched field never appears. */
+  settingsPatch: Partial<UserSettings>
+  goals: DaySetupGoalAnswer[]
+  habits: DaySetupHabitAnswer[]
+  /** Reported to analytics: the single most valuable thing day setup moves. */
+  changedWindow: boolean
+}
+
+/**
+ * Answers in, writes out.
+ *
+ * The contract that makes a re-run safe: **only what changed is written.** A
+ * field the user skipped, or left as it was, produces no patch entry — so a
+ * second pass over unchanged answers is a no-op rather than a reset. Habits and
+ * Goals carry only what this run is adding; existing rows are edited in place by
+ * their own surfaces, never re-created here.
+ */
+export function mapAnswersToWrites(
+  answers: DaySetupAnswers,
+  current: UserSettings,
+): DaySetupWrites {
+  const settingsPatch: Partial<UserSettings> = {}
+
+  const storedWindow = current.planningWindow ?? DEFAULT_PLANNING_WINDOW
+  const changedWindow = answers.startTime !== storedWindow.startTime
+    || answers.endTime !== storedWindow.endTime
+  if (changedWindow) {
+    // The transition buffer is deliberately not asked — nobody answers "how long
+    // between things?" honestly — so whatever is stored survives untouched.
+    settingsPatch.planningWindow = {
+      startTime: answers.startTime,
+      endTime: answers.endTime,
+      transitionBufferMinutes: storedWindow.transitionBufferMinutes,
+    }
+  }
+
+  for (const key of ['calorieIntake', 'workoutTracker', 'achievementTracker'] as const) {
+    if (answers.modules[key] !== current[key]) settingsPatch[key] = answers.modules[key]
+  }
+
+  const profilePatch: Partial<UserSettings['assistantProfile']> = {}
+  const name = answers.preferredName?.trim() || null
+  if (name !== current.assistantProfile.preferredName) profilePatch.preferredName = name
+
+  const dayContext = answers.dayContext?.trim() || null
+  if (dayContext !== current.assistantProfile.dayContext) profilePatch.dayContext = dayContext
+
+  // Compared as a whole preset, not field-by-field: a preset's three enums are
+  // one decision, and a stored profile that happens to share one field with the
+  // newly chosen preset (e.g. both default to "concise") must not cause that
+  // field to be silently dropped from the patch.
+  const currentPreset = TALK_STYLE_PRESETS.find((candidate) => (
+    candidate.profile.responseStyle === current.assistantProfile.responseStyle
+    && candidate.profile.planningStyle === current.assistantProfile.planningStyle
+    && candidate.profile.followUpMode === current.assistantProfile.followUpMode
+  ))
+  const preset = TALK_STYLE_PRESETS.find((candidate) => candidate.id === answers.talkStyle)
+  if (preset && preset.id !== currentPreset?.id) {
+    profilePatch.responseStyle = preset.profile.responseStyle
+    profilePatch.planningStyle = preset.profile.planningStyle
+    profilePatch.followUpMode = preset.profile.followUpMode
+  }
+
+  if (Object.keys(profilePatch).length > 0) {
+    settingsPatch.assistantProfile = profilePatch as UserSettings['assistantProfile']
+  }
+
+  return {
+    settingsPatch,
+    changedWindow,
+    habits: answers.habits
+      .map((habit) => ({ title: habit.title.trim(), startTime: habit.startTime }))
+      .filter((habit) => habit.title.length > 0),
+    goals: answers.goals
+      .map((goal) => ({ module: goal.module, statement: goal.statement.trim() }))
+      .filter((goal) => goal.statement.length > 0),
+  }
+}
