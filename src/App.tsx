@@ -21,6 +21,7 @@ import SignInPage from './pages/SignInPage'
 import DemoPage from './pages/DemoPage'
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage'
 import TermsOfServicePage from './pages/TermsOfServicePage'
+import SupportPage from './pages/SupportPage'
 import OAuthConsentPage from './pages/OAuthConsentPage'
 import LoadingSpinner from './components/LoadingSpinner'
 import OfflineNotification from './components/OfflineNotification'
@@ -121,6 +122,7 @@ function App() {
       <Routes>
         <Route path="/privacy" element={<PrivacyPolicyPage />} />
         <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/support" element={<SupportPage />} />
         <Route path="*" element={<LoginPage />} />
       </Routes>
     )
@@ -180,6 +182,7 @@ function App() {
           ))}
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/terms" element={<TermsOfServicePage />} />
+          <Route path="/support" element={<SupportPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

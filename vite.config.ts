@@ -15,7 +15,7 @@ export default defineConfig({
         // An explicit list rather than a catch-all: a catch-all would hijack Vite's
         // own module URLs in dev and swallow genuine 404s in prod.
         const legacyRoutes = [
-          '/demo', '/privacy', '/terms', '/add', '/week', '/talk', '/settings',
+          '/demo', '/privacy', '/terms', '/support', '/add', '/week', '/talk', '/settings',
           '/calories', '/achievements', '/workouts', '/token-manager',
           '/meal-ocr-lab', '/assistant',
         ]

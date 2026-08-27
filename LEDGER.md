@@ -1,3 +1,9 @@
+### 2026-08-27 10:45 — `feat/support-page`
+
+Added a public HealthyFlow Support page for the App Store listing with a direct email path to `lermanori@gmail.com`. The page is available without an account at `/support`, is linked from the login surface, Settings, app footer and native drawer, and has passed the frontend suite, production/iOS sync build, browser verification and an unsigned Xcode simulator build.
+
+---
+
 ### 2026-08-27 10:02 — `main`
 
 Moved the detached Talk Prompt Lab into `tools/talk-prompt-lab` as a dependency-free, explicitly isolated developer tool with one root command. Its smoke check and the production build pass, and a bundle inspection confirms the prompt variants and synthetic scenarios do not enter the web or iOS application; the old temporary worktree has been removed.
