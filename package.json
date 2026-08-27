@@ -18,6 +18,8 @@
     "ios:run": "npm run build:ios && cap run ios",
     "server": "tsx watch backend/src/index.ts",
     "inventory:html": "npm --prefix backend run inventory:html",
+    "lab:talk": "npm --prefix tools/talk-prompt-lab run prompt-lab",
+    "lab:talk:smoke": "npm --prefix tools/talk-prompt-lab run smoke",
     "test:unit": "tsx --test src/utils/*.test.ts src/lib/*.test.ts src/lib/local/*.test.ts tests/frontend-startup.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"

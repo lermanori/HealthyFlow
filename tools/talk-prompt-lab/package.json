@@ -1,0 +1,9 @@
+{
+  "name": "healthyflow-talk-prompt-lab-prototype",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prompt-lab": "node talk-prompt-lab.mjs",
+    "smoke": "node talk-prompt-lab.mjs --smoke"
+  }
+}

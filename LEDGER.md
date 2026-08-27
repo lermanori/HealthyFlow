@@ -1,3 +1,9 @@
+### 2026-08-27 10:02 — `main`
+
+Moved the detached Talk Prompt Lab into `tools/talk-prompt-lab` as a dependency-free, explicitly isolated developer tool with one root command. Its smoke check and the production build pass, and a bundle inspection confirms the prompt variants and synthetic scenarios do not enter the web or iOS application; the old temporary worktree has been removed.
+
+---
+
 ### 2026-08-27 09:44 — `main`
 
 Checked the HealthyFlow Talk end-to-end presentation into the repository so the current assistant architecture walkthrough is preserved with the product work rather than left as an untracked local artifact. The primary worktree is synchronized with the merged Goal-tool recovery hotfix on `main`.

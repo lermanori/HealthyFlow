@@ -1,0 +1,76 @@
+[
+  {
+    "id": "mixed-capture",
+    "label": "Chaotic mixed capture",
+    "anchor": { "date": "2026-08-26", "time": "17:20", "timeZone": "Europe/Vienna" },
+    "user": "Tomorrow call the dentist, make morning stretching daily, I ate two eggs at 8, weighed 81.4 this morning, and I did a 35 minute easy run. Put all of that in.",
+    "toolResults": {}
+  },
+  {
+    "id": "one-clock",
+    "label": "Whole day and honest Capacity",
+    "anchor": { "date": "2026-08-26", "time": "13:10", "timeZone": "Europe/Vienna" },
+    "user": "What is on my day, what actually happened, and how much Capacity do I honestly have left?",
+    "toolResults": {
+      "get_today": {
+        "date": "2026-08-26",
+        "tasks": [
+          { "id": "task-plan", "title": "Submit App Store metadata", "type": "task", "completed": false, "startTime": "15:00", "duration": 60, "scheduledDate": "2026-08-26" },
+          { "id": "habit-actual", "title": "Morning stretch", "type": "habit", "completed": true, "startTime": null, "duration": 10, "scheduledDate": "2026-08-26" }
+        ],
+        "calorieEntries": [{ "id": "cal-1", "name": "Greek yogurt", "calories": 180, "time": "09:00" }],
+        "weight": { "id": "weight-1", "date": "2026-08-26", "weightKg": 81.4 },
+        "achievements": [],
+        "workoutSessions": [{ "id": "run-1", "date": "2026-08-26", "title": "Easy run", "duration": 35 }]
+      }
+    }
+  },
+  {
+    "id": "failed-read",
+    "label": "Failed read is not empty",
+    "anchor": { "date": "2026-08-26", "time": "19:05", "timeZone": "Europe/Vienna" },
+    "user": "How many calories did I log today?",
+    "toolResults": {
+      "get_today": { "error": { "code": "unavailable", "message": "Nutrition read failed" } },
+      "list_calorie_entries": { "error": { "code": "unavailable", "message": "Calorie entries could not be read" } }
+    }
+  },
+  {
+    "id": "same-turn-id",
+    "label": "Safe update with fresh Item id",
+    "anchor": { "date": "2026-08-26", "time": "10:30", "timeZone": "Europe/Vienna" },
+    "user": "Move my dentist Task to 16:30 today.",
+    "toolResults": {
+      "list_tasks": {
+        "items": [
+          { "id": "task-dentist-verified", "title": "Call dentist", "type": "task", "completed": false, "startTime": null, "duration": 15, "scheduledDate": "2026-08-26" }
+        ]
+      },
+      "get_today": {
+        "date": "2026-08-26",
+        "tasks": [{ "id": "task-dentist-verified", "title": "Call dentist", "type": "task", "completed": false, "startTime": null, "duration": 15, "scheduledDate": "2026-08-26" }],
+        "calorieEntries": [], "weight": null, "achievements": [], "workoutSessions": []
+      }
+    }
+  },
+  {
+    "id": "missing-duration",
+    "label": "Missing duration must stay honest",
+    "anchor": { "date": "2026-08-26", "time": "11:00", "timeZone": "Europe/Vienna" },
+    "user": "Add renew my passport tomorrow. I don't know how long it will take.",
+    "toolResults": {}
+  },
+  {
+    "id": "uncertain-food",
+    "label": "Low-confidence food estimate",
+    "anchor": { "date": "2026-08-26", "time": "20:15", "timeZone": "Europe/Vienna" },
+    "user": "Log the chicken bowl I just ate. It had rice, chicken, vegetables and some sauce, but I don't know the amounts.",
+    "toolResults": {
+      "search_calorie_history": { "matches": [] },
+      "list_calorie_entries": { "entries": [] },
+      "parse_meal_entries": {
+        "meals": [{ "name": "Chicken rice bowl", "quantity": null, "calories": 650, "protein": 42, "carbs": 70, "fat": 20, "sourceType": "estimate", "confidence": "low", "notes": "Portion sizes were not provided" }]
+      }
+    }
+  }
+]
