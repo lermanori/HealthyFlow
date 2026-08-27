@@ -28,7 +28,7 @@ import {
   Trash2,
   Utensils,
 } from 'lucide-react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import FocusBlockRow from '../components/today/FocusBlockRow'
 import FocusBlockOverlay from '../components/today/FocusBlockOverlay'
 import WorkReviewSheet from '../components/work/WorkReviewSheet'
@@ -1098,6 +1098,7 @@ export default function TodayPage() {
   const daySwipeGesture = useRef<DaySwipeGesture | null>(null)
   const queryClient = useQueryClient()
   const location = useLocation()
+  const navigate = useNavigate()
   // Read once at mount, not inside the error branch: a hook cannot be called
   // conditionally, and the screens below need to know whose day this device holds.
   const heldDay = useHeldDay()
@@ -1430,16 +1431,6 @@ export default function TodayPage() {
       setHabitDeleteCandidate(null)
       toast.success('Task deleted')
     },
-  })
-
-  const completeOnboardingMutation = useMutation({
-    mutationFn: () => settingsService.updateSettings({ onboardingStatus: 'completed' }),
-    onSuccess: () => {
-      analytics.capture('onboarding_completed')
-      analytics.setUserProperties({ onboarding_status: 'completed' })
-      queryClient.invalidateQueries({ queryKey: ['settings'] })
-    },
-    onError: () => toast.error('Failed to complete day setup'),
   })
 
   const skipOnboardingMutation = useMutation({
@@ -1859,14 +1850,14 @@ export default function TodayPage() {
       {DAILY_SIGNALS_ENABLED && <AIRecommendationsBox date={selectedDateKey} />}
       {isViewingToday && dueKickoff && <RhythmKickoffRow kickoff={dueKickoff} />}
 
-      {settings?.onboardingStatus === 'active' && (
+      {settings && settings.onboardingStatus !== 'completed' && (
         <section className="flex flex-col gap-3 rounded-xl border border-accent/30 bg-accent/[.06] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-ink">Tell HealthyFlow about your day</h2>
+            <h2 className="text-sm font-semibold text-ink">Set up your day</h2>
             <p className="mt-1 text-sm text-ink-muted">
               {demoAcquisition
                 ? demoPersonaById(demoAcquisition.persona).activationPrompt
-                : 'Turn one brain-dump into Items for this date.'}
+                : 'Four questions, so the clock measures against your day.'}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -1880,11 +1871,11 @@ export default function TodayPage() {
             </button>
             <button
               type="button"
-              onClick={() => setShowAIAnalyzer(true)}
+              onClick={() => navigate('/day-setup')}
               className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-action px-4 text-sm font-semibold text-on-action hover:bg-action-hover"
             >
               <Brain className="h-4 w-4" aria-hidden="true" />
-              Start
+              Set up my day
             </button>
           </div>
         </section>
@@ -1912,7 +1903,6 @@ export default function TodayPage() {
                       clearDemoAcquisition()
                       setDemoAcquisition(null)
                     }
-                    if (settings?.onboardingStatus === 'active') completeOnboardingMutation.mutate()
                   }}
                   scheduledDate={format(selectedDate, 'yyyy-MM-dd')}
                 />

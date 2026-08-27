@@ -39,8 +39,16 @@ export function DaySetup() {
   const patch = (value: Partial<DaySetupAnswers>) => setAnswers({ ...current, ...value })
   const atFinishLine = step.id === 'talk_style'
 
-  const abandon = () => {
+  const abandon = async () => {
     analytics.capture('day_setup_abandoned', { step_id: step.id })
+    // "Not now" and "Just take me in" mean the same thing — but a Settings
+    // re-run abandoning must never un-complete the first-run offer.
+    if (settings.onboardingStatus !== 'completed') {
+      await settingsService.updateSettings({ onboardingStatus: 'skipped' })
+      // The '/' gate reads this same cache; without invalidating it here we'd
+      // land back on the first-run choice screen instead of Today.
+      await queryClient.invalidateQueries({ queryKey: ['settings'] })
+    }
     navigate('/')
   }
 
@@ -82,6 +90,11 @@ export function DaySetup() {
 
     if (settings.onboardingStatus !== 'completed') {
       await settingsService.updateSettings({ onboardingStatus: 'completed' })
+      // The '/' gate reads the ['settings'] cache (5-minute staleTime, so this
+      // does not self-heal on its own); without invalidating it here, finishing
+      // day setup from the first-run offer would navigate home straight back
+      // into the choice screen instead of Today.
+      await queryClient.invalidateQueries({ queryKey: ['settings'] })
     }
     await queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY })
     await queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
