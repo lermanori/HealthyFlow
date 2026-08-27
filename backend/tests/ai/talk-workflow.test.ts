@@ -283,6 +283,7 @@ describe('plan_work: aligned open Task', () => {
         responseStyle: 'concise' as const,
         planningStyle: 'one_step_at_a_time' as const,
         followUpMode: 'ask_about_outcomes' as const,
+        dayContext: null,
       },
       goals: { status: 'ready' as const, records: [] },
       habitHistory: { status: 'unavailable' as const },

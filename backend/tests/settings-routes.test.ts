@@ -87,6 +87,7 @@ describe('settings API', () => {
       responseStyle: 'concise',
       planningStyle: 'one_step_at_a_time',
       followUpMode: 'ask_about_outcomes',
+      dayContext: null,
     }
     mockDb.upsertUserSettings.mockResolvedValue({ assistantProfile })
 
