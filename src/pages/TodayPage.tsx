@@ -19,8 +19,8 @@ import {
   ChevronRight,
   Clock,
   Dumbbell,
+  Brain,
   HeartPulse,
-  MessageSquare,
   Plus,
   RotateCcw,
   Share2,
@@ -41,8 +41,8 @@ import {
   DAILY_SIGNALS_QUERY_KEY,
   DAY_SUMMARY_QUERY_KEY,
   isDaySummaryItemAddressed,
-  onboardingService,
   rhythmService,
+  settingsService,
   taskService,
   ExternalCalendarEvent,
   FocusBlockTransitionInput,
@@ -77,7 +77,6 @@ import { useHeldDay } from '../hooks/useHeldDay'
 import HabitOutcomeSheet from '../components/HabitOutcomeSheet'
 import { enabledModulePresentations, getModulePresentation, moduleHealthHref } from '../modulePresentation'
 import {
-  clearDemoAcquisition,
   demoPersonaById,
   readDemoAcquisition,
 } from '../demoPersonas'
@@ -1092,7 +1091,8 @@ export default function TodayPage() {
   const [habitCheckIn, setHabitCheckIn] = useState<HabitItem | null>(null)
   const [daySwipeOffset, setDaySwipeOffset] = useState(0)
   const [isDaySwipeTracking, setIsDaySwipeTracking] = useState(false)
-  const [demoAcquisition, setDemoAcquisition] = useState(readDemoAcquisition)
+  const [demoAcquisition] = useState(readDemoAcquisition)
+  const [daySetupBannerDismissed, setDaySetupBannerDismissed] = useState(false)
   const daySwipeGesture = useRef<DaySwipeGesture | null>(null)
   const queryClient = useQueryClient()
   const location = useLocation()
@@ -1437,14 +1437,14 @@ export default function TodayPage() {
   })
 
   const skipOnboardingMutation = useMutation({
-    mutationFn: onboardingService.skip,
+    mutationFn: () => settingsService.updateSettings({ onboardingStatus: 'skipped' }),
     onSuccess: () => {
+      analytics.capture('onboarding_skipped')
+      analytics.setUserProperties({ onboarding_status: 'skipped' })
+      setDaySetupBannerDismissed(true)
       queryClient.invalidateQueries({ queryKey: ['settings'] })
-      clearDemoAcquisition()
-      setDemoAcquisition(null)
-      toast.success('Onboarding skipped')
     },
-    onError: () => toast.error('Failed to skip onboarding'),
+    onError: () => toast.error('Failed to skip day setup'),
   })
 
   const handleCompleteTask = (id: string) => {
@@ -1854,14 +1854,14 @@ export default function TodayPage() {
       {DAILY_SIGNALS_ENABLED && <AIRecommendationsBox date={selectedDateKey} />}
       {isViewingToday && dueKickoff && <RhythmKickoffRow kickoff={dueKickoff} />}
 
-      {settings?.onboardingStatus === 'active' && (
+      {!daySetupBannerDismissed && settings && settings.onboardingStatus !== 'completed' && (
         <section className="flex flex-col gap-3 rounded-xl border border-accent/30 bg-accent/[.06] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-ink">Tell HealthyFlow about your day</h2>
+            <h2 className="text-sm font-semibold text-ink">Set up your day</h2>
             <p className="mt-1 text-sm text-ink-muted">
               {demoAcquisition
                 ? demoPersonaById(demoAcquisition.persona).activationPrompt
-                : 'Turn one brain-dump into Items for this date.'}
+                : 'Four questions, so the clock measures against your day.'}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -1875,19 +1875,11 @@ export default function TodayPage() {
             </button>
             <button
               type="button"
-              onClick={() => navigate('/talk', {
-                state: talkHandoffState({
-                  source: 'today',
-                  intent: 'plan_day',
-                  date: selectedDateKey,
-                  onboarding: true,
-                  demoPersona: demoAcquisition?.persona,
-                }),
-              })}
+              onClick={() => navigate('/day-setup')}
               className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-action px-4 text-sm font-semibold text-on-action hover:bg-action-hover"
             >
-              <MessageSquare className="h-4 w-4" aria-hidden="true" />
-              Open Talk
+              <Brain className="h-4 w-4" aria-hidden="true" />
+              Set up my day
             </button>
           </div>
         </section>

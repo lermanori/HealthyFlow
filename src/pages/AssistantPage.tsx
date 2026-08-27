@@ -4,7 +4,8 @@ import { format } from 'date-fns'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Bot, ChevronDown, Image as ImageIcon, Mic, MessageSquare, Paperclip, Pause, Play, Plus, Send, Square, UserRound, Volume2, Wrench, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantContext, AssistantConversation, AssistantPendingAction, AssistantStoredMessage, AssistantToolEvent, GOALS_QUERY_KEY, HABIT_HISTORY_QUERY_KEY, goalService, onboardingService, pushService, taskService, type Goal } from '../services/api'
+import { settingsService } from '../services/api'
+import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantContext, AssistantConversation, AssistantPendingAction, AssistantStoredMessage, AssistantToolEvent, GOALS_QUERY_KEY, HABIT_HISTORY_QUERY_KEY, goalService, pushService, taskService, type Goal } from '../services/api'
 import { GoalCreateInputSchema, GoalUpdateInputSchema } from '../../backend/src/goals-schema'
 import { useDictatedText } from '../hooks/useDictatedText'
 import PendingActionCard, { type PendingActionView } from '../components/PendingActionCard'
@@ -748,7 +749,11 @@ export default function AssistantPage() {
     if (handoffContext?.intent !== 'plan_day' || !handoffContext.onboarding || onboardingCompletionStartedRef.current) return
     onboardingCompletionStartedRef.current = true
     try {
-      await onboardingService.complete()
+      // Reachable only if something sets the handoff's `onboarding` flag again.
+      // The Today banner was its only producer and now opens day setup instead.
+      await settingsService.updateSettings({ onboardingStatus: 'completed' })
+      analytics.capture('onboarding_completed')
+      analytics.setUserProperties({ onboarding_status: 'completed' })
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['settings'] }),
         queryClient.invalidateQueries({ queryKey: ['achievements'] }),

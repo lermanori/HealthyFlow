@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { chromium, type Browser } from '@playwright/test'
 import { createServer } from 'vite'
 
-test('the app starts in a Vite development browser without server-only module errors', { timeout: 30_000 }, async () => {
+test('the app starts in a Vite development browser without server-only module errors', { timeout: 60_000 }, async () => {
   const server = await createServer({
     logLevel: 'silent',
     server: {
@@ -113,6 +113,10 @@ test('the app starts in a Vite development browser without server-only module er
           contentType: 'application/json',
           body: JSON.stringify({
             account: { email: 'local-first@example.com' },
+            settings: [{
+              user_id: accountId,
+              settings: { onboardingStatus: 'skipped' },
+            }],
             items: [{
               id: 'downloaded-task',
               user_id: accountId,
@@ -146,7 +150,31 @@ test('the app starts in a Vite development browser without server-only module er
           status: 200,
           headers: corsHeaders,
           contentType: 'application/json',
-          body: JSON.stringify({ balance: 100, subscription: { active: true } }),
+          body: JSON.stringify({
+            balance: 100,
+            subscriptionBalance: 100,
+            topupBalance: 0,
+            usedThisMonth: 0,
+            monthlyGrantUsed: 0,
+            pricing: {
+              promoActive: false,
+              phase: 'regular',
+              priceUsd: 19,
+              monthlyCredits: 500,
+              sellCreditsPerUsd: 50,
+              topUpPriceUsd: 5,
+              topUpCredits: 250,
+              foundingMemberLimit: 100,
+            },
+            subscription: {
+              active: true,
+              pricePhase: 'regular',
+              monthlyCredits: 500,
+              renewalDate: null,
+              lastMonthlyGrantAt: null,
+              updatedAt: null,
+            },
+          }),
         })
         return
       }
@@ -215,6 +243,37 @@ test('the app starts in a Vite development browser without server-only module er
     assert.equal(localLogin.activeUserId, accountId, 'login did not switch the account onto its Local day')
     assert.deepEqual(localLogin.taskTitles, ['Downloaded onto this device'])
     await page.getByText(syncNotice).waitFor({ state: 'visible' })
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.getByRole('button', { name: 'Set up my day' }).click({ timeout: 5_000 })
+    const firstQuestion = page.getByRole('heading', { name: 'What should I call you?' })
+    const nextButton = page.getByRole('button', { name: 'Next' })
+    await firstQuestion.waitFor({ state: 'visible', timeout: 5_000 })
+    await nextButton.waitFor({ state: 'visible', timeout: 5_000 })
+    const daySetupViewport = await Promise.all([
+      firstQuestion.evaluate((element) => {
+        const rect = element.getBoundingClientRect()
+        return { top: rect.top, bottom: rect.bottom }
+      }),
+      nextButton.evaluate((element) => {
+        const rect = element.getBoundingClientRect()
+        return { top: rect.top, bottom: rect.bottom }
+      }),
+    ])
+    const viewportHeight = page.viewportSize()?.height ?? 844
+    assert.ok(
+      daySetupViewport.every((rect) => rect.top >= 0 && rect.bottom <= viewportHeight),
+      `day setup did not keep its first question and action in view: ${JSON.stringify(daySetupViewport)}`,
+    )
+
+    await page.getByRole('button', { name: 'Not now' }).click()
+    const setupBannerHeading = page.getByRole('heading', { name: 'Set up your day', exact: true })
+    await setupBannerHeading.waitFor({ state: 'visible', timeout: 5_000 })
+    await page.getByRole('button', { name: 'Later' }).click()
+    await setupBannerHeading.waitFor({ state: 'hidden', timeout: 5_000 })
+    await page.getByRole('link', { name: 'Goals', exact: true }).click()
+    await page.getByRole('link', { name: 'Today', exact: true }).click()
+    await setupBannerHeading.waitFor({ state: 'visible', timeout: 5_000 })
 
     await page.evaluate(async (modulePath) => {
       const sync = await import(modulePath)

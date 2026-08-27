@@ -32,45 +32,37 @@ test.afterEach(async ({ request }) => {
   await resetSharedUser(request, 'completed')
 })
 
-test('shared test user enters Talk from onboarding and completion stays dismissed', async ({ page }) => {
-  await page.route('**/api/ai/chat', (route) => route.fulfill({
-    json: {
-      message: 'I can help turn that into reviewable Items.',
-      toolEvents: [],
-      pendingActions: [],
-    },
-  }))
+test('the banner opens day setup, and finishing it clears the banner', async ({ page }) => {
   await page.goto('/app')
-  await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByRole('heading', { name: 'Set up your day' })).toBeVisible({ timeout: 10_000 })
 
-  await page.getByRole('button', { name: 'Open Talk', exact: true }).click()
-  await expect(page).toHaveURL(/\/app\/talk$/)
-  await expect(page.getByRole('heading', { name: 'Talk to your day' })).toBeVisible()
+  await page.getByRole('button', { name: 'Set up my day', exact: true }).click()
+  await expect(page).toHaveURL(/\/app\/day-setup$/)
+  await expect(page.getByRole('heading', { name: 'What should I call you?' })).toBeVisible()
 
-  const composer = page.getByPlaceholder(/Add anything/)
-  await expect(composer).toBeFocused()
-  await composer.fill(
-    'Gym at 7am, finish the quarterly report, and grab groceries after work.'
-  )
-  await page.getByRole('button', { name: 'Send' }).click()
-  await expect(page.getByText('I can help turn that into reviewable Items.')).toBeVisible()
+  // Part one is four questions and ends at a real finish line.
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await expect(page.getByRole('heading', { name: /When does your day actually start/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await page.getByRole('button', { name: 'Next', exact: true }).click()
+  await expect(page.getByRole('heading', { name: /How should HealthyFlow talk to you/ })).toBeVisible()
 
-  // The first successful Talk turn completes onboarding; opening Talk alone does not.
-  await expect(page.getByText('Onboarding complete.')).toBeVisible()
-  await page.goBack()
-  await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toHaveCount(0)
+  await page.getByRole('button', { name: /That's enough/ }).click()
+  await expect(page).toHaveURL(/\/app$/)
+  await expect(page.getByRole('heading', { name: 'Set up your day' })).toHaveCount(0)
 
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Set up your day' })).toHaveCount(0)
 })
 
-test('skip link completes onboarding without parsing', async ({ page }) => {
+test('"Later" defers day setup but leaves the door open', async ({ page }) => {
   await page.goto('/app')
-  await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByRole('heading', { name: 'Set up your day' })).toBeVisible({ timeout: 10_000 })
   await page.getByRole('button', { name: 'Later', exact: true }).click()
-  await expect(page.getByText('Onboarding skipped')).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toBeHidden()
 
+  // Deliberate: 'Later' records 'skipped', and the banner renders on anything
+  // other than 'completed'. Choosing the app first must never close the door —
+  // day setup stays one tap away until it is actually finished.
   await page.reload()
-  await expect(page.getByRole('heading', { name: 'Tell HealthyFlow about your day' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Set up your day' })).toBeVisible()
 })
