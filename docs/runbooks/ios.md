@@ -25,6 +25,8 @@ any OS-gated API.
   and theme-aware status bar
 - A server-controlled minimum-version gate that can require an App Store update
 - A small and medium Today widget backed by an App Group
+- App and widget privacy manifests declaring the shared App Group
+  `UserDefaults` required-reason API
 - PWA service-worker and Web Push registration disabled inside the native shell
 
 The Today widget is intentionally a native feature rather than a duplicate

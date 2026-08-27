@@ -11,6 +11,8 @@
 		404AC2A24061B623255D0109 /* HealthyFlowViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EC74A2D46E9AADBE5AEF6F7 /* HealthyFlowViewController.swift */; };
 		4A915A9D30E4000000000001 /* AppleSignInPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000002 /* AppleSignInPlugin.swift */; };
 		4A915A9D30E4000000000003 /* GoogleSignInPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000004 /* GoogleSignInPlugin.swift */; };
+		4A915A9D30E4000000000010 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000011 /* PrivacyInfo.xcprivacy */; };
+		4A915A9D30E4000000000012 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000013 /* PrivacyInfo.xcprivacy */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -54,6 +56,8 @@
 		4B709C7BAF369FC58AE12E28 /* HealthyFlowWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HealthyFlowWidget.swift; sourceTree = "<group>"; };
 		4A915A9D30E4000000000002 /* AppleSignInPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppleSignInPlugin.swift; sourceTree = "<group>"; };
 		4A915A9D30E4000000000004 /* GoogleSignInPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GoogleSignInPlugin.swift; sourceTree = "<group>"; };
+		4A915A9D30E4000000000011 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		4A915A9D30E4000000000013 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -115,6 +119,7 @@
 			isa = PBXGroup;
 			children = (
 				50379B222058CBB4000EE86E /* capacitor.config.json */,
+				4A915A9D30E4000000000011 /* PrivacyInfo.xcprivacy */,
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
@@ -135,6 +140,7 @@
 			isa = PBXGroup;
 			children = (
 				4B709C7BAF369FC58AE12E28 /* HealthyFlowWidget.swift */,
+				4A915A9D30E4000000000013 /* PrivacyInfo.xcprivacy */,
 				829B613BA8A6A7C4992F2209 /* Info.plist */,
 				C587B4C3BD7E36693F073352 /* HealthyFlowWidget.entitlements */,
 			);
@@ -247,6 +253,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4A915A9D30E4000000000010 /* PrivacyInfo.xcprivacy in Resources */,
 				504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */,
 				50B271D11FEDC1A000F3C39B /* public in Resources */,
 				504EC30F1FED79650016851F /* Assets.xcassets in Resources */,
@@ -260,6 +267,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4A915A9D30E4000000000012 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

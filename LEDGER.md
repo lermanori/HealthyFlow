@@ -1,3 +1,9 @@
+### 2026-08-27 10:11 — `chore/ios-privacy-manifests`
+
+Added privacy manifests to the iOS app and Today widget, each declaring only the approved App Group `UserDefaults` reason used to exchange the widget summary. Both source plists validate, and an unsigned Release simulator build succeeds with Xcode Store validation and semantically identical manifests bundled at the app and extension roots.
+
+---
+
 ### 2026-08-27 10:02 — `main`
 
 Moved the detached Talk Prompt Lab into `tools/talk-prompt-lab` as a dependency-free, explicitly isolated developer tool with one root command. Its smoke check and the production build pass, and a bundle inspection confirms the prompt variants and synthetic scenarios do not enter the web or iOS application; the old temporary worktree has been removed.
