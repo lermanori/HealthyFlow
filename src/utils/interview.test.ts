@@ -6,6 +6,7 @@ import {
   TALK_STYLE_PRESETS,
   answersFromSettings,
   commitDaySetup,
+  daySetupCompletion,
   mapAnswersToWrites,
 } from '../interview'
 
@@ -243,5 +244,50 @@ describe('commitDaySetup', () => {
 
     assert.deepEqual(calls, [])
     assert.equal(result.ok, true)
+  })
+})
+
+describe('daySetupCompletion', () => {
+  it('reports the first ever completion once, with a set-once stamp', () => {
+    const report = daySetupCompletion({
+      previousStatus: 'active',
+      writes: writesFixture,
+      stepsAnswered: 5,
+      completedAt: '2026-08-27T09:00:00.000Z',
+    })
+
+    assert.equal(report.isFirstCompletion, true)
+    assert.deepEqual(report.setOnce, { day_setup_first_completed_at: '2026-08-27T09:00:00.000Z' })
+    assert.deepEqual(report.event, {
+      run: 'first',
+      steps_answered: 5,
+      wrote_goals: true,
+      wrote_habits: true,
+      changed_window: true,
+    })
+  })
+
+  it('reports a re-run as a repeat and stamps nothing', () => {
+    const report = daySetupCompletion({
+      previousStatus: 'completed',
+      writes: { settingsPatch: {}, goals: [], habits: [], changedWindow: false },
+      stepsAnswered: 2,
+      completedAt: '2026-08-28T09:00:00.000Z',
+    })
+
+    assert.equal(report.isFirstCompletion, false)
+    assert.equal(report.setOnce, null)
+    assert.equal(report.event.run, 'repeat')
+    assert.equal(report.event.wrote_goals, false)
+  })
+
+  it('counts a completion after skipping the first-run offer as the first', () => {
+    const report = daySetupCompletion({
+      previousStatus: 'skipped',
+      writes: writesFixture,
+      stepsAnswered: 7,
+      completedAt: '2026-08-27T09:00:00.000Z',
+    })
+    assert.equal(report.isFirstCompletion, true)
   })
 })

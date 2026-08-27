@@ -1,5 +1,6 @@
 import SettingsContracts, { type Settings as UserSettings } from '../backend/src/settings-schema'
 import { type GoalModule } from '../backend/src/goals-schema'
+import type { AnalyticsEvents, UserPropertiesOnce } from './lib/analytics/types'
 
 const { DEFAULT_PLANNING_WINDOW } = SettingsContracts
 
@@ -260,4 +261,40 @@ export async function commitDaySetup(
   }
 
   return { ok: failures.length === 0, applied, failures }
+}
+
+/**
+ * What to report when a run finishes.
+ *
+ * `onboarding_completed` must fire **once per user, ever**, while day setup is
+ * re-runnable — so first-ness is decided here rather than at the call site.
+ * `$set_once` is what makes that true rather than best-effort: it survives the
+ * identity merge when a Guest Claims, so someone who completes day setup as a
+ * Guest and creates an account later is not counted twice.
+ */
+export function daySetupCompletion(input: {
+  previousStatus: UserSettings['onboardingStatus']
+  writes: DaySetupWrites
+  stepsAnswered: number
+  completedAt: string
+}): {
+  isFirstCompletion: boolean
+  setOnce: UserPropertiesOnce | null
+  event: AnalyticsEvents['day_setup_completed']
+} {
+  const isFirstCompletion = input.previousStatus !== 'completed'
+
+  return {
+    isFirstCompletion,
+    setOnce: isFirstCompletion
+      ? { day_setup_first_completed_at: input.completedAt }
+      : null,
+    event: {
+      run: isFirstCompletion ? 'first' : 'repeat',
+      steps_answered: input.stepsAnswered,
+      wrote_goals: input.writes.goals.length > 0,
+      wrote_habits: input.writes.habits.length > 0,
+      changed_window: input.writes.changedWindow,
+    },
+  }
 }
