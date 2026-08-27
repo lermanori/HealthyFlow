@@ -1,3 +1,9 @@
+### 2026-08-27 15:05 — `claude/user-onboarding-interview-7a51bd`
+
+Implemented **day setup** across eight commits: a pure `src/interview.ts` holding the question set, the re-run diff, the partial-failure commit and the once-per-user completion report, plus the step bodies, flow container and the three doors into it. It writes through the existing `onDevice` services, so a Guest and an account holder share one code path, and it fixes the split-brain `onboardingService` that would otherwise have made the Guest banner permanent and silent. Both typechecks, 257 frontend tests, 830 backend tests and the production build are green; end-to-end browser verification of the Guest path is still outstanding because guest mode is iOS-gated on the web and no local database is available to exercise it against.
+
+---
+
 ### 2026-08-27 14:16 — `claude/user-onboarding-interview-7a51bd`
 
 Designed **day setup**: a short, deterministic interview that asks someone about their day and writes the answers into settings, Goals and Habits that already exist — offered at first run, reachable from Today if declined, and re-runnable from Settings. It is entirely offline and credit-free by design, so it works at the Guest front door where an AI-conducted interview could not, and it writes through the `onDevice` services so Guest and account share one code path. The design work uncovered two defects it must fix first: `onboardingService` is the only service not wrapped in `onDevice`, which would make the Guest banner permanent and silent, and the Today banner's `active`-only condition means "Later" closes the door for good. The pricing, plans and Claim finish line is specified as a separate next part, gated on `worktree-pricing-actions` merging and a purchase rail existing at all.
