@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react'
-import { ArrowDown, ArrowUp, Check, Dumbbell, Pencil, Plus, Ruler, Sparkles, Timer, Trash2, Weight, X } from 'lucide-react'
+import { ArrowDown, ArrowUp, Check, Dumbbell, MessageSquare, Pencil, Plus, Ruler, Timer, Trash2, Weight, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { format } from 'date-fns'
 import { useWorkoutExerciseItems } from '../hooks/useWorkoutExerciseItems'
 import { useWorkoutPlans, useWorkoutSessions } from '../hooks/useWorkoutSessions'
@@ -10,6 +10,7 @@ import HealthDayNavigator from '../components/HealthDayNavigator'
 import HealthNavigation from '../components/HealthNavigation'
 import IconButton from '../components/IconButton'
 import { showUndoToast } from '../components/UndoToast'
+import { talkHandoffState } from '../talkHandoff'
 
 const todayStr = () => format(new Date(), 'yyyy-MM-dd')
 
@@ -154,6 +155,7 @@ function ExerciseFields({
 }
 
 export default function WorkoutsPage() {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedDate = searchParams.get('date')
   const date = requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate) ? requestedDate : todayStr()
@@ -172,7 +174,7 @@ export default function WorkoutsPage() {
     setSearchParams(nextParams)
   }
   const { sessions, isLoading, createSession, updateSession, deleteSession, addExercise, updateExercise, deleteExercise } = useWorkoutSessions(date)
-  const { plans, isLoading: arePlansLoading, createPlan, updatePlan, deletePlan, generatePlan, isGeneratingPlan } = useWorkoutPlans()
+  const { plans, isLoading: arePlansLoading, createPlan, updatePlan, deletePlan } = useWorkoutPlans()
   const [quickInsertSort, setQuickInsertSort] = useState<'recent' | 'most-used'>('recent')
   const { items: quickInsertItems, isLoading: isQuickInsertLoading } = useWorkoutExerciseItems(quickInsertSort, 8)
   const [title, setTitle] = useState('')
@@ -197,7 +199,6 @@ export default function WorkoutsPage() {
   const [planExercises, setPlanExercises] = useState<WorkoutExerciseInput[]>([])
   const [editingPlanExerciseIndex, setEditingPlanExerciseIndex] = useState<number | null>(null)
   const [planFilter, setPlanFilter] = useState('')
-  const [planIntent, setPlanIntent] = useState('')
   const searchRef = useRef<HTMLInputElement | null>(null)
   const sessionComposerRef = useRef<HTMLDivElement | null>(null)
   const exerciseComposerRef = useRef<HTMLDivElement | null>(null)
@@ -327,7 +328,6 @@ export default function WorkoutsPage() {
     setPlanExercises([])
     setEditingPlanExerciseIndex(null)
     setPlanFilter('')
-    setPlanIntent('')
   }
 
   const startPlanCreate = () => {
@@ -354,7 +354,6 @@ export default function WorkoutsPage() {
     setPlanExerciseForm(emptyExercise())
     setEditingPlanExerciseIndex(null)
     setPlanFilter('')
-    setPlanIntent('')
     setShowPlanEditor(true)
     setRouteState({ mode: 'plan' })
   }
@@ -421,24 +420,6 @@ export default function WorkoutsPage() {
     setSessionDraftOpen(true)
     setRouteState({ mode: 'session' })
     requestAnimationFrame(() => sessionComposerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
-  }
-
-  const generateWorkoutPlan = async () => {
-    const intent = planIntent.trim()
-    if (!intent) return
-    try {
-      const draft = await generatePlan(intent)
-      setEditingPlanId(null)
-      setPlanName(draft.name)
-      setPlanColor(draft.color ?? '#22d3ee')
-      setPlanNote(draft.note ?? '')
-      setPlanExercises(draft.exercises.map((exercise, position) => ({ ...exercise, position })))
-      setPlanExerciseForm(emptyExercise())
-      setEditingPlanExerciseIndex(null)
-      requestAnimationFrame(() => planDraftRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }))
-    } catch {
-      // The mutation surfaces the explicit API error via toast; keep the user's intent intact.
-    }
   }
 
   return (
@@ -548,31 +529,28 @@ export default function WorkoutsPage() {
               <IconButton label="Close plan editor" onClick={resetPlanEditor} className="text-ink-muted hover:text-ink"><X className="h-4 w-4" /></IconButton>
             </div>
 
-            <div className="rounded-lg border border-accent/30 bg-accent/5 p-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-accent" />
-                <h4 className="text-sm font-semibold text-ink">Generate with AI</h4>
+            <div className="flex flex-col gap-3 rounded-lg border border-accent/30 bg-accent/5 p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-accent" />
+                  <h4 className="text-sm font-semibold text-ink">Want help designing this plan?</h4>
+                </div>
+                <p className="mt-1 text-xs text-ink-muted">Discuss goals, time, equipment and constraints in Talk, then return to this manual editor.</p>
               </div>
-              <p className="mt-1 text-xs text-ink-muted">Describe any training style. Review and edit the generated draft before saving.</p>
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                <textarea
-                  data-testid="workout-plan-intent"
-                  className="input-field min-h-20 flex-1 resize-y"
-                  maxLength={2000}
-                  placeholder="3-day push/pull/legs, a 20-minute mobility flow, or an easy 5K plan..."
-                  value={planIntent}
-                  onChange={(event) => setPlanIntent(event.target.value)}
-                />
-                <button
-                  type="button"
-                  className="btn-primary inline-flex items-center justify-center gap-2 px-4 py-2 text-sm sm:self-end"
-                  disabled={isGeneratingPlan || !planIntent.trim()}
-                  onClick={generateWorkoutPlan}
-                >
-                  <Sparkles className="h-4 w-4" />
-                  {isGeneratingPlan ? 'Generating...' : 'Generate Draft'}
-                </button>
-              </div>
+              <button
+                type="button"
+                className="btn-secondary inline-flex min-h-11 shrink-0 items-center justify-center gap-2 px-4 py-2 text-sm"
+                onClick={() => navigate('/talk', {
+                  state: talkHandoffState({
+                    source: 'workouts',
+                    intent: 'draft_workout_plan',
+                    date,
+                  }),
+                })}
+              >
+                <MessageSquare className="h-4 w-4" />
+                Open Talk
+              </button>
             </div>
 
             <div className="grid gap-3 md:grid-cols-[1fr_auto_1fr]">

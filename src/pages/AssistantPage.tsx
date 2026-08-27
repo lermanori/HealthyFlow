@@ -1,10 +1,10 @@
 import { ClipboardEvent as ReactClipboardEvent, FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { format } from 'date-fns'
-import { Link, useLocation, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Bot, ChevronDown, Image as ImageIcon, Mic, MessageSquare, Paperclip, Pause, Play, Plus, Send, Square, UserRound, Volume2, Wrench, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantContext, AssistantConversation, AssistantPendingAction, AssistantStoredMessage, AssistantToolEvent, GOALS_QUERY_KEY, HABIT_HISTORY_QUERY_KEY, goalService, pushService, taskService, type Goal } from '../services/api'
+import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantContext, AssistantConversation, AssistantPendingAction, AssistantStoredMessage, AssistantToolEvent, GOALS_QUERY_KEY, HABIT_HISTORY_QUERY_KEY, goalService, onboardingService, pushService, taskService, type Goal } from '../services/api'
 import { GoalCreateInputSchema, GoalUpdateInputSchema } from '../../backend/src/goals-schema'
 import { useDictatedText } from '../hooks/useDictatedText'
 import PendingActionCard, { type PendingActionView } from '../components/PendingActionCard'
@@ -15,6 +15,14 @@ import { useAuth } from '../context/AuthContext'
 import { useSettings } from '../hooks/useSettings'
 import { useGoals } from '../hooks/useGoals'
 import { isNativeIOS } from '../lib/native'
+import { analytics } from '../lib/analytics'
+import { clearDemoAcquisition, readDemoAcquisition } from '../demoPersonas'
+import {
+  talkHandoffContext,
+  talkHandoffLabel,
+  talkHandoffPrompt,
+  type TalkHandoffContext,
+} from '../talkHandoff'
 
 type ConversationPendingAction = PendingActionView
 
@@ -39,6 +47,8 @@ type TalkRecovery = {
   request: TalkRequest
   errorMessageId?: string
 }
+
+type TalkEntryPoint = 'talk' | 'today' | 'add' | 'nutrition' | 'workouts' | 'work' | 'daily_signal' | 'kickoff'
 
 type DailySignalTalkContext = {
   date: string
@@ -448,6 +458,7 @@ function AssistantReasoningStages({ events }: { events: AssistantToolEvent[] }) 
 export default function AssistantPage() {
   const queryClient = useQueryClient()
   const location = useLocation()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const {
     settings: assistantSettings,
@@ -493,12 +504,14 @@ export default function AssistantPage() {
   // Work hands off a finished, editable prompt. Talk only carries it in —
   // it never reassembles the Project's target or context for itself.
   const [workContext, setWorkContext] = useState<WorkTalkContext | null>(() => workTalkContext(location.state))
+  const [handoffContext, setHandoffContext] = useState<TalkHandoffContext | null>(() => talkHandoffContext(location.state))
   const [conversations, setConversations] = useState<StoredConversation[]>([])
   const [activeConversationId, setActiveConversationId] = useState<string>(() => crypto.randomUUID())
   const [messages, setMessages] = useState<ConversationMessage[]>([])
   const [draft, setDraft] = useState(() => {
     if (workContext) return workContext.prompt
-    return signalContext ? dailySignalTalkPrompt(signalContext) : ''
+    if (signalContext) return dailySignalTalkPrompt(signalContext)
+    return handoffContext ? talkHandoffPrompt(handoffContext) : ''
   })
   const [isSending, setIsSending] = useState(false)
   const [model, setModel] = useState<AssistantChatModel>('gpt-4o-mini')
@@ -509,19 +522,35 @@ export default function AssistantPage() {
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const messagesScrollRef = useRef<HTMLDivElement>(null)
-  const opensFreshSignalChatRef = useRef(signalContext !== null || workContext !== null)
+  const opensFreshSignalChatRef = useRef(signalContext !== null || workContext !== null || handoffContext !== null)
   const skipNextPersistRef = useRef(false)
   const saveTimerRef = useRef<number | null>(null)
   const conversationsRef = useRef<StoredConversation[]>([])
   const saveQueuesRef = useRef(new Map<string, Promise<AssistantConversation>>())
   const activeRequestRef = useRef<AbortController | null>(null)
   const shouldRefocusComposerRef = useRef(false)
+  const onboardingCompletionStartedRef = useRef(false)
   const {
     isListening,
     isDictationSupported,
     dictationError,
     toggleDictation,
   } = useDictatedText({ text: draft, setText: setDraft, disabled: isSending })
+
+  // Router state is a one-shot handoff. Replace only the current history entry
+  // so Back still returns to the source page and refresh cannot replay context.
+  useEffect(() => {
+    if (!location.state || (!signalContext && !workContext && !handoffContext)) return
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+    // Context is intentionally captured once at mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    if (!signalContext && !workContext && !handoffContext) return
+    const frame = window.requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }))
+    return () => window.cancelAnimationFrame(frame)
+  }, [handoffContext, signalContext, workContext])
 
   useLayoutEffect(() => {
     const input = inputRef.current
@@ -715,6 +744,27 @@ export default function AssistantPage() {
     [messages]
   )
 
+  const completeOnboardingFromTalk = async () => {
+    if (handoffContext?.intent !== 'plan_day' || !handoffContext.onboarding || onboardingCompletionStartedRef.current) return
+    onboardingCompletionStartedRef.current = true
+    try {
+      await onboardingService.complete()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['settings'] }),
+        queryClient.invalidateQueries({ queryKey: ['achievements'] }),
+      ])
+      const acquisition = readDemoAcquisition()
+      if (acquisition) {
+        analytics.capture('first_real_day_activation_completed', { persona: acquisition.persona })
+        clearDemoAcquisition()
+      }
+      toast.success('Onboarding complete.')
+    } catch {
+      onboardingCompletionStartedRef.current = false
+      toast.error('Talk worked, but onboarding could not be completed. Please try again.')
+    }
+  }
+
   const runTalkRequest = async (request: TalkRequest) => {
     if (activeRequestRef.current) return
     const controller = new AbortController()
@@ -726,6 +776,7 @@ export default function AssistantPage() {
       if (request.forceMock || demoSession) {
         await abortableDelay(900, controller.signal)
         setMessages((current) => [...current, demoAssistantMessage()])
+        await completeOnboardingFromTalk()
         return
       }
 
@@ -745,6 +796,7 @@ export default function AssistantPage() {
           pendingActions: response.pendingActions,
         },
       ])
+      await completeOnboardingFromTalk()
     } catch (error: any) {
       if (controller.signal.aborted || error?.name === 'AbortError' || error?.code === 'ERR_CANCELED') {
         setTalkRecovery({ kind: 'canceled', request })
@@ -781,10 +833,20 @@ export default function AssistantPage() {
       forceMock?: boolean
       conversationId?: string
       workflow?: { name: 'plan_work'; projectId: string; anchorDate?: string }
+      entryPoint?: TalkEntryPoint
     } = {}
   ) => {
     const trimmed = content.trim()
     if ((!trimmed && !messageAttachment) || activeRequestRef.current) return
+    const entryPoint: TalkEntryPoint = options.entryPoint
+      ?? handoffContext?.source
+      ?? (workContext ? 'work' : signalContext ? 'daily_signal' : 'talk')
+    analytics.capture('ai_question_asked', {
+      surface: 'talk',
+      entry_point: entryPoint,
+      has_attachment: Boolean(messageAttachment),
+      model: requestModel,
+    })
     const userContent = trimmed || `Review the attached ${messageAttachment?.kind === 'image' ? 'image' : 'file'}.`
 
     const userMessage: ConversationMessage = {
@@ -874,7 +936,7 @@ export default function AssistantPage() {
           [],
           kickoffModel,
           kickoffDisplayLabel(kickoff as 'morning' | 'midday' | 'weekly'),
-          { conversationId: kickoffConversationId },
+          { conversationId: kickoffConversationId, entryPoint: 'kickoff' },
         )
       } catch {
         toast.error('Could not start your planning session.')
@@ -923,6 +985,7 @@ export default function AssistantPage() {
     setDraft('')
     setSignalContext(null)
     setWorkContext(null)
+    setHandoffContext(null)
     setAttachment(null)
     setTalkRecovery(null)
     setModel('gpt-4o-mini')
@@ -939,6 +1002,8 @@ export default function AssistantPage() {
     setModel(conversation.model)
     setDraft('')
     setSignalContext(null)
+    setWorkContext(null)
+    setHandoffContext(null)
     setAttachment(null)
     setTalkRecovery(null)
   }
@@ -1258,7 +1323,7 @@ export default function AssistantPage() {
               >
                 {!conversations.some((conversation) => conversation.id === activeConversationId) && (
                   <option value={activeConversationId}>
-                    {signalContext || workContext ? 'New insight chat' : 'New chat'}
+                    {signalContext || workContext || handoffContext ? 'New contextual chat' : 'New chat'}
                   </option>
                 )}
                 {conversations.map((conversation) => (
@@ -1490,6 +1555,19 @@ export default function AssistantPage() {
               type="button"
               onClick={() => setSignalContext(null)}
               aria-label="Remove Daily Signal context"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md hover:bg-accent/15"
+            >
+              <X className="h-4 w-4" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+        {handoffContext && (
+          <div className="mb-2 flex min-h-11 items-center justify-between gap-3 rounded-lg border border-accent/25 bg-accent/10 px-3 py-2 text-xs text-accent">
+            <span className="min-w-0 truncate">From {talkHandoffLabel(handoffContext)}</span>
+            <button
+              type="button"
+              onClick={() => setHandoffContext(null)}
+              aria-label="Remove module context"
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md hover:bg-accent/15"
             >
               <X className="h-4 w-4" aria-hidden="true" />

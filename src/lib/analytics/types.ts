@@ -88,7 +88,12 @@ export type AnalyticsEvents = {
     succeeded: boolean
     item_count: number | null
   }
-  ai_question_asked: void
+  ai_question_asked: {
+    surface: 'talk'
+    entry_point: 'talk' | 'today' | 'add' | 'nutrition' | 'workouts' | 'work' | 'daily_signal' | 'kickoff'
+    has_attachment: boolean
+    model: string
+  }
 
   // Modules
   calorie_entry_logged: { source: ItemSource }

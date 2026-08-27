@@ -1,3 +1,9 @@
+### 2026-08-27 15:47 — `refactor/talk-only-ai-input`
+
+Made Talk the only shipped free-form AI input surface and replaced the duplicate Today, Add, Nutrition and Workout composers with typed, visible Talk handoffs that preserve focus and Back navigation. Removed the obsolete analyzers and hidden meal lab while keeping deterministic forms, dictation and confirmation-gated proposal editing intact; documented the boundary and added regression coverage. Frontend and backend typechecks/tests, focused mobile browser flows, the production build and the Capacitor iOS sync build are green, and the new behavior passed a real-iPhone smoke test.
+
+---
+
 ### 2026-08-27 10:45 — `feat/support-page`
 
 Added a public HealthyFlow Support page for the App Store listing with a direct email path to `lermanori@gmail.com`. The page is available without an account at `/support`, is linked from the login surface, Settings, app footer and native drawer, and has passed the frontend suite, production/iOS sync build, browser verification and an unsigned Xcode simulator build.
