@@ -1095,6 +1095,7 @@ export default function TodayPage() {
   const [daySwipeOffset, setDaySwipeOffset] = useState(0)
   const [isDaySwipeTracking, setIsDaySwipeTracking] = useState(false)
   const [demoAcquisition, setDemoAcquisition] = useState(readDemoAcquisition)
+  const [daySetupBannerDismissed, setDaySetupBannerDismissed] = useState(false)
   const daySwipeGesture = useRef<DaySwipeGesture | null>(null)
   const queryClient = useQueryClient()
   const location = useLocation()
@@ -1438,6 +1439,7 @@ export default function TodayPage() {
     onSuccess: () => {
       analytics.capture('onboarding_skipped')
       analytics.setUserProperties({ onboarding_status: 'skipped' })
+      setDaySetupBannerDismissed(true)
       queryClient.invalidateQueries({ queryKey: ['settings'] })
     },
     onError: () => toast.error('Failed to skip day setup'),
@@ -1850,7 +1852,7 @@ export default function TodayPage() {
       {DAILY_SIGNALS_ENABLED && <AIRecommendationsBox date={selectedDateKey} />}
       {isViewingToday && dueKickoff && <RhythmKickoffRow kickoff={dueKickoff} />}
 
-      {settings && settings.onboardingStatus !== 'completed' && (
+      {!daySetupBannerDismissed && settings && settings.onboardingStatus !== 'completed' && (
         <section className="flex flex-col gap-3 rounded-xl border border-accent/30 bg-accent/[.06] p-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <h2 className="text-sm font-semibold text-ink">Set up your day</h2>

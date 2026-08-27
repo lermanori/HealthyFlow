@@ -189,7 +189,12 @@ export function mapAnswersToWrites(
   }
 
   if (Object.keys(profilePatch).length > 0) {
-    settingsPatch.assistantProfile = profilePatch as UserSettings['assistantProfile']
+    // The whole profile, not just what changed. Settings merge shallowly
+    // (`{ ...settings, ...patch }`), so a partial assistantProfile replaces the
+    // stored one and SettingsSchema refills every absent key with its default —
+    // silently resetting the preferred name and the talk style. Sending the
+    // merged profile is also what removes the need for a cast here.
+    settingsPatch.assistantProfile = { ...current.assistantProfile, ...profilePatch }
   }
 
   return {

@@ -123,10 +123,14 @@ describe('mapAnswersToWrites', () => {
 
   it('expands a talk-style preset into all three enums', () => {
     const answers = { ...answersFromSettings(baseline), talkStyle: 'tell_me' as const }
+    // The whole profile is sent, not just the changed keys — settings merge
+    // shallowly, so a partial patch would reset the rest to their defaults.
     assert.deepEqual(mapAnswersToWrites(answers, baseline).settingsPatch.assistantProfile, {
+      preferredName: null,
       responseStyle: 'concise',
       planningStyle: 'direct',
       followUpMode: 'only_when_asked',
+      dayContext: null,
     })
   })
 
@@ -138,6 +142,9 @@ describe('mapAnswersToWrites', () => {
     }
     assert.deepEqual(mapAnswersToWrites(answers, baseline).settingsPatch.assistantProfile, {
       preferredName: 'Ori',
+      responseStyle: 'concise',
+      planningStyle: 'one_step_at_a_time',
+      followUpMode: 'ask_about_outcomes',
       dayContext: 'Kids on Tuesdays.',
     })
   })
@@ -289,5 +296,38 @@ describe('daySetupCompletion', () => {
       completedAt: '2026-08-27T09:00:00.000Z',
     })
     assert.equal(report.isFirstCompletion, true)
+  })
+})
+
+describe('mapAnswersToWrites — assistantProfile is patched whole', () => {
+  // Settings merge shallowly (`{ ...settings, ...patch }` in src/lib/local/day.ts),
+  // so a partial assistantProfile REPLACES the stored one and SettingsSchema then
+  // refills every absent key with its default. Changing one profile field must
+  // therefore carry the other four, or it silently resets them.
+  it('carries every profile field when only one of them changed', () => {
+    const stored = SettingsSchema.parse({
+      assistantProfile: {
+        preferredName: 'Boss',
+        responseStyle: 'concise',
+        planningStyle: 'direct',
+        followUpMode: 'only_when_asked',
+        dayContext: null,
+      },
+    })
+    const answers = { ...answersFromSettings(stored), dayContext: 'Gym Mon/Wed/Fri.' }
+
+    assert.deepEqual(mapAnswersToWrites(answers, stored).settingsPatch.assistantProfile, {
+      preferredName: 'Boss',
+      responseStyle: 'concise',
+      planningStyle: 'direct',
+      followUpMode: 'only_when_asked',
+      dayContext: 'Gym Mon/Wed/Fri.',
+    })
+  })
+
+  it('still writes nothing when no profile field changed', () => {
+    const stored = SettingsSchema.parse({ assistantProfile: { preferredName: 'Boss' } })
+    const writes = mapAnswersToWrites(answersFromSettings(stored), stored)
+    assert.equal(writes.settingsPatch.assistantProfile, undefined)
   })
 })

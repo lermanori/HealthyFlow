@@ -1,3 +1,9 @@
+### 2026-08-27 17:58 — `claude/user-onboarding-interview-7a51bd`
+
+Simulator verification of day setup found two real defects that the unit suite had passed over, and both are fixed. `mapAnswersToWrites` sent a *partial* `assistantProfile`, but settings merge shallowly, so any profile change silently reset the preferred name and the whole talk style to schema defaults; the patch now carries the merged profile and a regression test pins it. Separately, the `['settings']` invalidation after a commit sat inside the first-completion guard, so a Settings re-run left Today and Settings rendering a five-minute-stale cache. Checks A–H of the verification plan now pass on an iPhone 17 Pro simulator — including the duplicate-Habit guard, the re-run diff and the honest Capacity window — with 259 frontend tests, both typechecks and the production build green.
+
+---
+
 ### 2026-08-27 15:05 — `claude/user-onboarding-interview-7a51bd`
 
 Implemented **day setup** across eight commits: a pure `src/interview.ts` holding the question set, the re-run diff, the partial-failure commit and the once-per-user completion report, plus the step bodies, flow container and the three doors into it. It writes through the existing `onDevice` services, so a Guest and an account holder share one code path, and it fixes the split-brain `onboardingService` that would otherwise have made the Guest banner permanent and silent. Both typechecks, 257 frontend tests, 830 backend tests and the production build are green; end-to-end browser verification of the Guest path is still outstanding because guest mode is iOS-gated on the web and no local database is available to exercise it against.

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useQueryClient } from '@tanstack/react-query'
@@ -24,6 +24,13 @@ export function DaySetup() {
   const [index, setIndex] = useState(0)
   const [answers, setAnswers] = useState<DaySetupAnswers | null>(null)
   const [saving, setSaving] = useState(false)
+
+  // Layout keeps one document scroll position across routes. Both entry points
+  // sit below the fold, so without resetting it the new flow opens with its
+  // question above the native viewport and only the footer visible.
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0 })
+  }, [])
 
   const current = useMemo(
     () => answers ?? (settings ? answersFromSettings(settings) : null),
@@ -90,12 +97,13 @@ export function DaySetup() {
 
     if (settings.onboardingStatus !== 'completed') {
       await settingsService.updateSettings({ onboardingStatus: 'completed' })
-      // The '/' gate reads the ['settings'] cache (5-minute staleTime, so this
-      // does not self-heal on its own); without invalidating it here, finishing
-      // day setup from the first-run offer would navigate home straight back
-      // into the choice screen instead of Today.
-      await queryClient.invalidateQueries({ queryKey: ['settings'] })
     }
+    // Always, not only on a first completion. Day setup writes settings on every
+    // run, and the ['settings'] cache has a 5-minute staleTime that does not
+    // self-heal — so a re-run that skipped this left Today and Settings showing
+    // the values the run had just replaced. It is also what stops the '/' gate
+    // sending a first-run finisher back to the choice screen.
+    await queryClient.invalidateQueries({ queryKey: ['settings'] })
     await queryClient.invalidateQueries({ queryKey: GOALS_QUERY_KEY })
     await queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
     toast.success("That's your day set up.")
@@ -103,7 +111,7 @@ export function DaySetup() {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-lg flex-col gap-6 p-4">
+    <div className="mx-auto flex min-h-[calc(100dvh-var(--mobile-header-height)-var(--mobile-dock-height)-2rem)] max-w-lg flex-col gap-6 p-4 lg:min-h-[calc(100vh-7rem)]">
       <header className="grid gap-1">
         <p className="text-xs uppercase tracking-wide text-ink-muted">
           {step.part === 'day' ? 'Your day' : 'Your direction'} · {index + 1} of {DAY_SETUP_STEPS.length}
