@@ -556,3 +556,12 @@ export function isDaySummaryItemAddressed(item: DaySummaryItem) {
   if (item.type !== 'habit') return false
   return item.habitInfo?.outcome === 'completed' || item.habitInfo?.outcome === 'failed'
 }
+
+// Frontend runtime consumers load shared contracts through a default object so
+// the same values work when this CommonJS backend module is evaluated by ESM.
+const DaySummaryContracts = {
+  DaySummaryCalorieEntrySchema,
+  DaySummaryWeightEntrySchema,
+}
+
+export default DaySummaryContracts

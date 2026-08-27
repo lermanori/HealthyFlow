@@ -1,3 +1,9 @@
+### 2026-08-27 19:06 — `fix/talk-local-day-refresh-213`
+
+Fixed Talk confirmations leaving the iPhone's Local day stale until the app restarted. Confirmed Task, Habit, nutrition, weight, Workout and Achievement changes now enter the device document immediately with their server ids, while hosted Work remains hosted and unknown future writes fail visibly. The focused no-restart browser regression, 272 frontend tests, 830 backend tests, both typechecks, lint, production/iOS builds and a real-device smoke test are green.
+
+---
+
 ### 2026-08-27 18:44 — `main`
 
 Deleted `completeOnboardingFromTalk` and the Talk handoff's `onboarding` flag. Day setup owns the first-run offer now, so the Today banner opens the interview rather than handing off to Talk — which left the completion path with no producer and the schema field with no reader. Removing both keeps `talkHandoff.ts` honest about what it actually carries. Typecheck, 267 frontend tests and the production build are green.

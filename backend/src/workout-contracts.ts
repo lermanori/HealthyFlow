@@ -278,6 +278,7 @@ export const workoutExerciseItemToRow = (item: any, userId: string) => ({
 })
 
 const WorkoutContracts = {
+  WorkoutSessionSchema,
   workoutExerciseToClient,
   workoutSessionToClient,
   workoutExerciseItemToClient,

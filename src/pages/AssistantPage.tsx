@@ -16,6 +16,7 @@ import { useSettings } from '../hooks/useSettings'
 import { useGoals } from '../hooks/useGoals'
 import { isNativeIOS } from '../lib/native'
 import { analytics } from '../lib/analytics'
+import { applyConfirmedTalkActionToLocalDay } from '../lib/local/services'
 import {
   talkHandoffContext,
   talkHandoffLabel,
@@ -1072,6 +1073,7 @@ export default function AssistantPage() {
         )
       )
       const response = await aiService.confirmChatAction(actionId, args)
+      await applyConfirmedTalkActionToLocalDay(response.action, response.result)
       await invalidatePendingActionQueries(queryClient, response.action)
       toast.success('Action confirmed')
       setMessages((current) => current.map((message) =>

@@ -15,7 +15,19 @@ export async function invalidatePendingActionQueries(
     queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY }),
   ]
 
-  if (['add_task', 'add_habit', 'update_item', 'complete_task', 'delete_item', 'record_habit_outcome', 'record_habit_progress'].includes(action.capability)) {
+  if ([
+    'place_item',
+    'schedule_meal',
+    'schedule_workout',
+    'defer_task',
+    'add_task',
+    'add_habit',
+    'update_item',
+    'complete_task',
+    'delete_item',
+    'record_habit_outcome',
+    'record_habit_progress',
+  ].includes(action.capability)) {
     invalidations.push(
       queryClient.invalidateQueries({ queryKey: ['tasks'] }),
       queryClient.invalidateQueries({ queryKey: ['habit-streaks'] }),
@@ -40,7 +52,14 @@ export async function invalidatePendingActionQueries(
       queryClient.invalidateQueries({ queryKey: ['workout-exercise-items'] })
     )
   }
-  if (['add_work_task', 'create_focus_block'].includes(action.capability)) {
+  if ([
+    'add_work_task',
+    'create_focus_block',
+    'transition_focus_block',
+    'complete_work_review',
+    'update_work_task',
+    'update_project_context',
+  ].includes(action.capability)) {
     invalidations.push(queryClient.invalidateQueries({ queryKey: ['work'] }))
   }
 

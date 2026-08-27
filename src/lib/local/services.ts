@@ -1,11 +1,18 @@
+import { z } from 'zod'
 import type {
   DaySummary,
   DaySummaryItem,
 } from '../../../backend/src/day-summary-schema'
-import type { ReminderItem } from '../../../backend/src/task-contracts'
+import DaySummaryContracts from '../../../backend/src/day-summary-schema'
+import TaskContracts, {
+  type CapabilityItem,
+  type ReminderItem,
+} from '../../../backend/src/task-contracts'
+import HabitContracts from '../../../backend/src/habit-contracts'
+import WorkoutContracts from '../../../backend/src/workout-contracts'
+import AchievementContracts from '../../../backend/src/achievement-contracts'
 import type { Settings } from '../../../backend/src/settings-schema'
 import DaySummaryCore from '../../../backend/src/day-summary-core'
-import { setLocalDayOwnerEmail } from './store'
 import {
   addLocalHabitProgress,
   buildLocalHabitHistory,
@@ -26,7 +33,15 @@ import {
   type LocalTaskInput,
   type LocalTaskUpdates,
 } from './day'
-import { LocalStoreError, mutateLocalDatabase, type LocalTaskRow } from './store'
+import {
+  LocalDatabaseSchema,
+  LocalStoreError,
+  LocalTaskRowSchema,
+  mutateLocalDatabase,
+  setLocalDayOwnerEmail,
+  type LocalDatabase,
+  type LocalTaskRow,
+} from './store'
 import {
   addLocalAchievementEntry,
   addLocalWorkoutExercise,
@@ -59,6 +74,12 @@ import {
   updateLocalWorkoutSession,
 } from './health'
 import { createLocalGoal, listLocalGoals, updateLocalGoal } from './goals'
+
+const { CapabilityItemSchema } = TaskContracts
+const { HabitProgressDetailSchema, deriveHabitOutcome } = HabitContracts
+const { WorkoutSessionSchema } = WorkoutContracts
+const { AchievementEntrySchema } = AchievementContracts
+const { DaySummaryCalorieEntrySchema, DaySummaryWeightEntrySchema } = DaySummaryContracts
 
 /**
  * The device answering the same questions the API answers.
@@ -127,6 +148,264 @@ export function setLocalDayUser(userId: string | null, ownerEmail: string | null
 
 export function localDayUser(): string | null {
   return dayUserId
+}
+
+type HabitProgressDetail = z.infer<typeof HabitProgressDetailSchema>
+type ConfirmedItem = CapabilityItem | HabitProgressDetail['habit']
+type HealthCollection = 'calorieEntries' | 'weightEntries' | 'workoutSessions' | 'achievementEntries'
+type LocalRecord = { id: string; [key: string]: unknown }
+
+const TaskResultSchema = z.looseObject({ item: CapabilityItemSchema })
+const HabitResultSchema = z.looseObject({ detail: HabitProgressDetailSchema })
+const CalorieResultSchema = z.looseObject({ entry: DaySummaryCalorieEntrySchema })
+const CaloriesResultSchema = z.looseObject({ entries: z.array(DaySummaryCalorieEntrySchema) })
+const WeightResultSchema = z.looseObject({ entry: DaySummaryWeightEntrySchema })
+const WorkoutResultSchema = z.looseObject({ session: WorkoutSessionSchema })
+const AchievementResultSchema = z.looseObject({ entry: AchievementEntrySchema })
+const DeleteItemArgsSchema = z.looseObject({
+  itemId: z.string().min(1),
+  deleteScope: z.enum(['instance', 'habit']).default('instance'),
+})
+
+const TASK_RESULT_CAPABILITIES = new Set([
+  'place_item',
+  'schedule_meal',
+  'schedule_workout',
+  'defer_task',
+  'add_task',
+  'add_habit',
+  'update_item',
+  'complete_task',
+])
+
+// Work is intentionally still hosted and parked behind its release flag. Those
+// confirmations refresh hosted Work queries; there is no Local-day collection
+// to mirror them into.
+const HOSTED_CONFIRMATION_CAPABILITIES = new Set([
+  'add_work_task',
+  'create_focus_block',
+  'transition_focus_block',
+  'complete_work_review',
+  'update_work_task',
+  'update_project_context',
+])
+
+function confirmedTaskRow(
+  database: LocalDatabase,
+  userId: string,
+  item: ConfirmedItem,
+  args: Record<string, unknown>,
+): { row: LocalTaskRow; previousId: string | null } {
+  if (item.category === null) {
+    throw new LocalStoreError(`Talk confirmed an Item with no category, so it cannot be saved to this iPhone.`)
+  }
+
+  const sameHabitDay = (candidate: LocalTaskRow) => Boolean(
+    item.originalHabitId
+    && item.scheduledDate
+    && candidate.original_habit_id === item.originalHabitId
+    && candidate.scheduled_date === item.scheduledDate
+  )
+  const existing = database.tasks.find((candidate) => candidate.id === item.id || sameHabitDay(candidate))
+  const template = item.originalHabitId
+    ? database.tasks.find((candidate) => candidate.id === item.originalHabitId)
+    : undefined
+  const baseline = existing ?? template
+  const changedAt = new Date().toISOString()
+  const habitInfo = 'habitInfo' in item ? item.habitInfo : null
+
+  const row = LocalTaskRowSchema.parse({
+    ...baseline,
+    id: item.id,
+    user_id: userId,
+    title: item.title,
+    type: item.type,
+    category: item.category,
+    start_time: item.startTime,
+    location: 'location' in item ? item.location : null,
+    duration: item.duration,
+    repeat_type: item.repeat ?? 'none',
+    completed: item.completed,
+    completed_at: item.completed ? existing?.completed_at ?? changedAt : null,
+    scheduled_date: item.scheduledDate,
+    position: item.position,
+    original_habit_id: item.originalHabitId,
+    habit_target_value: habitInfo?.target?.value ?? baseline?.habit_target_value ?? null,
+    habit_target_unit: habitInfo?.target?.unit ?? baseline?.habit_target_unit ?? null,
+    habit_outcome: habitInfo?.outcome ?? baseline?.habit_outcome ?? null,
+    rolled_over_from_task_id: 'rolledOverFromTaskId' in item ? item.rolledOverFromTaskId : null,
+    original_created_at: 'originalCreatedAt' in item ? item.originalCreatedAt : null,
+    google_event_id: 'googleEventId' in item ? item.googleEventId : null,
+    synced_to_google: 'syncedToGoogle' in item ? item.syncedToGoogle : false,
+    ...(item.type === 'workout' && typeof args.workoutPlanId === 'string'
+      ? { workout_plan_id: args.workoutPlanId }
+      : {}),
+    deleted_at: null,
+    created_at: item.createdAt ?? existing?.created_at ?? changedAt,
+    updated_at: changedAt,
+  })
+
+  return { row, previousId: existing?.id ?? null }
+}
+
+function putConfirmedTask(
+  database: LocalDatabase,
+  userId: string,
+  item: ConfirmedItem,
+  args: Record<string, unknown>,
+) {
+  const { row, previousId } = confirmedTaskRow(database, userId, item, args)
+  const matches = (candidate: LocalTaskRow) => candidate.id === row.id || candidate.id === previousId
+  const found = database.tasks.some(matches)
+  return {
+    next: {
+      ...database,
+      tasks: found
+        ? database.tasks.map((candidate) => matches(candidate) ? row : candidate)
+        : [...database.tasks, row],
+      habitProgress: previousId && previousId !== row.id
+        ? database.habitProgress.map((entry) => entry.habit_instance_id === previousId
+          ? { ...entry, habit_instance_id: row.id }
+          : entry)
+        : database.habitProgress,
+    },
+    row,
+  }
+}
+
+function putConfirmedHabitDetail(
+  database: LocalDatabase,
+  userId: string,
+  detail: HabitProgressDetail,
+  capability: 'record_habit_outcome' | 'record_habit_progress',
+) {
+  const mirrored = putConfirmedTask(database, userId, detail.habit, {})
+  const byId = new Map(mirrored.next.habitProgress.map((entry) => [entry.id, entry]))
+  for (const entry of detail.entries) {
+    byId.set(entry.id, {
+      id: entry.id,
+      habit_instance_id: mirrored.row.id,
+      amount: entry.amount,
+      note: entry.note,
+      created_at: entry.createdAt,
+      updated_at: entry.updatedAt,
+    })
+  }
+  const habitProgress = [...byId.values()]
+  const progressTotal = habitProgress
+    .filter((entry) => entry.habit_instance_id === mirrored.row.id)
+    .reduce((total, entry) => total + entry.amount, 0)
+  const outcome = capability === 'record_habit_progress'
+    ? deriveHabitOutcome(progressTotal, mirrored.row.habit_target_value)
+    : detail.habit.habitInfo.outcome
+  const task = { ...mirrored.row, habit_outcome: outcome, completed: outcome === 'completed' }
+
+  return {
+    ...mirrored.next,
+    tasks: mirrored.next.tasks.map((candidate) => candidate.id === task.id ? task : candidate),
+    habitProgress,
+  }
+}
+
+function withLocalBookkeeping(record: LocalRecord, userId: string): LocalRecord {
+  const timestamp = new Date().toISOString()
+  return {
+    ...record,
+    userId,
+    createdAt: typeof record.createdAt === 'string' ? record.createdAt : timestamp,
+    updatedAt: timestamp,
+    deletedAt: null,
+  }
+}
+
+function putHealthRecord(
+  database: LocalDatabase,
+  collection: HealthCollection,
+  record: LocalRecord,
+  same: (candidate: LocalRecord) => boolean = candidate => candidate.id === record.id,
+): LocalDatabase {
+  const rows = database[collection] as unknown as LocalRecord[]
+  const found = rows.some(same)
+  return {
+    ...database,
+    [collection]: found
+      ? rows.map((candidate) => same(candidate) ? record : candidate)
+      : [...rows, record],
+  }
+}
+
+/**
+ * Mirror a server-confirmed Talk mutation into the Local day immediately.
+ *
+ * Talk confirmation remains server-authorized and idempotent. The returned row
+ * is then stored with that same server id, so a later Cloud exchange sees one
+ * record rather than a server copy and a client copy. Query invalidation alone
+ * cannot do this: on iPhone it only rereads the unchanged device document.
+ *
+ * Returns false when this account's day is hosted, or for a deliberately hosted
+ * Work capability. Every other unknown confirmed mutation throws so a future
+ * capability cannot silently reintroduce stale Local-day UI.
+ */
+export async function applyConfirmedTalkActionToLocalDay(
+  action: { capability: string; args: Record<string, unknown> },
+  result: unknown,
+): Promise<boolean> {
+  const userId = dayUserId
+  if (userId === null || HOSTED_CONFIRMATION_CAPABILITIES.has(action.capability)) return false
+
+  if (action.capability === 'delete_item') {
+    const input = DeleteItemArgsSchema.parse(action.args)
+    await deleteLocalTask(userId, input.itemId, input.deleteScope)
+    return true
+  }
+
+  await mutateLocalDatabase(userId, (database) => {
+    let next = database
+
+    if (TASK_RESULT_CAPABILITIES.has(action.capability)) {
+      const parsed = TaskResultSchema.parse(result)
+      next = putConfirmedTask(database, userId, parsed.item, action.args).next
+    } else if (action.capability === 'record_habit_outcome' || action.capability === 'record_habit_progress') {
+      const parsed = HabitResultSchema.parse(result)
+      next = putConfirmedHabitDetail(database, userId, parsed.detail, action.capability)
+    } else if (action.capability === 'add_calorie_entry') {
+      const parsed = CalorieResultSchema.parse(result)
+      next = putHealthRecord(database, 'calorieEntries', withLocalBookkeeping(parsed.entry, userId))
+    } else if (action.capability === 'add_calorie_entries') {
+      const parsed = CaloriesResultSchema.parse(result)
+      next = parsed.entries.reduce((current, entry) => (
+        putHealthRecord(current, 'calorieEntries', withLocalBookkeeping(entry, userId))
+      ), database)
+    } else if (action.capability === 'add_weight_entry') {
+      const parsed = WeightResultSchema.parse(result)
+      const entry = withLocalBookkeeping(parsed.entry, userId)
+      next = putHealthRecord(database, 'weightEntries', entry, (candidate) => candidate.date === entry.date)
+    } else if (action.capability === 'add_workout_session') {
+      const parsed = WorkoutResultSchema.parse(result)
+      next = putHealthRecord(database, 'workoutSessions', withLocalBookkeeping(parsed.session, userId))
+    } else if (action.capability === 'add_achievement_entry') {
+      const parsed = AchievementResultSchema.parse(result)
+      const entry = withLocalBookkeeping(parsed.entry, userId)
+      next = putHealthRecord(database, 'achievementEntries', entry, (candidate) => (
+        candidate.id === entry.id
+        || (candidate.achievementId === entry.achievementId && candidate.date === entry.date)
+      ))
+    } else {
+      throw new LocalStoreError(
+        `Talk confirmed ${action.capability}, but this app has no Local-day write for that capability.`,
+      )
+    }
+
+    const checked = LocalDatabaseSchema.safeParse(next)
+    if (!checked.success) {
+      throw new LocalStoreError(
+        'The confirmed Talk change could not be saved to this iPhone in a shape it can read back.',
+        { cause: checked.error, reason: 'unknown_version' },
+      )
+    }
+    return { next: checked.data, result: undefined }
+  })
+  return true
 }
 
 /**

@@ -1,6 +1,5 @@
 import { test, expect } from './fixtures/ai-stubs'
 import type { Page } from '@playwright/test'
-import { daySummaryFixture } from './fixtures/day-summary'
 
 function formatLocalDate(date: Date) {
   return [
@@ -841,34 +840,7 @@ test('Mobile assistant composer wraps long text instead of hiding it off-screen'
 test('Confirmed assistant task appears on Today without a browser refresh', async ({ page }) => {
   const today = formatLocalDate(new Date())
   const title = `Assistant cache task ${Date.now()}`
-  let created = false
-
-  await page.route('**/api/day-summary?**', async (route) => {
-    const requestUrl = new URL(route.request().url())
-    const requestedDate = requestUrl.searchParams.get('date')
-    const items = created && requestedDate === today
-      ? [{
-          id: 'assistant-created-task',
-          title,
-          category: 'personal',
-          type: 'task',
-          repeat: 'none',
-          completed: false,
-          scheduledDate: today,
-          startTime: null,
-          duration: 30,
-          location: null,
-          createdAt: new Date().toISOString(),
-          position: null,
-          googleEventId: null,
-          syncedToGoogle: false,
-          googleSyncStatus: 'skipped',
-        }]
-      : []
-    await route.fulfill({
-      json: daySummaryFixture({ date: requestedDate ?? today, items }),
-    })
-  })
+  const createdAt = new Date().toISOString()
   await page.route('**/api/ai/chat', (route) =>
     route.fulfill({
       contentType: 'application/json',
@@ -886,11 +858,31 @@ test('Confirmed assistant task appears on Today without a browser refresh', asyn
     })
   )
   await page.route('**/api/ai/chat/confirm', async (route) => {
-    created = true
     await route.fulfill({
       contentType: 'application/json',
       body: JSON.stringify({
-        result: { item: { id: 'assistant-created-task', title } },
+        result: {
+          item: {
+            id: 'assistant-created-task',
+            title,
+            category: 'personal',
+            type: 'task',
+            repeat: 'none',
+            completed: false,
+            scheduledDate: today,
+            startTime: null,
+            duration: 30,
+            location: null,
+            createdAt,
+            position: null,
+            isHabitInstance: false,
+            originalHabitId: null,
+            rolledOverFromTaskId: null,
+            originalCreatedAt: null,
+            googleEventId: null,
+            syncedToGoogle: false,
+          },
+        },
         action: {
           id: 'pending-add-task',
           capability: 'add_task',
@@ -903,6 +895,11 @@ test('Confirmed assistant task appears on Today without a browser refresh', asyn
   })
 
   await page.goto('/app')
+  await page.evaluate(async () => {
+    const { settingsService } = await import('/src/services/api.ts')
+    await settingsService.updateSettings({ onboardingStatus: 'completed' })
+  })
+  await page.reload()
   await expect(page.getByText(title)).toHaveCount(0)
 
   await page.goto('/app/talk')
@@ -910,6 +907,11 @@ test('Confirmed assistant task appears on Today without a browser refresh', asyn
   await page.getByRole('button', { name: 'Send' }).click()
   await page.getByRole('button', { name: 'Confirm' }).click()
   await expect(page.getByText('Action confirmed')).toBeVisible()
+
+  await expect.poll(() => page.evaluate(async ({ date, expectedTitle }) => {
+    const { taskService } = await import('/src/services/api.ts')
+    return (await taskService.getTasks(date)).some((item) => item.title === expectedTitle)
+  }, { date: today, expectedTitle: title })).toBe(true)
 
   await page.goto('/app')
   await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 10_000 })
