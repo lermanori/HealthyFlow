@@ -1,3 +1,9 @@
+### 2026-08-27 14:16 — `claude/user-onboarding-interview-7a51bd`
+
+Designed **day setup**: a short, deterministic interview that asks someone about their day and writes the answers into settings, Goals and Habits that already exist — offered at first run, reachable from Today if declined, and re-runnable from Settings. It is entirely offline and credit-free by design, so it works at the Guest front door where an AI-conducted interview could not, and it writes through the `onDevice` services so Guest and account share one code path. The design work uncovered two defects it must fix first: `onboardingService` is the only service not wrapped in `onDevice`, which would make the Guest banner permanent and silent, and the Today banner's `active`-only condition means "Later" closes the door for good. The pricing, plans and Claim finish line is specified as a separate next part, gated on `worktree-pricing-actions` merging and a purchase rail existing at all.
+
+---
+
 ### 2026-08-27 10:45 — `feat/support-page`
 
 Added a public HealthyFlow Support page for the App Store listing with a direct email path to `lermanori@gmail.com`. The page is available without an account at `/support`, is linked from the login surface, Settings, app footer and native drawer, and has passed the frontend suite, production/iOS sync build, browser verification and an unsigned Xcode simulator build.
