@@ -837,6 +837,115 @@ test('Mobile assistant composer wraps long text instead of hiding it off-screen'
   expect(composerShell!.y + composerShell!.height).toBeLessThanOrEqual(formBox!.y + formBox!.height)
 })
 
+test('Mobile Talk follows the visual viewport while the iOS keyboard is open', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.addInitScript(() => {
+    const events = new EventTarget()
+    const viewport = {
+      width: 390,
+      height: 844,
+      offsetLeft: 0,
+      offsetTop: 0,
+      pageLeft: 0,
+      pageTop: 0,
+      scale: 1,
+      addEventListener: events.addEventListener.bind(events),
+      removeEventListener: events.removeEventListener.bind(events),
+      dispatchEvent: events.dispatchEvent.bind(events),
+    }
+    Object.defineProperty(window, 'visualViewport', {
+      configurable: true,
+      value: viewport,
+    })
+    Object.defineProperty(window, '__setTalkVisualViewport', {
+      configurable: true,
+      value: (height: number) => {
+        viewport.height = height
+        events.dispatchEvent(new Event('resize'))
+      },
+    })
+  })
+
+  const now = new Date().toISOString()
+  const longResponse = Array.from(
+    { length: 30 },
+    (_, index) => `${index + 1}. A readable planning detail that should remain available while replying.`,
+  ).join('\n')
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({
+        json: [{
+          id: '55555555-5555-4555-8555-555555555555',
+          title: 'Keyboard geometry',
+          model: 'gpt-4o-mini',
+          createdAt: now,
+          updatedAt: now,
+          messages: [{
+            id: '66666666-6666-4666-8666-666666666666',
+            role: 'assistant',
+            content: longResponse,
+            createdAt: now,
+          }],
+        }],
+      })
+      return
+    }
+    await route.fulfill({ json: route.request().postDataJSON() })
+  })
+
+  await page.goto('/app/talk')
+  const transcript = page.locator('.assistant-messages-scroll')
+  const composer = page.getByPlaceholder(/Add anything/)
+  const composerForm = page.locator('.assistant-composer-form')
+  const bottomDock = page.locator('.mobile-bottom-dock')
+  await expect(page.getByText('A readable planning detail', { exact: false }).first()).toBeVisible()
+  await transcript.evaluate((element) => {
+    element.scrollTop = element.scrollHeight
+  })
+  await composer.focus()
+
+  await page.evaluate(() => {
+    const setVisualViewport = (window as typeof window & {
+      __setTalkVisualViewport: (height: number) => void
+    }).__setTalkVisualViewport
+    setVisualViewport(500)
+  })
+
+  await expect.poll(async () => {
+    const box = await composerForm.boundingBox()
+    return box ? Math.round(box.y + box.height) : null
+  }).toBeLessThanOrEqual(500)
+  await expect(bottomDock).toBeHidden()
+  await expect.poll(async () => {
+    const transcriptBox = await transcript.boundingBox()
+    const formBox = await composerForm.boundingBox()
+    if (!transcriptBox || !formBox) return null
+    return Math.round(transcriptBox.y + transcriptBox.height - formBox.y)
+  }).toBeLessThanOrEqual(1)
+  await expect.poll(() => transcript.evaluate((element) => (
+    element.scrollHeight - element.scrollTop - element.clientHeight
+  ))).toBeLessThanOrEqual(2)
+
+  await transcript.evaluate((element) => {
+    element.scrollTop = 96
+  })
+  await page.evaluate(() => {
+    const setVisualViewport = (window as typeof window & {
+      __setTalkVisualViewport: (height: number) => void
+    }).__setTalkVisualViewport
+    setVisualViewport(844)
+  })
+
+  await expect(bottomDock).toBeVisible()
+  await expect.poll(() => transcript.evaluate((element) => element.scrollTop)).toBeLessThan(160)
+  await expect.poll(async () => {
+    const formBox = await composerForm.boundingBox()
+    const dockBox = await bottomDock.boundingBox()
+    if (!formBox || !dockBox) return null
+    return Math.round(formBox.y + formBox.height - dockBox.y)
+  }).toBeLessThanOrEqual(1)
+})
+
 test('Confirmed assistant task appears on Today without a browser refresh', async ({ page }) => {
   const today = formatLocalDate(new Date())
   const title = `Assistant cache task ${Date.now()}`
