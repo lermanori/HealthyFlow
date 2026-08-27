@@ -26,7 +26,6 @@ describe('module → Talk handoff', () => {
       source: 'today' as const,
       intent: 'plan_day' as const,
       date: '2026-08-27',
-      onboarding: true,
       demoPersona: 'noam' as const,
     }
 

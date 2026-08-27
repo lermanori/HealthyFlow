@@ -1,3 +1,9 @@
+### 2026-08-27 18:44 — `main`
+
+Deleted `completeOnboardingFromTalk` and the Talk handoff's `onboarding` flag. Day setup owns the first-run offer now, so the Today banner opens the interview rather than handing off to Talk — which left the completion path with no producer and the schema field with no reader. Removing both keeps `talkHandoff.ts` honest about what it actually carries. Typecheck, 267 frontend tests and the production build are green.
+
+---
+
 ### 2026-08-27 18:30 — `main`
 
 Merged day setup into `main` alongside the Talk-only AI input refactor, which had touched the same three files. Both branches had independently fixed the split-brain `onboardingService`, so the merge kept the more complete fix and deleted the service outright. The Today banner now opens day setup rather than handing off to Talk — chosen deliberately, because a zero-credit Guest is exactly who the banner speaks to and Talk cannot serve them; that leaves `completeOnboardingFromTalk` reachable only if something sets the handoff flag again. The onboarding e2e spec was rewritten against day setup, including a regression test for "Later" leaving the door open. Both typechecks, 267 frontend tests, 830 backend tests and the production build are green.

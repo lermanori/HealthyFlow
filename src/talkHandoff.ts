@@ -8,7 +8,6 @@ export const TalkHandoffContextSchema = z.discriminatedUnion('intent', [
     source: z.literal('today'),
     intent: z.literal('plan_day'),
     date: TalkDateSchema,
-    onboarding: z.boolean().optional(),
     demoPersona: DemoPersonaIdSchema.optional(),
   }).strict(),
   z.object({
