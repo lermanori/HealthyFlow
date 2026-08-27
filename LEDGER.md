@@ -1,3 +1,9 @@
+### 2026-08-27 10:45 — `feat/support-page`
+
+Added a public HealthyFlow Support page for the App Store listing with a direct email path to `lermanori@gmail.com`. The page is available without an account at `/support`, is linked from the login surface, Settings, app footer and native drawer, and has passed the frontend suite, production/iOS sync build, browser verification and an unsigned Xcode simulator build.
+
+---
+
 ### 2026-08-27 10:11 — `chore/ios-privacy-manifests`
 
 Added privacy manifests to the iOS app and Today widget, each declaring only the approved App Group `UserDefaults` reason used to exchange the widget summary. Both source plists validate, and an unsigned Release simulator build succeeds with Xcode Store validation and semantically identical manifests bundled at the app and extension roots.

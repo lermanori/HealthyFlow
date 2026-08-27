@@ -740,6 +740,7 @@ export default function LoginPage() {
 
           <footer className="mt-6 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-line pt-5 text-xs text-ink-muted">
             <a href="/" className="transition-colors hover:text-accent">What is HealthyFlow?</a>
+            <Link to="/support" className="transition-colors hover:text-accent">Support</Link>
             <Link to="/privacy" className="transition-colors hover:text-accent">Privacy</Link>
             <Link to="/terms" className="transition-colors hover:text-accent">Terms</Link>
           </footer>

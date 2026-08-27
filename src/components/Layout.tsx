@@ -262,6 +262,7 @@ export default function Layout({ children }: LayoutProps) {
 
                 {isNativeApp && (
                   <div className="mt-8 flex gap-5 border-t border-line/50 px-4 pt-5 text-sm text-ink-muted">
+                    <Link to="/support" className="transition-colors hover:text-accent">Support</Link>
                     <Link to="/privacy" className="transition-colors hover:text-accent">Privacy</Link>
                     <Link to="/terms" className="transition-colors hover:text-accent">Terms</Link>
                   </div>
@@ -507,6 +508,9 @@ export default function Layout({ children }: LayoutProps) {
             {children}
             {!(isMobile && isTalkPage) && !(isMobile && isNativeApp) && (
               <footer className="mt-10 flex flex-wrap justify-center gap-4 text-xs text-ink-muted">
+                <Link to="/support" className="transition-colors hover:text-accent">
+                  Support
+                </Link>
                 <Link to="/privacy" className="transition-colors hover:text-accent">
                   Privacy Policy
                 </Link>

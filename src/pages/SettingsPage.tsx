@@ -1567,6 +1567,11 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         </div>
         
         <div className="space-y-4">
+          <Link to="/support" className="block w-full rounded-lg border border-line-strong p-3 text-left transition-colors hover:bg-card/50">
+            <div className="font-medium text-ink-soft">Support</div>
+            <div className="text-sm text-ink-muted">Contact HealthyFlow at lermanori@gmail.com</div>
+          </Link>
+
           <button disabled={exportingAccount} onClick={() => void handleExportAccount()} className="w-full text-left p-3 rounded-lg border border-line-strong hover:bg-card/50 transition-colors disabled:cursor-wait disabled:opacity-60">
             <div className="font-medium text-ink-soft">Export Data</div>
             <div className="text-sm text-ink-muted">{exportingAccount ? 'Preparing your portable archive…' : 'Download a complete portable JSON archive'}</div>
