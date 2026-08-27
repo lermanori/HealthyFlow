@@ -1,3 +1,9 @@
+### 2026-08-27 09:44 — `main`
+
+Checked the HealthyFlow Talk end-to-end presentation into the repository so the current assistant architecture walkthrough is preserved with the product work rather than left as an untracked local artifact. The primary worktree is synchronized with the merged Goal-tool recovery hotfix on `main`.
+
+---
+
 ### 2026-08-26 19:57 — `fix/talk-goal-tool-recovery`
 
 Production Goal-context smoke testing exposed GPT-4o mini copying JSON-Schema `format` metadata into an `update_goal` call, which strict validation correctly rejected but Talk incorrectly surfaced as a fatal raw error. Model-originated input mistakes now return recoverable tool feedback without weakening any schema, and the effective prompt/tool boundary explicitly redirects dated work updates away from Goal context because it is not a progress journal. The exact route-level regression, 45 focused assistant tests, backend typecheck, all 830 backend tests and lint with no new errors are green.
