@@ -42,7 +42,7 @@ const SUBJECTS: Record<string, readonly string[]> = {
   health: ['health-workflow', 'calories-quick-insert', 'workouts', 'module-presentation'],
   talk: ['assistant'],
   week: ['week-view', 'week-theme-visual'],
-  platform: ['phase0-reliability', 'settings-subscription'],
+  platform: ['phase0-reliability', 'settings-subscription', 'cloud-status-notifications'],
   visual: ['responsive-visual-system'],
 }
 

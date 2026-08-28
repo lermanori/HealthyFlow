@@ -71,15 +71,16 @@ export default function SmartReminders() {
   if (visibleReminders.length === 0) return null
 
   return (
-    <div className="fixed top-20 right-4 z-40 space-y-2">
+    <div data-demo-id="smart-reminders" className="ml-auto w-full max-w-sm space-y-2">
       <AnimatePresence>
         {visibleReminders.map((reminder) => (
           <motion.div
             key={reminder.id}
+            data-demo-id="smart-reminder"
             initial={{ opacity: 0, x: 24 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 24 }}
-            className={`surface-overlay max-w-sm border-l-4 p-4 ${
+            className={`surface-overlay w-full border-l-4 p-4 ${
               reminder.type === 'upcoming' 
                 ? 'border-l-state-info'
                 : 'border-l-state-danger'
@@ -105,6 +106,8 @@ export default function SmartReminders() {
                 </div>
               </div>
               <button
+                type="button"
+                aria-label={`Dismiss ${reminder.type === 'upcoming' ? 'Coming Up' : 'Overdue'} reminder: ${reminder.taskTitle}`}
                 onClick={() => handleDismiss(reminder.id)}
                 className="rounded-full p-1 transition-colors hover:bg-raised"
               >

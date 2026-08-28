@@ -18,6 +18,9 @@ import {
   UserPlus,
   LogIn,
   Target,
+  CloudOff,
+  Wifi,
+  WifiOff,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
@@ -32,9 +35,13 @@ import { MODULE_PRESENTATIONS } from '../modulePresentation'
 import { parseDemoPersonaId } from '../demoPersonas'
 import { analytics } from '../lib/analytics'
 import { isNativeApp, isNativeIOS } from '../lib/native'
+import type { CloudStatusNotification } from '../hooks/useCloudSync'
+import { useOfflineStatus } from '../hooks/useOfflineStatus'
 
 interface LayoutProps {
   children: ReactNode
+  cloudStatus: CloudStatusNotification | null
+  onDismissCloudStatus: () => void
 }
 
 interface NavigationItem {
@@ -63,10 +70,11 @@ function currentViewportBottom() {
   )
 }
 
-export default function Layout({ children }: LayoutProps) {
+export default function Layout({ children, cloudStatus, onDismissCloudStatus }: LayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout, isGuest } = useAuth()
+  const { isOffline, reconnected } = useOfflineStatus()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [talkViewport, setTalkViewport] = useState<TalkViewport>(() => ({
@@ -274,6 +282,11 @@ export default function Layout({ children }: LayoutProps) {
   const primaryMobileNavigation = navigation.filter((item) => (
     item.href === '/' || item.href === '/goals' || item.href === '/talk'
   ))
+  const networkStatus = isOffline
+    ? { state: 'offline' as const, message: "You're offline. Some features may be limited." }
+    : reconnected
+      ? { state: 'reconnected' as const, message: "You're back online! Syncing data..." }
+      : null
 
   const MobileNavigation = () => createPortal((
     <AnimatePresence>
@@ -586,7 +599,7 @@ export default function Layout({ children }: LayoutProps) {
         <main
           data-demo="main-content"
           data-demo-id="main-content"
-          className={`min-w-0 flex-1 overflow-x-hidden ${
+          className={`flex min-w-0 flex-1 flex-col overflow-x-hidden ${
             isMobile
               ? isTalkPage
                 ? 'talk-main-content mt-[var(--mobile-header-height)] p-0'
@@ -596,7 +609,47 @@ export default function Layout({ children }: LayoutProps) {
           style={talkMainStyle}
           ref={contentRef}
         >
-          <div className={`min-w-0 ${isMobile ? `max-w-full ${isTalkPage ? 'h-full' : ''}` : 'max-w-6xl'} mx-auto`}>
+          {(networkStatus || cloudStatus) && (
+            <div className={`mx-auto mb-4 w-full max-w-6xl shrink-0 space-y-3 ${isMobile && isTalkPage ? 'px-4 pt-3' : ''}`}>
+              {networkStatus && (
+                <div
+                  data-demo-id="network-status-notification"
+                  className={`flex w-full items-start justify-center gap-2 rounded-control px-3 py-2.5 text-sm font-medium text-on-action shadow-section ${
+                    networkStatus.state === 'offline' ? 'bg-state-danger' : 'bg-state-success'
+                  }`}
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  {networkStatus.state === 'offline'
+                    ? <WifiOff className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                    : <Wifi className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />}
+                  <p className="min-w-0 leading-5">{networkStatus.message}</p>
+                </div>
+              )}
+              {cloudStatus && (
+                <div
+                  data-demo-id="cloud-status-notification"
+                  className="flex w-full items-start gap-3 rounded-control border border-state-warning/40 bg-state-warning/10 px-3 py-2.5 text-sm text-ink shadow-section"
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  <CloudOff className="mt-0.5 h-4 w-4 shrink-0 text-state-warning" aria-hidden="true" />
+                  <p className="min-w-0 flex-1 leading-5">{cloudStatus.message}</p>
+                  <button
+                    type="button"
+                    aria-label="Dismiss Cloud status"
+                    className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors hover:bg-raised hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                    onClick={onDismissCloudStatus}
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          <div className={`min-h-0 min-w-0 flex-1 ${isMobile ? 'max-w-full' : 'max-w-6xl'} mx-auto w-full`}>
             {moduleNotice && (
               <div className="mb-4 flex items-start justify-between gap-4 rounded-section border border-state-warning/40 bg-state-warning/10 p-4 text-sm" role="status">
                 <div>

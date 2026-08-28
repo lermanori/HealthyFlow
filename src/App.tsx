@@ -25,7 +25,6 @@ import OAuthConsentPage from './pages/OAuthConsentPage'
 import DaySetup from './components/DaySetup'
 import FirstRunChoice from './components/DaySetup/FirstRunChoice'
 import LoadingSpinner from './components/LoadingSpinner'
-import OfflineNotification from './components/OfflineNotification'
 import { useSettings } from './hooks/useSettings'
 import { useCloudSync } from './hooks/useCloudSync'
 import {
@@ -103,7 +102,7 @@ function App() {
   const { user, loading } = useAuth()
   const location = useLocation()
   const { modules, retry } = useSettings(Boolean(user) && location.pathname !== '/demo')
-  useCloudSync()
+  const cloudStatus = useCloudSync()
   const healthAvailability = resolveHealthAvailability(modules)
   const modulePages: Record<OptionalModule, ReactNode> = {
     calories: <CaloriesPage />,
@@ -146,8 +145,7 @@ function App() {
 
   return (
     <>
-      <OfflineNotification />
-      <Layout>
+      <Layout cloudStatus={cloudStatus.notification} onDismissCloudStatus={cloudStatus.dismiss}>
         <Routes>
           <Route path="/" element={<HomeGate />} />
           <Route path="/day-setup" element={<DaySetup />} />

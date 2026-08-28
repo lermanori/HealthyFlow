@@ -50,19 +50,6 @@ test('the app starts in a Vite development browser without server-only module er
     )
 
     const syncNotice = 'Cloud sync paused. Changes are safe on this device.'
-    await page.evaluate(async (modulePath) => {
-      const sync = await import(modulePath)
-      sync.reportCloudSyncFailure(new Error('Backend unavailable'))
-    }, '/src/hooks/useCloudSync.ts')
-    await page.getByText(syncNotice).waitFor({ state: 'visible' })
-    await page.waitForTimeout(3_100)
-    assert.ok(await page.getByText(syncNotice).isVisible(), 'the sync notice disappeared while sync was still failing')
-
-    await page.evaluate(async (modulePath) => {
-      const sync = await import(modulePath)
-      sync.clearCloudSyncFailure()
-    }, '/src/hooks/useCloudSync.ts')
-    await page.getByText(syncNotice).waitFor({ state: 'hidden' })
 
     const accountId = 'browser-login-account'
     const corsHeaders = {
@@ -243,6 +230,8 @@ test('the app starts in a Vite development browser without server-only module er
     assert.equal(localLogin.activeUserId, accountId, 'login did not switch the account onto its Local day')
     assert.deepEqual(localLogin.taskTitles, ['Downloaded onto this device'])
     await page.getByText(syncNotice).waitFor({ state: 'visible' })
+    await page.waitForTimeout(3_100)
+    assert.ok(await page.getByText(syncNotice).isVisible(), 'the sync notice disappeared while sync was still failing')
 
     await page.setViewportSize({ width: 390, height: 844 })
     await page.getByRole('button', { name: 'Set up my day' }).click({ timeout: 5_000 })
