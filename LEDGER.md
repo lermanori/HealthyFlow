@@ -1,5 +1,17 @@
 ### 2026-08-26 — `worktree-pricing-actions`
 
+Added a verification-oriented decision log for the payment model at
+`docs/history/product/2026-08-26-payment-model-decisions.md` — fourteen decisions,
+each with the file and line, command or arithmetic that checks it, plus what was
+rejected, what was not decided, and the four known gaps. Writing it caught two of
+its own claims being false (a `sellCreditsPerUsd` grep that returns a comment, and
+a migration `UPDATE` that is the monthly refill rather than a balance conversion);
+both are corrected rather than softened.
+
+---
+
+### 2026-08-26 — `worktree-pricing-actions`
+
 Implemented ADR-0013: a credit is now one action (text 1, photo 5, premium model 10)
 rather than a milli-dollar of OpenAI spend, closing a twenty-fold drift between the
 sale unit and the cost meter that nothing in the code could detect. `authorizeAction`
