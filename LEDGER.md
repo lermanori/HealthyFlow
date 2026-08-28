@@ -1,5 +1,19 @@
 ### 2026-08-26 — `worktree-pricing-actions`
 
+Amended the payment-model decision log after settling that billing starts on iOS
+only: added D15 (a Guest receives both grants), D16 (a Guest may buy credits, Cloud
+requires an account, purchases follow the receipt) and D17 (RevenueCat as the iOS
+rail), and marked every decision built or decided-not-built so the file stays
+verifiable while it runs ahead of the code. Deciding D15 exposed a defect in D11:
+`claim_monthly_free_credits` is `UPDATE`-only where `grant_credits` upserts, so the
+monthly refill silently no-ops for anyone without a `user_credits` row — latent
+today, live the moment a Guest is granted anything. **Nothing was implemented; D11's
+fix and D15-D17 are all unbuilt.**
+
+---
+
+### 2026-08-26 — `worktree-pricing-actions`
+
 Added a verification-oriented decision log for the payment model at
 `docs/history/product/2026-08-26-payment-model-decisions.md` — fourteen decisions,
 each with the file and line, command or arithmetic that checks it, plus what was
