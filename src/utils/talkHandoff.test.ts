@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
+  assertTalkHandoffPendingActions,
   talkHandoffContext,
   talkHandoffLabel,
   talkHandoffPrompt,
@@ -43,6 +44,23 @@ describe('module → Talk handoff', () => {
   it('makes Nutrition and Workout drafts visible and explicit about review', () => {
     assert.match(talkHandoffPrompt({ source: 'nutrition', intent: 'log_nutrition' }), /attach a photo/)
     assert.match(talkHandoffPrompt({ source: 'nutrition', intent: 'log_nutrition' }), /review and approval/)
-    assert.match(talkHandoffPrompt({ source: 'workouts', intent: 'draft_workout_plan' }), /add it manually/)
+    const workoutPrompt = talkHandoffPrompt({ source: 'workouts', intent: 'draft_workout_plan' })
+    assert.match(workoutPrompt, /review and edit/i)
+    assert.match(workoutPrompt, /approval before saving/i)
+    assert.doesNotMatch(workoutPrompt, /manually/i)
+  })
+
+  it('rejects a Workout session proposal from a stale backend during a reusable-plan handoff', () => {
+    assert.throws(
+      () => assertTalkHandoffPendingActions(
+        { source: 'workouts', intent: 'draft_workout_plan' },
+        [{ capability: 'add_workout_session' }],
+      ),
+      /Nothing was saved/,
+    )
+    assert.doesNotThrow(() => assertTalkHandoffPendingActions(
+      { source: 'workouts', intent: 'draft_workout_plan' },
+      [{ capability: 'add_workout_plan' }],
+    ))
   })
 })

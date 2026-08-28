@@ -49,6 +49,7 @@ jest.mock('../../src/supabase-client', () => ({
     createAiPendingAction: jest.fn().mockImplementation(async (row) => ({
       id: '11111111-1111-4111-8111-111111111111',
       capability: row.capability,
+      args: row.args,
       preview: row.preview,
       expires_at: row.expires_at,
     })),
@@ -794,6 +795,65 @@ describe('POST /api/ai/chat', () => {
     expect(db.createAiPendingAction).toHaveBeenCalledWith(expect.objectContaining({
       user_id: 'chat-user-add-preview',
       capability: 'add_calorie_entry',
+    }))
+  })
+
+  it('turns a reusable Workout plan draft into a typed pending action without writing it', async () => {
+    const plan = {
+      requestId: 'workout-plan-strength-1',
+      name: 'Full body strength',
+      color: '#22d3ee',
+      note: 'Three balanced sessions each week.',
+      exercises: [{
+        name: 'Goblet squat',
+        sets: 3,
+        reps: 8,
+        weightKg: 20,
+        durationMinutes: null,
+        distanceKm: null,
+        notes: 'Controlled tempo',
+        position: 0,
+      }],
+    }
+    let observedBody: any
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions', (body: any) => {
+        observedBody = body
+        return true
+      })
+      .reply(200, toolCallResponse('add_workout_plan', plan))
+      .post('/v1/chat/completions')
+      .reply(200, {
+        choices: [{ message: { content: 'I prepared the Workout plan. Confirm it to save.' } }],
+        usage: { prompt_tokens: 120, completion_tokens: 12, total_tokens: 132 },
+      })
+
+    const { db } = await import('../../src/supabase-client')
+    const response = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-workout-plan'))
+      .send({
+        messages: [{ role: 'user', content: 'Build me a reusable full-body Workout plan.' }],
+        handoff: { source: 'workouts', intent: 'draft_workout_plan' },
+      })
+
+    expect(response.status).toBe(200)
+    expect(observedBody.tools.map((tool: any) => tool.function.name).sort()).toEqual([
+      'add_workout_plan',
+    ])
+    expect(observedBody.tools.map((tool: any) => tool.function.name)).not.toContain('add_workout_session')
+    expect(response.body.pendingActions).toEqual([expect.objectContaining({
+      capability: 'add_workout_plan',
+      args: plan,
+      preview: {
+        action: 'add_workout_plan',
+        willCreate: { plan: expect.objectContaining({ name: 'Full body strength' }) },
+      },
+    })])
+    expect(db.createAiPendingAction).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: 'chat-user-workout-plan',
+      capability: 'add_workout_plan',
+      args: plan,
     }))
   })
 

@@ -159,6 +159,79 @@ describe('a confirmed Talk change and a Local day', () => {
     assert.equal(database.achievementEntries[0]?.id, 'achievement-entry-1')
   })
 
+  it('can compose Today after mirroring a confirmed Workout session', async () => {
+    await applyConfirmedTalkActionToLocalDay(
+      { capability: 'add_workout_session', args: {} },
+      {
+        session: {
+          id: 'session-today-1',
+          userId: USER,
+          date: TODAY,
+          title: 'Minimal strength building Workout',
+          notes: 'A confirmed Talk session.',
+          exercises: [{
+            id: 'exercise-today-1',
+            sessionId: 'session-today-1',
+            name: 'Squat',
+            sets: 3,
+            reps: 8,
+            weightKg: null,
+            durationMinutes: null,
+            distanceKm: null,
+            notes: null,
+            position: 0,
+          }],
+          createdAt: NOW,
+          updatedAt: NOW,
+        },
+      },
+    )
+
+    const summary = await localServices.daySummary(USER, TODAY)
+    assert.equal(summary.supporting.workouts.status, 'logged')
+    assert.equal(summary.supporting.workouts.sessions[0]?.id, 'session-today-1')
+  })
+
+  it('stores the exact confirmed reusable Workout plan once in the Local day', async () => {
+    const action = {
+      capability: 'add_workout_plan',
+      args: { requestId: 'plan-request-1' },
+    }
+    const result = {
+      plan: {
+        id: 'plan-1',
+        userId: USER,
+        name: 'Full body strength',
+        color: '#22d3ee',
+        note: 'Three balanced sessions each week.',
+        position: 0,
+        exercises: [{
+          id: 'plan-exercise-1',
+          planId: 'plan-1',
+          name: 'Goblet squat',
+          sets: 3,
+          reps: 8,
+          weightKg: 20,
+          durationMinutes: null,
+          distanceKm: null,
+          notes: 'Controlled tempo',
+          position: 0,
+        }],
+        createdAt: NOW,
+        updatedAt: NOW,
+      },
+    }
+
+    assert.equal(await applyConfirmedTalkActionToLocalDay(action, result), true)
+    assert.equal(await applyConfirmedTalkActionToLocalDay(action, result), true)
+
+    const database = await loadLocalDatabase(USER)
+    assert.equal(database.workoutPlans.length, 1)
+    assert.equal(database.workoutPlans[0]?.id, result.plan.id)
+    assert.equal(database.workoutPlans[0]?.name, result.plan.name)
+    assert.deepEqual(database.workoutPlans[0]?.exercises, result.plan.exercises)
+  })
+
   it('surfaces a future Local-day mutation that has no device implementation', async () => {
     await assert.rejects(
       () => applyConfirmedTalkActionToLocalDay({ capability: 'future_write', args: {} }, {}),

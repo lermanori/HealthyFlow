@@ -52,6 +52,9 @@ export async function invalidatePendingActionQueries(
       queryClient.invalidateQueries({ queryKey: ['workout-exercise-items'] })
     )
   }
+  if (action.capability === 'add_workout_plan') {
+    invalidations.push(queryClient.invalidateQueries({ queryKey: ['workout-plans'] }))
+  }
   if ([
     'add_work_task',
     'create_focus_block',

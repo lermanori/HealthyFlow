@@ -37,6 +37,9 @@ import {
   type AssistantContext,
 } from '../settings-schema'
 import { goalModuleLabel } from '../goals-schema'
+import TalkHandoffContracts from '../talk-handoff-schema'
+
+const { WorkoutPlanTalkHandoffSchema } = TalkHandoffContracts
 
 const QUERY_TASKS_MODEL = 'gpt-3.5-turbo'
 const QUERY_TASKS_MAX_TOKENS = 500
@@ -116,6 +119,7 @@ const ChatRequest = z.object({
   assistantContext: AssistantContextSchema.optional(),
   attachment: ChatAttachment.optional(),
   conversationId: z.string().uuid().optional(),
+  handoff: WorkoutPlanTalkHandoffSchema.optional(),
   workflow: z.object({
     // 'plan_focused_work' is the Phase 5 alias for plan_work v1 (ADR-0009).
     name: z.enum(['plan_work', 'plan_focused_work']),
@@ -521,7 +525,10 @@ router.post('/chat', authenticateToken, async (req: AuthRequest, res) => {
         }
       : undefined,
   }
-  const tools = aiCapabilityTools().map((tool) => ({
+  const allowedNames = parsed.data.handoff?.intent === 'draft_workout_plan'
+    ? ['add_workout_plan'] as const
+    : undefined
+  const tools = aiCapabilityTools({ allowedNames }).map((tool) => ({
     ...tool,
     execute: (args: unknown) => tool.execute(capabilityContext, args),
   }))

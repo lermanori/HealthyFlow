@@ -18,11 +18,13 @@ import { isNativeIOS } from '../lib/native'
 import { analytics } from '../lib/analytics'
 import { applyConfirmedTalkActionToLocalDay } from '../lib/local/services'
 import {
+  assertTalkHandoffPendingActions,
   talkHandoffContext,
   talkHandoffLabel,
   talkHandoffPrompt,
   type TalkHandoffContext,
 } from '../talkHandoff'
+import type { WorkoutPlanTalkHandoff } from '../../backend/src/talk-handoff-schema'
 
 type ConversationPendingAction = PendingActionView
 
@@ -39,6 +41,7 @@ type TalkRequest = {
   conversationId: string
   workflow?: { name: 'plan_work'; projectId: string; anchorDate?: string }
   assistantContext?: AssistantContext
+  handoff?: WorkoutPlanTalkHandoff
   forceMock: boolean
 }
 
@@ -855,8 +858,10 @@ export default function AssistantPage() {
         conversationId: request.conversationId,
         workflow: request.workflow,
         assistantContext: request.assistantContext,
+        handoff: request.handoff,
         signal: controller.signal,
       })
+      assertTalkHandoffPendingActions(request.handoff ?? null, response.pendingActions)
       setMessages((current) => [
         ...current,
         {
@@ -873,7 +878,8 @@ export default function AssistantPage() {
         return
       }
 
-      const message = error.response?.data?.error ?? 'Assistant unavailable'
+      const message = error.response?.data?.error
+        ?? (error instanceof Error ? error.message : 'Assistant unavailable')
       const errorMessageId = crypto.randomUUID()
       toast.error(message)
       setMessages((current) => [
@@ -951,6 +957,7 @@ export default function AssistantPage() {
       conversationId: options.conversationId ?? activeConversationId,
       workflow: options.workflow ?? workContext?.workflow,
       assistantContext,
+      handoff: handoffContext?.intent === 'draft_workout_plan' ? handoffContext : undefined,
       forceMock: Boolean(options.forceMock),
     })
   }
