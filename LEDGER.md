@@ -1,3 +1,9 @@
+### 2026-08-28 15:36 — `codex/talk-workout-plans-212`
+
+Talk can now prepare a typed, editable reusable Workout plan and create it exactly once only after explicit confirmation; the Workouts handoff carries closed intent and cannot fall through to logging a session. The same repair normalizes confirmed Workout sessions before composing the strict Local-day contract, so the earlier mistaken session no longer strands Today, while confirmed plans appear immediately in Workouts. Both typechecks, 276 frontend tests, 834 backend tests, the focused mobile browser flow, production/iOS builds, and the real-iPhone smoke test are green.
+
+---
+
 ### 2026-08-28 13:17 — `codex/fix-cloud-status-notifications-210`
 
 Replaced persistent Cloud toasts with one inline, dismissible status lifecycle that updates in place, preserves dismissal across repeated failures, and clears on recovery. Offline/reconnected notices and Today reminders now share the safe, non-blocking document flow below the iPhone header, including accessible dismissal for reminders. Both typechecks, 272 frontend tests, 830 backend tests, focused notification and Talk geometry tests, production/iOS builds, and the real-iPhone smoke test are green.

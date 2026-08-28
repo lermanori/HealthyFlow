@@ -1,5 +1,8 @@
 import { z } from 'zod'
 import { DemoPersonaIdSchema, demoPersonaById } from './demoPersonas'
+import TalkHandoffContracts from '../backend/src/talk-handoff-schema'
+
+const { WorkoutPlanTalkHandoffSchema } = TalkHandoffContracts
 
 const TalkDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
 
@@ -21,11 +24,7 @@ export const TalkHandoffContextSchema = z.discriminatedUnion('intent', [
     intent: z.literal('log_nutrition'),
     date: TalkDateSchema,
   }).strict(),
-  z.object({
-    source: z.literal('workouts'),
-    intent: z.literal('draft_workout_plan'),
-    date: TalkDateSchema,
-  }).strict(),
+  WorkoutPlanTalkHandoffSchema,
 ])
 
 export type TalkHandoffContext = z.infer<typeof TalkHandoffContextSchema>
@@ -41,6 +40,24 @@ export function talkHandoffContext(value: unknown): TalkHandoffContext | null {
 
 export function talkHandoffState(context: TalkHandoffContext) {
   return { [TALK_HANDOFF_STATE_KEY]: TalkHandoffContextSchema.parse(context) }
+}
+
+/**
+ * Reject a stale backend choosing a session write for a reusable-plan handoff.
+ * A pending action is not a write yet, so failing here leaves user data alone
+ * and makes version skew explicit instead of offering the wrong confirmation.
+ */
+export function assertTalkHandoffPendingActions(
+  context: TalkHandoffContext | null,
+  actions: Array<{ capability: string }>,
+) {
+  if (context?.intent !== 'draft_workout_plan') return
+  const unexpected = actions.find((action) => action.capability !== 'add_workout_plan')
+  if (unexpected) {
+    throw new Error(
+      `Talk proposed ${unexpected.capability} for a reusable Workout plan. Nothing was saved. Update HealthyFlow and try again.`,
+    )
+  }
 }
 
 const sourceLabels: Record<TalkHandoffContext['source'], string> = {
@@ -89,6 +106,6 @@ export function talkHandoffPrompt(context: TalkHandoffContext) {
     case 'log_nutrition':
       return `Help me log what I ate${forDate(context.date)}. I can describe it or attach a photo. Show the estimated Calorie entries for review and approval before saving them.`
     case 'draft_workout_plan':
-      return 'Help me design a reusable Workout plan. Ask about my goal, available time, equipment and constraints, then give me a draft I can review before I add it manually.'
+      return 'Help me design a reusable Workout plan. Ask about my goal, available time, equipment and constraints, then prepare a structured draft I can review and edit. Show every proposed exercise field and require my approval before saving it.'
   }
 }

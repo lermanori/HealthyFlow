@@ -47,12 +47,14 @@ function summarizeResult(result: unknown) {
   const entry = value.entry && typeof value.entry === 'object' ? value.entry as Record<string, unknown> : null
   const item = value.item && typeof value.item === 'object' ? value.item as Record<string, unknown> : null
   const session = value.session && typeof value.session === 'object' ? value.session as Record<string, unknown> : null
+  const plan = value.plan && typeof value.plan === 'object' ? value.plan as Record<string, unknown> : null
   const task = value.task && typeof value.task === 'object' ? value.task as Record<string, unknown> : null
   const goal = value.goal && typeof value.goal === 'object' ? value.goal as Record<string, unknown> : null
   if (Array.isArray(value.entries)) return `${value.entries.length} Calorie entries created`
   if (entry?.name) return `Entry: ${entry.name}`
   if (item?.title) return `Item: ${item.title}`
   if (session?.title) return `Workout session: ${session.title}`
+  if (plan?.name) return `Workout plan: ${plan.name}`
   if (task?.title) return `Task: ${task.title}`
   if (goal?.statement) return `Goal: ${goal.statement}`
   if (value.deleted) return 'Item deleted'
@@ -228,6 +230,24 @@ function buildEditedArgs(action: AssistantPendingAction, draft: Record<string, u
         title: nullableText(draft.title),
         notes: nullableText(draft.notes),
         exercises: typeof draft.exercises === 'string' ? JSON.parse(draft.exercises) : base.exercises,
+      }
+    case 'add_workout_plan':
+      return {
+        ...base,
+        name: String(draft.name ?? '').trim(),
+        color: nullableText(draft.color),
+        note: nullableText(draft.note),
+        position: numberOrUndefined(draft.position),
+        exercises: arrayValue(draft.exercises).map((exercise, index) => ({
+          name: String(exercise.name ?? '').trim(),
+          sets: nullableNumber(exercise.sets),
+          reps: nullableNumber(exercise.reps),
+          weightKg: nullableNumber(exercise.weightKg),
+          durationMinutes: nullableNumber(exercise.durationMinutes),
+          distanceKm: nullableNumber(exercise.distanceKm),
+          notes: nullableText(exercise.notes),
+          position: numberOrUndefined(exercise.position) ?? index,
+        })),
       }
     case 'create_focus_block':
       return {
@@ -432,6 +452,52 @@ function WorkTaskPreview({
   )
 }
 
+function workoutPlanFromAction(action: PendingActionView, draft: Record<string, unknown>) {
+  const result = action.result && typeof action.result === 'object' && !Array.isArray(action.result)
+    ? action.result as Record<string, unknown>
+    : null
+  const resultPlan = result?.plan && typeof result.plan === 'object' && !Array.isArray(result.plan)
+    ? result.plan as Record<string, unknown>
+    : null
+  return resultPlan ?? draft
+}
+
+function WorkoutPlanPreview({ action, draft }: { action: PendingActionView; draft: Record<string, unknown> }) {
+  const plan = workoutPlanFromAction(action, draft)
+  const exercises = arrayValue(plan.exercises)
+  return (
+    <div className="grid gap-3 rounded-md border border-card bg-page/60 p-3 text-sm">
+      <div className="flex min-w-0 items-start gap-2">
+        {fieldValue(plan.color) && (
+          <span className="mt-1 h-3 w-3 shrink-0 rounded-full border border-line" style={{ backgroundColor: fieldValue(plan.color) }} />
+        )}
+        <div className="min-w-0">
+          <div className="break-words font-semibold text-ink">{fieldValue(plan.name)}</div>
+          {fieldValue(plan.note) && <div className="mt-1 whitespace-pre-wrap text-xs leading-5 text-ink-soft">{fieldValue(plan.note)}</div>}
+        </div>
+      </div>
+      <ol className="grid gap-2">
+        {exercises.map((exercise, index) => {
+          const metrics = [
+            exercise.sets != null ? `${fieldValue(exercise.sets)} sets` : null,
+            exercise.reps != null ? `${fieldValue(exercise.reps)} reps` : null,
+            exercise.weightKg != null ? `${fieldValue(exercise.weightKg)} kg` : null,
+            exercise.durationMinutes != null ? `${fieldValue(exercise.durationMinutes)} min` : null,
+            exercise.distanceKm != null ? `${fieldValue(exercise.distanceKm)} km` : null,
+          ].filter(Boolean)
+          return (
+            <li key={`${fieldValue(exercise.name)}-${index}`} className="rounded-md border border-line/80 bg-sunken/40 p-2">
+              <div className="font-medium text-ink">{index + 1}. {fieldValue(exercise.name)}</div>
+              <div className="mt-1 text-xs text-ink-muted">{metrics.join(' · ') || 'No metrics'}</div>
+              {fieldValue(exercise.notes) && <div className="mt-1 whitespace-pre-wrap text-xs text-ink-soft">{fieldValue(exercise.notes)}</div>}
+            </li>
+          )
+        })}
+      </ol>
+    </div>
+  )
+}
+
 function pendingStatusTone(action: PendingActionView): 'pending' | 'confirmed' | 'canceled' | 'error' {
   if (action.error) return 'error'
   return action.status ?? 'pending'
@@ -508,6 +574,13 @@ export default function PendingActionCard({
       const entries = arrayValue(current.entries).map((entry) => ({ ...entry }))
       entries[index] = { ...(entries[index] ?? {}), [key]: value }
       return { ...current, entries }
+    })
+  }
+  const setExerciseField = (index: number, key: string, value: unknown) => {
+    setDraft((current) => {
+      const exercises = arrayValue(current.exercises).map((exercise) => ({ ...exercise }))
+      exercises[index] = { ...(exercises[index] ?? {}), [key]: value }
+      return { ...current, exercises }
     })
   }
   const confirm = () => {
@@ -672,6 +745,63 @@ export default function PendingActionCard({
               </label>
             </>
           )}
+          {action.capability === 'add_workout_plan' && (
+            <>
+              <TextField label="Plan name" value={draft.name} onChange={(value) => setField('name', value)} />
+              <TextField label="Plan color" value={draft.color} onChange={(value) => setField('color', value)} />
+              <div className="sm:col-span-2">
+                <TextField label="Plan note" value={draft.note} onChange={(value) => setField('note', value)} />
+              </div>
+              <TextField label="Plan position" value={draft.position} type="number" onChange={(value) => setField('position', value)} />
+              <div className="hidden sm:block" />
+              <div className="grid gap-3 sm:col-span-2">
+                {arrayValue(draft.exercises).map((exercise, index) => (
+                  <fieldset key={index} className="grid gap-3 rounded-md border border-line/80 bg-page/50 p-3 sm:grid-cols-2">
+                    <legend className="px-1 text-xs font-semibold text-ink">Exercise {index + 1}</legend>
+                    <div className="sm:col-span-2">
+                      <TextField label={`Exercise ${index + 1} name`} value={exercise.name} onChange={(value) => setExerciseField(index, 'name', value)} />
+                    </div>
+                    <TextField label={`Exercise ${index + 1} sets`} value={exercise.sets} type="number" onChange={(value) => setExerciseField(index, 'sets', value)} />
+                    <TextField label={`Exercise ${index + 1} reps`} value={exercise.reps} type="number" onChange={(value) => setExerciseField(index, 'reps', value)} />
+                    <TextField label={`Exercise ${index + 1} weight kg`} value={exercise.weightKg} type="number" onChange={(value) => setExerciseField(index, 'weightKg', value)} />
+                    <TextField label={`Exercise ${index + 1} duration minutes`} value={exercise.durationMinutes} type="number" onChange={(value) => setExerciseField(index, 'durationMinutes', value)} />
+                    <TextField label={`Exercise ${index + 1} distance km`} value={exercise.distanceKm} type="number" onChange={(value) => setExerciseField(index, 'distanceKm', value)} />
+                    <TextField label={`Exercise ${index + 1} position`} value={exercise.position ?? index} type="number" onChange={(value) => setExerciseField(index, 'position', value)} />
+                    <div className="sm:col-span-2">
+                      <TextField label={`Exercise ${index + 1} notes`} value={exercise.notes} onChange={(value) => setExerciseField(index, 'notes', value)} />
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-secondary min-h-11 px-3 py-2 text-sm text-state-danger sm:col-span-2"
+                      disabled={arrayValue(draft.exercises).length <= 1}
+                      onClick={() => setDraft((current) => ({
+                        ...current,
+                        exercises: arrayValue(current.exercises).filter((_item, itemIndex) => itemIndex !== index),
+                      }))}
+                    >
+                      Remove exercise {index + 1}
+                    </button>
+                  </fieldset>
+                ))}
+                {arrayValue(draft.exercises).length < 30 && (
+                  <button
+                    type="button"
+                    className="btn-secondary min-h-11 px-3 py-2 text-sm"
+                    onClick={() => setDraft((current) => ({
+                      ...current,
+                      exercises: [...arrayValue(current.exercises), {
+                        name: '', sets: null, reps: null, weightKg: null,
+                        durationMinutes: null, distanceKm: null, notes: null,
+                        position: arrayValue(current.exercises).length,
+                      }],
+                    }))}
+                  >
+                    Add exercise
+                  </button>
+                )}
+              </div>
+            </>
+          )}
           {action.capability === 'create_focus_block' && (
             <>
               <TextField label="Date" value={draft.scheduledDate} type="date" onChange={(value) => setField('scheduledDate', value)} />
@@ -748,7 +878,7 @@ export default function PendingActionCard({
           {action.capability === 'archive_goal' && (
             <div className="sm:col-span-2"><GoalPreview action={action} draft={draft} /></div>
           )}
-          {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'add_weight_entry', 'add_achievement_entry', 'add_workout_session', 'create_focus_block', 'add_work_task', 'update_item', 'delete_item', 'complete_task', 'add_goal', 'update_goal', 'archive_goal'].includes(action.capability) && (
+          {!['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'add_weight_entry', 'add_achievement_entry', 'add_workout_session', 'add_workout_plan', 'create_focus_block', 'add_work_task', 'update_item', 'delete_item', 'complete_task', 'add_goal', 'update_goal', 'archive_goal'].includes(action.capability) && (
             <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border border-card bg-sunken p-3 text-xs text-ink-soft sm:col-span-2">
               {JSON.stringify(action.preview, null, 2)}
             </pre>
@@ -778,6 +908,8 @@ export default function PendingActionCard({
             action={action}
             task={currentWorkTaskPreview.resultTask ?? draft}
           />
+        ) : action.capability === 'add_workout_plan' ? (
+          <WorkoutPlanPreview action={action} draft={draft} />
         ) : action.capability === 'delete_item' ? (
           <div className={`rounded-md border px-3 py-2 text-xs ${statusToneClasses(pendingStatusTone(action))}`}>
             {statusLabel}

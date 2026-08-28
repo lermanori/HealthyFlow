@@ -5,6 +5,7 @@ jest.mock('../../src/supabase-client', () => ({
     createAiAuditLog: jest.fn(),
     getAiPendingAction: jest.fn(),
     markAiPendingActionExecuted: jest.fn(),
+    cancelAiPendingAction: jest.fn(),
     getNextPosition: jest.fn().mockResolvedValue(7),
     getProjectById: jest.fn(),
     getTaskById: jest.fn(),
@@ -35,6 +36,7 @@ jest.mock('../../src/rollover', () => ({
 import {
   AiCapabilities,
   aiCapabilityTools,
+  cancelPendingAiAction,
   executeAiCapability,
   executePendingAiAction,
   PendingAiActionUnavailableError,
@@ -43,6 +45,7 @@ import { db } from '../../src/supabase-client'
 import * as DaySummary from '../../src/day-summary'
 import { HabitProgress } from '../../src/habit-progress'
 import { Work } from '../../src/work'
+import { Workouts } from '../../src/workouts'
 
 describe('AI write capabilities', () => {
   beforeEach(() => {
@@ -255,6 +258,121 @@ describe('AI write capabilities', () => {
 
     expect(result).toEqual({ entry: { id: 'existing-entry' }, duplicated: true })
     expect(db.createCalorieEntry).not.toHaveBeenCalled()
+  })
+
+  it('creates one user-owned reusable Workout plan and reuses its idempotent result', async () => {
+    const plan = {
+      id: '30000000-0000-4000-8000-000000000003',
+      userId: 'user-1',
+      name: 'Full body strength',
+      color: '#22d3ee',
+      note: 'Three balanced sessions each week.',
+      position: 0,
+      exercises: [{
+        id: '31000000-0000-4000-8000-000000000003',
+        planId: '30000000-0000-4000-8000-000000000003',
+        name: 'Goblet squat',
+        sets: 3,
+        reps: 8,
+        weightKg: 20,
+        durationMinutes: null,
+        distanceKm: null,
+        notes: 'Controlled tempo',
+        position: 0,
+      }],
+      createdAt: '2026-08-28T10:00:00.000Z',
+      updatedAt: '2026-08-28T10:00:00.000Z',
+    }
+    const input = {
+      requestId: 'workout-plan-strength-1',
+      name: plan.name,
+      color: plan.color,
+      note: plan.note,
+      exercises: plan.exercises.map(({ id: _id, planId: _planId, ...exercise }) => exercise),
+    }
+    ;(db.getAiIdempotency as jest.Mock)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ result: { plan } })
+    const createPlan = jest.spyOn(Workouts, 'createPlan').mockResolvedValueOnce(plan)
+
+    await expect(executeAiCapability(
+      { userId: 'user-1', caller: 'internal' },
+      'add_workout_plan',
+      input,
+    )).resolves.toEqual({ ok: true, value: { plan } })
+    await expect(executeAiCapability(
+      { userId: 'user-1', caller: 'internal' },
+      'add_workout_plan',
+      input,
+    )).resolves.toEqual({ ok: true, value: { plan, duplicated: true } })
+
+    expect(createPlan).toHaveBeenCalledTimes(1)
+    expect(createPlan).toHaveBeenCalledWith('user-1', expect.not.objectContaining({ requestId: expect.anything() }))
+    expect(db.createAiAuditLog).toHaveBeenCalledTimes(1)
+    expect(db.createAiAuditLog).toHaveBeenCalledWith(expect.objectContaining({
+      user_id: 'user-1',
+      tool: 'add_workout_plan',
+      request_id: input.requestId,
+      target_ids: [plan.id],
+    }))
+  })
+
+  it('surfaces a reusable Workout plan write failure without auditing or caching a result', async () => {
+    ;(db.getAiIdempotency as jest.Mock).mockResolvedValueOnce(null)
+    jest.spyOn(Workouts, 'createPlan').mockRejectedValueOnce(new Error('Workout plan store unavailable'))
+
+    await expect(executeAiCapability(
+      { userId: 'user-1', caller: 'internal' },
+      'add_workout_plan',
+      {
+        requestId: 'workout-plan-failure-1',
+        name: 'Unavailable plan',
+        exercises: [{ name: 'Squat' }],
+      },
+    )).resolves.toEqual({
+      ok: false,
+      error: expect.objectContaining({
+        code: 'execution_failed',
+        message: 'Workout plan store unavailable',
+        retryable: true,
+      }),
+    })
+    expect(db.createAiAuditLog).not.toHaveBeenCalled()
+    expect(db.createAiIdempotency).not.toHaveBeenCalled()
+  })
+
+  it('does not create a reusable Workout plan after its proposal is canceled or expires', async () => {
+    const expiresAt = new Date(Date.now() + 60_000).toISOString()
+    ;(db.cancelAiPendingAction as jest.Mock).mockResolvedValueOnce({
+      id: 'action-canceled',
+      user_id: 'user-1',
+      capability: 'add_workout_plan',
+      args: { requestId: 'plan-canceled', name: 'Canceled plan', exercises: [{ name: 'Squat' }] },
+      preview: {},
+      expires_at: expiresAt,
+      canceled_at: new Date().toISOString(),
+    })
+    const createPlan = jest.spyOn(Workouts, 'createPlan')
+
+    await expect(cancelPendingAiAction('user-1', 'action-canceled')).resolves.toEqual(expect.objectContaining({
+      id: 'action-canceled',
+      capability: 'add_workout_plan',
+    }))
+
+    ;(db.getAiPendingAction as jest.Mock).mockResolvedValueOnce({
+      id: 'action-expired-plan',
+      user_id: 'user-1',
+      capability: 'add_workout_plan',
+      args: { requestId: 'plan-expired', name: 'Expired plan', exercises: [{ name: 'Squat' }] },
+      preview: {},
+      caller: 'internal',
+      expires_at: new Date(Date.now() - 60_000).toISOString(),
+      executed_at: null,
+      canceled_at: null,
+    })
+    await expect(executePendingAiAction('user-1', 'action-expired-plan'))
+      .rejects.toBeInstanceOf(PendingAiActionUnavailableError)
+    expect(createPlan).not.toHaveBeenCalled()
   })
 
   it('audits successful MCP writes with caller type', async () => {

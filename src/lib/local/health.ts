@@ -1,4 +1,5 @@
 import AchievementContracts from '../../../backend/src/achievement-contracts'
+import WorkoutContracts from '../../../backend/src/workout-contracts'
 import {
   loadLocalDatabase,
   localId,
@@ -8,6 +9,7 @@ import {
 } from './store'
 
 const { summarizeAchievement } = AchievementContracts
+const { WorkoutSessionSchema } = WorkoutContracts
 
 /**
  * Food, weight, training and progress, held on the device.
@@ -178,7 +180,9 @@ export const removeLocalWeightEntry = (userId: string, id: string) =>
 export async function localWorkoutSessions(userId: string, date?: string) {
   const sessions = await read<DatedRecord>(userId, 'workoutSessions')
   const scoped = date ? onDate(sessions, date) : sessions
-  return [...scoped].sort((a, b) => b.date.localeCompare(a.date))
+  return [...scoped]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .map((session) => WorkoutSessionSchema.parse(session))
 }
 
 /**

@@ -77,7 +77,7 @@ import { createLocalGoal, listLocalGoals, updateLocalGoal } from './goals'
 
 const { CapabilityItemSchema } = TaskContracts
 const { HabitProgressDetailSchema, deriveHabitOutcome } = HabitContracts
-const { WorkoutSessionSchema } = WorkoutContracts
+const { WorkoutPlanSchema, WorkoutSessionSchema } = WorkoutContracts
 const { AchievementEntrySchema } = AchievementContracts
 const { DaySummaryCalorieEntrySchema, DaySummaryWeightEntrySchema } = DaySummaryContracts
 
@@ -152,7 +152,7 @@ export function localDayUser(): string | null {
 
 type HabitProgressDetail = z.infer<typeof HabitProgressDetailSchema>
 type ConfirmedItem = CapabilityItem | HabitProgressDetail['habit']
-type HealthCollection = 'calorieEntries' | 'weightEntries' | 'workoutSessions' | 'achievementEntries'
+type HealthCollection = 'calorieEntries' | 'weightEntries' | 'workoutSessions' | 'workoutPlans' | 'achievementEntries'
 type LocalRecord = { id: string; [key: string]: unknown }
 
 const TaskResultSchema = z.looseObject({ item: CapabilityItemSchema })
@@ -161,6 +161,7 @@ const CalorieResultSchema = z.looseObject({ entry: DaySummaryCalorieEntrySchema 
 const CaloriesResultSchema = z.looseObject({ entries: z.array(DaySummaryCalorieEntrySchema) })
 const WeightResultSchema = z.looseObject({ entry: DaySummaryWeightEntrySchema })
 const WorkoutResultSchema = z.looseObject({ session: WorkoutSessionSchema })
+const WorkoutPlanResultSchema = z.looseObject({ plan: WorkoutPlanSchema })
 const AchievementResultSchema = z.looseObject({ entry: AchievementEntrySchema })
 const DeleteItemArgsSchema = z.looseObject({
   itemId: z.string().min(1),
@@ -383,6 +384,9 @@ export async function applyConfirmedTalkActionToLocalDay(
     } else if (action.capability === 'add_workout_session') {
       const parsed = WorkoutResultSchema.parse(result)
       next = putHealthRecord(database, 'workoutSessions', withLocalBookkeeping(parsed.session, userId))
+    } else if (action.capability === 'add_workout_plan') {
+      const parsed = WorkoutPlanResultSchema.parse(result)
+      next = putHealthRecord(database, 'workoutPlans', withLocalBookkeeping(parsed.plan, userId))
     } else if (action.capability === 'add_achievement_entry') {
       const parsed = AchievementResultSchema.parse(result)
       const entry = withLocalBookkeeping(parsed.entry, userId)

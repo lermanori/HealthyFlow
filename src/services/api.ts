@@ -38,6 +38,7 @@ import MobileVersionContracts, {
 import AuthContracts, { type SessionUser } from '../../backend/src/auth-contracts'
 import { GoalSchema, type Goal, type GoalCreateInput, type GoalUpdateInput } from '../../backend/src/goals-schema'
 import HabitContracts, { type HabitHistory } from '../../backend/src/habit-contracts'
+import type { WorkoutPlanTalkHandoff } from '../../backend/src/talk-handoff-schema'
 import type { SyncDelta, SyncIncoming } from '../lib/local/sync'
 import {
   applyVerifiedSession,
@@ -881,6 +882,7 @@ export const aiService = {
       conversationId?: string
       workflow?: { name: 'plan_work'; projectId: string; anchorDate?: string }
       assistantContext?: AssistantContext
+      handoff?: WorkoutPlanTalkHandoff
       signal?: AbortSignal
     } = {},
   ): Promise<AssistantChatResponse> => {
@@ -891,6 +893,7 @@ export const aiService = {
       conversationId: options.conversationId,
       workflow: options.workflow,
       assistantContext: options.assistantContext,
+      handoff: options.handoff,
     }, { signal: options.signal })
     return response.data
   },

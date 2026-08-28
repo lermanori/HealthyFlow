@@ -34,6 +34,7 @@ import {
   WorkoutSessionSchema,
   Workouts,
 } from './workouts'
+import { WorkoutPlanCreateSchema } from './workout-contracts'
 import {
   buildDailyContext,
   DailyContextInputSchema,
@@ -203,6 +204,10 @@ const AddAchievementEntryInput = AchievementEntryCreateSchema.extend({
 
 const AddWorkoutSessionInput = WorkoutSessionCreateSchema.extend({
   requestId: RequestId,
+})
+
+const AddWorkoutPlanInput = WorkoutPlanCreateSchema.extend({
+  requestId: z.string().trim().min(1).max(120).describe('Stable unique id for this proposed Workout plan.'),
 })
 
 const UpdateItemInput = z.object({
@@ -1838,6 +1843,23 @@ export const AiCapabilities = defineCapabilities({
       const { requestId: _requestId, ...sessionInput } = input
       const result = { session: await Workouts.createSession(ctx.userId, sessionInput) }
       return mutationResult(result, [result.session.id])
+    },
+  },
+  add_workout_plan: {
+    description: 'Prepare, preview, and only after confirmation create one reusable Workout plan with its complete exercise structure.',
+    modules: ['workouts'],
+    kind: 'write',
+    scope: 'hf:write:add',
+    inputSchema: AddWorkoutPlanInput,
+    outputSchema: z.object({ plan: WorkoutPlanSchema, ...MutationResultFields }),
+    async preview(_ctx, input) {
+      const { requestId: _requestId, ...plan } = input
+      return addPreview('add_workout_plan', { plan })
+    },
+    async apply(ctx, input) {
+      const { requestId: _requestId, ...planInput } = input
+      const result = { plan: await Workouts.createPlan(ctx.userId, planInput) }
+      return mutationResult(result, [result.plan.id])
     },
   },
   update_item: {

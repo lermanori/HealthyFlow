@@ -1025,3 +1025,132 @@ test('Confirmed assistant task appears on Today without a browser refresh', asyn
   await page.goto('/app')
   await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 10_000 })
 })
+
+test('Workout handoff reviews, edits, and confirms one reusable plan on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const createdAt = new Date().toISOString()
+  let plans: Array<Record<string, unknown>> = []
+  let confirmedArgs: Record<string, unknown> | null = null
+  let firstChatRequest: Record<string, unknown> | null = null
+  let chatCalls = 0
+
+  await page.route('**/api/workouts/plans**', (route) => route.fulfill({ json: plans }))
+  await page.route('**/api/workouts/exercises**', (route) => route.fulfill({ json: [] }))
+  await page.route(/\/api\/workouts\?/, (route) => route.fulfill({ json: [] }))
+  await page.route('**/api/ai/conversations**', (route) => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: [] })
+    return route.fulfill({ json: route.request().postDataJSON() })
+  })
+  await page.route('**/api/ai/chat/confirm', (route) => {
+    const body = route.request().postDataJSON() as { actionId: string; args: Record<string, unknown> }
+    confirmedArgs = body.args
+    const exercises = body.args.exercises as Array<Record<string, unknown>>
+    const plan = {
+      id: 'talk-plan-1',
+      userId: 'e2e-user',
+      name: body.args.name,
+      color: body.args.color,
+      note: body.args.note,
+      position: 0,
+      exercises: exercises.map((exercise, index) => ({
+        ...exercise,
+        id: `talk-plan-exercise-${index + 1}`,
+        planId: 'talk-plan-1',
+        position: index,
+      })),
+      createdAt,
+      updatedAt: createdAt,
+    }
+    plans = [plan]
+    return route.fulfill({
+      json: {
+        result: { plan },
+        action: {
+          id: body.actionId,
+          capability: 'add_workout_plan',
+          args: body.args,
+          preview: { action: 'add_workout_plan', willCreate: { plan: body.args } },
+          expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        },
+      },
+    })
+  })
+  await page.route('**/api/ai/chat', (route) => {
+    chatCalls += 1
+    if (chatCalls === 1) firstChatRequest = route.request().postDataJSON() as Record<string, unknown>
+    if (chatCalls > 1) {
+      return route.fulfill({ json: { message: 'The Workout plan is saved.', toolEvents: [], pendingActions: [] } })
+    }
+    return route.fulfill({
+      json: {
+        message: 'I prepared a reusable Workout plan. Review every field before saving.',
+        toolEvents: [],
+        pendingActions: [{
+          id: '11111111-1111-4111-8111-111111111111',
+          capability: 'add_workout_plan',
+          args: {
+            requestId: 'workout-plan-strength-1',
+            name: 'Starter strength',
+            color: '#22d3ee',
+            note: 'Two balanced sessions each week.',
+            exercises: [{
+              name: 'Goblet squat',
+              sets: 3,
+              reps: 8,
+              weightKg: 20,
+              durationMinutes: null,
+              distanceKm: null,
+              notes: 'Controlled tempo',
+              position: 0,
+            }],
+          },
+          preview: { action: 'add_workout_plan', willCreate: { plan: { name: 'Starter strength' } } },
+          expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        }],
+      },
+    })
+  })
+
+  await page.goto('/app/workouts?mode=plan')
+  await page.getByRole('button', { name: 'New Plan' }).click()
+  await page.getByTestId('workout-plan-editor').getByRole('button', { name: 'Open Talk' }).click()
+  const composer = page.getByPlaceholder(/Add anything/)
+  await expect(composer).toHaveValue(/reusable Workout plan/)
+  await expect(composer).toHaveValue(/approval before saving/i)
+  await composer.press('Enter')
+
+  expect(firstChatRequest).toMatchObject({
+    handoff: { source: 'workouts', intent: 'draft_workout_plan' },
+  })
+
+  await page.getByLabel('Plan name').fill('Edited full body')
+  await page.getByLabel('Plan note').fill('Three balanced sessions each week.')
+  await page.getByLabel('Exercise 1 name').fill('Front squat')
+  await page.getByLabel('Exercise 1 sets').fill('4')
+  await page.getByLabel('Exercise 1 reps').fill('6')
+  await page.getByLabel('Exercise 1 weight kg').fill('45')
+  await page.getByLabel('Exercise 1 duration minutes').fill('10')
+  await page.getByLabel('Exercise 1 distance km').fill('1')
+  await page.getByLabel('Exercise 1 notes').fill('Leave two reps in reserve')
+  await page.getByRole('button', { name: 'Confirm' }).click()
+
+  await expect(page.getByText('Completed: Workout plan: Edited full body')).toBeVisible()
+  expect(confirmedArgs).toMatchObject({
+    name: 'Edited full body',
+    note: 'Three balanced sessions each week.',
+    exercises: [{
+      name: 'Front squat',
+      sets: 4,
+      reps: 6,
+      weightKg: 45,
+      durationMinutes: 10,
+      distanceKm: 1,
+      notes: 'Leave two reps in reserve',
+      position: 0,
+    }],
+  })
+
+  await page.goto('/app/workouts?mode=plan')
+  await expect(page.getByTestId('workout-plan-card').filter({ hasText: 'Edited full body' })).toHaveCount(1)
+  await expect(page.getByText('Front squat')).toBeVisible()
+})

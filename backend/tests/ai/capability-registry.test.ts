@@ -45,6 +45,7 @@ const requiredFamilies = {
   workouts: [
     'list_workout_plans',
     'list_workout_sessions',
+    'add_workout_plan',
     'schedule_workout',
     'add_workout_session',
   ],

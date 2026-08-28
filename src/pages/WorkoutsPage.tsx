@@ -535,7 +535,7 @@ export default function WorkoutsPage() {
                   <MessageSquare className="h-4 w-4 text-accent" />
                   <h4 className="text-sm font-semibold text-ink">Want help designing this plan?</h4>
                 </div>
-                <p className="mt-1 text-xs text-ink-muted">Discuss goals, time, equipment and constraints in Talk, then return to this manual editor.</p>
+                <p className="mt-1 text-xs text-ink-muted">Discuss goals, time, equipment and constraints in Talk, then review and confirm the complete plan before it is saved.</p>
               </div>
               <button
                 type="button"
