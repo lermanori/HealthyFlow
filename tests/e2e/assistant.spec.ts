@@ -950,6 +950,10 @@ test('Confirmed assistant task appears on Today without a browser refresh', asyn
   const today = formatLocalDate(new Date())
   const title = `Assistant cache task ${Date.now()}`
   const createdAt = new Date().toISOString()
+  await page.route('**/api/ai/conversations**', (route) => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: [] })
+    return route.fulfill({ json: route.request().postDataJSON() })
+  })
   await page.route('**/api/ai/chat', (route) =>
     route.fulfill({
       contentType: 'application/json',
@@ -1012,8 +1016,10 @@ test('Confirmed assistant task appears on Today without a browser refresh', asyn
   await expect(page.getByText(title)).toHaveCount(0)
 
   await page.goto('/app/talk')
+  await page.getByRole('button', { name: 'New Chat' }).click()
   await page.getByPlaceholder(/Add anything/).fill(`add ${title} today`)
   await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByRole('region', { name: /Talk proposals/ })).toHaveCount(0)
   await page.getByRole('button', { name: 'Confirm' }).click()
   await expect(page.getByText('Action confirmed')).toBeVisible()
 
@@ -1024,6 +1030,145 @@ test('Confirmed assistant task appears on Today without a browser refresh', asyn
 
   await page.goto('/app')
   await expect(page.getByRole('heading', { name: title })).toBeVisible({ timeout: 10_000 })
+})
+
+test('Multiple Talk proposals are reviewed one card at a time on a narrow reduced-motion screen', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 })
+  await page.emulateMedia({ reducedMotion: 'reduce' })
+  const expiresAt = new Date(Date.now() + 600_000).toISOString()
+  const createdAt = new Date().toISOString()
+  const proposals = [
+    {
+      id: 'proposal-one',
+      capability: 'add_task',
+      args: {
+        title: 'A deliberately long first proposal title that must remain readable without widening the card',
+        category: 'personal',
+        scheduledDate: '2026-08-28',
+      },
+      preview: {},
+      expiresAt,
+    },
+    {
+      id: 'proposal-two',
+      capability: 'add_task',
+      args: { title: 'Second proposal', category: 'work', scheduledDate: '2026-08-28' },
+      preview: {},
+      expiresAt,
+    },
+    {
+      id: 'proposal-three',
+      capability: 'add_task',
+      args: { title: 'Third proposal', category: 'health', scheduledDate: '2026-08-28' },
+      preview: {},
+      expiresAt,
+    },
+  ]
+  const confirmed: string[] = []
+  const canceled: string[] = []
+
+  await page.route('**/api/ai/conversations**', (route) => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: [] })
+    return route.fulfill({ json: route.request().postDataJSON() })
+  })
+  await page.route('**/api/ai/chat', (route) => route.fulfill({
+    json: {
+      message: 'I prepared three independent changes for review.',
+      toolEvents: [],
+      pendingActions: proposals,
+    },
+  }))
+  await page.route('**/api/ai/chat/confirm', async (route) => {
+    const body = route.request().postDataJSON() as { actionId: string; args: Record<string, unknown> }
+    if (body.actionId === 'proposal-one') {
+      return route.fulfill({
+        status: 409,
+        json: { error: 'This proposal expired after the underlying Item changed. Review a fresh proposal before confirming.' },
+      })
+    }
+    confirmed.push(body.actionId)
+    await new Promise((resolve) => setTimeout(resolve, 250))
+    const action = proposals.find((proposal) => proposal.id === body.actionId)!
+    return route.fulfill({
+      json: {
+        action: { ...action, args: body.args },
+        result: {
+          item: {
+            id: `item-${body.actionId}`,
+            title: body.args.title,
+            category: body.args.category,
+            type: 'task',
+            repeat: 'none',
+            completed: false,
+            scheduledDate: body.args.scheduledDate,
+            startTime: null,
+            duration: 30,
+            location: null,
+            createdAt,
+            position: null,
+            isHabitInstance: false,
+            originalHabitId: null,
+            rolledOverFromTaskId: null,
+            originalCreatedAt: null,
+            googleEventId: null,
+            syncedToGoogle: false,
+          },
+        },
+      },
+    })
+  })
+  await page.route('**/api/ai/chat/cancel', async (route) => {
+    const body = route.request().postDataJSON() as { actionId: string }
+    canceled.push(body.actionId)
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    return route.fulfill({ json: proposals.find((proposal) => proposal.id === body.actionId) })
+  })
+
+  await page.goto('/app/talk')
+  await page.getByRole('button', { name: 'New Chat' }).click()
+  await page.getByPlaceholder(/Add anything/).fill('Prepare three changes')
+  await page.getByRole('button', { name: 'Send' }).click()
+
+  const deck = page.getByRole('region', { name: '3 Talk proposals' })
+  await expect(deck).toBeVisible()
+  await expect(page.getByText('Proposal 1 of 3', { exact: true })).toBeVisible()
+  await expect(deck.getByRole('group', { name: /Proposal 1 of 3/ })).toBeVisible()
+  await expect(deck.getByTestId('talk-proposal-card')).toHaveCount(3)
+  await expect(deck.getByRole('group')).toHaveCount(1)
+  await expect.poll(() => deck.evaluate((element) => ({
+    overflowX: getComputedStyle(element).overflowX,
+    snap: getComputedStyle(element).scrollSnapType,
+    fits: element.scrollWidth > element.clientWidth,
+  }))).toEqual({ overflowX: 'auto', snap: 'x mandatory', fits: true })
+
+  await page.getByRole('button', { name: 'Next proposal' }).click()
+  await expect(page.getByText('Proposal 2 of 3', { exact: true })).toBeVisible()
+  const second = deck.getByRole('group', { name: /Proposal 2 of 3/ })
+  const confirmSecond = second.getByRole('button', { name: 'Confirm this proposal' })
+  await confirmSecond.click()
+  await expect(second.getByRole('button', { name: /Working/ })).toBeDisabled()
+  await expect(second.getByText(/Completed: Item: Second proposal/)).toBeVisible()
+  expect(confirmed).toEqual(['proposal-two'])
+
+  await page.getByRole('button', { name: 'Next proposal' }).click()
+  await expect(page.getByText('Proposal 3 of 3', { exact: true })).toBeVisible()
+  const third = deck.getByRole('group', { name: /Proposal 3 of 3/ })
+  await third.getByRole('button', { name: 'Cancel this proposal' }).click()
+  await expect(third.getByText('Canceled', { exact: true })).toBeVisible()
+  expect(canceled).toEqual(['proposal-three'])
+
+  await deck.focus()
+  await deck.press('ArrowLeft')
+  await expect(page.getByText('Proposal 2 of 3', { exact: true })).toBeVisible()
+  await deck.press('ArrowLeft')
+  await expect(page.getByText('Proposal 1 of 3', { exact: true })).toBeVisible()
+  const first = deck.getByRole('group', { name: /Proposal 1 of 3/ })
+  await first.getByRole('button', { name: 'Confirm this proposal' }).click()
+  await expect(first.getByText(/This proposal expired after the underlying Item changed/)).toBeVisible()
+  await page.getByRole('button', { name: 'Next proposal' }).click()
+  await expect(deck.getByRole('group', { name: /Proposal 2 of 3/ }).getByText(/Completed: Item: Second proposal/)).toBeVisible()
+  await page.getByRole('button', { name: 'Next proposal' }).click()
+  await expect(deck.getByRole('group', { name: /Proposal 3 of 3/ }).getByText('Canceled', { exact: true })).toBeVisible()
 })
 
 test('Workout handoff reviews, edits, and confirms one reusable plan on mobile', async ({ page }) => {

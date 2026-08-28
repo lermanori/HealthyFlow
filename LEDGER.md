@@ -1,3 +1,9 @@
+### 2026-08-28 16:07 — `codex/talk-swipeable-proposals-211`
+
+Multiple Talk proposals now stay mounted as a touch-native horizontal card deck with a clear current/total position, accessible arrow and keyboard navigation, and explicit per-card confirmation and cancellation; a single proposal keeps the original unadorned review. Drafts, loading states, completed/canceled outcomes, and visible errors remain attached to their individual proposals without navigation ever performing a write. Both typechecks, 276 frontend tests, 834 backend tests, focused narrow-screen/reduced-motion browser coverage, production/iOS builds, and the real-iPhone smoke test are green.
+
+---
+
 ### 2026-08-28 15:36 — `codex/talk-workout-plans-212`
 
 Talk can now prepare a typed, editable reusable Workout plan and create it exactly once only after explicit confirmation; the Workouts handoff carries closed intent and cannot fall through to logging a session. The same repair normalizes confirmed Workout sessions before composing the strict Local-day contract, so the earlier mistaken session no longer strands Today, while confirmed plans appear immediately in Workouts. Both typechecks, 276 frontend tests, 834 backend tests, the focused mobile browser flow, production/iOS builds, and the real-iPhone smoke test are green.
