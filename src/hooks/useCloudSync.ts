@@ -1,7 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Network } from '@capacitor/network'
 import { useQueryClient } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
 import { useAuth } from '../context/AuthContext'
 import { creditsService, syncService, DAY_SUMMARY_QUERY_KEY } from '../services/api'
 import { runSync } from '../lib/local/sync'
@@ -9,20 +8,40 @@ import { localDayUser } from '../lib/local/services'
 import { LOCAL_DAY_CHANGED_EVENT } from '../lib/local/store'
 
 const AFTER_A_CHANGE_MS = 3_000
-const CLOUD_SYNC_FAILURE_TOAST = 'cloud-sync-failure'
+const CLOUD_STATUS_CHANGED_EVENT = 'healthyflow:cloud-status-changed'
+
+export interface CloudStatusNotification {
+  state: 'paused' | 'unavailable'
+  message: string
+}
+
+interface CloudStatusChangedDetail {
+  notification: CloudStatusNotification | null
+}
+
+interface CloudStatusState {
+  notification: CloudStatusNotification
+  dismissed: boolean
+}
+
+function publishCloudStatus(notification: CloudStatusNotification | null) {
+  window.dispatchEvent(new CustomEvent<CloudStatusChangedDetail>(CLOUD_STATUS_CHANGED_EVENT, {
+    detail: { notification },
+  }))
+}
 
 function showCloudStatusUnavailable() {
-  toast.error('Cloud status unavailable. Changes are safe on this device.', {
-    id: CLOUD_SYNC_FAILURE_TOAST,
-    duration: Infinity,
+  publishCloudStatus({
+    state: 'unavailable',
+    message: 'Cloud status unavailable. Changes are safe on this device.',
   })
 }
 
 export function reportCloudSyncFailure(error: unknown) {
   console.error('[sync] exchange failed:', error)
-  toast.error('Cloud sync paused. Changes are safe on this device.', {
-    id: CLOUD_SYNC_FAILURE_TOAST,
-    duration: Infinity,
+  publishCloudStatus({
+    state: 'paused',
+    message: 'Cloud sync paused. Changes are safe on this device.',
   })
 }
 
@@ -32,7 +51,7 @@ export function reportCloudStatusFailure(error: unknown) {
 }
 
 export function clearCloudSyncFailure() {
-  toast.dismiss(CLOUD_SYNC_FAILURE_TOAST)
+  publishCloudStatus(null)
 }
 
 /**
@@ -50,6 +69,26 @@ export function useCloudSync() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const running = useRef(false)
+  const [cloudStatus, setCloudStatus] = useState<CloudStatusState | null>(null)
+
+  useEffect(() => {
+    const onCloudStatusChanged = (event: Event) => {
+      const { notification } = (event as CustomEvent<CloudStatusChangedDetail>).detail
+      setCloudStatus((current) => {
+        if (!notification) return null
+        // An unresolved failure stays noticeable until it is dismissed. Repeating
+        // that same failure must not interrupt someone who already dismissed it;
+        // a successful check clears this state so a later failure can surface.
+        if (current?.notification.state === notification.state) {
+          return { ...current, notification }
+        }
+        return { notification, dismissed: false }
+      })
+    }
+
+    window.addEventListener(CLOUD_STATUS_CHANGED_EVENT, onCloudStatusChanged)
+    return () => window.removeEventListener(CLOUD_STATUS_CHANGED_EVENT, onCloudStatusChanged)
+  }, [])
 
   useEffect(() => {
     const userId = localDayUser()
@@ -135,4 +174,13 @@ export function useCloudSync() {
       window.removeEventListener(LOCAL_DAY_CHANGED_EVENT, onChange)
     }
   }, [user, queryClient])
+
+  const dismissCloudStatus = useCallback(() => {
+    setCloudStatus((current) => current ? { ...current, dismissed: true } : null)
+  }, [])
+
+  return {
+    notification: cloudStatus?.dismissed ? null : cloudStatus?.notification ?? null,
+    dismiss: dismissCloudStatus,
+  }
 }

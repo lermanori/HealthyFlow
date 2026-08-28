@@ -1,3 +1,9 @@
+### 2026-08-28 13:17 — `codex/fix-cloud-status-notifications-210`
+
+Replaced persistent Cloud toasts with one inline, dismissible status lifecycle that updates in place, preserves dismissal across repeated failures, and clears on recovery. Offline/reconnected notices and Today reminders now share the safe, non-blocking document flow below the iPhone header, including accessible dismissal for reminders. Both typechecks, 272 frontend tests, 830 backend tests, focused notification and Talk geometry tests, production/iOS builds, and the real-iPhone smoke test are green.
+
+---
+
 ### 2026-08-27 20:29 — `codex/fix-talk-ios-keyboard-214`
 
 Fixed Talk treating the iPhone keyboard as if the full layout viewport were still usable. Talk now follows the visual viewport with Capacitor keyboard-height backup, removes the bottom dock while typing, keeps the composer and caret above the keyboard, and preserves either the latest turn or the user's scrolled-back reading position through resize and rotation. Both typechecks, 272 frontend tests, 830 backend tests, 23 focused Talk browser tests, production/iOS builds and the supplied real-iPhone screenshot are green.

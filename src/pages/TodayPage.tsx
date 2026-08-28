@@ -1733,6 +1733,7 @@ export default function TodayPage() {
           </>
         )}
       </div>
+      <SmartReminders />
       {/* Day-first header: title row + week ribbon */}
       <div className="space-y-3">
         {/* Title + actions */}
@@ -2007,9 +2008,6 @@ export default function TodayPage() {
           <DayContextSummary summary={daySummary} enabledSummaries={enabledTodaySummaries} />
         ) : null}
       />
-
-      <SmartReminders />
-
       {/* Task Edit Modal */}
       <TaskEditModal
         task={editingTask}
