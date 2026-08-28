@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { addDays, format } from 'date-fns'
-import { Dumbbell, Flame, Pencil, Scale, Target, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Dumbbell, Flame, Pencil, Scale, Target, Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import type { AssistantPendingAction } from '../services/api'
 import CalorieEntryDraftCard, { type CalorieEntryDraftValue } from './CalorieEntryDraftCard'
@@ -18,13 +18,19 @@ export type PendingActionView = AssistantPendingAction & {
 
 type PendingActionCardProps = {
   action: PendingActionView
-  onConfirm: (actionId: string, args?: Record<string, unknown>) => void
-  onCancel: (actionId: string) => void
+  onConfirm: (actionId: string, args?: Record<string, unknown>) => void | Promise<void>
+  onCancel: (actionId: string) => void | Promise<void>
   onRetry?: () => void
   confirmLabel?: string
   cancelLabel?: string
   pendingStatusLabel?: string
   isBusy?: boolean
+}
+
+type PendingActionDeckProps = {
+  actions: PendingActionView[]
+  onConfirm: PendingActionCardProps['onConfirm']
+  onCancel: PendingActionCardProps['onCancel']
 }
 
 const categories = CATEGORY_IDS
@@ -537,6 +543,171 @@ function calorieDraftsFromPendingAction(action: PendingActionView, draft: Record
   }
 
   return [calorieEntryFromRecord(draft)]
+}
+
+/**
+ * Review several independent pending writes without turning them into a bulk
+ * action. Native horizontal scrolling owns touch gestures; moving between cards
+ * changes presentation only and never confirms or cancels anything.
+ */
+export function PendingActionDeck({ actions, onConfirm, onCancel }: PendingActionDeckProps) {
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [busyActionIds, setBusyActionIds] = useState<Set<string>>(() => new Set())
+  const deckRef = useRef<HTMLDivElement>(null)
+  const slideRefs = useRef<Array<HTMLDivElement | null>>([])
+  const scrollSettleTimerRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    setCurrentIndex((index) => Math.min(index, Math.max(0, actions.length - 1)))
+  }, [actions.length])
+
+  useEffect(() => {
+    slideRefs.current.forEach((slide, index) => {
+      if (!slide) return
+      slide.toggleAttribute('inert', index !== currentIndex)
+    })
+  }, [currentIndex, actions.length])
+
+  useEffect(() => {
+    const alignCurrentCard = () => {
+      const deck = deckRef.current
+      if (deck) deck.scrollTo({ left: currentIndex * deck.clientWidth, behavior: 'auto' })
+    }
+    window.addEventListener('resize', alignCurrentCard)
+    return () => window.removeEventListener('resize', alignCurrentCard)
+  }, [currentIndex])
+
+  useEffect(() => () => {
+    if (scrollSettleTimerRef.current != null) window.clearTimeout(scrollSettleTimerRef.current)
+  }, [])
+
+  if (actions.length === 0) return null
+  if (actions.length === 1) {
+    return <PendingActionCard action={actions[0]} onConfirm={onConfirm} onCancel={onCancel} />
+  }
+
+  const goTo = (nextIndex: number) => {
+    const index = Math.max(0, Math.min(actions.length - 1, nextIndex))
+    const deck = deckRef.current
+    if (scrollSettleTimerRef.current != null) window.clearTimeout(scrollSettleTimerRef.current)
+    setCurrentIndex(index)
+    deck?.scrollTo({
+      left: index * deck.clientWidth,
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    })
+  }
+  const markBusy = (actionId: string, busy: boolean) => {
+    setBusyActionIds((current) => {
+      const next = new Set(current)
+      if (busy) next.add(actionId)
+      else next.delete(actionId)
+      return next
+    })
+  }
+  const confirmOne: PendingActionCardProps['onConfirm'] = async (actionId, args) => {
+    if (busyActionIds.has(actionId)) return
+    markBusy(actionId, true)
+    try {
+      await onConfirm(actionId, args)
+    } finally {
+      markBusy(actionId, false)
+    }
+  }
+  const cancelOne: PendingActionCardProps['onCancel'] = async (actionId) => {
+    if (busyActionIds.has(actionId)) return
+    markBusy(actionId, true)
+    try {
+      await onCancel(actionId)
+    } finally {
+      markBusy(actionId, false)
+    }
+  }
+
+  return (
+    <section className="mt-3 min-w-0 rounded-lg border border-card bg-page/40 p-2.5 sm:p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-xs font-semibold text-ink" aria-live="polite">
+            Proposal {currentIndex + 1} of {actions.length}
+          </div>
+          <p className="mt-0.5 text-[11px] leading-4 text-ink-muted">
+            Confirm and cancel affect only the shown proposal.
+          </p>
+        </div>
+        <div className="flex flex-none gap-1.5">
+          <button
+            type="button"
+            aria-label="Previous proposal"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-line text-ink-soft disabled:opacity-35"
+            disabled={currentIndex === 0}
+            onClick={() => goTo(currentIndex - 1)}
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            aria-label="Next proposal"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-line text-ink-soft disabled:opacity-35"
+            disabled={currentIndex === actions.length - 1}
+            onClick={() => goTo(currentIndex + 1)}
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+
+      <div
+        ref={deckRef}
+        role="region"
+        aria-roledescription="carousel"
+        aria-label={`${actions.length} Talk proposals`}
+        tabIndex={0}
+        className="talk-proposal-deck flex min-w-0 snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return
+          if (event.key === 'ArrowLeft') {
+            event.preventDefault()
+            goTo(currentIndex - 1)
+          } else if (event.key === 'ArrowRight') {
+            event.preventDefault()
+            goTo(currentIndex + 1)
+          }
+        }}
+        onScroll={(event) => {
+          const deck = event.currentTarget
+          if (deck.clientWidth === 0) return
+          if (scrollSettleTimerRef.current != null) window.clearTimeout(scrollSettleTimerRef.current)
+          scrollSettleTimerRef.current = window.setTimeout(() => {
+            const index = Math.max(0, Math.min(actions.length - 1, Math.round(deck.scrollLeft / deck.clientWidth)))
+            setCurrentIndex((current) => current === index ? current : index)
+            scrollSettleTimerRef.current = null
+          }, 100)
+        }}
+      >
+        {actions.map((action, index) => (
+          <div
+            key={action.id}
+            data-testid="talk-proposal-card"
+            ref={(element) => { slideRefs.current[index] = element }}
+            role="group"
+            aria-roledescription="slide"
+            aria-label={`Proposal ${index + 1} of ${actions.length}: ${labelForCapability(action.capability)}`}
+            aria-hidden={index !== currentIndex}
+            className="box-border w-full min-w-full shrink-0 snap-start px-px"
+          >
+            <PendingActionCard
+              action={action}
+              onConfirm={confirmOne}
+              onCancel={cancelOne}
+              confirmLabel="Confirm this proposal"
+              cancelLabel="Cancel this proposal"
+              isBusy={busyActionIds.has(action.id)}
+            />
+          </div>
+        ))}
+      </div>
+    </section>
+  )
 }
 
 export default function PendingActionCard({

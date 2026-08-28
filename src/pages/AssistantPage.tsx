@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantContext, AssistantConversation, AssistantPendingAction, AssistantStoredMessage, AssistantToolEvent, GOALS_QUERY_KEY, HABIT_HISTORY_QUERY_KEY, goalService, pushService, taskService, type Goal } from '../services/api'
 import { GoalCreateInputSchema, GoalUpdateInputSchema } from '../../backend/src/goals-schema'
 import { useDictatedText } from '../hooks/useDictatedText'
-import PendingActionCard, { type PendingActionView } from '../components/PendingActionCard'
+import { PendingActionDeck, type PendingActionView } from '../components/PendingActionCard'
 import { invalidatePendingActionQueries } from '../utils/pendingActionInvalidation'
 import { workTalkContext, type WorkTalkContext } from '../workTalk'
 import { useTTS } from '../hooks/useTTS'
@@ -1507,7 +1507,7 @@ export default function AssistantPage() {
                   <Bot className="h-4 w-4" />
                 </div>
               )}
-              <div className={`max-w-[78%] ${message.role === 'user' ? 'order-first' : ''}`}>
+              <div className={`${message.pendingActions?.length ? 'min-w-0 w-[calc(100%-2.75rem)] max-w-3xl' : 'max-w-[78%]'} ${message.role === 'user' ? 'order-first' : ''}`}>
                 <div
                   className={`rounded-lg px-4 py-3 text-sm leading-6 ${
                     message.role === 'user'
@@ -1580,9 +1580,9 @@ export default function AssistantPage() {
                 {message.toolEvents && message.toolEvents.length > 0 && (
                   <AssistantReasoningStages events={message.toolEvents} />
                 )}
-                {message.pendingActions?.map((action) => (
-                  <PendingActionCard key={action.id} action={action} onConfirm={confirmAction} onCancel={cancelAction} />
-                ))}
+                {message.pendingActions && message.pendingActions.length > 0 && (
+                  <PendingActionDeck actions={message.pendingActions} onConfirm={confirmAction} onCancel={cancelAction} />
+                )}
               </div>
               {message.role === 'user' && (
                 <div className="mt-1 flex h-8 w-8 flex-none items-center justify-center rounded-lg bg-card text-ink-soft">
