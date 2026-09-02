@@ -192,6 +192,13 @@ Two things are sold, and they are **separate products** with separate economics
 | **AI credits** | Consumable | Effortless input. 50 credits = $1 | No. Anyone may buy any amount |
 | **Cloud** | Subscription | **Your day on every device.** Backup falls out of it | The founders' discount is |
 
+**The iPhone launch rail is Apple In-App Purchase through RevenueCat
+(ADR-0015).** Apple takes the payment; RevenueCat brokers verified purchase and
+subscription state; HealthyFlow's backend remains authoritative for access and
+credit balances. The launch app does not steer to web checkout. Lemon Squeezy is
+deferred until the web is a demonstrated acquisition surface, and Android is
+not a launch target.
+
 **Entry is open.** Creating an account takes no seat and meets no waitlist —
 neither for someone arriving cold, nor for a Guest who has been using the app and
 now wants to pay. Guest mode removed the wall at the front door; putting one at the
