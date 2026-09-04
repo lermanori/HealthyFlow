@@ -1,3 +1,9 @@
+### 2026-09-02 15:55 — `codex/201-billing-decision`
+
+Re-checked Apple, Google Play, Lemon Squeezy, RevenueCat and Israeli paid-sale requirements from primary sources, and the founder chose Apple In-App Purchase through RevenueCat for the iPhone launch while HealthyFlow keeps its backend credit ledger authoritative. The decision is now durable in TARGET, ADR-0015 and the paid-apps runbook, with Lemon and Android deferred and the remaining professional questions explicit. Created the three dependency-ordered launch slices in #222–#224; documentation whitespace and repository consistency checks pass, and the unrelated generated Swift package diff remains outside this work.
+
+---
+
 ### 2026-08-28 16:07 — `codex/talk-swipeable-proposals-211`
 
 Multiple Talk proposals now stay mounted as a touch-native horizontal card deck with a clear current/total position, accessible arrow and keyboard navigation, and explicit per-card confirmation and cancellation; a single proposal keeps the original unadorned review. Drafts, loading states, completed/canceled outcomes, and visible errors remain attached to their individual proposals without navigation ever performing a write. Both typechecks, 276 frontend tests, 834 backend tests, focused narrow-screen/reduced-motion browser coverage, production/iOS builds, and the real-iPhone smoke test are green.
