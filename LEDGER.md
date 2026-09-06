@@ -1,3 +1,27 @@
+### 2026-09-06 20:40 — `docs/v1-launch-plan`
+
+Brought the free-v1 launch plan branch forward to current `main` after PR #227
+landed, preserving both independently written ledger entries while resolving their
+single prepend conflict. The plan remains a dated record; the merged production
+migration rename is unchanged and no implementation scope was added to this PR.
+
+---
+
+### 2026-09-06 18:29 — `docs/v1-launch-plan`
+
+Assessed how close the product is to launching and found the answer was not the
+product: every check is green and production is live, while each remaining blocker
+was commercial-operational wall clock nobody had started. The founder chose to ship
+v1 to the App Store free with no purchase rail and add Apple IAP in a later version,
+which takes #222-#224 off the critical path — DSA trader status excepted, since a
+free app still needs it for EU distribution. Recorded the whole decision as one
+dated plan: a Guest gets 10 actions once, a claimed account 15 every month, Cloud
+cannot be held, and the Founders Club is the direct line for more. Nothing on either
+lane moves until PR #227 merges and the pricing migration reaches production, which
+`main` currently requires and does not have.
+
+---
+
 ### 2026-09-06 15:14 — `codex/fix-pricing-migration-version`
 
 Found that the newly merged pricing migration reused the already-applied Goals migration version, so Supabase could not distinguish or deploy it. Reassigned the pricing migration to unique version `20260906131500`; the linked migration list now shows exactly that file pending and `supabase db push --dry-run` confirms it is the only proposed remote change.
