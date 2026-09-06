@@ -701,7 +701,7 @@
       </div>
       <p class="hero-note" data-hero-offer>
         $<span data-offer-founding-price>9</span>/month for the first 100 ·
-        <span data-offer-founding-credits>250</span> AI credits at signup
+        <span data-offer-free-monthly-actions>15</span> free AI actions every month with an account
       </p>
     </div>
     <div class="frame frame-phone">
@@ -873,7 +873,7 @@
       <div class="section-head reveal">
         <span class="kicker">Pricing</span>
         <h2 class="section-title">Simple. Honest. Early.</h2>
-        <p class="section-sub" data-pricing-summary>The core app is free forever. The first 100 members get 250 AI credits at signup and can lock in the $9 monthly plan.</p>
+        <p class="section-sub" data-pricing-summary>The core app is free forever. Create an account for 15 AI actions each month, or put your day on every device with Cloud.</p>
       </div>
       <div class="plans">
         <div class="plan reveal">
@@ -883,8 +883,8 @@
           <ul>
             <li>The full timeline — tasks, habits, records, rollover</li>
             <li>Health on the same day — nutrition, weight, workouts, progress</li>
-            <li data-onboarding-benefit>First 100 accounts receive <span data-offer-onboarding-credits>250</span> AI credits for onboarding</li>
-            <li>Add <span data-offer-topup-credits>250</span> non-expiring credits for $<span data-offer-topup-price>5</span></li>
+            <li data-free-monthly-benefit>Create an account for <span data-offer-free-monthly-actions>15</span> AI actions every month</li>
+            <li>Add <span data-offer-topup-credits>300</span> non-expiring actions for $<span data-offer-topup-price>5</span></li>
           </ul>
           <a class="btn btn-ghost" data-access-cta data-placement="free_plan" href="#waitlist-form">Join the waitlist</a>
         </div>
@@ -894,10 +894,12 @@
             <span class="plan-badge" data-offer-plan-badge>First 100 only</span>
           </div>
           <p class="price"><span class="price-was" data-offer-price-was>$<span data-offer-regular-price>19</span></span>$<span data-offer-current-price>9</span> <small>/ month</small></p>
-          <p class="tagline">Everything, with a monthly AI allowance.</p>
+          <p class="tagline">Your day on every device.</p>
           <ul>
             <li>Everything in Free</li>
-            <li><span data-offer-monthly-credits>500</span> AI credits each month, refreshed with no rollover</li>
+            <li>Your day synced across iPhone and web</li>
+            <li>Text AI included, with fair-use limits</li>
+            <li>100 photo and 50 premium actions each month</li>
             <li data-offer-price-lock>$9 locked in while your subscription stays active</li>
             <li>Direct line to me — you shape what gets built</li>
           </ul>
@@ -997,14 +999,8 @@
         document.querySelectorAll('[data-offer-regular-price]').forEach((el) => {
           if (offer.regularPriceUsd) el.textContent = String(offer.regularPriceUsd);
         });
-        document.querySelectorAll('[data-offer-founding-credits]').forEach((el) => {
-          if (offer.foundingOnboardingCredits) el.textContent = String(offer.foundingOnboardingCredits);
-        });
-        document.querySelectorAll('[data-offer-onboarding-credits]').forEach((el) => {
-          if (offer.onboardingCredits) el.textContent = String(offer.onboardingCredits);
-        });
-        document.querySelectorAll('[data-offer-monthly-credits]').forEach((el) => {
-          if (offer.monthlyCredits) el.textContent = String(offer.monthlyCredits);
+        document.querySelectorAll('[data-offer-free-monthly-actions]').forEach((el) => {
+          if (offer.monthlyFreeCredits) el.textContent = String(offer.monthlyFreeCredits);
         });
         document.querySelectorAll('[data-offer-topup-price]').forEach((el) => {
           if (offer.topUpPriceUsd) el.textContent = String(offer.topUpPriceUsd);
@@ -1016,8 +1012,7 @@
         const foundingAvailable = Number(offer.foundingMembersRemaining) > 0;
         const foundingPrice = Number(offer.foundingPriceUsd) || 9;
         const regularPrice = Number(offer.regularPriceUsd) || 19;
-        const onboardingCredits = Number(offer.onboardingCredits) || (foundingAvailable ? 250 : 50);
-        const monthlyCredits = Number(offer.monthlyCredits) || 500;
+        const monthlyFreeActions = Number(offer.monthlyFreeCredits) || 15;
         const remainingFoundingSpots = Number(offer.foundingMembersRemaining) || 0;
 
         document.querySelectorAll('[data-offer-current-price]').forEach((el) => {
@@ -1035,7 +1030,7 @@
 
         const planName = document.querySelector('[data-offer-plan-name]');
         const planBadge = document.querySelector('[data-offer-plan-badge]');
-        const onboardingBenefit = document.querySelector('[data-onboarding-benefit]');
+        const freeMonthlyBenefit = document.querySelector('[data-free-monthly-benefit]');
         const heroOffer = document.querySelector('[data-hero-offer]');
         const pricingSummary = document.querySelector('[data-pricing-summary]');
         const finalOffer = document.querySelector('[data-final-offer]');
@@ -1043,17 +1038,17 @@
         if (foundingAvailable) {
           if (planName) planName.textContent = 'Founding Member';
           if (planBadge) planBadge.textContent = `${remainingFoundingSpots} founding spots left`;
-          if (onboardingBenefit) onboardingBenefit.textContent = `First 100 accounts receive ${onboardingCredits} AI credits for onboarding`;
-          if (heroOffer) heroOffer.textContent = `$${foundingPrice}/month for the first 100 · ${onboardingCredits} AI credits at signup`;
-          if (pricingSummary) pricingSummary.textContent = `The core app is free forever. The first 100 members get ${onboardingCredits} AI credits at signup and can lock in the $${foundingPrice} monthly plan.`;
+          if (freeMonthlyBenefit) freeMonthlyBenefit.textContent = `Create an account for ${monthlyFreeActions} AI actions every month`;
+          if (heroOffer) heroOffer.textContent = `$${foundingPrice}/month for the first 100 Cloud members · ${monthlyFreeActions} free AI actions every month with an account`;
+          if (pricingSummary) pricingSummary.textContent = `The core app is free forever. Create an account for ${monthlyFreeActions} AI actions each month; the first 100 Cloud members can lock in $${foundingPrice}/month.`;
           if (finalOffer) finalOffer.textContent = `One timeline. It rolls itself forward. ${remainingFoundingSpots} founding spots remain at $${foundingPrice}.`;
         } else {
-          if (planName) planName.textContent = 'AI Monthly';
-          if (planBadge) planBadge.textContent = 'Monthly AI credits';
-          if (onboardingBenefit) onboardingBenefit.textContent = `Every new account receives ${onboardingCredits} AI credits for onboarding`;
-          if (heroOffer) heroOffer.textContent = `$${regularPrice}/month · ${onboardingCredits} AI credits at signup`;
-          if (pricingSummary) pricingSummary.textContent = `The core app is free forever. New accounts get ${onboardingCredits} AI credits at signup; the AI plan is $${regularPrice}/month for ${monthlyCredits} credits.`;
-          if (finalOffer) finalOffer.textContent = `One timeline. It rolls itself forward. Start free with ${onboardingCredits} AI credits.`;
+          if (planName) planName.textContent = 'Cloud';
+          if (planBadge) planBadge.textContent = 'Cross-device subscription';
+          if (freeMonthlyBenefit) freeMonthlyBenefit.textContent = `Create an account for ${monthlyFreeActions} AI actions every month`;
+          if (heroOffer) heroOffer.textContent = `$${regularPrice}/month for Cloud · ${monthlyFreeActions} free AI actions every month with an account`;
+          if (pricingSummary) pricingSummary.textContent = `The core app is free forever. Create an account for ${monthlyFreeActions} AI actions each month, or put your day on every device with Cloud for $${regularPrice}/month.`;
+          if (finalOffer) finalOffer.textContent = `One timeline. It rolls itself forward. Start free; Claim adds ${monthlyFreeActions} AI actions every month.`;
         }
 
         const accessMessage = document.querySelector('[data-access-message]');

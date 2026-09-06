@@ -1,7 +1,6 @@
 import request from 'supertest'
 import { app } from '../../src/index'
 import { db, supabase } from '../../src/supabase-client'
-import { Credits } from '../../src/credits'
 import { Onboarding } from '../../src/onboarding'
 import { Waitlist } from '../../src/waitlist'
 
@@ -27,7 +26,7 @@ jest.mock('../../src/supabase-client', () => ({
 
 jest.mock('../../src/credits', () => ({
   Credits: {
-    grantSignupCredits: jest.fn(),
+    getLaunchOffer: jest.fn(),
   },
 }))
 
@@ -45,7 +44,6 @@ jest.mock('../../src/waitlist', () => ({
 }))
 
 const mockDb = db as jest.Mocked<typeof db>
-const mockCredits = Credits as jest.Mocked<typeof Credits>
 const mockOnboarding = Onboarding as jest.Mocked<typeof Onboarding>
 const mockWaitlist = Waitlist as jest.Mocked<typeof Waitlist>
 const mockAuth = supabase.auth as jest.Mocked<typeof supabase.auth>
@@ -71,12 +69,6 @@ beforeEach(() => {
   } as never)
   mockDb.getUserByGoogleSubject.mockResolvedValue(null)
   mockDb.getUserByEmail.mockResolvedValue(null)
-  mockCredits.grantSignupCredits.mockResolvedValue({
-    credits: 250,
-    cohort: 'founding',
-    balance: 250,
-    alreadyGranted: false,
-  })
   mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: true, via: 'public' })
   mockDb.releasePublicSignupSlot.mockResolvedValue(true)
   mockOnboarding.seedNewUser.mockResolvedValue({} as never)
@@ -103,10 +95,9 @@ describe('POST /api/auth/google', () => {
     expect(response.body.isNewUser).toBe(false)
     expect(mockDb.linkGoogleIdentity).toHaveBeenCalledWith('existing-user', googleUser.id)
     expect(mockWaitlist.authorizeSignup).not.toHaveBeenCalled()
-    expect(mockCredits.grantSignupCredits).not.toHaveBeenCalled()
   })
 
-  it('retains a valid invitation through account creation and grants onboarding once', async () => {
+  it('retains a valid invitation through account creation and seeds onboarding', async () => {
     mockWaitlist.authorizeSignup.mockResolvedValue({
       allowed: true,
       via: 'invite',
@@ -129,7 +120,7 @@ describe('POST /api/auth/google', () => {
 
     expect(response.status).toBe(200)
     expect(response.body.isNewUser).toBe(true)
-    expect(response.body.signupCredits.credits).toBe(250)
+    expect(response.body.signupCredits).toBeUndefined()
     expect(mockWaitlist.authorizeSignup).toHaveBeenCalledWith('invite-1')
     expect(mockWaitlist.completeInviteSignup).toHaveBeenCalledWith('invite-1', 'new-user')
     expect(mockDb.clearPendingSignupInvite).toHaveBeenCalledWith('new-user')
@@ -140,7 +131,6 @@ describe('POST /api/auth/google', () => {
       pending_invite_token: 'invite-1',
       claimed_public_signup_slot: false,
     }))
-    expect(mockCredits.grantSignupCredits).toHaveBeenCalledTimes(1)
     expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('new-user')
   })
 
@@ -195,7 +185,7 @@ describe('POST /api/auth/google', () => {
     expect(response.status).toBe(200)
     expect(mockWaitlist.completeInviteSignup).toHaveBeenCalledWith('invite-1', 'new-user')
     expect(mockDb.clearPendingSignupInvite).toHaveBeenCalledWith('new-user')
-    expect(mockCredits.grantSignupCredits).toHaveBeenCalledTimes(1)
+    expect(response.body.signupCredits).toBeUndefined()
   })
 
   it('completes an interrupted Google signup idempotently without another account', async () => {
@@ -206,23 +196,15 @@ describe('POST /api/auth/google', () => {
       role: 'user',
       signup_method: 'google',
     })
-    mockCredits.grantSignupCredits.mockResolvedValue({
-      credits: 250,
-      cohort: 'founding',
-      balance: 250,
-      alreadyGranted: true,
-    })
-
     const response = await request(app)
       .post('/api/auth/google')
       .send({ accessToken: 'supabase-access-token' })
 
     expect(response.status).toBe(200)
     expect(response.body.isNewUser).toBe(false)
-    expect(response.body.signupCredits.alreadyGranted).toBe(true)
+    expect(response.body.signupCredits).toBeUndefined()
     expect(mockDb.createUser).not.toHaveBeenCalled()
     expect(mockWaitlist.authorizeSignup).not.toHaveBeenCalled()
-    expect(mockCredits.grantSignupCredits).toHaveBeenCalledTimes(1)
     expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('new-user')
   })
 
@@ -244,7 +226,6 @@ describe('POST /api/auth/google', () => {
     expect(response.status).toBe(403)
     expect(response.body.reason).toBe('account_disabled')
     expect(response.body.token).toBeUndefined()
-    expect(mockCredits.grantSignupCredits).not.toHaveBeenCalled()
   })
 
   it.each([

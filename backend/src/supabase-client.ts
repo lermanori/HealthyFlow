@@ -1,4 +1,5 @@
 import { logger } from './utils/logger'
+import { z } from 'zod'
 import { composeDayTaskRows } from './day-summary-core'
 import { supabase } from './db/client'
 import { projectsDb } from './db/projects'
@@ -12,6 +13,11 @@ import { talkWorkflowsDb } from './db/talk-workflows'
 // Re-export the shared client so existing
 // `import { supabase } from './supabase-client'` call sites keep working.
 export { supabase }
+
+const MonthlyFreeCreditClaimSchema = z.object({
+  status: z.enum(['granted', 'already_granted', 'not_claimed', 'subscription_active']),
+  balance: z.coerce.number().int().nonnegative(),
+})
 
 // One account row as the rest of the server sees it. `email` is null for a
 // Guest and only for a Guest (CONTEXT.md).
@@ -1146,38 +1152,13 @@ export const db = {
     return data
   },
 
-  async claimSignupCreditGrant(userId: string, offer: {
-    foundingMemberLimit: number
-    foundingCredits: number
-    standardCredits: number
-  }) {
-    const { data, error } = await supabase.rpc('claim_signup_credit_grant', {
-      p_user_id: userId,
-      p_founding_limit: offer.foundingMemberLimit,
-      p_founding_credits: offer.foundingCredits,
-      p_standard_credits: offer.standardCredits,
-    })
-    if (error) throw error
-    return data
-  },
-
-  async getFoundingSignupCreditGrantCount(): Promise<number> {
+  async getFoundingPriceMemberCount(): Promise<number> {
     const { count, error } = await supabase
-      .from('signup_credit_grants')
+      .from('user_credit_subscriptions')
       .select('user_id', { count: 'exact', head: true })
-      .eq('cohort', 'founding')
+      .eq('price_phase', 'promo')
     if (error) throw error
     return count ?? 0
-  },
-
-  async getSignupCreditGrant(userId: string) {
-    const { data, error } = await supabase
-      .from('signup_credit_grants')
-      .select('user_id, cohort, credits, balance_after, created_at')
-      .eq('user_id', userId)
-      .maybeSingle()
-    if (error) throw error
-    return data
   },
 
   async grantSubscriptionCredits(userId: string, amount: number): Promise<number> {
@@ -1193,10 +1174,15 @@ export const db = {
     user_id: string
     endpoint?: string
     model?: string
+    /** Which price applied: text | photo | premium. Null for non-AI ledger rows. */
+    action_class?: string
     prompt_tokens?: number
     completion_tokens?: number
     total_tokens?: number
+    /** What the USER paid, in credits (actions). Never the same unit as cost_usd. */
     credits_delta: number
+    /** What the call COST US, in dollars. Never summed with credits_delta. */
+    cost_usd?: number
     reason?: string
     request_id?: string
     reserved_tokens?: number
@@ -1208,6 +1194,55 @@ export const db = {
   }) {
     const { error } = await supabase.from('ai_usage_log').insert(row)
     if (error) throw error
+  },
+
+  /**
+   * What every user together has cost us on OpenAI since `sinceIso`. Backs the
+   * global daily ceiling: the one number standing between a runaway loop and a
+   * bill nobody authorised. Reads cost_usd, which is dollars — never credits.
+   */
+  async sumAiCostUsdSince(sinceIso: string): Promise<number> {
+    const { data, error } = await supabase
+      .from('ai_usage_log')
+      .select('cost_usd')
+      .gte('created_at', sinceIso)
+      .not('cost_usd', 'is', null)
+    if (error) throw error
+    return (data ?? []).reduce((sum: number, row: any) => sum + Number(row.cost_usd ?? 0), 0)
+  },
+
+  /**
+   * How many AI actions one account has taken since `sinceIso`, optionally of one
+   * class. Backs both the per-account daily cap and the Cloud monthly caps.
+   * Counts rows rather than summing credits: an action covered by a subscription
+   * has a zero delta and must still count against its cap.
+   */
+  async countUserActionsSince(
+    userId: string,
+    sinceIso: string,
+    actionClass?: string
+  ): Promise<number> {
+    let query = supabase
+      .from('ai_usage_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .gte('created_at', sinceIso)
+      .not('action_class', 'is', null)
+    if (actionClass) query = query.eq('action_class', actionClass)
+    const { count, error } = await query
+    if (error) throw error
+    return count ?? 0
+  },
+
+  /** Resolve and, when eligible, atomically claim this month's free actions. */
+  async claimMonthlyFreeCredits(userId: string, credits: number) {
+    const { data, error } = await supabase.rpc('claim_monthly_free_credits', {
+      p_user_id: userId,
+      p_credits: credits,
+    })
+    if (error) throw error
+    const row: unknown = Array.isArray(data) ? data[0] : data
+    return MonthlyFreeCreditClaimSchema.parse(row)
   },
 
   async setCreditBalance(userId: string, balance: number): Promise<number> {

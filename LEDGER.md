@@ -1,3 +1,54 @@
+### 2026-09-06 20:48 — `codex/fix-capacitor-spm-paths`
+
+Brought the isolated Capacitor Swift-package path correction onto current `main`
+after the free-v1 launch plan and pricing migration landed, preserving both ledger
+histories. The package correction remains the branch's only product change and is
+ready for a fresh Swift manifest validation before review.
+
+---
+
+### 2026-09-06 20:40 — `docs/v1-launch-plan`
+
+Brought the free-v1 launch plan branch forward to current `main` after PR #227
+landed, preserving both independently written ledger entries while resolving their
+single prepend conflict. The plan remains a dated record; the merged production
+migration rename is unchanged and no implementation scope was added to this PR.
+
+---
+
+### 2026-09-06 18:29 — `docs/v1-launch-plan`
+
+Assessed how close the product is to launching and found the answer was not the
+product: every check is green and production is live, while each remaining blocker
+was commercial-operational wall clock nobody had started. The founder chose to ship
+v1 to the App Store free with no purchase rail and add Apple IAP in a later version,
+which takes #222-#224 off the critical path — DSA trader status excepted, since a
+free app still needs it for EU distribution. Recorded the whole decision as one
+dated plan: a Guest gets 10 actions once, a claimed account 15 every month, Cloud
+cannot be held, and the Founders Club is the direct line for more. Nothing on either
+lane moves until PR #227 merges and the pricing migration reaches production, which
+`main` currently requires and does not have.
+
+---
+
+### 2026-09-06 15:14 — `codex/fix-pricing-migration-version`
+
+Found that the newly merged pricing migration reused the already-applied Goals migration version, so Supabase could not distinguish or deploy it. Reassigned the pricing migration to unique version `20260906131500`; the linked migration list now shows exactly that file pending and `supabase db push --dry-run` confirms it is the only proposed remote change.
+
+---
+
+### 2026-09-06 15:04 — `codex/216-reconcile-action-pricing`
+
+Finished the safe reconciliation of action pricing: signup no longer grants Credits, Claim unlocks one atomic 15-action monthly allowance, Guests receive an explicit account-required refusal, refill failures stop before charging, and founding eligibility now counts discounted Cloud subscriptions rather than historical credit grants. Updated the live signup and landing copy to match ADR-0017. Both typechecks, 276 frontend tests, 857 backend tests, the production build, focused auth E2E, and disposable-Postgres status/concurrency/ledger checks pass; #216 still waits on the purchase rail and finish-line panel after this prerequisite merges.
+
+---
+
+### 2026-09-06 14:36 — `codex/216-reconcile-action-pricing`
+
+Ported the action-based pricing implementation from its stranded branch onto current main without reviving the deleted AI analyzer or overwriting newer launch work. Renumbered the decision as ADR-0016 and recorded the later no-welcome, account-gated monthly allowance in ADR-0017; both typechecks and 58 focused pricing/ledger tests pass. This is a branch-only checkpoint and is deliberately not merge-ready until the welcome grant, refill eligibility and explicit failure semantics are made to follow ADR-0017.
+
+---
+
 ### 2026-09-06 14:05 — `codex/fix-capacitor-spm-paths`
 
 Restored the generated Capacitor Swift package's local plugin paths after a sync from a nested worktree had committed paths that climb outside the repository. Swift Package Manager now resolves all ten Capacitor plugins from this checkout's root `node_modules`, and the manifest dump succeeds. This correction is isolated from the launch-pricing work.

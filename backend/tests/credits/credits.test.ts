@@ -23,9 +23,10 @@ jest.mock('../../src/supabase-client', () => ({
     upsertUserCreditSubscription: jest.fn(),
     reserveCredits: jest.fn(),
     grantCredits: jest.fn(),
-    claimSignupCreditGrant: jest.fn(),
-    getFoundingSignupCreditGrantCount: jest.fn(),
-    getSignupCreditGrant: jest.fn(),
+    claimMonthlyFreeCredits: jest.fn(),
+    getFoundingPriceMemberCount: jest.fn(),
+    sumAiCostUsdSince: jest.fn(),
+    countUserActionsSince: jest.fn(),
     grantSubscriptionCredits: jest.fn(),
     insertUsageLog: jest.fn(),
     setCreditBalance: jest.fn(),
@@ -38,10 +39,12 @@ jest.mock('../../src/supabase-client', () => ({
 const mockDb = db as jest.Mocked<typeof db>
 
 import {
+  ACTION_PRICE,
   calculateAiTokenCharge,
+  classifyAction,
   Credits,
-  estimateReserveTokens,
   loadModelPricing,
+  priceAction,
   UnpricedModelError,
 } from '../../src/credits'
 
@@ -57,8 +60,11 @@ beforeEach(() => {
     promo_active: true,
     updated_at: null,
   })
-  mockDb.getFoundingSignupCreditGrantCount.mockResolvedValue(0)
-  mockDb.getSignupCreditGrant.mockResolvedValue(null)
+  mockDb.getFoundingPriceMemberCount.mockResolvedValue(0)
+  mockDb.getUserCreditSubscription.mockResolvedValue(null)
+  mockDb.sumAiCostUsdSince.mockResolvedValue(0)
+  mockDb.countUserActionsSince.mockResolvedValue(0)
+  mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'already_granted', balance: 0 })
 })
 
 describe('Credits.reserve', () => {
@@ -80,100 +86,106 @@ describe('Credits.reserve', () => {
   })
 })
 
-describe('Credits.settle', () => {
-  it('refunds over-reserved AI tokens and logs the actual charge', async () => {
-    mockDb.grantCredits.mockResolvedValue(10)
+describe('Credits.settleAction', () => {
+  const textAction = {
+    ok: true as const,
+    actionClass: 'text' as const,
+    credits: 1,
+    charged: 1,
+    coveredBy: 'balance' as const,
+  }
+
+  it('records the price the user paid and the cost we incurred, in their own units', async () => {
     mockDb.insertUsageLog.mockResolvedValue(undefined)
 
-    const result = await Credits.settleReserved(
+    await Credits.settleAction(
       'user-1',
-      10,
+      textAction,
       { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
       { endpoint: '/api/ai/parse-tasks', model: 'gpt-4o-mini' }
     )
 
-    expect(result).toEqual({ ok: true, chargeTokens: 6, adjustmentTokens: 4 })
-    expect(mockDb.grantCredits).toHaveBeenCalledWith('user-1', 4)
-    expect(mockDb.insertUsageLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user_id: 'user-1',
-        endpoint: '/api/ai/parse-tasks',
-        model: 'gpt-4o-mini',
-        prompt_tokens: 100,
-        completion_tokens: 50,
-        total_tokens: 150,
-        credits_delta: -6,
-        reserved_tokens: 10,
-        base_tokens: 1,
-        markup_tokens: 5,
-        estimated: false,
-      })
-    )
+    const row = mockDb.insertUsageLog.mock.calls[0][0] as any
+    // What they paid: one action.
+    expect(row.credits_delta).toBe(-1)
+    expect(row.action_class).toBe('text')
+    // What it cost us: dollars, and nowhere near the price.
+    expect(row.cost_usd).toBeCloseTo(0.000045, 6)
+    expect(row.cost_usd).toBeLessThan(0.001)
   })
 
-  it('attempts to reserve extra AI tokens when actual usage exceeds the reserve', async () => {
-    mockDb.reserveCredits.mockResolvedValue(0)
+  it('charges nothing when a Cloud entitlement covered the action, and still records the cost', async () => {
     mockDb.insertUsageLog.mockResolvedValue(undefined)
 
-    const result = await Credits.settleReserved(
+    await Credits.settleAction(
       'user-1',
-      5,
+      { ...textAction, charged: 0, coveredBy: 'entitlement' },
+      { promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+      { endpoint: '/api/ai/parse-tasks', model: 'gpt-4o-mini' }
+    )
+
+    const row = mockDb.insertUsageLog.mock.calls[0][0] as any
+    expect(row.credits_delta).toBe(0)
+    expect(row.reason).toBe('covered_by_subscription')
+    // The cost is still ours and still recorded — an unmetered action is not a
+    // free one, and the global ceiling has to be able to see it.
+    expect(row.cost_usd).toBeGreaterThan(0)
+  })
+
+  it('never moves the balance at settlement, however large the actual usage', async () => {
+    mockDb.insertUsageLog.mockResolvedValue(undefined)
+
+    await Credits.settleAction(
+      'user-1',
+      textAction,
       { promptTokens: 1_000_000, completionTokens: 1_000_000, totalTokens: 2_000_000 },
       { endpoint: '/api/ai/query-tasks', model: 'gpt-3.5-turbo' }
     )
 
-    expect(result.ok).toBe(true)
-    expect(mockDb.reserveCredits).toHaveBeenCalledWith('user-1', 2495)
-    expect(mockDb.insertUsageLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        credits_delta: -2500,
-        reserved_tokens: 5,
-      })
-    )
-  })
-
-  it('drains remaining balance (does NOT drop the result) when usage exceeds what the user can afford', async () => {
-    // Actual usage far exceeds the reserve; the extra reserve fails (insufficient).
-    mockDb.reserveCredits.mockResolvedValue(null)
-    mockDb.getCreditBalance.mockResolvedValue(3) // 3 app tokens left after the initial reserve
-    mockDb.setCreditBalance.mockResolvedValue(0)
-    mockDb.insertUsageLog.mockResolvedValue(undefined)
-
-    const result = await Credits.settleReserved(
-      'user-1',
-      5,
-      { promptTokens: 1_000_000, completionTokens: 1_000_000, totalTokens: 2_000_000 },
-      { endpoint: '/api/ai/query-tasks', model: 'gpt-3.5-turbo' }
-    )
-
-    // Still ok:true so the route returns the already-successful AI result.
-    expect(result.ok).toBe(true)
-    expect(mockDb.setCreditBalance).toHaveBeenCalledWith('user-1', 0)
-    // credits_delta reflects what was actually taken: reserve (5) + drained (3) = 8.
-    expect(mockDb.insertUsageLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        credits_delta: -8,
-        reserved_tokens: 5,
-        reason: 'settlement_underfunded',
-      })
-    )
+    // The price was fixed before the call, so there is nothing to reconcile. This
+    // is what deleted the underfunded branch that used to drain a balance to zero.
+    expect(mockDb.grantCredits).not.toHaveBeenCalled()
+    expect(mockDb.reserveCredits).not.toHaveBeenCalled()
+    expect(mockDb.setCreditBalance).not.toHaveBeenCalled()
+    expect((mockDb.insertUsageLog.mock.calls[0][0] as any).credits_delta).toBe(-1)
   })
 })
 
-describe('Credits.refundReserve', () => {
-  it('restores the held balance without a balance-affecting ledger row', async () => {
+describe('Credits.refundAction', () => {
+  const charged = {
+    ok: true as const,
+    actionClass: 'photo' as const,
+    credits: 5,
+    charged: 5,
+    coveredBy: 'balance' as const,
+  }
+
+  it('restores the charged credits without a balance-affecting ledger row', async () => {
     mockDb.grantCredits.mockResolvedValue(10)
     mockDb.insertUsageLog.mockResolvedValue(undefined)
 
-    await Credits.refundReserve('user-1', 10, 'refund_failed_call')
+    await Credits.refundAction('user-1', charged, 'refund_failed_call')
 
-    // Balance restored...
-    expect(mockDb.grantCredits).toHaveBeenCalledWith('user-1', 10)
-    // ...but the audit row is 0-delta so SUM(credits_delta) stays equal to the
-    // real balance (the reserve was never logged as negative).
+    expect(mockDb.grantCredits).toHaveBeenCalledWith('user-1', 5)
+    // The audit row is 0-delta so SUM(credits_delta) stays equal to the real
+    // balance — the reserve was never logged as negative in the first place.
     expect(mockDb.insertUsageLog).toHaveBeenCalledWith(
       expect.objectContaining({ user_id: 'user-1', credits_delta: 0, reason: 'refund_failed_call' })
     )
+  })
+
+  it('gives nothing back for an entitlement action, but still logs the attempt', async () => {
+    mockDb.insertUsageLog.mockResolvedValue(undefined)
+
+    await Credits.refundAction(
+      'user-1',
+      { ...charged, charged: 0, coveredBy: 'entitlement' },
+      'refund_failed_call'
+    )
+
+    expect(mockDb.grantCredits).not.toHaveBeenCalled()
+    // A failure nobody can see is a failure nobody can fix.
+    expect(mockDb.insertUsageLog).toHaveBeenCalled()
   })
 })
 
@@ -223,16 +235,19 @@ describe('billing math', () => {
     }).totalTokens).toBe(6)
   })
 
-  it('throws before reservation for unpriced models', () => {
-    expect(() => estimateReserveTokens({
+  it('refuses to price a model we cannot cost', () => {
+    // A model we cannot cost is a model we must not call: this is what stops an
+    // unbudgeted model reaching production behind an environment variable.
+    expect(() => priceAction({
+      endpoint: 'parse-tasks',
       model: 'unknown-model',
-      systemPrompt: 'sys',
       userPrompt: 'hello',
-      maxOutputTokens: 100,
     })).toThrow(UnpricedModelError)
   })
 
-  it('uses persisted markup settings for reserve estimates', async () => {
+  it('does not let the cost meter move a user-facing price', async () => {
+    // The markup settings are cost accounting. Doubling them must not change what
+    // anyone is charged — that coupling is exactly what drifted before ADR-0016.
     mockDb.getBillingSettings.mockResolvedValue({
       app_tokens_per_usd: 1000,
       markup_rate: 1,
@@ -240,14 +255,11 @@ describe('billing math', () => {
       updated_at: null,
     })
 
-    const reserve = await Credits.estimateReserve({
+    expect(priceAction({
+      endpoint: 'parse-tasks',
       model: 'gpt-4o-mini',
-      systemPrompt: 'sys',
       userPrompt: 'hello',
-      maxOutputTokens: 100,
-    })
-
-    expect(reserve).toBe(11)
+    })).toBe(ACTION_PRICE.text)
   })
 })
 
@@ -269,56 +281,96 @@ describe('Credits.grant', () => {
   })
 })
 
-describe('launch signup credits', () => {
-  it('publishes the founding offer while founding grants remain', async () => {
-    mockDb.getFoundingSignupCreditGrantCount.mockResolvedValue(7)
+describe('launch offer', () => {
+  it('publishes the monthly allowance while founding Cloud seats remain', async () => {
+    mockDb.getFoundingPriceMemberCount.mockResolvedValue(7)
 
     const offer = await Credits.getLaunchOffer()
 
     expect(offer).toEqual({
       foundingMemberLimit: 100,
+      // Seats at the founding PRICE, not a credit tier (ADR-0012).
       foundingMembersRemaining: 93,
-      onboardingCredits: 250,
-      foundingOnboardingCredits: 250,
-      standardOnboardingCredits: 50,
+      monthlyFreeCredits: 15,
       foundingPriceUsd: 9,
       regularPriceUsd: 19,
-      monthlyCredits: 500,
       topUpPriceUsd: 5,
-      topUpCredits: 250,
+      topUpCredits: 300,
+      actionPrice: { text: 1, photo: 5, premium: 10 },
+      subscriptionIncludes: {
+        unlimitedText: true,
+        textDailyCap: 100,
+        photoMonthly: 100,
+        premiumMonthly: 50,
+      },
     })
   })
 
-  it('switches the onboarding grant to 50 after the first 100 accounts', async () => {
-    mockDb.getFoundingSignupCreditGrantCount.mockResolvedValue(100)
+  it('reports no founding Cloud seats after 100 discounted subscriptions', async () => {
+    mockDb.getFoundingPriceMemberCount.mockResolvedValue(100)
 
     const offer = await Credits.getLaunchOffer()
 
     expect(offer.foundingMembersRemaining).toBe(0)
-    expect(offer.onboardingCredits).toBe(50)
+    expect(offer.monthlyFreeCredits).toBe(15)
+    expect(offer).not.toHaveProperty('welcomeCredits')
+  })
+})
+
+describe('monthly free actions', () => {
+  const textInput = {
+    endpoint: 'parse-tasks',
+    model: 'gpt-4o-mini',
+    userPrompt: 'plan my day',
+  }
+
+  it('uses the atomic database result and then reserves the action', async () => {
+    mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'granted', balance: 15 })
+    mockDb.reserveCredits.mockResolvedValue(14)
+
+    const result = await Credits.authorizeAction('user-1', textInput)
+
+    expect(mockDb.claimMonthlyFreeCredits).toHaveBeenCalledWith('user-1', 15)
+    expect(result).toEqual({
+      ok: true,
+      actionClass: 'text',
+      credits: 1,
+      charged: 1,
+      coveredBy: 'balance',
+    })
   })
 
-  it('claims the idempotent signup grant through the database contract', async () => {
-    mockDb.claimSignupCreditGrant.mockResolvedValue({
-      credits: 250,
-      cohort: 'founding',
-      balance: 250,
-      alreadyGranted: false,
-    })
+  it('requires Claim before a Guest can use AI', async () => {
+    mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'not_claimed', balance: 0 })
 
-    const grant = await Credits.grantSignupCredits('user-1')
+    await expect(Credits.authorizeAction('guest-1', textInput)).resolves.toEqual({
+      ok: false,
+      code: 'account_required',
+    })
+    expect(mockDb.reserveCredits).not.toHaveBeenCalled()
+  })
 
-    expect(mockDb.claimSignupCreditGrant).toHaveBeenCalledWith('user-1', {
-      foundingMemberLimit: 100,
-      foundingCredits: 250,
-      standardCredits: 50,
+  it('uses the Cloud entitlement when the atomic result sees an active subscription', async () => {
+    mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'subscription_active', balance: 0 })
+
+    await expect(Credits.authorizeAction('cloud-1', textInput)).resolves.toEqual({
+      ok: true,
+      actionClass: 'text',
+      credits: 1,
+      charged: 0,
+      coveredBy: 'entitlement',
     })
-    expect(grant).toEqual({
-      credits: 250,
-      cohort: 'founding',
-      balance: 250,
-      alreadyGranted: false,
+    expect(mockDb.reserveCredits).not.toHaveBeenCalled()
+  })
+
+  it('surfaces an unavailable refill instead of charging an existing balance', async () => {
+    mockDb.claimMonthlyFreeCredits.mockRejectedValue(new Error('database unavailable'))
+
+    await expect(Credits.authorizeAction('user-1', textInput)).resolves.toEqual({
+      ok: false,
+      code: 'billing_unavailable',
     })
+    expect(mockDb.reserveCredits).not.toHaveBeenCalled()
   })
 })
 
@@ -328,17 +380,20 @@ describe('subscription pricing and grants', () => {
 
     const pricing = await Credits.getSubscriptionPricing()
 
+    // The cost meter still exists and still means milli-dollars — it just no
+    // longer appears anywhere in what is sold.
     expect(Credits.APP_TOKENS_PER_USD).toBe(1000)
     expect(pricing).toEqual(expect.objectContaining({
       promoActive: true,
       phase: 'promo',
       priceUsd: 9,
-      monthlyCredits: 500,
-      sellCreditsPerUsd: 50,
       topUpPriceUsd: 5,
-      topUpCredits: 250,
+      topUpCredits: 300,
+      actionPrice: { text: 1, photo: 5, premium: 10 },
       foundingMemberLimit: 100,
     }))
+    expect(pricing).not.toHaveProperty('sellCreditsPerUsd')
+    expect(pricing).not.toHaveProperty('monthlyCredits')
   })
 
   it('uses the $19 regular subscription price without changing top-up value', async () => {
@@ -348,10 +403,13 @@ describe('subscription pricing and grants', () => {
 
     expect(pricing.phase).toBe('regular')
     expect(pricing.priceUsd).toBe(19)
-    expect(pricing.sellCreditsPerUsd).toBe(50)
+    // There is no dollars-to-credits rate to assert. Packs are the only sale unit,
+    // and the pack does not change when the subscription price does.
+    expect(pricing.topUpCredits).toBe(Credits.TOP_UP_CREDITS)
+    expect(pricing).not.toHaveProperty('sellCreditsPerUsd')
   })
 
-  it('activates a subscription and grants exactly the monthly non-rollover bucket', async () => {
+  it('activates a subscription without granting any credits', async () => {
     mockDb.getCreditBalance.mockResolvedValue(100)
     mockDb.upsertUserCreditSubscription.mockResolvedValue({
       user_id: 'user-1',
@@ -367,25 +425,27 @@ describe('subscription pricing and grants', () => {
 
     const result = await Credits.activateSubscription('user-1', { active: true, grantMonthlyCredits: true })
 
-    expect(mockDb.grantSubscriptionCredits).toHaveBeenCalledWith('user-1', 500)
-    expect(mockDb.insertUsageLog).toHaveBeenCalledWith(expect.objectContaining({
-      user_id: 'user-1',
-      credits_delta: 500,
-      reason: 'subscription_monthly_grant_promo',
-      balance_before: 100,
-      balance_after: 600,
-    }))
-    expect(result.balance).toBe(600)
+    // Cloud sells the day on every device and includes text AI as an entitlement
+    // checked per call. There is no monthly bucket to hand over any more.
+    expect(mockDb.grantSubscriptionCredits).not.toHaveBeenCalled()
+    // ...and writes no grant row either. A subscription that grants nothing has
+    // nothing to log; the entitlement shows up per action, in each action's row.
+    expect(mockDb.insertUsageLog).not.toHaveBeenCalled()
+    // The balance is untouched by activation: it was 100 before and stays 100.
+    expect(result.balance).toBe(100)
   })
 
-  it('keeps the $9 founding price for a first-100 account that subscribes later', async () => {
+  it('keeps the $9 founding price for an active founding subscription', async () => {
     mockDb.getCreditSubscriptionSettings.mockResolvedValue({ promo_active: false, updated_at: null })
-    mockDb.getSignupCreditGrant.mockResolvedValue({
+    mockDb.getFoundingPriceMemberCount.mockResolvedValue(100)
+    mockDb.getUserCreditSubscription.mockResolvedValue({
       user_id: 'user-1',
-      cohort: 'founding',
-      credits: 250,
-      balance_after: 250,
-      created_at: '2026-07-28T00:00:00.000Z',
+      active: true,
+      price_phase: 'promo',
+      monthly_credits: 0,
+      renewal_date: '2026-09-28',
+      last_monthly_grant_at: null,
+      updated_at: '2026-08-28T00:00:00.000Z',
     })
 
     const pricing = await Credits.getSubscriptionPricing('user-1')
@@ -394,8 +454,8 @@ describe('subscription pricing and grants', () => {
     expect(pricing.priceUsd).toBe(9)
   })
 
-  it('does not offer an unclassified legacy account the founding price after 100 grants', async () => {
-    mockDb.getFoundingSignupCreditGrantCount.mockResolvedValue(100)
+  it('does not offer a new account the founding price after 100 discounted subscriptions', async () => {
+    mockDb.getFoundingPriceMemberCount.mockResolvedValue(100)
 
     const pricing = await Credits.getSubscriptionPricing('legacy-user')
 
@@ -404,13 +464,6 @@ describe('subscription pricing and grants', () => {
   })
 
   it('uses the $19 regular price when a canceled founding subscription is reactivated', async () => {
-    mockDb.getSignupCreditGrant.mockResolvedValue({
-      user_id: 'user-1',
-      cohort: 'founding',
-      credits: 250,
-      balance_after: 250,
-      created_at: '2026-07-28T00:00:00.000Z',
-    })
     mockDb.getUserCreditSubscription.mockResolvedValue({
       user_id: 'user-1',
       active: false,
@@ -442,21 +495,34 @@ describe('subscription pricing and grants', () => {
     expect(result.pricing.priceUsd).toBe(19)
   })
 
-  it('grants the $5 top-up as 250 non-expiring credits', async () => {
+  it('grants the $5 top-up as 300 non-expiring actions', async () => {
     mockDb.getCreditBalance.mockResolvedValue(25)
-    mockDb.grantCredits.mockResolvedValue(275)
+    mockDb.grantCredits.mockResolvedValue(325)
     mockDb.insertUsageLog.mockResolvedValue(undefined)
 
     const result = await Credits.grantTopUp('user-1', 5)
 
-    expect(mockDb.grantCredits).toHaveBeenCalledWith('user-1', 250)
+    expect(mockDb.grantCredits).toHaveBeenCalledWith('user-1', 300)
     expect(mockDb.insertUsageLog).toHaveBeenCalledWith(expect.objectContaining({
-      credits_delta: 250,
+      credits_delta: 300,
       reason: 'topup_promo_5_usd',
       balance_before: 25,
-      balance_after: 275,
+      balance_after: 325,
     }))
-    expect(result.credits).toBe(250)
+    expect(result.credits).toBe(300)
+  })
+
+  it('grants whole packs, never a per-dollar rate', () => {
+    // The drift ADR-0016 exists to prevent: dollars multiplied by a credits-per-
+    // dollar figure, with nothing asserting what that figure should be.
+    mockDb.getCreditBalance.mockResolvedValue(0)
+    mockDb.grantCredits.mockResolvedValue(600)
+    mockDb.insertUsageLog.mockResolvedValue(undefined)
+
+    return Credits.grantTopUp('user-1', 10).then((result) => {
+      expect(result.credits).toBe(600)
+      expect(result.credits % Credits.TOP_UP_CREDITS).toBe(0)
+    })
   })
 })
 
