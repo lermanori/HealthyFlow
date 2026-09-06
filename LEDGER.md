@@ -1,3 +1,14 @@
+### 2026-09-06 21:11 — `codex/230-free-v1-contract`
+
+Made the free-v1 boundary durable in ADR-0018 and ADR-0019: Guests receive ten
+actions once, claimed accounts receive fifteen each calendar month, Cloud cannot
+be held, and nothing can be bought. Updated the live product vocabulary, Money
+contract, paid-apps runbook, and stale auth commentary while preserving Apple IAP
+through RevenueCat as deferred v1.1 work; both typechecks and documentation
+consistency checks pass.
+
+---
+
 ### 2026-09-06 20:48 — `codex/fix-capacitor-spm-paths`
 
 Brought the isolated Capacitor Swift-package path correction onto current `main`

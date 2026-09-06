@@ -289,8 +289,8 @@ async function startGuestSession() {
   // data (Items, Habits, settings) is not hosted here. This row carries identity
   // and a credit balance, nothing else.
   //
-  // No credit grant: a Guest is AI-free, while Claim unlocks the lazy monthly
-  // allowance on the first eligible AI request (ADR-0017).
+  // No eager credit grant: the once-ever Guest allowance is claimed lazily on
+  // the first eligible AI request (ADR-0018).
   return appSession(user, GUEST_SESSION_LIFETIME)
 }
 
@@ -304,10 +304,10 @@ export type ClaimAccountInput = z.infer<typeof ClaimAccountSchema>
 // Claim converts the row the caller already holds. It never creates a row and
 // never deletes one, so every failure leaves the Guest a Guest with their day
 // intact. No Waitlist.authorizeSignup and no public slot: entry is open
-// (ADR-0012). No credit grant: credits are a purchase, and where the $1 taster
-// sits is deliberately unplaced. No Onboarding.seedNewUser: it writes user
-// settings, which are day data and live on the device. The first eligible AI
-// request after Claim atomically grants the monthly allowance (ADR-0017).
+// (ADR-0012). Claim adds no welcome grant; the first eligible AI request after
+// Claim atomically grants the monthly allowance, independently of any earlier
+// Guest grant (ADR-0017, amended by ADR-0018). No Onboarding.seedNewUser: it
+// writes user settings, which are day data and live on the device.
 async function claimGuestAccount(userId: string, rawInput: ClaimAccountInput) {
   const input = ClaimAccountSchema.parse(rawInput)
   const email = input.email.trim().toLowerCase()

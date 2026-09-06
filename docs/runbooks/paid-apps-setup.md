@@ -1,14 +1,15 @@
 # Paid apps, in-app purchases and RevenueCat
 
-How HealthyFlow goes from a TestFlight build to taking money: what Apple
-requires, in the order Apple enforces it, for a **solo individual developer
-based in Israel with no company entity**.
+How HealthyFlow prepares to take money in v1.1: what Apple requires, in the order
+Apple enforces it, for a **solo individual developer based in Israel with no
+company entity**. HealthyFlow v1 is a separate free release with no purchase
+rail; this runbook keeps the later paid path ready without putting it into v1.
 
 Bundle id `app.healthyflow.mobile`, team `PA7L4ZHG8D`. How the shell is built
-and shipped is [`ios.md`](./ios.md); *what* we sell and why is the Money
+and shipped is [`ios.md`](./ios.md); *what* we offer and why is the Money
 section of [`TARGET.md`](../../TARGET.md). ADR-0015 chooses Apple In-App
-Purchase through RevenueCat for the iPhone launch. This is how that choice gets
-to a real sale.
+Purchase through RevenueCat for v1.1. ADR-0019 defers that choice from v1 without
+reversing it. This is how the v1.1 choice gets to a real sale.
 
 > Re-verified against App Store Connect Help, the App Review Guidelines,
 > Schedule 2 **v126 (17 December 2025)**, Apple's **18 August 2026** EU update,
@@ -16,6 +17,46 @@ to a real sale.
 > **2026-09-02**. These terms change often. Re-check anything an implementation
 > rests on, and see
 > [What is not confirmed](#what-is-not-confirmed) for the gaps.
+
+## Current release boundary — free v1
+
+The founder decided on **2026-09-06** that v1 ships on the App Store at **Free**
+with no StoreKit product, RevenueCat integration, subscription, consumable,
+external checkout, or price in the app. A Guest receives ten actions once, a
+claimed account receives fifteen each calendar month, Cloud cannot be held, and
+Founders Club is the request path for discretionary extra free actions. See
+ADR-0018 and ADR-0019.
+
+Issues [#222](https://github.com/lermanori/HealthyFlow/issues/222),
+[#223](https://github.com/lermanori/HealthyFlow/issues/223), and
+[#224](https://github.com/lermanori/HealthyFlow/issues/224) are deferred v1.1
+work. Do not sign a paid agreement, enter banking/tax details, create RevenueCat
+products, or implement a purchase flow merely to unblock v1.
+
+**DSA status is not deferred.** Apple's guidance re-checked on 2026-09-06 says
+every developer must declare trader status even when not distributing in the EU;
+Apple cannot decide the legal classification. An individual who declares as a
+trader must provide an address or P.O. Box, phone, and email that Apple publishes
+on EU product pages. That human decision and verification are tracked in
+[#237](https://github.com/lermanori/HealthyFlow/issues/237).
+
+The free App Store release still needs its app record, Free price and accurate tax
+category, privacy-policy URL and App Privacy answers, age rating, screenshots,
+review information, selected build, submission, and release choice. Repository
+preparation is [#236](https://github.com/lermanori/HealthyFlow/issues/236); the
+human submission and final verification are
+[#238](https://github.com/lermanori/HealthyFlow/issues/238). Apple states that a
+non-free price requires the Paid Apps Agreement; it does not make that agreement
+a prerequisite for selecting Free.
+
+Sources re-checked on 2026-09-06:
+
+- [Apple — DSA trader requirements](https://developer.apple.com/help/app-store-connect/manage-compliance-information/manage-european-union-digital-services-act-trader-requirements/)
+- [Apple — Set a price](https://developer.apple.com/help/app-store-connect/manage-app-pricing/set-a-price)
+- [Apple — Overview of publishing on the App Store](https://developer.apple.com/help/app-store-connect/manage-your-apps-availability/overview-of-publishing-your-app-on-the-app-store)
+- [Apple — Manage app privacy](https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy)
+- [Apple — Set an app age rating](https://developer.apple.com/help/app-store-connect/manage-app-information/set-an-app-age-rating/)
+- [Apple — Submit an app](https://developer.apple.com/help/app-store-connect/manage-submissions-to-app-review/submit-an-app)
 
 ## What is settled
 
@@ -26,9 +67,9 @@ individual is satisfied by a government-issued ID. A legal entity and D-U-N-S
 number are required only to *enrol* as an Organization, which is a different
 thing from signing the Paid Apps agreement.
 
-**One switch gates everything.** The Paid Apps agreement must read **Active** —
-which needs the signature, the bank account and the tax forms all in place —
-before you can create in-app purchase products or test them in the sandbox.
+**One switch gates every paid v1.1 product.** The Paid Apps agreement must read
+**Active** — which needs the signature, the bank account and the tax forms all in
+place — before you can create in-app purchase products or test them in the sandbox.
 
 **Apple's paperwork is not Israel's paperwork.** Israeli Tax Authority guidance
 says the assessor must be notified no later than the day income-producing
@@ -36,9 +77,9 @@ business activity begins. Before the first real payment, an accountant must
 confirm and open the applicable self-employed, VAT, income-tax, invoicing and
 National Insurance setup. A company is not the only registration form.
 
-## The chosen system
+## The chosen v1.1 system
 
-| Responsibility | Launch owner |
+| Responsibility | v1.1 owner |
 |---|---|
 | Customer payment, App Store price, refund channel and founder payout | Apple In-App Purchase |
 | StoreKit client, purchase validation, subscription normalisation and signed lifecycle events | RevenueCat |
@@ -59,17 +100,20 @@ use an email address. Claim keeps the row and id; Sign in abandons the Guest row
 so RevenueCat alias and restore configuration must not silently move that Guest's
 purchases to an unrelated existing account.
 
-There is no Lemon Squeezy checkout or external-purchase steering in the launch
-app. Lemon is deferred until the web is a demonstrated acquisition surface.
-RevenueCat Web does not currently list Lemon as a supported billing engine, so a
-future Lemon integration feeds HealthyFlow's provider-neutral ledger directly.
+There is no Lemon Squeezy checkout or external-purchase steering in v1 or the
+planned v1.1 app. Lemon is deferred until the web is a demonstrated acquisition
+surface. RevenueCat Web does not currently list Lemon as a supported billing
+engine, so a future Lemon integration feeds HealthyFlow's provider-neutral ledger
+directly.
 
-The launch work is tracked in dependency order: [#222](https://github.com/lermanori/HealthyFlow/issues/222)
-clears human and provider prerequisites, [#223](https://github.com/lermanori/HealthyFlow/issues/223)
-delivers Cloud purchase and lifecycle, and [#224](https://github.com/lermanori/HealthyFlow/issues/224)
-adds the non-expiring AI-action consumable.
+The deferred v1.1 paid work is tracked in dependency order:
+[#222](https://github.com/lermanori/HealthyFlow/issues/222) clears human and
+provider prerequisites, [#223](https://github.com/lermanori/HealthyFlow/issues/223)
+delivers Cloud purchase and lifecycle, and
+[#224](https://github.com/lermanori/HealthyFlow/issues/224) adds the non-expiring
+AI-action consumable.
 
-## The order Apple enforces
+## The order Apple enforces for paid v1.1
 
 | # | Step | Who | Depends on | Elapsed |
 |---|---|---|---|---|
@@ -79,13 +123,14 @@ adds the non-expiring AI-action consumable.
 | 3 | Complete the tax forms | Account Holder / Admin / Finance | Step 1 | Minutes |
 | 4 | Clear compliance review | Apple | Steps 2 + 3 | Hours to 14 business days |
 | 5 | Enrol in the Small Business Program | **Account Holder only** | Step 1 | Effect lands next fiscal month |
-| 6 | Declare DSA trader status | Account Holder / Admin | Nothing | Document verification, no published SLA |
+| 6 | Confirm the v1 DSA declaration is still current | Account Holder / Admin | Free-v1 issue #237 | Document verification, no published SLA |
 | 7 | Create the Apple products and map them in RevenueCat | Account Holder / Admin / App Manager | Agreement **Active** | An afternoon |
 | 8 | Test the RevenueCat purchase and webhook paths in the sandbox | You | Step 7 | Days of iteration |
 | 9 | Submit with a new app version | You → App Review | Steps 7 + 8 | A day or two, not guaranteed |
 
-Steps 1–6 are all waiting-period items and none of them depend on a line of
-StoreKit code. Start them before writing the purchase flow, not after.
+Steps 1–5 are deferred paid-account work. Step 6 should already be complete for
+free v1 and must be re-checked before the paid release. None depends on StoreKit
+code; start the v1.1 human lane before writing its purchase flow, not after.
 
 ### 0 — Model before the external accounts are ready
 
@@ -142,12 +187,12 @@ accounts. The reduced rate takes effect
 approved** — so enrolling before shipping is worth real money, and enrolling
 late costs a month of margin.
 
-### 6 — DSA trader status
+### 6 — Re-check the free-v1 DSA declaration
 
 Every developer must declare trader status, EU distribution or not. Apple says
-the developer must assess whether it is a trader; selling a consumer digital
-subscription makes HealthyFlow likely to be one, but that classification is an
-inference for a lawyer to confirm. As an individual trader you supply an address
+the developer must assess whether it is a trader; Apple cannot make that legal
+decision. The free-v1 declaration is tracked in #237 and must not be guessed. As
+an individual trader you supply an address
 or P.O. box, a phone number and an email — verified by two-factor codes plus
 uploaded documents — and Apple **publishes all three on the App Store product
 page across EU territories**. Without completed trader information the app
@@ -222,7 +267,7 @@ Program's 15% must be applied for, and without it subscriptions only drop to 15%
 after a customer's first paid year. Margin models should assume 30% until the
 enrolment is approved.
 
-## External-purchase links are not a launch shortcut
+## External-purchase links are not a v1.1 shortcut
 
 As checked on 2026-09-02, Apple permits purchase links without an entitlement in
 the United States storefront. Outside the United States the general rule still
@@ -236,8 +281,9 @@ Program participant the published rate is 15% for Apple IAP and 10% for
 qualifying alternative in-app or attributable out-of-app transactions, before
 the external processor's fee.
 
-That saving does not justify a storefront-specific launch path. Ship Apple IAP
-everywhere and no external-purchase call to action.
+That saving does not justify a storefront-specific v1.1 path. When HealthyFlow
+starts selling, use Apple IAP everywhere and include no external-purchase call to
+action.
 
 ## RevenueCat and Lemon Squeezy economics
 
@@ -252,7 +298,7 @@ effects and bank fees:
 
 At a USD 5 top-up, Lemon's fixed fee makes the published US-card cost 15%
 before payout fees and an international-card example 16.5%. Apple Small
-Business pricing is therefore competitive for the small launch SKU while also
+Business pricing is therefore competitive for the small v1.1 SKU while also
 removing a second checkout and entitlement path.
 
 ## Needs an accountant or a lawyer
@@ -294,7 +340,7 @@ Do not guess these.
   affects Apple's obligations more than ours, but it is unresolved.
 - **RevenueCat's MTR treatment of consumables.** Its public pricing page describes
   active subscriptions and a tracked-revenue threshold but does not make the
-  launch credit pack's treatment explicit. Ask RevenueCat before forecasting the
+  v1.1 action pack's treatment explicit. Ask RevenueCat before forecasting the
   fee above the threshold.
 - **Account conversion.** Confirm with Apple and RevenueCat how the individual
   account, customer identifiers and credentials move if the founder incorporates.
