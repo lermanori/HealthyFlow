@@ -1,3 +1,9 @@
+### 2026-09-06 14:05 — `codex/fix-capacitor-spm-paths`
+
+Restored the generated Capacitor Swift package's local plugin paths after a sync from a nested worktree had committed paths that climb outside the repository. Swift Package Manager now resolves all ten Capacitor plugins from this checkout's root `node_modules`, and the manifest dump succeeds. This correction is isolated from the launch-pricing work.
+
+---
+
 ### 2026-09-02 15:55 — `codex/201-billing-decision`
 
 Re-checked Apple, Google Play, Lemon Squeezy, RevenueCat and Israeli paid-sale requirements from primary sources, and the founder chose Apple In-App Purchase through RevenueCat for the iPhone launch while HealthyFlow keeps its backend credit ledger authoritative. The decision is now durable in TARGET, ADR-0015 and the paid-apps runbook, with Lemon and Android deferred and the remaining professional questions explicit. Created the three dependency-ordered launch slices in #222–#224; documentation whitespace and repository consistency checks pass, and the unrelated generated Swift package diff remains outside this work.
