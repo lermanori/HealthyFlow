@@ -1,3 +1,9 @@
+### 2026-09-06 15:14 — `codex/fix-pricing-migration-version`
+
+Found that the newly merged pricing migration reused the already-applied Goals migration version, so Supabase could not distinguish or deploy it. Reassigned the pricing migration to unique version `20260906131500`; the linked migration list now shows exactly that file pending and `supabase db push --dry-run` confirms it is the only proposed remote change.
+
+---
+
 ### 2026-09-06 15:04 — `codex/216-reconcile-action-pricing`
 
 Finished the safe reconciliation of action pricing: signup no longer grants Credits, Claim unlocks one atomic 15-action monthly allowance, Guests receive an explicit account-required refusal, refill failures stop before charging, and founding eligibility now counts discounted Cloud subscriptions rather than historical credit grants. Updated the live signup and landing copy to match ADR-0017. Both typechecks, 276 frontend tests, 857 backend tests, the production build, focused auth E2E, and disposable-Postgres status/concurrency/ledger checks pass; #216 still waits on the purchase rail and finish-line panel after this prerequisite merges.
