@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { Credits, UnpricedModelError } from './credits'
+import { Credits, UnpricedModelError, type ActionAuthorization } from './credits'
 import { WorkoutPlanDraft, WorkoutPlanDraftSchema } from './workouts'
 
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
@@ -48,6 +48,21 @@ export type BillableOpenAIErrorCode =
   | 'insufficient_credits'
   | 'unpriced_model'
   | 'billing_error'
+  // Cost guards. Each is a distinct, actionable cause — never collapsed into one
+  // generic refusal, because "AI unavailable" tells nobody what to do next.
+  | 'account_daily_cap'
+  | 'global_ceiling'
+  | 'prompt_too_large'
+  | 'too_many_images'
+
+/** What a refused action tells the user. Never a guess about which guard fired. */
+const REFUSAL_MESSAGE: Record<string, string> = {
+  insufficient_credits: 'You are out of AI credits.',
+  account_daily_cap: 'This account has reached its daily AI limit. It resets tomorrow.',
+  global_ceiling: 'AI is paused for today while we check unusual usage. Your day is unaffected.',
+  prompt_too_large: 'That is too much text for one request. Send it in smaller pieces.',
+  too_many_images: 'Too many images in one request.',
+}
 
 export type BillableOpenAIResult<T> =
   | { ok: true; value: T; usage?: TokenUsage }
@@ -554,34 +569,34 @@ async function callWithBilling<T>(
   opts: BillableCallOpts,
   call: () => Promise<OpenAIResult<T>>
 ): Promise<BillableOpenAIResult<T>> {
-  let reservedTokens = 0
+  let authorization: Extract<ActionAuthorization, { ok: true }>
 
   try {
-    reservedTokens = await Credits.estimateReserve({
+    const decision = await Credits.authorizeAction(opts.userId, {
+      endpoint: opts.endpoint,
       model: opts.model,
       systemPrompt: opts.systemPrompt,
       userPrompt: opts.userPrompt,
-      maxOutputTokens: opts.maxTokens,
     })
-    const ok = await Credits.reserve(opts.userId, reservedTokens)
-    if (!ok) {
-      return { ok: false, code: 'insufficient_credits', message: 'Insufficient AI tokens' }
+    if (!decision.ok) {
+      return { ok: false, code: decision.code, message: REFUSAL_MESSAGE[decision.code] }
     }
+    authorization = decision
   } catch (error) {
     if (error instanceof UnpricedModelError) {
       return { ok: false, code: 'unpriced_model', message: 'AI model pricing is not configured' }
     }
-    console.error('AI billing estimate failed:', error)
+    console.error('AI billing authorization failed:', error)
     return { ok: false, code: 'billing_error', message: 'AI billing failed' }
   }
 
   const result = await call()
   if (!result.ok) {
-    await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+    await Credits.refundAction(opts.userId, authorization, 'refund_failed_call')
     return result
   }
 
-  await Credits.settleReserved(opts.userId, reservedTokens, result.usage ?? ZERO_USAGE, {
+  await Credits.settleAction(opts.userId, authorization, result.usage ?? ZERO_USAGE, {
     endpoint: opts.endpoint,
     model: opts.model,
   })
@@ -906,24 +921,26 @@ export const Openai = {
   ): Promise<BillableOpenAIResult<{ message: string; toolEvents: OpenAIToolEvent[] }>> {
     const maxIterations = opts.maxIterations ?? 4
     const userPrompt = toolMessagePromptEstimate(opts.messages)
-    let reservedTokens = 0
+    let authorization: Extract<ActionAuthorization, { ok: true }>
 
     try {
-      reservedTokens = await Credits.estimateReserve({
+      // One authorization for the whole tool loop. A Talk turn is one action to the
+      // person taking it, however many model round-trips it needs internally.
+      const decision = await Credits.authorizeAction(opts.userId, {
+        endpoint: opts.endpoint,
         model: opts.model,
         systemPrompt: opts.systemPrompt,
         userPrompt,
-        maxOutputTokens: opts.maxTokens * maxIterations,
       })
-      const ok = await Credits.reserve(opts.userId, reservedTokens)
-      if (!ok) {
-        return { ok: false, code: 'insufficient_credits', message: 'Insufficient AI tokens' }
+      if (!decision.ok) {
+        return { ok: false, code: decision.code, message: REFUSAL_MESSAGE[decision.code] }
       }
+      authorization = decision
     } catch (error) {
       if (error instanceof UnpricedModelError) {
         return { ok: false, code: 'unpriced_model', message: 'AI model pricing is not configured' }
       }
-      console.error('AI billing estimate failed:', error)
+      console.error('AI billing authorization failed:', error)
       return { ok: false, code: 'billing_error', message: 'AI billing failed' }
     }
 
@@ -944,7 +961,7 @@ export const Openai = {
       })
 
       if (!result.ok) {
-        await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+        await Credits.settleAction(opts.userId, authorization, usage, {
           endpoint: opts.endpoint,
           model: opts.model,
         })
@@ -959,19 +976,19 @@ export const Openai = {
         if (!content) {
           const fallback = toolFallbackMessage(toolEvents)
           if (!fallback) {
-            await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+            await Credits.settleAction(opts.userId, authorization, usage, {
               endpoint: opts.endpoint,
               model: opts.model,
             })
             return { ok: false, code: 'invalid_response', message: 'Missing assistant content' }
           }
-          await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+          await Credits.settleAction(opts.userId, authorization, usage, {
             endpoint: opts.endpoint,
             model: opts.model,
           })
           return { ok: true, value: { message: fallback, toolEvents }, usage }
         }
-        await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+        await Credits.settleAction(opts.userId, authorization, usage, {
           endpoint: opts.endpoint,
           model: opts.model,
         })
@@ -988,7 +1005,7 @@ export const Openai = {
         const name = toolCall.function?.name
         const tool = opts.tools.find((candidate) => candidate.name === name)
         if (!tool) {
-          await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+          await Credits.settleAction(opts.userId, authorization, usage, {
             endpoint: opts.endpoint,
             model: opts.model,
           })
@@ -1023,7 +1040,7 @@ export const Openai = {
             })
             continue
           }
-          await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+          await Credits.settleAction(opts.userId, authorization, usage, {
             endpoint: opts.endpoint,
             model: opts.model,
           })
@@ -1032,7 +1049,7 @@ export const Openai = {
       }
     }
 
-    await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+    await Credits.settleAction(opts.userId, authorization, usage, {
       endpoint: opts.endpoint,
       model: opts.model,
     })
@@ -1087,20 +1104,22 @@ export async function parseMealsWithAi(opts: {
   const userContent = parseMealsUserContent(trimmedText, opts.photo)
   const systemPrompt = parseMealsSystemPrompt()
   const model = opts.photo ? NUTRITION_LABEL_OCR_MODEL : PARSE_MEALS_MODEL
-  let reservedTokens = 0
+  let authorization: Extract<ActionAuthorization, { ok: true }>
   let usage: TokenUsage = ZERO_USAGE
 
   try {
-    reservedTokens = await Credits.estimateReserve({
+    // A meal photo classifies as `photo` from the content, not from opts.photo —
+    // one place decides the price, and it is the same place for every endpoint.
+    const decision = await Credits.authorizeAction(opts.userId, {
+      endpoint: opts.endpoint ?? 'parse-meals',
       model,
       systemPrompt: opts.photo ? 'You are an OCR engine for nutrition labels. Return JSON only.' : systemPrompt,
       userPrompt: photoContent ?? userContent,
-      maxOutputTokens: opts.photo ? NUTRITION_LABEL_OCR_MAX_TOKENS : PARSE_MEALS_MAX_TOKENS,
     })
-    const ok = await Credits.reserve(opts.userId, reservedTokens)
-    if (!ok) {
-      return { ok: false, code: 'insufficient_credits', message: 'Insufficient AI tokens' }
+    if (!decision.ok) {
+      return { ok: false, code: decision.code, message: REFUSAL_MESSAGE[decision.code] }
     }
+    authorization = decision
   } catch (error) {
     if (error instanceof UnpricedModelError) {
       return { ok: false, code: 'unpriced_model', message: 'AI model pricing is not configured' }
@@ -1123,7 +1142,7 @@ export async function parseMealsWithAi(opts: {
     const ocrResult = await callOcr()
 
     if (!ocrResult.ok) {
-      await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+      await Credits.refundAction(opts.userId, authorization, 'refund_failed_call')
       return ocrResult
     }
     usage = ocrResult.usage ?? ZERO_USAGE
@@ -1134,7 +1153,7 @@ export async function parseMealsWithAi(opts: {
     for (let retry = 0; retry < 2 && (productIdentityNeedsRetry(ocr) || (ocr.nutritionLabelVisible && !ocrMeal)); retry += 1) {
       const retryResult = await callOcr()
       if (!retryResult.ok) {
-        await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+        await Credits.refundAction(opts.userId, authorization, 'refund_failed_call')
         return retryResult
       }
       usage = addUsage(usage, retryResult.usage)
@@ -1149,14 +1168,14 @@ export async function parseMealsWithAi(opts: {
     const review = evaluateOcrEvidence(ocr)
 
     if (ocrMeal) {
-      await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+      await Credits.settleAction(opts.userId, authorization, usage, {
         endpoint: opts.endpoint ?? 'parse-meals',
         model,
       })
       return { ok: true, value: { meals: [ocrMeal], review }, usage }
     }
     if (labelWasVisible || ocr.nutritionLabelVisible) {
-      await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+      await Credits.refundAction(opts.userId, authorization, 'refund_failed_call')
       return { ok: false, code: 'invalid_response', message: 'Could not reliably read the visible nutrition label' }
     }
   }
@@ -1173,12 +1192,12 @@ export async function parseMealsWithAi(opts: {
   })
 
   if (!result.ok) {
-    await Credits.refundReserve(opts.userId, reservedTokens, 'refund_failed_call')
+    await Credits.refundAction(opts.userId, authorization, 'refund_failed_call')
     return result
   }
 
   usage = addUsage(usage, result.usage)
-  await Credits.settleReserved(opts.userId, reservedTokens, usage, {
+  await Credits.settleAction(opts.userId, authorization, usage, {
     endpoint: opts.endpoint ?? 'parse-meals',
     model,
   })

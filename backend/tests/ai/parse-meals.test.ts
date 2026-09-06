@@ -10,9 +10,9 @@ import { Credits } from '../../src/credits'
 jest.mock('../../src/credits', () => ({
   Credits: {
     reserve: jest.fn().mockResolvedValue(true),
-    estimateReserve: jest.fn().mockReturnValue(10),
-    settleReserved: jest.fn().mockResolvedValue({ ok: true, chargeTokens: 6, adjustmentTokens: 4 }),
-    refundReserve: jest.fn().mockResolvedValue(undefined),
+    authorizeAction: jest.fn().mockResolvedValue({ ok: true, actionClass: 'text' as const, credits: 1, charged: 1, coveredBy: 'balance' as const }),
+    settleAction: jest.fn().mockResolvedValue(undefined),
+    refundAction: jest.fn().mockResolvedValue(undefined),
     grant: jest.fn().mockResolvedValue(undefined),
     getBalance: jest.fn(),
   },
@@ -390,8 +390,8 @@ describe('POST /api/ai/parse-meals — failure paths', () => {
 
     expect(res.status).toBe(500)
     expect(res.body.meals).toBeUndefined()
-    expect(Credits.refundReserve).toHaveBeenCalledWith('test-user-id', 10, 'refund_failed_call')
-    expect(Credits.settleReserved).not.toHaveBeenCalled()
+    expect(Credits.refundAction).toHaveBeenCalledWith('test-user-id', expect.objectContaining({ ok: true }), 'refund_failed_call')
+    expect(Credits.settleAction).not.toHaveBeenCalled()
   })
 
   it('settles reserved credits with endpoint "parse-meals" on success', async () => {
@@ -404,9 +404,9 @@ describe('POST /api/ai/parse-meals — failure paths', () => {
       .set('Authorization', authHeader())
       .send({ text: '2 eggs and a black coffee' })
 
-    expect(Credits.settleReserved).toHaveBeenCalledWith(
+    expect(Credits.settleAction).toHaveBeenCalledWith(
       'test-user-id',
-      10,
+      expect.objectContaining({ ok: true }),
       expect.anything(),
       expect.objectContaining({ endpoint: 'parse-meals' })
     )

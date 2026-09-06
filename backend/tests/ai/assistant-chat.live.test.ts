@@ -6,9 +6,9 @@ import { app } from '../../src/index'
 jest.mock('../../src/credits', () => ({
   Credits: {
     reserve: jest.fn().mockResolvedValue(true),
-    estimateReserve: jest.fn().mockReturnValue(10),
-    settleReserved: jest.fn().mockResolvedValue({ ok: true, chargeTokens: 6, adjustmentTokens: 4 }),
-    refundReserve: jest.fn().mockResolvedValue(undefined),
+    authorizeAction: jest.fn().mockResolvedValue({ ok: true, actionClass: 'text' as const, credits: 1, charged: 1, coveredBy: 'balance' as const }),
+    settleAction: jest.fn().mockResolvedValue(undefined),
+    refundAction: jest.fn().mockResolvedValue(undefined),
     grant: jest.fn().mockResolvedValue(undefined),
     getBalance: jest.fn(),
   },

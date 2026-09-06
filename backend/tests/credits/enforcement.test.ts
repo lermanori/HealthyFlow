@@ -27,9 +27,9 @@ jest.mock('../../src/supabase-client', () => ({
 jest.mock('../../src/credits', () => ({
   Credits: {
     reserve: jest.fn(),
-    estimateReserve: jest.fn(),
-    settleReserved: jest.fn(),
-    refundReserve: jest.fn(),
+    authorizeAction: jest.fn(),
+    settleAction: jest.fn(),
+    refundAction: jest.fn(),
     grant: jest.fn(),
     grantSignupCredits: jest.fn(),
     getLaunchOffer: jest.fn(),
@@ -86,12 +86,12 @@ const validOpenAIResponse = {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockCredits.estimateReserve.mockResolvedValue(10)
-  mockCredits.settleReserved.mockResolvedValue({ ok: true, chargeTokens: 6, adjustmentTokens: 4 })
+  mockCredits.authorizeAction.mockResolvedValue({ ok: true, actionClass: 'text', credits: 1, charged: 1, coveredBy: 'balance' })
+  mockCredits.settleAction.mockResolvedValue(undefined)
   mockCredits.grantSignupCredits.mockResolvedValue({
-    credits: 250,
-    cohort: 'founding',
-    balance: 250,
+    credits: 50,
+    cohort: 'standard',
+    balance: 50,
     alreadyGranted: false,
   })
 })
@@ -102,7 +102,7 @@ afterEach(() => {
 
 describe('POST /api/ai/parse-tasks — credit enforcement', () => {
   it('reserves, calls OpenAI, and settles with usage on success', async () => {
-    mockCredits.reserve.mockResolvedValue(true)
+    mockCredits.authorizeAction.mockResolvedValue({ ok: true, actionClass: 'text', credits: 1, charged: 1, coveredBy: 'balance' })
     nock('https://api.openai.com').post('/v1/chat/completions').reply(200, validOpenAIResponse)
 
     const res = await request(app)
@@ -111,14 +111,13 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
       .send({ text: 'meditate daily' })
 
     expect(res.status).toBe(200)
-    expect(mockCredits.estimateReserve).toHaveBeenCalledWith(expect.objectContaining({
-      model: 'gpt-4o-mini',
-      maxOutputTokens: 1000,
-    }))
-    expect(mockCredits.reserve).toHaveBeenCalledWith(USER_ID, 10)
-    expect(mockCredits.settleReserved).toHaveBeenCalledWith(
+    expect(mockCredits.authorizeAction).toHaveBeenCalledWith(
       USER_ID,
-      10,
+      expect.objectContaining({ model: 'gpt-4o-mini' })
+    )
+    expect(mockCredits.settleAction).toHaveBeenCalledWith(
+      USER_ID,
+      expect.objectContaining({ ok: true, actionClass: 'text' }),
       { promptTokens: 100, completionTokens: 20, totalTokens: 120 },
       { endpoint: 'parse-tasks', model: 'gpt-4o-mini' }
     )
@@ -126,7 +125,7 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
   })
 
   it('returns 402 and never calls OpenAI when reserve fails (insufficient credits)', async () => {
-    mockCredits.reserve.mockResolvedValue(false)
+    mockCredits.authorizeAction.mockResolvedValue({ ok: false, code: 'insufficient_credits' })
     const scope = nock('https://api.openai.com').post('/v1/chat/completions').reply(200, validOpenAIResponse)
 
     const res = await request(app)
@@ -135,13 +134,13 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
       .send({ text: 'meditate daily' })
 
     expect(res.status).toBe(402)
-    expect(res.body).toEqual({ error: 'Insufficient AI tokens', code: 'insufficient_credits' })
+    expect(res.body).toEqual({ error: 'You are out of AI credits.', code: 'insufficient_credits' })
     expect(scope.isDone()).toBe(false)
-    expect(mockCredits.settleReserved).not.toHaveBeenCalled()
+    expect(mockCredits.settleAction).not.toHaveBeenCalled()
   })
 
   it('refunds the full reserve when OpenAI call fails, then returns the existing 500 error', async () => {
-    mockCredits.reserve.mockResolvedValue(true)
+    mockCredits.authorizeAction.mockResolvedValue({ ok: true, actionClass: 'text', credits: 1, charged: 1, coveredBy: 'balance' })
     nock('https://api.openai.com').post('/v1/chat/completions').reply(500)
 
     const res = await request(app)
@@ -151,12 +150,16 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
 
     expect(res.status).toBe(500)
     expect(res.body).toEqual({ error: 'Could not parse — try again', code: 'ai_parse_failed' })
-    expect(mockCredits.refundReserve).toHaveBeenCalledWith(USER_ID, 10, 'refund_failed_call')
-    expect(mockCredits.settleReserved).not.toHaveBeenCalled()
+    expect(mockCredits.refundAction).toHaveBeenCalledWith(
+      USER_ID,
+      expect.objectContaining({ ok: true }),
+      'refund_failed_call'
+    )
+    expect(mockCredits.settleAction).not.toHaveBeenCalled()
   })
 
   it('settles with zeroed usage when OpenAI omits usage data', async () => {
-    mockCredits.reserve.mockResolvedValue(true)
+    mockCredits.authorizeAction.mockResolvedValue({ ok: true, actionClass: 'text', credits: 1, charged: 1, coveredBy: 'balance' })
     const { usage, ...noUsageResponse } = validOpenAIResponse
     nock('https://api.openai.com').post('/v1/chat/completions').reply(200, noUsageResponse)
 
@@ -166,16 +169,16 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
       .send({ text: 'meditate daily' })
 
     expect(res.status).toBe(200)
-    expect(mockCredits.settleReserved).toHaveBeenCalledWith(
+    expect(mockCredits.settleAction).toHaveBeenCalledWith(
       USER_ID,
-      10,
+      expect.objectContaining({ ok: true, actionClass: 'text' }),
       { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       { endpoint: 'parse-tasks', model: 'gpt-4o-mini' }
     )
   })
 
   it('estimates image parse before the call and settles with actual returned usage', async () => {
-    mockCredits.reserve.mockResolvedValue(true)
+    mockCredits.authorizeAction.mockResolvedValue({ ok: true, actionClass: 'text', credits: 1, charged: 1, coveredBy: 'balance' })
     nock('https://api.openai.com').post('/v1/chat/completions').reply(200, validOpenAIResponse)
 
     const res = await request(app)
@@ -189,16 +192,21 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
       })
 
     expect(res.status).toBe(200)
-    expect(mockCredits.estimateReserve).toHaveBeenCalledWith(expect.objectContaining({
-      model: 'gpt-4o-mini',
-      userPrompt: expect.arrayContaining([
-        expect.objectContaining({ type: 'image_url' }),
-      ]),
-      maxOutputTokens: 1000,
-    }))
-    expect(mockCredits.settleReserved).toHaveBeenCalledWith(
+    expect(mockCredits.authorizeAction).toHaveBeenCalledWith(
       USER_ID,
-      10,
+      expect.objectContaining({
+        endpoint: 'parse-tasks',
+        model: 'gpt-4o-mini',
+        // The image is what makes this a photo action, and the classifier reads it
+        // from the prompt itself rather than from a flag the caller remembered.
+        userPrompt: expect.arrayContaining([
+          expect.objectContaining({ type: 'image_url' }),
+        ]),
+      })
+    )
+    expect(mockCredits.settleAction).toHaveBeenCalledWith(
+      USER_ID,
+      expect.objectContaining({ ok: true, actionClass: 'text' }),
       { promptTokens: 100, completionTokens: 20, totalTokens: 120 },
       { endpoint: 'parse-tasks', model: 'gpt-4o-mini' }
     )
@@ -208,7 +216,7 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
 describe('POST /api/ai/query-tasks — credit enforcement', () => {
   it('reserves, calls OpenAI, and settles on success', async () => {
     mockDb.getTasksByUserId.mockResolvedValue([])
-    mockCredits.reserve.mockResolvedValue(true)
+    mockCredits.authorizeAction.mockResolvedValue({ ok: true, actionClass: 'text', credits: 1, charged: 1, coveredBy: 'balance' })
     nock('https://api.openai.com')
       .post('/v1/chat/completions')
       .reply(200, {
@@ -222,14 +230,13 @@ describe('POST /api/ai/query-tasks — credit enforcement', () => {
       .send({ question: 'What do I have today?' })
 
     expect(res.status).toBe(200)
-    expect(mockCredits.estimateReserve).toHaveBeenCalledWith(expect.objectContaining({
-      model: 'gpt-3.5-turbo',
-      maxOutputTokens: 500,
-    }))
-    expect(mockCredits.reserve).toHaveBeenCalledWith(USER_ID, 10)
-    expect(mockCredits.settleReserved).toHaveBeenCalledWith(
+    expect(mockCredits.authorizeAction).toHaveBeenCalledWith(
       USER_ID,
-      10,
+      expect.objectContaining({ model: 'gpt-3.5-turbo' })
+    )
+    expect(mockCredits.settleAction).toHaveBeenCalledWith(
+      USER_ID,
+      expect.objectContaining({ ok: true, actionClass: 'text' }),
       { promptTokens: 50, completionTokens: 10, totalTokens: 60 },
       { endpoint: 'query-tasks', model: 'gpt-3.5-turbo' }
     )
@@ -237,7 +244,7 @@ describe('POST /api/ai/query-tasks — credit enforcement', () => {
 
   it('returns 402 when reserve fails', async () => {
     mockDb.getTasksByUserId.mockResolvedValue([])
-    mockCredits.reserve.mockResolvedValue(false)
+    mockCredits.authorizeAction.mockResolvedValue({ ok: false, code: 'insufficient_credits' })
     const scope = nock('https://api.openai.com').post('/v1/chat/completions').reply(200, {})
 
     const res = await request(app)
@@ -246,13 +253,13 @@ describe('POST /api/ai/query-tasks — credit enforcement', () => {
       .send({ question: 'What do I have today?' })
 
     expect(res.status).toBe(402)
-    expect(res.body).toEqual({ error: 'Insufficient AI tokens', code: 'insufficient_credits' })
+    expect(res.body).toEqual({ error: 'You are out of AI credits.', code: 'insufficient_credits' })
     expect(scope.isDone()).toBe(false)
   })
 
   it('refunds via grant when OpenAI call fails, returning an explicit error', async () => {
     mockDb.getTasksByUserId.mockResolvedValue([])
-    mockCredits.reserve.mockResolvedValue(true)
+    mockCredits.authorizeAction.mockResolvedValue({ ok: true, actionClass: 'text', credits: 1, charged: 1, coveredBy: 'balance' })
     nock('https://api.openai.com').post('/v1/chat/completions').reply(500)
 
     const res = await request(app)
@@ -262,8 +269,12 @@ describe('POST /api/ai/query-tasks — credit enforcement', () => {
 
     expect(res.status).toBe(500)
     expect(res.body).toEqual({ error: 'AI service unavailable', code: 'ai_unavailable' })
-    expect(mockCredits.refundReserve).toHaveBeenCalledWith(USER_ID, 10, 'refund_failed_call')
-    expect(mockCredits.settleReserved).not.toHaveBeenCalled()
+    expect(mockCredits.refundAction).toHaveBeenCalledWith(
+      USER_ID,
+      expect.objectContaining({ ok: true }),
+      'refund_failed_call'
+    )
+    expect(mockCredits.settleAction).not.toHaveBeenCalled()
   })
 })
 
@@ -284,9 +295,9 @@ describe('POST /api/auth/signup — credit seeding', () => {
     expect(res.status).toBe(200)
     expect(mockCredits.grantSignupCredits).toHaveBeenCalledWith('new-user-id')
     expect(res.body.signupCredits).toEqual({
-      credits: 250,
-      cohort: 'founding',
-      balance: 250,
+      credits: 50,
+      cohort: 'standard',
+      balance: 50,
       alreadyGranted: false,
     })
     expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('new-user-id')

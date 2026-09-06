@@ -235,15 +235,21 @@ describe('GET /api/auth/signup-status', () => {
       remaining: 7,
       offer: {
         foundingMemberLimit: 100,
+        // Seats at the founding PRICE. The welcome grant is the same for everyone.
         foundingMembersRemaining: 100,
-        onboardingCredits: 250,
-        foundingOnboardingCredits: 250,
-        standardOnboardingCredits: 50,
+        welcomeCredits: 50,
+        monthlyFreeCredits: 15,
         foundingPriceUsd: 9,
         regularPriceUsd: 19,
-        monthlyCredits: 500,
+        actionPrice: { text: 1, photo: 5, premium: 10 },
+        subscriptionIncludes: {
+          unlimitedText: true,
+          textDailyCap: 100,
+          photoMonthly: 100,
+          premiumMonthly: 50,
+        },
         topUpPriceUsd: 5,
-        topUpCredits: 250,
+        topUpCredits: 300,
       },
     })
   })
