@@ -1,3 +1,9 @@
+### 2026-09-06 15:04 — `codex/216-reconcile-action-pricing`
+
+Finished the safe reconciliation of action pricing: signup no longer grants Credits, Claim unlocks one atomic 15-action monthly allowance, Guests receive an explicit account-required refusal, refill failures stop before charging, and founding eligibility now counts discounted Cloud subscriptions rather than historical credit grants. Updated the live signup and landing copy to match ADR-0017. Both typechecks, 276 frontend tests, 857 backend tests, the production build, focused auth E2E, and disposable-Postgres status/concurrency/ledger checks pass; #216 still waits on the purchase rail and finish-line panel after this prerequisite merges.
+
+---
+
 ### 2026-09-06 14:36 — `codex/216-reconcile-action-pricing`
 
 Ported the action-based pricing implementation from its stranded branch onto current main without reviving the deleted AI analyzer or overwriting newer launch work. Renumbered the decision as ADR-0016 and recorded the later no-welcome, account-gated monthly allowance in ADR-0017; both typechecks and 58 focused pricing/ledger tests pass. This is a branch-only checkpoint and is deliberately not merge-ready until the welcome grant, refill eligibility and explicit failure semantics are made to follow ADR-0017.

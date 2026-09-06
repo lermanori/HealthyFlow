@@ -428,7 +428,7 @@ export default function LoginPage() {
 
           {inviteSignup && signupStatus?.offer && (
             <p className="mb-5 rounded-control bg-accent/10 px-3 py-2 text-center text-sm text-accent">
-              Your account starts with {signupStatus.offer.welcomeCredits} AI actions.
+              Create an account — free — and get {signupStatus.offer.monthlyFreeCredits} AI actions every month.
             </p>
           )}
 
@@ -440,8 +440,7 @@ export default function LoginPage() {
                 </p>
               )}
               <p className="mb-5 text-center text-sm text-accent">
-                {signupStatus.remaining} {signupStatus.remaining === 1 ? 'spot' : 'spots'} left ·{' '}
-                {signupStatus.offer.welcomeCredits} AI actions included
+                Create an account — free — and get {signupStatus.offer.monthlyFreeCredits} AI actions every month.
               </p>
             </>
           )}
@@ -718,8 +717,8 @@ export default function LoginPage() {
                         autoComplete="email"
                       />
                       <p className="mt-2 text-xs text-ink-muted">
-                        The first {signupStatus.offer.foundingMemberLimit} accounts receive{' '}
-                        {signupStatus.offer.welcomeCredits} AI actions.
+                        When invited, create a free account to get{' '}
+                        {signupStatus.offer.monthlyFreeCredits} AI actions every month.
                       </p>
                       {waitlistError && (
                         <p role="alert" className="mt-2 text-sm text-state-danger">{waitlistError}</p>

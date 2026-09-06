@@ -12,8 +12,6 @@ jest.mock('../../src/supabase-client', () => ({
     getUserById: jest.fn(),
     createUser: jest.fn(),
     releasePublicSignupSlot: jest.fn(),
-    claimSignupCreditGrant: jest.fn(),
-    getFoundingSignupCreditGrantCount: jest.fn(),
   },
 }))
 
@@ -55,13 +53,6 @@ function guestToken(userId = guestRow.id) {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockDb.claimSignupCreditGrant.mockResolvedValue({
-    credits: 250,
-    cohort: 'founding',
-    balance: 250,
-    alreadyGranted: false,
-  })
-  mockDb.getFoundingSignupCreditGrantCount.mockResolvedValue(0)
   mockDb.releasePublicSignupSlot.mockResolvedValue(true)
   mockDb.createUser.mockResolvedValue(guestRow)
   mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: true, via: 'public' })
@@ -83,14 +74,10 @@ describe('POST /api/auth/guest', () => {
     expect(jwt.verify(res.body.token, JWT_SECRET)).toMatchObject({ userId: 'guest-1' })
   })
 
-  it('never claims a founding seat: the signup grant awards 250 credits and burns one of 100', async () => {
+  it('starts without a welcome credit grant', async () => {
     const res = await request(app).post('/api/auth/guest').set('X-Forwarded-For', '30.0.0.2')
 
     expect(res.status).toBe(200)
-    // claim_signup_credit_grant awards FOUNDING_SIGNUP_CREDITS while founding
-    // seats remain, so routing a Guest through it would hand out five dollars of
-    // credits instead of one and drain the founding count on the login page.
-    expect(mockDb.claimSignupCreditGrant).not.toHaveBeenCalled()
     expect(res.body.signupCredits).toBeUndefined()
   })
 

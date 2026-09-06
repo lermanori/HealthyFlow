@@ -332,7 +332,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ) => {
     const acquisition = readDemoAcquisition()
     const result = await authService.providerSession(provider, accessToken, invite, displayName)
-    const { user: userData, token, isNewUser, signupCredits } = result
+    const { user: userData, token, isNewUser } = result
     try {
       await placeAccountDayOnDevice(result)
     } catch (error) {
@@ -347,24 +347,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setHasDemoReturnSession(false)
     writeSessionToken(token)
     identifyUser(userData)
-    if (isNewUser && signupCredits) {
+    if (isNewUser) {
       analytics.identify(userData.id, {
         email: userData.email,
         name: userData.name,
         role: userData.role,
         is_demo: false,
         onboarding_status: 'active',
-        signup_credit_cohort: signupCredits.cohort,
-        onboarding_credit_grant: signupCredits.credits,
       }, { signed_up_at: new Date().toISOString() })
       analytics.capture('signed_up', {
         method: provider,
-        credit_cohort: signupCredits.cohort,
-        onboarding_credits: signupCredits.credits,
         source: acquisition ? 'demo' : 'direct',
         persona: acquisition?.persona,
       })
-      toast.success(`Account created with ${signupCredits.credits} AI credits. Welcome to HealthyFlow.`)
+      toast.success('Account created. Welcome to HealthyFlow.')
     } else {
       clearDemoAcquisition()
       analytics.capture('logged_in', { method: provider, is_demo: false })
@@ -391,7 +387,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const acquisition = readDemoAcquisition()
-    const { user: userData, token, signupCredits } = result
+    const { user: userData, token } = result
     queryClient.clear()
     clearDemoState()
     sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
@@ -403,18 +399,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: userData.role,
       is_demo: isDemoEmail(userData.email),
       onboarding_status: 'active',
-      signup_credit_cohort: signupCredits.cohort,
-      onboarding_credit_grant: signupCredits.credits,
     }, { signed_up_at: new Date().toISOString() })
     analytics.capture('signed_up', {
       method: 'password',
-      credit_cohort: signupCredits.cohort,
-      onboarding_credits: signupCredits.credits,
       source: acquisition ? 'demo' : 'direct',
       persona: acquisition?.persona,
     })
     adoptUser(userData)
-    toast.success(`Account created with ${signupCredits.credits} AI credits. Welcome to HealthyFlow.`)
+    toast.success('Account created. Welcome to HealthyFlow.')
   }
 
   /**

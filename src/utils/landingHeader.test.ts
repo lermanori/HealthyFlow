@@ -38,13 +38,13 @@ describe('Landing signup CTA', () => {
     assert.match(landing, /\[hidden\]\s*\{\s*display:\s*none\s*!important;\s*\}/)
   })
 
-  it('publishes the agreed founding and top-up offers', () => {
+  it('publishes the agreed free, founding Cloud and top-up offers', () => {
     assert.match(landing, /\$<span data-offer-founding-price>9<\/span>\/month/)
-    assert.match(landing, /data-offer-onboarding-credits>250<\/span> AI credits/)
-    assert.match(landing, /data-offer-monthly-credits>500<\/span> AI credits each month/)
-    assert.match(landing, /data-offer-topup-credits>250<\/span> non-expiring credits for \$/)
+    assert.match(landing, /data-offer-free-monthly-actions>15<\/span> AI actions every month/)
+    assert.match(landing, /data-offer-topup-credits>300<\/span> non-expiring actions for \$/)
     assert.match(landing, /foundingMembersRemaining/)
-    assert.match(landing, /Every new account receives/)
+    assert.match(landing, /Create an account for \$\{monthlyFreeActions\} AI actions every month/)
+    assert.doesNotMatch(landing, /credits at signup|credits for onboarding/i)
   })
 
   it('preserves campaign attribution on demo entry', () => {

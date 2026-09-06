@@ -11,8 +11,7 @@ jest.mock('../../src/supabase-client', () => ({
     getUserByEmail: jest.fn(),
     createUser: jest.fn(),
     releasePublicSignupSlot: jest.fn(),
-    claimSignupCreditGrant: jest.fn(),
-    getFoundingSignupCreditGrantCount: jest.fn(),
+    getFoundingPriceMemberCount: jest.fn(),
   },
 }))
 
@@ -36,13 +35,7 @@ const mockWaitlist = Waitlist as jest.Mocked<typeof Waitlist>
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockDb.claimSignupCreditGrant.mockResolvedValue({
-    credits: 250,
-    cohort: 'founding',
-    balance: 250,
-    alreadyGranted: false,
-  })
-  mockDb.getFoundingSignupCreditGrantCount.mockResolvedValue(0)
+  mockDb.getFoundingPriceMemberCount.mockResolvedValue(0)
   mockDb.releasePublicSignupSlot.mockResolvedValue(true)
   // Default to an open public slot so the pre-existing tests below still exercise
   // the happy path; the gating tests override this per case.
@@ -78,12 +71,7 @@ describe('POST /api/auth/signup', () => {
     expect(res.status).toBe(200)
     expect(res.body.token).toBeDefined()
     expect(res.body.user.email).toBe('new@example.com')
-    expect(res.body.signupCredits).toEqual({
-      credits: 250,
-      cohort: 'founding',
-      balance: 250,
-      alreadyGranted: false,
-    })
+    expect(res.body.signupCredits).toBeUndefined()
     expect(mockDb.createUser).toHaveBeenCalledWith(expect.objectContaining({
       claimed_public_signup_slot: true,
     }))
@@ -235,9 +223,8 @@ describe('GET /api/auth/signup-status', () => {
       remaining: 7,
       offer: {
         foundingMemberLimit: 100,
-        // Seats at the founding PRICE. The welcome grant is the same for everyone.
+        // Seats at the founding PRICE. Account creation grants no actions.
         foundingMembersRemaining: 100,
-        welcomeCredits: 50,
         monthlyFreeCredits: 15,
         foundingPriceUsd: 9,
         regularPriceUsd: 19,

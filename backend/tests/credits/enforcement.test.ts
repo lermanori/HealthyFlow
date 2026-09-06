@@ -5,7 +5,7 @@
  *   parse-tasks happy path  → reserves estimated AI tokens, OpenAI call settles actual usage
  *   insufficient AI tokens  → 402 before OpenAI is ever called
  *   AI failure               → refund (grant) before returning an explicit error response
- *   signup                   → claims the first-100-aware onboarding credit grant
+ *   signup                   → creates an account without a welcome credit grant
  *   balance endpoint          → returns Credits.getBalance for the authed user
  */
 import request from 'supertest'
@@ -31,7 +31,6 @@ jest.mock('../../src/credits', () => ({
     settleAction: jest.fn(),
     refundAction: jest.fn(),
     grant: jest.fn(),
-    grantSignupCredits: jest.fn(),
     getLaunchOffer: jest.fn(),
     getBalance: jest.fn(),
   },
@@ -88,12 +87,6 @@ beforeEach(() => {
   jest.clearAllMocks()
   mockCredits.authorizeAction.mockResolvedValue({ ok: true, actionClass: 'text', credits: 1, charged: 1, coveredBy: 'balance' })
   mockCredits.settleAction.mockResolvedValue(undefined)
-  mockCredits.grantSignupCredits.mockResolvedValue({
-    credits: 50,
-    cohort: 'standard',
-    balance: 50,
-    alreadyGranted: false,
-  })
 })
 
 afterEach(() => {
@@ -278,8 +271,8 @@ describe('POST /api/ai/query-tasks — credit enforcement', () => {
   })
 })
 
-describe('POST /api/auth/signup — credit seeding', () => {
-  it('claims the launch onboarding credits for the new user', async () => {
+describe('POST /api/auth/signup — no welcome grant', () => {
+  it('creates the user and seeds onboarding without returning credits', async () => {
     mockDb.getUserByEmail.mockResolvedValue(null)
     mockDb.createUser.mockResolvedValue({
       id: 'new-user-id',
@@ -293,13 +286,7 @@ describe('POST /api/auth/signup — credit seeding', () => {
       .send({ email: 'new@example.com', password: 'password123', name: 'New User' })
 
     expect(res.status).toBe(200)
-    expect(mockCredits.grantSignupCredits).toHaveBeenCalledWith('new-user-id')
-    expect(res.body.signupCredits).toEqual({
-      credits: 50,
-      cohort: 'standard',
-      balance: 50,
-      alreadyGranted: false,
-    })
+    expect(res.body.signupCredits).toBeUndefined()
     expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('new-user-id')
   })
 })

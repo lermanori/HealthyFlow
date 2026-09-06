@@ -46,6 +46,8 @@ export type BillableOpenAIErrorCode =
   | OpenAIErrorCode
   | 'tool_error'
   | 'insufficient_credits'
+  | 'account_required'
+  | 'billing_unavailable'
   | 'unpriced_model'
   | 'billing_error'
   // Cost guards. Each is a distinct, actionable cause — never collapsed into one
@@ -58,6 +60,8 @@ export type BillableOpenAIErrorCode =
 /** What a refused action tells the user. Never a guess about which guard fired. */
 const REFUSAL_MESSAGE: Record<string, string> = {
   insufficient_credits: 'You are out of AI credits.',
+  account_required: 'Create a free account to use AI.',
+  billing_unavailable: 'AI billing is temporarily unavailable. Your credits were not charged.',
   account_daily_cap: 'This account has reached its daily AI limit. It resets tomorrow.',
   global_ceiling: 'AI is paused for today while we check unusual usage. Your day is unaffected.',
   prompt_too_large: 'That is too much text for one request. Send it in smaller pieces.',

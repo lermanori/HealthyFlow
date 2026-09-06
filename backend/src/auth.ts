@@ -4,7 +4,6 @@ import jwt from 'jsonwebtoken'
 import { z } from 'zod'
 import type { SessionUser } from './auth-contracts'
 import type { User as SupabaseAuthUser } from '@supabase/supabase-js'
-import { Credits, type SignupCreditGrant } from './credits'
 import { Onboarding } from './onboarding'
 import { db, supabase } from './supabase-client'
 import { Waitlist, type SignupAuthorization } from './waitlist'
@@ -127,12 +126,10 @@ function requireEnabledUser(user: AppUser) {
   }
 }
 
-async function finishProviderSignup(user: AppUser): Promise<SignupCreditGrant> {
-  // Both operations are idempotent. Calling them again completes an interrupted
-  // first login without granting twice or re-opening completed onboarding.
-  const signupCredits = await Credits.grantSignupCredits(user.id)
+async function finishProviderSignup(user: AppUser): Promise<void> {
+  // Idempotent: calling this again completes an interrupted first login without
+  // re-opening completed onboarding. Account creation grants no Credits (ADR-0017).
   await Onboarding.seedNewUser(user.id)
-  return signupCredits
 }
 
 async function finishPendingInvite(user: AppUser, providerSubject: string) {
@@ -215,11 +212,10 @@ async function exchangeProviderSession(
     requireEnabledUser(bySubject)
     if (bySubject.signup_method === provider) {
       await finishPendingInvite(bySubject, authUser.id)
-      const signupCredits = await finishProviderSignup(bySubject)
+      await finishProviderSignup(bySubject)
       return {
         ...appSession(bySubject),
-        isNewUser: !signupCredits.alreadyGranted,
-        signupCredits,
+        isNewUser: false,
       }
     }
     return { ...appSession(bySubject), isNewUser: false }
@@ -265,11 +261,10 @@ async function exchangeProviderSession(
 
   await finishPendingInvite(user, authUser.id)
 
-  const signupCredits = await finishProviderSignup(user)
+  await finishProviderSignup(user)
   return {
     ...appSession(user),
     isNewUser: true,
-    signupCredits,
   }
 }
 
@@ -294,18 +289,8 @@ async function startGuestSession() {
   // data (Items, Habits, settings) is not hosted here. This row carries identity
   // and a credit balance, nothing else.
   //
-  // **No credit grant here, deliberately.** `Credits.grantSignupCredits` routes
-  // through `claim_signup_credit_grant`, which awards FOUNDING_SIGNUP_CREDITS
-  // (250) and consumes one of the FOUNDING_MEMBER_LIMIT (100) seats while any
-  // remain. A Guest would therefore take a founding seat and five dollars of
-  // credits instead of the one dollar TARGET.md specifies, and would drain the
-  // founding count shown on the login page. The RPC rejects a zero founding
-  // limit, so it cannot be neutralised by argument.
-  //
-  // The guest grant needs its own path and its own cap — the "first N devices"
-  // dial in TARGET.md, which does not exist yet. Until it does a Guest starts
-  // with no credits: the app is free and useful without them, and granting the
-  // wrong amount is worse than granting none.
+  // No credit grant: a Guest is AI-free, while Claim unlocks the lazy monthly
+  // allowance on the first eligible AI request (ADR-0017).
   return appSession(user, GUEST_SESSION_LIFETIME)
 }
 
@@ -321,7 +306,8 @@ export type ClaimAccountInput = z.infer<typeof ClaimAccountSchema>
 // intact. No Waitlist.authorizeSignup and no public slot: entry is open
 // (ADR-0012). No credit grant: credits are a purchase, and where the $1 taster
 // sits is deliberately unplaced. No Onboarding.seedNewUser: it writes user
-// settings, which are day data and live on the device.
+// settings, which are day data and live on the device. The first eligible AI
+// request after Claim atomically grants the monthly allowance (ADR-0017).
 async function claimGuestAccount(userId: string, rawInput: ClaimAccountInput) {
   const input = ClaimAccountSchema.parse(rawInput)
   const email = input.email.trim().toLowerCase()

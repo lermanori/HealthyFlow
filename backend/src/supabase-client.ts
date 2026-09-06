@@ -1,4 +1,5 @@
 import { logger } from './utils/logger'
+import { z } from 'zod'
 import { composeDayTaskRows } from './day-summary-core'
 import { supabase } from './db/client'
 import { projectsDb } from './db/projects'
@@ -12,6 +13,11 @@ import { talkWorkflowsDb } from './db/talk-workflows'
 // Re-export the shared client so existing
 // `import { supabase } from './supabase-client'` call sites keep working.
 export { supabase }
+
+const MonthlyFreeCreditClaimSchema = z.object({
+  status: z.enum(['granted', 'already_granted', 'not_claimed', 'subscription_active']),
+  balance: z.coerce.number().int().nonnegative(),
+})
 
 // One account row as the rest of the server sees it. `email` is null for a
 // Guest and only for a Guest (CONTEXT.md).
@@ -1146,38 +1152,13 @@ export const db = {
     return data
   },
 
-  async claimSignupCreditGrant(userId: string, offer: {
-    foundingMemberLimit: number
-    foundingCredits: number
-    standardCredits: number
-  }) {
-    const { data, error } = await supabase.rpc('claim_signup_credit_grant', {
-      p_user_id: userId,
-      p_founding_limit: offer.foundingMemberLimit,
-      p_founding_credits: offer.foundingCredits,
-      p_standard_credits: offer.standardCredits,
-    })
-    if (error) throw error
-    return data
-  },
-
-  async getFoundingSignupCreditGrantCount(): Promise<number> {
+  async getFoundingPriceMemberCount(): Promise<number> {
     const { count, error } = await supabase
-      .from('signup_credit_grants')
+      .from('user_credit_subscriptions')
       .select('user_id', { count: 'exact', head: true })
-      .eq('cohort', 'founding')
+      .eq('price_phase', 'promo')
     if (error) throw error
     return count ?? 0
-  },
-
-  async getSignupCreditGrant(userId: string) {
-    const { data, error } = await supabase
-      .from('signup_credit_grants')
-      .select('user_id, cohort, credits, balance_after, created_at')
-      .eq('user_id', userId)
-      .maybeSingle()
-    if (error) throw error
-    return data
   },
 
   async grantSubscriptionCredits(userId: string, amount: number): Promise<number> {
@@ -1253,19 +1234,15 @@ export const db = {
     return count ?? 0
   },
 
-  /**
-   * Grants the monthly free allowance if this account has not had it this calendar
-   * month. Atomic in one statement — two devices opening the app at midnight must
-   * not both be granted. Returns the new balance, or null if already claimed.
-   */
-  async claimMonthlyFreeCredits(userId: string, credits: number): Promise<number | null> {
+  /** Resolve and, when eligible, atomically claim this month's free actions. */
+  async claimMonthlyFreeCredits(userId: string, credits: number) {
     const { data, error } = await supabase.rpc('claim_monthly_free_credits', {
       p_user_id: userId,
       p_credits: credits,
     })
     if (error) throw error
-    const balance = Array.isArray(data) ? data[0]?.balance : (data as any)?.balance
-    return balance === undefined || balance === null ? null : Number(balance)
+    const row: unknown = Array.isArray(data) ? data[0] : data
+    return MonthlyFreeCreditClaimSchema.parse(row)
   },
 
   async setCreditBalance(userId: string, balance: number): Promise<number> {

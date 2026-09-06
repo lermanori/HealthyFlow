@@ -151,7 +151,6 @@ router.post('/signup', signupLimiter, async (req, res) => {
       await Waitlist.completeInviteSignup(authorization.inviteToken, user.id)
     }
 
-    const signupCredits = await Credits.grantSignupCredits(user.id)
     await Onboarding.seedNewUser(user.id)
     await recordLogin(user.id)
 
@@ -165,7 +164,6 @@ router.post('/signup', signupLimiter, async (req, res) => {
         authMethod: user.signup_method ?? 'password',
       },
       token,
-      signupCredits,
     })
   } catch (error) {
     if (publicSlotReserved && !accountCreated) {

@@ -1,7 +1,6 @@
 import request from 'supertest'
 import { app } from '../../src/index'
 import { db, supabase } from '../../src/supabase-client'
-import { Credits } from '../../src/credits'
 import { Onboarding } from '../../src/onboarding'
 import { Waitlist } from '../../src/waitlist'
 
@@ -27,7 +26,7 @@ jest.mock('../../src/supabase-client', () => ({
 
 jest.mock('../../src/credits', () => ({
   Credits: {
-    grantSignupCredits: jest.fn(),
+    getLaunchOffer: jest.fn(),
   },
 }))
 
@@ -45,7 +44,6 @@ jest.mock('../../src/waitlist', () => ({
 }))
 
 const mockDb = db as jest.Mocked<typeof db>
-const mockCredits = Credits as jest.Mocked<typeof Credits>
 const mockOnboarding = Onboarding as jest.Mocked<typeof Onboarding>
 const mockWaitlist = Waitlist as jest.Mocked<typeof Waitlist>
 const mockAuth = supabase.auth as jest.Mocked<typeof supabase.auth>
@@ -71,12 +69,6 @@ beforeEach(() => {
   } as never)
   mockDb.getUserByAppleSubject.mockResolvedValue(null)
   mockDb.getUserByEmail.mockResolvedValue(null)
-  mockCredits.grantSignupCredits.mockResolvedValue({
-    credits: 250,
-    cohort: 'founding',
-    balance: 250,
-    alreadyGranted: false,
-  })
   mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: true, via: 'public' })
   mockDb.releasePublicSignupSlot.mockResolvedValue(true)
   mockOnboarding.seedNewUser.mockResolvedValue({} as never)
@@ -104,7 +96,7 @@ describe('POST /api/auth/apple', () => {
     expect(mockWaitlist.authorizeSignup).not.toHaveBeenCalled()
   })
 
-  it('creates an Apple account with the native profile and grants onboarding once', async () => {
+  it('creates an Apple account with the native profile and seeds onboarding', async () => {
     mockDb.createUser.mockResolvedValue({
       id: 'new-apple-user',
       email: appleUser.email,
@@ -121,6 +113,7 @@ describe('POST /api/auth/apple', () => {
     expect(response.status).toBe(200)
     expect(response.body.user.authMethod).toBe('apple')
     expect(response.body.isNewUser).toBe(true)
+    expect(response.body.signupCredits).toBeUndefined()
     expect(mockDb.createUser).toHaveBeenCalledWith(expect.objectContaining({
       email: appleUser.email,
       name: 'Apple Person',
@@ -128,7 +121,6 @@ describe('POST /api/auth/apple', () => {
       signup_method: 'apple',
       claimed_public_signup_slot: true,
     }))
-    expect(mockCredits.grantSignupCredits).toHaveBeenCalledWith('new-apple-user')
     expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('new-apple-user')
   })
 
@@ -141,13 +133,6 @@ describe('POST /api/auth/apple', () => {
       signup_method: 'apple',
       apple_auth_subject: appleUser.id,
     })
-    mockCredits.grantSignupCredits.mockResolvedValue({
-      credits: 250,
-      cohort: 'founding',
-      balance: 250,
-      alreadyGranted: true,
-    })
-
     const response = await request(app)
       .post('/api/auth/apple')
       .send({ accessToken: 'supabase-access-token' })
@@ -196,6 +181,5 @@ describe('POST /api/auth/apple', () => {
 
     expect(response.status).toBe(403)
     expect(response.body.reason).toBe('account_disabled')
-    expect(mockCredits.grantSignupCredits).not.toHaveBeenCalled()
   })
 })

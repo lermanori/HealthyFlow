@@ -511,19 +511,10 @@ export interface CreditSummary {
   subscription: CreditSubscriptionState
 }
 
-export const SignupCreditGrantSchema = z.object({
-  credits: z.number().int().nonnegative(),
-  cohort: z.enum(['founding', 'standard']),
-  balance: z.number().int().nonnegative(),
-  alreadyGranted: z.boolean(),
-})
-export type SignupCreditGrant = z.infer<typeof SignupCreditGrantSchema>
-
 export const LaunchOfferSchema = z.object({
   foundingMemberLimit: z.number().int().positive(),
   /** Seats remaining at the founding PRICE. Not a credit tier (ADR-0012). */
   foundingMembersRemaining: z.number().int().nonnegative(),
-  welcomeCredits: z.number().int().positive(),
   monthlyFreeCredits: z.number().int().nonnegative(),
   foundingPriceUsd: z.number().positive(),
   regularPriceUsd: z.number().positive(),
@@ -554,14 +545,12 @@ const GuestSessionResponseSchema = z.object({
 const SignupResponseSchema = z.object({
   user: SessionUserSchema,
   token: z.string().min(1),
-  signupCredits: SignupCreditGrantSchema,
 })
 
 const ProviderSessionResponseSchema = z.object({
   user: SessionUserSchema,
   token: z.string().min(1),
   isNewUser: z.boolean(),
-  signupCredits: SignupCreditGrantSchema.optional(),
 })
 
 // Auth Service

@@ -23,9 +23,10 @@ jest.mock('../../src/supabase-client', () => ({
     upsertUserCreditSubscription: jest.fn(),
     reserveCredits: jest.fn(),
     grantCredits: jest.fn(),
-    claimSignupCreditGrant: jest.fn(),
-    getFoundingSignupCreditGrantCount: jest.fn(),
-    getSignupCreditGrant: jest.fn(),
+    claimMonthlyFreeCredits: jest.fn(),
+    getFoundingPriceMemberCount: jest.fn(),
+    sumAiCostUsdSince: jest.fn(),
+    countUserActionsSince: jest.fn(),
     grantSubscriptionCredits: jest.fn(),
     insertUsageLog: jest.fn(),
     setCreditBalance: jest.fn(),
@@ -59,8 +60,11 @@ beforeEach(() => {
     promo_active: true,
     updated_at: null,
   })
-  mockDb.getFoundingSignupCreditGrantCount.mockResolvedValue(0)
-  mockDb.getSignupCreditGrant.mockResolvedValue(null)
+  mockDb.getFoundingPriceMemberCount.mockResolvedValue(0)
+  mockDb.getUserCreditSubscription.mockResolvedValue(null)
+  mockDb.sumAiCostUsdSince.mockResolvedValue(0)
+  mockDb.countUserActionsSince.mockResolvedValue(0)
+  mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'already_granted', balance: 0 })
 })
 
 describe('Credits.reserve', () => {
@@ -277,9 +281,9 @@ describe('Credits.grant', () => {
   })
 })
 
-describe('launch signup credits', () => {
-  it('publishes the founding offer while founding grants remain', async () => {
-    mockDb.getFoundingSignupCreditGrantCount.mockResolvedValue(7)
+describe('launch offer', () => {
+  it('publishes the monthly allowance while founding Cloud seats remain', async () => {
+    mockDb.getFoundingPriceMemberCount.mockResolvedValue(7)
 
     const offer = await Credits.getLaunchOffer()
 
@@ -287,7 +291,6 @@ describe('launch signup credits', () => {
       foundingMemberLimit: 100,
       // Seats at the founding PRICE, not a credit tier (ADR-0012).
       foundingMembersRemaining: 93,
-      welcomeCredits: 50,
       monthlyFreeCredits: 15,
       foundingPriceUsd: 9,
       regularPriceUsd: 19,
@@ -303,38 +306,71 @@ describe('launch signup credits', () => {
     })
   })
 
-  it('grants the same welcome credits after the founding seats are gone', async () => {
-    // Founding is a Cloud PRICE, not a credit cohort (ADR-0012). Exhausting the
-    // seats changes what a subscription costs, never what a new account receives.
-    mockDb.getFoundingSignupCreditGrantCount.mockResolvedValue(100)
+  it('reports no founding Cloud seats after 100 discounted subscriptions', async () => {
+    mockDb.getFoundingPriceMemberCount.mockResolvedValue(100)
 
     const offer = await Credits.getLaunchOffer()
 
     expect(offer.foundingMembersRemaining).toBe(0)
-    expect(offer.welcomeCredits).toBe(Credits.WELCOME_CREDITS)
+    expect(offer.monthlyFreeCredits).toBe(15)
+    expect(offer).not.toHaveProperty('welcomeCredits')
+  })
+})
+
+describe('monthly free actions', () => {
+  const textInput = {
+    endpoint: 'parse-tasks',
+    model: 'gpt-4o-mini',
+    userPrompt: 'plan my day',
+  }
+
+  it('uses the atomic database result and then reserves the action', async () => {
+    mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'granted', balance: 15 })
+    mockDb.reserveCredits.mockResolvedValue(14)
+
+    const result = await Credits.authorizeAction('user-1', textInput)
+
+    expect(mockDb.claimMonthlyFreeCredits).toHaveBeenCalledWith('user-1', 15)
+    expect(result).toEqual({
+      ok: true,
+      actionClass: 'text',
+      credits: 1,
+      charged: 1,
+      coveredBy: 'balance',
+    })
   })
 
-  it('claims the idempotent signup grant through the database contract', async () => {
-    mockDb.claimSignupCreditGrant.mockResolvedValue({
-      credits: 50,
-      cohort: 'standard',
-      balance: 50,
-      alreadyGranted: false,
-    })
+  it('requires Claim before a Guest can use AI', async () => {
+    mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'not_claimed', balance: 0 })
 
-    const grant = await Credits.grantSignupCredits('user-1')
+    await expect(Credits.authorizeAction('guest-1', textInput)).resolves.toEqual({
+      ok: false,
+      code: 'account_required',
+    })
+    expect(mockDb.reserveCredits).not.toHaveBeenCalled()
+  })
 
-    expect(mockDb.claimSignupCreditGrant).toHaveBeenCalledWith('user-1', {
-      foundingMemberLimit: 100,
-      foundingCredits: 50,
-      standardCredits: 50,
+  it('uses the Cloud entitlement when the atomic result sees an active subscription', async () => {
+    mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'subscription_active', balance: 0 })
+
+    await expect(Credits.authorizeAction('cloud-1', textInput)).resolves.toEqual({
+      ok: true,
+      actionClass: 'text',
+      credits: 1,
+      charged: 0,
+      coveredBy: 'entitlement',
     })
-    expect(grant).toEqual({
-      credits: 50,
-      cohort: 'standard',
-      balance: 50,
-      alreadyGranted: false,
+    expect(mockDb.reserveCredits).not.toHaveBeenCalled()
+  })
+
+  it('surfaces an unavailable refill instead of charging an existing balance', async () => {
+    mockDb.claimMonthlyFreeCredits.mockRejectedValue(new Error('database unavailable'))
+
+    await expect(Credits.authorizeAction('user-1', textInput)).resolves.toEqual({
+      ok: false,
+      code: 'billing_unavailable',
     })
+    expect(mockDb.reserveCredits).not.toHaveBeenCalled()
   })
 })
 
@@ -399,14 +435,17 @@ describe('subscription pricing and grants', () => {
     expect(result.balance).toBe(100)
   })
 
-  it('keeps the $9 founding price for a first-100 account that subscribes later', async () => {
+  it('keeps the $9 founding price for an active founding subscription', async () => {
     mockDb.getCreditSubscriptionSettings.mockResolvedValue({ promo_active: false, updated_at: null })
-    mockDb.getSignupCreditGrant.mockResolvedValue({
+    mockDb.getFoundingPriceMemberCount.mockResolvedValue(100)
+    mockDb.getUserCreditSubscription.mockResolvedValue({
       user_id: 'user-1',
-      cohort: 'founding',
-      credits: 250,
-      balance_after: 250,
-      created_at: '2026-07-28T00:00:00.000Z',
+      active: true,
+      price_phase: 'promo',
+      monthly_credits: 0,
+      renewal_date: '2026-09-28',
+      last_monthly_grant_at: null,
+      updated_at: '2026-08-28T00:00:00.000Z',
     })
 
     const pricing = await Credits.getSubscriptionPricing('user-1')
@@ -415,8 +454,8 @@ describe('subscription pricing and grants', () => {
     expect(pricing.priceUsd).toBe(9)
   })
 
-  it('does not offer an unclassified legacy account the founding price after 100 grants', async () => {
-    mockDb.getFoundingSignupCreditGrantCount.mockResolvedValue(100)
+  it('does not offer a new account the founding price after 100 discounted subscriptions', async () => {
+    mockDb.getFoundingPriceMemberCount.mockResolvedValue(100)
 
     const pricing = await Credits.getSubscriptionPricing('legacy-user')
 
@@ -425,13 +464,6 @@ describe('subscription pricing and grants', () => {
   })
 
   it('uses the $19 regular price when a canceled founding subscription is reactivated', async () => {
-    mockDb.getSignupCreditGrant.mockResolvedValue({
-      user_id: 'user-1',
-      cohort: 'founding',
-      credits: 250,
-      balance_after: 250,
-      created_at: '2026-07-28T00:00:00.000Z',
-    })
     mockDb.getUserCreditSubscription.mockResolvedValue({
       user_id: 'user-1',
       active: false,

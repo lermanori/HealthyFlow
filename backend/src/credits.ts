@@ -41,8 +41,6 @@ export const TOP_UP_PRICE_USD = 5
 export const TOP_UP_CREDITS = 300
 export const FOUNDING_MEMBER_LIMIT = 100
 
-/** Original ADR-0016 welcome grant, removed by ADR-0017. */
-export const WELCOME_CREDITS = 50
 /** Refilled to a free account on its first action of a calendar month. */
 export const MONTHLY_FREE_CREDITS = 15
 
@@ -146,14 +144,6 @@ export class UnpricedModelError extends Error {
   }
 }
 
-export const SignupCreditGrantSchema = z.object({
-  credits: z.number().int().nonnegative(),
-  cohort: z.enum(['founding', 'standard']),
-  balance: z.number().int().nonnegative(),
-  alreadyGranted: z.boolean(),
-})
-export type SignupCreditGrant = z.infer<typeof SignupCreditGrantSchema>
-
 export const ActionPriceSchema = z.object({
   text: z.number().int().positive(),
   photo: z.number().int().positive(),
@@ -164,7 +154,6 @@ export const LaunchOfferSchema = z.object({
   foundingMemberLimit: z.number().int().positive(),
   /** Remaining seats at the founding *price*. Not a credit cohort (ADR-0012). */
   foundingMembersRemaining: z.number().int().nonnegative(),
-  welcomeCredits: z.number().int().positive(),
   monthlyFreeCredits: z.number().int().nonnegative(),
   foundingPriceUsd: z.number().positive(),
   regularPriceUsd: z.number().positive(),
@@ -195,6 +184,8 @@ export type BillingSettings = {
 /** Why an action was refused. Every one is a real, distinguishable cause. */
 export type ActionRefusal =
   | 'insufficient_credits'
+  | 'account_required'
+  | 'billing_unavailable'
   | 'account_daily_cap'
   | 'global_ceiling'
   | 'prompt_too_large'
@@ -521,7 +512,6 @@ export const Credits = {
   TOP_UP_PRICE_USD,
   TOP_UP_CREDITS,
   FOUNDING_MEMBER_LIMIT,
-  WELCOME_CREDITS,
   MONTHLY_FREE_CREDITS,
   SUB_TEXT_DAILY_CAP,
   SUB_PHOTO_MONTHLY_CAP,
@@ -535,29 +525,28 @@ export const Credits = {
   },
 
   async getSubscriptionPricing(userId?: string): Promise<SubscriptionPricing> {
-    const [settings, signupGrant, foundingMembersClaimed] = await Promise.all([
+    const [settings, subscription, foundingMembersClaimed] = await Promise.all([
       db.getCreditSubscriptionSettings(),
-      userId ? db.getSignupCreditGrant(userId) : Promise.resolve(null),
-      db.getFoundingSignupCreditGrantCount(),
+      userId ? db.getUserCreditSubscription(userId) : Promise.resolve(null),
+      db.getFoundingPriceMemberCount(),
     ])
 
     const foundingOfferAvailable =
       (settings?.promo_active ?? true) &&
       foundingMembersClaimed < FOUNDING_MEMBER_LIMIT
-    const promoActive = signupGrant
-      ? signupGrant.cohort === 'founding'
+    const promoActive = subscription
+      ? subscription.active && subscription.price_phase === 'promo'
       : foundingOfferAvailable
 
     return normalizeSubscriptionPricing(settings, promoActive)
   },
 
   async getLaunchOffer(): Promise<LaunchOffer> {
-    const foundingMembersClaimed = await db.getFoundingSignupCreditGrantCount()
+    const foundingMembersClaimed = await db.getFoundingPriceMemberCount()
     const foundingMembersRemaining = Math.max(FOUNDING_MEMBER_LIMIT - foundingMembersClaimed, 0)
     return LaunchOfferSchema.parse({
       foundingMemberLimit: FOUNDING_MEMBER_LIMIT,
       foundingMembersRemaining,
-      welcomeCredits: WELCOME_CREDITS,
       monthlyFreeCredits: MONTHLY_FREE_CREDITS,
       foundingPriceUsd: PROMO_PRICE_USD,
       regularPriceUsd: REGULAR_PRICE_USD,
@@ -574,42 +563,14 @@ export const Credits = {
   },
 
   /**
-   * The welcome grant. Every account receives the same amount: "founding" is a
-   * Cloud price, not a credit cohort (ADR-0012), and the cohort branch that used
-   * to award 250 and burn a founding seat must not be reached from here.
+   * Grants a claimed free account MONTHLY_FREE_CREDITS on its first AI action of
+   * the calendar month. The RPC owns identity, subscription and month eligibility
+   * as one atomic decision, and writes the grant and its ledger row together.
+   * Failures throw so callers cannot mistake an unavailable refill for an
+   * already-claimed one (ADR-0017).
    */
-  async grantSignupCredits(userId: string): Promise<SignupCreditGrant> {
-    const result = await db.claimSignupCreditGrant(userId, {
-      foundingMemberLimit: FOUNDING_MEMBER_LIMIT,
-      foundingCredits: WELCOME_CREDITS,
-      standardCredits: WELCOME_CREDITS,
-    })
-    return SignupCreditGrantSchema.parse(result)
-  },
-
-  /**
-   * Tops a free account back up to MONTHLY_FREE_CREDITS worth of headroom once per
-   * calendar month, so the hook never fully dies (TARGET.md, Money). Lazy on
-   * purpose: no scheduler to babysit, and a month nobody opened the app costs
-   * nothing. Never throws — a refill that fails must not fail the action behind it.
-   */
-  async applyMonthlyFreeRefill(userId: string): Promise<number | null> {
-    try {
-      const subscription = await db.getUserCreditSubscription(userId)
-      if (subscription?.active) return null
-      const granted = await db.claimMonthlyFreeCredits(userId, MONTHLY_FREE_CREDITS)
-      if (granted === null) return null
-      await db.insertUsageLog({
-        user_id: userId,
-        credits_delta: MONTHLY_FREE_CREDITS,
-        reason: 'monthly_free_refill',
-        balance_after: granted,
-      })
-      return granted
-    } catch (error) {
-      console.error('Monthly free refill failed:', error)
-      return null
-    }
+  async applyMonthlyFreeRefill(userId: string) {
+    return db.claimMonthlyFreeCredits(userId, MONTHLY_FREE_CREDITS)
   },
 
   async updateSubscriptionPricing(input: { promoActive: boolean }): Promise<SubscriptionPricing> {
@@ -667,14 +628,23 @@ export const Credits = {
       return { ok: false, code: 'account_daily_cap' }
     }
 
-    const subscription = await db.getUserCreditSubscription(userId)
-    if (subscription?.active) {
+    let accountState: Awaited<ReturnType<typeof db.claimMonthlyFreeCredits>>
+    try {
+      accountState = await this.applyMonthlyFreeRefill(userId)
+    } catch (error) {
+      console.error('Monthly free refill eligibility is unavailable:', error)
+      return { ok: false, code: 'billing_unavailable' }
+    }
+
+    if (accountState.status === 'not_claimed') {
+      return { ok: false, code: 'account_required' }
+    }
+
+    if (accountState.status === 'subscription_active') {
       const covered = await this.entitlementCovers(userId, actionClass, actionsToday)
       if (covered) {
         return { ok: true, actionClass, credits, charged: 0, coveredBy: 'entitlement' }
       }
-    } else {
-      await this.applyMonthlyFreeRefill(userId)
     }
 
     const reserved = await this.reserve(userId, credits)

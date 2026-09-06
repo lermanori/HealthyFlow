@@ -46,32 +46,121 @@ ALTER TABLE user_credits
 COMMENT ON COLUMN user_credits.last_free_refill_month IS
   'First day of the calendar month in which this account last received MONTHLY_FREE_CREDITS. NULL means never. Only free accounts are refilled.';
 
--- Atomic claim: the WHERE clause is the lock. Two devices opening the app in the
--- same second cannot both be granted, because the second UPDATE matches no row and
--- returns nothing — which the caller reads as "already claimed", not as an error.
-CREATE OR REPLACE FUNCTION claim_monthly_free_credits(p_user_id UUID, p_credits INT)
-RETURNS TABLE (balance INTEGER) LANGUAGE sql AS $$
-  UPDATE user_credits
-  SET balance = user_credits.balance + p_credits,
-      topup_balance = user_credits.topup_balance + p_credits,
-      last_free_refill_month = date_trunc('month', now())::date,
-      updated_at = now()
-  WHERE user_id = p_user_id
-    AND (last_free_refill_month IS NULL
-         OR last_free_refill_month < date_trunc('month', now())::date)
-  RETURNING user_credits.balance;
+-- The RPC resolves all four meaningful states explicitly. The upsert predicate is
+-- the eligibility gate itself, so identity, subscription and month cannot drift
+-- between a TypeScript read and the write. The attempted AI action is the activity
+-- check: no scheduler calls this for dormant rows (ADR-0017).
+DROP FUNCTION IF EXISTS claim_monthly_free_credits(UUID, INT);
+
+CREATE FUNCTION claim_monthly_free_credits(p_user_id UUID, p_credits INT)
+RETURNS TABLE (status TEXT, balance INTEGER)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  account_claimed BOOLEAN;
+  active_subscription BOOLEAN;
+  claimed_balance INTEGER;
+  current_balance INTEGER;
+  refill_month DATE := date_trunc('month', now())::date;
+BEGIN
+  IF p_credits <= 0 THEN
+    RAISE EXCEPTION 'Monthly free credit amount must be positive';
+  END IF;
+
+  INSERT INTO user_credits (
+    user_id,
+    balance,
+    subscription_balance,
+    topup_balance,
+    last_free_refill_month,
+    updated_at
+  )
+  SELECT p_user_id, p_credits, 0, p_credits, refill_month, now()
+    FROM users
+   WHERE users.id = p_user_id
+     AND users.email IS NOT NULL
+     AND NOT EXISTS (
+       SELECT 1
+         FROM user_credit_subscriptions
+        WHERE user_credit_subscriptions.user_id = p_user_id
+          AND user_credit_subscriptions.active = TRUE
+     )
+  ON CONFLICT (user_id) DO UPDATE
+    SET balance = user_credits.balance + p_credits,
+        topup_balance = user_credits.topup_balance + p_credits,
+        last_free_refill_month = refill_month,
+        updated_at = now()
+    WHERE (user_credits.last_free_refill_month IS NULL
+           OR user_credits.last_free_refill_month < refill_month)
+      AND EXISTS (
+        SELECT 1 FROM users
+         WHERE users.id = p_user_id
+           AND users.email IS NOT NULL
+      )
+      AND NOT EXISTS (
+        SELECT 1
+          FROM user_credit_subscriptions
+         WHERE user_credit_subscriptions.user_id = p_user_id
+           AND user_credit_subscriptions.active = TRUE
+      )
+  RETURNING user_credits.balance INTO claimed_balance;
+
+  IF claimed_balance IS NOT NULL THEN
+    INSERT INTO ai_usage_log (
+      user_id,
+      credits_delta,
+      reason,
+      balance_before,
+      balance_after
+    )
+    VALUES (
+      p_user_id,
+      p_credits,
+      'monthly_free_refill',
+      claimed_balance - p_credits,
+      claimed_balance
+    );
+
+    RETURN QUERY SELECT 'granted'::TEXT, claimed_balance;
+    RETURN;
+  END IF;
+
+  SELECT users.email IS NOT NULL,
+         EXISTS (
+           SELECT 1
+             FROM user_credit_subscriptions
+            WHERE user_credit_subscriptions.user_id = p_user_id
+              AND user_credit_subscriptions.active = TRUE
+         ),
+         COALESCE(user_credits.balance, 0)
+    INTO account_claimed, active_subscription, current_balance
+    FROM users
+    LEFT JOIN user_credits ON user_credits.user_id = users.id
+   WHERE users.id = p_user_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'HealthyFlow user does not exist';
+  END IF;
+
+  IF NOT account_claimed THEN
+    RETURN QUERY SELECT 'not_claimed'::TEXT, current_balance;
+  ELSIF active_subscription THEN
+    RETURN QUERY SELECT 'subscription_active'::TEXT, current_balance;
+  ELSE
+    RETURN QUERY SELECT 'already_granted'::TEXT, current_balance;
+  END IF;
+END;
 $$;
 
--- ── 3. the signup grant stops branching on a cohort ──────────────────────────
---
--- claim_signup_credit_grant awarded 250 credits and burned one of 100 founding
--- seats while any remained. ADR-0012 already decided that founding is a Cloud
--- PRICE rather than a credit cohort, and that this branch must not be reached.
--- The function keeps its signature — callers pass the same shape — but both
--- branches now award the same amount, so no seat is consumed by a credit grant.
---
--- The cohort column is left in place and keeps recording which cohort an account
--- would have belonged to; it is history, and the founding *price* counter is being
--- rebuilt on top of it rather than beside it.
+REVOKE ALL ON FUNCTION claim_monthly_free_credits(UUID, INT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION claim_monthly_free_credits(UUID, INT) TO service_role;
+
+-- ── 3. retire the signup grant ───────────────────────────────────────────────
+-- ADR-0017 removed the welcome grant. Historical rows stay queryable, but there
+-- is no longer an executable application path that can create another one.
+DROP FUNCTION IF EXISTS claim_signup_credit_grant(UUID, INTEGER, INTEGER, INTEGER);
+
 COMMENT ON TABLE signup_credit_grants IS
-  'One row per account that received its welcome credits. ADR-0016 made the cohort column historical: founding is a Cloud price, not a credit tier. ADR-0017 subsequently removed the welcome grant.';
+  'Historical welcome-credit grants. ADR-0017 removed this grant; founding now describes a discounted Cloud subscription price, not a credit tier.';

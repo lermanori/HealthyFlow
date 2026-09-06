@@ -248,6 +248,8 @@ async function proposalSnapshot(
 /** What a refused Talk stage tells the user. One message per real cause. */
 const TALK_REFUSAL_MESSAGE: Record<string, string> = {
   insufficient_credits: 'You are out of AI credits.',
+  account_required: 'Create a free account to use AI.',
+  billing_unavailable: 'AI billing is temporarily unavailable. Your credits were not charged.',
   account_daily_cap: 'This account has reached its daily AI limit. It resets tomorrow.',
   global_ceiling: 'AI is paused for today while we check unusual usage. Your day is unaffected.',
   prompt_too_large: 'This conversation is too long to continue. Start a new one.',
