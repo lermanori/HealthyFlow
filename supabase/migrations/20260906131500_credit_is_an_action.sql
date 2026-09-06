@@ -1,4 +1,6 @@
 -- ADR-0016 — a credit is an action, not a unit of cost.
+-- Assigned a unique migration version on 2026-09-06; the original branch had
+-- reused 20260826120000, which already belongs to add_goals on the linked DB.
 --
 -- Two things happen here, and they are the same thing: the ledger learns to record
 -- PRICE and COST as separate quantities, and the free monthly allowance gets an
