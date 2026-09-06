@@ -1,3 +1,12 @@
+### 2026-09-06 20:48 — `codex/fix-capacitor-spm-paths`
+
+Brought the isolated Capacitor Swift-package path correction onto current `main`
+after the free-v1 launch plan and pricing migration landed, preserving both ledger
+histories. The package correction remains the branch's only product change and is
+ready for a fresh Swift manifest validation before review.
+
+---
+
 ### 2026-09-06 20:40 — `docs/v1-launch-plan`
 
 Brought the free-v1 launch plan branch forward to current `main` after PR #227
@@ -37,6 +46,12 @@ Finished the safe reconciliation of action pricing: signup no longer grants Cred
 ### 2026-09-06 14:36 — `codex/216-reconcile-action-pricing`
 
 Ported the action-based pricing implementation from its stranded branch onto current main without reviving the deleted AI analyzer or overwriting newer launch work. Renumbered the decision as ADR-0016 and recorded the later no-welcome, account-gated monthly allowance in ADR-0017; both typechecks and 58 focused pricing/ledger tests pass. This is a branch-only checkpoint and is deliberately not merge-ready until the welcome grant, refill eligibility and explicit failure semantics are made to follow ADR-0017.
+
+---
+
+### 2026-09-06 14:05 — `codex/fix-capacitor-spm-paths`
+
+Restored the generated Capacitor Swift package's local plugin paths after a sync from a nested worktree had committed paths that climb outside the repository. Swift Package Manager now resolves all ten Capacitor plugins from this checkout's root `node_modules`, and the manifest dump succeeds. This correction is isolated from the launch-pricing work.
 
 ---
 
