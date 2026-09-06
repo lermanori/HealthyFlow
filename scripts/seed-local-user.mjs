@@ -4,8 +4,8 @@
  *
  * A fresh `supabase db reset` leaves zero users, so there is nothing to log in
  * with. This goes through the real signup endpoint rather than inserting a row,
- * because signup also grants signup credits, seeds onboarding state and claims a
- * public signup slot — a hand-inserted user is missing all three and fails in
+ * because signup also seeds onboarding state and claims a public signup slot — a
+ * hand-inserted user is missing both and fails in
  * confusing ways later.
  *
  *   node scripts/seed-local-user.mjs
@@ -68,7 +68,7 @@ if (res.status === 409) {
   }
   process.exit(1)
 } else {
-  console.log(`Created ${email} (${body.signupCredits ?? 0} signup credits)`)
+  console.log(`Created ${email}`)
 }
 
 if (makeAdmin) {

@@ -463,14 +463,21 @@ export const AdminUserAuditEntrySchema = z.object({
 })
 export type AdminUserAuditEntry = z.infer<typeof AdminUserAuditEntrySchema>
 
+/** One credit is one action; these are the three prices (ADR-0016). */
+export const ActionPriceSchema = z.object({
+  text: z.number().int().positive(),
+  photo: z.number().int().positive(),
+  premium: z.number().int().positive(),
+})
+export type ActionPrice = z.infer<typeof ActionPriceSchema>
+
 export const CreditSubscriptionPricingSchema = z.object({
   promoActive: z.boolean(),
   phase: z.enum(['promo', 'regular']),
   priceUsd: z.number().positive(),
-  monthlyCredits: z.number().int().positive(),
-  sellCreditsPerUsd: z.number().positive(),
   topUpPriceUsd: z.number().positive(),
   topUpCredits: z.number().int().positive(),
+  actionPrice: ActionPriceSchema,
   foundingMemberLimit: z.number().int().positive(),
   updatedAt: z.string().nullable().optional(),
 })
@@ -490,30 +497,36 @@ export interface CreditSummary {
   subscriptionBalance: number
   topupBalance: number
   usedThisMonth: number
-  monthlyGrantUsed: number
+  /**
+   * What Cloud covered this month on the capped classes. A subscriber has no
+   * credit allowance to report — the subscription stopped selling credits.
+   */
+  entitlementUsed: {
+    photo: number
+    premium: number
+    photoCap: number
+    premiumCap: number
+  }
   pricing: CreditSubscriptionPricing
   subscription: CreditSubscriptionState
 }
 
-export const SignupCreditGrantSchema = z.object({
-  credits: z.number().int().nonnegative(),
-  cohort: z.enum(['founding', 'standard']),
-  balance: z.number().int().nonnegative(),
-  alreadyGranted: z.boolean(),
-})
-export type SignupCreditGrant = z.infer<typeof SignupCreditGrantSchema>
-
 export const LaunchOfferSchema = z.object({
   foundingMemberLimit: z.number().int().positive(),
+  /** Seats remaining at the founding PRICE. Not a credit tier (ADR-0012). */
   foundingMembersRemaining: z.number().int().nonnegative(),
-  onboardingCredits: z.number().int().positive(),
-  foundingOnboardingCredits: z.number().int().positive(),
-  standardOnboardingCredits: z.number().int().positive(),
+  monthlyFreeCredits: z.number().int().nonnegative(),
   foundingPriceUsd: z.number().positive(),
   regularPriceUsd: z.number().positive(),
-  monthlyCredits: z.number().int().positive(),
   topUpPriceUsd: z.number().positive(),
   topUpCredits: z.number().int().positive(),
+  actionPrice: ActionPriceSchema,
+  subscriptionIncludes: z.object({
+    unlimitedText: z.literal(true),
+    textDailyCap: z.number().int().positive(),
+    photoMonthly: z.number().int().positive(),
+    premiumMonthly: z.number().int().positive(),
+  }),
 })
 export type LaunchOffer = z.infer<typeof LaunchOfferSchema>
 
@@ -532,14 +545,12 @@ const GuestSessionResponseSchema = z.object({
 const SignupResponseSchema = z.object({
   user: SessionUserSchema,
   token: z.string().min(1),
-  signupCredits: SignupCreditGrantSchema,
 })
 
 const ProviderSessionResponseSchema = z.object({
   user: SessionUserSchema,
   token: z.string().min(1),
   isNewUser: z.boolean(),
-  signupCredits: SignupCreditGrantSchema.optional(),
 })
 
 // Auth Service

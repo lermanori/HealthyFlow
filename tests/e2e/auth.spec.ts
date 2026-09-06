@@ -2,6 +2,23 @@ import { test, expect } from './fixtures/ai-stubs'
 import { TEST_EMAIL, TEST_NAME, TEST_PASSWORD } from './globalSetup'
 import { API_ORIGIN } from './apiBase'
 
+const launchOffer = {
+  foundingMemberLimit: 100,
+  foundingMembersRemaining: 100,
+  monthlyFreeCredits: 15,
+  foundingPriceUsd: 9,
+  regularPriceUsd: 19,
+  topUpPriceUsd: 5,
+  topUpCredits: 300,
+  actionPrice: { text: 1, photo: 5, premium: 10 },
+  subscriptionIncludes: {
+    unlimitedText: true,
+    textDailyCap: 100,
+    photoMonthly: 100,
+    premiumMonthly: 50,
+  },
+}
+
 test.describe('unauthenticated flows', () => {
   // ponytail: clear storageState so tests in this block start unauthenticated
   test.use({ storageState: { cookies: [], origins: [] } })
@@ -23,18 +40,7 @@ test.describe('unauthenticated flows', () => {
       json: {
         mode: 'open',
         remaining: 100,
-        offer: {
-          foundingMemberLimit: 100,
-          foundingMembersRemaining: 100,
-          onboardingCredits: 250,
-          foundingOnboardingCredits: 250,
-          standardOnboardingCredits: 50,
-          foundingPriceUsd: 9,
-          regularPriceUsd: 19,
-          monthlyCredits: 500,
-          topUpPriceUsd: 5,
-          topUpCredits: 250,
-        },
+        offer: launchOffer,
       },
     }))
 
@@ -52,12 +58,6 @@ test.describe('unauthenticated flows', () => {
         json: {
           user: sharedSession.user,
           token: sharedSession.token,
-          signupCredits: {
-            credits: 250,
-            cohort: 'founding',
-            balance: 250,
-            alreadyGranted: false,
-          },
         },
       })
     })
@@ -74,7 +74,7 @@ test.describe('unauthenticated flows', () => {
       .getByRole('button', { name: 'Create account', exact: true })
       .click()
 
-    await expect(page.getByText('Account created with 250 AI credits. Welcome to HealthyFlow.')).toBeVisible()
+    await expect(page.getByText('Account created. Welcome to HealthyFlow.')).toBeVisible()
     await expect.poll(() => page.evaluate(() => localStorage.getItem('token'))).toBe(sharedSession.token)
     expect(submitted).toEqual({
       email: candidateEmail,
@@ -116,18 +116,7 @@ test.describe('unauthenticated flows', () => {
       json: {
         mode: 'waitlist',
         remaining: 0,
-        offer: {
-          foundingMemberLimit: 100,
-          foundingMembersRemaining: 100,
-          onboardingCredits: 250,
-          foundingOnboardingCredits: 250,
-          standardOnboardingCredits: 50,
-          foundingPriceUsd: 9,
-          regularPriceUsd: 19,
-          monthlyCredits: 500,
-          topUpPriceUsd: 5,
-          topUpCredits: 250,
-        },
+        offer: launchOffer,
       },
     }))
 
@@ -151,18 +140,7 @@ test.describe('unauthenticated flows', () => {
       json: {
         mode: 'waitlist',
         remaining: 0,
-        offer: {
-          foundingMemberLimit: 100,
-          foundingMembersRemaining: 100,
-          onboardingCredits: 250,
-          foundingOnboardingCredits: 250,
-          standardOnboardingCredits: 50,
-          foundingPriceUsd: 9,
-          regularPriceUsd: 19,
-          monthlyCredits: 500,
-          topUpPriceUsd: 5,
-          topUpCredits: 250,
-        },
+        offer: launchOffer,
       },
     }))
 
@@ -228,15 +206,19 @@ test.describe('unauthenticated flows', () => {
           },
           token: 'healthyflow-jwt',
           isNewUser: true,
-          signupCredits: {
-            credits: 250,
-            cohort: 'founding',
-            balance: 250,
-            alreadyGranted: false,
-          },
         },
       })
     })
+    await page.route('**/api/account/export', (route) => route.fulfill({
+      json: {
+        account: { email: 'google@example.com' },
+        items: [],
+        habitProgress: [],
+        goals: [],
+        settings: [],
+        health: {},
+      },
+    }))
 
     await page.goto('/app?oauth=callback&code=auth-code')
 

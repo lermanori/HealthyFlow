@@ -15,6 +15,7 @@ import {
 } from '../workouts'
 import { generateWorkoutPlanWithAi } from '../openai'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
+import { AI_REFUSAL_STATUS } from './ai'
 
 const router = express.Router()
 
@@ -42,14 +43,9 @@ router.post('/plans/generate', authenticateToken, async (req: AuthRequest, res) 
       intent: parsed.data.intent,
     })
     if (result.ok) return res.json(result.value)
-    if (result.code === 'insufficient_credits') {
-      return res.status(402).json({ error: 'Insufficient AI tokens', code: 'insufficient_credits' })
-    }
-    if (result.code === 'unpriced_model') {
-      return res.status(500).json({ error: 'AI model pricing is not configured', code: 'unpriced_model' })
-    }
-    if (result.code === 'billing_error') {
-      return res.status(500).json({ error: 'AI billing failed', code: 'billing_error' })
+    const refusalStatus = AI_REFUSAL_STATUS[result.code]
+    if (refusalStatus) {
+      return res.status(refusalStatus).json({ error: result.message, code: result.code })
     }
     return res.status(500).json({ error: 'Could not generate workout plan', code: 'ai_generation_failed' })
   } catch (err) {

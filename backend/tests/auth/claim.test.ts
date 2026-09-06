@@ -2,7 +2,6 @@ import request from 'supertest'
 import jwt from 'jsonwebtoken'
 import { app } from '../../src/index'
 import { db, supabase } from '../../src/supabase-client'
-import { Credits } from '../../src/credits'
 import { Onboarding } from '../../src/onboarding'
 import { Waitlist } from '../../src/waitlist'
 
@@ -23,7 +22,7 @@ jest.mock('../../src/supabase-client', () => ({
 }))
 
 jest.mock('../../src/credits', () => ({
-  Credits: { grantSignupCredits: jest.fn() },
+  Credits: { getLaunchOffer: jest.fn() },
 }))
 
 jest.mock('../../src/onboarding', () => ({
@@ -38,7 +37,6 @@ const mockDb = db as jest.Mocked<typeof db>
 const mockSupabaseAuth = (supabase as unknown as {
   auth: { getUser: jest.Mock }
 }).auth
-const mockCredits = Credits as jest.Mocked<typeof Credits>
 const mockOnboarding = Onboarding as jest.Mocked<typeof Onboarding>
 const mockWaitlist = Waitlist as jest.Mocked<typeof Waitlist>
 
@@ -141,8 +139,8 @@ describe('POST /api/auth/claim', () => {
     expect(response.body.reason).toBe('not_a_guest')
   })
 
-  it('takes no signup slot and no founding seat', async () => {
-    await request(app)
+  it('takes no signup slot and returns no welcome grant', async () => {
+    const response = await request(app)
       .post('/api/auth/claim')
       .set('Authorization', `Bearer ${guestToken()}`)
       .send({ email: 'someone@example.com', password: 'a-good-password', name: 'Someone' })
@@ -150,7 +148,7 @@ describe('POST /api/auth/claim', () => {
     // Entry is open (ADR-0012). Both of these were previously true of every
     // account-creating path, so they are asserted rather than assumed.
     expect(mockWaitlist.authorizeSignup).not.toHaveBeenCalled()
-    expect(mockCredits.grantSignupCredits).not.toHaveBeenCalled()
+    expect(response.body.signupCredits).toBeUndefined()
   })
 
   it('does not seed onboarding, because settings are day data', async () => {
