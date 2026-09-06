@@ -29,6 +29,7 @@ These pairs look interchangeable and are not. Every one has caused a real mix-up
 | **Talk composer** / **record field** / **proposal editor** | The *Talk composer* is the only free-form input sent to AI. A *record field* deterministically edits user-owned data (including Goal context and form dictation). A *proposal editor* changes a pending write before confirmation. Textareas in the latter two are not second AI surfaces. See `docs/architecture/talk.md`. |
 | **Claim** / **Sign in** | Both take a Guest to an account, and they are opposites. *Claim* converts the Guest's **own** row — one identity, nothing moves, nothing can be lost. *Sign in* abandons that row for an account that **already exists** — two identities, the day travels, and the guest row's credits are forfeit. Never say "sign up" for either. |
 | **Credit** / **app token** | A *Credit* is what a user spends: one action, priced at 1, 5 or 10 (ADR-0016). An *app token* is the internal cost unit — one milli-dollar of OpenAI spend, `APP_TOKENS_PER_USD`. They are different currencies in the same ledger row and were the same number until 2026-08-26. Never price anything in app tokens. |
+| **Founders Club** / **Founding price** | *Founders Club* is the group of early users with a direct line to the founder for feedback or discretionary extra free actions. A *Founding price* is the capped future discount on Cloud. Membership grants no price, and a price grants no membership. |
 | **User setting** / **release flag** | A *setting* is the user's choice and hides a section for that account. A *flag* is the project's choice and hides a surface from everyone. Work has no setting and is behind a flag. |
 
 ## Words that do not mean what they look like
@@ -130,11 +131,13 @@ their device day or discard it, and **the guest row's credit balance is forfeit*
 said plainly before they do it.
 
 **Guest** — someone using the app with no account. Their day is real and their
-own; nothing expires and nothing is withheld. Their **Local day** lives on one
-device, and their `users` row on the server holds identity and a credit balance
-and nothing else. _Avoid_: confusing a Guest with a **demo persona** — a persona
-is seeded, shared and disposable, a Guest's day is theirs. Not a "trial" either:
-guest mode does not run out.
+own; nothing in the day expires or is withheld. Their **Local day** lives on one
+device, and their `users` row on the server holds identity, a credit balance and
+the once-ever Guest-grant marker—nothing from the day. A Guest receives ten AI
+actions once (ADR-0018); those actions can run out, but the day and Guest mode do
+not. _Avoid_: confusing a Guest with a **demo persona**—a persona is seeded,
+shared and disposable, a Guest's day is theirs. Not a "trial" either: exhausting
+AI does not end or restrict the Local day.
 
 ## Words we refuse
 

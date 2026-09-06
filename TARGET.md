@@ -138,7 +138,7 @@ nothing about itself.
 ### The decision this must also answer
 
 The Money section accepts a risk and names what would reverse it: people who
-exhaust their credits stopping rather than continuing manually. That is
+exhaust their actions stopping rather than continuing manually. That is
 measurable — `credits_exhausted`, followed by whether `item_created` with
 `source: manual` keeps happening. **Make sure it stays measurable**, because it
 is the trigger for a pricing change.
@@ -153,68 +153,61 @@ listing people can install from. Everything else queues behind it.
 experience the iPhone app gives. Someone should be able to start on either
 surface without being asked for anything.
 
-**Cross-device is the paid product.** Everyone is single-device by nature — the
-day lives on the device it was created on, because that is where the data is. The
-same day appearing on the phone *and* the web is what **subscribing** buys;
-signing up on its own buys a recoverable identity and the ability to spend money,
-not a second device. Backup falls out of the subscription; cross-device is the
-thing being sold.
+**Later: cross-device is the paid product.** Everyone is single-device by nature —
+the day lives on the device it was created on, because that is where the data is.
+The same day appearing on the phone *and* the web is what a future Cloud
+subscription buys. v1 has no Cloud entitlement or purchase path: Claim adds an
+account identity and recurring free actions, not backup or a second device.
 
 ## Money
 
 **The app is free, works offline, and needs no account.** That is not a trial —
 nothing expires, and no part of the day itself is withheld.
 
-**We sell the day on every device, and Claim gives a small taste of the hook away.**
-This reverses what this section said until 2026-08-26, and it was measurement that
-reversed it: at the models this product calls, a text action costs **$0.0003** to
-serve. Effortless input is the thing people value most; it is *not* the thing that
-costs us money, and pricing it as though it were made the paid tier run out for
-exactly the daily user this product is built for. See ADR-0016 and ADR-0017.
+**v1 is free and has no purchase rail** (ADR-0019). Nothing can be bought, nobody
+can hold Cloud, and the app contains no price, Subscribe button, Buy button,
+StoreKit product, RevenueCat SDK, or external checkout. The Local day remains a
+real product without either an account or money.
 
-What survives unchanged is the shape of the promise:
+**Gap recorded 2026-09-06:** the current Settings and administration surfaces
+still carry paid-plan controls. Removing every v1 acquisition/grant path is #233;
+until it lands, those controls describe a product the release refuses.
 
-> **Free is a good planner. Paid is an effortless one — on every device.**
+The free entitlement is deliberately concrete:
 
-A Guest gets the whole day and no AI. Claim adds a recoverable identity and a small
-monthly AI allowance, so the hook can be tried without making it the price of entry.
-Beyond that someone types manually, buys a pack, or subscribes to Cloud. The day
-itself remains a real product without either an account or money.
+| Identity | AI actions | Recurs? | Cloud |
+|---|---:|---|---|
+| **Guest** | 10 | Once | No |
+| **Claimed account** | 15 | Each calendar month | No |
 
-**The risk this accepts:** a free user who exhausts a month's allowance still feels a
-boundary. It is a far smaller boundary than before — the monthly refill exists
-precisely so the hook survives it — and it is watched rather than assumed.
+Both grants are lazy: the attempted AI action is the activity check, so opening
+the app stays offline and dormant rows cost nothing. Claim adds no welcome grant,
+but it converts the Guest row in place: unused Guest actions survive, and the
+account's monthly allowance remains independently eligible. See ADR-0017 and
+ADR-0018.
 
-**A credit is one action, not a unit of cost** (ADR-0016). Text costs 1, a photo 5, a
-premium model 10. Two things are sold, and they are **separate products** with separate
-economics (ADR-0012):
+When someone needs more, **Founders Club** is the direct line to ask. Any extra
+actions are a discretionary free grant, not a sale, subscription, or promise.
+Founders Club is an early-user relationship; it is not the future Founding price.
 
-| | Type | What it buys | Capped? |
-|---|---|---|---|
-| **Credits** | Consumable | Actions. Sold in packs, never expiring | No. Anyone may buy any pack |
-| **Cloud** | Subscription | **Your day on every device**, plus text AI without a balance. Backup falls out of it | The founders' discount is. Photo and premium actions are |
+**A credit is one action, not a unit of cost** (ADR-0016). Text costs 1, a photo
+5, and a premium model 10. Product copy says *actions*; Credit remains the ledger
+noun. v1 provides Credits but does not sell them.
 
-**The iPhone launch rail is Apple In-App Purchase through RevenueCat
-(ADR-0015).** Apple takes the payment; RevenueCat brokers verified purchase and
-subscription state; HealthyFlow's backend remains authoritative for access and
-credit balances. The launch app does not steer to web checkout. Lemon Squeezy is
-deferred until the web is a demonstrated acquisition surface, and Android is
-not a launch target.
+**The later paid shape is preserved, not launched.** Cloud will sell the day on
+every device and a separate consumable will sell non-expiring action packs
+(ADR-0012). Apple In-App Purchase through RevenueCat remains the accepted v1.1
+rail (ADR-0015); issues #222–#224 are deferred until after the free release.
+Nothing from that rail belongs in v1.
 
-**Entry is open.** Creating an account takes no seat and meets no waitlist —
-neither for someone arriving cold, nor for a Guest who has been using the app and
-now wants to pay. Guest mode removed the wall at the front door; putting one at the
-till would be worse, because it is aimed at the person who already decided.
+**Entry is open.** Claim takes no seat and meets no waitlist, whether someone
+arrives cold or begins as a Guest. It exists to keep one identity and unlock the
+monthly allowance, not to open a till.
 
-**Scarcity attaches to what is sold.** The founders' discount on Cloud is capped,
-and that cap is the cost-control dial. "Founding" is a *price*, not a credit
-cohort — a distinction that did not exist before and that the code still needs to
-learn.
-
-**There is no welcome grant.** Claim itself adds zero actions. A claimed free account
-receives `MONTHLY_FREE_CREDITS = 15` on its first eligible AI action each calendar
-month; a Guest never receives the allowance. The lazy grant is the activity check, so
-dormant rows cost nothing and app opening remains offline and ungated. See ADR-0017.
+**The risk this accepts:** a free user who exhausts an allowance still feels a
+boundary. The day continues manually, and the inline refusal offers Claim where
+eligible or Founders Club. Whether people continue manually is measured rather
+than assumed.
 
 ## What we refuse
 
