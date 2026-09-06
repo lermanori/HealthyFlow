@@ -1,3 +1,18 @@
+### 2026-09-06 18:29 — `docs/v1-launch-plan`
+
+Assessed how close the product is to launching and found the answer was not the
+product: every check is green and production is live, while each remaining blocker
+was commercial-operational wall clock nobody had started. The founder chose to ship
+v1 to the App Store free with no purchase rail and add Apple IAP in a later version,
+which takes #222-#224 off the critical path — DSA trader status excepted, since a
+free app still needs it for EU distribution. Recorded the whole decision as one
+dated plan: a Guest gets 10 actions once, a claimed account 15 every month, Cloud
+cannot be held, and the Founders Club is the direct line for more. Nothing on either
+lane moves until PR #227 merges and the pricing migration reaches production, which
+`main` currently requires and does not have.
+
+---
+
 ### 2026-09-06 15:04 — `codex/216-reconcile-action-pricing`
 
 Finished the safe reconciliation of action pricing: signup no longer grants Credits, Claim unlocks one atomic 15-action monthly allowance, Guests receive an explicit account-required refusal, refill failures stop before charging, and founding eligibility now counts discounted Cloud subscriptions rather than historical credit grants. Updated the live signup and landing copy to match ADR-0017. Both typechecks, 276 frontend tests, 857 backend tests, the production build, focused auth E2E, and disposable-Postgres status/concurrency/ledger checks pass; #216 still waits on the purchase rail and finish-line panel after this prerequisite merges.
