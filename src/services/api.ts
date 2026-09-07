@@ -38,6 +38,12 @@ import MobileVersionContracts, {
 import AuthContracts, { type SessionUser } from '../../backend/src/auth-contracts'
 import { GoalSchema, type Goal, type GoalCreateInput, type GoalUpdateInput } from '../../backend/src/goals-schema'
 import HabitContracts, { type HabitHistory } from '../../backend/src/habit-contracts'
+import CreditContracts, {
+  type ActionPrice,
+  type CreditSubscriptionPricing,
+  type CreditSubscriptionState,
+  type CreditSummary,
+} from '../../backend/src/credit-contracts'
 import type { WorkoutPlanTalkHandoff } from '../../backend/src/talk-handoff-schema'
 import type { SyncDelta, SyncIncoming } from '../lib/local/sync'
 import {
@@ -46,11 +52,17 @@ import {
   readSessionToken,
 } from '../lib/session'
 import { asClientShape, localHealthServices, localServices, onDevice } from '../lib/local/services'
+import { availableActionCount } from '../utils/creditAvailability'
 
 const { SettingsSchema } = SettingsContracts
 const { IosVersionPolicySchema } = MobileVersionContracts
 const { SessionUserSchema } = AuthContracts
 const { HabitHistorySchema } = HabitContracts
+const {
+  ActionPriceSchema,
+  CreditSubscriptionPricingSchema,
+  CreditSummarySchema,
+} = CreditContracts
 
 export type {
   Category,
@@ -68,6 +80,10 @@ export type {
   GoalCreateInput,
   GoalUpdateInput,
   HabitHistory,
+  ActionPrice,
+  CreditSubscriptionPricing,
+  CreditSubscriptionState,
+  CreditSummary,
 }
 export { isDaySummaryItemAddressed }
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
@@ -463,53 +479,7 @@ export const AdminUserAuditEntrySchema = z.object({
 })
 export type AdminUserAuditEntry = z.infer<typeof AdminUserAuditEntrySchema>
 
-/** One credit is one action; these are the three prices (ADR-0016). */
-export const ActionPriceSchema = z.object({
-  text: z.number().int().positive(),
-  photo: z.number().int().positive(),
-  premium: z.number().int().positive(),
-})
-export type ActionPrice = z.infer<typeof ActionPriceSchema>
-
-export const CreditSubscriptionPricingSchema = z.object({
-  promoActive: z.boolean(),
-  phase: z.enum(['promo', 'regular']),
-  priceUsd: z.number().positive(),
-  topUpPriceUsd: z.number().positive(),
-  topUpCredits: z.number().int().positive(),
-  actionPrice: ActionPriceSchema,
-  foundingMemberLimit: z.number().int().positive(),
-  updatedAt: z.string().nullable().optional(),
-})
-export type CreditSubscriptionPricing = z.infer<typeof CreditSubscriptionPricingSchema>
-
-export interface CreditSubscriptionState {
-  active: boolean
-  pricePhase: 'promo' | 'regular' | null
-  monthlyCredits: number
-  renewalDate: string | null
-  lastMonthlyGrantAt: string | null
-  updatedAt: string | null
-}
-
-export interface CreditSummary {
-  balance: number
-  subscriptionBalance: number
-  topupBalance: number
-  usedThisMonth: number
-  /**
-   * What Cloud covered this month on the capped classes. A subscriber has no
-   * credit allowance to report — the subscription stopped selling credits.
-   */
-  entitlementUsed: {
-    photo: number
-    premium: number
-    photoCap: number
-    premiumCap: number
-  }
-  pricing: CreditSubscriptionPricing
-  subscription: CreditSubscriptionState
-}
+export { ActionPriceSchema, CreditSubscriptionPricingSchema, CreditSummarySchema }
 
 export const LaunchOfferSchema = z.object({
   foundingMemberLimit: z.number().int().positive(),
@@ -1210,12 +1180,18 @@ export const creditsService = {
 
   getSummary: async (): Promise<CreditSummary> => {
     const response = await api.get('/credits/summary')
-    const summary: CreditSummary = response.data
+    const summary = CreditSummarySchema.parse(response.data)
+    const availableActions = availableActionCount(summary)
     analytics.setUserProperties({
       subscription_active: summary.subscription.active,
-      credit_balance_bucket: summary.balance <= 0 ? 'none' : summary.balance < 25 ? 'low' : 'ok',
+      ...(availableActions === null
+        ? {}
+        : {
+            credit_balance_bucket:
+              availableActions <= 0 ? 'none' : availableActions < 25 ? 'low' : 'ok',
+          }),
     })
-    if (summary.balance <= 0 && !creditsExhaustedReported) {
+    if (availableActions === 0 && !creditsExhaustedReported) {
       creditsExhaustedReported = true
       analytics.capture('credits_exhausted')
     }

@@ -1,3 +1,14 @@
+### 2026-09-07 13:56 — `codex/231-guest-actions`
+
+Implemented the free-v1 Guest entitlement as a lazy, once-ever ten-action grant,
+kept it independent from the claimed account's monthly allowance, and exposed the
+combined available actions through one shared Zod contract without hiding read
+failures as zero. The atomic migration passed concurrent claims in disposable
+PostgreSQL, the linked production dry run contains only that migration, and the
+complete frontend, backend, typecheck, and build verification is green.
+
+---
+
 ### 2026-09-06 21:11 — `codex/230-free-v1-contract`
 
 Made the free-v1 boundary durable in ADR-0018 and ADR-0019: Guests receive ten

@@ -9,6 +9,7 @@ import { achievementsDb } from './db/achievements'
 import { pushDb } from './db/push'
 import { assistantConversationsDb } from './db/assistant-conversations'
 import { talkWorkflowsDb } from './db/talk-workflows'
+import { FreeCreditGrantSchema } from './credit-contracts'
 
 // Re-export the shared client so existing
 // `import { supabase } from './supabase-client'` call sites keep working.
@@ -16,6 +17,11 @@ export { supabase }
 
 const MonthlyFreeCreditClaimSchema = z.object({
   status: z.enum(['granted', 'already_granted', 'not_claimed', 'subscription_active']),
+  balance: z.coerce.number().int().nonnegative(),
+})
+
+const GuestInitialCreditClaimSchema = z.object({
+  status: z.enum(['granted', 'already_claimed', 'not_guest']),
   balance: z.coerce.number().int().nonnegative(),
 })
 
@@ -1243,6 +1249,28 @@ export const db = {
     if (error) throw error
     const row: unknown = Array.isArray(data) ? data[0] : data
     return MonthlyFreeCreditClaimSchema.parse(row)
+  },
+
+  /** Atomically claim the once-ever Guest grant. Identity is rechecked in SQL. */
+  async claimGuestInitialCredits(userId: string, credits: number) {
+    const { data, error } = await supabase.rpc('claim_guest_initial_credits', {
+      p_user_id: userId,
+      p_credits: credits,
+    })
+    if (error) throw error
+    const row: unknown = Array.isArray(data) ? data[0] : data
+    return GuestInitialCreditClaimSchema.parse(row)
+  },
+
+  /** Read a lazy free entitlement without writing or folding it into balance. */
+  async getFreeCreditGrant(userId: string, guestCredits: number, monthlyCredits: number) {
+    const { data, error } = await supabase.rpc('get_free_credit_grant', {
+      p_user_id: userId,
+      p_guest_credits: guestCredits,
+      p_monthly_credits: monthlyCredits,
+    })
+    if (error) throw error
+    return FreeCreditGrantSchema.parse(data)
   },
 
   async setCreditBalance(userId: string, balance: number): Promise<number> {
