@@ -1,3 +1,14 @@
+### 2026-09-07 20:19 — `codex/234-free-v1-landing`
+
+Replaced the public invite-only waitlist and paid Cloud offer with the honest
+free-v1 contract: Guest and claimed allowances, the single-device boundary, and
+Founders Club as a free feedback and additional-action path. Static contract
+tests and desktop/mobile browser coverage now protect navigation, reduced motion,
+telemetry, attribution, and the absence of a purchase path; the full frontend
+suite, typecheck, lint, and production build are green.
+
+---
+
 ### 2026-09-07 19:55 — `codex/233-honest-action-exhaustion`
 
 Made free-v1 exhaustion identity-aware and local to the attempted Talk turn:

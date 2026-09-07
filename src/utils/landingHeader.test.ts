@@ -6,48 +6,50 @@ const landing = readFileSync('public/landing.html', 'utf8')
 
 describe('Landing header', () => {
   it('keeps the mobile navigation actions compact and on one line', () => {
-    // nowrap + a shrinkable brand is what keeps this on one line down to 320px;
-    // the live CTA keeps its label short rather than adding a scarcity count.
     assert.match(landing, /\.nav-cta \.btn-sm\s*\{[\s\S]*?white-space:\s*nowrap;/)
     assert.match(
       landing,
-      /class="btn btn-primary btn-sm nav-primary"[^>]*data-access-cta[^>]*>Join the waitlist<\/a>/
+      /class="btn btn-primary btn-sm nav-primary"[^>]*data-access-cta[^>]*>Start free<\/a>/
     )
+  })
+
+  it('links every navigation anchor to a section on the page', () => {
+    const anchors = [...landing.matchAll(/<nav class="nav-links">([\s\S]*?)<\/nav>/g)]
+      .flatMap(([, nav]) => [...nav.matchAll(/href="#([^"]+)"/g)].map(([, id]) => id))
+    assert.ok(anchors.length > 0)
+    for (const id of anchors) assert.match(landing, new RegExp(`id="${id}"`))
   })
 })
 
-describe('Landing signup CTA', () => {
-  it('uses one live access state for every acquisition CTA', () => {
-    assert.match(landing, /querySelectorAll\('\[data-access-cta\]'\)/)
-    assert.match(landing, /el\.textContent = 'Start Free'/)
-    assert.match(landing, /el\.textContent = 'Join the waitlist'/)
-  })
-
-  it('ships every acquisition CTA pointing at the waitlist', () => {
+describe('Free-v1 landing contract', () => {
+  it('opens access directly without a waitlist or live offer lookup', () => {
     for (const cta of landing.match(/<a[^>]*data-access-cta[^>]*>/g) ?? []) {
-      assert.match(cta, /href="#waitlist-form"/)
+      assert.match(cta, /href="\/app"/)
     }
+    assert.doesNotMatch(landing, /\/auth\/signup-status|\/waitlist|waitlist-form/i)
+    assert.doesNotMatch(landing, /invite-only|founding member|founding price/i)
   })
 
-  it('can actually hide the sold-out offer copy', () => {
-    // The script hides founding-only copy with `el.hidden = true`. The UA rule
-    // `[hidden] { display: none }` loses to any author rule that sets display,
-    // and `.plan li { display: flex }` did exactly that — the card shipped
-    // reading "$19 / month" and "$9 locked in" at the same time. Without this
-    // rule the hiding is silently a no-op inside the plan list.
-    assert.match(landing, /\[hidden\]\s*\{\s*display:\s*none\s*!important;\s*\}/)
+  it('states the exact Guest and claimed-account allowances', () => {
+    assert.match(landing, /A Guest receives <strong>10 AI actions once<\/strong>/)
+    assert.match(landing, /A claimed account receives <strong>15 AI actions each calendar month<\/strong>/)
   })
 
-  it('publishes the agreed free, founding Cloud and top-up offers', () => {
-    assert.match(landing, /\$<span data-offer-founding-price>9<\/span>\/month/)
-    assert.match(landing, /data-offer-free-monthly-actions>15<\/span> AI actions every month/)
-    assert.match(landing, /data-offer-topup-credits>300<\/span> non-expiring actions for \$/)
-    assert.match(landing, /foundingMembersRemaining/)
-    assert.match(landing, /Create an account for \$\{monthlyFreeActions\} AI actions every month/)
-    assert.doesNotMatch(landing, /credits at signup|credits for onboarding/i)
+  it('is explicit about local data and unavailable Cloud', () => {
+    assert.match(landing, /Cloud cannot be obtained in v1\./)
+    assert.match(landing, /Your Local day is not backed up or moved to a new device\./)
+    assert.doesNotMatch(landing, /\$\d|\/ month|subscription|top-up|buy now|subscribe/i)
   })
 
-  it('preserves campaign attribution on demo entry', () => {
+  it('offers Founders Club as a free request and feedback path', () => {
+    assert.match(landing, /Founders Club/)
+    assert.match(landing, /request additional free actions/)
+    assert.match(landing, /href="\/app\/settings\/account-billing#founders-club"/)
+  })
+
+  it('preserves acquisition analytics and campaign attribution', () => {
+    assert.match(landing, /capture\('signup_cta_clicked'/)
+    assert.match(landing, /destination:\s*'app'/)
     assert.equal((landing.match(/data-demo-cta/g) ?? []).length, 3)
     assert.match(landing, /\['utm_source', 'utm_medium', 'utm_campaign'\]/)
     assert.match(landing, /href\.searchParams\.set\(name, value\)/)

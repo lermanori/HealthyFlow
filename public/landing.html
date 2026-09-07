@@ -91,12 +91,6 @@
     h1, h2, h3 { font-family: var(--font-display); font-weight: 600; letter-spacing: -0.02em; }
     a { color: inherit; text-decoration: none; }
     img { display: block; max-width: 100%; }
-    input::placeholder { color: var(--ink-3); opacity: 1; }
-
-    /* The offer script hides sold-out copy with `el.hidden = true`, but the UA's
-       `[hidden] { display: none }` loses to any author rule that sets display.
-       Author-level and !important so hiding always wins. */
-    [hidden] { display: none !important; }
 
     .wrap { max-width: var(--shell); margin: 0 auto; padding: 0 var(--gutter); }
     section { padding: 96px 0 0; }
@@ -405,18 +399,17 @@
       color: var(--accent);
       white-space: nowrap;
     }
-    /* Arrow lives in CSS, not the label: the access script rewrites this link's
-       textContent wholesale when signup opens, which would eat an inline glyph. */
+    /* Keep the arrow decorative so the link's accessible name stays concise. */
     .all-item.cta a::after { content: ' →'; }
 
-    /* ---------- pricing ---------- */
-    .plans {
+    /* ---------- free v1 ---------- */
+    .v1-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 20px;
       margin-top: 36px;
     }
-    .plan {
+    .v1-card {
       display: flex;
       flex-direction: column;
       padding: 30px 28px 32px;
@@ -424,97 +417,39 @@
       border: 1px solid var(--line);
       background: var(--surface);
     }
-    .plan.featured { border-color: var(--ink); background: var(--raised); }
-    .plan-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .plan-head .kicker { color: var(--ink-3); }
-    .plan.featured .plan-head .kicker { color: var(--ink); }
-    .plan-badge {
-      display: inline-flex;
-      align-items: center;
-      height: 24px;
-      padding: 0 10px;
-      border-radius: 999px;
-      background: var(--ink);
-      color: var(--on-ink);
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      white-space: nowrap;
-    }
-    .price {
+    .v1-card.featured { border-color: var(--ink); background: var(--raised); }
+    .v1-card h3 {
       margin-top: 14px;
       font-family: var(--font-display);
-      font-size: clamp(38px, 4vw, 46px);
-      font-weight: 600;
-      line-height: 1;
-      letter-spacing: -0.02em;
-      color: var(--ink);
+      font-size: clamp(24px, 2.6vw, 30px);
+      line-height: 1.15;
     }
-    .price small { font-size: 17px; font-weight: 500; color: var(--ink-3); }
-    .price .price-was {
-      font-size: 24px;
-      font-weight: 500;
-      color: var(--ink-4);
-      text-decoration: line-through;
-      margin-right: 8px;
-    }
-    .plan .tagline {
-      margin-top: 10px;
-      font-family: var(--font-display);
-      font-weight: 500;
-      font-size: 16px;
-      color: var(--ink-2);
-    }
-    .plan ul { list-style: none; display: flex; flex-direction: column; margin: 22px 0 0; }
-    .plan li {
+    .v1-card > p { margin-top: 12px; color: var(--ink-2); }
+    .v1-card ul { list-style: none; display: flex; flex-direction: column; margin: 22px 0 0; }
+    .v1-card li {
       padding: 12px 0;
       border-top: 1px solid var(--hairline);
       font-size: 15px;
       line-height: 1.5;
       color: var(--ink-2);
     }
-    .plan .btn { margin-top: auto; width: 100%; }
-    .plan ul + .btn { margin-top: 26px; }
-
-    /* ---------- waitlist ---------- */
-    .waitlist-form {
+    .v1-card strong { color: var(--ink); }
+    .v1-card .btn { margin-top: 26px; width: 100%; }
+    .local-warning {
+      grid-column: 1 / -1;
       margin-top: 20px;
       padding: 26px 28px 28px;
       border-radius: 22px;
       border: 1px solid var(--line);
-      background: var(--surface);
+      background: var(--accent-soft);
     }
-    .waitlist-form label { display: block; font-size: 15px; color: var(--ink-2); }
-    .waitlist-row { display: flex; gap: 10px; margin-top: 14px; max-width: 520px; }
-    .waitlist-row input {
-      flex: 1;
-      min-width: 0;
-      height: 50px;
-      padding: 0 16px;
-      border-radius: 14px;
-      border: 1px solid var(--border);
-      background: var(--raised);
-      font-family: var(--font-body);
+    .local-warning h3 { font-size: 20px; color: var(--accent-strong); }
+    .local-warning p {
+      margin-top: 8px;
       font-size: 15px;
-      color: var(--ink);
+      line-height: 1.6;
+      color: var(--accent-strong);
     }
-    .waitlist-row input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-soft);
-    }
-    .waitlist-row .btn { padding: 0 22px; }
-    .waitlist-msg {
-      margin-top: 12px;
-      min-height: 20px;
-      font-size: 12px;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: var(--accent);
-    }
-    .waitlist-msg.error { color: #C2544B; text-transform: none; letter-spacing: 0.02em; }
-    [data-theme="night"] .waitlist-msg.error { color: #E9948C; }
 
     /* ---------- founder ---------- */
     .founder { max-width: 760px; margin: 0 auto; text-align: center; }
@@ -550,6 +485,7 @@
     }
     .founder-sig .who { text-align: left; font-size: 14px; line-height: 1.35; color: var(--ink-2); }
     .founder-sig .who strong { display: block; font-weight: 600; color: var(--ink); }
+    .founder > .btn { margin-top: 24px; }
 
     /* ---------- dark band + footer ---------- */
     .band { margin-top: 96px; background: var(--band-bg); padding: 0; }
@@ -606,7 +542,7 @@
       .ai-panel { padding: 32px 26px 34px; }
       .ai-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; }
       .all-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-      .plans { grid-template-columns: minmax(0, 1fr); }
+      .v1-grid { grid-template-columns: minmax(0, 1fr); }
       section { padding-top: 72px; }
       .band { margin-top: 72px; }
       .band-inner { padding: 64px var(--gutter) 68px; }
@@ -623,9 +559,6 @@
       .hero-ctas .btn { flex: 1 1 100%; }
       .ai-grid { grid-template-columns: minmax(0, 1fr); }
       .all-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .waitlist-row { flex-wrap: wrap; }
-      .waitlist-row input { flex: 1 1 100%; }
-      .waitlist-row .btn { flex: 1 1 100%; }
       .band-ctas .btn { flex: 1 1 100%; }
     }
     @media (max-width: 360px) {
@@ -669,7 +602,7 @@
         <a href="#how">How it works</a>
         <a href="#product">Product</a>
         <a href="#ai">AI</a>
-        <a href="#pricing">Pricing</a>
+        <a href="#free-v1">Free v1</a>
       </nav>
       <div class="nav-cta">
         <div class="theme-toggle" role="group" aria-label="Colour theme">
@@ -681,7 +614,7 @@
           </button>
         </div>
         <a class="nav-login" href="/app">Log in</a>
-        <a class="btn btn-primary btn-sm nav-primary" data-access-cta data-placement="navigation" href="#waitlist-form">Join the waitlist</a>
+        <a class="btn btn-primary btn-sm nav-primary" data-access-cta data-placement="navigation" href="/app">Start free</a>
       </div>
     </div>
   </header>
@@ -689,20 +622,17 @@
   <!-- ======== HERO ======== -->
   <section class="hero" id="top">
     <div>
-      <span class="pill"><span class="dot"></span><span data-access-message>Invite-only beta · First 100 members</span></span>
+      <span class="pill"><span class="dot"></span><span>Free v1 · Available now</span></span>
       <h1>Your whole day,<br />on <em>one</em> page.</h1>
       <p class="lede">
         Tasks, food, training, weight — on one timeline that rolls itself forward.
         Every other app makes you manage things. HealthyFlow manages the day.
       </p>
       <div class="hero-ctas">
-        <a class="btn btn-primary" data-access-cta data-placement="hero" href="#waitlist-form">Join the waitlist</a>
+        <a class="btn btn-primary" data-access-cta data-placement="hero" href="/app">Start free</a>
         <a class="btn btn-ghost" data-demo-cta href="/app/demo?source=landing">Watch the demo</a>
       </div>
-      <p class="hero-note" data-hero-offer>
-        $<span data-offer-founding-price>9</span>/month for the first 100 ·
-        <span data-offer-free-monthly-actions>15</span> free AI actions every month with an account
-      </p>
+      <p class="hero-note">No account required · Your day remains usable when AI actions run out</p>
     </div>
     <div class="frame frame-phone">
       <div>
@@ -836,7 +766,7 @@
           <div>Keeps your context, day after day</div>
         </div>
         <p class="credit-note">
-          <strong>Fair, credit-based AI.</strong> AI actions use credits — you spend them only when you use AI, and the core app works without them.
+          <strong>AI has a clear allowance.</strong> Text uses one action, photos use five, and premium models use ten. The rest of your day keeps working when the allowance is gone.
         </p>
       </div>
     </div>
@@ -862,58 +792,47 @@
         <div class="all-item"><span class="meta">Health</span><p class="name">Progress</p></div>
         <div class="all-item"><span class="meta">Capture</span><p class="name">Talk</p></div>
         <div class="all-item"><span class="meta">Capture</span><p class="name">Voice</p></div>
-        <div class="all-item cta"><a data-access-cta data-placement="everything_grid" href="#waitlist-form">Join the waitlist</a></div>
+        <div class="all-item cta"><a data-access-cta data-placement="everything_grid" href="/app">Start free</a></div>
       </div>
     </div>
   </section>
 
-  <!-- ======== PRICING ======== -->
-  <section id="pricing">
+  <!-- ======== FREE V1 ======== -->
+  <section id="free-v1">
     <div class="wrap">
       <div class="section-head reveal">
-        <span class="kicker">Pricing</span>
-        <h2 class="section-title">Simple. Honest. Early.</h2>
-        <p class="section-sub" data-pricing-summary>The core app is free forever. Create an account for 15 AI actions each month, or put your day on every device with Cloud.</p>
+        <span class="kicker">Free v1</span>
+        <h2 class="section-title">The whole day is free.</h2>
+        <p class="section-sub">Start as a Guest without an account. Claim your account only when you want a recurring AI allowance.</p>
       </div>
-      <div class="plans">
-        <div class="plan reveal">
-          <div class="plan-head"><span class="kicker">Free</span></div>
-          <p class="price">$0 <small>/ forever</small></p>
-          <p class="tagline">The whole day, on you.</p>
+      <div class="v1-grid">
+        <div class="v1-card reveal">
+          <span class="kicker">Guest</span>
+          <h3>Begin without an account.</h3>
+          <p>A Guest receives <strong>10 AI actions once</strong>.</p>
           <ul>
             <li>The full timeline — tasks, habits, records, rollover</li>
             <li>Health on the same day — nutrition, weight, workouts, progress</li>
-            <li data-free-monthly-benefit>Create an account for <span data-offer-free-monthly-actions>15</span> AI actions every month</li>
-            <li>Add <span data-offer-topup-credits>300</span> non-expiring actions for $<span data-offer-topup-price>5</span></li>
+            <li>Your day keeps working after the AI allowance is used</li>
           </ul>
-          <a class="btn btn-ghost" data-access-cta data-placement="free_plan" href="#waitlist-form">Join the waitlist</a>
+          <a class="btn btn-ghost" data-access-cta data-placement="guest" href="/app">Start free</a>
         </div>
-        <div class="plan featured reveal">
-          <div class="plan-head">
-            <span class="kicker" data-offer-plan-name>Founding Member</span>
-            <span class="plan-badge" data-offer-plan-badge>First 100 only</span>
-          </div>
-          <p class="price"><span class="price-was" data-offer-price-was>$<span data-offer-regular-price>19</span></span>$<span data-offer-current-price>9</span> <small>/ month</small></p>
-          <p class="tagline">Your day on every device.</p>
+        <div class="v1-card featured reveal">
+          <span class="kicker">Claimed account</span>
+          <h3>Keep a recurring AI allowance.</h3>
+          <p>A claimed account receives <strong>15 AI actions each calendar month</strong>.</p>
           <ul>
-            <li>Everything in Free</li>
-            <li>Your day synced across iPhone and web</li>
-            <li>Text AI included, with fair-use limits</li>
-            <li>100 photo and 50 premium actions each month</li>
-            <li data-offer-price-lock>$9 locked in while your subscription stays active</li>
-            <li>Direct line to me — you shape what gets built</li>
+            <li>Claim converts your Guest identity in place</li>
+            <li>Unused Guest actions remain available</li>
+            <li>There is no purchase path in v1</li>
           </ul>
-          <a class="btn btn-primary" data-access-cta data-placement="founding_plan" href="#waitlist-form">Join the waitlist</a>
+          <a class="btn btn-primary" data-access-cta data-placement="claimed_account" href="/app">Start free</a>
+        </div>
+        <div class="local-warning reveal">
+          <h3>Your day stays on this device.</h3>
+          <p><strong>Cloud cannot be obtained in v1.</strong> Your Local day is not backed up or moved to a new device. Claim gives you an account identity and recurring free AI actions; it does not add Cloud.</p>
         </div>
       </div>
-      <form class="waitlist-form reveal" id="waitlist-form">
-        <label for="waitlist-email">Registration is invite-only right now. Join the waitlist:</label>
-        <div class="waitlist-row">
-          <input id="waitlist-email" type="email" required placeholder="you@example.com" autocomplete="email" />
-          <button class="btn btn-primary" type="submit">Join</button>
-        </div>
-        <p class="waitlist-msg" id="waitlist-msg" role="status"></p>
-      </form>
     </div>
   </section>
 
@@ -925,11 +844,13 @@
         <blockquote class="quote">
           <p>HealthyFlow started as the system I built for myself. Tasks in one app, habits in another, calories in a third, workouts in a fourth — and a calendar that knew nothing about any of them. Every day began with app-switching instead of doing.</p>
           <p>So I built one place that takes whatever's in my head, in plain language, and turns it into a day I can actually follow. It changed how I work and how I take care of myself — and now I'd love it to do the same for you.</p>
+          <p><strong>Founders Club</strong> is the direct line for early feedback and to request additional free actions. It is a conversation, not something for sale.</p>
         </blockquote>
         <div class="founder-sig">
           <span class="avatar">O</span>
           <span class="who"><strong>Ori</strong>Founder, HealthyFlow</span>
         </div>
+        <a class="btn btn-ghost" href="/app/settings/account-billing#founders-club">Open Founders Club</a>
       </div>
     </div>
   </section>
@@ -938,9 +859,9 @@
   <section class="band">
     <div class="band-inner">
       <h2 class="reveal">Ready to get your day back?</h2>
-      <p class="reveal" data-final-offer>One timeline. It rolls itself forward. The first 100 members get in at $9.</p>
+      <p class="reveal">One timeline. It rolls itself forward. Free, local-first, and available now.</p>
       <div class="band-ctas reveal">
-        <a class="btn btn-primary" data-access-cta data-placement="final" href="#waitlist-form">Join the waitlist</a>
+        <a class="btn btn-primary" data-access-cta data-placement="final" href="/app">Start free</a>
         <a class="btn btn-ghost" data-demo-cta href="/app/demo?source=landing">Watch the demo</a>
       </div>
     </div>
@@ -974,117 +895,15 @@
       });
     });
 
-    // landing.html is static, so it cannot read VITE_API_URL like the app does.
-    // Locally the Vite dev server proxies /api to the backend; in production the
-    // API lives on Railway, and healthyflow.app is already in its CORS allowlist.
-    const isLocal = ['localhost', '127.0.0.1'].includes(location.hostname);
-    const API_BASE = isLocal ? '/api' : 'https://healthyflow-production.up.railway.app/api';
-
-    let accessMode = 'waitlist';
     const accessCtas = document.querySelectorAll('[data-access-cta]');
-
-    // Swap every acquisition CTA from the same live access state. The safe
-    // default in the HTML is invite-only; "Start Free" appears only after the
-    // backend confirms that public signup is open. The compact nav uses the
-    // same short label without adding a scarcity count.
-    fetch(`${API_BASE}/auth/signup-status`)
-      .then((r) => r.json())
-      .then((status) => {
-        accessMode = status.mode === 'open' && status.remaining > 0 ? 'open' : 'waitlist';
-        const offer = status.offer || {};
-
-        document.querySelectorAll('[data-offer-founding-price]').forEach((el) => {
-          if (offer.foundingPriceUsd) el.textContent = String(offer.foundingPriceUsd);
-        });
-        document.querySelectorAll('[data-offer-regular-price]').forEach((el) => {
-          if (offer.regularPriceUsd) el.textContent = String(offer.regularPriceUsd);
-        });
-        document.querySelectorAll('[data-offer-free-monthly-actions]').forEach((el) => {
-          if (offer.monthlyFreeCredits) el.textContent = String(offer.monthlyFreeCredits);
-        });
-        document.querySelectorAll('[data-offer-topup-price]').forEach((el) => {
-          if (offer.topUpPriceUsd) el.textContent = String(offer.topUpPriceUsd);
-        });
-        document.querySelectorAll('[data-offer-topup-credits]').forEach((el) => {
-          if (offer.topUpCredits) el.textContent = String(offer.topUpCredits);
-        });
-
-        const foundingAvailable = Number(offer.foundingMembersRemaining) > 0;
-        const foundingPrice = Number(offer.foundingPriceUsd) || 9;
-        const regularPrice = Number(offer.regularPriceUsd) || 19;
-        const monthlyFreeActions = Number(offer.monthlyFreeCredits) || 15;
-        const remainingFoundingSpots = Number(offer.foundingMembersRemaining) || 0;
-
-        document.querySelectorAll('[data-offer-current-price]').forEach((el) => {
-          el.textContent = String(foundingAvailable ? foundingPrice : regularPrice);
-        });
-        document.querySelectorAll('[data-offer-price-was]').forEach((el) => {
-          el.hidden = !foundingAvailable;
-        });
-        document.querySelectorAll('[data-offer-price-lock]').forEach((el) => {
-          el.hidden = !foundingAvailable;
-          if (foundingAvailable) {
-            el.textContent = `$${foundingPrice} locked in while your subscription stays active`;
-          }
-        });
-
-        const planName = document.querySelector('[data-offer-plan-name]');
-        const planBadge = document.querySelector('[data-offer-plan-badge]');
-        const freeMonthlyBenefit = document.querySelector('[data-free-monthly-benefit]');
-        const heroOffer = document.querySelector('[data-hero-offer]');
-        const pricingSummary = document.querySelector('[data-pricing-summary]');
-        const finalOffer = document.querySelector('[data-final-offer]');
-
-        if (foundingAvailable) {
-          if (planName) planName.textContent = 'Founding Member';
-          if (planBadge) planBadge.textContent = `${remainingFoundingSpots} founding spots left`;
-          if (freeMonthlyBenefit) freeMonthlyBenefit.textContent = `Create an account for ${monthlyFreeActions} AI actions every month`;
-          if (heroOffer) heroOffer.textContent = `$${foundingPrice}/month for the first 100 Cloud members · ${monthlyFreeActions} free AI actions every month with an account`;
-          if (pricingSummary) pricingSummary.textContent = `The core app is free forever. Create an account for ${monthlyFreeActions} AI actions each month; the first 100 Cloud members can lock in $${foundingPrice}/month.`;
-          if (finalOffer) finalOffer.textContent = `One timeline. It rolls itself forward. ${remainingFoundingSpots} founding spots remain at $${foundingPrice}.`;
-        } else {
-          if (planName) planName.textContent = 'Cloud';
-          if (planBadge) planBadge.textContent = 'Cross-device subscription';
-          if (freeMonthlyBenefit) freeMonthlyBenefit.textContent = `Create an account for ${monthlyFreeActions} AI actions every month`;
-          if (heroOffer) heroOffer.textContent = `$${regularPrice}/month for Cloud · ${monthlyFreeActions} free AI actions every month with an account`;
-          if (pricingSummary) pricingSummary.textContent = `The core app is free forever. Create an account for ${monthlyFreeActions} AI actions each month, or put your day on every device with Cloud for $${regularPrice}/month.`;
-          if (finalOffer) finalOffer.textContent = `One timeline. It rolls itself forward. Start free; Claim adds ${monthlyFreeActions} AI actions every month.`;
-        }
-
-        const accessMessage = document.querySelector('[data-access-message]');
-        if (status.mode === 'open' && status.remaining > 0) {
-          accessCtas.forEach((el) => {
-            el.textContent = 'Start Free';
-            el.setAttribute('href', '/app');
-            el.dataset.accessMode = 'open';
-          });
-          if (accessMessage) {
-            accessMessage.textContent = foundingAvailable
-              ? `Founding launch · ${remainingFoundingSpots} spots left`
-              : 'Public signup is open';
-          }
-        } else {
-          accessCtas.forEach((el) => {
-            el.textContent = 'Join the waitlist';
-            el.setAttribute('href', '#waitlist-form');
-            el.dataset.accessMode = 'waitlist';
-          });
-          if (accessMessage) {
-            accessMessage.textContent = foundingAvailable
-              ? `Invite-only beta · ${remainingFoundingSpots} founding spots left`
-              : 'Invite-only beta';
-          }
-        }
-      })
-      .catch(() => { /* leave the waitlist CTA in place */ });
 
     accessCtas.forEach((el) => {
       el.addEventListener('click', () => {
         if (!window.posthog) return;
         window.posthog.capture('signup_cta_clicked', {
-          destination: accessMode === 'open' ? 'signup' : 'waitlist',
+          destination: 'app',
           placement: el.dataset.placement,
-          access_mode: accessMode,
+          access_mode: 'open',
         });
       });
     });
@@ -1097,33 +916,6 @@
         if (value) href.searchParams.set(name, value);
       });
       el.setAttribute('href', `${href.pathname}${href.search}`);
-    });
-
-    document.getElementById('waitlist-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const msg = document.getElementById('waitlist-msg');
-      const params = new URLSearchParams(location.search);
-      msg.classList.remove('error');
-      msg.textContent = 'Joining…';
-      try {
-        const res = await fetch(`${API_BASE}/waitlist`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: document.getElementById('waitlist-email').value,
-            source: 'landing',
-            utmSource: params.get('utm_source') || undefined,
-            utmMedium: params.get('utm_medium') || undefined,
-            utmCampaign: params.get('utm_campaign') || undefined,
-          }),
-        });
-        if (!res.ok) throw new Error('request failed');
-        msg.textContent = "You're on the list — we'll email your invite.";
-        if (window.posthog) window.posthog.capture('waitlist_submitted', { source: 'landing' });
-      } catch (_err) {
-        msg.classList.add('error');
-        msg.textContent = 'Something went wrong — please try again.';
-      }
     });
 
     // Reveal-on-scroll animations
