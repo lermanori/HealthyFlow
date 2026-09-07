@@ -62,8 +62,8 @@ export default function ClaimAccountPage() {
           day does not move, so nothing about it can go wrong here.
         */}
         <p className="mt-2 text-sm text-ink-muted">
-          Your day stays exactly where it is, on this iPhone. An email is what
-          makes it recoverable, and what lets you buy AI credits.
+          Your day stays exactly where it is, on this iPhone. A free account
+          gives you 15 AI actions each calendar month.
         </p>
       </header>
 

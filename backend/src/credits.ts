@@ -658,10 +658,8 @@ export const Credits = {
     }
 
     if (accountState.status === 'subscription_active') {
-      const covered = await this.entitlementCovers(userId, actionClass, actionsToday)
-      if (covered) {
-        return { ok: true, actionClass, credits, charged: 0, coveredBy: 'entitlement' }
-      }
+      console.error('AI refused: stale Cloud entitlement is unavailable in free v1')
+      return { ok: false, code: 'billing_unavailable' }
     }
 
     const reserved = await this.reserve(userId, credits)

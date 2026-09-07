@@ -76,7 +76,11 @@ beforeEach(() => {
   mockDb.countUserActionsSince.mockResolvedValue(0)
   mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'already_granted', balance: 0 })
   mockDb.claimGuestInitialCredits.mockResolvedValue({ status: 'already_claimed', balance: 0 })
-  mockDb.getFreeCreditGrant.mockResolvedValue({ state: 'claimed' })
+  mockDb.getFreeCreditGrant.mockResolvedValue({
+    state: 'claimed',
+    kind: 'monthly',
+    nextAvailableAt: '2026-10-01T00:00:00.000Z',
+  })
 })
 
 describe('Credits.reserve', () => {
@@ -411,15 +415,12 @@ describe('identity-resolved free actions', () => {
     expect(mockDb.claimMonthlyFreeCredits).toHaveBeenCalledWith('guest-1', 15)
   })
 
-  it('uses the Cloud entitlement when the atomic result sees an active subscription', async () => {
+  it('refuses a stale Cloud entitlement instead of granting unavailable v1 access', async () => {
     mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'subscription_active', balance: 0 })
 
     await expect(Credits.authorizeAction('cloud-1', textInput)).resolves.toEqual({
-      ok: true,
-      actionClass: 'text',
-      credits: 1,
-      charged: 0,
-      coveredBy: 'entitlement',
+      ok: false,
+      code: 'billing_unavailable',
     })
     expect(mockDb.reserveCredits).not.toHaveBeenCalled()
   })

@@ -214,7 +214,7 @@ describe('workout API', () => {
       .send({ intent: 'Bodyweight strength plan' })
 
     expect(res.status).toBe(402)
-    expect(res.body).toEqual({ error: 'You are out of AI credits.', code: 'insufficient_credits' })
+    expect(res.body).toEqual({ error: 'You have used your available AI actions.', code: 'insufficient_credits' })
     expect(mockDb.createWorkoutPlan).not.toHaveBeenCalled()
   })
 

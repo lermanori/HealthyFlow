@@ -1,3 +1,14 @@
+### 2026-09-07 19:55 — `codex/233-honest-action-exhaustion`
+
+Made free-v1 exhaustion identity-aware and local to the attempted Talk turn:
+Guests receive Claim plus Founders Club paths, while claimed accounts receive the
+server-clock monthly renewal and Founders Club only. Removed the web/iOS and admin
+purchase surfaces, disabled historical Cloud rows without deleting them, rehearsed
+the migration twice against representative PostgreSQL rows, and completed the full
+frontend/backend, browser, typecheck, lint, and production-build verification.
+
+---
+
 ### 2026-09-07 14:29 — `codex/232-founders-club`
 
 Replaced the purchase-intent contact flow with a Founders Club inbox for feedback

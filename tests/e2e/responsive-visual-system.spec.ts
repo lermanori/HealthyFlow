@@ -79,7 +79,7 @@ async function mockStableSurfaceData(page: Page, theme: 'midnight' | 'white') {
       subscriptionBalance: 100,
       topupBalance: 20,
       usedThisMonth: 30,
-      freeGrant: { state: 'claimed' },
+      freeGrant: { state: 'claimed', kind: 'monthly', nextAvailableAt: '2026-10-01T00:00:00.000Z' },
       entitlementUsed: {
         photo: 10,
         premium: 2,

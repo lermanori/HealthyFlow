@@ -127,7 +127,7 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
       .send({ text: 'meditate daily' })
 
     expect(res.status).toBe(402)
-    expect(res.body).toEqual({ error: 'You are out of AI credits.', code: 'insufficient_credits' })
+    expect(res.body).toEqual({ error: 'You have used your available AI actions.', code: 'insufficient_credits' })
     expect(scope.isDone()).toBe(false)
     expect(mockCredits.settleAction).not.toHaveBeenCalled()
   })
@@ -246,7 +246,7 @@ describe('POST /api/ai/query-tasks — credit enforcement', () => {
       .send({ question: 'What do I have today?' })
 
     expect(res.status).toBe(402)
-    expect(res.body).toEqual({ error: 'You are out of AI credits.', code: 'insufficient_credits' })
+    expect(res.body).toEqual({ error: 'You have used your available AI actions.', code: 'insufficient_credits' })
     expect(scope.isDone()).toBe(false)
   })
 

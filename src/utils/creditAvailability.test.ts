@@ -8,7 +8,7 @@ const baseSummary = {
   subscriptionBalance: 0,
   topupBalance: 0,
   usedThisMonth: 0,
-  freeGrant: { state: 'claimed' as const },
+  freeGrant: { state: 'claimed' as const, kind: 'monthly' as const, nextAvailableAt: '2026-10-01T00:00:00.000Z' },
   entitlementUsed: {
     photo: 0,
     premium: 0,

@@ -142,7 +142,7 @@ test('the app starts in a Vite development browser without server-only module er
             subscriptionBalance: 100,
             topupBalance: 0,
             usedThisMonth: 0,
-            freeGrant: { state: 'claimed' },
+            freeGrant: { state: 'claimed', kind: 'monthly', nextAvailableAt: '2026-10-01T00:00:00.000Z' },
             entitlementUsed: {
               photo: 0,
               premium: 0,
