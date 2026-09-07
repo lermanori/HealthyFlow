@@ -234,7 +234,7 @@ describe('admin token-manager API', () => {
     expect(mockCredits.updateBillingSettings).toHaveBeenCalledWith({ markupRate: 0.4, minMarkupTokens: 8 })
   })
 
-  it('updates subscription pricing for admins', async () => {
+  it('does not expose subscription pricing in free v1', async () => {
     mockDb.getUserById.mockResolvedValue({
       id: 'admin-1',
       email: 'lermanori@gmail.com',
@@ -256,20 +256,11 @@ describe('admin token-manager API', () => {
       .set('Authorization', authHeader('admin-1'))
       .send({ promoActive: false })
 
-    expect(res.status).toBe(200)
-    expect(res.body).toEqual({
-      promoActive: false,
-      phase: 'regular',
-      priceUsd: 19,
-      topUpPriceUsd: 5,
-      topUpCredits: 300,
-      actionPrice: { text: 1, photo: 5, premium: 10 },
-      foundingMemberLimit: 100,
-    })
-    expect(mockCredits.updateSubscriptionPricing).toHaveBeenCalledWith({ promoActive: false })
+    expect(res.status).toBe(404)
+    expect(mockCredits.updateSubscriptionPricing).not.toHaveBeenCalled()
   })
 
-  it('activates a user subscription for admins', async () => {
+  it('does not expose Cloud activation in free v1', async () => {
     mockDb.getUserById.mockResolvedValue({
       id: 'admin-1',
       email: 'lermanori@gmail.com',
@@ -302,16 +293,11 @@ describe('admin token-manager API', () => {
       .set('Authorization', authHeader('admin-1'))
       .send({ active: true, grantMonthlyCredits: true })
 
-    expect(res.status).toBe(200)
-    expect(res.body.balance).toBe(600)
-    expect(res.body.subscription.active).toBe(true)
-    expect(mockCredits.activateSubscription).toHaveBeenCalledWith('user-1', {
-      active: true,
-      grantMonthlyCredits: true,
-    })
+    expect(res.status).toBe(404)
+    expect(mockCredits.activateSubscription).not.toHaveBeenCalled()
   })
 
-  it('grants a user top-up for admins', async () => {
+  it('does not expose paid top-ups in free v1', async () => {
     mockDb.getUserById.mockResolvedValue({
       id: 'admin-1',
       email: 'lermanori@gmail.com',
@@ -338,8 +324,7 @@ describe('admin token-manager API', () => {
       .set('Authorization', authHeader('admin-1'))
       .send({ dollars: 5 })
 
-    expect(res.status).toBe(201)
-    expect(res.body).toEqual(expect.objectContaining({ balance: 275, credits: 250, dollars: 5 }))
-    expect(mockCredits.grantTopUp).toHaveBeenCalledWith('user-1', 5)
+    expect(res.status).toBe(404)
+    expect(mockCredits.grantTopUp).not.toHaveBeenCalled()
   })
 })

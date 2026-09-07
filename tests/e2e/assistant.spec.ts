@@ -1,5 +1,34 @@
 import { test, expect } from './fixtures/ai-stubs'
 import type { Page } from '@playwright/test'
+import type { FreeCreditGrant } from '../../backend/src/credit-contracts'
+
+function exhaustedSummary(freeGrant: FreeCreditGrant) {
+  return {
+    balance: 0,
+    subscriptionBalance: 0,
+    topupBalance: 0,
+    usedThisMonth: freeGrant.state === 'claimed' && freeGrant.kind === 'monthly' ? 15 : 10,
+    freeGrant,
+    entitlementUsed: { photo: 0, premium: 0, photoCap: 100, premiumCap: 50 },
+    pricing: {
+      promoActive: false,
+      phase: 'regular' as const,
+      priceUsd: 19,
+      topUpPriceUsd: 5,
+      topUpCredits: 300,
+      actionPrice: { text: 1, photo: 5, premium: 10 },
+      foundingMemberLimit: 100,
+    },
+    subscription: {
+      active: false,
+      pricePhase: null,
+      monthlyCredits: 0,
+      renewalDate: null,
+      lastMonthlyGrantAt: null,
+      updatedAt: null,
+    },
+  }
+}
 
 function formatLocalDate(date: Date) {
   return [
@@ -29,11 +58,58 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
+test('an exhausted monthly account gets an inline renewal and Founders Club path', async ({ page }) => {
+  await page.route('**/api/ai/conversations**', (route) => route.fulfill({ json: [] }))
+  await page.route('**/api/credits/summary', (route) => route.fulfill({
+    json: exhaustedSummary({ state: 'claimed', kind: 'monthly', nextAvailableAt: '2026-10-01T00:00:00.000Z' }),
+  }))
+  await page.route('**/api/ai/chat', (route) => route.fulfill({
+    status: 402,
+    json: { error: 'No AI actions remain.', code: 'insufficient_credits' },
+  }))
+
+  await page.goto('/app/talk')
+  await page.getByPlaceholder(/Add anything/).fill('Help me plan the next hour.')
+  await page.getByRole('button', { name: 'Send' }).click()
+
+  await expect(page.getByText('You have used this month’s 15 AI actions.')).toBeVisible()
+  await expect(page.getByText(/next 15 free AI actions become available on October 1, 2026/)).toBeVisible()
+  await expect(page.getByRole('link', { name: /ask the Founders Club/i })).toHaveAttribute(
+    'href',
+    '/app/settings/account-billing#founders-club',
+  )
+  await expect(page.getByText('No AI actions remain.')).toHaveCount(0)
+})
+
+test('an exhausted Guest gets Claim and Founders Club actions on native-width Talk', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.addInitScript(() => {
+    const nativeWindow = window as typeof window & { CapacitorCustomPlatform?: { name: string } }
+    nativeWindow.CapacitorCustomPlatform = { name: 'ios' }
+  })
+  await page.route('**/api/ai/conversations**', (route) => route.fulfill({ json: [] }))
+  await page.route('**/api/credits/summary', (route) => route.fulfill({
+    json: exhaustedSummary({ state: 'claimed', kind: 'guest_initial', nextAvailableAt: null }),
+  }))
+  await page.route('**/api/ai/chat', (route) => route.fulfill({
+    status: 402,
+    json: { error: 'No AI actions remain.', code: 'insufficient_credits' },
+  }))
+
+  await page.goto('/app/talk')
+  await page.getByRole('button', { name: 'Just take me in' }).click()
+  await page.locator('[data-demo-id="nav-talk"]').click()
+  await page.getByPlaceholder(/Add anything/).fill('Help me plan the next hour.')
+  await page.getByRole('button', { name: 'Send' }).click()
+
+  await expect(page.getByText('You have used your 10 Guest AI actions.')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Create a free account' })).toHaveAttribute('href', '/claim')
+  await expect(page.getByRole('link', { name: /ask the Founders Club/i })).toBeVisible()
+})
+
 test('Demo Talk stays deterministic without calling the billable chat API', async ({ page }) => {
   let billableChatRequests = 0
-  await page.addInitScript(() => {
-    localStorage.setItem('demoPersona', 'noam')
-  })
+  await page.route('**/api/ai/conversations**', (route) => route.fulfill({ json: [] }))
   await page.route('**/api/ai/chat', (route) => {
     billableChatRequests += 1
     return route.fulfill({
@@ -42,7 +118,11 @@ test('Demo Talk stays deterministic without calling the billable chat API', asyn
     })
   })
 
-  await page.goto('/app/talk')
+  const verified = page.waitForResponse('**/api/auth/verify')
+  await page.goto('/app')
+  await verified
+  await page.evaluate(() => localStorage.setItem('demoPersona', 'noam'))
+  await page.getByRole('link', { name: 'Talk' }).click()
   await page.getByPlaceholder(/Add anything/).fill('Give me one more small next step.')
   await page.getByRole('button', { name: 'Send' }).click()
 

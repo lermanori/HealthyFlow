@@ -30,19 +30,6 @@ const BillingSettingsSchema = z.object({
   minMarkupTokens: z.number().int().min(0),
 })
 
-const SubscriptionPricingSchema = z.object({
-  promoActive: z.boolean(),
-})
-
-const SubscriptionUpdateSchema = z.object({
-  active: z.boolean(),
-  grantMonthlyCredits: z.boolean().default(true),
-})
-
-const TopUpSchema = z.object({
-  dollars: z.number().positive().max(100),
-})
-
 const ContactMessageStatusQuerySchema = z.object({
   status: z.enum(['pending', 'handled', 'all']).default('pending'),
 })
@@ -121,51 +108,6 @@ router.patch('/token-manager/settings', authenticateToken, requireAdminRole, asy
     res.json(settings)
   } catch (error) {
     console.error('Update billing settings error:', error)
-    res.status(500).json({ error: 'Database error' })
-  }
-})
-
-router.patch('/token-manager/subscription-pricing', authenticateToken, requireAdminRole, async (req, res) => {
-  const parsed = SubscriptionPricingSchema.safeParse(req.body)
-  if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.issues[0].message })
-  }
-
-  try {
-    const settings = await Credits.updateSubscriptionPricing(parsed.data)
-    res.json(settings)
-  } catch (error) {
-    console.error('Update subscription pricing error:', error)
-    res.status(500).json({ error: 'Database error' })
-  }
-})
-
-router.patch('/token-manager/users/:userId/subscription', authenticateToken, requireAdminRole, async (req, res) => {
-  const parsed = SubscriptionUpdateSchema.safeParse(req.body)
-  if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.issues[0].message })
-  }
-
-  try {
-    const result = await Credits.activateSubscription(req.params.userId, parsed.data)
-    res.json(result)
-  } catch (error) {
-    console.error('Update subscription error:', error)
-    res.status(500).json({ error: 'Database error' })
-  }
-})
-
-router.post('/token-manager/users/:userId/top-up', authenticateToken, requireAdminRole, async (req, res) => {
-  const parsed = TopUpSchema.safeParse(req.body)
-  if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.issues[0].message })
-  }
-
-  try {
-    const result = await Credits.grantTopUp(req.params.userId, parsed.data.dollars)
-    res.status(201).json(result)
-  } catch (error) {
-    console.error('Grant top-up error:', error)
     res.status(500).json({ error: 'Database error' })
   }
 })

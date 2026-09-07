@@ -59,7 +59,7 @@ export type BillableOpenAIErrorCode =
 
 /** What a refused action tells the user. Never a guess about which guard fired. */
 const REFUSAL_MESSAGE: Record<string, string> = {
-  insufficient_credits: 'You are out of AI credits.',
+  insufficient_credits: 'You have used your available AI actions.',
   account_required: 'Create a free account to use AI.',
   billing_unavailable: 'AI billing is temporarily unavailable. Your credits were not charged.',
   account_daily_cap: 'This account has reached its daily AI limit. It resets tomorrow.',

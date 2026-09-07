@@ -37,7 +37,11 @@ export const FreeCreditGrantSchema = z.discriminatedUnion('state', [
     credits: z.number().int().positive(),
     kind: z.enum(['guest_initial', 'monthly']),
   }),
-  z.object({ state: z.literal('claimed') }),
+  z.object({
+    state: z.literal('claimed'),
+    kind: z.enum(['guest_initial', 'monthly']),
+    nextAvailableAt: z.string().datetime().nullable(),
+  }),
   z.object({
     state: z.literal('unavailable'),
     reason: z.string().min(1),

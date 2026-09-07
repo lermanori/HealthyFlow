@@ -28,6 +28,9 @@ test('Settings exposes Founders Club feedback and action requests', async ({ pag
   await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Founders Club' })).toBeVisible()
   await expect(page.getByText('Help shape HealthyFlow with direct feedback')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Subscribe' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /^Buy/ })).toHaveCount(0)
+  await expect(page.getByText(/\$\d+\s*\/\s*month/)).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Send feedback' }).click()
   await expect(page.getByRole('heading', { name: 'Send feedback' })).toBeVisible()

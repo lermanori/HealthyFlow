@@ -10,8 +10,8 @@ import toast from 'react-hot-toast'
 import api, { accountService, ApiTokenRecord, ApiTokenScope, AssistantProfile, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DAILY_SIGNALS_QUERY_KEY, DailyTouchpointRhythm, DAY_SUMMARY_QUERY_KEY, McpOAuthGrant, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
 import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
-import { isNativeApp } from '../lib/native'
 import { AssistantProfileSchema, DEFAULT_PLANNING_WINDOW } from '../../backend/src/settings-schema'
+import { actionExhaustionView } from '../utils/actionExhaustion'
 import Switch from '../components/Switch'
 import DeleteAccountDialog from '../components/DeleteAccountDialog'
 import { MODULE_PRESENTATIONS } from '../modulePresentation'
@@ -217,9 +217,7 @@ export default function SettingsPage() {
     isLoading: creditsLoading,
     isUnavailable: creditsUnavailable,
   } = useCredits()
-  const planPrice = creditSummary?.pricing.priceUsd ?? 9
-  const topUpPrice = creditSummary?.pricing.topUpPriceUsd ?? 5
-  const topUpCredits = creditSummary?.pricing.topUpCredits ?? 300
+  const exhaustion = creditSummary ? actionExhaustionView(creditSummary) : null
   const { settings, updateSetting, resolution, retry: retrySettings } = useSettings()
   const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
   const [calendarLoading, setCalendarLoading] = useState(true)
@@ -505,8 +503,6 @@ export default function SettingsPage() {
     navigate(`/talk?kickoff=${type}`)
   }
 
-  const isOutOfCredits = !creditsLoading && balance !== null && balance <= 0
-  const isLowOnCredits = !creditsLoading && balance !== null && balance > 0 && balance < 25
   const connectionPrompt = newToken
     ? `Connect HealthyFlow as an MCP server.
 
@@ -584,7 +580,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
   const settingsSummary = (category: SettingsCategoryId): string => {
     switch (category) {
       case 'account-billing':
-        return creditsLoading ? user?.email ?? 'Loading account' : `${user?.email ?? 'Account'} · ${balance} AI credits`
+        return creditsLoading ? user?.email ?? 'Loading account' : `${user?.email ?? 'Account'} · ${balance} AI actions`
       case 'planning':
         return enabledTouchpoints == null
           ? 'Loading planning status'
@@ -712,11 +708,11 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         </div>
       </div>
 
-      {/* AI Tokens */}
+      {/* AI actions */}
       <div className="card">
         <div className="flex items-center space-x-3 mb-4">
           <Sparkles className="w-5 h-5 text-accent" />
-          <h2 className="text-lg font-semibold text-ink">AI Credits</h2>
+          <h2 className="text-lg font-semibold text-ink">AI actions</h2>
         </div>
 
         <div className="space-y-4">
@@ -733,50 +729,23 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
             </p>
           )}
 
-          {(isOutOfCredits || isLowOnCredits) && (
-            <div className={`rounded-lg border p-4 ${
-              isOutOfCredits
-                ? 'border-state-danger/35 bg-state-danger/10'
-                : 'border-state-warning/35 bg-state-warning/10'
-            }`}>
-              <p className="font-semibold text-ink">
-                {isOutOfCredits ? 'You are out of AI credits' : 'You are running low on AI credits'}
-              </p>
+          {exhaustion && (
+            <div className="rounded-lg border border-state-warning/35 bg-state-warning/10 p-4">
+              <p className="font-semibold text-ink">{exhaustion.title}</p>
               <p className="mt-1 text-sm text-ink-soft">
-                {isNativeApp
-                  ? 'AI credit purchases are not yet available in the iOS app.'
-                  : `Subscribe for your day on every device, with AI included, or buy ${topUpCredits} non-expiring actions for $${topUpPrice}.`}
+                {exhaustion.kind === 'monthly'
+                  ? `Your next 15 free AI actions become available on ${new Intl.DateTimeFormat(undefined, { dateStyle: 'long' }).format(new Date(exhaustion.nextAvailableAt))}.`
+                  : exhaustion.detail}
               </p>
-              {!isNativeApp && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('more_actions')}>
-                    Subscribe
-                  </button>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {exhaustion.kind === 'guest' && (
+                  <Link className="btn-primary px-4 py-2 text-sm" to="/claim">Create free account</Link>
+                )}
+                {exhaustion.kind !== 'unavailable' && (
                   <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('more_actions')}>
-                    Buy {topUpCredits} · ${topUpPrice}
+                    Ask Founders Club
                   </button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {creditSummary && !isNativeApp && (
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div className="rounded-lg border border-line/70 bg-sunken/25 p-3">
-                <p className="text-ink-muted">Monthly plan</p>
-                <p className="mt-1 font-semibold text-ink">
-                  {creditSummary.subscription.active ? `${creditSummary.subscription.pricePhase} plan` : 'Inactive'}
-                </p>
-                <p className="mt-1 text-xs text-ink-muted">
-                  Refresh {creditSummary.subscription.renewalDate ?? '-'}
-                </p>
-              </div>
-              <div className="rounded-lg border border-line/70 bg-sunken/25 p-3">
-                <p className="text-ink-muted">Used this month</p>
-                <p className="mt-1 font-semibold text-ink">{creditSummary.usedThisMonth}</p>
-                <p className="mt-1 text-xs text-ink-muted">
-                  {creditSummary.subscriptionBalance} monthly · {creditSummary.topupBalance} top-up credits left
-                </p>
+                )}
               </div>
             </div>
           )}
@@ -790,46 +759,17 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
 
           <div className="rounded-lg border border-line/70 bg-sunken/25 p-3 text-sm text-ink-soft">
             <p>
-              Credits power AI actions like turning notes into tasks, reading a meal photo, or answering questions about your data.
+              AI actions include turning notes into tasks, reading a meal photo, or answering questions about your data.
             </p>
             <p className="mt-2 text-xs text-ink-muted">
-              Most quick text analyses use about 5-15 credits. Longer notes or images can use more.
+              Guests receive 10 once. Free accounts receive 15 each calendar month.
             </p>
           </div>
-
-          {creditSummary && (
-            <div className="rounded-lg border border-accent/25 bg-accent/10 p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="font-semibold text-accent">
-                    ${planPrice} / month
-                  </p>
-                  <p className="text-sm text-ink-soft">Your day on every device, with AI included.</p>
-                  <p className="mt-1 text-xs text-ink-muted">
-                    {creditSummary.pricing.promoActive
-                      ? 'Founding price stays locked while your subscription remains active.'
-                      : 'Standard monthly AI plan.'}
-                  </p>
-                  <p className="mt-1 text-xs text-ink-muted">
-                    Top up with {topUpCredits} non-expiring credits for ${topUpPrice}.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('feedback')}>
-                    Subscribe
-                  </button>
-                  <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('more_actions')}>
-                    Buy {topUpCredits} · ${topUpPrice}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
       {/* Founders Club */}
-      <div className="card">
+      <div className="card" id="founders-club">
         <div className="mb-4 flex items-start gap-3">
           <Mail className="mt-0.5 h-5 w-5 flex-none text-accent" />
           <div>

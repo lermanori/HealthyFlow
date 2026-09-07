@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Bot, ChevronDown, Image as ImageIcon, Mic, MessageSquare, Paperclip, Pause, Play, Plus, Send, Square, UserRound, Volume2, Wrench, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantContext, AssistantConversation, AssistantPendingAction, AssistantStoredMessage, AssistantToolEvent, GOALS_QUERY_KEY, HABIT_HISTORY_QUERY_KEY, goalService, pushService, taskService, type Goal } from '../services/api'
+import { aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantContext, AssistantConversation, AssistantPendingAction, AssistantStoredMessage, AssistantToolEvent, creditsService, GOALS_QUERY_KEY, HABIT_HISTORY_QUERY_KEY, goalService, pushService, taskService, type Goal } from '../services/api'
 import { GoalCreateInputSchema, GoalUpdateInputSchema } from '../../backend/src/goals-schema'
 import { useDictatedText } from '../hooks/useDictatedText'
 import { PendingActionDeck, type PendingActionView } from '../components/PendingActionCard'
@@ -25,6 +25,7 @@ import {
   type TalkHandoffContext,
 } from '../talkHandoff'
 import type { WorkoutPlanTalkHandoff } from '../../backend/src/talk-handoff-schema'
+import { actionExhaustionView } from '../utils/actionExhaustion'
 
 type ConversationPendingAction = PendingActionView
 
@@ -207,9 +208,17 @@ function titleFromMessages(messages: ConversationMessage[]) {
 }
 
 function renderInlineMarkdown(text: string) {
-  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+  return text.split(/(\*\*[^*]+\*\*|\[[^\]]+\]\(\/[^)]+\))/g).map((part, index) => {
     if (part.startsWith('**') && part.endsWith('**')) {
       return <strong key={index} className="font-semibold text-ink">{part.slice(2, -2)}</strong>
+    }
+    const internalLink = part.match(/^\[([^\]]+)\]\((\/[^)]+)\)$/)
+    if (internalLink) {
+      return (
+        <Link key={index} className="font-medium text-accent underline underline-offset-2" to={internalLink[2]}>
+          {internalLink[1]}
+        </Link>
+      )
     }
     return <span key={index}>{part}</span>
   })
@@ -878,10 +887,27 @@ export default function AssistantPage() {
         return
       }
 
-      const message = error.response?.data?.error
+      const refusalCode = error.response?.data?.code
+      let message = error.response?.data?.error
         ?? (error instanceof Error ? error.message : 'Assistant unavailable')
+      if (refusalCode === 'insufficient_credits') {
+        try {
+          const exhaustion = actionExhaustionView(await creditsService.getSummary())
+          if (exhaustion?.kind === 'guest') {
+            message = `${exhaustion.title}\n\n${exhaustion.detail} [Create a free account](/claim), or [ask the Founders Club for more free actions](/settings/account-billing#founders-club).`
+          } else if (exhaustion?.kind === 'monthly') {
+            const renewalDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'long' })
+              .format(new Date(exhaustion.nextAvailableAt))
+            message = `${exhaustion.title}\n\nYour next 15 free AI actions become available on ${renewalDate}. You can also [ask the Founders Club for more free actions](/settings/account-billing#founders-club).`
+          } else {
+            message = `${exhaustion?.title ?? 'Action availability is unavailable.'}\n\n${exhaustion?.detail ?? 'HealthyFlow could not read your free-action entitlement.'}`
+          }
+        } catch {
+          message = 'Action availability is unavailable.\n\nHealthyFlow could not read your free-action entitlement.'
+        }
+      }
       const errorMessageId = crypto.randomUUID()
-      toast.error(message)
+      if (refusalCode !== 'insufficient_credits') toast.error(message)
       setMessages((current) => [
         ...current,
         {

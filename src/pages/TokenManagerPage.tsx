@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Coins, Loader2, Mail, RotateCcw, Save, Settings, UserCog, Activity, BadgeDollarSign, Gift } from 'lucide-react'
+import { CheckCircle2, Coins, Loader2, Mail, RotateCcw, Save, Settings, UserCog, Activity } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { tokenManagerService, TokenManagerTotals } from '../services/api'
 import WaitlistPanel from '../components/admin/WaitlistPanel'
@@ -64,10 +64,8 @@ export default function TokenManagerPage() {
   const queryClient = useQueryClient()
   const [selectedRange, setSelectedRange] = useState<RangeKey>('today')
   const [balanceDrafts, setBalanceDrafts] = useState<Record<string, string>>({})
-  const [topUpDrafts, setTopUpDrafts] = useState<Record<string, string>>({})
   const [markupPercent, setMarkupPercent] = useState('25')
   const [minMarkupTokens, setMinMarkupTokens] = useState('5')
-  const [promoActive, setPromoActive] = useState(true)
   const [contactStatus, setContactStatus] = useState<ContactStatusFilter>('pending')
 
   const overviewQuery = useQuery({
@@ -86,10 +84,8 @@ export default function TokenManagerPage() {
   useEffect(() => {
     if (!overview) return
     setBalanceDrafts(Object.fromEntries(overview.users.map(user => [user.id, String(user.balance)])))
-    setTopUpDrafts(Object.fromEntries(overview.users.map(user => [user.id, '1'])))
     setMarkupPercent(String(Math.round(overview.settings.markupRate * 10000) / 100))
     setMinMarkupTokens(String(overview.settings.minMarkupTokens))
-    setPromoActive(overview.subscriptionPricing.promoActive)
   }, [overview])
 
   const setBalanceMutation = useMutation({
@@ -112,35 +108,6 @@ export default function TokenManagerPage() {
       queryClient.invalidateQueries({ queryKey: ['token-manager-overview'] })
     },
     onError: () => toast.error('Failed to update billing settings'),
-  })
-
-  const subscriptionPricingMutation = useMutation({
-    mutationFn: () => tokenManagerService.updateSubscriptionPricing({ promoActive }),
-    onSuccess: () => {
-      toast.success('Subscription pricing updated')
-      queryClient.invalidateQueries({ queryKey: ['token-manager-overview'] })
-    },
-    onError: () => toast.error('Failed to update subscription pricing'),
-  })
-
-  const subscriptionMutation = useMutation({
-    mutationFn: ({ userId, active }: { userId: string; active: boolean }) =>
-      tokenManagerService.updateUserSubscription(userId, { active, grantMonthlyCredits: active }),
-    onSuccess: () => {
-      toast.success('Subscription updated')
-      queryClient.invalidateQueries({ queryKey: ['token-manager-overview'] })
-    },
-    onError: () => toast.error('Failed to update subscription'),
-  })
-
-  const topUpMutation = useMutation({
-    mutationFn: ({ userId, dollars }: { userId: string; dollars: number }) =>
-      tokenManagerService.grantTopUp(userId, { dollars }),
-    onSuccess: (result) => {
-      toast.success(`Granted ${formatNumber(result.credits)} credits`)
-      queryClient.invalidateQueries({ queryKey: ['token-manager-overview'] })
-    },
-    onError: () => toast.error('Failed to grant top-up'),
   })
 
   const contactMessageMutation = useMutation({
@@ -172,15 +139,6 @@ export default function TokenManagerPage() {
       return
     }
     settingsMutation.mutate()
-  }
-
-  const grantTopUp = (userId: string) => {
-    const dollars = Number(topUpDrafts[userId])
-    if (!Number.isFinite(dollars) || dollars <= 0) {
-      toast.error('Top-up dollars must be positive')
-      return
-    }
-    topUpMutation.mutate({ userId, dollars })
   }
 
   if (overviewQuery.isLoading) {
@@ -295,46 +253,6 @@ export default function TokenManagerPage() {
         </div>
       </div>
 
-      <div className="card">
-        <div className="flex items-center space-x-3 mb-4">
-          <BadgeDollarSign className="w-5 h-5 text-accent" />
-          <h2 className="text-lg font-semibold text-ink">Subscription Pricing</h2>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-[1fr_1fr_auto] md:items-end">
-          <div>
-            <label className="block text-sm font-medium text-ink-soft mb-1">Current phase</label>
-            <button
-              type="button"
-              onClick={() => setPromoActive(!promoActive)}
-              className={`flex w-full items-center justify-between rounded-lg border px-4 py-3 text-left transition ${
-                promoActive
-                  ? 'border-state-success/40 bg-state-success/10 text-state-success'
-                  : 'border-line bg-sunken/30 text-ink-soft'
-              }`}
-            >
-              <span>{promoActive ? 'Founding: $9 / month' : 'Regular: $19 / month'}</span>
-              <span className="text-xs text-ink-muted">Toggle</span>
-            </button>
-          </div>
-          <div className="rounded-lg border border-line/70 bg-sunken/30 p-3 text-sm">
-            <p className="text-ink-muted">Top-up offer</p>
-            <p className="mt-1 text-lg font-semibold text-ink">
-              ${overview.subscriptionPricing.topUpPriceUsd} for {formatNumber(overview.subscriptionPricing.topUpCredits)} credits
-            </p>
-            <p className="mt-1 text-xs text-ink-muted">AI cost metering remains {overview.settings.appTokensPerUsd} tokens / $1.</p>
-          </div>
-          <button
-            onClick={() => subscriptionPricingMutation.mutate()}
-            disabled={subscriptionPricingMutation.isPending}
-            className="btn-primary inline-flex items-center justify-center gap-2 px-4 py-3"
-          >
-            {subscriptionPricingMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save Pricing
-          </button>
-        </div>
-      </div>
-
       <WaitlistPanel />
 
       <UserManagementPanel />
@@ -446,8 +364,8 @@ export default function TokenManagerPage() {
                 <th className="py-3 pr-4 font-medium">User</th>
                 <th className="py-3 pr-4 font-medium">Role</th>
                 <th className="py-3 pr-4 font-medium">Balance</th>
-                <th className="py-3 pr-4 font-medium">Subscription</th>
-                <th className="py-3 pr-4 font-medium">Top-up</th>
+                <th className="py-3 pr-4 font-medium">Entitlement</th>
+                <th className="py-3 pr-4 font-medium">Founders grant</th>
                 <th className="py-3 pr-4 font-medium">Updated</th>
                 <th className="py-3 font-medium">Action</th>
               </tr>
@@ -473,43 +391,15 @@ export default function TokenManagerPage() {
                   <td className="py-3 pr-4">
                     <div className="space-y-2">
                       <p className="text-xs text-ink-muted">
-                        {user.subscription?.active ? `${user.subscription.pricePhase} · renews ${user.subscription.renewalDate ?? '-'}` : 'Inactive'}
+                        Free v1
                       </p>
                       <p className="text-xs text-ink-muted">
-                        Monthly {formatNumber(user.subscription_balance)} · Top-up {formatNumber(user.topup_balance)}
+                        {formatNumber(user.balance)} AI actions available
                       </p>
-                      <button
-                        onClick={() => subscriptionMutation.mutate({ userId: user.id, active: !user.subscription?.active })}
-                        disabled={subscriptionMutation.isPending}
-                        className="btn-secondary inline-flex items-center space-x-2 text-xs"
-                      >
-                        <Gift className="h-3.5 w-3.5" />
-                        <span>
-                          {user.subscription?.active
-                            ? 'Deactivate'
-                            : 'Subscribe'}
-                        </span>
-                      </button>
                     </div>
                   </td>
                   <td className="py-3 pr-4">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        min="1"
-                        step="1"
-                        className="input-field w-20"
-                        value={topUpDrafts[user.id] ?? String(overview.subscriptionPricing.topUpPriceUsd)}
-                        onChange={(event) => setTopUpDrafts(prev => ({ ...prev, [user.id]: event.target.value }))}
-                      />
-                      <button
-                        onClick={() => grantTopUp(user.id)}
-                        disabled={topUpMutation.isPending}
-                        className="btn-secondary text-sm"
-                      >
-                        Grant $
-                      </button>
-                    </div>
+                    <span className="text-xs text-ink-muted">Use balance to grant free actions</span>
                   </td>
                   <td className="py-3 pr-4 text-ink-muted">{formatDate(user.balance_updated_at)}</td>
                   <td className="py-3">

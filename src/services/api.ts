@@ -1,6 +1,5 @@
 /// <reference types="vite/client" />
 import axios from 'axios'
-import toast from 'react-hot-toast'
 import { z } from 'zod'
 import { analytics } from '../lib/analytics'
 import { WORK_ENABLED } from '../featureFlags'
@@ -136,9 +135,6 @@ api.interceptors.response.use(
           : 'This HealthyFlow account is no longer available.',
       )
       window.location.reload()
-    }
-    if (error.response?.status === 402) {
-      toast.error('Out of AI credits. Open Settings to subscribe or buy more.')
     }
     return Promise.reject(error)
   }
@@ -2031,27 +2027,6 @@ export const tokenManagerService = {
 
   updateSettings: async (settings: { markupRate: number; minMarkupTokens: number }): Promise<BillingSettings> => {
     const response = await api.patch('/admin/token-manager/settings', settings)
-    return response.data
-  },
-
-  updateSubscriptionPricing: async (settings: { promoActive: boolean }): Promise<CreditSubscriptionPricing> => {
-    const response = await api.patch('/admin/token-manager/subscription-pricing', settings)
-    return response.data
-  },
-
-  updateUserSubscription: async (
-    userId: string,
-    input: { active: boolean; grantMonthlyCredits: boolean }
-  ): Promise<{ subscription: CreditSubscriptionState; balance: number; pricing: CreditSubscriptionPricing }> => {
-    const response = await api.patch(`/admin/token-manager/users/${userId}/subscription`, input)
-    return response.data
-  },
-
-  grantTopUp: async (
-    userId: string,
-    input: { dollars: number }
-  ): Promise<{ balance: number; credits: number; dollars: number; pricing: CreditSubscriptionPricing }> => {
-    const response = await api.post(`/admin/token-manager/users/${userId}/top-up`, input)
     return response.data
   },
 
