@@ -34,7 +34,7 @@ npm run test:e2e -- --project=today
 | `health` | 12 | health-workflow, calories-quick-insert, workouts, module-presentation |
 | `talk` | 4 | assistant |
 | `week` | 13 | week-view, week-theme-visual |
-| `platform` | 11 | phase0-reliability, settings-subscription |
+| `platform` | 11 | phase0-reliability, settings-founders-club |
 | `visual` | 12 | responsive-visual-system |
 
 114 in total, excluding the `setup` project every subject depends on. Counts come
@@ -101,7 +101,7 @@ test here guarantees the list goes stale.
 | `workouts.spec.ts` | 3 | Workout sessions, plans, history |
 | `module-presentation.spec.ts` | 2 | Hiding a Health section removes nav / Add targets, keeps data |
 | `assistant.spec.ts` | 4 | Talk: parse, confirm, cancel, conversations |
-| `settings-subscription.spec.ts` | 1 | Credits and the subscribe / top-up contact flow |
+| `settings-founders-club.spec.ts` | 1 | Founders Club feedback and more-action requests |
 | `phase0-reliability.spec.ts` | 10 | Error states, empty states, a11y smoke |
 | `week-view.spec.ts` | 5 | Week placement and habit consistency (flag forced on) |
 | `week-theme-visual.spec.ts` | 3 | Screenshot diffs for Midnight / White themes |
