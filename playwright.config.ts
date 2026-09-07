@@ -21,6 +21,7 @@ const apiPort = Number(process.env.HF_E2E_API_PORT ?? 3001)
 // to run with more than one worker (see the workers: 1 note below).
 const HERMETIC = [
   'assistant',
+  'landing-free-v1',
   'module-presentation',
   'responsive-visual-system',
   'today-focus-block',
@@ -42,7 +43,7 @@ const SUBJECTS: Record<string, readonly string[]> = {
   health: ['health-workflow', 'calories-quick-insert', 'workouts', 'module-presentation'],
   talk: ['assistant'],
   week: ['week-view', 'week-theme-visual'],
-  platform: ['phase0-reliability', 'settings-founders-club', 'cloud-status-notifications'],
+  platform: ['phase0-reliability', 'settings-founders-club', 'cloud-status-notifications', 'landing-free-v1'],
   visual: ['responsive-visual-system'],
 }
 
