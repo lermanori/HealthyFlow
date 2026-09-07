@@ -120,7 +120,7 @@ export async function buildAccountExport(userId: string): Promise<AccountExportV
     paginatedUserRows('user_credits', userId),
     paginatedUserRows('user_credit_subscriptions', userId),
     paginatedUserRows('ai_usage_log', userId),
-    paginatedUserRows('contact_messages', userId, 'id, user_id, kind, message, status, created_at, handled_at'),
+    paginatedUserRows('contact_messages', userId, 'id, user_id, kind, message, reply_to, status, created_at, handled_at'),
     paginatedUserRows('api_tokens', userId, 'id, user_id, name, scopes, audience, created_at, last_used_at, revoked_at'),
     paginatedUserRows('mcp_oauth_grants', userId, 'id, user_id, client_id, client_name, scopes, resource, created_at, last_used_at, revoked_at'),
   ])

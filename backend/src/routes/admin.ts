@@ -14,6 +14,10 @@ import {
   listManagedUsers,
   previewAdminUserDeletion,
 } from '../account-data'
+import {
+  ContactMessageListSchema,
+  ContactMessageSchema,
+} from '../contact-message-contracts'
 
 const router = express.Router()
 
@@ -65,7 +69,7 @@ router.get('/token-manager/contact-messages', authenticateToken, requireAdminRol
 
   try {
     const messages = await db.getContactMessages(parsed.data.status)
-    res.json(messages)
+    res.json(ContactMessageListSchema.parse(messages))
   } catch (error) {
     console.error('Contact messages error:', error)
     res.status(500).json({ error: 'Database error' })
@@ -84,7 +88,7 @@ router.patch('/token-manager/contact-messages/:messageId', authenticateToken, re
       parsed.data.status,
       parsed.data.status === 'handled' ? req.user.userId : null
     )
-    res.json(message)
+    res.json(ContactMessageSchema.parse(message))
   } catch (error) {
     console.error('Update contact message error:', error)
     res.status(500).json({ error: 'Database error' })

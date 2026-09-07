@@ -10,6 +10,10 @@ import { pushDb } from './db/push'
 import { assistantConversationsDb } from './db/assistant-conversations'
 import { talkWorkflowsDb } from './db/talk-workflows'
 import { FreeCreditGrantSchema } from './credit-contracts'
+import {
+  ContactMessageRowSchema,
+  type ContactMessageKind,
+} from './contact-message-contracts'
 
 // Re-export the shared client so existing
 // `import { supabase } from './supabase-client'` call sites keep working.
@@ -1007,22 +1011,23 @@ export const db = {
   // Contact messages
   async createContactMessage(row: {
     user_id: string
-    kind: 'subscribe' | 'topup'
+    kind: ContactMessageKind
     message: string
+    reply_to: string | null
   }) {
     const { data, error } = await supabase
       .from('contact_messages')
       .insert(row)
-      .select('id, user_id, kind, message, status, handled_at, handled_by, created_at, updated_at')
+      .select('id, user_id, kind, message, reply_to, status, handled_at, handled_by, created_at, updated_at')
       .single()
     if (error) throw error
-    return data
+    return ContactMessageRowSchema.parse(data)
   },
 
   async getContactMessages(status: 'pending' | 'handled' | 'all' = 'pending') {
     let query = supabase
       .from('contact_messages')
-      .select('id, user_id, kind, message, status, handled_at, handled_by, created_at, updated_at')
+      .select('id, user_id, kind, message, reply_to, status, handled_at, handled_by, created_at, updated_at')
       .order('created_at', { ascending: false })
       .limit(100)
 
@@ -1033,7 +1038,8 @@ export const db = {
 
     const users = await this.getAllUsers()
     const usersById = new Map(users.map(user => [user.id, user]))
-    return (messages ?? []).map(message => {
+    return (messages ?? []).map(rawMessage => {
+      const message = ContactMessageRowSchema.parse(rawMessage)
       const user = usersById.get(message.user_id)
       return {
         id: message.id,
@@ -1042,6 +1048,7 @@ export const db = {
         userName: user?.name ?? null,
         kind: message.kind,
         message: message.message,
+        replyTo: message.reply_to,
         status: message.status,
         handledAt: message.handled_at,
         handledBy: message.handled_by,
@@ -1065,23 +1072,25 @@ export const db = {
         updated_at: new Date().toISOString(),
       })
       .eq('id', messageId)
-      .select('id, user_id, kind, message, status, handled_at, handled_by, created_at, updated_at')
+      .select('id, user_id, kind, message, reply_to, status, handled_at, handled_by, created_at, updated_at')
       .single()
     if (error) throw error
 
-    const user = await this.getUserById(data.user_id)
+    const message = ContactMessageRowSchema.parse(data)
+    const user = await this.getUserById(message.user_id)
     return {
-      id: data.id,
-      userId: data.user_id,
+      id: message.id,
+      userId: message.user_id,
       userEmail: user?.email ?? null,
       userName: user?.name ?? null,
-      kind: data.kind,
-      message: data.message,
-      status: data.status,
-      handledAt: data.handled_at,
-      handledBy: data.handled_by,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
+      kind: message.kind,
+      message: message.message,
+      replyTo: message.reply_to,
+      status: message.status,
+      handledAt: message.handled_at,
+      handledBy: message.handled_by,
+      createdAt: message.created_at,
+      updatedAt: message.updated_at,
     }
   },
 

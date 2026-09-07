@@ -382,11 +382,11 @@ export default function TokenManagerPage() {
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className={`rounded-full px-2 py-1 text-xs font-medium ${
-                        message.kind === 'subscribe'
+                        message.kind === 'feedback'
                           ? 'bg-state-success/15 text-state-success'
                           : 'bg-state-info/15 text-state-info'
                       }`}>
-                        {message.kind === 'subscribe' ? 'Subscribe' : 'Buy more'}
+                        {message.kind === 'feedback' ? 'Feedback' : 'More actions'}
                       </span>
                       <span className={`rounded-full px-2 py-1 text-xs font-medium ${
                         message.status === 'pending'
@@ -398,7 +398,9 @@ export default function TokenManagerPage() {
                       <span className="text-xs text-ink-muted">{formatDate(message.createdAt)}</span>
                     </div>
                     <p className="mt-2 font-medium text-ink">{message.userName ?? 'Unknown user'}</p>
-                    <p className="text-xs text-ink-muted">{message.userEmail ?? message.userId}</p>
+                    <p className="text-xs text-ink-muted">
+                      {message.replyTo ?? message.userEmail ?? message.userId}
+                    </p>
                     <p className="mt-3 whitespace-pre-wrap text-sm text-ink-soft">{message.message}</p>
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">

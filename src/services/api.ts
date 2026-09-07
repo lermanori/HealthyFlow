@@ -44,6 +44,10 @@ import CreditContracts, {
   type CreditSubscriptionState,
   type CreditSummary,
 } from '../../backend/src/credit-contracts'
+import ContactMessageContracts, {
+  type ContactMessage,
+  type ContactMessageCreate,
+} from '../../backend/src/contact-message-contracts'
 import type { WorkoutPlanTalkHandoff } from '../../backend/src/talk-handoff-schema'
 import type { SyncDelta, SyncIncoming } from '../lib/local/sync'
 import {
@@ -63,6 +67,7 @@ const {
   CreditSubscriptionPricingSchema,
   CreditSummarySchema,
 } = CreditContracts
+const { ContactMessageSchema, ContactMessageListSchema } = ContactMessageContracts
 
 export type {
   Category,
@@ -84,6 +89,8 @@ export type {
   CreditSubscriptionPricing,
   CreditSubscriptionState,
   CreditSummary,
+  ContactMessage,
+  ContactMessageCreate,
 }
 export { isDaySummaryItemAddressed }
 export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
@@ -380,20 +387,6 @@ export interface TokenManagerActivity {
   balanceBefore: number | null
   balanceAfter: number | null
   createdAt: string
-}
-
-export interface ContactMessage {
-  id: string
-  userId: string
-  userEmail: string | null
-  userName: string | null
-  kind: 'subscribe' | 'topup'
-  message: string
-  status: 'pending' | 'handled'
-  handledAt: string | null
-  handledBy: string | null
-  createdAt: string
-  updatedAt: string
 }
 
 export interface TokenManagerOverview {
@@ -1200,22 +1193,10 @@ export const creditsService = {
 }
 
 export const contactMessagesService = {
-  create: async (input: {
-    kind: 'subscribe' | 'topup'
-    message: string
-    priceUsd: number
-    credits: number
-  }): Promise<ContactMessage> => {
-    const response = await api.post('/contact-messages', {
-      kind: input.kind,
-      message: input.message,
-    })
-    analytics.capture('upgrade_request_sent', {
-      kind: input.kind,
-      price_usd: input.priceUsd,
-      credits: input.credits,
-    })
-    return response.data
+  create: async (input: ContactMessageCreate): Promise<ContactMessage> => {
+    const response = await api.post('/contact-messages', input)
+    analytics.capture('founders_club_request_sent', { kind: input.kind })
+    return ContactMessageSchema.parse(response.data)
   },
 }
 
@@ -2032,7 +2013,7 @@ export const tokenManagerService = {
 
   getContactMessages: async (status: 'pending' | 'handled' | 'all' = 'pending'): Promise<ContactMessage[]> => {
     const response = await api.get('/admin/token-manager/contact-messages', { params: { status } })
-    return response.data
+    return ContactMessageListSchema.parse(response.data)
   },
 
   updateContactMessageStatus: async (
@@ -2040,7 +2021,7 @@ export const tokenManagerService = {
     status: 'pending' | 'handled'
   ): Promise<ContactMessage> => {
     const response = await api.patch(`/admin/token-manager/contact-messages/${messageId}`, { status })
-    return response.data
+    return ContactMessageSchema.parse(response.data)
   },
 
   setUserBalance: async (userId: string, balance: number): Promise<{ balance: number; delta: number }> => {

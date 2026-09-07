@@ -1,3 +1,13 @@
+### 2026-09-07 14:29 — `codex/232-founders-club`
+
+Replaced the purchase-intent contact flow with a Founders Club inbox for feedback
+and requests for additional free actions on web and iOS. Added a shared Zod
+contract, Guest reply-to enforcement, legacy-row migration, and reply-aware admin
+triage; the browser path, disposable database rehearsal, full frontend/backend
+suites, typechecks, lint, and production build are green.
+
+---
+
 ### 2026-09-07 13:56 — `codex/231-guest-actions`
 
 Implemented the free-v1 Guest entitlement as a lazy, once-ever ten-action grant,

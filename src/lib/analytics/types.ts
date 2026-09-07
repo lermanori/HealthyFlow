@@ -137,10 +137,10 @@ export type AnalyticsEvents = {
     trigger: 'blocked' | 'nudge'
   }
 
-  // Monetization
+  // Free-v1 AI actions and founder contact
   credits_exhausted: void
-  upgrade_cta_clicked: { kind: 'subscribe' | 'topup'; price_usd: number; credits: number }
-  upgrade_request_sent: { kind: 'subscribe' | 'topup'; price_usd: number; credits: number }
+  founders_club_opened: { kind: 'feedback' | 'more_actions' }
+  founders_club_request_sent: { kind: 'feedback' | 'more_actions' }
 }
 
 export type AnalyticsEventName = keyof AnalyticsEvents

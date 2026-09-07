@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, ShieldCheck, Smartphone, Unplug, Sparkles, Mail, Instagram, MessageCircle, Copy, X, KeyRound, Trash2, HeartPulse } from 'lucide-react'
+import { ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, ShieldCheck, Smartphone, Unplug, Sparkles, Mail, Copy, X, KeyRound, Trash2, HeartPulse } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useNotifications } from '../hooks/useNotifications'
@@ -224,13 +224,17 @@ export default function SettingsPage() {
   const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
   const [calendarLoading, setCalendarLoading] = useState(true)
   const [calendarActionLoading, setCalendarActionLoading] = useState(false)
-  const [contactFlow, setContactFlow] = useState<'subscribe' | 'topup' | null>(null)
-  const openContactFlow = (kind: 'subscribe' | 'topup') => {
-    analytics.capture('upgrade_cta_clicked', {
-      kind,
-      price_usd: kind === 'subscribe' ? planPrice : topUpPrice,
-      credits: kind === 'subscribe' ? 0 : topUpCredits,
-    })
+  const [contactFlow, setContactFlow] = useState<'feedback' | 'more_actions' | null>(null)
+  const [contactMessage, setContactMessage] = useState('')
+  const [contactReplyTo, setContactReplyTo] = useState('')
+  const openContactFlow = (kind: 'feedback' | 'more_actions') => {
+    analytics.capture('founders_club_opened', { kind })
+    setContactMessage(
+      kind === 'more_actions'
+        ? 'I would like to request more free AI actions.'
+        : '',
+    )
+    setContactReplyTo('')
     setContactFlow(kind)
   }
   const [apiTokens, setApiTokens] = useState<ApiTokenRecord[]>([])
@@ -501,14 +505,6 @@ export default function SettingsPage() {
     navigate(`/talk?kickoff=${type}`)
   }
 
-  const contactSubject = contactFlow === 'topup' ? 'HealthyFlow credit top-up' : 'HealthyFlow monthly credits'
-  const contactBody = contactFlow === 'topup'
-    ? `Hi Ori, I want to buy ${topUpCredits} non-expiring HealthyFlow AI credits for $${topUpPrice} for ${user?.email ?? 'my account'}.`
-    : `Hi Ori, I want to subscribe to HealthyFlow Cloud for $${planPrice}/month — my day on every device, with AI included — for ${user?.email ?? 'my account'}.`
-  const encodedSubject = encodeURIComponent(contactSubject)
-  const encodedBody = encodeURIComponent(contactBody)
-  const whatsappUrl = `https://wa.me/972523221702?text=${encodedBody}`
-  const smsUrl = `sms:+972523221702?&body=${encodedBody}`
   const isOutOfCredits = !creditsLoading && balance !== null && balance <= 0
   const isLowOnCredits = !creditsLoading && balance !== null && balance > 0 && balance < 25
   const connectionPrompt = newToken
@@ -525,16 +521,17 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
 
   const contactMessageMutation = useMutation({
     mutationFn: () => contactMessagesService.create({
-      kind: contactFlow ?? 'subscribe',
-      message: contactBody,
-      priceUsd: contactFlow === 'topup' ? topUpPrice : planPrice,
-      credits: contactFlow === 'topup' ? topUpCredits : 0,
+      kind: contactFlow ?? 'feedback',
+      message: contactMessage.trim(),
+      ...(user?.email === null ? { replyTo: contactReplyTo.trim() } : {}),
     }),
     onSuccess: () => {
-      toast.success('Message sent to admin')
+      toast.success('Message sent to the Founders Club')
       setContactFlow(null)
+      setContactMessage('')
+      setContactReplyTo('')
     },
-    onError: () => toast.error('Failed to send message'),
+    onError: () => toast.error('Could not send your message'),
   })
 
   // Clear all tasks
@@ -752,10 +749,10 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
               </p>
               {!isNativeApp && (
                 <div className="mt-3 flex flex-wrap gap-2">
-                  <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('subscribe')}>
+                  <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('more_actions')}>
                     Subscribe
                   </button>
-                  <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('topup')}>
+                  <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('more_actions')}>
                     Buy {topUpCredits} · ${topUpPrice}
                   </button>
                 </div>
@@ -818,10 +815,10 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('subscribe')}>
+                  <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('feedback')}>
                     Subscribe
                   </button>
-                  <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('topup')}>
+                  <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('more_actions')}>
                     Buy {topUpCredits} · ${topUpPrice}
                   </button>
                 </div>
@@ -831,7 +828,28 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         </div>
       </div>
 
-      {contactFlow && !isNativeApp && (
+      {/* Founders Club */}
+      <div className="card">
+        <div className="mb-4 flex items-start gap-3">
+          <Mail className="mt-0.5 h-5 w-5 flex-none text-accent" />
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Founders Club</h2>
+            <p className="text-sm text-ink-muted">
+              Help shape HealthyFlow with direct feedback, or ask for additional free AI actions.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button className="btn-secondary px-4 py-2 text-sm" onClick={() => openContactFlow('feedback')}>
+            Send feedback
+          </button>
+          <button className="btn-primary px-4 py-2 text-sm" onClick={() => openContactFlow('more_actions')}>
+            Request more actions
+          </button>
+        </div>
+      </div>
+
+      {contactFlow && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button
             type="button"
@@ -843,12 +861,10 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold text-ink">
-                  {contactFlow === 'topup' ? 'Buy more credits' : 'Subscribe'}
+                  {contactFlow === 'more_actions' ? 'Request more actions' : 'Send feedback'}
                 </h2>
                 <p className="text-sm text-ink-muted">
-                  {contactFlow === 'topup'
-                    ? `$${topUpPrice} for ${topUpCredits} non-expiring AI credits. Manual fulfillment for now.`
-                    : `$${planPrice}/month for your day on every device, with AI included. Manual fulfillment for now.`}
+                  Your note goes directly to the HealthyFlow founder.
                 </p>
               </div>
               <button type="button" className="text-ink-muted hover:text-ink-soft" onClick={() => setContactFlow(null)} aria-label="Close">
@@ -856,33 +872,50 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
               </button>
             </div>
 
-            <div className="grid gap-2">
-              <a className="btn-secondary inline-flex items-center gap-2 px-4 py-3" href={`mailto:lermanori@gmail.com?subject=${encodedSubject}&body=${encodedBody}`}>
-                <Mail className="h-4 w-4" />
-                Email
-              </a>
-              <a className="btn-secondary inline-flex items-center gap-2 px-4 py-3" href="https://instagram.com/lermanori" target="_blank" rel="noreferrer">
-                <Instagram className="h-4 w-4" />
-                Instagram DM
-              </a>
+            <form
+              className="grid gap-4"
+              onSubmit={(event) => {
+                event.preventDefault()
+                contactMessageMutation.mutate()
+              }}
+            >
+              <label className="grid gap-1.5 text-sm text-ink-soft">
+                Message
+                <textarea
+                  className="input-field min-h-32 w-full"
+                  value={contactMessage}
+                  maxLength={1000}
+                  required
+                  onChange={(event) => setContactMessage(event.target.value)}
+                  placeholder={contactFlow === 'more_actions'
+                    ? 'Tell us how additional actions would help.'
+                    : 'What is working, or what should change?'}
+                />
+              </label>
+              {user?.email === null && (
+                <label className="grid gap-1.5 text-sm text-ink-soft">
+                  Reply-to email
+                  <input
+                    type="email"
+                    className="input-field min-h-11"
+                    value={contactReplyTo}
+                    maxLength={254}
+                    required
+                    autoComplete="email"
+                    onChange={(event) => setContactReplyTo(event.target.value)}
+                  />
+                  <span className="text-xs text-ink-muted">A Guest has no account email, so we need an address to reply.</span>
+                </label>
+              )}
               <button
-                type="button"
-                className="btn-secondary inline-flex items-center gap-2 px-4 py-3"
-                onClick={() => contactMessageMutation.mutate()}
-                disabled={contactMessageMutation.isPending}
+                type="submit"
+                className="btn-primary inline-flex items-center justify-center gap-2 px-4 py-3"
+                disabled={contactMessageMutation.isPending || contactMessage.trim().length === 0}
               >
-                {contactMessageMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
-                In-app message
+                {contactMessageMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Send message
               </button>
-              <a className="btn-secondary inline-flex items-center gap-2 px-4 py-3" href={whatsappUrl} target="_blank" rel="noreferrer">
-                <MessageCircle className="h-4 w-4" />
-                WhatsApp
-              </a>
-              <a className="btn-secondary inline-flex items-center gap-2 px-4 py-3" href={smsUrl}>
-                <Smartphone className="h-4 w-4" />
-                SMS
-              </a>
-            </div>
+            </form>
           </div>
         </div>
       )}
