@@ -1,6 +1,11 @@
 import { db } from './supabase-client'
 import type { TokenUsage } from './openai'
 import { z } from 'zod'
+import {
+  ActionPriceSchema,
+  CreditSummarySchema,
+  type FreeCreditGrant,
+} from './credit-contracts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COST LEDGER — internal accounting only. Never prices anything a user sees.
@@ -43,6 +48,9 @@ export const FOUNDING_MEMBER_LIMIT = 100
 
 /** Refilled to a free account on its first action of a calendar month. */
 export const MONTHLY_FREE_CREDITS = 15
+
+/** Granted to a Guest once, on their first AI action (ADR-0018). */
+export const GUEST_INITIAL_CREDITS = 10
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SUBSCRIPTION ENTITLEMENTS — what Cloud includes before the balance is touched.
@@ -143,12 +151,6 @@ export class UnpricedModelError extends Error {
     this.name = 'UnpricedModelError'
   }
 }
-
-export const ActionPriceSchema = z.object({
-  text: z.number().int().positive(),
-  photo: z.number().int().positive(),
-  premium: z.number().int().positive(),
-})
 
 export const LaunchOfferSchema = z.object({
   foundingMemberLimit: z.number().int().positive(),
@@ -513,6 +515,7 @@ export const Credits = {
   TOP_UP_CREDITS,
   FOUNDING_MEMBER_LIMIT,
   MONTHLY_FREE_CREDITS,
+  GUEST_INITIAL_CREDITS,
   SUB_TEXT_DAILY_CAP,
   SUB_PHOTO_MONTHLY_CAP,
   SUB_PREMIUM_MONTHLY_CAP,
@@ -573,6 +576,20 @@ export const Credits = {
     return db.claimMonthlyFreeCredits(userId, MONTHLY_FREE_CREDITS)
   },
 
+  /**
+   * Resolve the lazy free grant from the durable account identity. The chosen RPC
+   * rechecks identity atomically. If Claim wins after the read, the Guest RPC
+   * reports `not_guest` and we continue through the monthly account grant.
+   */
+  async applyFreeGrant(userId: string) {
+    const account = await db.getUserById(userId)
+    if (account.email === null) {
+      const guestGrant = await db.claimGuestInitialCredits(userId, GUEST_INITIAL_CREDITS)
+      if (guestGrant.status !== 'not_guest') return guestGrant
+    }
+    return this.applyMonthlyFreeRefill(userId)
+  },
+
   async updateSubscriptionPricing(input: { promoActive: boolean }): Promise<SubscriptionPricing> {
     await db.updateCreditSubscriptionSettings({
       promo_active: input.promoActive,
@@ -628,11 +645,11 @@ export const Credits = {
       return { ok: false, code: 'account_daily_cap' }
     }
 
-    let accountState: Awaited<ReturnType<typeof db.claimMonthlyFreeCredits>>
+    let accountState: Awaited<ReturnType<typeof this.applyFreeGrant>>
     try {
-      accountState = await this.applyMonthlyFreeRefill(userId)
+      accountState = await this.applyFreeGrant(userId)
     } catch (error) {
-      console.error('Monthly free refill eligibility is unavailable:', error)
+      console.error('Free action grant eligibility is unavailable:', error)
       return { ok: false, code: 'billing_unavailable' }
     }
 
@@ -675,12 +692,22 @@ export const Credits = {
   },
 
   async getCreditSummary(userId: string) {
-    const [balance, buckets, subscription, pricing, monthLogs] = await Promise.all([
+    const freeGrantPromise: Promise<FreeCreditGrant> = db
+      .getFreeCreditGrant(userId, GUEST_INITIAL_CREDITS, MONTHLY_FREE_CREDITS)
+      .catch((error) => {
+        console.error('Free action entitlement read is unavailable:', error)
+        return {
+          state: 'unavailable' as const,
+          reason: 'Could not read free action entitlement.',
+        }
+      })
+    const [balance, buckets, subscription, pricing, monthLogs, freeGrant] = await Promise.all([
       db.getCreditBalance(userId),
       db.getCreditBuckets(userId),
       db.getUserCreditSubscription(userId),
       this.getSubscriptionPricing(userId),
       db.getUsageLogsSince(rangeStarts().thisMonth),
+      freeGrantPromise,
     ])
     const usedThisMonth = monthLogs
       .filter((log: any) => log.user_id === userId && Number(log.credits_delta ?? 0) < 0)
@@ -702,11 +729,12 @@ export const Credits = {
           }
       : pricing
 
-    return {
+    return CreditSummarySchema.parse({
       balance,
       subscriptionBalance,
       topupBalance: Number(buckets?.topup_balance ?? Math.max(balance - subscriptionBalance, 0)),
       usedThisMonth,
+      freeGrant,
       // What Cloud covered this month, per capped class. A subscriber has no credit
       // allowance to report — the subscription stopped selling credits in ADR-0016.
       entitlementUsed: {
@@ -717,7 +745,7 @@ export const Credits = {
       },
       pricing: effectivePricing,
       subscription: subscriptionToClient(subscription),
-    }
+    })
   },
 
   // Atomic — backed by the `reserve_credits` Postgres function (see migration).

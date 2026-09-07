@@ -19,11 +19,14 @@ jest.mock('../../src/supabase-client', () => ({
     getCreditSubscriptionSettings: jest.fn(),
     updateCreditSubscriptionSettings: jest.fn(),
     getCreditBuckets: jest.fn(),
+    getUserById: jest.fn(),
     getUserCreditSubscription: jest.fn(),
     upsertUserCreditSubscription: jest.fn(),
     reserveCredits: jest.fn(),
     grantCredits: jest.fn(),
     claimMonthlyFreeCredits: jest.fn(),
+    claimGuestInitialCredits: jest.fn(),
+    getFreeCreditGrant: jest.fn(),
     getFoundingPriceMemberCount: jest.fn(),
     sumAiCostUsdSince: jest.fn(),
     countUserActionsSince: jest.fn(),
@@ -62,9 +65,18 @@ beforeEach(() => {
   })
   mockDb.getFoundingPriceMemberCount.mockResolvedValue(0)
   mockDb.getUserCreditSubscription.mockResolvedValue(null)
+  mockDb.getUserById.mockResolvedValue({
+    id: 'user-1',
+    email: 'person@example.com',
+    name: 'Person',
+    role: 'user',
+    signup_method: 'password',
+  })
   mockDb.sumAiCostUsdSince.mockResolvedValue(0)
   mockDb.countUserActionsSince.mockResolvedValue(0)
   mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'already_granted', balance: 0 })
+  mockDb.claimGuestInitialCredits.mockResolvedValue({ status: 'already_claimed', balance: 0 })
+  mockDb.getFreeCreditGrant.mockResolvedValue({ state: 'claimed' })
 })
 
 describe('Credits.reserve', () => {
@@ -317,20 +329,21 @@ describe('launch offer', () => {
   })
 })
 
-describe('monthly free actions', () => {
+describe('identity-resolved free actions', () => {
   const textInput = {
     endpoint: 'parse-tasks',
     model: 'gpt-4o-mini',
     userPrompt: 'plan my day',
   }
 
-  it('uses the atomic database result and then reserves the action', async () => {
+  it('uses the atomic monthly result for a claimed account and then reserves the action', async () => {
     mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'granted', balance: 15 })
     mockDb.reserveCredits.mockResolvedValue(14)
 
     const result = await Credits.authorizeAction('user-1', textInput)
 
     expect(mockDb.claimMonthlyFreeCredits).toHaveBeenCalledWith('user-1', 15)
+    expect(mockDb.claimGuestInitialCredits).not.toHaveBeenCalled()
     expect(result).toEqual({
       ok: true,
       actionClass: 'text',
@@ -340,14 +353,62 @@ describe('monthly free actions', () => {
     })
   })
 
-  it('requires Claim before a Guest can use AI', async () => {
-    mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'not_claimed', balance: 0 })
+  it('grants a Guest ten actions once and charges the first text action', async () => {
+    mockDb.getUserById.mockResolvedValue({
+      id: 'guest-1',
+      email: null,
+      name: 'Guest',
+      role: 'user',
+      signup_method: 'guest',
+    })
+    mockDb.claimGuestInitialCredits.mockResolvedValue({ status: 'granted', balance: 10 })
+    mockDb.reserveCredits.mockResolvedValue(9)
 
     await expect(Credits.authorizeAction('guest-1', textInput)).resolves.toEqual({
-      ok: false,
-      code: 'account_required',
+      ok: true,
+      actionClass: 'text',
+      credits: 1,
+      charged: 1,
+      coveredBy: 'balance',
     })
-    expect(mockDb.reserveCredits).not.toHaveBeenCalled()
+    expect(mockDb.claimGuestInitialCredits).toHaveBeenCalledWith('guest-1', 10)
+    expect(mockDb.claimMonthlyFreeCredits).not.toHaveBeenCalled()
+    expect(mockDb.reserveCredits).toHaveBeenCalledWith('guest-1', 1)
+  })
+
+  it('uses an already-claimed Guest balance without granting again', async () => {
+    mockDb.getUserById.mockResolvedValue({
+      id: 'guest-1',
+      email: null,
+      name: 'Guest',
+      role: 'user',
+      signup_method: 'guest',
+    })
+    mockDb.claimGuestInitialCredits.mockResolvedValue({ status: 'already_claimed', balance: 4 })
+    mockDb.reserveCredits.mockResolvedValue(3)
+
+    await expect(Credits.authorizeAction('guest-1', textInput)).resolves.toEqual(
+      expect.objectContaining({ ok: true, charged: 1 }),
+    )
+    expect(mockDb.claimGuestInitialCredits).toHaveBeenCalledTimes(1)
+  })
+
+  it('re-resolves through the monthly grant if Claim wins the race', async () => {
+    mockDb.getUserById.mockResolvedValue({
+      id: 'guest-1',
+      email: null,
+      name: 'Guest',
+      role: 'user',
+      signup_method: 'guest',
+    })
+    mockDb.claimGuestInitialCredits.mockResolvedValue({ status: 'not_guest', balance: 3 })
+    mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'granted', balance: 18 })
+    mockDb.reserveCredits.mockResolvedValue(17)
+
+    await expect(Credits.authorizeAction('guest-1', textInput)).resolves.toEqual(
+      expect.objectContaining({ ok: true, charged: 1 }),
+    )
+    expect(mockDb.claimMonthlyFreeCredits).toHaveBeenCalledWith('guest-1', 15)
   })
 
   it('uses the Cloud entitlement when the atomic result sees an active subscription', async () => {
@@ -363,7 +424,19 @@ describe('monthly free actions', () => {
     expect(mockDb.reserveCredits).not.toHaveBeenCalled()
   })
 
-  it('surfaces an unavailable refill instead of charging an existing balance', async () => {
+  it('surfaces an unavailable identity read instead of charging an existing balance', async () => {
+    mockDb.getUserById.mockRejectedValue(new Error('database unavailable'))
+
+    await expect(Credits.authorizeAction('user-1', textInput)).resolves.toEqual({
+      ok: false,
+      code: 'billing_unavailable',
+    })
+    expect(mockDb.claimMonthlyFreeCredits).not.toHaveBeenCalled()
+    expect(mockDb.claimGuestInitialCredits).not.toHaveBeenCalled()
+    expect(mockDb.reserveCredits).not.toHaveBeenCalled()
+  })
+
+  it('surfaces an unavailable grant instead of charging an existing balance', async () => {
     mockDb.claimMonthlyFreeCredits.mockRejectedValue(new Error('database unavailable'))
 
     await expect(Credits.authorizeAction('user-1', textInput)).resolves.toEqual({
@@ -371,6 +444,79 @@ describe('monthly free actions', () => {
       code: 'billing_unavailable',
     })
     expect(mockDb.reserveCredits).not.toHaveBeenCalled()
+  })
+
+  it('surfaces an unavailable Guest grant write instead of charging an existing balance', async () => {
+    mockDb.getUserById.mockResolvedValue({
+      id: 'guest-1',
+      email: null,
+      name: 'Guest',
+      role: 'user',
+      signup_method: 'guest',
+    })
+    mockDb.claimGuestInitialCredits.mockRejectedValue(new Error('database unavailable'))
+
+    await expect(Credits.authorizeAction('guest-1', textInput)).resolves.toEqual({
+      ok: false,
+      code: 'billing_unavailable',
+    })
+    expect(mockDb.claimMonthlyFreeCredits).not.toHaveBeenCalled()
+    expect(mockDb.reserveCredits).not.toHaveBeenCalled()
+  })
+})
+
+describe('Credits.getCreditSummary free entitlement', () => {
+  beforeEach(() => {
+    mockDb.getCreditBalance.mockResolvedValue(0)
+    mockDb.getCreditBuckets.mockResolvedValue(null)
+    mockDb.getUsageLogsSince.mockResolvedValue([])
+  })
+
+  it('reports an available Guest grant separately from stored balance', async () => {
+    mockDb.getFreeCreditGrant.mockResolvedValue({
+      state: 'available',
+      credits: 10,
+      kind: 'guest_initial',
+    })
+
+    const summary = await Credits.getCreditSummary('guest-1')
+
+    expect(summary.balance).toBe(0)
+    expect(summary.freeGrant).toEqual({
+      state: 'available',
+      credits: 10,
+      kind: 'guest_initial',
+    })
+    expect(mockDb.getFreeCreditGrant).toHaveBeenCalledWith('guest-1', 10, 15)
+  })
+
+  it('reports an available monthly grant for a claimed account', async () => {
+    mockDb.getFreeCreditGrant.mockResolvedValue({
+      state: 'available',
+      credits: 15,
+      kind: 'monthly',
+    })
+
+    await expect(Credits.getCreditSummary('user-1')).resolves.toEqual(
+      expect.objectContaining({
+        freeGrant: { state: 'available', credits: 15, kind: 'monthly' },
+      }),
+    )
+  })
+
+  it('keeps a failed entitlement read explicit while preserving a known balance', async () => {
+    mockDb.getCreditBalance.mockResolvedValue(4)
+    mockDb.getFreeCreditGrant.mockRejectedValue(new Error('database unavailable'))
+
+    await expect(Credits.getCreditSummary('user-1')).resolves.toEqual(
+      expect.objectContaining({
+        balance: 4,
+        freeGrant: {
+          state: 'unavailable',
+          reason: 'Could not read free action entitlement.',
+        },
+      }),
+    )
   })
 })
 

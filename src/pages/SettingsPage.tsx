@@ -211,7 +211,12 @@ export default function SettingsPage() {
   const queryClient = useQueryClient()
   const { user, completeAccountDeletion } = useAuth()
   const { permission, requestPermission } = useNotifications()
-  const { balance, summary: creditSummary, isLoading: creditsLoading } = useCredits()
+  const {
+    balance,
+    summary: creditSummary,
+    isLoading: creditsLoading,
+    isUnavailable: creditsUnavailable,
+  } = useCredits()
   const planPrice = creditSummary?.pricing.priceUsd ?? 9
   const topUpPrice = creditSummary?.pricing.topUpPriceUsd ?? 5
   const topUpCredits = creditSummary?.pricing.topUpCredits ?? 300
@@ -504,8 +509,8 @@ export default function SettingsPage() {
   const encodedBody = encodeURIComponent(contactBody)
   const whatsappUrl = `https://wa.me/972523221702?text=${encodedBody}`
   const smsUrl = `sms:+972523221702?&body=${encodedBody}`
-  const isOutOfCredits = !creditsLoading && balance <= 0
-  const isLowOnCredits = !creditsLoading && balance > 0 && balance < 25
+  const isOutOfCredits = !creditsLoading && balance !== null && balance <= 0
+  const isLowOnCredits = !creditsLoading && balance !== null && balance > 0 && balance < 25
   const connectionPrompt = newToken
     ? `Connect HealthyFlow as an MCP server.
 
@@ -719,11 +724,17 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-ink-soft">Available credits</span>
+            <span className="text-sm text-ink-soft">Available actions</span>
             <span className="text-2xl font-bold text-accent">
-              {creditsLoading ? '...' : balance}
+              {creditsLoading ? '...' : balance ?? 'Unavailable'}
             </span>
           </div>
+
+          {creditsUnavailable && !creditsLoading && (
+            <p className="text-sm text-state-danger" role="status">
+              Actions available could not be read.
+            </p>
+          )}
 
           {(isOutOfCredits || isLowOnCredits) && (
             <div className={`rounded-lg border p-4 ${
@@ -776,7 +787,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
           <div className="h-3 w-full overflow-hidden rounded-full bg-raised">
             <div
               className="h-full bg-accent transition-[width] duration-300"
-              style={{ width: `${Math.min((balance / 50) * 100, 100)}%` }}
+              style={{ width: `${balance === null ? 0 : Math.min((balance / 50) * 100, 100)}%` }}
             />
           </div>
 
