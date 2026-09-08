@@ -1,5 +1,7 @@
 export const WEEK_VIEW_ENABLED = import.meta.env?.VITE_WEEK_VIEW_ENABLED === 'true'
 export const DAILY_SIGNALS_ENABLED = import.meta.env?.VITE_DAILY_SIGNALS_ENABLED === 'true'
+/** Deferred v1.1 capability. Free v1 has no Cloud entitlement to inspect or sync. */
+export const CLOUD_SYNC_ENABLED = import.meta.env?.VITE_CLOUD_SYNC_ENABLED === 'true'
 /**
  * Work — Projects, Focus blocks and Work sessions.
  *

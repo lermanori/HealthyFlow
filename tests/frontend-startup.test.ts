@@ -49,8 +49,6 @@ test('the app starts in a Vite development browser without server-only module er
       'the browser-safe day core did not load through Vite',
     )
 
-    const syncNotice = 'Cloud sync paused. Changes are safe on this device.'
-
     const accountId = 'browser-login-account'
     const corsHeaders = {
       'access-control-allow-origin': '*',
@@ -58,6 +56,7 @@ test('the app starts in a Vite development browser without server-only module er
       'access-control-allow-methods': 'GET,POST,OPTIONS',
     }
     let archiveAvailable = false
+    let cloudRequests = 0
     await page.route('http://localhost:3001/api/**', async (route) => {
       const request = route.request()
       if (request.method() === 'OPTIONS') {
@@ -133,6 +132,7 @@ test('the app starts in a Vite development browser without server-only module er
         return
       }
       if (path === '/api/credits/summary') {
+        cloudRequests += 1
         await route.fulfill({
           status: 200,
           headers: corsHeaders,
@@ -171,6 +171,7 @@ test('the app starts in a Vite development browser without server-only module er
         return
       }
       if (path === '/api/sync') {
+        cloudRequests += 1
         await route.fulfill({
           status: 503,
           headers: corsHeaders,
@@ -234,9 +235,12 @@ test('the app starts in a Vite development browser without server-only module er
     })
     assert.equal(localLogin.activeUserId, accountId, 'login did not switch the account onto its Local day')
     assert.deepEqual(localLogin.taskTitles, ['Downloaded onto this device'])
-    await page.getByText(syncNotice).waitFor({ state: 'visible' })
-    await page.waitForTimeout(3_100)
-    assert.ok(await page.getByText(syncNotice).isVisible(), 'the sync notice disappeared while sync was still failing')
+    assert.equal(cloudRequests, 0, 'free v1 probed a Cloud entitlement or sync endpoint')
+    assert.equal(
+      await page.getByText(/Cloud (sync|status)/).count(),
+      0,
+      'free v1 rendered a Cloud status notice',
+    )
 
     await page.setViewportSize({ width: 390, height: 844 })
     await page.getByRole('button', { name: 'Set up my day' }).click({ timeout: 5_000 })
@@ -274,10 +278,12 @@ test('the app starts in a Vite development browser without server-only module er
       sync.clearCloudSyncFailure()
       window.dispatchEvent(new Event('offline'))
     }, '/src/hooks/useCloudSync.ts')
-    await page.getByText('Cloud status unavailable. Changes are safe on this device.').waitFor({
-      state: 'visible',
-      timeout: 3_000,
-    })
+    await page.waitForTimeout(100)
+    assert.equal(
+      await page.getByText('Cloud status unavailable. Changes are safe on this device.').count(),
+      0,
+      'free v1 attached a Cloud-specific offline listener',
+    )
   } finally {
     await browser?.close()
     await server.close()
