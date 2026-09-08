@@ -1,3 +1,13 @@
+### 2026-09-08 13:26 — `codex/245-explicit-build-modes`
+
+Added explicit local and production frontend build commands backed by committed
+Vite mode files, while keeping bare, Netlify, and iOS builds production-safe.
+Contract tests protect the scripts and URLs; both artifacts were built and
+inspected for their selected API endpoint, the iOS sync completed, and all 302
+frontend tests, typecheck, and lint passed with only the existing warnings.
+
+---
+
 ### 2026-09-08 10:51 — `codex/236-free-ios-release-candidate`
 
 Prepared the credential-free free-v1 iOS release candidate: reconciled every
