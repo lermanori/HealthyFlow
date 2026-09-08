@@ -113,6 +113,22 @@ prefix.
 ## Update Frontend Configuration
 
 The API base URL is **environment configuration, not a code edit**.
+
+Use the explicit build command for the intended backend:
+
+```sh
+# Frontend bundle calling the backend on localhost:3001
+npm run build:local
+
+# Deployable frontend bundle calling the Railway production backend
+npm run build:production
+```
+
+Bare `npm run build`, Netlify, and `npm run build:ios` deliberately use the
+production mode. Vite reads the local URL from `.env.local-build` and the
+production URL from `.env.production`; do not pass API URLs through ad hoc shell
+assignments or place server secrets in either file.
+
 `src/services/api.ts` reads `VITE_API_URL` and falls back to
 `http://localhost:3001/api`. Set it per environment (Netlify build variables,
 `.env.production` for the iOS bundle) and redeploy. Do not hardcode a URL in
