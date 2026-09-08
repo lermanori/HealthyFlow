@@ -22,6 +22,7 @@ import {
   DaySummarySchema,
   isDaySummaryItemAddressed,
   type DaySummary,
+  type DaySummaryCalendarEvent,
   type PlanningWindow,
 } from '../../backend/src/day-summary-schema'
 import SettingsContracts, {
@@ -55,6 +56,13 @@ import {
   readSessionToken,
 } from '../lib/session'
 import { asClientShape, localHealthServices, localServices, onDevice } from '../lib/local/services'
+import {
+  createCalendarEventReader,
+  createWebGoogleCalendarMutation,
+  deviceCalendarReadToDaySource,
+  deviceCalendarService,
+} from '../lib/deviceCalendar'
+import { isNativeIOS } from '../lib/native'
 import { availableActionCount } from '../utils/creditAvailability'
 
 const { SettingsSchema } = SettingsContracts
@@ -1086,24 +1094,34 @@ export interface CalendarConnectionStatus {
   scopes: string[]
 }
 
-export interface ExternalCalendarEvent {
-  id: string
-  provider: 'google'
-  calendarId: string
-  externalEventId: string
-  title: string
-  description: string | null
-  location: string | null
-  startAt: string | null
-  endAt: string | null
-  localStartTime: string | null
-  localEndTime: string | null
-  allDay: boolean
-  status: string | null
-  htmlLink: string | null
-  completed: boolean
-  completedAt: string | null
+export type ExternalCalendarEvent = DaySummaryCalendarEvent
+
+const getGoogleCalendarEvents = async (date: string): Promise<ExternalCalendarEvent[]> => {
+  const response = await api.get('/calendar/google/events', { params: { date } })
+  return response.data
 }
+
+const updateGoogleCalendarEventCompletion = createWebGoogleCalendarMutation({
+  isNativeIOS,
+  mutate: async (id: string, completed: boolean): Promise<ExternalCalendarEvent> => {
+    const response = await api.patch(`/calendar/google/events/${id}/completion`, { completed })
+    return response.data
+  },
+})
+
+const updateGoogleCalendarEventSchedule = createWebGoogleCalendarMutation({
+  isNativeIOS,
+  mutate: async (
+    id: string,
+    update: { date: string; startTime: string },
+  ): Promise<ExternalCalendarEvent> => {
+    const response = await api.patch(`/calendar/google/events/${id}/schedule`, {
+      ...update,
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    })
+    return response.data
+  },
+})
 
 export const calendarService = {
   getGoogleStatus: async (): Promise<CalendarConnectionStatus> => {
@@ -1120,26 +1138,20 @@ export const calendarService = {
     await api.delete('/calendar/google/disconnect')
   },
 
-  getGoogleEvents: async (date: string): Promise<ExternalCalendarEvent[]> => {
-    const response = await api.get('/calendar/google/events', { params: { date } })
-    return response.data
-  },
+  getGoogleEvents: getGoogleCalendarEvents,
 
-  updateGoogleEventCompletion: async (id: string, completed: boolean): Promise<ExternalCalendarEvent> => {
-    const response = await api.patch(`/calendar/google/events/${id}/completion`, { completed })
-    return response.data
-  },
+  getEvents: createCalendarEventReader({
+    isNativeIOS,
+    readDevice: (date) => deviceCalendarService.read(date),
+    readGoogle: getGoogleCalendarEvents,
+  }),
+
+  updateGoogleEventCompletion: updateGoogleCalendarEventCompletion,
 
   updateGoogleEventSchedule: async (
     id: string,
     update: { date: string; startTime: string }
-  ): Promise<ExternalCalendarEvent> => {
-    const response = await api.patch(`/calendar/google/events/${id}/schedule`, {
-      ...update,
-      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    })
-    return response.data
-  },
+  ): Promise<ExternalCalendarEvent> => updateGoogleCalendarEventSchedule(id, update),
 
   // A Guest has connected no Google Calendar — the day itself reports
   // `not_connected` for exactly this reason — so there is genuinely nothing to
@@ -1274,7 +1286,12 @@ function applyWorkVisibility(summary: DaySummary): DaySummary {
 
 export const daySummaryService = {
   get: onDevice(
-    async (userId, date: string) => applyWorkVisibility(await localServices.daySummary(userId, date)),
+    async (userId, date: string) => {
+      const calendar = isNativeIOS
+        ? deviceCalendarReadToDaySource(await deviceCalendarService.read(date))
+        : undefined
+      return applyWorkVisibility(await localServices.daySummary(userId, date, calendar))
+    },
     async (date: string): Promise<DaySummary> => {
       const response = await api.get('/day-summary', { params: { date } })
       return applyWorkVisibility(DaySummarySchema.parse(response.data))

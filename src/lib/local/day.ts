@@ -2,6 +2,7 @@ import DaySummaryCore, {
   type DaySummaryDependencies,
 } from '../../../backend/src/day-summary-core'
 import type {
+  CalendarSource,
   DaySummary,
   DaySummaryItem,
 } from '../../../backend/src/day-summary-schema'
@@ -180,11 +181,10 @@ export async function buildLocalHabitHistory(
 /**
  * The nine sources, answered locally.
  *
- * Calendar reports `not_connected` because that is true: a Guest has connected no
- * Calendar, which is outside the system's world rather than a failed read, so
- * Capacity stays `complete` (CONTEXT.md). `getCalendarEvents` therefore cannot be
- * reached — and throws rather than returning `[]` if it ever is, because an empty
- * result would claim the day has no obligations.
+ * Calendar defaults to `not_connected`, which is outside the system's world rather
+ * than a failed read, so Capacity stays `complete` (CONTEXT.md). Native iOS may
+ * supply a previously validated Device Calendar source; a failed device read is
+ * supplied as `unavailable`, never disguised as an empty day.
  *
  * Focus blocks are genuinely empty: Work is parked behind a release flag and
  * nothing on a device can create one.
@@ -193,13 +193,27 @@ export async function buildLocalHabitHistory(
  * module failing must not fail the whole day, but it must not report `not_logged`
  * either.
  */
-export function localDaySummaryDependencies(): DaySummaryDependencies {
+export function localDaySummaryDependencies(
+  calendar: CalendarSource = {
+    status: 'not_connected',
+    reasonCode: 'not_connected',
+    events: [],
+  },
+): DaySummaryDependencies {
   return {
     itemsForDay: localItemsForDay,
     getSettings: async (userId) => resolveLocalSettings(await loadLocalDatabase(userId)),
-    getCalendarStatus: async () => ({ connected: false }),
-    getCalendarEvents: async (): Promise<never> => {
-      throw new LocalStoreError('Calendar is not stored on this device, and an empty result would be a lie.')
+    getCalendarStatus: async () => {
+      if (calendar.status === 'unavailable') {
+        throw new LocalStoreError('Device Calendar status is unavailable.')
+      }
+      return { connected: calendar.status === 'connected' || calendar.status === 'connected_empty' }
+    },
+    getCalendarEvents: async () => {
+      if (calendar.status === 'connected' || calendar.status === 'connected_empty') {
+        return calendar.events
+      }
+      throw new LocalStoreError('Calendar is not connected, and an empty result would be a lie.')
     },
     getCalorieEntries: localCalorieEntries,
     getWeightEntry: localWeightEntry,
@@ -214,10 +228,11 @@ export function buildLocalDaySummary(
   date: string,
   timeZone: string | null | undefined,
   now?: Date,
+  calendar?: CalendarSource,
 ): Promise<DaySummary> {
   return buildDaySummaryCore(userId, date, timeZone, {
     now,
-    dependencies: localDaySummaryDependencies(),
+    dependencies: localDaySummaryDependencies(calendar),
   })
 }
 

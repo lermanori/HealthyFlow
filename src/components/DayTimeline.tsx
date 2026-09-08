@@ -228,6 +228,7 @@ function CalendarEventBlock({
   event: ExternalCalendarEvent
   onComplete: (id: string, completed: boolean) => void
 }) {
+  const isReadOnly = event.provider === 'device'
   return (
     <div
       className={`group relative flex h-full min-w-0 items-center overflow-hidden rounded-lg border p-2.5 transition-all duration-300 ${
@@ -240,8 +241,10 @@ function CalendarEventBlock({
         <button
           type="button"
           onClick={() => onComplete(event.id, !event.completed)}
-          className="-m-3 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-          aria-label={event.completed ? 'Uncheck calendar event' : 'Check calendar event'}
+          disabled={isReadOnly}
+          title={isReadOnly ? 'Device Calendar events are read-only' : undefined}
+          className="-m-3 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-55"
+          aria-label={isReadOnly ? 'Device Calendar event, read-only' : event.completed ? 'Uncheck calendar event' : 'Check calendar event'}
         >
           <span aria-hidden="true" className={`flex h-4 w-4 items-center justify-center rounded-full border-2 transition-colors sm:h-5 sm:w-5 ${event.completed ? 'border-state-success bg-state-success text-on-action' : 'border-line-strong'}`}>
             {event.completed && <Check className="h-3 w-3" />}
@@ -560,7 +563,15 @@ export default function DayTimeline({
   }
 
   const renderCalendarRow = (event: ExternalCalendarEvent, index: number) => (
-    <Draggable draggableId={`calendar:${event.id}`} index={index}>
+    event.provider === 'device' ? (
+      <div
+        data-timeline-drag-id={`calendar:${event.id}`}
+        className="min-w-0"
+        style={{ height: timedBlockHeight(eventDurationMinutes(event)) }}
+      >
+        <CalendarEventBlock event={event} onComplete={onCalendarEventComplete} />
+      </div>
+    ) : <Draggable draggableId={`calendar:${event.id}`} index={index}>
       {(provided, snapshot) => (
         <div
           ref={provided.innerRef}
@@ -1024,7 +1035,7 @@ export default function DayTimeline({
                     key: `calendar:${event.id}`,
                     clock: event.localStartTime ?? slot,
                     settled: false,
-                    draggable: true,
+                    draggable: event.provider !== 'device',
                     render: (index) => renderCalendarRow(event, index),
                   })),
                   ...slotTasks.map((task): SlotRow => ({

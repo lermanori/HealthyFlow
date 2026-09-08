@@ -10,6 +10,11 @@ import toast from 'react-hot-toast'
 import api, { accountService, ApiTokenRecord, ApiTokenScope, AssistantProfile, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DAILY_SIGNALS_QUERY_KEY, DailyTouchpointRhythm, DAY_SUMMARY_QUERY_KEY, McpOAuthGrant, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
 import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
+import {
+  deviceCalendarService,
+  type DeviceCalendarAuthorization,
+} from '../lib/deviceCalendar'
+import { isNativeIOS } from '../lib/native'
 import { AssistantProfileSchema, DEFAULT_PLANNING_WINDOW } from '../../backend/src/settings-schema'
 import { actionExhaustionView } from '../utils/actionExhaustion'
 import Switch from '../components/Switch'
@@ -220,6 +225,8 @@ export default function SettingsPage() {
   const exhaustion = creditSummary ? actionExhaustionView(creditSummary) : null
   const { settings, updateSetting, resolution, retry: retrySettings } = useSettings()
   const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
+  const [deviceCalendarAuthorization, setDeviceCalendarAuthorization] = useState<DeviceCalendarAuthorization | null>(null)
+  const [calendarUnavailable, setCalendarUnavailable] = useState<string | null>(null)
   const [calendarLoading, setCalendarLoading] = useState(true)
   const [calendarActionLoading, setCalendarActionLoading] = useState(false)
   const [contactFlow, setContactFlow] = useState<'feedback' | 'more_actions' | null>(null)
@@ -307,12 +314,54 @@ export default function SettingsPage() {
   const loadCalendarStatus = async () => {
     try {
       setCalendarLoading(true)
+      setCalendarUnavailable(null)
+      if (isNativeIOS) {
+        setDeviceCalendarAuthorization(await deviceCalendarService.authorization())
+        setCalendarStatus(null)
+        return
+      }
       const status = await calendarService.getGoogleStatus()
       setCalendarStatus(status)
     } catch (e) {
+      setCalendarUnavailable(e instanceof Error ? e.message : 'Calendar status is unavailable.')
       toast.error('Failed to load calendar status')
     } finally {
       setCalendarLoading(false)
+    }
+  }
+
+  const invalidateCalendarDay = () => {
+    queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
+    queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
+  }
+
+  const handleConnectDeviceCalendar = async () => {
+    try {
+      setCalendarActionLoading(true)
+      setCalendarUnavailable(null)
+      const authorization = await deviceCalendarService.requestFullAccess()
+      setDeviceCalendarAuthorization(authorization)
+      if (authorization.status === 'full_access') {
+        invalidateCalendarDay()
+        toast.success('Device Calendar connected')
+      }
+    } catch (e) {
+      setCalendarUnavailable(e instanceof Error ? e.message : 'Device Calendar connection is unavailable.')
+      toast.error('Failed to connect Device Calendar')
+    } finally {
+      setCalendarActionLoading(false)
+    }
+  }
+
+  const handleOpenDeviceCalendarSettings = async () => {
+    try {
+      setCalendarActionLoading(true)
+      await deviceCalendarService.openSettings()
+    } catch (e) {
+      setCalendarUnavailable(e instanceof Error ? e.message : 'iOS Settings is unavailable.')
+      toast.error('Failed to open iOS Settings')
+    } finally {
+      setCalendarActionLoading(false)
     }
   }
 
@@ -331,8 +380,7 @@ export default function SettingsPage() {
     try {
       setCalendarActionLoading(true)
       await calendarService.disconnectGoogle()
-      queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
-      queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
+      invalidateCalendarDay()
       toast.success('Google Calendar disconnected')
       await loadCalendarStatus()
     } catch (e) {
@@ -577,6 +625,9 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
   const enabledTouchpoints = rhythm
     ? [rhythm.morning.enabled, rhythm.midday.enabled, rhythm.weekly.enabled].filter(Boolean).length
     : null
+  const calendarConnected = isNativeIOS
+    ? deviceCalendarAuthorization?.status === 'full_access'
+    : Boolean(calendarStatus?.connected)
   const settingsSummary = (category: SettingsCategoryId): string => {
     switch (category) {
       case 'account-billing':
@@ -596,7 +647,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       case 'appearance':
         return `${settings?.theme === 'white' ? 'White' : 'Midnight'} theme`
       case 'connections-advanced':
-        return `${calendarStatus?.connected ? 'Calendar connected' : 'Calendar not connected'} · ${oauthGrants.filter((grant) => !grant.revokedAt).length} ChatGPT connections`
+        return `${calendarConnected ? 'Calendar connected' : 'Calendar not connected'} · ${oauthGrants.filter((grant) => !grant.revokedAt).length} ChatGPT connections`
       case 'data-privacy':
         return 'Export data or manage destructive actions'
     }
@@ -1353,16 +1404,28 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
             </div>
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-4">
-                <CalendarSyncLed connected={Boolean(calendarStatus?.connected)} />
+                <CalendarSyncLed connected={calendarConnected} />
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-medium text-ink-soft">Calendar Sync</h3>
-                    {calendarStatus?.connected && <CheckCircle2 className="h-4 w-4 text-state-success" />}
+                    <h3 className="text-sm font-medium text-ink-soft">
+                      {isNativeIOS ? 'Device Calendar' : 'Google Calendar'}
+                    </h3>
+                    {calendarConnected && <CheckCircle2 className="h-4 w-4 text-state-success" />}
                   </div>
                   <p className="text-sm text-ink-muted">
-                    {calendarStatus?.connected
-                      ? `Connected to ${calendarStatus.accountEmail || 'Google Calendar'}`
-                      : 'Connect Google Calendar to start syncing timed tasks'}
+                    {calendarUnavailable
+                      ? `Calendar unavailable: ${calendarUnavailable}`
+                      : isNativeIOS
+                        ? calendarConnected
+                          ? 'Connected to calendars on this iPhone. Nothing is sent to HealthyFlow.'
+                          : deviceCalendarAuthorization?.status === 'denied'
+                            ? 'Calendar access is denied. You can change it in iOS Settings.'
+                            : deviceCalendarAuthorization?.status === 'restricted'
+                              ? 'Calendar access is restricted on this iPhone.'
+                              : 'Include this iPhone’s Calendar obligations in Today. Nothing is sent to HealthyFlow.'
+                        : calendarStatus?.connected
+                          ? `Connected to ${calendarStatus.accountEmail || 'Google Calendar'}`
+                          : 'Connect Google Calendar to start syncing timed tasks'}
                   </p>
                 </div>
               </div>
@@ -1373,6 +1436,26 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Checking
                   </div>
+                ) : isNativeIOS ? (
+                  deviceCalendarAuthorization?.status === 'not_determined' || deviceCalendarAuthorization === null ? (
+                    <button
+                      onClick={calendarUnavailable ? loadCalendarStatus : handleConnectDeviceCalendar}
+                      disabled={calendarActionLoading}
+                      className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
+                    >
+                      {calendarActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
+                      {calendarUnavailable ? 'Retry' : 'Connect Calendar'}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleOpenDeviceCalendarSettings}
+                      disabled={calendarActionLoading}
+                      className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm"
+                    >
+                      {calendarActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
+                      Open iOS Settings
+                    </button>
+                  )
                 ) : calendarStatus?.connected ? (
                   <button
                     onClick={handleDisconnectGoogleCalendar}

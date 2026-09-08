@@ -144,7 +144,8 @@ These are implementation facts, not completed App Privacy answers.
 | Local day | goals, tasks, habits and progress, settings, food/calorie and weight history, workout plans/sessions/exercises, achievements | Capacitor Filesystem on the device |
 | Account | name, email, role, authentication/provider identifiers | HealthyFlow backend and Supabase |
 | AI | submitted text, optional images/files, assistant messages, structured results, usage and credit ledger | HealthyFlow backend, Supabase, OpenAI |
-| Calendar | Google OAuth tokens, calendar event identifiers/content and sync state when connected | HealthyFlow backend, Supabase, Google Calendar APIs |
+| Device Calendar (native v1) | Event title, time, all-day state, notes, location and opaque EventKit identifiers after permission | Processed in the iPhone app through EventKit; not sent to HealthyFlow by ordinary Calendar reading |
+| Google Calendar (web only) | Google OAuth tokens, calendar event identifiers/content and sync state when connected | HealthyFlow backend, Supabase, Google Calendar APIs; native v1 does not call this path |
 | Contact | request kind, message and reply-to address | HealthyFlow backend and Supabase |
 | Notifications | native device token or Web Push subscription | HealthyFlow backend, Supabase, APNs/Web Push |
 | Analytics | stable user ID; optional email/name/role/Guest state; typed product events and page paths | PostHog; production bundle points to the EU ingestion host |
@@ -162,6 +163,15 @@ should say “no data collected”: Apple requires the developer to disclose bot
 first-party and third-party-partner collection and keep answers accurate.
 [Apple App Privacy guidance](https://developer.apple.com/help/app-store-connect/manage-app-information/manage-app-privacy)
 was rechecked on 2026-09-08.
+
+Apple's App Privacy guidance says data processed only on the device is not
+"collected" for the App Privacy answers. On that basis, the native Device
+Calendar read is not itself a collected data type. This is an implementation
+inference, not the founder's completed questionnaire: if Calendar-derived data
+is included in an explicit AI request or otherwise transmitted later, that
+transmission must be assessed separately. The guidance was rechecked on
+2026-09-08 in
+[App privacy details on the App Store](https://developer.apple.com/app-store/app-privacy-details/).
 
 ### Inferences for human review
 

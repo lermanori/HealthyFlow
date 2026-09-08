@@ -11,6 +11,7 @@
 		404AC2A24061B623255D0109 /* HealthyFlowViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EC74A2D46E9AADBE5AEF6F7 /* HealthyFlowViewController.swift */; };
 		4A915A9D30E4000000000001 /* AppleSignInPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000002 /* AppleSignInPlugin.swift */; };
 		4A915A9D30E4000000000003 /* GoogleSignInPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000004 /* GoogleSignInPlugin.swift */; };
+		4A915A9D30E4000000000020 /* DeviceCalendarPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000021 /* DeviceCalendarPlugin.swift */; };
 		4A915A9D30E4000000000010 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000011 /* PrivacyInfo.xcprivacy */; };
 		4A915A9D30E4000000000012 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000013 /* PrivacyInfo.xcprivacy */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
@@ -56,6 +57,7 @@
 		4B709C7BAF369FC58AE12E28 /* HealthyFlowWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HealthyFlowWidget.swift; sourceTree = "<group>"; };
 		4A915A9D30E4000000000002 /* AppleSignInPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppleSignInPlugin.swift; sourceTree = "<group>"; };
 		4A915A9D30E4000000000004 /* GoogleSignInPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GoogleSignInPlugin.swift; sourceTree = "<group>"; };
+		4A915A9D30E4000000000021 /* DeviceCalendarPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceCalendarPlugin.swift; sourceTree = "<group>"; };
 		4A915A9D30E4000000000011 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		4A915A9D30E4000000000013 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
@@ -132,6 +134,7 @@
 				6825B864AB229869C40ADF2F /* HealthyFlowWidgetPlugin.swift */,
 				4A915A9D30E4000000000002 /* AppleSignInPlugin.swift */,
 				4A915A9D30E4000000000004 /* GoogleSignInPlugin.swift */,
+				4A915A9D30E4000000000021 /* DeviceCalendarPlugin.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -283,6 +286,7 @@
 				C96D487F3B27313A0E8CB469 /* HealthyFlowWidgetPlugin.swift in Sources */,
 				4A915A9D30E4000000000001 /* AppleSignInPlugin.swift in Sources */,
 				4A915A9D30E4000000000003 /* GoogleSignInPlugin.swift in Sources */,
+				4A915A9D30E4000000000020 /* DeviceCalendarPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
