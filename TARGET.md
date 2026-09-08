@@ -76,7 +76,7 @@ when it cannot know.
 | Goals | ✓ | | ✓ | Keep — remembered direction makes Talk easier and separates intention from plan or outcome; **direction only, never a second task lifecycle** |
 | Habits | | ✓ | ✓ | Keep |
 | Food, weight, training | | ✓ | | **Keep — core, not optional** |
-| Google Calendar | | ✓ | ✓ | Keep — obligations you did not type |
+| Calendar | | ✓ | ✓ | Keep — Device Calendar on iPhone; obligations you did not type |
 | Projects, Focus blocks, Work sessions | ✗ | ✓ | ✓ | **Parked.** A Focus block *is* on the day — it fails on **second vocabulary**, not on shape |
 | MCP endpoint, scoped API tokens | ✗ | ✗ | ✗ | Cut from the product story. Real engineering, no user story |
 | Expenses, idea dump | ✗ | ✗ | ✗ | Never build. Not day-shaped |
@@ -221,7 +221,7 @@ softening a rule to survive a release is how the rule dies.
 - **No silent fallbacks.** A failure surfaces as a failure.
 - **No second vocabulary.** If a feature needs its own set of nouns, it is a
   different product.
-- **Never require a network** except for AI and calendar. Local storage is the
+- **Never require a network** except for AI and the web's hosted Google Calendar. Local storage is the
   base layer for everyone, so the day is readable and writable with no
   connection. Cloud replicates on top of it; it is not the source.
 

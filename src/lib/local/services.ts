@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type {
+  CalendarSource,
   DaySummary,
   DaySummaryItem,
 } from '../../../backend/src/day-summary-schema'
@@ -504,8 +505,18 @@ export const localServices = {
   createGoal: createLocalGoal,
   updateGoal: updateLocalGoal,
 
-  daySummary: (userId: string, date: string): Promise<DaySummary> =>
-    buildLocalDaySummary(userId, date, Intl.DateTimeFormat().resolvedOptions().timeZone),
+  daySummary: (
+    userId: string,
+    date: string,
+    calendar?: CalendarSource,
+  ): Promise<DaySummary> =>
+    buildLocalDaySummary(
+      userId,
+      date,
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+      undefined,
+      calendar,
+    ),
 
   getTasks: async (userId: string, date?: string) => {
     if (!date) {

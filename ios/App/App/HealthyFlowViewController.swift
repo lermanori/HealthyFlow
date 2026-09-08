@@ -5,5 +5,6 @@ final class HealthyFlowViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(HealthyFlowWidgetPlugin())
         bridge?.registerPluginInstance(AppleSignInPlugin())
         bridge?.registerPluginInstance(GoogleSignInPlugin())
+        bridge?.registerPluginInstance(DeviceCalendarPlugin())
     }
 }

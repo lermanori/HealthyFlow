@@ -1,3 +1,14 @@
+### 2026-09-08 18:41 — `codex/247-device-calendar-read`
+
+Made EventKit the Local iPhone Calendar source so Calendar obligations compose
+into Today and Capacity without Google OAuth or an ordinary backend Calendar
+request. Device events are explicitly read-only, failures remain typed instead
+of becoming empty days, and the architecture, iOS, privacy, and App Store live
+docs now record the boundary; frontend, backend, production iOS, Swift simulator,
+and native Settings smoke gates pass.
+
+---
+
 ### 2026-09-08 13:26 — `codex/245-explicit-build-modes`
 
 Added explicit local and production frontend build commands backed by committed

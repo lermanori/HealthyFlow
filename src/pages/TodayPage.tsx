@@ -1259,7 +1259,7 @@ export default function TodayPage() {
 
       try {
         await calendarService.syncTimedTasks(date)
-        queryClient.invalidateQueries({ queryKey: ['google-calendar-events', date] })
+        queryClient.invalidateQueries({ queryKey: ['calendar-events', date] })
         queryClient.invalidateQueries({ queryKey: ['tasks', date] })
         queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(date) })
         queryClient.invalidateQueries({ queryKey: dailySignalsQueryKey(date) })
@@ -1363,7 +1363,7 @@ export default function TodayPage() {
     onSuccess: (updatedEvent) => {
       const date = format(selectedDate, 'yyyy-MM-dd')
       queryClient.setQueryData(
-        ['google-calendar-events', date],
+        ['calendar-events', date],
         (events: ExternalCalendarEvent[] = []) =>
           events.map(event => event.id === updatedEvent.id ? updatedEvent : event)
       )
@@ -1396,7 +1396,7 @@ export default function TodayPage() {
     onSuccess: (updatedEvent) => {
       const date = format(selectedDate, 'yyyy-MM-dd')
       queryClient.setQueryData(
-        ['google-calendar-events', date],
+        ['calendar-events', date],
         (events: ExternalCalendarEvent[] = []) =>
           events.map(event => event.id === updatedEvent.id ? updatedEvent : event)
       )
@@ -1456,10 +1456,17 @@ export default function TodayPage() {
   }
 
   const handleCalendarEventComplete = (id: string, completed: boolean) => {
+    if (calendarEvents.find((event) => event.id === id)?.provider === 'device') {
+      toast('Device Calendar events are read-only in this version.')
+      return
+    }
     updateCalendarEventCompletionMutation.mutate({ id, completed })
   }
 
   const handleCalendarEventSchedule = async (id: string, startTime: string) => {
+    if (calendarEvents.find((event) => event.id === id)?.provider === 'device') {
+      throw new Error('Device Calendar events are read-only in this version.')
+    }
     await updateCalendarEventScheduleMutation.mutateAsync({ id, startTime })
   }
 

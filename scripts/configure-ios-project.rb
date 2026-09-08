@@ -10,7 +10,7 @@ abort "App target not found" unless app_target
 app_group = project.main_group.find_subpath("App", false)
 abort "App group not found" unless app_group
 
-["HealthyFlowViewController.swift", "HealthyFlowWidgetPlugin.swift", "AppleSignInPlugin.swift"].each do |filename|
+["HealthyFlowViewController.swift", "HealthyFlowWidgetPlugin.swift", "AppleSignInPlugin.swift", "GoogleSignInPlugin.swift", "DeviceCalendarPlugin.swift"].each do |filename|
   reference = app_group.files.find { |file| file.path == filename } || app_group.new_file(filename)
   unless app_target.source_build_phase.files_references.include?(reference)
     app_target.source_build_phase.add_file_reference(reference)

@@ -84,7 +84,7 @@ export const DaySummaryItemSchema = z.object({
 
 export const DaySummaryCalendarEventSchema = z.object({
   id: z.string(),
-  provider: z.literal('google'),
+  provider: z.enum(['google', 'device']),
   calendarId: z.string(),
   externalEventId: z.string(),
   title: z.string(),
@@ -538,6 +538,7 @@ export const DaySummarySchema = z.object({
 export type PlanningWindow = z.infer<typeof PlanningWindowSchema>
 export type DaySummaryItem = z.infer<typeof DaySummaryItemSchema>
 export type DaySummaryCalendarEvent = z.infer<typeof DaySummaryCalendarEventSchema>
+export type CalendarSource = z.infer<typeof CalendarSourceSchema>
 export type DaySummaryCalorieEntry = z.infer<typeof DaySummaryCalorieEntrySchema>
 export type DaySummaryWeightEntry = z.infer<typeof DaySummaryWeightEntrySchema>
 export type DaySummaryAchievementEntry = z.infer<typeof DaySummaryAchievementEntrySchema>
@@ -560,6 +561,7 @@ export function isDaySummaryItemAddressed(item: DaySummaryItem) {
 // Frontend runtime consumers load shared contracts through a default object so
 // the same values work when this CommonJS backend module is evaluated by ESM.
 const DaySummaryContracts = {
+  DaySummaryCalendarEventSchema,
   DaySummaryCalorieEntrySchema,
   DaySummaryWeightEntrySchema,
 }

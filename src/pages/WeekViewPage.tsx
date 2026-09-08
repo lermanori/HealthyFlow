@@ -107,6 +107,7 @@ type WeekRow = {
   off: number
   date: string
   task?: Task
+  calendarEvent?: ExternalCalendarEvent
 }
 
 export default function WeekViewPage() {
@@ -153,13 +154,14 @@ export default function WeekViewPage() {
     queries: weekDates.map((date) => {
       const dateKey = format(date, 'yyyy-MM-dd')
       return {
-        queryKey: ['google-calendar-events', dateKey],
-        queryFn: () => calendarService.getGoogleEvents(dateKey),
+        queryKey: ['calendar-events', dateKey],
+        queryFn: () => calendarService.getEvents(dateKey),
         retry: false,
       }
     }),
   })
   const isLoading = settingsLoading || dayQueries.some((q) => q.isLoading) || calendarQueries.some((q) => q.isLoading)
+  const calendarError = calendarQueries.find((query) => query.isError)?.error
 
   // --- Mutations (same contract as TodayPage) ---
   const completeMutation = useMutation({
@@ -183,7 +185,7 @@ export default function WeekViewPage() {
     mutationFn: ({ id, completed }: { id: string; completed: boolean }) =>
       calendarService.updateGoogleEventCompletion(id, completed),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['google-calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
     },
@@ -196,6 +198,10 @@ export default function WeekViewPage() {
       return
     }
     if (item.source === 'calendar') {
+      if (row.calendarEvent?.provider === 'device') {
+        toast('Device Calendar events are read-only in this version.')
+        return
+      }
       calendarCompleteMutation.mutate({ id: item.id, completed: !item.completed })
       return
     }
@@ -231,6 +237,7 @@ export default function WeekViewPage() {
           time: event.allDay ? undefined : event.localStartTime || undefined,
           off,
           date,
+          calendarEvent: event,
         })
       })
     })
@@ -333,6 +340,11 @@ export default function WeekViewPage() {
 
   return (
     <div style={{ color: W.ink, display: 'flex', flexDirection: 'column', gap: 22, minWidth: 0, width: '100%' }}>
+      {calendarError && (
+        <div role="alert" className="rounded-xl border border-state-warning/40 bg-state-warning/10 px-4 py-3 text-sm text-ink-soft">
+          Calendar is unavailable: {calendarError instanceof Error ? calendarError.message : 'Calendar could not be read.'}
+        </div>
+      )}
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 13 }}>
@@ -443,7 +455,7 @@ export default function WeekViewPage() {
                     {(model.upNext.off === model.todayOff ? 'Today' : dow[model.upNext.off])}{model.upNext.hasTime ? ` · ${timeLabel(model.upNext.time)}` : ''}
                   </p>
                 </div>
-                <button className="week-focus" aria-label={`Mark ${model.upNext.title} complete`} onClick={() => toggle(model.upNext!)} style={{ flex: 'none', height: 38, padding: '0 16px', borderRadius: 11, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#0b1120', background: `linear-gradient(135deg,${A.c1},${A.c2})`, boxShadow: `0 0 16px ${A.glow}` }}>
+                <button className="week-focus" aria-label={`Mark ${model.upNext.title} complete`} disabled={model.upNext.calendarEvent?.provider === 'device'} onClick={() => toggle(model.upNext!)} style={{ flex: 'none', height: 38, padding: '0 16px', borderRadius: 11, border: 'none', cursor: model.upNext.calendarEvent?.provider === 'device' ? 'not-allowed' : 'pointer', opacity: model.upNext.calendarEvent?.provider === 'device' ? 0.55 : 1, display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: '#0b1120', background: `linear-gradient(135deg,${A.c1},${A.c2})`, boxShadow: `0 0 16px ${A.glow}` }}>
                   <Check width={15} height={15} strokeWidth={3} /> Done
                 </button>
               </div>
@@ -494,10 +506,11 @@ export default function WeekViewPage() {
                       <button
                         className="week-focus"
                         onClick={() => toggle(item)}
+                        disabled={item.calendarEvent?.provider === 'device'}
                         aria-label={item.completed ? 'Mark incomplete' : 'Mark complete'}
                         style={item.completed
-                          ? { flex: 'none', width: 24, height: 24, borderRadius: '50%', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#22c55e,#16a34a)', color: '#fff', boxShadow: '0 0 12px rgba(34,197,94,.45)' }
-                          : { flex: 'none', width: 24, height: 24, borderRadius: '50%', border: `2px solid ${W.lineStrong}`, background: 'transparent', cursor: 'pointer' }}
+                          ? { flex: 'none', width: 24, height: 24, borderRadius: '50%', border: 'none', cursor: item.calendarEvent?.provider === 'device' ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg,#22c55e,#16a34a)', color: '#fff', boxShadow: '0 0 12px rgba(34,197,94,.45)', opacity: item.calendarEvent?.provider === 'device' ? 0.55 : 1 }
+                          : { flex: 'none', width: 24, height: 24, borderRadius: '50%', border: `2px solid ${W.lineStrong}`, background: 'transparent', cursor: item.calendarEvent?.provider === 'device' ? 'not-allowed' : 'pointer', opacity: item.calendarEvent?.provider === 'device' ? 0.55 : 1 }}
                       >
                         {item.completed && <Check width={14} height={14} strokeWidth={3.5} />}
                       </button>

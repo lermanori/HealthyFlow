@@ -17,6 +17,8 @@ rely on an OS-gated API without updating and re-running that contract.
 - Google OAuth through the system browser with
   `healthyflow://oauth/callback`
 - Native Sign in with Apple through AuthenticationServices and Supabase Auth
+- Read-only Device Calendar obligations through EventKit, composed into the
+  Local Today view and Capacity without a HealthyFlow backend request
 - APNs registration, authenticated device storage, delivery, and stale-token
   pruning
 - Native haptics, Share sheet, keyboard resizing, network state, splash screen,
@@ -90,7 +92,27 @@ the app for those HTTPS URLs, separately enable Associated Domains, add the
 domain entitlement, and publish a valid `apple-app-site-association` file after
 the Apple Team ID is known.
 
-## Google OAuth setup
+## Device Calendar setup
+
+The native app uses EventKit as its only Calendar source. Settings requests full
+Calendar access because EventKit requires full access before an app can fetch
+events; HealthyFlow v1 only reads them. `Info.plist` must retain
+`NSCalendarsFullAccessUsageDescription` with copy that explains the Today and
+Capacity purpose.
+
+Test all four permission paths on iOS 17 or later: not requested, granted,
+denied/restricted, and access revoked after a successful read. With access
+granted, confirm a timed event and an all-day event appear in Today, the timed
+event changes Capacity, and neither event can be completed or dragged. Confirm
+the native app makes no `/calendar/google/*` request. A connected Google account
+inside Apple's Calendar app is already visible through EventKit and must not be
+connected again inside HealthyFlow.
+
+Apple's EventKit access and permission-string requirements were rechecked on
+2026-09-08 in
+[`requestFullAccessToEvents(completion:)`](https://developer.apple.com/documentation/eventkit/ekeventstore/requestfullaccesstoevents%28completion%3A%29).
+
+## Google sign-in OAuth setup
 
 Add this exact redirect URL to the Supabase Auth redirect allowlist:
 
@@ -233,4 +255,6 @@ npm run build:ios
 
 Then build the `App` scheme for an iOS simulator and a signed physical device.
 The simulator gate must include opening `healthyflow://app/privacy` and adding
-the HealthyFlow Today widget from the widget gallery.
+the HealthyFlow Today widget from the widget gallery. EventKit compilation and
+the not-requested/denied UI can be checked in the simulator; the final Calendar
+permission and real-event smoke test belongs on a physical device.

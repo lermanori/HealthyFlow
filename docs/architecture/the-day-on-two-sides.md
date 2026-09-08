@@ -7,7 +7,8 @@ Decisions behind it: [ADR-0010](../adr/0010-guest-identity-and-session-lifetime.
 (who a Guest is), [ADR-0011](../adr/0011-a-guests-day-lives-in-one-file-on-the-device.md)
 (where their day goes), [ADR-0001](../adr/0001-materialize-habit-instance-on-drag.md)
 and [ADR-0002](../adr/0002-task-scheduling-and-materialization-model.md) (Habits
-and scheduling).
+and scheduling), and [ADR-0020](../adr/0020-iphone-calendar-is-read-directly-with-eventkit.md)
+(where iPhone Calendar obligations come from).
 
 ## The shape
 
@@ -20,8 +21,8 @@ and scheduling).
                               ▲                    ▲
               server adapter  │                    │  device adapter
       backend/src/day-summary.ts                src/lib/local/day.ts
-        Supabase queries, Google Calendar,        one JSON document
-        Health, Work, logging                     read through a driver
+        Supabase queries, Google Calendar,        one JSON document plus
+        Health, Work, logging                     on-device EventKit
 ```
 
 Plus two more rules that are shared the same way:
@@ -48,8 +49,8 @@ everything else. That is the whole seam:
 |---|---|---|
 | `itemsForDay` | three Supabase queries → `composeDayTaskRows`, plus `Rollover` | three in-memory filters → the same `composeDayTaskRows`, plus the same `isCarryForwardRow` |
 | `getSettings` | `users_settings` row | the document's `settings` patch over the local baseline |
-| `getCalendarStatus` | Google connection state | `{ connected: false }` — true, and not a failure |
-| `getCalendarEvents` | Google sync | **throws** — unreachable, and `[]` would claim the day has no obligations |
+| `getCalendarStatus` | Google connection state | EventKit permission/result state |
+| `getCalendarEvents` | Google sync | EventKit events mapped to the canonical schema; **throws** when an authorized read fails |
 | Nutrition, Training, Progress | their tables | **throw** — the modules are off in the local baseline, so the core never calls them |
 | `listDayFocusBlocks` | `Work.listDayFocusBlocks` | `[]` — genuinely empty; Work is behind a release flag and nothing on a device can create a Focus block |
 
@@ -76,7 +77,9 @@ no page knows which side answered. `setLocalDayUser` is called beside `setUser`
 rather than in an effect, because an effect can land after the first query.
 
 Everything else still goes to the server, because a Guest has a real `users` row
-and a real token: credits, AI, account deletion, version gating, push.
+and a real token: credits, AI, account deletion, version gating, push. Device
+Calendar is the exception: its events are composed into the day in the iPhone app
+and are not uploaded as part of ordinary Calendar reading.
 
 ## The boundary, and how it is guarded
 
