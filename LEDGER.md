@@ -1,3 +1,14 @@
+### 2026-09-08 10:51 — `codex/236-free-ios-release-candidate`
+
+Prepared the credential-free free-v1 iOS release candidate: reconciled every
+deployment target at iOS 17, made deferred Cloud sync explicitly opt-in, and
+aligned the landing telemetry contract. Added guarded App Store metadata, privacy
+and SDK inventory, simulator evidence, and an exact human handoff without
+guessing legal, contact, signing, or portal decisions; web, backend, Capacitor,
+Swift-package, Release-simulator, URL, and native smoke checks are recorded.
+
+---
+
 ### 2026-09-07 20:19 — `codex/234-free-v1-landing`
 
 Replaced the public invite-only waitlist and paid Cloud offer with the honest

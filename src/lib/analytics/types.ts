@@ -12,8 +12,16 @@ export type ItemSource = 'manual' | 'ai_parse'
 export type AnalyticsEvents = {
   // Lifecycle & identity
   signup_cta_clicked: {
-    destination: 'signup' | 'waitlist'
-    placement: 'navigation' | 'hero' | 'free_plan' | 'founding_plan' | 'final'
+    destination: 'app' | 'signup' | 'waitlist'
+    placement:
+      | 'navigation'
+      | 'hero'
+      | 'everything_grid'
+      | 'guest'
+      | 'claimed_account'
+      | 'free_plan'
+      | 'founding_plan'
+      | 'final'
     access_mode: 'open' | 'waitlist'
   }
   waitlist_submitted: {

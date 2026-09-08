@@ -20,6 +20,9 @@ end
 app_target.build_configurations.each do |configuration|
   configuration.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "17.0"
 end
+project.build_configurations.each do |configuration|
+  configuration.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "17.0"
+end
 
 target_attributes = project.root_object.attributes["TargetAttributes"] ||= {}
 app_attributes = target_attributes[app_target.uuid] ||= {}

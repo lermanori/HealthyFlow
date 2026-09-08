@@ -52,3 +52,13 @@ describe('Daily Signals release flag', () => {
     assert.match(today, /DAILY_SIGNALS_ENABLED && <AIRecommendationsBox date=\{selectedDateKey\} \/>/)
   })
 })
+
+describe('Cloud sync release flag', () => {
+  it('is opt-in and prevents the free-v1 shell from probing an unavailable entitlement', () => {
+    const featureFlags = readFileSync('src/featureFlags.ts', 'utf8')
+    const cloudSync = readFileSync('src/hooks/useCloudSync.ts', 'utf8')
+
+    assert.match(featureFlags, /VITE_CLOUD_SYNC_ENABLED === 'true'/)
+    assert.match(cloudSync, /if \(!CLOUD_SYNC_ENABLED\) return/)
+  })
+})

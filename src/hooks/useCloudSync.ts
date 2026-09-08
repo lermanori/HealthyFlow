@@ -6,6 +6,7 @@ import { creditsService, syncService, DAY_SUMMARY_QUERY_KEY } from '../services/
 import { runSync } from '../lib/local/sync'
 import { localDayUser } from '../lib/local/services'
 import { LOCAL_DAY_CHANGED_EVENT } from '../lib/local/store'
+import { CLOUD_SYNC_ENABLED } from '../featureFlags'
 
 const AFTER_A_CHANGE_MS = 3_000
 const CLOUD_STATUS_CHANGED_EVENT = 'healthyflow:cloud-status-changed'
@@ -91,6 +92,7 @@ export function useCloudSync() {
   }, [])
 
   useEffect(() => {
+    if (!CLOUD_SYNC_ENABLED) return
     const userId = localDayUser()
     // No local day means there is nothing on this device to send. A Guest has no
     // subscription; every account-entry path opens a Local day before it opens

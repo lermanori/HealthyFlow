@@ -4,12 +4,10 @@ HealthyFlow ships the existing React application inside a Capacitor iOS shell.
 The web application remains the product and source of business logic; native
 code is used at the platform boundary where iOS adds meaningful value.
 
-The intended minimum deployment target is iOS 17, but **the Xcode project does
-not currently agree with itself**: the `App` target declares
-`IPHONEOS_DEPLOYMENT_TARGET = 15.0` in one build configuration and `17.0` in the
-other, while `HealthyFlowWidget` is `17.0` in both. Debug and Release can
-therefore build against different OS floors. Reconcile this before relying on
-any OS-gated API.
+The minimum deployment target is iOS 17. The Xcode project, `App` target,
+`HealthyFlowWidget` target, and Swift package all declare that same floor in
+Debug and Release. `src/utils/iosRelease.test.ts` guards this agreement; do not
+rely on an OS-gated API without updating and re-running that contract.
 
 ## What is implemented
 
@@ -208,19 +206,17 @@ Use numeric dot-separated marketing versions such as `1.2` or `1.2.3`; the
 comparison is numeric, so `1.10` is newer than `1.9`. Test a forced update with
 a TestFlight or locally signed build before enforcing a production minimum.
 
-## App Store work still required
+## Free-v1 App Store release candidate
 
-- Verify Sign in with Apple against the production App ID, provisioning
-  profile, and Supabase provider configuration on a physical device.
-- Decide how paid digital features are sold in the iOS app. The native shell
-  currently hides HealthyFlow's manual purchase/contact CTAs; implement the
-  approved StoreKit flow before offering iOS purchases.
-- Create App Store Connect metadata, screenshots, privacy disclosures, support
-  URL, age rating, and review notes.
-- Test account creation, login, account deletion, notification opt-in, widget
-  refresh, offline/reconnect behavior, and every deep link on a physical device.
-- Run an archive validation in Xcode, distribute to internal TestFlight, and
-  complete a fresh-account smoke test before external testing.
+Version 1 ships free with no purchase rail. A Guest receives 10 AI actions once;
+a claimed account receives 15 AI actions each calendar month. Cloud cannot be
+obtained in v1. Founders Club is the request path for discretionary additional
+free actions. RevenueCat and Apple IAP remain deferred v1.1 work.
+
+The source-grounded metadata, screenshot plan, privacy inventory, smoke evidence,
+and human handoff are maintained in
+[`app-store-v1.md`](./app-store-v1.md). Do not upload or submit a build until every
+human-owned gate in that document is resolved.
 
 ## Validation gate
 
