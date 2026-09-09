@@ -1,3 +1,12 @@
+### 2026-09-09 20:07 — `codex/257-compose-device-google`
+
+Corrected the CI runner isolation for both legacy `.list` and current
+`.sources` Google Chrome apt-source formats after the first run proved the
+hosted image uses the newer form. The Playwright Chromium install and its OS
+dependency verification remain intact.
+
+---
+
 ### 2026-09-09 20:00 — `codex/257-compose-device-google`
 
 Kept the frontend browser regression check runnable when GitHub's unrelated
