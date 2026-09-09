@@ -188,7 +188,15 @@ export function adoptAccountDay(
   account: LocalDatabase,
   choice: AdoptionChoice,
 ): LocalDatabase {
-  if (choice === 'discard_device') return account
+  if (choice === 'discard_device') {
+    return {
+      ...account,
+      // These are not part of the discarded day. They are device cleanup
+      // handles: the next reconciliation removes EventKit events whose Items
+      // no longer exist, then drops the links.
+      deviceCalendarLinks: device.deviceCalendarLinks,
+    }
+  }
 
   // Records arrive in two shapes — server rows key on `user_id`, health records
   // on `userId` — so whichever key a record carries is the one rewritten.
@@ -207,6 +215,10 @@ export function adoptAccountDay(
     // The account's settings win: they are the ones the person has been living
     // with, and two settings objects cannot be unioned meaningfully.
     settings: Object.keys(account.settings).length > 0 ? account.settings : device.settings,
+    // EventKit identifiers are meaningful only on this physical iPhone. Keep
+    // its links while the account's day comes down, but never source them from
+    // the server export or re-key them as account data.
+    deviceCalendarLinks: device.deviceCalendarLinks,
     tasks: merged('tasks', account.tasks, reKeyed(device.tasks)),
     habitProgress: merged('habitProgress', account.habitProgress, reKeyed(device.habitProgress)),
     goals: merged('goals', account.goals, reKeyed(device.goals)),

@@ -159,12 +159,46 @@ describe('choosing what happens to the day already here', () => {
     assert.ok(merged.calorieEntries.every((entry) => (entry as unknown as { userId: string }).userId === ACCOUNT))
   })
 
+  it('keeps this iPhone’s EventKit links when the account day comes down', () => {
+    const device = {
+      ...deviceDay(),
+      deviceCalendarLinks: [{
+        itemId: 'device-task',
+        eventIdentifier: 'event-1',
+        status: 'synced' as const,
+        error: null,
+        itemUpdatedAt: '2026-09-09T10:00:00.000Z',
+        updatedAt: '2026-09-09T10:01:00.000Z',
+      }],
+    }
+
+    const merged = adoptAccountDay(device, localDayFromExport(ACCOUNT, exportPayload), 'keep_both')
+
+    assert.deepEqual(merged.deviceCalendarLinks, device.deviceCalendarLinks)
+    assert.deepEqual(collectDelta(merged).tasks.map((row) => row.id).sort(), ['device-task', 'server-task'])
+    assert.equal('deviceCalendarLinks' in collectDelta(merged), false)
+  })
+
   it('discards the device day when that is what was chosen', () => {
-    const merged = adoptAccountDay(deviceDay(), localDayFromExport(ACCOUNT, exportPayload), 'discard_device')
+    const device = {
+      ...deviceDay(),
+      deviceCalendarLinks: [{
+        itemId: 'device-task',
+        eventIdentifier: 'event-to-remove',
+        status: 'synced' as const,
+        error: null,
+        itemUpdatedAt: '2026-09-09T10:00:00.000Z',
+        updatedAt: '2026-09-09T10:01:00.000Z',
+      }],
+    }
+    const merged = adoptAccountDay(device, localDayFromExport(ACCOUNT, exportPayload), 'discard_device')
 
     assert.equal(merged.tasks.length, 1)
     assert.equal(merged.tasks[0].id, 'server-task')
     assert.equal(merged.calorieEntries.length, 1)
+    // Keep device-only links just long enough for the automatic reconciler to
+    // remove events that belonged to the discarded day.
+    assert.deepEqual(merged.deviceCalendarLinks, device.deviceCalendarLinks)
   })
 
   it('prefers the account settings, which are the ones they have been living with', () => {

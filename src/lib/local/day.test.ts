@@ -121,6 +121,18 @@ describe('a day held on the device', () => {
   })
 })
 
+describe('Device Calendar links on this iPhone', () => {
+  it('upgrades a version-4 Local day with an empty device-only link collection', async () => {
+    const legacy = { ...emptyLocalDatabase(USER), version: 4 }
+    setLocalStoreDriver(memoryDriver(JSON.stringify(legacy)))
+
+    const database = await loadLocalDatabase(USER)
+
+    assert.equal(database.version, 5)
+    assert.deepEqual(database.deviceCalendarLinks, [])
+  })
+})
+
 describe('Items on the device', () => {
   it('gives a start time a day, and leaves an undated Task in the Someday backlog', async () => {
     const timed = await createLocalTask(USER, {

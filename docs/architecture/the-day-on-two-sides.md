@@ -7,8 +7,10 @@ Decisions behind it: [ADR-0010](../adr/0010-guest-identity-and-session-lifetime.
 (who a Guest is), [ADR-0011](../adr/0011-a-guests-day-lives-in-one-file-on-the-device.md)
 (where their day goes), [ADR-0001](../adr/0001-materialize-habit-instance-on-drag.md)
 and [ADR-0002](../adr/0002-task-scheduling-and-materialization-model.md) (Habits
-and scheduling), and [ADR-0020](../adr/0020-iphone-calendar-is-read-directly-with-eventkit.md)
-(where iPhone Calendar obligations come from).
+and scheduling), [ADR-0020](../adr/0020-iphone-calendar-is-read-directly-with-eventkit.md)
+(where iPhone Calendar obligations come from), and
+[ADR-0021](../adr/0021-timed-items-mirror-to-iphone-calendar.md) (how timed Items
+mirror back to the device).
 
 ## The shape
 
@@ -78,8 +80,10 @@ rather than in an effect, because an effect can land after the first query.
 
 Everything else still goes to the server, because a Guest has a real `users` row
 and a real token: credits, AI, account deletion, version gating, push. Device
-Calendar is the exception: its events are composed into the day in the iPhone app
-and are not uploaded as part of ordinary Calendar reading.
+Calendar is the exception: its external events are composed into the day in the
+iPhone app, while timed Items are reconciled back to marked EventKit events.
+Event content and Item-to-event links are not uploaded as part of this device
+path.
 
 ## The boundary, and how it is guarded
 

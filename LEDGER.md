@@ -1,3 +1,13 @@
+### 2026-09-09 13:28 — `codex/250-device-calendar-auto-sync`
+
+Added automatic, device-local mirroring of timed Items into EventKit for Guest,
+claimed-free, and Cloud identities, with stable ownership markers, duplicate
+filtering, cleanup, explicit retryable failures, and no backend Calendar request.
+Documented the two-direction boundary and verified 326 frontend tests, typecheck,
+lint, production Capacitor sync, and a complete Xcode simulator build.
+
+---
+
 ### 2026-09-08 18:41 — `codex/247-device-calendar-read`
 
 Made EventKit the Local iPhone Calendar source so Calendar obligations compose
