@@ -203,6 +203,7 @@ export function localDaySummaryDependencies(
   return {
     itemsForDay: localItemsForDay,
     getSettings: async (userId) => resolveLocalSettings(await loadLocalDatabase(userId)),
+    getCalendarSource: async () => calendar,
     getCalendarStatus: async () => {
       if (calendar.status === 'unavailable') {
         throw new LocalStoreError('Device Calendar status is unavailable.')

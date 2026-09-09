@@ -100,6 +100,40 @@ describe('a day held on the device', () => {
     assert.equal(day.capacity.basis?.calendarEventCount, 1)
   })
 
+  it('keeps known provider events while an unavailable provider makes Capacity partial', async () => {
+    const day = await buildLocalDaySummary(USER, TODAY, 'UTC', NOW, {
+      status: 'unavailable',
+      reasonCode: 'status_unavailable',
+      providerStates: [
+        { provider: 'device', status: 'connected', reasonCode: null },
+        { provider: 'google', status: 'unavailable', reasonCode: 'status_unavailable' },
+      ],
+      events: [{
+        id: 'device:event-1',
+        provider: 'device',
+        calendarId: 'calendar-1',
+        externalEventId: 'event-1',
+        title: 'Dentist',
+        description: null,
+        location: null,
+        startAt: '2026-08-21T09:00:00.000Z',
+        endAt: '2026-08-21T10:00:00.000Z',
+        localStartTime: '09:00',
+        localEndTime: '10:00',
+        allDay: false,
+        status: 'confirmed',
+        htmlLink: null,
+        completed: false,
+        completedAt: null,
+      }],
+    })
+
+    assert.equal(day.calendar.status, 'unavailable')
+    assert.equal(day.calendar.events.length, 1)
+    assert.equal(day.capacity.status, 'partial')
+    assert.match(day.capacity.reasonCodes.join(','), /calendar_unavailable/)
+  })
+
   // Food, weight and training are core rather than optional (TARGET.md). A Guest
   // holding them was the contradiction ADR-0011 recorded and did not resolve.
   it('gives a Guest the whole day, food and training included', async () => {

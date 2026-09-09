@@ -7,15 +7,38 @@ import { loadLocalDatabase, memoryDriver, setLocalStoreDriver } from '../lib/loc
 import {
   createCalendarEventReader,
   canUseHostedGoogleCalendar,
+  combinedCalendarReadToDaySource,
   createDeviceCalendarItemSync,
   createDeviceCalendarService,
   createWebGoogleCalendarMutation,
   deviceCalendarReadToDaySource,
   reconcileDeviceCalendarItems,
+  resolveHostedGoogleCalendarAccess,
   syncLocalDayWithDeviceCalendar,
 } from '../lib/deviceCalendar'
 
 const { DaySummaryCalendarEventSchema } = DaySummaryContracts
+
+function calendarEvent(provider: 'device' | 'google', id: string) {
+  return DaySummaryCalendarEventSchema.parse({
+    id: `${provider}:${id}`,
+    provider,
+    calendarId: `${provider}-calendar`,
+    externalEventId: id,
+    title: `${provider} event`,
+    description: null,
+    location: null,
+    startAt: '2026-09-08T09:00:00.000+02:00',
+    endAt: '2026-09-08T10:00:00.000+02:00',
+    localStartTime: '09:00',
+    localEndTime: '10:00',
+    allDay: false,
+    status: 'confirmed',
+    htmlLink: null,
+    completed: false,
+    completedAt: null,
+  })
+}
 
 describe('Device Calendar day contract', () => {
   it('shows hosted Google only to a claimed active Cloud identity on an enabled surface', () => {
@@ -31,6 +54,53 @@ describe('Device Calendar day contract', () => {
     ]) {
       assert.equal(canUseHostedGoogleCalendar(input), false)
     }
+  })
+
+  it('does not reach Google before claimed active Cloud is proven', async () => {
+    let entitlementReads = 0
+    let googleReads = 0
+    const readCloudActive = async () => {
+      entitlementReads += 1
+      return false
+    }
+    const readConnected = async () => {
+      googleReads += 1
+      return true
+    }
+
+    assert.deepEqual(await resolveHostedGoogleCalendarAccess({
+      claimed: false,
+      surfaceEnabled: true,
+      readCloudActive,
+      readConnected,
+    }), { state: 'not_entitled', reason: 'cloud_not_active' })
+    assert.equal(entitlementReads, 0)
+    assert.equal(googleReads, 0)
+
+    assert.deepEqual(await resolveHostedGoogleCalendarAccess({
+      claimed: true,
+      surfaceEnabled: true,
+      readCloudActive,
+      readConnected,
+    }), { state: 'not_entitled', reason: 'cloud_not_active' })
+    assert.equal(entitlementReads, 1)
+    assert.equal(googleReads, 0)
+  })
+
+  it('keeps an unavailable entitlement read typed and never probes Google', async () => {
+    let googleReads = 0
+    const result = await resolveHostedGoogleCalendarAccess({
+      claimed: true,
+      surfaceEnabled: true,
+      readCloudActive: async () => { throw new Error('credits unavailable') },
+      readConnected: async () => {
+        googleReads += 1
+        return true
+      },
+    })
+
+    assert.deepEqual(result, { state: 'unavailable', reason: 'credits unavailable' })
+    assert.equal(googleReads, 0)
   })
 
   it('syncs a timed Item to one validated EventKit event', async () => {
@@ -433,7 +503,7 @@ describe('Device Calendar day contract', () => {
     assert.match(settings, /isNativeIOS && \(/)
     assert.match(settings, /Connect Calendar/)
     assert.match(flags, /VITE_NATIVE_GOOGLE_CALENDAR_ENABLED === 'true'/)
-    assert.match(week, /queryFn:\s*\(\)\s*=>\s*calendarService\.getEvents\(dateKey\)/)
+    assert.match(week, /queryFn:\s*\(\)\s*=>\s*calendarService\.getDay\(dateKey\)/)
     assert.match(timeline, /event\.provider\s*===\s*'device'/)
     assert.doesNotMatch(week, /queryFn:[^\n]+getGoogleEvents/)
   })
@@ -450,6 +520,18 @@ describe('Device Calendar day contract', () => {
     assert.match(settings, /openNativeBrowser\(url\)/)
     assert.match(api, /returnTarget: isNativeIOS \? 'native' : 'web'/)
     assert.match(runbook, /leave `VITE_CLOUD_SYNC_ENABLED` and\s+`VITE_NATIVE_GOOGLE_CALENDAR_ENABLED` unset/)
+  })
+
+  it('feeds the composed Calendar day into Today, Week, Capacity, and Daily Signals', () => {
+    const api = readFileSync('src/services/api.ts', 'utf8')
+    const week = readFileSync('src/pages/WeekViewPage.tsx', 'utf8')
+    const core = readFileSync('backend/src/day-summary-core.ts', 'utf8')
+
+    assert.match(api, /combinedCalendarReadToDaySource\(await readCalendarDay\(date\)\)/)
+    assert.match(api, /calendarEvents: calendar\.events/)
+    assert.match(week, /calendarService\.getDay\(dateKey\)/)
+    assert.match(core, /dependencies\.getCalendarSource/)
+    assert.match(core, /deriveCapacity\([\s\S]+calendar,/)
   })
 
   it('runs automatic Device Calendar reconciliation app-wide and exposes retryable failure', () => {
@@ -486,29 +568,95 @@ describe('Device Calendar day contract', () => {
     assert.match(settings, /healthyflow:app-state[\s\S]+loadDeviceCalendarStatus\(\)/)
   })
 
-  it('reads native Calendar events without invoking the backend Google reader', async () => {
+  it('keeps Guest and claimed-free native reads off the backend Google path', async () => {
     let googleRead = false
-    const readEvents = createCalendarEventReader({
+    const readCalendar = createCalendarEventReader({
       isNativeIOS: true,
       readDevice: async () => ({ state: 'connected', events: [] }),
       readGoogle: async () => {
         googleRead = true
-        return []
+        return { provider: 'google', state: 'connected', events: [] }
       },
+      includeGoogle: false,
     })
 
-    assert.deepEqual(await readEvents('2026-09-08'), [])
+    const result = await readCalendar('2026-09-08')
+    assert.deepEqual(result.events, [])
+    assert.deepEqual(result.sources.map((source) => source.provider), ['device'])
     assert.equal(googleRead, false)
   })
 
-  it('surfaces a failed native Calendar read instead of returning an empty day', async () => {
-    const readEvents = createCalendarEventReader({
+  it('combines Device and Google without guessing duplicate events away', async () => {
+    const sameLookingDeviceEvent = calendarEvent('device', 'same-time')
+    const sameLookingGoogleEvent = {
+      ...calendarEvent('google', 'same-time'),
+      title: sameLookingDeviceEvent.title,
+    }
+    const readCalendar = createCalendarEventReader({
       isNativeIOS: true,
-      readDevice: async () => ({ state: 'unavailable', reason: 'EventKit failed' }),
-      readGoogle: async () => [],
+      readDevice: async () => ({ state: 'connected', events: [sameLookingDeviceEvent] }),
+      readGoogle: async () => ({ provider: 'google', state: 'connected', events: [sameLookingGoogleEvent] }),
+      includeGoogle: true,
     })
 
-    await assert.rejects(() => readEvents('2026-09-08'), /EventKit failed/)
+    const result = await readCalendar('2026-09-08')
+    assert.deepEqual(result.events.map((event) => event.provider), ['device', 'google'])
+    assert.equal(result.events.length, 2)
+  })
+
+  it('returns Google-only obligations when Device Calendar is not connected', async () => {
+    const googleEvent = calendarEvent('google', 'standup')
+    const result = await createCalendarEventReader({
+      isNativeIOS: true,
+      readDevice: async () => ({ state: 'not_connected', reason: 'denied' }),
+      readGoogle: async () => ({ provider: 'google', state: 'connected', events: [googleEvent] }),
+      includeGoogle: true,
+    })('2026-09-08')
+
+    assert.deepEqual(result.events, [googleEvent])
+    assert.equal(combinedCalendarReadToDaySource(result).status, 'connected')
+  })
+
+  it('keeps Google events and typed source state when Device Calendar fails', async () => {
+    const readCalendar = createCalendarEventReader({
+      isNativeIOS: true,
+      readDevice: async () => ({ state: 'unavailable', reason: 'EventKit failed' }),
+      readGoogle: async () => ({ provider: 'google', state: 'connected', events: [calendarEvent('google', 'work')] }),
+      includeGoogle: true,
+    })
+
+    const result = await readCalendar('2026-09-08')
+    assert.equal(result.events.length, 1)
+    assert.deepEqual(result.sources[0], { provider: 'device', state: 'unavailable', reason: 'EventKit failed' })
+    assert.deepEqual(combinedCalendarReadToDaySource(result), {
+      status: 'unavailable',
+      reasonCode: 'status_unavailable',
+      events: result.events,
+      providerStates: [
+        { provider: 'device', status: 'unavailable', reasonCode: 'status_unavailable' },
+        { provider: 'google', status: 'connected', reasonCode: null },
+      ],
+    })
+  })
+
+  it('preserves Device events when Google is unavailable and distinguishes neither connected', async () => {
+    const deviceEvent = calendarEvent('device', 'dentist')
+    const partial = await createCalendarEventReader({
+      isNativeIOS: true,
+      readDevice: async () => ({ state: 'connected', events: [deviceEvent] }),
+      readGoogle: async () => ({ provider: 'google', state: 'unavailable', reason: 'Google failed' }),
+      includeGoogle: true,
+    })('2026-09-08')
+    assert.deepEqual(partial.events, [deviceEvent])
+
+    const neither = await createCalendarEventReader({
+      isNativeIOS: true,
+      readDevice: async () => ({ state: 'not_connected', reason: 'denied' }),
+      readGoogle: async () => ({ provider: 'google', state: 'not_connected', reason: 'not_connected' }),
+      includeGoogle: true,
+    })('2026-09-08')
+    assert.equal(combinedCalendarReadToDaySource(neither).status, 'not_connected')
+    assert.deepEqual(neither.events, [])
   })
 
   it('blocks Google Calendar mutations on native before they reach the backend', async () => {

@@ -2,6 +2,7 @@ import {
   CapacityReasonCodeSchema,
   DaySummaryCalendarEvent,
   DaySummaryCalendarEventSchema,
+  CalendarSourceSchema,
   DaySummaryCalorieEntry,
   DaySummaryCalorieEntrySchema,
   DaySummaryCapacity,
@@ -1026,6 +1027,8 @@ export type DaySummaryDependencies = {
     reason?: 'cloud_not_active'
   }>
   getCalendarEvents: (userId: string, date: string) => Promise<unknown[]>
+  /** A composed client can supply a typed multi-provider source directly. */
+  getCalendarSource?: (userId: string, date: string) => Promise<CalendarSource>
   getCalorieEntries: (userId: string, date: string) => Promise<unknown[]>
   getWeightEntry: (userId: string, date: string) => Promise<unknown | null>
   getWorkoutSessions: (userId: string, date: string) => Promise<unknown[]>
@@ -1092,34 +1095,36 @@ export async function buildDaySummaryCore(
     weekDate === date ? Promise.resolve(items) : dependencies.itemsForDay(userId, weekDate)
   ))
 
-  const calendarPromise: Promise<CalendarSource> = dependencies.getCalendarStatus(userId).then(async (status) => {
-    if (!status.connected) {
-      if (status.reason === 'cloud_not_active') {
-        return { status: 'not_entitled', reasonCode: 'cloud_not_active', events: [] }
+  const calendarPromise: Promise<CalendarSource> = dependencies.getCalendarSource
+    ? dependencies.getCalendarSource(userId, date).then((source) => CalendarSourceSchema.parse(source))
+    : dependencies.getCalendarStatus(userId).then(async (status) => {
+      if (!status.connected) {
+        if (status.reason === 'cloud_not_active') {
+          return { status: 'not_entitled', reasonCode: 'cloud_not_active', events: [] }
+        }
+        return { status: 'not_connected', reasonCode: 'not_connected', events: [] }
       }
-      return { status: 'not_connected', reasonCode: 'not_connected', events: [] }
-    }
-    try {
-      const events = (await dependencies.getCalendarEvents(userId, date))
-        .map((event) => DaySummaryCalendarEventSchema.parse(event))
-      return {
-        status: events.length > 0 ? 'connected' : 'connected_empty',
-        reasonCode: null,
-        events,
+      try {
+        const events = (await dependencies.getCalendarEvents(userId, date))
+          .map((event) => DaySummaryCalendarEventSchema.parse(event))
+        return {
+          status: events.length > 0 ? 'connected' : 'connected_empty',
+          reasonCode: null,
+          events,
+        }
+      } catch (error) {
+        // Degrading the day is correct — one module failing must not fail the
+        // whole day — but discarding the cause is not. `sync_failed` reaches the
+        // user as "Calendar obligations could not be checked" and downgrades
+        // Capacity from an exact figure to an upper bound, so the reason it
+        // happened has to survive somewhere.
+        options.onSourceError?.({ source: 'calendar_events', userId, date, error })
+        return { status: 'unavailable', reasonCode: 'sync_failed', events: [] }
       }
-    } catch (error) {
-      // Degrading the day is correct — one module failing must not fail the
-      // whole day — but discarding the cause is not. `sync_failed` reaches the
-      // user as "Calendar obligations could not be checked" and downgrades
-      // Capacity from an exact figure to an upper bound, so the reason it
-      // happened has to survive somewhere.
-      options.onSourceError?.({ source: 'calendar_events', userId, date, error })
-      return { status: 'unavailable', reasonCode: 'sync_failed', events: [] }
-    }
-  }, (error) => {
-    options.onSourceError?.({ source: 'calendar_status', userId, date, error })
-    return { status: 'unavailable', reasonCode: 'status_unavailable', events: [] }
-  })
+    }, (error) => {
+      options.onSourceError?.({ source: 'calendar_status', userId, date, error })
+      return { status: 'unavailable', reasonCode: 'status_unavailable', events: [] }
+    })
 
   const nutritionPromise = nutritionEnabled === true
     ? Promise.allSettled([

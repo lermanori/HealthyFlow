@@ -10,7 +10,7 @@ import {
 import { isNativeIOS } from '../lib/native'
 import { localDayUser } from '../lib/local/services'
 import { LOCAL_DAY_CHANGED_EVENT } from '../lib/local/store'
-import { DAILY_SIGNALS_QUERY_KEY, DAY_SUMMARY_QUERY_KEY } from '../services/api'
+import { calendarService, DAILY_SIGNALS_QUERY_KEY, DAY_SUMMARY_QUERY_KEY } from '../services/api'
 
 const AFTER_A_CHANGE_MS = 250
 
@@ -50,6 +50,7 @@ export function useDeviceCalendarSync() {
     const refreshCalendarQueries = () => {
       void Promise.all([
         queryClient.invalidateQueries({ queryKey: ['calendar-events'] }),
+        queryClient.invalidateQueries({ queryKey: ['calendar-days'] }),
         queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY }),
         queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY }),
       ]).then(() => {
@@ -107,6 +108,7 @@ export function useDeviceCalendarSync() {
     const scheduleWhenActive = (event: Event) => {
       const detail = (event as CustomEvent<{ isActive?: boolean }>).detail
       if (detail?.isActive) {
+        calendarService.invalidateGoogleAccess()
         schedule()
         refreshCalendarQueries()
       }

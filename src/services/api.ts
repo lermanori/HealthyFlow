@@ -2,7 +2,7 @@
 import axios from 'axios'
 import { z } from 'zod'
 import { analytics } from '../lib/analytics'
-import { WORK_ENABLED } from '../featureFlags'
+import { NATIVE_GOOGLE_CALENDAR_ENABLED, WORK_ENABLED } from '../featureFlags'
 import type { DemoPersonaId } from '../demoPersonas'
 import type { ItemSource, ItemType } from '../lib/analytics/types'
 import type {
@@ -19,6 +19,7 @@ import {
   type DailySignalType,
 } from '../../backend/src/daily-context-schema'
 import {
+  DaySummaryCalendarEventSchema,
   DaySummarySchema,
   isDaySummaryItemAddressed,
   type DaySummary,
@@ -53,14 +54,18 @@ import type { SyncDelta, SyncIncoming } from '../lib/local/sync'
 import {
   applyVerifiedSession,
   clearSessionToken,
+  readRememberedSessionUser,
   readSessionToken,
 } from '../lib/session'
 import { asClientShape, localHealthServices, localServices, onDevice } from '../lib/local/services'
 import {
   createCalendarEventReader,
   createWebGoogleCalendarMutation,
-  deviceCalendarReadToDaySource,
+  combinedCalendarReadToDaySource,
   deviceCalendarService,
+  resolveHostedGoogleCalendarAccess,
+  type CalendarProviderReadResult,
+  type HostedGoogleCalendarAccessResult,
 } from '../lib/deviceCalendar'
 import { isNativeIOS } from '../lib/native'
 import { availableActionCount } from '../utils/creditAvailability'
@@ -813,7 +818,13 @@ export const aiService = {
 
   getDailyContext: async (date: string): Promise<DailyContext> => {
     const response = await api.get('/ai/daily-context', { params: { date } })
-    return dailyContextFromApi(response.data)
+    const context = dailyContextFromApi(response.data)
+    if (!isNativeIOS) return context
+    const calendar = await readCalendarDay(date)
+    return DailyContextSchema.parse({
+      ...context,
+      day: { ...context.day, calendarEvents: calendar.events },
+    })
   },
 
   reviewDailySignal: async (date: string, signalId: string): Promise<{
@@ -1094,12 +1105,81 @@ export interface CalendarConnectionStatus {
   scopes: string[]
 }
 
+const CalendarConnectionStatusSchema = z.object({
+  provider: z.literal('google'),
+  connected: z.boolean(),
+  accountEmail: z.string().email().nullable(),
+  connectedAt: z.string().nullable(),
+  scopes: z.array(z.string()),
+}).strict()
+
 export type ExternalCalendarEvent = DaySummaryCalendarEvent
 
 const getGoogleCalendarEvents = async (date: string): Promise<ExternalCalendarEvent[]> => {
   const response = await api.get('/calendar/google/events', { params: { date } })
-  return response.data
+  return z.array(DaySummaryCalendarEventSchema).parse(response.data)
 }
+
+let hostedGoogleAccess: {
+  identityKey: string
+  result: Promise<HostedGoogleCalendarAccessResult>
+} | null = null
+
+function invalidateHostedGoogleAccess() {
+  hostedGoogleAccess = null
+}
+
+async function getHostedGoogleAccess(): Promise<HostedGoogleCalendarAccessResult> {
+  const user = readRememberedSessionUser()
+  const identityKey = user?.id ?? 'no-session'
+  if (hostedGoogleAccess?.identityKey !== identityKey) {
+    hostedGoogleAccess = {
+      identityKey,
+      result: resolveHostedGoogleCalendarAccess({
+        claimed: Boolean(user?.email),
+        surfaceEnabled: isNativeIOS && NATIVE_GOOGLE_CALENDAR_ENABLED,
+        readCloudActive: async () => (await creditsService.getSummary()).subscription.active,
+        readConnected: async () => CalendarConnectionStatusSchema.parse(
+          (await api.get('/calendar/google/status')).data,
+        ).connected,
+      }),
+    }
+  }
+  return hostedGoogleAccess.result
+}
+
+async function readGoogleCalendarDay(date: string): Promise<CalendarProviderReadResult> {
+  if (!isNativeIOS) {
+    try {
+      return { provider: 'google', state: 'connected', events: await getGoogleCalendarEvents(date) }
+    } catch (error) {
+      return {
+        provider: 'google',
+        state: 'unavailable',
+        reason: error instanceof Error ? error.message : 'Google Calendar could not be read.',
+      }
+    }
+  }
+
+  const access = await getHostedGoogleAccess()
+  if (access.state !== 'connected') return { provider: 'google', ...access }
+  try {
+    return { provider: 'google', state: 'connected', events: await getGoogleCalendarEvents(date) }
+  } catch (error) {
+    return {
+      provider: 'google',
+      state: 'unavailable',
+      reason: error instanceof Error ? error.message : 'Google Calendar could not be read.',
+    }
+  }
+}
+
+const readCalendarDay = createCalendarEventReader({
+  isNativeIOS,
+  readDevice: (date) => deviceCalendarService.read(date),
+  readGoogle: readGoogleCalendarDay,
+  includeGoogle: !isNativeIOS || NATIVE_GOOGLE_CALENDAR_ENABLED,
+})
 
 const updateGoogleCalendarEventCompletion = createWebGoogleCalendarMutation({
   isNativeIOS,
@@ -1126,7 +1206,7 @@ const updateGoogleCalendarEventSchedule = createWebGoogleCalendarMutation({
 export const calendarService = {
   getGoogleStatus: async (): Promise<CalendarConnectionStatus> => {
     const response = await api.get('/calendar/google/status')
-    return response.data
+    return CalendarConnectionStatusSchema.parse(response.data)
   },
 
   getGoogleConnectUrl: async (): Promise<string> => {
@@ -1138,15 +1218,16 @@ export const calendarService = {
 
   disconnectGoogle: async (): Promise<void> => {
     await api.delete('/calendar/google/disconnect')
+    invalidateHostedGoogleAccess()
   },
 
   getGoogleEvents: getGoogleCalendarEvents,
 
-  getEvents: createCalendarEventReader({
-    isNativeIOS,
-    readDevice: (date) => deviceCalendarService.read(date),
-    readGoogle: getGoogleCalendarEvents,
-  }),
+  getDay: readCalendarDay,
+
+  getEvents: async (date: string) => (await readCalendarDay(date)).events,
+
+  invalidateGoogleAccess: invalidateHostedGoogleAccess,
 
   updateGoogleEventCompletion: updateGoogleCalendarEventCompletion,
 
@@ -1290,7 +1371,7 @@ export const daySummaryService = {
   get: onDevice(
     async (userId, date: string) => {
       const calendar = isNativeIOS
-        ? deviceCalendarReadToDaySource(await deviceCalendarService.read(date))
+        ? combinedCalendarReadToDaySource(await readCalendarDay(date))
         : undefined
       return applyWorkVisibility(await localServices.daySummary(userId, date, calendar))
     },

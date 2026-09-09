@@ -336,6 +336,7 @@ export default function SettingsPage() {
     if (calendarResult === 'connected') {
       analytics.capture('google_calendar_connected')
       toast.success('Google Calendar connected')
+      calendarService.invalidateGoogleAccess()
       void loadGoogleCalendarStatus()
     }
 

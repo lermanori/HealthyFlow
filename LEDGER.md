@@ -1,3 +1,14 @@
+### 2026-09-09 19:48 — `codex/257-compose-device-google`
+
+Composed EventKit and Cloud-gated Google obligations into one typed native
+Calendar source for Today, Week, Daily Signals, and Capacity. Working-provider
+events survive a peer failure, provider identity is preserved without heuristic
+deduplication, and foreground refreshes both paths; 337 frontend and 903 backend
+tests, typechecks, lint, production build, and Capacitor iOS sync pass while the
+native Google release flag remains off.
+
+---
+
 ### 2026-09-09 19:22 — `codex/256-native-cloud-google-button`
 
 Added a separate direct Google Calendar connection for claimed active-Cloud

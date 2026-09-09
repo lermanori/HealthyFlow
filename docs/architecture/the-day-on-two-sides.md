@@ -47,14 +47,15 @@ everything else. That is the whole seam:
 
 `itemsForDay`, `getSettings`, `getCalendarStatus`, `getCalendarEvents`,
 `getCalorieEntries`, `getWeightEntry`, `getWorkoutSessions`, `getAchievements`,
-`listDayFocusBlocks`.
+`listDayFocusBlocks`. A composed client can instead supply the already-validated
+`getCalendarSource`; this retains usable events and per-provider state when only
+one Calendar provider fails.
 
 | Source | Server | Device |
 |---|---|---|
 | `itemsForDay` | three Supabase queries → `composeDayTaskRows`, plus `Rollover` | three in-memory filters → the same `composeDayTaskRows`, plus the same `isCarryForwardRow` |
 | `getSettings` | `users_settings` row | the document's `settings` patch over the local baseline |
-| `getCalendarStatus` | Active claimed Cloud → Google connection state; otherwise typed `not_entitled` | EventKit permission/result state |
-| `getCalendarEvents` | Cloud-gated Google sync | EventKit events mapped to the canonical schema; **throws** when an authorized read fails |
+| Calendar | Active claimed Cloud → Google connection state and Cloud-gated Google events | EventKit plus, only for claimed active Cloud, direct Google; both are mapped to one canonical source with typed provider states |
 | Nutrition, Training, Progress | their tables | **throw** — the modules are off in the local baseline, so the core never calls them |
 | `listDayFocusBlocks` | `Work.listDayFocusBlocks` | `[]` — genuinely empty; Work is behind a release flag and nothing on a device can create a Focus block |
 
@@ -89,16 +90,27 @@ path.
 
 The direct Google adapter is a separate hosted boundary. It requires both a
 claimed identity and active Cloud before connect, OAuth exchange, status, event
-read/write, or timed-Item sync. The day reports an expected free account as
-`not_entitled`; it does not call Google and does not pretend Google returned an
-empty calendar. Entitlement database failures still surface as unavailable.
+read/write, or timed-Item sync. The native reader checks its remembered claimed
+identity and validated credit summary before it requests Google status or
+events. The day reports an expected free account as `not_entitled`; it does not
+call Google and does not pretend Google returned an empty calendar. Entitlement
+or provider failures stay attached to their provider while obligations from the
+working provider still reach Today, Week, Daily Signals and Capacity. Capacity
+becomes partial when either connected source is unavailable.
+
+Device and Google event identity is deliberately preserved. If a person enables
+the same Google calendar in iOS and also connects direct Google, EventKit and the
+Google API do not provide a stable shared identifier. HealthyFlow therefore
+shows both records instead of guessing from title and time and silently deleting
+a legitimate event. The direct Google native surface stays behind
+`VITE_NATIVE_GOOGLE_CALENDAR_ENABLED` until automatic Item writes are complete.
 
 The EventKit bridge emits `eventsChanged` when iOS reports that its event store
 changed. The app invalidates the standalone week Calendar queries, the canonical
 day summaries, and Daily Signals, so Today, Week, and Capacity refetch from the
-same source. Returning to the foreground performs the same invalidation and also
-reconciles mirrored Items; a listener or refetch failure stays visible and
-retryable.
+same composed source. Returning to the foreground also clears the cached Google
+access decision, refreshes both providers, and reconciles mirrored Items; a
+listener or refetch failure stays visible and retryable.
 
 ## The boundary, and how it is guarded
 
