@@ -24,7 +24,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Install Chromium for frontend startup regression
-        run: npx playwright install --with-deps chromium
+        run: |
+          # The hosted runner's Google Chrome apt source is unrelated to
+          # Playwright and can be temporarily inconsistent during repository
+          # publication, causing `apt update` to fail before Chromium installs.
+          sudo rm -f /etc/apt/sources.list.d/google-chrome.list
+          npx playwright install --with-deps chromium
       - name: Lint
         run: npm run lint
       - name: Typecheck

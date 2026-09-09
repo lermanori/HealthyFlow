@@ -1,3 +1,12 @@
+### 2026-09-09 20:00 — `codex/257-compose-device-google`
+
+Kept the frontend browser regression check runnable when GitHub's unrelated
+preinstalled Google Chrome apt source publishes inconsistent metadata. The CI
+step now disables only that runner source before Playwright installs its own
+Chromium and required Ubuntu dependencies; application behavior is unchanged.
+
+---
+
 ### 2026-09-09 19:48 — `codex/257-compose-device-google`
 
 Composed EventKit and Cloud-gated Google obligations into one typed native
