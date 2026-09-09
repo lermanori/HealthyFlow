@@ -27,6 +27,7 @@ import FirstRunChoice from './components/DaySetup/FirstRunChoice'
 import LoadingSpinner from './components/LoadingSpinner'
 import { useSettings } from './hooks/useSettings'
 import { useCloudSync } from './hooks/useCloudSync'
+import { useDeviceCalendarSync } from './hooks/useDeviceCalendarSync'
 import {
   MODULE_PRESENTATIONS,
   resolveHealthAvailability,
@@ -103,6 +104,7 @@ function App() {
   const location = useLocation()
   const { modules, retry } = useSettings(Boolean(user) && location.pathname !== '/demo')
   const cloudStatus = useCloudSync()
+  const deviceCalendarStatus = useDeviceCalendarSync()
   const healthAvailability = resolveHealthAvailability(modules)
   const modulePages: Record<OptionalModule, ReactNode> = {
     calories: <CaloriesPage />,
@@ -145,7 +147,13 @@ function App() {
 
   return (
     <>
-      <Layout cloudStatus={cloudStatus.notification} onDismissCloudStatus={cloudStatus.dismiss}>
+      <Layout
+        cloudStatus={cloudStatus.notification}
+        onDismissCloudStatus={cloudStatus.dismiss}
+        deviceCalendarStatus={deviceCalendarStatus.notification}
+        onDismissDeviceCalendarStatus={deviceCalendarStatus.dismiss}
+        onRetryDeviceCalendarSync={deviceCalendarStatus.retry}
+      >
         <Routes>
           <Route path="/" element={<HomeGate />} />
           <Route path="/day-setup" element={<DaySetup />} />

@@ -1417,12 +1417,12 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                       ? `Calendar unavailable: ${calendarUnavailable}`
                       : isNativeIOS
                         ? calendarConnected
-                          ? 'Connected to calendars on this iPhone. Nothing is sent to HealthyFlow.'
+                          ? 'Connected to calendars on this iPhone. Automatically sync timed Items. Calendar data stays on this iPhone.'
                           : deviceCalendarAuthorization?.status === 'denied'
                             ? 'Calendar access is denied. You can change it in iOS Settings.'
                             : deviceCalendarAuthorization?.status === 'restricted'
                               ? 'Calendar access is restricted on this iPhone.'
-                              : 'Include this iPhone’s Calendar obligations in Today. Nothing is sent to HealthyFlow.'
+                              : 'Include this iPhone’s Calendar obligations in Today and automatically sync timed Items. Calendar data stays on this iPhone.'
                         : calendarStatus?.connected
                           ? `Connected to ${calendarStatus.accountEmail || 'Google Calendar'}`
                           : 'Connect Google Calendar to start syncing timed tasks'}

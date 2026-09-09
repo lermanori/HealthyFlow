@@ -144,7 +144,7 @@ These are implementation facts, not completed App Privacy answers.
 | Local day | goals, tasks, habits and progress, settings, food/calorie and weight history, workout plans/sessions/exercises, achievements | Capacitor Filesystem on the device |
 | Account | name, email, role, authentication/provider identifiers | HealthyFlow backend and Supabase |
 | AI | submitted text, optional images/files, assistant messages, structured results, usage and credit ledger | HealthyFlow backend, Supabase, OpenAI |
-| Device Calendar (native v1) | Event title, time, all-day state, notes, location and opaque EventKit identifiers after permission | Processed in the iPhone app through EventKit; not sent to HealthyFlow by ordinary Calendar reading |
+| Device Calendar (native v1) | External event title, time, all-day state, notes and location; timed Item title, date, time, duration and location; opaque EventKit identifiers after permission | Read and written in the iPhone app through EventKit; not sent to HealthyFlow by the Device Calendar path |
 | Google Calendar (web only) | Google OAuth tokens, calendar event identifiers/content and sync state when connected | HealthyFlow backend, Supabase, Google Calendar APIs; native v1 does not call this path |
 | Contact | request kind, message and reply-to address | HealthyFlow backend and Supabase |
 | Notifications | native device token or Web Push subscription | HealthyFlow backend, Supabase, APNs/Web Push |
@@ -166,11 +166,11 @@ was rechecked on 2026-09-08.
 
 Apple's App Privacy guidance says data processed only on the device is not
 "collected" for the App Privacy answers. On that basis, the native Device
-Calendar read is not itself a collected data type. This is an implementation
-inference, not the founder's completed questionnaire: if Calendar-derived data
-is included in an explicit AI request or otherwise transmitted later, that
-transmission must be assessed separately. The guidance was rechecked on
-2026-09-08 in
+Calendar read/write path is not itself a collected data type. This is an
+implementation inference, not the founder's completed questionnaire: if
+Calendar-derived data is included in an explicit AI request or otherwise
+transmitted later, that transmission must be assessed separately. The guidance
+was rechecked on 2026-09-09 in
 [App privacy details on the App Store](https://developer.apple.com/app-store/app-privacy-details/).
 
 ### Inferences for human review

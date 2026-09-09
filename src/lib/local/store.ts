@@ -24,7 +24,7 @@ const { GoalRowSchema } = GoalContracts
  *    "backup now, sync later" cheap, and it costs nothing today.
  */
 
-export const LOCAL_DATABASE_VERSION = 4
+export const LOCAL_DATABASE_VERSION = 5
 
 /**
  * Announced whenever the document changes, so the sync can run shortly after.
@@ -96,6 +96,23 @@ export const LocalTaskRowSchema = z.looseObject({
 })
 export type LocalTaskRow = z.infer<typeof LocalTaskRowSchema>
 
+/**
+ * One Item's link to an EventKit event on this physical iPhone.
+ *
+ * This is deliberately outside the Item row and outside `SYNC_COLLECTIONS`:
+ * EventKit identifiers have meaning only on the device that issued them and
+ * must never travel through Cloud to another phone or the backend.
+ */
+export const DeviceCalendarLinkSchema = z.object({
+  itemId: z.string().min(1),
+  eventIdentifier: z.string().min(1).nullable(),
+  status: z.enum(['synced', 'failed']),
+  error: z.string().min(1).nullable(),
+  itemUpdatedAt: z.string().min(1),
+  updatedAt: z.string().min(1),
+}).strict()
+export type DeviceCalendarLink = z.infer<typeof DeviceCalendarLinkSchema>
+
 /** One `habit_progress_entries` row, keyed to the Habit instance it measures. */
 export const LocalHabitProgressRowSchema = z.looseObject({
   id: z.string().min(1),
@@ -142,6 +159,7 @@ export const LocalDatabaseSchema = z.object({
   version: z.literal(LOCAL_DATABASE_VERSION),
   userId: z.string().min(1),
   tasks: z.array(LocalTaskRowSchema).default([]),
+  deviceCalendarLinks: z.array(DeviceCalendarLinkSchema).default([]),
   habitProgress: z.array(LocalHabitProgressRowSchema).default([]),
   goals: z.array(GoalRowSchema).default([]),
   settings: z.record(z.string(), z.unknown()).default({}),
@@ -196,6 +214,7 @@ export function emptyLocalDatabase(userId: string): LocalDatabase {
     version: LOCAL_DATABASE_VERSION,
     userId,
     tasks: [],
+    deviceCalendarLinks: [],
     habitProgress: [],
     goals: [],
     settings: {},
@@ -592,6 +611,9 @@ function upgraded(parsed: unknown): unknown {
         ))
       : document.goals
     return { ...document, version: LOCAL_DATABASE_VERSION, goals }
+  }
+  if (document.version === 4) {
+    return { ...document, version: LOCAL_DATABASE_VERSION, deviceCalendarLinks: [] }
   }
   return parsed
 }

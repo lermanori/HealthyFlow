@@ -11,6 +11,8 @@ public final class DeviceCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "getAuthorizationStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestFullAccess", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getEvents", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "upsertItemEvent", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "deleteItemEvent", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
     ]
 
@@ -52,14 +54,99 @@ public final class DeviceCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
             end: end,
             calendars: nil
         )
-        let events = eventStore.events(matching: predicate).sorted { left, right in
-            left.startDate < right.startDate
-        }
+        let events = eventStore.events(matching: predicate)
+            .filter { !isHealthyFlowItemEvent($0) }
+            .sorted { left, right in left.startDate < right.startDate }
 
         do {
             call.resolve(["events": try events.map(eventPayload)])
         } catch {
             call.reject("Device Calendar returned an event without a stable identifier", nil, error)
+        }
+    }
+
+    @objc func upsertItemEvent(_ call: CAPPluginCall) {
+        guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else {
+            call.reject("Full Device Calendar access has not been granted")
+            return
+        }
+        guard
+            let itemId = call.getString("itemId"), !itemId.isEmpty,
+            let title = call.getString("title"), !title.isEmpty,
+            let scheduledDate = call.getString("scheduledDate"),
+            let startTime = call.getString("startTime"),
+            let durationMinutes = call.getInt("durationMinutes"), durationMinutes > 0,
+            let startDate = localDate(scheduledDate, startTime),
+            let endDate = Calendar.current.date(byAdding: .minute, value: durationMinutes, to: startDate)
+        else {
+            call.reject("A Device Calendar Item needs a title, date, start time, and positive duration")
+            return
+        }
+
+        let existingIdentifier = call.getString("eventIdentifier")
+        let event: EKEvent
+        if
+            let existingIdentifier,
+            let existing = eventStore.event(withIdentifier: existingIdentifier),
+            existing.url == itemURL(itemId)
+        {
+            event = existing
+        } else if let existing = findHealthyFlowItemEvent(itemId, around: startDate) {
+            // A native save can succeed immediately before the Local link is
+            // persisted. Recover the marked event on retry instead of creating
+            // a duplicate.
+            event = existing
+        } else {
+            guard let calendar = eventStore.defaultCalendarForNewEvents else {
+                call.reject("No writable default Device Calendar is available")
+                return
+            }
+            event = EKEvent(eventStore: eventStore)
+            event.calendar = calendar
+        }
+
+        event.title = title
+        event.startDate = startDate
+        event.endDate = endDate
+        event.isAllDay = false
+        event.location = call.getString("location")
+        event.url = URL(string: "healthyflow://item/\(itemId)")
+
+        do {
+            try eventStore.save(event, span: .thisEvent, commit: true)
+            guard let identifier = event.eventIdentifier, !identifier.isEmpty else {
+                call.reject("Device Calendar saved the Item without a stable identifier")
+                return
+            }
+            call.resolve(["eventIdentifier": identifier])
+        } catch {
+            call.reject("Device Calendar could not save this Item", nil, error)
+        }
+    }
+
+    @objc func deleteItemEvent(_ call: CAPPluginCall) {
+        guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else {
+            call.reject("Full Device Calendar access has not been granted")
+            return
+        }
+        guard let identifier = call.getString("eventIdentifier"), !identifier.isEmpty else {
+            call.reject("A Device Calendar event identifier is required")
+            return
+        }
+        guard let event = eventStore.event(withIdentifier: identifier) else {
+            call.resolve(["deleted": false])
+            return
+        }
+        guard isHealthyFlowItemEvent(event) else {
+            call.reject("The linked event is not owned by HealthyFlow")
+            return
+        }
+
+        do {
+            try eventStore.remove(event, span: .thisEvent, commit: true)
+            call.resolve(["deleted": true])
+        } catch {
+            call.reject("Device Calendar could not remove this Item", nil, error)
         }
     }
 
@@ -107,6 +194,33 @@ public final class DeviceCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
         calendar.timeZone = .current
         guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return nil }
         return (start, end)
+    }
+
+    private func localDate(_ dateText: String, _ timeText: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd HH:mm"
+        formatter.isLenient = false
+        return formatter.date(from: "\(dateText) \(timeText)")
+    }
+
+    private func isHealthyFlowItemEvent(_ event: EKEvent) -> Bool {
+        event.url?.scheme == "healthyflow" && event.url?.host == "item"
+    }
+
+    private func itemURL(_ itemId: String) -> URL? {
+        URL(string: "healthyflow://item/\(itemId)")
+    }
+
+    private func findHealthyFlowItemEvent(_ itemId: String, around date: Date) -> EKEvent? {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: date)
+        guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return nil }
+        let target = itemURL(itemId)
+        let predicate = eventStore.predicateForEvents(withStart: start, end: end, calendars: nil)
+        return eventStore.events(matching: predicate).first { $0.url == target }
     }
 
     private func eventPayload(_ event: EKEvent) throws -> [String: Any] {

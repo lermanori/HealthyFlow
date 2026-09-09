@@ -17,8 +17,8 @@ rely on an OS-gated API without updating and re-running that contract.
 - Google OAuth through the system browser with
   `healthyflow://oauth/callback`
 - Native Sign in with Apple through AuthenticationServices and Supabase Auth
-- Read-only Device Calendar obligations through EventKit, composed into the
-  Local Today view and Capacity without a HealthyFlow backend request
+- Device Calendar obligations read through EventKit and automatic mirroring of
+  timed Items back to EventKit, without a HealthyFlow backend request
 - APNs registration, authenticated device storage, delivery, and stale-token
   pruning
 - Native haptics, Share sheet, keyboard resizing, network state, splash screen,
@@ -95,22 +95,34 @@ the Apple Team ID is known.
 ## Device Calendar setup
 
 The native app uses EventKit as its only Calendar source. Settings requests full
-Calendar access because EventKit requires full access before an app can fetch
-events; HealthyFlow v1 only reads them. `Info.plist` must retain
-`NSCalendarsFullAccessUsageDescription` with copy that explains the Today and
-Capacity purpose.
+Calendar access because HealthyFlow reads obligations for Today and Capacity and
+automatically mirrors timed Items into the default writable Calendar.
+`Info.plist` must retain `NSCalendarsFullAccessUsageDescription` with copy that
+explains both purposes.
 
 Test all four permission paths on iOS 17 or later: not requested, granted,
 denied/restricted, and access revoked after a successful read. With access
-granted, confirm a timed event and an all-day event appear in Today, the timed
-event changes Capacity, and neither event can be completed or dragged. Confirm
-the native app makes no `/calendar/google/*` request. A connected Google account
-inside Apple's Calendar app is already visible through EventKit and must not be
-connected again inside HealthyFlow.
+granted, confirm a timed external event and an all-day external event appear in
+Today, the timed event changes Capacity, and neither external event can be
+completed or dragged. Then create a timed Item and confirm exactly one marked
+event appears in Apple Calendar; edit its title, date, start time, duration and
+location and confirm the same event changes; remove its time and confirm the
+event disappears. Delete the generated event in Apple Calendar and confirm
+HealthyFlow recreates it on the next reconciliation without showing it as a
+duplicate obligation. Repeat after granting access in iOS Settings and returning
+to HealthyFlow, and exercise the visible Retry path after a failed write.
 
-Apple's EventKit access and permission-string requirements were rechecked on
-2026-09-08 in
-[`requestFullAccessToEvents(completion:)`](https://developer.apple.com/documentation/eventkit/ekeventstore/requestfullaccesstoevents%28completion%3A%29).
+Run that matrix as a Guest and a claimed account; the behavior and lack of
+backend requests must match. Confirm the native app makes no
+`/calendar/google/*` request. A connected Google account inside Apple's Calendar
+app is already visible through EventKit and must not be connected again inside
+HealthyFlow.
+
+Apple's EventKit access, event creation/save, and permission requirements were
+rechecked on 2026-09-09 in
+[`requestFullAccessToEvents(completion:)`](https://developer.apple.com/documentation/eventkit/ekeventstore/requestfullaccesstoevents(completion:)),
+[`Creating events and reminders`](https://developer.apple.com/documentation/eventkit/creating-events-and-reminders),
+and [`save(_:span:commit:)`](https://developer.apple.com/documentation/eventkit/ekeventstore/save(_:span:commit:)).
 
 ## Google sign-in OAuth setup
 

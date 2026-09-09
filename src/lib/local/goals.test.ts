@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { beforeEach, describe, it } from 'node:test'
 import { createLocalGoal, listLocalGoals, updateLocalGoal } from './goals'
-import { emptyLocalDatabase, loadLocalDatabase, LocalStoreError, memoryDriver, setLocalStoreDriver } from './store'
+import { emptyLocalDatabase, loadLocalDatabase, LOCAL_DATABASE_VERSION, LocalStoreError, memoryDriver, setLocalStoreDriver } from './store'
 
 const USER = 'guest-goals'
 
@@ -89,7 +89,7 @@ describe('Goals on the device', () => {
 
     const migrated = await loadLocalDatabase(USER)
 
-    assert.equal(migrated.version, 4)
+    assert.equal(migrated.version, LOCAL_DATABASE_VERSION)
     assert.equal(migrated.goals[0]?.context, '')
     const [goal] = await listLocalGoals(USER, true)
     assert.equal(goal?.createdAt, '2026-08-26T08:00:00.000Z')

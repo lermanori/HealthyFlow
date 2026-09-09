@@ -36,12 +36,16 @@ import { parseDemoPersonaId } from '../demoPersonas'
 import { analytics } from '../lib/analytics'
 import { isNativeApp, isNativeIOS } from '../lib/native'
 import type { CloudStatusNotification } from '../hooks/useCloudSync'
+import type { DeviceCalendarSyncNotification } from '../hooks/useDeviceCalendarSync'
 import { useOfflineStatus } from '../hooks/useOfflineStatus'
 
 interface LayoutProps {
   children: ReactNode
   cloudStatus: CloudStatusNotification | null
   onDismissCloudStatus: () => void
+  deviceCalendarStatus: DeviceCalendarSyncNotification | null
+  onDismissDeviceCalendarStatus: () => void
+  onRetryDeviceCalendarSync: () => void
 }
 
 interface NavigationItem {
@@ -70,7 +74,14 @@ function currentViewportBottom() {
   )
 }
 
-export default function Layout({ children, cloudStatus, onDismissCloudStatus }: LayoutProps) {
+export default function Layout({
+  children,
+  cloudStatus,
+  onDismissCloudStatus,
+  deviceCalendarStatus,
+  onDismissDeviceCalendarStatus,
+  onRetryDeviceCalendarSync,
+}: LayoutProps) {
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout, isGuest } = useAuth()
@@ -609,7 +620,7 @@ export default function Layout({ children, cloudStatus, onDismissCloudStatus }: 
           style={talkMainStyle}
           ref={contentRef}
         >
-          {(networkStatus || cloudStatus) && (
+          {(networkStatus || cloudStatus || deviceCalendarStatus) && (
             <div className={`mx-auto mb-4 w-full max-w-6xl shrink-0 space-y-3 ${isMobile && isTalkPage ? 'px-4 pt-3' : ''}`}>
               {networkStatus && (
                 <div
@@ -642,6 +653,33 @@ export default function Layout({ children, cloudStatus, onDismissCloudStatus }: 
                     aria-label="Dismiss Cloud status"
                     className="-mr-1 -mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors hover:bg-raised hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
                     onClick={onDismissCloudStatus}
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+              )}
+              {deviceCalendarStatus && (
+                <div
+                  data-demo-id="device-calendar-sync-notification"
+                  className="flex w-full items-center gap-3 rounded-control border border-state-warning/40 bg-state-warning/10 px-3 py-2.5 text-sm text-ink shadow-section"
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                >
+                  <Calendar className="h-4 w-4 shrink-0 text-state-warning" aria-hidden="true" />
+                  <p className="min-w-0 flex-1 leading-5">{deviceCalendarStatus.message}</p>
+                  <button
+                    type="button"
+                    className="btn-secondary px-3 py-1.5 text-xs"
+                    onClick={onRetryDeviceCalendarSync}
+                  >
+                    Retry
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Dismiss Device Calendar sync status"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control text-ink-muted transition-colors hover:bg-raised hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                    onClick={onDismissDeviceCalendarStatus}
                   >
                     <X className="h-4 w-4" aria-hidden="true" />
                   </button>
