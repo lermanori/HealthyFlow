@@ -1130,7 +1130,9 @@ export const calendarService = {
   },
 
   getGoogleConnectUrl: async (): Promise<string> => {
-    const response = await api.get('/calendar/google/connect-url')
+    const response = await api.get('/calendar/google/connect-url', {
+      params: { returnTarget: isNativeIOS ? 'native' : 'web' },
+    })
     return response.data.url
   },
 

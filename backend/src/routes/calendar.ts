@@ -7,6 +7,7 @@ import {
   disconnectGoogleCalendar,
   getCalendarOAuthReturnUrl,
   getGoogleCalendarConnectUrl,
+  getGoogleCalendarOAuthReturnTarget,
   getGoogleCalendarStatus,
   isGoogleCalendarNotConnectedError,
   syncTimedTasksForDate,
@@ -17,6 +18,10 @@ import {
 
 const router = express.Router()
 const ClientTimeZone = z.string().min(1).max(100).optional()
+const GoogleCalendarOAuthReturnTargetSchema = z.enum(['web', 'native'])
+const ConnectUrlQuery = z.object({
+  returnTarget: GoogleCalendarOAuthReturnTargetSchema.optional().default('web'),
+}).strict()
 const ScheduleUpdateBody = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   startTime: z.string().regex(/^\d{2}:\d{2}$/),
@@ -35,8 +40,10 @@ function sendCloudNotActive(error: unknown, res: express.Response): boolean {
 }
 
 router.get('/google/connect-url', authenticateToken, async (req: AuthRequest, res) => {
+  const parsed = ConnectUrlQuery.safeParse(req.query)
+  if (!parsed.success) return res.status(400).json({ error: 'returnTarget must be web or native' })
   try {
-    res.json({ url: await getGoogleCalendarConnectUrl(req.user.userId) })
+    res.json({ url: await getGoogleCalendarConnectUrl(req.user.userId, parsed.data.returnTarget) })
   } catch (error) {
     if (sendCloudNotActive(error, res)) return
     console.error('Google Calendar connect URL error:', error)
@@ -48,21 +55,29 @@ router.get('/google/callback', async (req, res) => {
   const code = typeof req.query.code === 'string' ? req.query.code : null
   const state = typeof req.query.state === 'string' ? req.query.state : null
   const oauthError = typeof req.query.error === 'string' ? req.query.error : null
+  let returnTarget: z.infer<typeof GoogleCalendarOAuthReturnTargetSchema> = 'web'
+  if (state) {
+    try {
+      returnTarget = getGoogleCalendarOAuthReturnTarget(state)
+    } catch {
+      return res.redirect(getCalendarOAuthReturnUrl('error', 'Invalid Google OAuth state'))
+    }
+  }
 
   if (oauthError) {
-    return res.redirect(getCalendarOAuthReturnUrl('error', oauthError))
+    return res.redirect(getCalendarOAuthReturnUrl('error', oauthError, returnTarget))
   }
 
   if (!code || !state) {
-    return res.redirect(getCalendarOAuthReturnUrl('error', 'Missing Google OAuth callback data'))
+    return res.redirect(getCalendarOAuthReturnUrl('error', 'Missing Google OAuth callback data', returnTarget))
   }
 
   try {
     await completeGoogleCalendarOAuth(code, state)
-    return res.redirect(getCalendarOAuthReturnUrl('connected'))
+    return res.redirect(getCalendarOAuthReturnUrl('connected', undefined, returnTarget))
   } catch (error) {
     console.error('Google Calendar OAuth callback error:', error)
-    return res.redirect(getCalendarOAuthReturnUrl('error', 'Google Calendar connection failed'))
+    return res.redirect(getCalendarOAuthReturnUrl('error', 'Google Calendar connection failed', returnTarget))
   }
 })
 

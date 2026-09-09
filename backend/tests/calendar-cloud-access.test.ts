@@ -1,7 +1,9 @@
 import {
   completeGoogleCalendarOAuth,
   deleteGoogleCalendarEvent,
+  getCalendarOAuthReturnUrl,
   getGoogleCalendarConnectUrl,
+  getGoogleCalendarOAuthReturnTarget,
   getGoogleCalendarDayStatus,
   getGoogleCalendarStatus,
   syncGoogleCalendarEventsForDate,
@@ -37,6 +39,26 @@ afterEach(() => {
 })
 
 describe('Google Calendar Cloud boundary', () => {
+  it('signs a closed native return target into OAuth state', async () => {
+    const connectUrl = await getGoogleCalendarConnectUrl('user-1', 'native')
+    const state = new URL(connectUrl).searchParams.get('state')!
+
+    expect(getGoogleCalendarOAuthReturnTarget(state)).toBe('native')
+    expect(getCalendarOAuthReturnUrl('connected', undefined, 'native')).toBe(
+      'healthyflow://app/settings/connections-advanced?calendar=connected',
+    )
+  })
+
+  it('defaults existing web callers to the web Settings return', async () => {
+    const connectUrl = await getGoogleCalendarConnectUrl('user-1')
+    const state = new URL(connectUrl).searchParams.get('state')!
+
+    expect(getGoogleCalendarOAuthReturnTarget(state)).toBe('web')
+    expect(getCalendarOAuthReturnUrl('error', 'Denied', 'web')).toBe(
+      'http://localhost:5173/settings?calendar=error&message=Denied',
+    )
+  })
+
   it('refuses to generate a Google OAuth URL without active Cloud', async () => {
     mockDb.getUserCreditSubscription.mockResolvedValue({ active: false } as never)
 

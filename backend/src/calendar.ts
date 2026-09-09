@@ -113,6 +113,14 @@ const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
 ]
 const GOOGLE_CALENDAR_NOT_CONNECTED = 'Google Calendar is not connected'
+export const GoogleCalendarOAuthReturnTargetSchema = z.enum(['web', 'native'])
+export type GoogleCalendarOAuthReturnTarget = z.infer<typeof GoogleCalendarOAuthReturnTargetSchema>
+const GoogleCalendarOAuthStateSchema = z.object({
+  userId: z.string().min(1),
+  nonce: z.string().uuid(),
+  createdAt: z.number().int().positive(),
+  returnTarget: GoogleCalendarOAuthReturnTargetSchema.optional().default('web'),
+}).strict()
 
 function getRequiredEnv(name: string): string {
   const value = process.env[name]
@@ -194,11 +202,12 @@ export function isGoogleCalendarNotConnectedError(error: unknown): boolean {
   return error instanceof Error && error.message === GOOGLE_CALENDAR_NOT_CONNECTED
 }
 
-function createState(userId: string): string {
+function createState(userId: string, returnTarget: GoogleCalendarOAuthReturnTarget): string {
   const payload = {
     userId,
     nonce: crypto.randomUUID(),
     createdAt: Date.now(),
+    returnTarget,
   }
   const encodedPayload = Buffer.from(JSON.stringify(payload)).toString('base64url')
   const signature = crypto
@@ -208,7 +217,7 @@ function createState(userId: string): string {
   return `${encodedPayload}.${signature}`
 }
 
-function parseState(state: string): { userId: string } {
+function parseState(state: string): z.infer<typeof GoogleCalendarOAuthStateSchema> {
   const [encodedPayload, signature] = state.split('.')
   if (!encodedPayload || !signature) {
     throw new Error('Invalid OAuth state')
@@ -228,23 +237,25 @@ function parseState(state: string): { userId: string } {
     throw new Error('Invalid OAuth state signature')
   }
 
-  const payload = JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as {
-    userId?: string
-    createdAt?: number
-  }
-
-  if (!payload.userId || !payload.createdAt) {
-    throw new Error('Invalid OAuth state payload')
-  }
+  const payload = GoogleCalendarOAuthStateSchema.parse(
+    JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')),
+  )
 
   if (Date.now() - payload.createdAt > 10 * 60 * 1000) {
     throw new Error('OAuth state expired')
   }
 
-  return { userId: payload.userId }
+  return payload
 }
 
-export async function getGoogleCalendarConnectUrl(userId: string): Promise<string> {
+export function getGoogleCalendarOAuthReturnTarget(state: string): GoogleCalendarOAuthReturnTarget {
+  return parseState(state).returnTarget
+}
+
+export async function getGoogleCalendarConnectUrl(
+  userId: string,
+  returnTarget: GoogleCalendarOAuthReturnTarget = 'web',
+): Promise<string> {
   await CloudAccess.require(userId)
   const params = new URLSearchParams({
     client_id: getRequiredEnv('GOOGLE_CLIENT_ID'),
@@ -254,7 +265,7 @@ export async function getGoogleCalendarConnectUrl(userId: string): Promise<strin
     access_type: 'offline',
     prompt: 'consent',
     include_granted_scopes: 'true',
-    state: createState(userId),
+    state: createState(userId, GoogleCalendarOAuthReturnTargetSchema.parse(returnTarget)),
   })
 
   return `${GOOGLE_AUTH_URL}?${params.toString()}`
@@ -910,8 +921,15 @@ export async function revokeGoogleAuthorization(userId: string): Promise<void> {
   if (!response.ok) throw new Error(`Google revocation returned ${response.status}`)
 }
 
-export function getCalendarOAuthReturnUrl(status: 'connected' | 'error', message?: string): string {
+export function getCalendarOAuthReturnUrl(
+  status: 'connected' | 'error',
+  message?: string,
+  returnTarget: GoogleCalendarOAuthReturnTarget = 'web',
+): string {
   const params = new URLSearchParams({ calendar: status })
   if (message) params.set('message', message)
-  return `${getFrontendUrl()}/settings?${params.toString()}`
+  const base = GoogleCalendarOAuthReturnTargetSchema.parse(returnTarget) === 'native'
+    ? 'healthyflow://app/settings/connections-advanced'
+    : `${getFrontendUrl()}/settings`
+  return `${base}?${params.toString()}`
 }

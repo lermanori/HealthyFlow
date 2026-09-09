@@ -15,8 +15,10 @@ founder or an appropriate professional can make. Last verified: **2026-09-08**.
   actions.
 - RevenueCat with Apple In-App Purchase is deferred to v1.1, not cancelled.
 
-The iOS build must leave `VITE_CLOUD_SYNC_ENABLED` unset. Cloud code is retained
-for v1.1 but is opt-in at build time. `src/utils/weekViewFeatureFlag.test.ts`
+The iOS build must leave `VITE_CLOUD_SYNC_ENABLED` and
+`VITE_NATIVE_GOOGLE_CALENDAR_ENABLED` unset. Cloud code, including the separate
+native Google Calendar connection, is retained for v1.1 but is opt-in at build
+time. `src/utils/weekViewFeatureFlag.test.ts`
 guards this release condition. `src/utils/iosRelease.test.ts` guards the iOS 17
 floor, aligned app/widget versions and identifiers, and absence of payment SDKs.
 
