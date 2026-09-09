@@ -154,14 +154,17 @@ export default function WeekViewPage() {
     queries: weekDates.map((date) => {
       const dateKey = format(date, 'yyyy-MM-dd')
       return {
-        queryKey: ['calendar-events', dateKey],
-        queryFn: () => calendarService.getEvents(dateKey),
+        queryKey: ['calendar-days', dateKey],
+        queryFn: () => calendarService.getDay(dateKey),
         retry: false,
       }
     }),
   })
   const isLoading = settingsLoading || dayQueries.some((q) => q.isLoading) || calendarQueries.some((q) => q.isLoading)
   const calendarError = calendarQueries.find((query) => query.isError)?.error
+    ?? calendarQueries
+      .flatMap((query) => query.data?.sources ?? [])
+      .find((source) => source.state === 'unavailable')?.reason
 
   // --- Mutations (same contract as TodayPage) ---
   const completeMutation = useMutation({
@@ -186,6 +189,7 @@ export default function WeekViewPage() {
       calendarService.updateGoogleEventCompletion(id, completed),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-days'] })
       queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
       queryClient.invalidateQueries({ queryKey: DAILY_SIGNALS_QUERY_KEY })
     },
@@ -210,7 +214,7 @@ export default function WeekViewPage() {
   }
 
   const dayItems: Task[][] = weekDates.map((_, i) => dayQueries[i].data ?? [])
-  const dayCalendarEvents: ExternalCalendarEvent[][] = weekDates.map((_, i) => calendarQueries[i].data ?? [])
+  const dayCalendarEvents: ExternalCalendarEvent[][] = weekDates.map((_, i) => calendarQueries[i].data?.events ?? [])
 
   const model = useMemo(() => {
     // Flatten the week, tagging each item with its day offset + date
@@ -342,7 +346,7 @@ export default function WeekViewPage() {
     <div style={{ color: W.ink, display: 'flex', flexDirection: 'column', gap: 22, minWidth: 0, width: '100%' }}>
       {calendarError && (
         <div role="alert" className="rounded-xl border border-state-warning/40 bg-state-warning/10 px-4 py-3 text-sm text-ink-soft">
-          Calendar is unavailable: {calendarError instanceof Error ? calendarError.message : 'Calendar could not be read.'}
+          Calendar is partly unavailable: {calendarError instanceof Error ? calendarError.message : calendarError}
         </div>
       )}
       {/* Header */}

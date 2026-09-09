@@ -38,6 +38,76 @@ export type DeviceCalendarAuthorization = z.infer<typeof DeviceCalendarAuthoriza
 export type DeviceCalendarReadResult = z.infer<typeof DeviceCalendarReadResultSchema>
 export const DEVICE_CALENDAR_CONNECTION_CHANGED_EVENT = 'healthyflow:device-calendar-connection-changed'
 
+export const CalendarProviderReadResultSchema = z.discriminatedUnion('state', [
+  z.object({
+    provider: z.enum(['device', 'google']),
+    state: z.literal('connected'),
+    events: z.array(DaySummaryCalendarEventSchema),
+  }).strict(),
+  z.object({
+    provider: z.enum(['device', 'google']),
+    state: z.literal('not_connected'),
+    reason: z.literal('not_connected'),
+  }).strict(),
+  z.object({
+    provider: z.literal('google'),
+    state: z.literal('not_entitled'),
+    reason: z.literal('cloud_not_active'),
+  }).strict(),
+  z.object({
+    provider: z.enum(['device', 'google']),
+    state: z.literal('unavailable'),
+    reason: z.string().min(1),
+  }).strict(),
+])
+
+export const CombinedCalendarReadResultSchema = z.object({
+  sources: z.array(CalendarProviderReadResultSchema),
+  events: z.array(DaySummaryCalendarEventSchema),
+}).strict()
+
+export type CalendarProviderReadResult = z.infer<typeof CalendarProviderReadResultSchema>
+export type CombinedCalendarReadResult = z.infer<typeof CombinedCalendarReadResultSchema>
+
+export const HostedGoogleCalendarAccessResultSchema = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('connected') }).strict(),
+  z.object({ state: z.literal('not_connected'), reason: z.literal('not_connected') }).strict(),
+  z.object({ state: z.literal('not_entitled'), reason: z.literal('cloud_not_active') }).strict(),
+  z.object({ state: z.literal('unavailable'), reason: z.string().min(1) }).strict(),
+])
+export type HostedGoogleCalendarAccessResult = z.infer<typeof HostedGoogleCalendarAccessResultSchema>
+
+export async function resolveHostedGoogleCalendarAccess(options: {
+  claimed: boolean
+  surfaceEnabled: boolean
+  readCloudActive: () => Promise<boolean>
+  readConnected: () => Promise<boolean>
+}): Promise<HostedGoogleCalendarAccessResult> {
+  if (!options.claimed || !options.surfaceEnabled) {
+    return { state: 'not_entitled', reason: 'cloud_not_active' }
+  }
+  try {
+    if (!await options.readCloudActive()) {
+      return { state: 'not_entitled', reason: 'cloud_not_active' }
+    }
+  } catch (error) {
+    return {
+      state: 'unavailable',
+      reason: errorMessage(error, 'Cloud access could not be checked.'),
+    }
+  }
+  try {
+    return await options.readConnected()
+      ? { state: 'connected' }
+      : { state: 'not_connected', reason: 'not_connected' }
+  } catch (error) {
+    return {
+      state: 'unavailable',
+      reason: errorMessage(error, 'Google Calendar access could not be checked.'),
+    }
+  }
+}
+
 const HostedGoogleCalendarAccessInputSchema = z.object({
   claimed: z.boolean(),
   cloudActive: z.boolean(),
@@ -316,19 +386,81 @@ export function deviceCalendarReadToDaySource(
   return { status: 'unavailable', reasonCode: 'status_unavailable', events: [] }
 }
 
+function deviceCalendarReadToProvider(result: DeviceCalendarReadResult): CalendarProviderReadResult {
+  if (result.state === 'connected') {
+    return { provider: 'device', state: 'connected', events: result.events }
+  }
+  if (result.state === 'not_connected') {
+    return { provider: 'device', state: 'not_connected', reason: 'not_connected' }
+  }
+  return { provider: 'device', state: 'unavailable', reason: result.reason }
+}
+
+export function combinedCalendarReadToDaySource(result: CombinedCalendarReadResult): CalendarSource {
+  const combined = CombinedCalendarReadResultSchema.parse(result)
+  const providerStates = combined.sources.map((source) => {
+    if (source.state === 'connected') {
+      return {
+        provider: source.provider,
+        status: source.events.length > 0 ? 'connected' as const : 'connected_empty' as const,
+        reasonCode: null,
+      }
+    }
+    if (source.state === 'not_connected') {
+      return { provider: source.provider, status: 'not_connected' as const, reasonCode: 'not_connected' as const }
+    }
+    if (source.state === 'not_entitled') {
+      return { provider: source.provider, status: 'not_entitled' as const, reasonCode: 'cloud_not_active' as const }
+    }
+    return { provider: source.provider, status: 'unavailable' as const, reasonCode: 'status_unavailable' as const }
+  })
+
+  if (combined.sources.some((source) => source.state === 'unavailable')) {
+    return {
+      status: 'unavailable',
+      reasonCode: 'status_unavailable',
+      events: combined.events,
+      providerStates,
+    }
+  }
+  if (combined.sources.some((source) => source.state === 'connected')) {
+    return {
+      status: combined.events.length > 0 ? 'connected' : 'connected_empty',
+      reasonCode: null,
+      events: combined.events,
+      providerStates,
+    }
+  }
+  if (combined.sources.some((source) => source.state === 'not_connected')) {
+    return { status: 'not_connected', reasonCode: 'not_connected', events: [], providerStates }
+  }
+  return { status: 'not_entitled', reasonCode: 'cloud_not_active', events: [], providerStates }
+}
+
 export function createCalendarEventReader(options: {
   isNativeIOS: boolean
   readDevice: (date: string) => Promise<DeviceCalendarReadResult>
-  readGoogle: (date: string) => Promise<z.infer<typeof DaySummaryCalendarEventSchema>[]>
+  readGoogle: (date: string) => Promise<CalendarProviderReadResult>
+  includeGoogle: boolean
 }) {
-  return async (date: string) => {
-    if (!options.isNativeIOS) return options.readGoogle(date)
-
-    const result = await options.readDevice(date)
-    if (result.state === 'unavailable') {
-      throw new Error(result.reason)
+  return async (date: string): Promise<CombinedCalendarReadResult> => {
+    if (!options.isNativeIOS) {
+      const google = CalendarProviderReadResultSchema.parse(await options.readGoogle(date))
+      return CombinedCalendarReadResultSchema.parse({
+        sources: [google],
+        events: google.state === 'connected' ? google.events : [],
+      })
     }
-    return result.state === 'connected' ? result.events : []
+
+    const [device, google] = await Promise.all([
+      options.readDevice(date).then(deviceCalendarReadToProvider),
+      options.includeGoogle ? options.readGoogle(date) : Promise.resolve(null),
+    ])
+    const sources = [device, ...(google ? [CalendarProviderReadResultSchema.parse(google)] : [])]
+    return CombinedCalendarReadResultSchema.parse({
+      sources,
+      events: sources.flatMap((source) => source.state === 'connected' ? source.events : []),
+    })
   }
 }
 
@@ -367,10 +499,10 @@ function announceDeviceCalendarConnectionChange() {
   window.dispatchEvent(new Event(DEVICE_CALENDAR_CONNECTION_CHANGED_EVENT))
 }
 
-function errorMessage(error: unknown): string {
+function errorMessage(error: unknown, fallback = 'Device Calendar could not be read.'): string {
   return error instanceof Error && error.message
     ? error.message
-    : 'Device Calendar could not be read.'
+    : fallback
 }
 
 export function createDeviceCalendarService(plugin: DeviceCalendarReadPlugin) {

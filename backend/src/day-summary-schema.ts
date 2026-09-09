@@ -267,10 +267,18 @@ export const NextObligationSchema = z.object({
   conflictIds: z.array(z.string()),
 }).strict()
 
+export const CalendarProviderStateSchema = z.object({
+  provider: z.enum(['device', 'google']),
+  status: z.enum(['connected', 'connected_empty', 'not_connected', 'not_entitled', 'unavailable']),
+  reasonCode: z.enum(['not_connected', 'cloud_not_active', 'status_unavailable', 'sync_failed']).nullable(),
+}).strict()
+
 export const CalendarSourceSchema = z.object({
   status: z.enum(['connected', 'connected_empty', 'not_connected', 'not_entitled', 'unavailable']),
   reasonCode: z.enum(['not_connected', 'cloud_not_active', 'status_unavailable', 'sync_failed']).nullable(),
   events: z.array(DaySummaryCalendarEventSchema),
+  /** Present on composed clients; optional while older server responses roll forward. */
+  providerStates: z.array(CalendarProviderStateSchema).optional(),
 }).strict()
 
 export const DayCompletionSchema = z.object({
@@ -539,6 +547,7 @@ export type PlanningWindow = z.infer<typeof PlanningWindowSchema>
 export type DaySummaryItem = z.infer<typeof DaySummaryItemSchema>
 export type DaySummaryCalendarEvent = z.infer<typeof DaySummaryCalendarEventSchema>
 export type CalendarSource = z.infer<typeof CalendarSourceSchema>
+export type CalendarProviderState = z.infer<typeof CalendarProviderStateSchema>
 export type DaySummaryCalorieEntry = z.infer<typeof DaySummaryCalorieEntrySchema>
 export type DaySummaryWeightEntry = z.infer<typeof DaySummaryWeightEntrySchema>
 export type DaySummaryAchievementEntry = z.infer<typeof DaySummaryAchievementEntrySchema>
