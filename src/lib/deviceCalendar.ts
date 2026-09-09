@@ -1,4 +1,4 @@
-import { registerPlugin } from '@capacitor/core'
+import { registerPlugin, type PluginListenerHandle } from '@capacitor/core'
 import { z } from 'zod'
 import DaySummaryContracts from '../../backend/src/day-summary-schema'
 import type { CalendarSource } from '../../backend/src/day-summary-schema'
@@ -338,6 +338,10 @@ interface DeviceCalendarReadPlugin {
   requestFullAccess(): Promise<unknown>
   getEvents(options: { date: string }): Promise<unknown>
   openSettings(): Promise<void>
+  addListener?(
+    eventName: 'eventsChanged',
+    listener: () => void,
+  ): Promise<PluginListenerHandle>
 }
 
 interface DeviceCalendarPlugin extends DeviceCalendarReadPlugin {
@@ -376,6 +380,13 @@ export function createDeviceCalendarService(plugin: DeviceCalendarReadPlugin) {
 
     openSettings(): Promise<void> {
       return plugin.openSettings()
+    },
+
+    addEventsChangedListener(listener: () => void): Promise<PluginListenerHandle> {
+      if (!plugin.addListener) {
+        return Promise.reject(new Error('Device Calendar change notifications are unavailable.'))
+      }
+      return plugin.addListener('eventsChanged', listener)
     },
 
     async read(date: string): Promise<DeviceCalendarReadResult> {

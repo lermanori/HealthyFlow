@@ -428,10 +428,29 @@ describe('Device Calendar day contract', () => {
     assert.match(hook, /LOCAL_DAY_CHANGED_EVENT/)
     assert.match(hook, /DEVICE_CALENDAR_CONNECTION_CHANGED_EVENT/)
     assert.match(hook, /healthyflow:app-state/)
+    assert.match(hook, /addEventsChangedListener/)
+    assert.match(hook, /refreshCalendarQueries/)
+    assert.match(hook, /queryKey: \['calendar-events'\]/)
+    assert.match(hook, /queryKey: DAY_SUMMARY_QUERY_KEY/)
+    assert.match(hook, /queryKey: DAILY_SIGNALS_QUERY_KEY/)
     assert.match(hook, /syncLocalDayWithDeviceCalendar/)
     assert.match(layout, /device-calendar-sync-notification/)
     assert.match(layout, /onRetryDeviceCalendarSync/)
     assert.match(layout, /Retry/)
+  })
+
+  it('forwards EventKit store changes to the React bridge', () => {
+    const plugin = readFileSync('ios/App/App/DeviceCalendarPlugin.swift', 'utf8')
+
+    assert.match(plugin, /Notification\.Name\.EKEventStoreChanged/)
+    assert.match(plugin, /notifyListeners\("eventsChanged"/)
+    assert.match(plugin, /NotificationCenter\.default\.removeObserver\(self\)/)
+  })
+
+  it('rechecks the visible permission state after returning from iOS Settings', () => {
+    const settings = readFileSync('src/pages/SettingsPage.tsx', 'utf8')
+
+    assert.match(settings, /healthyflow:app-state[\s\S]+loadCalendarStatus\(\)/)
   })
 
   it('reads native Calendar events without invoking the backend Google reader', async () => {

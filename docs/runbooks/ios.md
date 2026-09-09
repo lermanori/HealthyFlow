@@ -104,7 +104,10 @@ Test all four permission paths on iOS 17 or later: not requested, granted,
 denied/restricted, and access revoked after a successful read. With access
 granted, confirm a timed external event and an all-day external event appear in
 Today, the timed event changes Capacity, and neither external event can be
-completed or dragged. Then create a timed Item and confirm exactly one marked
+completed or dragged. While HealthyFlow remains installed, add, edit, and delete
+an external event in Apple Calendar; after returning to HealthyFlow, confirm
+Today, Week, and Capacity refresh without an app restart. Then create a timed
+Item and confirm exactly one marked
 event appears in Apple Calendar; edit its title, date, start time, duration and
 location and confirm the same event changes; remove its time and confirm the
 event disappears. Delete the generated event in Apple Calendar and confirm
