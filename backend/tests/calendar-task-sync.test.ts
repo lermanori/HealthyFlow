@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import nock from 'nock'
 import { syncTaskToGoogleCalendar } from '../src/calendar'
+import { db } from '../src/supabase-client'
 
 const mockMaybeSingle = jest.fn()
 const mockConnectionUpdate = jest.fn()
@@ -9,6 +10,10 @@ process.env.GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || 'test-google-clie
 process.env.GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || 'test-google-client-secret'
 
 jest.mock('../src/supabase-client', () => ({
+  db: {
+    getUserById: jest.fn(),
+    getUserCreditSubscription: jest.fn(),
+  },
   supabase: {
     from: jest.fn((table: string) => {
       if (table !== 'calendar_connections') {
@@ -29,6 +34,10 @@ jest.mock('../src/supabase-client', () => ({
   },
 }))
 
+const mockGetUserCreditSubscription = db.getUserCreditSubscription as jest.MockedFunction<
+  typeof db.getUserCreditSubscription
+>
+
 function encryptedToken(token: string): string {
   const key = crypto.createHash('sha256').update(process.env.JWT_SECRET!).digest()
   const iv = Buffer.alloc(12, 1)
@@ -41,6 +50,8 @@ function encryptedToken(token: string): string {
 beforeEach(() => {
   jest.clearAllMocks()
   nock.cleanAll()
+  ;(db.getUserById as jest.Mock).mockResolvedValue({ id: 'user-1', email: 'person@example.com' })
+  mockGetUserCreditSubscription.mockResolvedValue({ active: true } as never)
   mockConnectionUpdate.mockReturnValue({
     eq: jest.fn().mockReturnThis(),
     error: null,
@@ -61,6 +72,28 @@ afterEach(() => {
 })
 
 describe('syncTaskToGoogleCalendar', () => {
+  it('stops before reading tokens or calling Google when Cloud is inactive', async () => {
+    mockGetUserCreditSubscription.mockResolvedValue({ active: false } as never)
+
+    await expect(syncTaskToGoogleCalendar({
+      id: 'task-1',
+      user_id: 'user-1',
+      title: 'Private local task',
+      type: 'task',
+      start_time: '14:52',
+      duration: 15,
+      scheduled_date: '2026-07-08',
+      google_event_id: null,
+      location: null,
+    }, 'Europe/Athens')).rejects.toMatchObject({
+      name: 'CloudNotActiveError',
+      reason: 'cloud_not_active',
+    })
+
+    expect(mockMaybeSingle).not.toHaveBeenCalled()
+    expect(nock.pendingMocks()).toEqual([])
+  })
+
   it('syncs a Hebrew timed nutrition task with an off-hour start time', async () => {
     nock('https://www.googleapis.com')
       .post('/calendar/v3/calendars/primary/events', (body) => {

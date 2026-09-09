@@ -1,5 +1,5 @@
 import { Achievements } from './achievements'
-import { getGoogleCalendarStatus, syncGoogleCalendarEventsForDate } from './calendar'
+import { getGoogleCalendarDayStatus, syncGoogleCalendarEventsForDate } from './calendar'
 import {
   buildDaySummaryCore,
   itemRowToClient,
@@ -60,7 +60,7 @@ export async function getItemsForDay(
 const defaultDependencies: DaySummaryDependencies = {
   itemsForDay: getItemsForDay,
   getSettings: (userId) => db.getUserSettings(userId),
-  getCalendarStatus: getGoogleCalendarStatus,
+  getCalendarStatus: getGoogleCalendarDayStatus,
   getCalendarEvents: syncGoogleCalendarEventsForDate,
   getCalorieEntries: (userId, date) => db.getCalorieEntriesByDay(userId, date),
   getWeightEntry: (userId, date) => db.getWeightEntryByDay(userId, date),

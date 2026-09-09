@@ -268,8 +268,8 @@ export const NextObligationSchema = z.object({
 }).strict()
 
 export const CalendarSourceSchema = z.object({
-  status: z.enum(['connected', 'connected_empty', 'not_connected', 'unavailable']),
-  reasonCode: z.enum(['not_connected', 'status_unavailable', 'sync_failed']).nullable(),
+  status: z.enum(['connected', 'connected_empty', 'not_connected', 'not_entitled', 'unavailable']),
+  reasonCode: z.enum(['not_connected', 'cloud_not_active', 'status_unavailable', 'sync_failed']).nullable(),
   events: z.array(DaySummaryCalendarEventSchema),
 }).strict()
 

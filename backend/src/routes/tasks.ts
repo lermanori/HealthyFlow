@@ -8,6 +8,7 @@ import { positionsFromIds } from '../utils/positionsFromIds'
 import { parseHabitInstanceId } from '../utils/parseHabitInstanceId'
 import { isPureDragUpdate } from '../utils/isPureDragUpdate'
 import { deleteGoogleCalendarEvent, isGoogleCalendarNotConnectedError, syncTaskToGoogleCalendar } from '../calendar'
+import { isCloudNotActiveError } from '../cloud-access'
 import { HabitHistoryQuerySchema, HabitOutcomeInputSchema, HabitProgress, HabitProgressInputSchema, HabitProgressUpdateSchema } from '../habit-progress'
 import { getItemsForDay, normalizeItemRows, reminderRowToClient } from '../day-summary'
 import { CategorySchema, ItemTypeSchema, ReminderQuerySchema, RollbackDragMaterializationInputSchema } from '../task-contracts'
@@ -164,7 +165,7 @@ async function syncTaskRowToGoogle(row: any, timeZone?: string) {
       google_sync_status: result.status,
     })
   } catch (error) {
-    if (isGoogleCalendarNotConnectedError(error)) {
+    if (isGoogleCalendarNotConnectedError(error) || isCloudNotActiveError(error)) {
       return db.updateTask(row.id, {
         google_event_id: null,
         synced_to_google: false,
@@ -193,7 +194,7 @@ async function deleteGoogleCalendarEventIfConnected(userId: string, googleEventI
   try {
     await deleteGoogleCalendarEvent(userId, googleEventId)
   } catch (error) {
-    if (isGoogleCalendarNotConnectedError(error)) {
+    if (isGoogleCalendarNotConnectedError(error) || isCloudNotActiveError(error)) {
       return
     }
     throw error

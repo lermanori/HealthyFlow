@@ -5,7 +5,10 @@ import { db } from '../../src/supabase-client'
 import { Sync } from '../../src/sync'
 
 jest.mock('../../src/supabase-client', () => ({
-  db: { getUserCreditSubscription: jest.fn() },
+  db: {
+    getUserById: jest.fn(),
+    getUserCreditSubscription: jest.fn(),
+  },
   supabase: { from: jest.fn() },
 }))
 
@@ -39,6 +42,7 @@ const emptyPayload = {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockDb.getUserById.mockResolvedValue({ id: 'user-1', email: 'person@example.com' } as never)
   mockDb.getUserCreditSubscription.mockResolvedValue({ active: true } as never)
   mockSync.exchange.mockResolvedValue({
     syncedAt: '2026-08-23T12:00:00.000Z',

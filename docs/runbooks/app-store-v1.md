@@ -145,7 +145,7 @@ These are implementation facts, not completed App Privacy answers.
 | Account | name, email, role, authentication/provider identifiers | HealthyFlow backend and Supabase |
 | AI | submitted text, optional images/files, assistant messages, structured results, usage and credit ledger | HealthyFlow backend, Supabase, OpenAI |
 | Device Calendar (native v1) | External event title, time, all-day state, notes and location; timed Item title, date, time, duration and location; opaque EventKit identifiers after permission | Read and written in the iPhone app through EventKit; not sent to HealthyFlow by the Device Calendar path |
-| Google Calendar (web only) | Google OAuth tokens, calendar event identifiers/content and sync state when connected | HealthyFlow backend, Supabase, Google Calendar APIs; native v1 does not call this path |
+| Google Calendar (claimed Cloud only; web in the current build) | Google OAuth tokens, calendar event identifiers/content and sync state when connected | HealthyFlow backend, Supabase, Google Calendar APIs; Guest and claimed-free native v1 do not call this path |
 | Contact | request kind, message and reply-to address | HealthyFlow backend and Supabase |
 | Notifications | native device token or Web Push subscription | HealthyFlow backend, Supabase, APNs/Web Push |
 | Analytics | stable user ID; optional email/name/role/Guest state; typed product events and page paths | PostHog; production bundle points to the EU ingestion host |
