@@ -2181,3 +2181,12 @@ Simplified the commit workflow: the post-commit hook has been stripped down to a
   - LEDGER.md
 
 ---
+### 2026-09-09 18:53 — `codex/254-google-cloud-gate`
+
+Restricted every hosted Google Calendar entry point to a claimed account with
+active Cloud, including an OAuth callback recheck before token exchange. Free
+day composition now reports a typed `not_entitled` boundary, consent withdrawal
+remains available, and the accepted decision records a future second Google
+button for native Cloud users; 899 backend and 328 frontend tests pass.
+
+---

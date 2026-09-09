@@ -824,6 +824,29 @@ describe('DaySummary composition', () => {
     expect(dependencies.listDayFocusBlocks).toHaveBeenCalledWith('device-user', '2026-07-27')
   })
 
+  it('represents inactive Cloud as a typed entitlement boundary, not an empty Google read', async () => {
+    const dependencies = dependenciesFor({
+      getCalendarStatus: jest.fn().mockResolvedValue({
+        connected: false,
+        reason: 'cloud_not_active',
+      }),
+    })
+
+    const summary = await buildDaySummaryCore('free-user', '2026-07-27', 'UTC', {
+      now: new Date('2026-07-27T10:00:00.000Z'),
+      dependencies,
+    })
+
+    expect(summary.calendar).toEqual({
+      status: 'not_entitled',
+      reasonCode: 'cloud_not_active',
+      events: [],
+    })
+    expect(summary.capacity.reasonCodes).not.toContain('calendar_unavailable')
+    expect(dependencies.getCalendarEvents).not.toHaveBeenCalled()
+    expect(DaySummarySchema.safeParse(summary).success).toBe(true)
+  })
+
   it('counts a failed binary Habit as addressed without counting it as completed', async () => {
     const failedHabit = item({
       id: 'failed-habit',

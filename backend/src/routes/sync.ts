@@ -1,5 +1,5 @@
 import express from 'express'
-import { db } from '../supabase-client'
+import { CloudAccess, isCloudNotActiveError } from '../cloud-access'
 import { Sync, SyncClockError, SyncOwnershipError } from '../sync'
 import { SyncRequestSchema } from '../sync-contracts'
 import { authenticateToken, type AuthRequest } from '../middleware/auth'
@@ -15,18 +15,16 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
   try {
     // Cloud is what hosting is sold as, so this is a boundary rather than a
     // failure: a free account's day is never hosted (TARGET.md, ADR-0012).
-    // One row, not `Credits.getCreditSummary`, which runs five queries including
-    // a month of usage logs. This gate runs on every exchange.
-    const subscription = await db.getUserCreditSubscription(req.user.userId)
-    if (!subscription?.active) {
-      return res.status(403).json({
-        error: 'Cloud is not active on this account.',
-        reason: 'cloud_not_active',
-      })
-    }
+    // One entitlement row, plus the account identity only when that entitlement
+    // is active — not `Credits.getCreditSummary`, which runs five queries
+    // including a month of usage logs. This gate runs on every exchange.
+    await CloudAccess.require(req.user.userId)
 
     return res.json(await Sync.exchange(req.user.userId, parsed.data))
   } catch (error) {
+    if (isCloudNotActiveError(error)) {
+      return res.status(403).json({ error: error.message, reason: error.reason })
+    }
     // Every message names what actually failed. "Check your connection" was shown
     // twice this week for problems that had nothing to do with the network, and a
     // sync that cannot say why it stopped is a sync nobody can fix.

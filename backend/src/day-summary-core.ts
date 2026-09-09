@@ -1021,7 +1021,10 @@ export type DaySummaryDependencies = {
     timeZone?: string | null,
   ) => Promise<DaySummaryItem[]>
   getSettings: (userId: string) => Promise<Record<string, unknown>>
-  getCalendarStatus: (userId: string) => Promise<{ connected: boolean }>
+  getCalendarStatus: (userId: string) => Promise<{
+    connected: boolean
+    reason?: 'cloud_not_active'
+  }>
   getCalendarEvents: (userId: string, date: string) => Promise<unknown[]>
   getCalorieEntries: (userId: string, date: string) => Promise<unknown[]>
   getWeightEntry: (userId: string, date: string) => Promise<unknown | null>
@@ -1091,6 +1094,9 @@ export async function buildDaySummaryCore(
 
   const calendarPromise: Promise<CalendarSource> = dependencies.getCalendarStatus(userId).then(async (status) => {
     if (!status.connected) {
+      if (status.reason === 'cloud_not_active') {
+        return { status: 'not_entitled', reasonCode: 'cloud_not_active', events: [] }
+      }
       return { status: 'not_connected', reasonCode: 'not_connected', events: [] }
     }
     try {

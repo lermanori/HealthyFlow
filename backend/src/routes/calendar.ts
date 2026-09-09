@@ -1,6 +1,7 @@
 import express from 'express'
 import { z } from 'zod'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
+import { isCloudNotActiveError } from '../cloud-access'
 import {
   completeGoogleCalendarOAuth,
   disconnectGoogleCalendar,
@@ -27,10 +28,17 @@ function clientTimeZone(req: AuthRequest, bodyTimeZone?: string): string | undef
   return bodyTimeZone || (headerTimeZone && headerTimeZone.length <= 100 ? headerTimeZone : undefined)
 }
 
-router.get('/google/connect-url', authenticateToken, (req: AuthRequest, res) => {
+function sendCloudNotActive(error: unknown, res: express.Response): boolean {
+  if (!isCloudNotActiveError(error)) return false
+  res.status(403).json({ error: error.message, reason: error.reason })
+  return true
+}
+
+router.get('/google/connect-url', authenticateToken, async (req: AuthRequest, res) => {
   try {
-    res.json({ url: getGoogleCalendarConnectUrl(req.user.userId) })
+    res.json({ url: await getGoogleCalendarConnectUrl(req.user.userId) })
   } catch (error) {
+    if (sendCloudNotActive(error, res)) return
     console.error('Google Calendar connect URL error:', error)
     res.status(500).json({ error: 'Failed to start Google Calendar connection' })
   }
@@ -62,6 +70,7 @@ router.get('/google/status', authenticateToken, async (req: AuthRequest, res) =>
   try {
     res.json(await getGoogleCalendarStatus(req.user.userId))
   } catch (error) {
+    if (sendCloudNotActive(error, res)) return
     console.error('Google Calendar status error:', error)
     res.status(500).json({ error: 'Failed to load Google Calendar status' })
   }
@@ -76,6 +85,7 @@ router.get('/google/events', authenticateToken, async (req: AuthRequest, res) =>
   try {
     res.json(await syncGoogleCalendarEventsForDate(req.user.userId, parsed.data.date))
   } catch (error) {
+    if (sendCloudNotActive(error, res)) return
     if (isGoogleCalendarNotConnectedError(error)) {
       return res.json([])
     }
@@ -97,6 +107,7 @@ router.patch('/google/events/:id/completion', authenticateToken, async (req: Aut
       parsed.data.completed
     ))
   } catch (error) {
+    if (sendCloudNotActive(error, res)) return
     console.error('Google Calendar event completion error:', error)
     res.status(500).json({ error: 'Failed to update calendar event completion' })
   }
@@ -119,6 +130,7 @@ router.patch('/google/events/:id/schedule', authenticateToken, async (req: AuthR
       }
     ))
   } catch (error) {
+    if (sendCloudNotActive(error, res)) return
     console.error('Google Calendar event schedule error:', error)
     res.status(500).json({ error: 'Failed to update calendar event schedule' })
   }
@@ -140,6 +152,7 @@ router.post('/google/sync-timed-tasks', authenticateToken, async (req: AuthReque
       clientTimeZone(req, parsed.data.timeZone)
     ))
   } catch (error) {
+    if (sendCloudNotActive(error, res)) return
     console.error('Google Calendar timed task sync error:', error)
     res.status(500).json({ error: 'Failed to sync timed tasks to Google Calendar' })
   }

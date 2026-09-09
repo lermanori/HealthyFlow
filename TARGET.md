@@ -221,7 +221,8 @@ softening a rule to survive a release is how the rule dies.
 - **No silent fallbacks.** A failure surfaces as a failure.
 - **No second vocabulary.** If a feature needs its own set of nouns, it is a
   different product.
-- **Never require a network** except for AI and the web's hosted Google Calendar. Local storage is the
+- **Never require a network** except for AI and a claimed Cloud account's hosted
+  Google Calendar. Local storage is the
   base layer for everyone, so the day is readable and writable with no
   connection. Cloud replicates on top of it; it is not the source.
 

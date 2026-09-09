@@ -10,7 +10,9 @@ and [ADR-0002](../adr/0002-task-scheduling-and-materialization-model.md) (Habits
 and scheduling), [ADR-0020](../adr/0020-iphone-calendar-is-read-directly-with-eventkit.md)
 (where iPhone Calendar obligations come from), and
 [ADR-0021](../adr/0021-timed-items-mirror-to-iphone-calendar.md) (how timed Items
-mirror back to the device).
+mirror back to the device), and
+[ADR-0022](../adr/0022-backend-google-calendar-requires-claimed-cloud.md) (who may
+use the hosted Google path).
 
 ## The shape
 
@@ -51,8 +53,8 @@ everything else. That is the whole seam:
 |---|---|---|
 | `itemsForDay` | three Supabase queries → `composeDayTaskRows`, plus `Rollover` | three in-memory filters → the same `composeDayTaskRows`, plus the same `isCarryForwardRow` |
 | `getSettings` | `users_settings` row | the document's `settings` patch over the local baseline |
-| `getCalendarStatus` | Google connection state | EventKit permission/result state |
-| `getCalendarEvents` | Google sync | EventKit events mapped to the canonical schema; **throws** when an authorized read fails |
+| `getCalendarStatus` | Active claimed Cloud → Google connection state; otherwise typed `not_entitled` | EventKit permission/result state |
+| `getCalendarEvents` | Cloud-gated Google sync | EventKit events mapped to the canonical schema; **throws** when an authorized read fails |
 | Nutrition, Training, Progress | their tables | **throw** — the modules are off in the local baseline, so the core never calls them |
 | `listDayFocusBlocks` | `Work.listDayFocusBlocks` | `[]` — genuinely empty; Work is behind a release flag and nothing on a device can create a Focus block |
 
@@ -84,6 +86,12 @@ Calendar is the exception: its external events are composed into the day in the
 iPhone app, while timed Items are reconciled back to marked EventKit events.
 Event content and Item-to-event links are not uploaded as part of this device
 path.
+
+The direct Google adapter is a separate hosted boundary. It requires both a
+claimed identity and active Cloud before connect, OAuth exchange, status, event
+read/write, or timed-Item sync. The day reports an expected free account as
+`not_entitled`; it does not call Google and does not pretend Google returned an
+empty calendar. Entitlement database failures still surface as unavailable.
 
 The EventKit bridge emits `eventsChanged` when iOS reports that its event store
 changed. The app invalidates the standalone week Calendar queries, the canonical

@@ -9,6 +9,10 @@ const mockExternalSelectResult = jest.fn()
 const mockTaskUpdate = jest.fn()
 
 jest.mock('../src/supabase-client', () => ({
+  db: {
+    getUserById: jest.fn().mockResolvedValue({ id: 'user-1', email: 'person@example.com' }),
+    getUserCreditSubscription: jest.fn().mockResolvedValue({ active: true }),
+  },
   supabase: {
     from: jest.fn((table: string) => {
       if (table === 'calendar_connections') {

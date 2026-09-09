@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import { z } from 'zod'
+import { CloudAccess } from './cloud-access'
 import { supabase } from './supabase-client'
 
 const GoogleTokenResponseSchema = z.object({
@@ -243,7 +244,8 @@ function parseState(state: string): { userId: string } {
   return { userId: payload.userId }
 }
 
-export function getGoogleCalendarConnectUrl(userId: string): string {
+export async function getGoogleCalendarConnectUrl(userId: string): Promise<string> {
+  await CloudAccess.require(userId)
   const params = new URLSearchParams({
     client_id: getRequiredEnv('GOOGLE_CLIENT_ID'),
     redirect_uri: getRedirectUri(),
@@ -260,6 +262,7 @@ export function getGoogleCalendarConnectUrl(userId: string): string {
 
 export async function completeGoogleCalendarOAuth(code: string, state: string): Promise<void> {
   const { userId } = parseState(state)
+  await CloudAccess.require(userId)
   const body = new URLSearchParams({
     code,
     client_id: getRequiredEnv('GOOGLE_CLIENT_ID'),
@@ -329,7 +332,7 @@ export async function completeGoogleCalendarOAuth(code: string, state: string): 
   if (taskResetError) throw taskResetError
 }
 
-export async function getGoogleCalendarStatus(userId: string): Promise<CalendarConnectionStatus> {
+async function readGoogleCalendarStatus(userId: string): Promise<CalendarConnectionStatus> {
   const { data, error } = await supabase
     .from('calendar_connections')
     .select('provider_account_email, connected_at, scopes, disconnected_at')
@@ -346,6 +349,19 @@ export async function getGoogleCalendarStatus(userId: string): Promise<CalendarC
     connectedAt: data?.connected_at ?? null,
     scopes: data?.scopes ?? [],
   }
+}
+
+export async function getGoogleCalendarStatus(userId: string): Promise<CalendarConnectionStatus> {
+  await CloudAccess.require(userId)
+  return readGoogleCalendarStatus(userId)
+}
+
+export async function getGoogleCalendarDayStatus(userId: string) {
+  const access = await CloudAccess.read(userId)
+  if (access.status === 'inactive') {
+    return { connected: false, reason: 'cloud_not_active' as const }
+  }
+  return readGoogleCalendarStatus(userId)
 }
 
 async function getGoogleAccessToken(userId: string): Promise<string> {
@@ -508,9 +524,18 @@ export async function syncTaskToGoogleCalendar(row: GoogleSyncedTask, timeZone?:
   synced: boolean
   status: 'synced' | 'skipped' | 'failed'
 }> {
+  await CloudAccess.require(row.user_id)
+  return syncTaskToGoogleCalendarForCloud(row, timeZone)
+}
+
+async function syncTaskToGoogleCalendarForCloud(row: GoogleSyncedTask, timeZone?: string): Promise<{
+  googleEventId: string | null
+  synced: boolean
+  status: 'synced' | 'skipped' | 'failed'
+}> {
   if (!isTimedTask(row)) {
     if (row.google_event_id) {
-      await deleteGoogleCalendarEvent(row.user_id, row.google_event_id)
+      await deleteGoogleCalendarEventForCloud(row.user_id, row.google_event_id)
     }
     return {
       googleEventId: null,
@@ -540,7 +565,7 @@ export async function syncTaskToGoogleCalendar(row: GoogleSyncedTask, timeZone?:
 
   if (!response.ok) {
     if (existingEventId && response.status === 404) {
-      return syncTaskToGoogleCalendar({ ...row, google_event_id: null }, timeZone)
+      return syncTaskToGoogleCalendarForCloud({ ...row, google_event_id: null }, timeZone)
     }
     const errorText = await response.text()
     throw new Error(`Google Calendar task sync failed: ${errorText}`)
@@ -555,6 +580,7 @@ export async function syncTaskToGoogleCalendar(row: GoogleSyncedTask, timeZone?:
 }
 
 export async function syncTimedTasksForDate(userId: string, date: string, timeZone?: string): Promise<{ synced: number }> {
+  await CloudAccess.require(userId)
   const { data, error } = await supabase
     .from('tasks')
     .select('*')
@@ -569,7 +595,7 @@ export async function syncTimedTasksForDate(userId: string, date: string, timeZo
   let synced = 0
   for (const task of data ?? []) {
     try {
-      const result = await syncTaskToGoogleCalendar(task, timeZone)
+      const result = await syncTaskToGoogleCalendarForCloud(task, timeZone)
       const { error: updateError } = await supabase
         .from('tasks')
         .update({
@@ -609,6 +635,11 @@ export async function syncTimedTasksForDate(userId: string, date: string, timeZo
 }
 
 export async function deleteGoogleCalendarEvent(userId: string, googleEventId: string): Promise<void> {
+  await CloudAccess.require(userId)
+  return deleteGoogleCalendarEventForCloud(userId, googleEventId)
+}
+
+async function deleteGoogleCalendarEventForCloud(userId: string, googleEventId: string): Promise<void> {
   const accessToken = await getGoogleAccessToken(userId)
   const response = await fetch(
     `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(googleEventId)}`,
@@ -653,6 +684,7 @@ export async function updateExternalCalendarEventCompletion(
   eventId: string,
   completed: boolean
 ): Promise<ExternalCalendarEvent> {
+  await CloudAccess.require(userId)
   const { data, error } = await supabase
     .from('external_calendar_events')
     .update({
@@ -675,6 +707,7 @@ export async function updateExternalCalendarEventSchedule(
   eventId: string,
   update: ExternalCalendarScheduleUpdate
 ): Promise<ExternalCalendarEvent> {
+  await CloudAccess.require(userId)
   const { data: existing, error: existingError } = await supabase
     .from('external_calendar_events')
     .select('*')
@@ -747,6 +780,7 @@ export async function syncGoogleCalendarEventsForDate(
   userId: string,
   date: string
 ): Promise<ExternalCalendarEvent[]> {
+  await CloudAccess.require(userId)
   const accessToken = await getGoogleAccessToken(userId)
   const { timeMin, timeMax } = dateBounds(date)
   const params = new URLSearchParams({
