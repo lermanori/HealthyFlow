@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, ShieldCheck, Smartphone, Unplug, Sparkles, Mail, Copy, X, KeyRound, Trash2, HeartPulse } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
@@ -285,13 +285,6 @@ export default function SettingsPage() {
     }
   }, [navigate])
 
-  useEffect(() => {
-    loadCalendarStatus()
-    loadApiTokens()
-    loadOAuthGrants()
-    loadRhythm()
-  }, [])
-
   const loadRhythm = async () => {
     try {
       setRhythmLoading(true)
@@ -311,7 +304,7 @@ export default function SettingsPage() {
     }
   }
 
-  const loadCalendarStatus = async () => {
+  const loadCalendarStatus = useCallback(async () => {
     try {
       setCalendarLoading(true)
       setCalendarUnavailable(null)
@@ -328,7 +321,24 @@ export default function SettingsPage() {
     } finally {
       setCalendarLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!isNativeIOS) return
+    const refreshPermissionWhenActive = (event: Event) => {
+      const detail = (event as CustomEvent<{ isActive?: boolean }>).detail
+      if (detail?.isActive) void loadCalendarStatus()
+    }
+    window.addEventListener('healthyflow:app-state', refreshPermissionWhenActive)
+    return () => window.removeEventListener('healthyflow:app-state', refreshPermissionWhenActive)
+  }, [loadCalendarStatus])
+
+  useEffect(() => {
+    loadCalendarStatus()
+    loadApiTokens()
+    loadOAuthGrants()
+    loadRhythm()
+  }, [loadCalendarStatus])
 
   const invalidateCalendarDay = () => {
     queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })

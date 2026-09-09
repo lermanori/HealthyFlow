@@ -1,3 +1,13 @@
+### 2026-09-09 13:48 — `codex/252-device-calendar-refresh`
+
+Made external Device Calendar changes refresh Today, Week, Capacity, and the
+visible iOS permission state automatically through an EventKit store-change
+listener and foreground invalidation. Listener and refetch failures remain
+visible and retryable; 328 frontend tests, typecheck, lint, production Capacitor
+sync, and the Xcode simulator build pass.
+
+---
+
 ### 2026-09-09 13:28 — `codex/250-device-calendar-auto-sync`
 
 Added automatic, device-local mirroring of timed Items into EventKit for Guest,

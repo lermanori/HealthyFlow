@@ -18,6 +18,23 @@ public final class DeviceCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
 
     private let eventStore = EKEventStore()
 
+    override public func load() {
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(eventStoreChanged),
+            name: Notification.Name.EKEventStoreChanged,
+            object: eventStore
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func eventStoreChanged() {
+        notifyListeners("eventsChanged", data: [:])
+    }
+
     @objc func getAuthorizationStatus(_ call: CAPPluginCall) {
         call.resolve(["status": authorizationStatusValue()])
     }

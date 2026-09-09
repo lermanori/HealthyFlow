@@ -85,6 +85,13 @@ iPhone app, while timed Items are reconciled back to marked EventKit events.
 Event content and Item-to-event links are not uploaded as part of this device
 path.
 
+The EventKit bridge emits `eventsChanged` when iOS reports that its event store
+changed. The app invalidates the standalone week Calendar queries, the canonical
+day summaries, and Daily Signals, so Today, Week, and Capacity refetch from the
+same source. Returning to the foreground performs the same invalidation and also
+reconciles mirrored Items; a listener or refetch failure stays visible and
+retryable.
+
 ## The boundary, and how it is guarded
 
 A browser import reaching a server-only module produced a blank Vite dev screen
