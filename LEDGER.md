@@ -1,3 +1,13 @@
+### 2026-09-09 19:22 — `codex/256-native-cloud-google-button`
+
+Added a separate direct Google Calendar connection for claimed active-Cloud
+users while keeping Device Calendar independent and preventing Guest,
+claimed-free, or unavailable-entitlement sessions from probing Google. Native
+OAuth now returns through a signed closed target; 330 frontend and 903 backend
+tests, both typechecks, lint, production build, and Capacitor iOS sync pass.
+
+---
+
 ### 2026-09-09 13:48 — `codex/252-device-calendar-refresh`
 
 Made external Device Calendar changes refresh Today, Week, Capacity, and the

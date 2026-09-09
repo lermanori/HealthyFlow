@@ -11,10 +11,12 @@ import api, { accountService, ApiTokenRecord, ApiTokenScope, AssistantProfile, c
 import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
 import {
+  canUseHostedGoogleCalendar,
   deviceCalendarService,
   type DeviceCalendarAuthorization,
 } from '../lib/deviceCalendar'
-import { isNativeIOS } from '../lib/native'
+import { isNativeIOS, openNativeBrowser } from '../lib/native'
+import { NATIVE_GOOGLE_CALENDAR_ENABLED } from '../featureFlags'
 import { AssistantProfileSchema, DEFAULT_PLANNING_WINDOW } from '../../backend/src/settings-schema'
 import { actionExhaustionView } from '../utils/actionExhaustion'
 import Switch from '../components/Switch'
@@ -224,11 +226,14 @@ export default function SettingsPage() {
   } = useCredits()
   const exhaustion = creditSummary ? actionExhaustionView(creditSummary) : null
   const { settings, updateSetting, resolution, retry: retrySettings } = useSettings()
-  const [calendarStatus, setCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
+  const [googleCalendarStatus, setGoogleCalendarStatus] = useState<CalendarConnectionStatus | null>(null)
   const [deviceCalendarAuthorization, setDeviceCalendarAuthorization] = useState<DeviceCalendarAuthorization | null>(null)
-  const [calendarUnavailable, setCalendarUnavailable] = useState<string | null>(null)
-  const [calendarLoading, setCalendarLoading] = useState(true)
-  const [calendarActionLoading, setCalendarActionLoading] = useState(false)
+  const [googleCalendarUnavailable, setGoogleCalendarUnavailable] = useState<string | null>(null)
+  const [deviceCalendarUnavailable, setDeviceCalendarUnavailable] = useState<string | null>(null)
+  const [googleCalendarLoading, setGoogleCalendarLoading] = useState(false)
+  const [deviceCalendarLoading, setDeviceCalendarLoading] = useState(isNativeIOS)
+  const [googleCalendarActionLoading, setGoogleCalendarActionLoading] = useState(false)
+  const [deviceCalendarActionLoading, setDeviceCalendarActionLoading] = useState(false)
   const [contactFlow, setContactFlow] = useState<'feedback' | 'more_actions' | null>(null)
   const [contactMessage, setContactMessage] = useState('')
   const [contactReplyTo, setContactReplyTo] = useState('')
@@ -255,6 +260,11 @@ export default function SettingsPage() {
   const [showDeleteAccount, setShowDeleteAccount] = useState(false)
   const requestedCategory = parseSettingsCategory(location.pathname)
   const activeCategory: SettingsCategoryId = requestedCategory ?? 'account-billing'
+  const googleCalendarEligible = canUseHostedGoogleCalendar({
+    claimed: Boolean(user?.email),
+    cloudActive: Boolean(creditSummary?.subscription.active),
+    surfaceEnabled: !isNativeIOS || NATIVE_GOOGLE_CALENDAR_ENABLED,
+  })
 
   useEffect(() => {
     if (location.pathname !== '/settings' && requestedCategory === null) {
@@ -265,25 +275,6 @@ export default function SettingsPage() {
       navigate('/settings/health-tools', { replace: true })
     }
   }, [location.hash, location.pathname, navigate, requestedCategory])
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const calendarResult = params.get('calendar')
-    const message = params.get('message')
-
-    if (calendarResult === 'connected') {
-      analytics.capture('google_calendar_connected')
-      toast.success('Google Calendar connected')
-    }
-
-    if (calendarResult === 'error') {
-      toast.error(message || 'Google Calendar connection failed')
-    }
-
-    if (calendarResult) {
-      navigate('/settings/connections-advanced', { replace: true })
-    }
-  }, [navigate])
 
   const loadRhythm = async () => {
     try {
@@ -304,41 +295,79 @@ export default function SettingsPage() {
     }
   }
 
-  const loadCalendarStatus = useCallback(async () => {
+  const loadDeviceCalendarStatus = useCallback(async () => {
+    if (!isNativeIOS) return
     try {
-      setCalendarLoading(true)
-      setCalendarUnavailable(null)
-      if (isNativeIOS) {
-        setDeviceCalendarAuthorization(await deviceCalendarService.authorization())
-        setCalendarStatus(null)
-        return
-      }
-      const status = await calendarService.getGoogleStatus()
-      setCalendarStatus(status)
+      setDeviceCalendarLoading(true)
+      setDeviceCalendarUnavailable(null)
+      setDeviceCalendarAuthorization(await deviceCalendarService.authorization())
     } catch (e) {
-      setCalendarUnavailable(e instanceof Error ? e.message : 'Calendar status is unavailable.')
-      toast.error('Failed to load calendar status')
+      setDeviceCalendarUnavailable(e instanceof Error ? e.message : 'Device Calendar status is unavailable.')
+      toast.error('Failed to load Device Calendar status')
     } finally {
-      setCalendarLoading(false)
+      setDeviceCalendarLoading(false)
     }
   }, [])
+
+  const loadGoogleCalendarStatus = useCallback(async () => {
+    if (!googleCalendarEligible) {
+      setGoogleCalendarStatus(null)
+      setGoogleCalendarUnavailable(null)
+      setGoogleCalendarLoading(false)
+      return
+    }
+    try {
+      setGoogleCalendarLoading(true)
+      setGoogleCalendarUnavailable(null)
+      setGoogleCalendarStatus(await calendarService.getGoogleStatus())
+    } catch (e) {
+      setGoogleCalendarUnavailable(e instanceof Error ? e.message : 'Google Calendar status is unavailable.')
+      toast.error('Failed to load Google Calendar status')
+    } finally {
+      setGoogleCalendarLoading(false)
+    }
+  }, [googleCalendarEligible])
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search)
+    const calendarResult = params.get('calendar')
+    const message = params.get('message')
+
+    if (calendarResult === 'connected') {
+      analytics.capture('google_calendar_connected')
+      toast.success('Google Calendar connected')
+      void loadGoogleCalendarStatus()
+    }
+
+    if (calendarResult === 'error') {
+      toast.error(message || 'Google Calendar connection failed')
+    }
+
+    if (calendarResult) {
+      navigate('/settings/connections-advanced', { replace: true })
+    }
+  }, [loadGoogleCalendarStatus, location.search, navigate])
 
   useEffect(() => {
     if (!isNativeIOS) return
     const refreshPermissionWhenActive = (event: Event) => {
       const detail = (event as CustomEvent<{ isActive?: boolean }>).detail
-      if (detail?.isActive) void loadCalendarStatus()
+      if (detail?.isActive) {
+        void loadDeviceCalendarStatus()
+        void loadGoogleCalendarStatus()
+      }
     }
     window.addEventListener('healthyflow:app-state', refreshPermissionWhenActive)
     return () => window.removeEventListener('healthyflow:app-state', refreshPermissionWhenActive)
-  }, [loadCalendarStatus])
+  }, [loadDeviceCalendarStatus, loadGoogleCalendarStatus])
 
   useEffect(() => {
-    loadCalendarStatus()
+    void loadDeviceCalendarStatus()
+    void loadGoogleCalendarStatus()
     loadApiTokens()
     loadOAuthGrants()
     loadRhythm()
-  }, [loadCalendarStatus])
+  }, [loadDeviceCalendarStatus, loadGoogleCalendarStatus])
 
   const invalidateCalendarDay = () => {
     queryClient.invalidateQueries({ queryKey: DAY_SUMMARY_QUERY_KEY })
@@ -347,8 +376,8 @@ export default function SettingsPage() {
 
   const handleConnectDeviceCalendar = async () => {
     try {
-      setCalendarActionLoading(true)
-      setCalendarUnavailable(null)
+      setDeviceCalendarActionLoading(true)
+      setDeviceCalendarUnavailable(null)
       const authorization = await deviceCalendarService.requestFullAccess()
       setDeviceCalendarAuthorization(authorization)
       if (authorization.status === 'full_access') {
@@ -356,47 +385,51 @@ export default function SettingsPage() {
         toast.success('Device Calendar connected')
       }
     } catch (e) {
-      setCalendarUnavailable(e instanceof Error ? e.message : 'Device Calendar connection is unavailable.')
+      setDeviceCalendarUnavailable(e instanceof Error ? e.message : 'Device Calendar connection is unavailable.')
       toast.error('Failed to connect Device Calendar')
     } finally {
-      setCalendarActionLoading(false)
+      setDeviceCalendarActionLoading(false)
     }
   }
 
   const handleOpenDeviceCalendarSettings = async () => {
     try {
-      setCalendarActionLoading(true)
+      setDeviceCalendarActionLoading(true)
       await deviceCalendarService.openSettings()
     } catch (e) {
-      setCalendarUnavailable(e instanceof Error ? e.message : 'iOS Settings is unavailable.')
+      setDeviceCalendarUnavailable(e instanceof Error ? e.message : 'iOS Settings is unavailable.')
       toast.error('Failed to open iOS Settings')
     } finally {
-      setCalendarActionLoading(false)
+      setDeviceCalendarActionLoading(false)
     }
   }
 
   const handleConnectGoogleCalendar = async () => {
     try {
-      setCalendarActionLoading(true)
+      setGoogleCalendarActionLoading(true)
+      setGoogleCalendarUnavailable(null)
       const url = await calendarService.getGoogleConnectUrl()
-      window.location.href = url
+      await openNativeBrowser(url)
     } catch (e) {
       toast.error('Failed to start Google Calendar connection')
-      setCalendarActionLoading(false)
+      setGoogleCalendarUnavailable(e instanceof Error ? e.message : 'Google Calendar connection is unavailable.')
+    } finally {
+      setGoogleCalendarActionLoading(false)
     }
   }
 
   const handleDisconnectGoogleCalendar = async () => {
     try {
-      setCalendarActionLoading(true)
+      setGoogleCalendarActionLoading(true)
       await calendarService.disconnectGoogle()
       invalidateCalendarDay()
       toast.success('Google Calendar disconnected')
-      await loadCalendarStatus()
+      await loadGoogleCalendarStatus()
     } catch (e) {
       toast.error('Failed to disconnect Google Calendar')
+      setGoogleCalendarUnavailable(e instanceof Error ? e.message : 'Google Calendar disconnect failed.')
     } finally {
-      setCalendarActionLoading(false)
+      setGoogleCalendarActionLoading(false)
     }
   }
 
@@ -635,9 +668,11 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
   const enabledTouchpoints = rhythm
     ? [rhythm.morning.enabled, rhythm.midday.enabled, rhythm.weekly.enabled].filter(Boolean).length
     : null
+  const deviceCalendarConnected = deviceCalendarAuthorization?.status === 'full_access'
+  const googleCalendarConnected = Boolean(googleCalendarStatus?.connected)
   const calendarConnected = isNativeIOS
-    ? deviceCalendarAuthorization?.status === 'full_access'
-    : Boolean(calendarStatus?.connected)
+    ? deviceCalendarConnected || googleCalendarConnected
+    : googleCalendarConnected
   const settingsSummary = (category: SettingsCategoryId): string => {
     switch (category) {
       case 'account-billing':
@@ -1404,90 +1439,114 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
 
       {activeCategory === 'connections-advanced' && (
         <>
-          <div className="card">
+          {(isNativeIOS || googleCalendarEligible) && <div className="card">
             <div className="mb-4 flex items-center space-x-3">
               <Sync className="h-5 w-5 text-accent" />
               <div>
-                <h2 className="text-lg font-semibold text-ink">Calendar connection</h2>
+                <h2 className="text-lg font-semibold text-ink">Calendar connections</h2>
                 <p className="text-sm text-ink-muted">Connect external Calendar obligations to planning.</p>
               </div>
             </div>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-center gap-4">
-                <CalendarSyncLed connected={calendarConnected} />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-medium text-ink-soft">
-                      {isNativeIOS ? 'Device Calendar' : 'Google Calendar'}
-                    </h3>
-                    {calendarConnected && <CheckCircle2 className="h-4 w-4 text-state-success" />}
+            <div className="divide-y divide-line/70">
+              {isNativeIOS && (
+                <div className="flex flex-col gap-4 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-4">
+                    <CalendarSyncLed connected={deviceCalendarConnected} />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-medium text-ink-soft">Device Calendar</h3>
+                        {deviceCalendarConnected && <CheckCircle2 className="h-4 w-4 text-state-success" />}
+                      </div>
+                      <p className="text-sm text-ink-muted">
+                        {deviceCalendarUnavailable
+                          ? `Device Calendar unavailable: ${deviceCalendarUnavailable}`
+                          : deviceCalendarConnected
+                            ? 'Connected to calendars on this iPhone. Automatically sync timed Items. Calendar data stays on this iPhone.'
+                            : deviceCalendarAuthorization?.status === 'denied'
+                              ? 'Calendar access is denied. You can change it in iOS Settings.'
+                              : deviceCalendarAuthorization?.status === 'restricted'
+                                ? 'Calendar access is restricted on this iPhone.'
+                                : 'Include this iPhone’s Calendar obligations in Today and automatically sync timed Items. Calendar data stays on this iPhone.'}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm text-ink-muted">
-                    {calendarUnavailable
-                      ? `Calendar unavailable: ${calendarUnavailable}`
-                      : isNativeIOS
-                        ? calendarConnected
-                          ? 'Connected to calendars on this iPhone. Automatically sync timed Items. Calendar data stays on this iPhone.'
-                          : deviceCalendarAuthorization?.status === 'denied'
-                            ? 'Calendar access is denied. You can change it in iOS Settings.'
-                            : deviceCalendarAuthorization?.status === 'restricted'
-                              ? 'Calendar access is restricted on this iPhone.'
-                              : 'Include this iPhone’s Calendar obligations in Today and automatically sync timed Items. Calendar data stays on this iPhone.'
-                        : calendarStatus?.connected
-                          ? `Connected to ${calendarStatus.accountEmail || 'Google Calendar'}`
-                          : 'Connect Google Calendar to start syncing timed tasks'}
-                  </p>
+                  <div className="flex items-center gap-2 sm:justify-end">
+                    {deviceCalendarLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-ink-muted">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Checking
+                      </div>
+                    ) : deviceCalendarAuthorization?.status === 'not_determined' || deviceCalendarAuthorization === null ? (
+                      <button
+                        onClick={deviceCalendarUnavailable ? loadDeviceCalendarStatus : handleConnectDeviceCalendar}
+                        disabled={deviceCalendarActionLoading}
+                        className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
+                      >
+                        {deviceCalendarActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
+                        {deviceCalendarUnavailable ? 'Retry' : 'Connect Calendar'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleOpenDeviceCalendarSettings}
+                        disabled={deviceCalendarActionLoading}
+                        className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm"
+                      >
+                        {deviceCalendarActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
+                        Open iOS Settings
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="flex items-center gap-2 sm:justify-end">
-                {calendarLoading ? (
-                  <div className="flex items-center gap-2 text-sm text-ink-muted">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Checking
+              {googleCalendarEligible && (
+                <div className="flex flex-col gap-4 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-center gap-4">
+                    <CalendarSyncLed connected={googleCalendarConnected} />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-medium text-ink-soft">Google Calendar · Cloud</h3>
+                        {googleCalendarConnected && <CheckCircle2 className="h-4 w-4 text-state-success" />}
+                      </div>
+                      <p className="text-sm text-ink-muted">
+                        {googleCalendarUnavailable
+                          ? `Google Calendar unavailable: ${googleCalendarUnavailable}`
+                          : googleCalendarConnected
+                            ? `Connected to ${googleCalendarStatus?.accountEmail || 'Google Calendar'}`
+                            : 'Connect Google Calendar through HealthyFlow Cloud.'}
+                      </p>
+                    </div>
                   </div>
-                ) : isNativeIOS ? (
-                  deviceCalendarAuthorization?.status === 'not_determined' || deviceCalendarAuthorization === null ? (
-                    <button
-                      onClick={calendarUnavailable ? loadCalendarStatus : handleConnectDeviceCalendar}
-                      disabled={calendarActionLoading}
-                      className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
-                    >
-                      {calendarActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
-                      {calendarUnavailable ? 'Retry' : 'Connect Calendar'}
-                    </button>
-                  ) : (
-                    <button
-                      onClick={handleOpenDeviceCalendarSettings}
-                      disabled={calendarActionLoading}
-                      className="btn-secondary inline-flex items-center gap-2 px-4 py-2 text-sm"
-                    >
-                      {calendarActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Smartphone className="h-4 w-4" />}
-                      Open iOS Settings
-                    </button>
-                  )
-                ) : calendarStatus?.connected ? (
-                  <button
-                    onClick={handleDisconnectGoogleCalendar}
-                    disabled={calendarActionLoading}
-                    className="inline-flex items-center gap-2 rounded-lg border border-state-danger/30 px-3 py-2 text-sm font-medium text-state-danger transition-colors hover:bg-state-danger/10 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {calendarActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unplug className="h-4 w-4" />}
-                    Disconnect
-                  </button>
-                ) : (
-                  <button
-                    onClick={handleConnectGoogleCalendar}
-                    disabled={calendarActionLoading}
-                    className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
-                  >
-                    {calendarActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
-                    Connect Google
-                  </button>
-                )}
-              </div>
+                  <div className="flex items-center gap-2 sm:justify-end">
+                    {googleCalendarLoading ? (
+                      <div className="flex items-center gap-2 text-sm text-ink-muted">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Checking
+                      </div>
+                    ) : googleCalendarConnected ? (
+                      <button
+                        onClick={handleDisconnectGoogleCalendar}
+                        disabled={googleCalendarActionLoading}
+                        className="inline-flex items-center gap-2 rounded-lg border border-state-danger/30 px-3 py-2 text-sm font-medium text-state-danger transition-colors hover:bg-state-danger/10 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {googleCalendarActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Unplug className="h-4 w-4" />}
+                        Disconnect
+                      </button>
+                    ) : (
+                      <button
+                        onClick={googleCalendarUnavailable ? loadGoogleCalendarStatus : handleConnectGoogleCalendar}
+                        disabled={googleCalendarActionLoading}
+                        className="btn-primary inline-flex items-center gap-2 px-4 py-2 text-sm"
+                      >
+                        {googleCalendarActionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CalendarDays className="h-4 w-4" />}
+                        {googleCalendarUnavailable ? 'Retry' : 'Connect Google'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          </div>}
 
       <div className="card">
         <div className="mb-4 flex items-center space-x-3">

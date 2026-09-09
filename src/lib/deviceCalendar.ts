@@ -38,6 +38,17 @@ export type DeviceCalendarAuthorization = z.infer<typeof DeviceCalendarAuthoriza
 export type DeviceCalendarReadResult = z.infer<typeof DeviceCalendarReadResultSchema>
 export const DEVICE_CALENDAR_CONNECTION_CHANGED_EVENT = 'healthyflow:device-calendar-connection-changed'
 
+const HostedGoogleCalendarAccessInputSchema = z.object({
+  claimed: z.boolean(),
+  cloudActive: z.boolean(),
+  surfaceEnabled: z.boolean(),
+}).strict()
+
+export function canUseHostedGoogleCalendar(input: z.input<typeof HostedGoogleCalendarAccessInputSchema>) {
+  const access = HostedGoogleCalendarAccessInputSchema.parse(input)
+  return access.claimed && access.cloudActive && access.surfaceEnabled
+}
+
 export const DeviceCalendarItemInputSchema = z.object({
   itemId: z.string().min(1),
   eventIdentifier: z.string().min(1).nullable(),

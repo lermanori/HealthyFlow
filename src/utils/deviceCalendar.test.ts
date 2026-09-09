@@ -6,6 +6,7 @@ import { createLocalTask } from '../lib/local/day'
 import { loadLocalDatabase, memoryDriver, setLocalStoreDriver } from '../lib/local/store'
 import {
   createCalendarEventReader,
+  canUseHostedGoogleCalendar,
   createDeviceCalendarItemSync,
   createDeviceCalendarService,
   createWebGoogleCalendarMutation,
@@ -17,6 +18,21 @@ import {
 const { DaySummaryCalendarEventSchema } = DaySummaryContracts
 
 describe('Device Calendar day contract', () => {
+  it('shows hosted Google only to a claimed active Cloud identity on an enabled surface', () => {
+    assert.equal(canUseHostedGoogleCalendar({
+      claimed: true,
+      cloudActive: true,
+      surfaceEnabled: true,
+    }), true)
+    for (const input of [
+      { claimed: false, cloudActive: true, surfaceEnabled: true },
+      { claimed: true, cloudActive: false, surfaceEnabled: true },
+      { claimed: true, cloudActive: true, surfaceEnabled: false },
+    ]) {
+      assert.equal(canUseHostedGoogleCalendar(input), false)
+    }
+  })
+
   it('syncs a timed Item to one validated EventKit event', async () => {
     const writes: unknown[] = []
     const sync = createDeviceCalendarItemSync({
@@ -404,8 +420,9 @@ describe('Device Calendar day contract', () => {
     assert.match(plugin, /filter \{ !isHealthyFlowItemEvent\(\$0\) \}/)
   })
 
-  it('uses Device Calendar settings on iOS without starting backend Google OAuth', () => {
+  it('keeps Device Calendar available on iOS independently of hosted Google', () => {
     const settings = readFileSync('src/pages/SettingsPage.tsx', 'utf8')
+    const flags = readFileSync('src/featureFlags.ts', 'utf8')
     const week = readFileSync('src/pages/WeekViewPage.tsx', 'utf8')
     const timeline = readFileSync('src/components/DayTimeline.tsx', 'utf8')
 
@@ -413,10 +430,26 @@ describe('Device Calendar day contract', () => {
     assert.match(settings, /Device Calendar/)
     assert.match(settings, /automatically sync timed Items/i)
     assert.match(settings, /Calendar data stays on this iPhone/)
-    assert.match(settings, /isNativeIOS\s*\?[\s\S]+Connect Calendar/)
+    assert.match(settings, /isNativeIOS && \(/)
+    assert.match(settings, /Connect Calendar/)
+    assert.match(flags, /VITE_NATIVE_GOOGLE_CALENDAR_ENABLED === 'true'/)
     assert.match(week, /queryFn:\s*\(\)\s*=>\s*calendarService\.getEvents\(dateKey\)/)
     assert.match(timeline, /event\.provider\s*===\s*'device'/)
     assert.doesNotMatch(week, /queryFn:[^\n]+getGoogleEvents/)
+  })
+
+  it('stages a separate Cloud-only native Google connection with a native OAuth return', () => {
+    const settings = readFileSync('src/pages/SettingsPage.tsx', 'utf8')
+    const api = readFileSync('src/services/api.ts', 'utf8')
+    const runbook = readFileSync('docs/runbooks/app-store-v1.md', 'utf8')
+
+    assert.match(settings, /canUseHostedGoogleCalendar/)
+    assert.match(settings, /cloudActive: Boolean\(creditSummary\?\.subscription\.active\)/)
+    assert.match(settings, /surfaceEnabled: !isNativeIOS \|\| NATIVE_GOOGLE_CALENDAR_ENABLED/)
+    assert.match(settings, /Google Calendar · Cloud/)
+    assert.match(settings, /openNativeBrowser\(url\)/)
+    assert.match(api, /returnTarget: isNativeIOS \? 'native' : 'web'/)
+    assert.match(runbook, /leave `VITE_CLOUD_SYNC_ENABLED` and\s+`VITE_NATIVE_GOOGLE_CALENDAR_ENABLED` unset/)
   })
 
   it('runs automatic Device Calendar reconciliation app-wide and exposes retryable failure', () => {
@@ -450,7 +483,7 @@ describe('Device Calendar day contract', () => {
   it('rechecks the visible permission state after returning from iOS Settings', () => {
     const settings = readFileSync('src/pages/SettingsPage.tsx', 'utf8')
 
-    assert.match(settings, /healthyflow:app-state[\s\S]+loadCalendarStatus\(\)/)
+    assert.match(settings, /healthyflow:app-state[\s\S]+loadDeviceCalendarStatus\(\)/)
   })
 
   it('reads native Calendar events without invoking the backend Google reader', async () => {
