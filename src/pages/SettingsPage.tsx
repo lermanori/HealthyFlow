@@ -15,6 +15,8 @@ import {
   deviceCalendarService,
   type DeviceCalendarAuthorization,
 } from '../lib/deviceCalendar'
+import { calendarPathDiagnosis, calendarPathReasons } from '../lib/local/calendarPathDiagnostics'
+import { localDayUser, rememberedLocalDayOwner } from '../lib/local/services'
 import { isNativeIOS, openNativeBrowser } from '../lib/native'
 import { NATIVE_GOOGLE_CALENDAR_ENABLED } from '../featureFlags'
 import { AssistantProfileSchema, DEFAULT_PLANNING_WINDOW } from '../../backend/src/settings-schema'
@@ -234,6 +236,13 @@ export default function SettingsPage() {
   const [deviceCalendarLoading, setDeviceCalendarLoading] = useState(isNativeIOS)
   const [googleCalendarActionLoading, setGoogleCalendarActionLoading] = useState(false)
   const [deviceCalendarActionLoading, setDeviceCalendarActionLoading] = useState(false)
+  const calendarPath = calendarPathDiagnosis({
+    isNativeIOS,
+    user: user ? { id: user.id, email: user.email } : null,
+    dayUserId: localDayUser(),
+    rememberedOwnerId: rememberedLocalDayOwner(),
+    calendarAuthorization: deviceCalendarAuthorization?.status ?? 'not_determined',
+  })
   const [contactFlow, setContactFlow] = useState<'feedback' | 'more_actions' | null>(null)
   const [contactMessage, setContactMessage] = useState('')
   const [contactReplyTo, setContactReplyTo] = useState('')
@@ -1497,6 +1506,28 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                       </button>
                     )}
                   </div>
+                </div>
+              )}
+
+              {isNativeIOS && (
+                <div className="py-4 first:pt-0 last:pb-0">
+                  <h3 className="text-sm font-medium text-ink-soft">Calendar write path</h3>
+                  <p className="text-sm text-ink-muted">
+                    {calendarPath.reachesEventKit
+                      ? 'Timed Items on this device are written to your iPhone Calendar.'
+                      : 'Timed Items on this device are NOT reaching your iPhone Calendar.'}
+                  </p>
+                  <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-ink-muted">
+                    <dt>Identity</dt><dd className="text-ink-soft">{calendarPath.identity}</dd>
+                    <dt>Day branch</dt><dd className="text-ink-soft">{calendarPath.branch}</dd>
+                  </dl>
+                  {calendarPathReasons(calendarPath).length > 0 && (
+                    <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-state-warning">
+                      {calendarPathReasons(calendarPath).map((reason) => (
+                        <li key={reason}>{reason}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
 
