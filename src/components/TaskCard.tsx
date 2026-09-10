@@ -10,6 +10,8 @@ import { format, parseISO } from 'date-fns'
 import { getCategoryPresentation } from '../categoryPresentation'
 import { Link } from 'react-router-dom'
 import { getModulePresentation, moduleHealthHref } from '../modulePresentation'
+import { formatClockRange } from '../utils/dateHelpers'
+import { calendarItemStatus } from '../utils/calendarItemStatus'
 
 interface TaskCardProps {
   task: Task
@@ -174,37 +176,53 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
     }
   }
 
-  const renderGoogleSyncBadge = () => {
+  /**
+   * Calendar status names the provider that actually handled this Item.
+   *
+   * On iPhone the day is Local and Calendar is EventKit (ADR-0020), so the
+   * backend Google adapter never ran and its fields describe nothing. Reporting
+   * them there — or reporting silence after a failed EventKit write — asserts
+   * something untrue about where the Item went.
+   */
+  const renderCalendarStatusBadge = () => {
     if (!task.startTime || task.type !== 'task') return null
 
-    if (task.syncedToGoogle && task.googleSyncStatus === 'synced') {
-      return (
-        <span className={`flex items-center space-x-1 rounded-full border border-state-success/30 bg-state-success/15 text-xs text-state-success ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
-          <Calendar className="w-3 h-3" />
-          <span>Synced</span>
-        </span>
-      )
-    }
+    const status = calendarItemStatus(task)
+    if (!status) return null
 
-    if (task.googleSyncStatus === 'failed') {
-      return (
-        <span className={`flex items-center space-x-1 rounded-full border border-state-danger/30 bg-state-danger/15 text-xs text-state-danger ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
-          <AlertTriangle className="w-3 h-3" />
-          <span>Sync failed</span>
-        </span>
-      )
-    }
+    const presentation: { tone: 'success' | 'danger' | 'accent'; Icon: typeof Calendar; label: string; title?: string } =
+      status.provider === 'device'
+      ? status.state === 'failed'
+        ? { tone: 'danger', Icon: AlertTriangle, label: 'Not in Calendar', title: status.error }
+        : { tone: 'success', Icon: Calendar, label: 'In Calendar', title: 'This Item is in your iPhone Calendar.' }
+      : status.state === 'failed'
+        ? { tone: 'danger', Icon: AlertTriangle, label: 'Google sync failed', title: undefined }
+        : status.state === 'pending'
+          ? { tone: 'accent', Icon: RefreshCw, label: 'Syncing to Google', title: undefined }
+          : { tone: 'success', Icon: Calendar, label: 'In Google Calendar', title: undefined }
 
-    if (task.googleSyncStatus === 'pending') {
-      return (
-        <span className={`flex items-center space-x-1 rounded-full border border-accent/30 bg-accent/15 text-xs text-accent ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
-          <RefreshCw className="w-3 h-3" />
-          <span>Syncing</span>
-        </span>
-      )
-    }
+    const tones = {
+      success: 'border-state-success/30 bg-state-success/15 text-state-success',
+      danger: 'border-state-danger/30 bg-state-danger/15 text-state-danger',
+      accent: 'border-accent/30 bg-accent/15 text-accent',
+    } as const
+    const { Icon } = presentation
 
-    return null
+    // The compact timeline row is `whitespace-nowrap overflow-hidden`, so a text
+    // badge is clipped mid-word there. Compact keeps the icon and moves the words
+    // into the accessible name rather than showing half of them.
+    return (
+      <span
+        title={presentation.title ?? presentation.label}
+        aria-label={presentation.label}
+        className={`flex shrink-0 items-center rounded-full border text-xs ${tones[presentation.tone]} ${
+          compact ? 'gap-0 px-1 py-0 leading-4' : 'gap-1 px-2 py-1'
+        }`}
+      >
+        <Icon className="h-3 w-3 shrink-0" />
+        {!compact && <span>{presentation.label}</span>}
+      </span>
+    )
   }
 
   // Check if this is a rolled over task
@@ -327,18 +345,18 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                </span>
              )}
             
-            {task.startTime && (
+            {/* One clock range, the same shape a Calendar obligation shows, so
+                two rows describing the same kind of commitment read alike. */}
+            {task.startTime ? (
               <span className="flex shrink-0 items-center space-x-1 text-xs text-ink-muted">
                 <Clock className="h-3 w-3" />
-                <span>{task.startTime}</span>
+                <span>{formatClockRange(task.startTime, task.duration)}</span>
               </span>
-            )}
-            
-            {task.duration && (
+            ) : task.duration ? (
               <span className="shrink-0 text-xs text-ink-muted">
                 {task.duration}min
               </span>
-            )}
+            ) : null}
 
             {task.type === 'task' && task.location && (
               <span className="flex min-w-0 items-center space-x-1 text-xs text-ink-muted">
@@ -364,7 +382,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
               </Link>
             )}
 
-            {renderGoogleSyncBadge()}
+            {renderCalendarStatusBadge()}
           </div>
 
           {/* Item-specific details */}

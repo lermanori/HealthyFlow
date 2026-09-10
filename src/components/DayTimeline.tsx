@@ -275,8 +275,11 @@ function CalendarEventBlock({
               </h3>
             </div>
 
-            <span className="hidden shrink-0 rounded-full border border-state-success/30 bg-state-success/15 px-2 py-1 text-xs text-state-success sm:inline-flex">
-              Calendar · fixed
+            <span
+              title="Device Calendar events are read-only in HealthyFlow."
+              className="inline-flex shrink-0 rounded-full border border-state-success/30 bg-state-success/15 px-1.5 py-0.5 text-xs text-state-success sm:px-2 sm:py-1"
+            >
+              Fixed<span className="hidden sm:inline">&nbsp;· Calendar</span>
             </span>
           </div>
 
@@ -562,14 +565,23 @@ export default function DayTimeline({
     if (habit?.type === 'habit') onHabitCheckIn(habit)
   }
 
+  /**
+   * A row with no drag grip still needs the grip's gutter, or its card starts
+   * 50px left of every Item's card and the timeline reads as two columns.
+   */
+  const GripGutter = () => <div aria-hidden="true" className="h-11 w-11 shrink-0 self-center" />
+
   const renderCalendarRow = (event: ExternalCalendarEvent, index: number) => (
     event.provider === 'device' ? (
       <div
         data-timeline-drag-id={`calendar:${event.id}`}
-        className="min-w-0"
+        className="relative flex min-h-0 min-w-0 gap-1.5"
         style={{ height: timedBlockHeight(eventDurationMinutes(event)) }}
       >
-        <CalendarEventBlock event={event} onComplete={onCalendarEventComplete} />
+        <GripGutter />
+        <div className="h-full min-w-0 flex-1">
+          <CalendarEventBlock event={event} onComplete={onCalendarEventComplete} />
+        </div>
       </div>
     ) : <Draggable draggableId={`calendar:${event.id}`} index={index}>
       {(provided, snapshot) => (
@@ -579,13 +591,16 @@ export default function DayTimeline({
           {...provided.dragHandleProps}
           data-timeline-drag-handle="true"
           data-timeline-drag-id={`calendar:${event.id}`}
-          className={`min-w-0 ${snapshot.isDragging ? 'opacity-90' : ''}`}
+          className={`relative flex min-h-0 min-w-0 gap-1.5 ${snapshot.isDragging ? 'opacity-90' : ''}`}
           style={{
             ...provided.draggableProps.style,
             height: timedBlockHeight(eventDurationMinutes(event)),
           }}
         >
-          <CalendarEventBlock event={event} onComplete={onCalendarEventComplete} />
+          <GripGutter />
+          <div className="h-full min-w-0 flex-1">
+            <CalendarEventBlock event={event} onComplete={onCalendarEventComplete} />
+          </div>
         </div>
       )}
     </Draggable>

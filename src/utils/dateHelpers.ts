@@ -115,3 +115,24 @@ export function isTimeSlotAvailable(
     return (slotStart < taskEnd && slotEnd > taskStart)
   })
 }
+
+/**
+ * A timed Item's clock range, in the same shape a Calendar obligation shows.
+ *
+ * Today put an Item's start and duration in separate places (`19:00` then
+ * `30min`) while a Calendar event showed a range (`17:00 - 18:00`), so two rows
+ * describing the same kind of commitment read as different kinds of thing. An
+ * Item with no duration keeps showing only its start: inventing an end time
+ * would assert a commitment the Item never carried.
+ */
+export function formatClockRange(startTime: string, durationMinutes?: number | null): string {
+  if (!durationMinutes || durationMinutes <= 0) return startTime
+  const [hours, minutes] = startTime.split(':').map(Number)
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return startTime
+  const end = hours * 60 + minutes + durationMinutes
+  // Past midnight the end belongs to the next day; showing a wrapped clock alone
+  // would read as an earlier time on the same day.
+  if (end >= 24 * 60) return startTime
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `${startTime} - ${pad(Math.floor(end / 60))}:${pad(end % 60)}`
+}
