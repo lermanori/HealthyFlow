@@ -25,7 +25,7 @@ const MonthlyFreeCreditClaimSchema = z.object({
 })
 
 const GuestInitialCreditClaimSchema = z.object({
-  status: z.enum(['granted', 'already_claimed', 'not_guest']),
+  status: z.enum(['granted', 'already_claimed', 'not_guest', 'network_limited']),
   balance: z.coerce.number().int().nonnegative(),
 })
 
@@ -64,6 +64,8 @@ export const db = {
     signup_method?: 'password' | 'google' | 'apple' | 'guest'
     pending_invite_token?: string
     claimed_public_signup_slot?: boolean
+    /** Whether this Guest won its network's action-grant reservation (ADR-0023). */
+    guest_grant_ip_reserved?: boolean
   }) {
     const { data, error } = await supabase
       .from('users')
@@ -1269,6 +1271,20 @@ export const db = {
     if (error) throw error
     const row: unknown = Array.isArray(data) ? data[0] : data
     return GuestInitialCreditClaimSchema.parse(row)
+  },
+
+  /**
+   * Take this network's Guest grant reservation, or report it already held
+   * (ADR-0023). The RPC is the atomic decision; two Guests created from one
+   * network at the same instant serialise inside it and exactly one wins.
+   */
+  async reserveGuestGrantIp(ipHash: string, windowHours: number): Promise<boolean> {
+    const { data, error } = await supabase.rpc('reserve_guest_grant_ip', {
+      p_ip_hash: ipHash,
+      p_window_hours: windowHours,
+    })
+    if (error) throw error
+    return z.boolean().parse(data)
   },
 
   /** Read a lazy free entitlement without writing or folding it into balance. */

@@ -12,6 +12,7 @@ jest.mock('../../src/supabase-client', () => ({
     getUserById: jest.fn(),
     createUser: jest.fn(),
     releasePublicSignupSlot: jest.fn(),
+    reserveGuestGrantIp: jest.fn(),
   },
 }))
 
@@ -55,6 +56,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   mockDb.releasePublicSignupSlot.mockResolvedValue(true)
   mockDb.createUser.mockResolvedValue(guestRow)
+  mockDb.reserveGuestGrantIp.mockResolvedValue(true)
   mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: true, via: 'public' })
 })
 
@@ -178,5 +180,55 @@ describe('GET /api/auth/verify — Guest session renewal', () => {
 
     expect(res.status).toBe(200)
     expect(res.body.token).toBeUndefined()
+  })
+})
+
+// ADR-0023 — the once-ever Guest grant is reserved per network, because "once"
+// keyed only to the users row is defeated by deleting and reinstalling the app.
+describe('POST /api/auth/guest — network grant reservation', () => {
+  it('marks the Guest eligible when this network has no live reservation', async () => {
+    const res = await request(app).post('/api/auth/guest').set('X-Forwarded-For', '30.0.1.1')
+
+    expect(res.status).toBe(200)
+    expect(mockDb.createUser).toHaveBeenCalledWith(expect.objectContaining({
+      guest_grant_ip_reserved: true,
+    }))
+  })
+
+  it('keys the reservation to a derived value, never the address itself', async () => {
+    await request(app).post('/api/auth/guest').set('X-Forwarded-For', '30.0.1.2')
+
+    const [ipHash, windowHours] = mockDb.reserveGuestGrantIp.mock.calls[0]
+    expect(ipHash).toMatch(/^[0-9a-f]{64}$/)
+    expect(ipHash).not.toContain('30.0.1.2')
+    expect(windowHours).toBe(24)
+  })
+
+  it('lets a second Guest on the same network in, but without the action grant', async () => {
+    mockDb.reserveGuestGrantIp.mockResolvedValue(false)
+
+    const res = await request(app).post('/api/auth/guest').set('X-Forwarded-For', '30.0.1.3')
+
+    // Entry is not the grant. Losing the reservation withholds ten AI actions;
+    // it must never cost someone the Local day they came for.
+    expect(res.status).toBe(200)
+    expect(res.body.user.email).toBeNull()
+    expect(mockDb.createUser).toHaveBeenCalledWith(expect.objectContaining({
+      guest_grant_ip_reserved: false,
+    }))
+  })
+
+  it('withholds the grant when the reservation breaks, rather than paying it out', async () => {
+    mockDb.reserveGuestGrantIp.mockRejectedValue(new Error('reservation store unreachable'))
+
+    const res = await request(app).post('/api/auth/guest').set('X-Forwarded-For', '30.0.1.4')
+
+    // A failed read is not an empty result: an unreachable reservation store
+    // must not be read as "this network is free", which would reopen farming
+    // for exactly as long as the outage lasts.
+    expect(res.status).toBe(200)
+    expect(mockDb.createUser).toHaveBeenCalledWith(expect.objectContaining({
+      guest_grant_ip_reserved: false,
+    }))
   })
 })
