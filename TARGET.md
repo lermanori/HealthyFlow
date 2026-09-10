@@ -164,10 +164,12 @@ account identity and recurring free actions, not backup or a second device.
 **The app is free, works offline, and needs no account.** That is not a trial —
 nothing expires, and no part of the day itself is withheld.
 
-**v1 is free and has no purchase rail** (ADR-0019). Nothing can be bought, nobody
-can hold Cloud, and the app contains no price, Subscribe button, Buy button,
-StoreKit product, RevenueCat SDK, or external checkout. The Local day remains a
-real product without either an account or money.
+**v1 is free and has no purchase rail** (ADR-0019). Nothing can be bought and no
+user can obtain Cloud in v1. The founder's existing Cloud entitlement is a
+legacy operational exception, not a plan users can acquire. The app contains no
+price, Subscribe button, Buy button, StoreKit product, RevenueCat SDK, or
+external checkout. The Local day remains a real product without either an
+account or money.
 
 **Gap recorded 2026-09-06:** the current Settings and administration surfaces
 still carry paid-plan controls. Removing every v1 acquisition/grant path is #233;

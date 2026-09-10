@@ -1,3 +1,13 @@
+### 2026-09-10 12:56 — `codex/calendar-v1-contract`
+
+Defined the v1 Calendar provider and identity contract, including Local-day
+ownership for every iPhone identity, the founder-only legacy Google exception,
+two-way Device Calendar deletion, and last-save-wins conflict handling. Updated
+the live day architecture and iOS verification runbook, and recorded the dated
+implementation gaps exposed by the founder-account device report.
+
+---
+
 ### 2026-09-09 20:07 — `codex/257-compose-device-google`
 
 Corrected the CI runner isolation for both legacy `.list` and current
