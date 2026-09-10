@@ -447,15 +447,18 @@ export async function clearLocalDay(userId?: string | null): Promise<void> {
   loaded = null
 }
 
-export async function loadLocalDatabase(userId: string): Promise<LocalDatabase> {
-  if (loaded && loaded.userId === userId) return loaded
-
+/**
+ * Read this person's persisted Local day without inventing an empty one.
+ *
+ * Session restoration needs to distinguish "this account already has a day on
+ * this iPhone" from "download its day before opening". `loadLocalDatabase`
+ * deliberately erases that distinction for ordinary first writes, so the
+ * identity boundary uses this explicit read instead.
+ */
+export async function readStoredLocalDatabase(userId: string): Promise<LocalDatabase | null> {
   const own = await driver.read(documentName(userId))
   const contents = own ?? await driver.read(LEGACY_DOCUMENT_NAME)
-  if (contents === null) {
-    loaded = emptyLocalDatabase(userId)
-    return loaded
-  }
+  if (contents === null) return null
 
   let parsed: unknown
   try {
@@ -486,6 +489,16 @@ export async function loadLocalDatabase(userId: string): Promise<LocalDatabase> 
   if (own === null) await moveOntoItsOwnersName(result.data)
 
   loaded = result.data
+  return loaded
+}
+
+export async function loadLocalDatabase(userId: string): Promise<LocalDatabase> {
+  if (loaded && loaded.userId === userId) return loaded
+
+  const stored = await readStoredLocalDatabase(userId)
+  if (stored) return stored
+
+  loaded = emptyLocalDatabase(userId)
   return loaded
 }
 

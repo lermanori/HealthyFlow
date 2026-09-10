@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import AuthContracts, { type SessionUser } from '../../../backend/src/auth-contracts'
 import type {
   CalendarSource,
   DaySummary,
@@ -39,6 +40,8 @@ import {
   LocalStoreError,
   LocalTaskRowSchema,
   mutateLocalDatabase,
+  readStoredLocalDatabase,
+  replaceLocalDay,
   setLocalDayOwnerEmail,
   type LocalDatabase,
   type LocalTaskRow,
@@ -75,8 +78,10 @@ import {
   updateLocalWorkoutSession,
 } from './health'
 import { createLocalGoal, listLocalGoals, updateLocalGoal } from './goals'
+import { localDayFromExport } from './adopt'
 
 const { CapabilityItemSchema } = TaskContracts
+const { SessionUserSchema } = AuthContracts
 const { HabitProgressDetailSchema, deriveHabitOutcome } = HabitContracts
 const { WorkoutPlanSchema, WorkoutSessionSchema } = WorkoutContracts
 const { AchievementEntrySchema } = AchievementContracts
@@ -149,6 +154,68 @@ export function setLocalDayUser(userId: string | null, ownerEmail: string | null
 
 export function localDayUser(): string | null {
   return dayUserId
+}
+
+export const AccountDayRestorationResultSchema = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('existing'), userId: z.string().min(1) }).strict(),
+  z.object({ state: z.literal('downloaded'), userId: z.string().min(1) }).strict(),
+])
+export type AccountDayRestorationResult = z.infer<typeof AccountDayRestorationResultSchema>
+
+export class AccountDayRestorationError extends Error {
+  readonly cause: unknown
+
+  constructor(cause: unknown) {
+    super('The account day could not be restored on this iPhone.')
+    this.name = 'AccountDayRestorationError'
+    this.cause = cause
+  }
+}
+
+/**
+ * Restore the Local-day invariant before a verified account session is exposed.
+ *
+ * A matching persisted document is already the source. Re-select it without an
+ * archive request or replacement write: downloading over newer device changes
+ * would turn session restoration into data loss. When no document exists, the
+ * verified archive is validated and persisted before this function selects it.
+ */
+export async function restoreAccountDayForSession(input: {
+  user: SessionUser
+  token: string
+  downloadArchive: (token: string) => Promise<Record<string, unknown>>
+}): Promise<AccountDayRestorationResult> {
+  try {
+    const user = SessionUserSchema.parse(input.user)
+    if (user.email === null) {
+      throw new LocalStoreError('A Guest already owns a Local day and cannot restore an account day.')
+    }
+    z.string().min(1).parse(input.token)
+
+    const existing = await readStoredLocalDatabase(user.id)
+    if (!existing) {
+      const archive = await input.downloadArchive(input.token)
+      await replaceLocalDay(localDayFromExport(user.id, archive))
+    } else if (existing.ownerEmail !== user.email) {
+      // Claim keeps the same id and moves no day. A document written before the
+      // claim can therefore still say Guest until its next ordinary mutation;
+      // the verified account identity is sufficient to correct only that
+      // ownership metadata without touching the day's records.
+      await replaceLocalDay({ ...existing, ownerEmail: user.email })
+    }
+
+    rememberLocalDayOwner(user.id)
+    setLocalDayUser(user.id, user.email)
+    return AccountDayRestorationResultSchema.parse({
+      state: existing ? 'existing' : 'downloaded',
+      userId: user.id,
+    })
+  } catch (cause) {
+    setLocalDayUser(null)
+    throw cause instanceof AccountDayRestorationError
+      ? cause
+      : new AccountDayRestorationError(cause)
+  }
 }
 
 type HabitProgressDetail = z.infer<typeof HabitProgressDetailSchema>
