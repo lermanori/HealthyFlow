@@ -33,6 +33,7 @@ each returns its own refusal code so the app can say what actually happened.
 |---|---|---|---|
 | Global daily ceiling | `GLOBAL_DAILY_COST_CEILING_USD` | **$25**/day, all users | The disaster case: a loop, a leaked token, a bug in a retry. Sums `ai_usage_log.cost_usd` for the UTC day and refuses everything past it. |
 | Per-account daily cap | `FREE_DAILY_ACTION_CAP` | **200** actions/day | One account draining itself or the ceiling. ~60× a heavy day. |
+| Guest grant per network | `GUEST_GRANT_IP_WINDOW_HOURS` | **24** hours | Reinstall farming. Without it, deleting the app mints a fresh Guest row and a fresh ten-action grant indefinitely — ~480/day from one address, ~$9.36/day, and about three addresses exhaust the global ceiling. See [ADR-0023](../adr/0023-the-guest-grant-is-reserved-per-network.md). |
 | Prompt size | `MAX_PROMPT_CHARS` | **24,000** chars | One paste buying an unbounded call. Counts the system prompt too. |
 | Images per request | `MAX_IMAGES_PER_REQUEST` | **4** | A batch upload multiplying the most expensive call class. |
 | Model allowlist | `loadModelPricing` | — | A model we cannot cost is a model we refuse to call. `UnpricedModelError` fires before the request. |
@@ -48,6 +49,16 @@ each returns its own refusal code so the app can say what actually happened.
   under the ceiling, so honest use never trips it.
 - Raise `GLOBAL_DAILY_COST_CEILING_USD` (env var) before a launch push, not after
   the refusals start.
+
+**The Guest grant guard has a false-positive cost, unlike the others.** A shared
+network — carrier NAT, an office, a café, a conference — yields one Guest action
+grant per day, and everyone after the first is told their network already used
+them and offered Claim. Watch Guest→Claim conversion and Founders Club messages
+after launch: a spike in `network_limited` from real users is the signal to
+shorten `GUEST_GRANT_IP_WINDOW_HOURS` or move the guard to a per-device axis.
+Set `GUEST_GRANT_IP_SECRET` in the server environment; without it the reservation
+key falls back to `JWT_SECRET`, and rotating either resets every live
+reservation.
 
 `backend/tests/credits/action-pricing.test.ts` pins all of this. If those tests
 fail, a price or a guard moved — decide whether you meant it before updating them.

@@ -42,6 +42,15 @@ export const FreeCreditGrantSchema = z.discriminatedUnion('state', [
     kind: z.enum(['guest_initial', 'monthly']),
     nextAvailableAt: z.string().datetime().nullable(),
   }),
+  // The Guest grant was never payable here because this network already took one
+  // inside the window (ADR-0023). Distinct from `claimed`, which means the ten
+  // actions were received and spent, and from `unavailable`, which means a read
+  // broke. Telling a person on a shared network that they used ten actions they
+  // never got is the dishonest exhaustion this state exists to prevent.
+  z.object({
+    state: z.literal('network_limited'),
+    kind: z.literal('guest_initial'),
+  }),
   z.object({
     state: z.literal('unavailable'),
     reason: z.string().min(1),

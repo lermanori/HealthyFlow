@@ -193,7 +193,9 @@ router.post('/guest', guestLimiter, async (req, res) => {
   }
 
   try {
-    const session = await Auth.startGuestSession()
+    // `trust proxy` is set in index.ts, so req.ip is the client address behind
+    // Railway's proxy rather than the proxy's own.
+    const session = await Auth.startGuestSession(req.ip)
     await recordLogin(session.user.id)
     return res.json(session)
   } catch (error) {

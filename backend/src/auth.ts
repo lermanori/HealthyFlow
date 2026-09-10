@@ -4,11 +4,26 @@ import jwt from 'jsonwebtoken'
 import { z } from 'zod'
 import type { SessionUser } from './auth-contracts'
 import type { User as SupabaseAuthUser } from '@supabase/supabase-js'
+import { GUEST_GRANT_IP_WINDOW_HOURS, hashClientIp } from './credits'
 import { Onboarding } from './onboarding'
 import { db, supabase } from './supabase-client'
 import { Waitlist, type SignupAuthorization } from './waitlist'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
+
+/**
+ * The key the Guest grant network reservation is HMAC'd under (ADR-0023).
+ *
+ * Same shape as `api-tokens.ts`: a dedicated secret if one is set, otherwise the
+ * server's existing one, and a throw if neither — never a per-boot random value,
+ * which would silently reset every reservation on each deploy and quietly reopen
+ * the farming path this guard closes.
+ */
+function guestGrantIpSecret(): string {
+  const secret = process.env.GUEST_GRANT_IP_SECRET || process.env.JWT_SECRET
+  if (!secret) throw new Error('GUEST_GRANT_IP_SECRET or JWT_SECRET is required')
+  return secret
+}
 
 // A Guest has no email and no password, so the session token is the only key to
 // their row — their credit balance today, their day once local data can be
@@ -270,15 +285,37 @@ async function exchangeProviderSession(
 
 // A Guest is a `users` row with no email: an identity to key credits and AI
 // metering against, and nothing more. Their day does not live here.
-async function startGuestSession() {
+async function startGuestSession(clientIp: string | undefined) {
   // The column is NOT NULL and a Guest chose no password, so the row carries an
   // unguessable one that nothing can sign in with.
   const password_hash = await bcrypt.hash(randomBytes(32).toString('base64url'), 10)
+
+  // Take the network's action-grant reservation now (ADR-0023). Creation is the
+  // one moment the client address is naturally in hand, and deciding here means
+  // a person who starts on café WiFi and then acts on cellular keeps the grant
+  // they were already given.
+  //
+  // Losing the reservation is not a failed entry: the Guest still gets their
+  // Local day, and only the ten AI actions are withheld. A reservation that
+  // *breaks* is different from one that is *held*, so it is not swallowed —
+  // the row is created unreserved and `network_limited` explains it, rather
+  // than a broken read silently paying out a grant.
+  let guest_grant_ip_reserved = false
+  try {
+    guest_grant_ip_reserved = await db.reserveGuestGrantIp(
+      hashClientIp(clientIp, guestGrantIpSecret()),
+      GUEST_GRANT_IP_WINDOW_HOURS,
+    )
+  } catch (error) {
+    console.error('Guest grant network reservation is unavailable:', error)
+  }
+
   const user = await db.createUser({
     email: null,
     name: GUEST_DISPLAY_NAME,
     password_hash,
     signup_method: 'guest',
+    guest_grant_ip_reserved,
   })
   if (!user) {
     throw new AuthFlowError(500, 'guest_creation_failed', 'Could not start without an account.')

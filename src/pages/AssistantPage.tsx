@@ -893,7 +893,7 @@ export default function AssistantPage() {
       if (refusalCode === 'insufficient_credits') {
         try {
           const exhaustion = actionExhaustionView(await creditsService.getSummary())
-          if (exhaustion?.kind === 'guest') {
+          if (exhaustion?.kind === 'guest' || exhaustion?.kind === 'network') {
             message = `${exhaustion.title}\n\n${exhaustion.detail} [Create a free account](/claim), or [ask the Founders Club for more free actions](/settings/account-billing#founders-club).`
           } else if (exhaustion?.kind === 'monthly') {
             const renewalDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'long' })
