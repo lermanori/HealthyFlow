@@ -1,3 +1,15 @@
+### 2026-09-10 16:44 — `codex/265-provider-calendar-status`
+
+Made Item Calendar status name the provider that actually handled it. The Local
+path now carries this device's EventKit bookkeeping onto each Item and renders
+`In Calendar` / `Not in Calendar` from it, while the hosted Google path keeps its
+own explicitly-labelled states. Correcting the issue's premise: on the Local path
+the old badge showed nothing at all — including after a failed EventKit write —
+rather than showing a false `Syncing`. Frontend typecheck, 351 unit tests, lint
+and the production build pass; device verification is with the founder.
+
+---
+
 ### 2026-09-10 14:44 — `codex/262-restore-local-day`
 
 Reproduced the founder-account Device Calendar banner on the connected iPhone

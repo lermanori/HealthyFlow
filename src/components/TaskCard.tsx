@@ -10,6 +10,7 @@ import { format, parseISO } from 'date-fns'
 import { getCategoryPresentation } from '../categoryPresentation'
 import { Link } from 'react-router-dom'
 import { getModulePresentation, moduleHealthHref } from '../modulePresentation'
+import { calendarItemStatus } from '../utils/calendarItemStatus'
 
 interface TaskCardProps {
   task: Task
@@ -174,37 +175,66 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
     }
   }
 
-  const renderGoogleSyncBadge = () => {
+  /**
+   * Calendar status names the provider that actually handled this Item.
+   *
+   * On iPhone the day is Local and Calendar is EventKit (ADR-0020), so the
+   * backend Google adapter never ran and its fields describe nothing. Reporting
+   * them there — or reporting silence after a failed EventKit write — asserts
+   * something untrue about where the Item went.
+   */
+  const renderCalendarStatusBadge = () => {
     if (!task.startTime || task.type !== 'task') return null
 
-    if (task.syncedToGoogle && task.googleSyncStatus === 'synced') {
+    const status = calendarItemStatus(task)
+    if (!status) return null
+
+    const padding = compact ? 'px-1.5 py-0.5' : 'px-2 py-1'
+
+    if (status.provider === 'device') {
+      if (status.state === 'failed') {
+        return (
+          <span
+            title={status.error}
+            className={`flex items-center space-x-1 rounded-full border border-state-danger/30 bg-state-danger/15 text-xs text-state-danger ${padding}`}
+          >
+            <AlertTriangle className="w-3 h-3" />
+            <span>Not in Calendar</span>
+          </span>
+        )
+      }
       return (
-        <span className={`flex items-center space-x-1 rounded-full border border-state-success/30 bg-state-success/15 text-xs text-state-success ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
+        <span className={`flex items-center space-x-1 rounded-full border border-state-success/30 bg-state-success/15 text-xs text-state-success ${padding}`}>
           <Calendar className="w-3 h-3" />
-          <span>Synced</span>
+          <span>In Calendar</span>
         </span>
       )
     }
 
-    if (task.googleSyncStatus === 'failed') {
+    if (status.state === 'failed') {
       return (
-        <span className={`flex items-center space-x-1 rounded-full border border-state-danger/30 bg-state-danger/15 text-xs text-state-danger ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
+        <span className={`flex items-center space-x-1 rounded-full border border-state-danger/30 bg-state-danger/15 text-xs text-state-danger ${padding}`}>
           <AlertTriangle className="w-3 h-3" />
-          <span>Sync failed</span>
+          <span>Google sync failed</span>
         </span>
       )
     }
 
-    if (task.googleSyncStatus === 'pending') {
+    if (status.state === 'pending') {
       return (
-        <span className={`flex items-center space-x-1 rounded-full border border-accent/30 bg-accent/15 text-xs text-accent ${compact ? 'px-1.5 py-0.5' : 'px-2 py-1'}`}>
+        <span className={`flex items-center space-x-1 rounded-full border border-accent/30 bg-accent/15 text-xs text-accent ${padding}`}>
           <RefreshCw className="w-3 h-3" />
-          <span>Syncing</span>
+          <span>Syncing to Google</span>
         </span>
       )
     }
 
-    return null
+    return (
+      <span className={`flex items-center space-x-1 rounded-full border border-state-success/30 bg-state-success/15 text-xs text-state-success ${padding}`}>
+        <Calendar className="w-3 h-3" />
+        <span>In Google Calendar</span>
+      </span>
+    )
   }
 
   // Check if this is a rolled over task
@@ -364,7 +394,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
               </Link>
             )}
 
-            {renderGoogleSyncBadge()}
+            {renderCalendarStatusBadge()}
           </div>
 
           {/* Item-specific details */}

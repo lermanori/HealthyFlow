@@ -36,6 +36,7 @@ import {
   type LocalTaskUpdates,
 } from './day'
 import {
+  loadLocalDatabase,
   LocalDatabaseSchema,
   LocalStoreError,
   LocalTaskRowSchema,
@@ -591,7 +592,21 @@ export const localServices = {
       // ever", which no surface asks for and which no server route returns either.
       throw new LocalStoreError('Reading Items from this device needs a date.')
     }
-    return (await localItemsForDay(userId, date)).map(itemToClient)
+    // Join this device's EventKit bookkeeping onto the day's Items so a card can
+    // report the provider that actually ran (ADR-0020). The links never leave the
+    // device and are deliberately not part of the DaySummary day contract.
+    const [items, database] = await Promise.all([
+      localItemsForDay(userId, date),
+      loadLocalDatabase(userId),
+    ])
+    const linkByItem = new Map(database.deviceCalendarLinks.map((link) => [link.itemId, link]))
+    return items.map((item) => {
+      const link = linkByItem.get(item.id)
+      return {
+        ...itemToClient(item),
+        deviceCalendar: link ? { status: link.status, error: link.error } : null,
+      }
+    })
   },
 
   getHabitHistory: (userId: string, to: string, days = 30) =>
