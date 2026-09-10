@@ -32,17 +32,11 @@ HealthyFlow's backend.
 
 "Two-way" has two distinct responsibilities:
 
-1. Device Calendar events appear in HealthyFlow as Calendar obligations.
-
-   **Today they are read-only**, and a Calendar row renders as `Fixed`.
-
-   [ADR-0024](../adr/0024-a-writable-calendar-event-is-an-item.md) accepted a
-   different target — an event on a calendar that permits modification becomes a
-   first-class Item, draggable and editable, written back to that calendar, with
-   one record per obligation and no shadow Item. That target is **on hold**
-   (#269, deferred 2026-09-10): the current read-only behaviour is what the
-   founder wants for now. ADR-0024 stands as the accepted direction if the hold
-   is lifted; it does not describe how the app behaves today.
+1. Device Calendar events appear in HealthyFlow as Calendar obligations. They
+   remain owned by their source calendar and are not silently converted into
+   HealthyFlow Items. ([ADR-0024](../adr/0024-a-writable-calendar-event-is-an-item.md)
+   accepts making a writable event a first-class editable Item; that direction is
+   on hold — #269, 2026-09-10 — and does not describe how the app behaves.)
 2. A timed HealthyFlow Item has one linked Device Calendar event. Creating,
    editing, or rescheduling either side reconciles the linked record on the
    other side. Deleting a HealthyFlow-owned event in Device Calendar deletes its
