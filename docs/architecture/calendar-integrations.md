@@ -77,8 +77,8 @@ session must preserve the same invariant.
 | Guest routing | Guest ownership always selects the Local day | None observed; physical-device Item export works |
 | Explicit account sign-in | Downloads, merges, validates, and remembers the Local day before adopting the session | Needs regression coverage proving Device Calendar starts for the resulting account |
 | Existing-session restore | Verifies the token, then trusts an existing Local-day owner marker | A missing or mismatched marker leaves a registered account on the hosted branch instead of restoring the Local-day invariant |
-| Manual Item write | Local writes emit `healthyflow:local-day-changed`; hosted writes call `/tasks` | The hosted branch bypasses EventKit, which matches the reported founder-account failure |
-| Talk-confirmed Item write | Server confirms the action, then mirrors the returned record into the Local day when `dayUserId` exists | A wrongly hosted account skips the Local mirror and therefore skips EventKit |
+| Manual Item write | Local writes emit `healthyflow:local-day-changed`; hosted writes call `/tasks` | Founder account observed on the Local branch reaching EventKit (2026-09-10). The hosted branch still bypasses EventKit for any identity that lands on it |
+| Talk-confirmed Item write | Server confirms the action, then mirrors the returned record into the Local day when `dayUserId` exists | Not yet observed on device for any identity (#266) |
 | Device Calendar read | EventKit obligations are composed locally and HealthyFlow-owned events are filtered out | Implemented |
 | HealthyFlow Item export | Local timed Item create/edit/reschedule/delete is reconciled to EventKit | Implemented for the HealthyFlow-to-Calendar direction |
 | Device edit of linked Item | EventKit change triggers refresh and reconciliation | Reconciliation currently writes the HealthyFlow value back to EventKit; it does not apply a Device-side edit or deletion to the Item |
@@ -88,18 +88,24 @@ session must preserve the same invariant.
 ### Evidence classification
 
 **Code facts:** Guest always selects a Local day; a registered account selects it
-only when the remembered owner id matches; token restoration does not download
-the account archive; the Device Calendar hook exits when `dayUserId` is null;
-and the hosted timed-Item route invokes the backend Google adapter.
+only when the remembered owner id matches; the Device Calendar hook exits when
+`dayUserId` is null; and the hosted timed-Item route invokes the backend Google
+adapter. Every entry path — Guest start, password login, provider sign-in and
+session restore — calls `rememberLocalDayOwner`, so on paper every identity on
+iPhone selects the Local day.
 
-**Inference from the 2026-09-10 physical-device report:** the founder account is
-probably taking the hosted branch, because Guest reaches EventKit on the same
-build and device while the founder Item shows legacy Google status. This is not
-yet a confirmed runtime fact.
+**Refuted 2026-09-10:** an earlier reading of the physical-device report inferred
+that the founder account was taking the hosted branch. The on-device
+`calendarPathDiagnosis` (#266) reports the founder account as identity
+`account`, branch `local`, with no blockers, and a manually created timed Item
+reaches EventKit on that account. The inference was wrong; #263 had already
+restored the Local-day invariant. This paragraph is kept rather than deleted so
+the same theory is not re-derived from the old symptom.
 
-**Still to observe:** the founder build's actual `dayUserId` state, remembered
-owner id, Cloud entitlement result, selected task-service branch, and provider
-mutation results. Diagnostics must expose states and identifiers without logging
+**Still to observe:** whether a *Talk-confirmed* Item reaches EventKit — it takes
+a different route, mirroring the server's confirmed record into the Local day —
+and the branch for the Guest, newly claimed, returning-free and restored-session
+identities. Diagnostics must expose states and identifiers without logging
 tokens, calendar content, credentials, or other secrets.
 
 ## Required implementation slices
