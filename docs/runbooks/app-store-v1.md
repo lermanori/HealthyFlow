@@ -2,7 +2,7 @@
 
 This is the maintained release packet for HealthyFlow v1. It separates facts
 verified from source and code, release-team inferences, and decisions only the
-founder or an appropriate professional can make. Last verified: **2026-09-08**.
+founder or an appropriate professional can make. Last verified: **2026-09-10**.
 
 ## Fixed v1 product contract
 
@@ -213,6 +213,8 @@ not silently rewrite legal copy.
 | Cloud unavailable | Cloud code disabled unless explicit build flag is true; release test covers it | Confirm no Cloud status/offer in signed build |
 | Offline Local day | Local day rendered during a transient disconnected launch | Deliberately test airplane mode, reconnect, and queued local edits on physical device |
 | Claim/sign-in/recovery | Source/tests exist; transactional recovery delivery is not configured | Complete issue #235 and test fresh account plus returning Apple authorization |
+| Guest action grant | Reserved per network for 24 hours (ADR-0023). Migration applied and `GUEST_GRANT_IP_SECRET` set 2026-09-10 | Exhaust a disposable Guest on the candidate; confirm a second Guest on the same network is told the network reason and offered Claim |
+| Device Calendar two-way | Reconciles both directions since #267; verified on a physical iPhone 2026-09-10 for move, rename, delete either side, and edit-while-quit | Repeat on the signed candidate. Deleting a HealthyFlow event in iOS Calendar deletes the linked Item — deliberate, and worth confirming the reviewer will not read it as data loss |
 | Exhaustion | Automated credit tests cover typed exhaustion | Exhaust a disposable Guest and account on the candidate without altering real users |
 | Founders Club | Production request path verified in issue #232 | Repeat from candidate |
 | Account deletion | Route and tests exist | Confirm through UI using a disposable account; permanent action requires human confirmation at execution time |
