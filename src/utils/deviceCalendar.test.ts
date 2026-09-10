@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
 import DaySummaryContracts from '../../backend/src/day-summary-schema'
 import { createLocalTask } from '../lib/local/day'
-import { loadLocalDatabase, memoryDriver, setLocalStoreDriver } from '../lib/local/store'
+import { emptyLocalDatabase, loadLocalDatabase, memoryDriver, setLocalStoreDriver } from '../lib/local/store'
 import {
   createCalendarEventReader,
   canUseHostedGoogleCalendar,
@@ -350,6 +350,45 @@ describe('Device Calendar day contract', () => {
     assert.deepEqual(result, { state: 'connected', failures: [] })
     assert.equal(database.deviceCalendarLinks[0]?.itemId, item.id)
     assert.equal(database.deviceCalendarLinks[0]?.eventIdentifier, 'event-1')
+  })
+
+  it('treats a legacy blank account clock as untimed without blocking timed Items', async () => {
+    setLocalStoreDriver(memoryDriver(JSON.stringify({
+      ...emptyLocalDatabase('account-1'),
+      ownerEmail: 'founder@example.com',
+      tasks: [{
+        id: 'legacy-untimed-item',
+        user_id: 'account-1',
+        title: 'Legacy untimed account Item',
+        type: 'task',
+        category: 'personal',
+        start_time: '',
+        scheduled_date: '2026-09-10',
+        created_at: '2026-09-10T08:00:00.000Z',
+      }, {
+        id: 'timed-item',
+        user_id: 'account-1',
+        title: 'Timed account Item',
+        type: 'task',
+        category: 'personal',
+        start_time: '18:00',
+        duration: 30,
+        scheduled_date: '2026-09-10',
+        created_at: '2026-09-10T08:00:00.000Z',
+      }],
+    })))
+    const syncedTimes: string[] = []
+
+    const result = await syncLocalDayWithDeviceCalendar('account-1', {
+      upsert: async (item) => {
+        syncedTimes.push(item.startTime)
+        return { state: 'synced', eventIdentifier: 'event-legacy' }
+      },
+      remove: async () => ({ state: 'removed' }),
+    }, '2026-09-10T18:01:00.000Z')
+
+    assert.deepEqual(result, { state: 'connected', failures: [] })
+    assert.deepEqual(syncedTimes, ['18:00'])
   })
 
   it('accepts a device Calendar obligation as a canonical day event', () => {

@@ -1,3 +1,13 @@
+### 2026-09-10 14:44 — `codex/262-restore-local-day`
+
+Reproduced the founder-account Device Calendar banner on the connected iPhone
+and traced it to legacy untimed Items whose stored `start_time` is an empty
+string. The EventKit boundary now treats that explicit legacy absence as null
+without weakening validation for nonblank times; the focused regression, full
+frontend suite, production/Capacitor build, and signed device build pass.
+
+---
+
 ### 2026-09-10 13:20 — `codex/262-restore-local-day`
 
 Restored the persisted Local day before exposing a verified registered-account
