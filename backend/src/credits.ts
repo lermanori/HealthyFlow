@@ -1,3 +1,4 @@
+import { createHmac } from 'node:crypto'
 import { db } from './supabase-client'
 import type { TokenUsage } from './openai'
 import { z } from 'zod'
@@ -81,6 +82,33 @@ export const GLOBAL_DAILY_COST_CEILING_USD = Number(
 export const MAX_PROMPT_CHARS = 24_000
 /** Images accepted in a single request. */
 export const MAX_IMAGES_PER_REQUEST = 4
+/**
+ * How long one network holds the Guest action grant (ADR-0023).
+ *
+ * ADR-0018's "once" was keyed only to the Guest row, so delete-and-reinstall
+ * minted a fresh grant. The reservation is taken at Guest creation and keyed to
+ * the client network, which is a coarse instrument on purpose: a shared NAT
+ * yields one Guest grant per day, and everyone else on it is told so and offered
+ * Claim. Raise this only with the false-positive cost in mind.
+ */
+export const GUEST_GRANT_IP_WINDOW_HOURS = Number(
+  process.env.GUEST_GRANT_IP_WINDOW_HOURS ?? 24
+)
+
+/**
+ * The reservation key for one client network.
+ *
+ * HMAC rather than a bare digest: the entire IPv4 space is 2^32, so a plain
+ * SHA-256 table inverts it in seconds and `guest_grant_ips` would become a log
+ * of who used HealthyFlow from where. Both failure modes throw rather than
+ * returning a shared constant — a blank key would hand every Guest without a
+ * resolvable address the same reservation and lock all of them out at once.
+ */
+export function hashClientIp(ip: string | undefined, secret: string): string {
+  if (!secret) throw new Error('A server secret is required to key a Guest grant network')
+  if (!ip) throw new Error('A client address is required to key a Guest grant network')
+  return createHmac('sha256', secret).update(ip).digest('hex')
+}
 // ponytail: flat heuristic, biased HIGH on purpose. gpt-4o-mini bills images at
 // a large multiplier (a high-detail image can run ~25k tokens), so we over-reserve
 // here; settle refunds the unused estimate. Better to over-hold than to underfund

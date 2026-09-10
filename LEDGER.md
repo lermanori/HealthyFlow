@@ -21,6 +21,19 @@ and the production build pass; device verification is with the founder.
 
 ---
 
+### 2026-09-10 15:59 — `codex/249-guest-grant-ip-guard`
+
+Closed the Guest action-farming path without Apple DeviceCheck: the once-ever ten-action
+grant is now reserved per network for 24 hours (ADR-0023), taken at Guest creation and
+keyed by an HMAC of the client address so no address is stored. Losing or failing the
+reservation withholds only the AI actions — never entry to the Local day — and the new
+`network_limited` state tells a person on a shared network the truth instead of claiming
+they spent ten actions they never received. Dropped the unfinished DeviceCheck slice,
+which removes the Apple server-key gate from the launch path; typechecks, the affected
+backend suites, the frontend unit suite, and the production build pass.
+
+---
+
 ### 2026-09-10 14:44 — `codex/262-restore-local-day`
 
 Reproduced the founder-account Device Calendar banner on the connected iPhone

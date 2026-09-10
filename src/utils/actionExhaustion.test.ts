@@ -82,3 +82,28 @@ test('an account with spendable or unclaimed actions is not exhausted', () => {
     freeGrant: { state: 'available', credits: 15, kind: 'monthly' },
   }), null)
 })
+
+test('a Guest whose network already took the grant is told so, not told they spent it', () => {
+  const view = actionExhaustionView({
+    ...summary,
+    freeGrant: { state: 'network_limited', kind: 'guest_initial' },
+  })
+
+  assert.deepEqual(view, {
+    kind: 'network',
+    title: 'Free Guest AI actions have already been used on this network today.',
+    detail: 'Create a free account for 15 AI actions each calendar month.',
+  })
+})
+
+test('a network-limited Guest is still network-limited once they hold a balance', () => {
+  // Balance can arrive from the Founders Club without the network reservation
+  // ever being won. A usable balance is not exhaustion, so nothing is shown.
+  const view = actionExhaustionView({
+    ...summary,
+    balance: 4,
+    freeGrant: { state: 'network_limited', kind: 'guest_initial' },
+  })
+
+  assert.equal(view, null)
+})
