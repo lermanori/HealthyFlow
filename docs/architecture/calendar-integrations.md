@@ -32,14 +32,11 @@ HealthyFlow's backend.
 
 "Two-way" has two distinct responsibilities:
 
-1. Device Calendar events appear in HealthyFlow as Calendar obligations. Since
-   [ADR-0024](../adr/0024-a-writable-calendar-event-is-an-item.md) an event on a
-   calendar that permits modification is a first-class Item — draggable,
-   editable and completable — and the change is written back to that calendar.
-   An event on a calendar that refuses modification renders as fixed, with a
-   readable reason, and never offers an affordance that cannot succeed. There is
-   one record per obligation: a foreign event is never shadowed by a second
-   HealthyFlow Item.
+1. Device Calendar events appear in HealthyFlow as Calendar obligations. They
+   remain owned by their source calendar and are not silently converted into
+   HealthyFlow Items. ([ADR-0024](../adr/0024-a-writable-calendar-event-is-an-item.md)
+   accepts making a writable event a first-class editable Item; that direction is
+   on hold — #269, 2026-09-10 — and does not describe how the app behaves.)
 2. A timed HealthyFlow Item has one linked Device Calendar event. Creating,
    editing, or rescheduling either side reconciles the linked record on the
    other side. Deleting a HealthyFlow-owned event in Device Calendar deletes its
@@ -73,7 +70,7 @@ account entry must therefore place and validate the account's day on the device,
 remember its owner, and only then expose the session. Restoring an existing
 session must preserve the same invariant.
 
-## Implementation status and gaps — 2026-09-10
+## Implementation status and gaps — 2026-09-10 (updated after #265)
 
 | Area | Current implementation | Gap to v1 target |
 |---|---|---|
@@ -85,7 +82,7 @@ session must preserve the same invariant.
 | Device Calendar read | EventKit obligations are composed locally and HealthyFlow-owned events are filtered out | Implemented |
 | HealthyFlow Item export | Local timed Item create/edit/reschedule/delete is reconciled to EventKit | Implemented for the HealthyFlow-to-Calendar direction |
 | Device edit of linked Item | EventKit change triggers refresh and reconciliation | Reconciliation currently writes the HealthyFlow value back to EventKit; it does not apply a Device-side edit or deletion to the Item |
-| Status UI | Item cards still render legacy Google sync state | The native UI can say `Syncing` when Device Calendar never ran; provider-specific status is not truthful |
+| Status UI | Provider-specific since #265: a Device Calendar link decides the badge, Google fields are the fallback, neither means no badge | Implemented. Status still goes stale after Calendar access is revoked (#273) |
 | Direct Google | Backend sync remains and the native connection control is release-flagged and Cloud-gated | Keep hidden for Guest/free v1; verify the founder-only control and prevent duplicate EventKit/Google processing |
 
 ### Evidence classification
@@ -110,20 +107,29 @@ tokens, calendar content, credentials, or other secrets.
 Each slice is independently verifiable and belongs in its own issue, branch,
 and PR:
 
-1. Restore the Local-day invariant for an existing authenticated iPhone account.
+1. ~~Restore the Local-day invariant for an existing authenticated iPhone
+   account.~~ Done (#263).
 2. Prove manual and Talk-confirmed timed Items from a claimed/free account reach
-   EventKit through the same path as Guest Items.
-3. Make Item Calendar status provider-specific and remove the false Google
-   `Syncing` state from the native Local path.
+   EventKit through the same path as Guest Items. (#266)
+3. ~~Make Item Calendar status provider-specific on the native Local path.~~
+   Done (#265). The premise was corrected while implementing: the Local path
+   showed *no* badge at all, including after a failed EventKit write, rather
+   than a false `Syncing` — that state is only reachable via the hosted-branch
+   defect in #266.
 4. Apply Device-side edits to the linked Item. Deleting a HealthyFlow-owned
    Device Calendar event deletes the linked Item; deleting the Item removes its
    linked event. Implement both directions with test-first reconciliation
    coverage. When both sides changed, compare their validated modification
    timestamps and apply the last save; surface indeterminate ties or invalid
-   timestamps without changing either side.
+   timestamps without changing either side. (#267)
 5. Verify the existing founder Cloud exception: Local day remains the source,
    Cloud only replicates, and direct Google is an explicit optional connection
-   without duplicate Device Calendar events.
+   without duplicate Device Calendar events. (#268)
+
+Open defects found alongside these slices: a HealthyFlow-owned event whose Item
+no longer exists on the device is invisible (#272), and Calendar status goes
+stale after access is revoked (#273). Full event/Item parity is accepted as a
+direction but on hold (#269, ADR-0024).
 
 The physical-device release gate covers Guest, claimed free, returning free,
 and the existing founder account separately. For each identity, create, edit,

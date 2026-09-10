@@ -1,3 +1,15 @@
+### 2026-09-10 18:58 — `codex/269-hold-docs`
+
+Put full Calendar/Item parity on hold at the founder's call — the current
+read-only behaviour is what he wants — and undid the live-doc damage from
+ADR-0024, which I had written into `calendar-integrations.md` in the present
+tense about behaviour that does not exist. The original ownership wording is
+restored, with one parenthetical marking ADR-0024 as a held direction. Also
+refreshed the doc against what shipped: the status-UI row and slices 1 and 3 are
+done, and the remaining slices carry their issue numbers.
+
+---
+
 ### 2026-09-10 18:12 — `codex/269-calendar-parity-adr`
 
 Recorded the founder's decision that a Calendar event and an Item are the same
