@@ -65,12 +65,13 @@ nothing was there. A device that answered `[]` for Nutrition would be reporting
 
 ## Which side answers
 
-A **Guest** is an account with no email, and a Guest's day is not hosted. So the
-routing follows the identity, not a separate flag:
+The Local day is the source on iPhone for a Guest, a claimed free account, and
+the existing founder Cloud account. Cloud may replicate that source; it does not
+replace it. Routing follows verified Local-day ownership:
 
 ```
 AuthContext.adoptUser(user)
-  └── setLocalDayUser(isGuestSession(user) ? user.id : null)
+  └── setLocalDayUser(holdsLocalDay(user) ? user.id : null)
 
 src/services/api.ts
   └── onDevice(local, hosted)   // picks a branch per call
@@ -81,6 +82,13 @@ src/services/api.ts
 no page knows which side answered. `setLocalDayUser` is called beside `setUser`
 rather than in an effect, because an effect can land after the first query.
 
+Every account-entry path must place and validate the account's day on the device
+before adopting its session. A Guest is local by definition; a registered
+account is local when its recorded Local-day owner matches its identity. A null
+`dayUserId` is the legacy hosted branch, not the correct steady state for an
+iPhone v1 account. The session-restoration gap that can violate this invariant
+is recorded in [Calendar integrations](./calendar-integrations.md).
+
 Everything else still goes to the server, because a Guest has a real `users` row
 and a real token: credits, AI, account deletion, version gating, push. Device
 Calendar is the exception: its external events are composed into the day in the
@@ -88,15 +96,15 @@ iPhone app, while timed Items are reconciled back to marked EventKit events.
 Event content and Item-to-event links are not uploaded as part of this device
 path.
 
-The direct Google adapter is a separate hosted boundary. It requires both a
-claimed identity and active Cloud before connect, OAuth exchange, status, event
-read/write, or timed-Item sync. The native reader checks its remembered claimed
-identity and validated credit summary before it requests Google status or
-events. The day reports an expected free account as `not_entitled`; it does not
-call Google and does not pretend Google returned an empty calendar. Entitlement
-or provider failures stay attached to their provider while obligations from the
-working provider still reach Today, Week, Daily Signals and Capacity. Capacity
-becomes partial when either connected source is unavailable.
+The direct Google adapter is a separate hosted boundary. In v1 it is retained
+only as an optional, release-flagged control for the existing founder Cloud
+account. It requires both a claimed identity and active Cloud before connect,
+OAuth exchange, status, event read/write, or timed-Item sync. Guest and free
+accounts do not call Google and do not pretend Google returned an empty
+calendar. Entitlement or provider failures stay attached to their provider
+while obligations from the working provider still reach Today, Week, Daily
+Signals and Capacity. Capacity becomes partial when either connected source is
+unavailable.
 
 Device and Google event identity is deliberately preserved. If a person enables
 the same Google calendar in iOS and also connects direct Google, EventKit and the
@@ -150,14 +158,18 @@ and Claim can be an upload rather than a translation.
 | `day.ts` | the nine sources and every write: create, edit, complete, delete, reorder, Habit progress and outcome |
 | `services.ts` | the client shapes `src/services/api.ts` returns, and `onDevice` |
 
-## What is not built
+## Current gaps
 
-- **Claim.** A Guest cannot become an account holder. The upload and the credit
-  carry-over do not exist.
-- **Health on the device.** Nutrition, Weight, Training and Progress are not
-  stored locally. ADR-0011 records that this contradicts `TARGET.md`.
-- **The web.** The entry point is iPhone-only.
-- **The Keychain.** The session token still lives in `localStorage`, so deleting
-  the app takes the session with it. `src/lib/session.ts` is the seam: it holds a
-  swappable synchronous token store precisely so a Keychain-backed one can replace
-  it without touching callers.
+- Existing-session restoration can adopt a registered identity without first
+  restoring its Local-day owner invariant. That leaves the iPhone on the legacy
+  hosted branch and prevents Device Calendar Item reconciliation.
+- Device Calendar reads obligations and mirrors HealthyFlow-side Item changes,
+  but edits made to a linked HealthyFlow event in Calendar are not yet applied
+  back to the Item.
+- The web does not yet have Local-day parity.
+- The session token still lives in `localStorage`, so deleting the app takes the
+  session with it. `src/lib/session.ts` remains the seam for a future durable
+  native token store.
+
+The complete provider and identity matrix is maintained in
+[Calendar integrations](./calendar-integrations.md).

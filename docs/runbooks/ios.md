@@ -106,20 +106,25 @@ granted, confirm a timed external event and an all-day external event appear in
 Today, the timed event changes Capacity, and neither external event can be
 completed or dragged. While HealthyFlow remains installed, add, edit, and delete
 an external event in Apple Calendar; after returning to HealthyFlow, confirm
-Today, Week, and Capacity refresh without an app restart. Then create a timed
-Item and confirm exactly one marked
-event appears in Apple Calendar; edit its title, date, start time, duration and
-location and confirm the same event changes; remove its time and confirm the
-event disappears. Delete the generated event in Apple Calendar and confirm
-HealthyFlow recreates it on the next reconciliation without showing it as a
-duplicate obligation. Repeat after granting access in iOS Settings and returning
-to HealthyFlow, and exercise the visible Retry path after a failed write.
+Today, Week, and Capacity refresh without an app restart.
 
-Run that matrix as a Guest and a claimed account; the behavior and lack of
-backend requests must match. Confirm the native app makes no
+Then create a timed Item and confirm exactly one marked event appears in Apple
+Calendar. Edit its title, date, start time, duration, and location on each side
+in turn and confirm the linked record changes on the other side. Delete the
+HealthyFlow-owned event in Calendar and confirm the linked Item is deleted;
+separately delete an Item in HealthyFlow and confirm its linked event is removed.
+Edit both sides before reconciliation and confirm the later save wins. Exercise
+an equal or invalid timestamp conflict and confirm neither side is silently
+discarded. Repeat after granting access in iOS Settings and returning to
+HealthyFlow, and exercise the visible Retry path after a failed write.
+
+Run that matrix as a Guest, a claimed free account, a returning free account,
+and the existing founder account. Guest and free paths must make no
 `/calendar/google/*` request. A connected Google account inside Apple's Calendar
 app is already visible through EventKit and must not be connected again inside
-HealthyFlow.
+HealthyFlow. The founder's separately flagged direct Google control must not
+duplicate events already supplied through EventKit. Current gaps are maintained
+in [`calendar-integrations.md`](../architecture/calendar-integrations.md).
 
 Apple's EventKit access, event creation/save, and permission requirements were
 rechecked on 2026-09-09 in
