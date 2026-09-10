@@ -115,6 +115,11 @@ export function rememberLocalDayOwner(userId: string) {
   localStorage.setItem(LOCAL_DAY_OWNER_KEY, userId)
 }
 
+/** The owner marker as stored, for diagnostics (#266). Null when absent. */
+export function rememberedLocalDayOwner(): string | null {
+  return localStorage.getItem(LOCAL_DAY_OWNER_KEY)
+}
+
 export function forgetLocalDayOwner() {
   localStorage.removeItem(LOCAL_DAY_OWNER_KEY)
 }

@@ -1,3 +1,16 @@
+### 2026-09-10 19:47 — `codex/266-account-eventkit-parity`
+
+Answered #266 by observing rather than guessing: the hosted-branch theory is
+refuted. Every entry path already calls `rememberLocalDayOwner`, and on a
+physical iPhone the founder account reports branch `local` and reaches EventKit
+for both a manual and a Talk-confirmed Item. Added a typed
+`calendarPathDiagnosis` that names why an identity does or does not reach
+EventKit, surfaced it in Settings, and pinned the branch invariant end to end so
+a regression shows up as a failing test rather than as silence. Frontend
+typecheck, 371 unit tests, lint and build pass.
+
+---
+
 ### 2026-09-10 18:58 — `codex/269-hold-docs`
 
 Put full Calendar/Item parity on hold at the founder's call — the current
