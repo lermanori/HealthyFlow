@@ -1,3 +1,14 @@
+### 2026-09-10 18:58 — `codex/269-hold-docs`
+
+Put full Calendar/Item parity on hold at the founder's call — the current
+read-only `Fixed` behaviour is what he wants — and made the live architecture
+doc say so, since ADR-0024 had been written in the present tense about behaviour
+that does not exist. Also refreshed the doc against what actually shipped: the
+status-UI row and slices 1 and 3 are done, and the remaining slices now carry
+their issue numbers.
+
+---
+
 ### 2026-09-10 18:12 — `codex/269-calendar-parity-adr`
 
 Recorded the founder's decision that a Calendar event and an Item are the same
