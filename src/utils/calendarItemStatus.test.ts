@@ -66,3 +66,22 @@ test('a native Item with no device link never borrows a Google badge', () => {
   // Google adapter never ran. Absent both providers, the answer is silence.
   assert.equal(calendarItemStatus({ deviceCalendar: null, syncedToGoogle: false }), null)
 })
+
+test('a conflict is its own state, distinct from a failed write', () => {
+  // Nothing is broken — both sides were changed and neither could be shown to
+  // be newer, so neither was applied. Rendering that as "Not in Calendar" would
+  // say the write failed, which it did not.
+  assert.deepEqual(
+    calendarItemStatus({
+      deviceCalendar: { status: 'conflict', error: 'Both were changed at once.' },
+    }),
+    { provider: 'device', state: 'conflict', error: 'Both were changed at once.' },
+  )
+})
+
+test('a conflict without a stated reason still explains itself', () => {
+  const status = calendarItemStatus({ deviceCalendar: { status: 'conflict', error: null } })
+
+  assert.equal(status?.state, 'conflict')
+  assert.match(status && 'error' in status ? status.error : '', /both changed/i)
+})

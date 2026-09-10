@@ -193,7 +193,7 @@ interface ItemBase {
    * Local service layer. Device-only and never sent to the backend: it is absent
    * on every hosted read, which is what distinguishes the two providers.
    */
-  deviceCalendar?: { status: 'synced' | 'failed'; error: string | null } | null
+  deviceCalendar?: { status: 'synced' | 'failed' | 'conflict'; error: string | null } | null
 }
 
 export interface TaskItem extends ItemBase {

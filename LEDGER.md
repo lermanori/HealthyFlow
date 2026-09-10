@@ -1,3 +1,15 @@
+### 2026-09-10 21:19 — `codex/267-device-side-reconciliation`
+
+Closed the loop on #267: the conflict state a reconciliation can now produce is
+visible on the card as `Calendar conflict`, kept distinct from a failed write
+because nothing is broken — both sides changed and neither could be shown to be
+newer, so neither was applied. All six device scenarios pass on a physical
+iPhone, including the deliberate reversal where deleting a HealthyFlow event in
+iOS Calendar now deletes the linked Item. 394 unit tests, typecheck, lint, build
+and the iOS sync pass.
+
+---
+
 ### 2026-09-10 20:34 — `codex/267-device-side-reconciliation`
 
 Built the missing direction for #267: a change made in iOS Calendar now reaches

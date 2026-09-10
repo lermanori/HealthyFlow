@@ -81,7 +81,7 @@ session must preserve the same invariant.
 | Talk-confirmed Item write | Server confirms the action, then mirrors the returned record into the Local day when `dayUserId` exists | Observed reaching EventKit on the founder account, 2026-09-10 (#266) |
 | Device Calendar read | EventKit obligations are composed locally and HealthyFlow-owned events are filtered out | Implemented |
 | HealthyFlow Item export | Local timed Item create/edit/reschedule/delete is reconciled to EventKit | Implemented for the HealthyFlow-to-Calendar direction |
-| Device edit of linked Item | EventKit change triggers refresh and reconciliation | Reconciliation currently writes the HealthyFlow value back to EventKit; it does not apply a Device-side edit or deletion to the Item |
+| Device edit of linked Item | Both directions reconcile since #267: the device is read before anything is written, last save wins, and a deletion in iOS Calendar deletes the linked Item | Implemented and device-verified 2026-09-10. A conflict is recorded and badged; there is no resolution flow yet, so the person picks a side by editing one |
 | Status UI | Provider-specific since #265: a Device Calendar link decides the badge, Google fields are the fallback, neither means no badge | Implemented. Status still goes stale after Calendar access is revoked (#273) |
 | Direct Google | Backend sync remains and the native connection control is release-flagged and Cloud-gated | Keep hidden for Guest/free v1; verify the founder-only control and prevent duplicate EventKit/Google processing |
 

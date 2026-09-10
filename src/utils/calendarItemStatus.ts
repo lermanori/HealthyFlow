@@ -11,22 +11,34 @@
 export type CalendarItemStatus =
   | { provider: 'device'; state: 'synced' }
   | { provider: 'device'; state: 'failed'; error: string }
+  | { provider: 'device'; state: 'conflict'; error: string }
   | { provider: 'google'; state: 'synced' | 'failed' | 'pending' }
 
 export interface CalendarItemStatusInput {
   /** This device's EventKit bookkeeping for the Item, when one exists. */
-  deviceCalendar?: { status: 'synced' | 'failed'; error: string | null } | null
+  deviceCalendar?: { status: 'synced' | 'failed' | 'conflict'; error: string | null } | null
   syncedToGoogle?: boolean
   googleSyncStatus?: 'pending' | 'synced' | 'skipped' | 'failed'
 }
 
 const DEVICE_WRITE_FAILED = 'HealthyFlow could not write this Item to your iPhone Calendar.'
+const DEVICE_CONFLICT = 'This Item and its Calendar event were both changed, so neither was applied.'
 
 export function calendarItemStatus(input: CalendarItemStatusInput): CalendarItemStatus | null {
   // A Device Calendar link means EventKit ran for this Item on this device, so it
   // is the authority — including when it failed. A failed write reported as
   // absence is the specific dishonesty this function exists to remove.
   if (input.deviceCalendar) {
+    // Both sides changed and the order could not be established, so neither was
+    // applied (#267). Distinct from a failed write: nothing is broken, but the
+    // person has to say which version they meant.
+    if (input.deviceCalendar.status === 'conflict') {
+      return {
+        provider: 'device',
+        state: 'conflict',
+        error: input.deviceCalendar.error ?? DEVICE_CONFLICT,
+      }
+    }
     if (input.deviceCalendar.status === 'failed') {
       return {
         provider: 'device',
