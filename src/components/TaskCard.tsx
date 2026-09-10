@@ -10,6 +10,7 @@ import { format, parseISO } from 'date-fns'
 import { getCategoryPresentation } from '../categoryPresentation'
 import { Link } from 'react-router-dom'
 import { getModulePresentation, moduleHealthHref } from '../modulePresentation'
+import { formatClockRange } from '../utils/dateHelpers'
 import { calendarItemStatus } from '../utils/calendarItemStatus'
 
 interface TaskCardProps {
@@ -344,18 +345,18 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                </span>
              )}
             
-            {task.startTime && (
+            {/* One clock range, the same shape a Calendar obligation shows, so
+                two rows describing the same kind of commitment read alike. */}
+            {task.startTime ? (
               <span className="flex shrink-0 items-center space-x-1 text-xs text-ink-muted">
                 <Clock className="h-3 w-3" />
-                <span>{task.startTime}</span>
+                <span>{formatClockRange(task.startTime, task.duration)}</span>
               </span>
-            )}
-            
-            {task.duration && (
+            ) : task.duration ? (
               <span className="shrink-0 text-xs text-ink-muted">
                 {task.duration}min
               </span>
-            )}
+            ) : null}
 
             {task.type === 'task' && task.location && (
               <span className="flex min-w-0 items-center space-x-1 text-xs text-ink-muted">

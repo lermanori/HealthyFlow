@@ -1,3 +1,14 @@
+### 2026-09-10 17:31 — `codex/265-provider-calendar-status`
+
+Finished the provider-specific Calendar status slice and folded in the
+presentation defects the device check surfaced: the compact badge no longer
+clips, an Item now reads as a clock range like a Calendar obligation, the
+`Fixed` provenance chip appears on a phone instead of only above `sm`, and a
+Calendar row carries the drag grip's gutter so both card kinds share a left
+edge. Frontend typecheck, 356 unit tests, lint and the production build pass.
+
+---
+
 ### 2026-09-10 16:44 — `codex/265-provider-calendar-status`
 
 Made Item Calendar status name the provider that actually handled it. The Local
