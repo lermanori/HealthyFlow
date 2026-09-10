@@ -1,3 +1,16 @@
+### 2026-09-10 20:34 — `codex/267-device-side-reconciliation`
+
+Started #267 with the decision layer, test-first: `reconcileLinkedRecord` says
+which side of a linked Item/event pair wins, using the two watermarks the link
+already carried. Last save wins when both moved; identical simultaneous saves
+settle silently; ties, unparseable timestamps and races against a deletion
+surface a conflict and change neither side. Writing the tests first caught a
+real design flaw — deletion had been inferred from `updatedAt`, when it is a
+divergence whether or not the timestamp moved. The native read of a linked
+event's current state is the next slice and is not built yet.
+
+---
+
 ### 2026-09-10 19:47 — `codex/266-account-eventkit-parity`
 
 Answered #266 by observing rather than guessing: the hosted-branch theory is
