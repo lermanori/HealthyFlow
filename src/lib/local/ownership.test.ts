@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { beforeEach, describe, it } from 'node:test'
-import { forgetLocalDayOwner, holdsLocalDay, rememberLocalDayOwner, setLocalDayUser } from './services'
+import {
+  AccountDayRestorationError,
+  forgetLocalDayOwner,
+  holdsLocalDay,
+  localDayUser,
+  rememberLocalDayOwner,
+  restoreAccountDayForSession,
+  setLocalDayUser,
+} from './services'
 import { updateLocalSettings } from './day'
 import {
   forgetSessionUser,
@@ -9,6 +17,7 @@ import {
 } from '../session'
 import {
   heldDayRecovery,
+  loadLocalDatabase,
   memoryDriver,
   opensWithoutSession,
   readLocalDayIdentity,
@@ -117,6 +126,161 @@ describe('a Guest who signs in to an account, then reopens the app', () => {
 
     assert.equal(readRememberedSessionUser(), null)
     assert.equal(holdsLocalDay(accountUser), false)
+  })
+})
+
+describe('restoring a registered account session', () => {
+  const ACCOUNT = 'account-restored'
+  const EMAIL = 'restored@example.com'
+
+  it('selects an existing matching Local day without downloading over it', async () => {
+    const existing = {
+      ...emptyLocalDatabase(ACCOUNT),
+      ownerEmail: EMAIL,
+      tasks: [{
+        id: 'local-only',
+        user_id: ACCOUNT,
+        title: 'Kept on this iPhone',
+        type: 'task' as const,
+        category: 'personal' as const,
+        start_time: null,
+        location: null,
+        duration: null,
+        repeat_type: 'none' as const,
+        completed: false,
+        completed_at: null,
+        scheduled_date: '2026-09-10',
+        position: null,
+        original_habit_id: null,
+        habit_target_value: null,
+        habit_target_unit: null,
+        habit_outcome: null,
+        overdue_notified: false,
+        rolled_over_from_task_id: null,
+        original_created_at: null,
+        deleted_at: null,
+        created_at: '2026-09-10T08:00:00.000Z',
+        updated_at: '2026-09-10T08:00:00.000Z',
+      }],
+    }
+    setLocalStoreDriver(memoryDriver(JSON.stringify(existing)))
+    forgetLocalDayOwner()
+    setLocalDayUser(null)
+    let downloads = 0
+
+    const result = await restoreAccountDayForSession({
+      user: {
+        id: ACCOUNT,
+        email: EMAIL,
+        name: 'Restored',
+        role: 'user',
+        authMethod: 'password',
+      },
+      token: 'verified-token',
+      downloadArchive: async () => {
+        downloads += 1
+        return { items: [] }
+      },
+    })
+
+    assert.equal(result.state, 'existing')
+    assert.equal(downloads, 0)
+    assert.equal(localDayUser(), ACCOUNT)
+    assert.equal(holdsLocalDay({ id: ACCOUNT, email: EMAIL }), true)
+    assert.equal((await loadLocalDatabase(ACCOUNT)).tasks[0]?.title, 'Kept on this iPhone')
+  })
+
+  it('downloads and persists the account day when this iPhone has no matching document', async () => {
+    setLocalStoreDriver(memoryDriver(null))
+    forgetLocalDayOwner()
+    setLocalDayUser(null)
+    const seenTokens: string[] = []
+
+    const result = await restoreAccountDayForSession({
+      user: {
+        id: ACCOUNT,
+        email: EMAIL,
+        name: 'Restored',
+        role: 'user',
+        authMethod: 'password',
+      },
+      token: 'verified-token',
+      downloadArchive: async (token) => {
+        seenTokens.push(token)
+        return {
+          account: { email: EMAIL },
+          items: [{
+            id: 'downloaded-item',
+            user_id: ACCOUNT,
+            title: 'Downloaded before opening',
+            type: 'task',
+            category: 'personal',
+            scheduled_date: '2026-09-10',
+            created_at: '2026-09-10T09:00:00.000Z',
+            updated_at: '2026-09-10T09:00:00.000Z',
+          }],
+          habitProgress: [],
+          settings: [],
+        }
+      },
+    })
+
+    assert.equal(result.state, 'downloaded')
+    assert.deepEqual(seenTokens, ['verified-token'])
+    assert.equal(localDayUser(), ACCOUNT)
+    assert.equal(holdsLocalDay({ id: ACCOUNT, email: EMAIL }), true)
+    assert.equal((await loadLocalDatabase(ACCOUNT)).tasks[0]?.title, 'Downloaded before opening')
+  })
+
+  it('does not select a hosted or empty day when restoration fails', async () => {
+    setLocalStoreDriver(memoryDriver(null))
+    forgetLocalDayOwner()
+    setLocalDayUser(null)
+
+    await assert.rejects(
+      () => restoreAccountDayForSession({
+        user: {
+          id: ACCOUNT,
+          email: EMAIL,
+          name: 'Restored',
+          role: 'user',
+          authMethod: 'password',
+        },
+        token: 'verified-token',
+        downloadArchive: async () => {
+          throw new Error('archive unavailable')
+        },
+      }),
+      AccountDayRestorationError,
+    )
+
+    assert.equal(localDayUser(), null)
+    assert.equal(holdsLocalDay({ id: ACCOUNT, email: EMAIL }), false)
+  })
+
+  it('records the verified email when a claimed day still carries Guest ownership metadata', async () => {
+    setLocalStoreDriver(memoryDriver(JSON.stringify({
+      ...emptyLocalDatabase(ACCOUNT),
+      ownerEmail: null,
+    })))
+    forgetLocalDayOwner()
+    setLocalDayUser(null)
+
+    await restoreAccountDayForSession({
+      user: {
+        id: ACCOUNT,
+        email: EMAIL,
+        name: 'Restored',
+        role: 'user',
+        authMethod: 'password',
+      },
+      token: 'verified-token',
+      downloadArchive: async () => {
+        throw new Error('an existing day must not download')
+      },
+    })
+
+    assert.equal((await readLocalDayIdentity())?.ownerEmail, EMAIL)
   })
 })
 

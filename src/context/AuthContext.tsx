@@ -24,6 +24,7 @@ import {
   syncNativePushToken,
 } from '../lib/push'
 import { clearTodayWidget } from '../lib/widget'
+import { isNativeIOS } from '../lib/native'
 import {
   clearLocalDay,
   loadLocalDatabase,
@@ -34,9 +35,11 @@ import {
 } from '../lib/local/store'
 import { adoptAccountDay, countLocalDay, localDayFromExport, type AdoptionChoice } from '../lib/local/adopt'
 import {
+  AccountDayRestorationError,
   forgetLocalDayOwner,
   holdsLocalDay,
   rememberLocalDayOwner,
+  restoreAccountDayForSession,
   setLocalDayUser,
 } from '../lib/local/services'
 
@@ -203,7 +206,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (tokenToVerify) {
       // Verify token and get user info
       authService.verifyToken(token ? undefined : tokenToVerify)
-        .then(({ user: userData, renewedToken }) => {
+        .then(async ({ user: userData, renewedToken }) => {
           if (!token && returnToken) {
             // A re-issued session supersedes the one we verified with, so store
             // the fresher of the two.
@@ -216,9 +219,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             sessionStorage.removeItem(DEMO_RETURN_TOKEN_KEY)
             setHasDemoReturnSession(false)
           }
+          if (isNativeIOS && userData.email !== null && !isDemoEmail(userData.email)) {
+            await restoreAccountDayForSession({
+              user: userData,
+              token: renewedToken ?? tokenToVerify,
+              downloadArchive: accountService.exportArchive,
+            })
+          }
           establishSession(userData)
         })
         .catch(async (error) => {
+          if (error instanceof AccountDayRestorationError) {
+            toast.error('Your account is valid, but its day could not be opened on this iPhone. Nothing was changed.')
+            queryClient.clear()
+            return
+          }
           // Only an answer ends a session. A server that could not be reached
           // changes nothing — the day is on this device and does not need it
           // (TARGET.md), and for a Guest the session is the only key to their row
@@ -240,6 +255,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           const remembered = readRememberedSessionUser()
           if (!endedTheSession(error) && token && remembered) {
+            if (isNativeIOS && remembered.email !== null && !isDemoEmail(remembered.email)) {
+              try {
+                await restoreAccountDayForSession({
+                  user: remembered,
+                  token,
+                  // Offline restoration may re-select a matching document, but
+                  // it must not invent an archive when this device has none.
+                  downloadArchive: async () => { throw error },
+                })
+              } catch {
+                toast.error('Your account could not be verified and its Local day is unavailable.')
+                queryClient.clear()
+                return
+              }
+            }
             establishSession(remembered)
             return
           }

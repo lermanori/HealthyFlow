@@ -301,7 +301,10 @@ export async function syncLocalDayWithDeviceCalendar(
       id: row.id,
       title: row.title,
       scheduledDate: row.scheduled_date,
-      startTime: row.start_time,
+      // Older hosted rows used an empty string to mean "untimed". It is the
+      // same explicit absence as null, not a clock value. Every nonblank value
+      // still passes through the strict HH:mm reconciliation schema below.
+      startTime: row.start_time === '' ? null : row.start_time,
       durationMinutes: Math.max(1, Math.round(row.duration ?? 30)),
       location: row.location,
       updatedAt: row.updated_at ?? row.created_at,
