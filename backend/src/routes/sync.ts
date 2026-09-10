@@ -3,6 +3,7 @@ import { CloudAccess, isCloudNotActiveError } from '../cloud-access'
 import { Sync, SyncClockError, SyncOwnershipError } from '../sync'
 import { SyncRequestSchema } from '../sync-contracts'
 import { authenticateToken, type AuthRequest } from '../middleware/auth'
+import { reconcileGoogleCalendarItems } from '../calendar'
 
 const router = express.Router()
 
@@ -20,7 +21,24 @@ router.post('/', authenticateToken, async (req: AuthRequest, res) => {
     // including a month of usage logs. This gate runs on every exchange.
     await CloudAccess.require(req.user.userId)
 
-    return res.json(await Sync.exchange(req.user.userId, parsed.data))
+    const exchange = await Sync.exchange(req.user.userId, parsed.data)
+    let calendarReconciliation
+    try {
+      calendarReconciliation = await reconcileGoogleCalendarItems(req.user.userId, {
+        itemIds: parsed.data.changed.tasks.map((row) => row.id),
+        timeZone: req.header('x-client-time-zone') || undefined,
+      })
+    } catch (error) {
+      console.error('Google Calendar reconciliation error after Cloud exchange:', error)
+      calendarReconciliation = {
+        state: 'unavailable' as const,
+        attempted: 0,
+        synced: 0,
+        removed: 0,
+        failures: [{ itemId: 'calendar', reason: 'calendar_reconciliation_unavailable' as const }],
+      }
+    }
+    return res.json({ ...exchange, calendarReconciliation })
   } catch (error) {
     if (isCloudNotActiveError(error)) {
       return res.status(403).json({ error: error.message, reason: error.reason })

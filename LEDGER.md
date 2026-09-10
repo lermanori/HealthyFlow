@@ -1,3 +1,13 @@
+### 2026-09-10 10:11 — `codex/258-google-item-reconciliation`
+
+Preserved an incomplete, unmerged v1.1 checkpoint for backend Google Item
+reconciliation after deciding that direct Google is redundant for the iPhone-only
+free v1. The checkpoint covers typed post-Cloud reconciliation, deterministic
+owned event ids, foreign-event refusal, and unscheduling; backend typecheck and
+15 focused tests pass, but the issue remains intentionally unfinished.
+
+---
+
 ### 2026-09-09 20:07 — `codex/257-compose-device-google`
 
 Corrected the CI runner isolation for both legacy `.list` and current

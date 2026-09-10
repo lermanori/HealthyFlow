@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken'
 import { app } from '../../src/index'
 import { db } from '../../src/supabase-client'
 import { Sync } from '../../src/sync'
+import { reconcileGoogleCalendarItems } from '../../src/calendar'
 
 jest.mock('../../src/supabase-client', () => ({
   db: {
@@ -28,8 +29,15 @@ jest.mock('../../src/sync', () => ({
   },
 }))
 
+jest.mock('../../src/calendar', () => ({
+  reconcileGoogleCalendarItems: jest.fn(),
+}))
+
 const mockDb = db as jest.Mocked<typeof db>
 const mockSync = Sync as jest.Mocked<typeof Sync>
+const mockReconcileGoogleCalendarItems = reconcileGoogleCalendarItems as jest.MockedFunction<
+  typeof reconcileGoogleCalendarItems
+>
 
 const TOKEN = `Bearer ${jwt.sign({ userId: 'user-1' }, process.env.JWT_SECRET!)}`
 
@@ -48,6 +56,9 @@ beforeEach(() => {
     syncedAt: '2026-08-23T12:00:00.000Z',
     changed: emptyPayload,
   } as never)
+  mockReconcileGoogleCalendarItems.mockResolvedValue({
+    state: 'synced', attempted: 0, synced: 0, removed: 0, failures: [],
+  } as never)
 })
 
 describe('POST /api/sync', () => {
@@ -62,6 +73,9 @@ describe('POST /api/sync', () => {
     expect(mockSync.exchange).toHaveBeenCalledWith('user-1', expect.objectContaining({
       since: '2026-08-23T11:00:00.000Z',
     }))
+    expect(response.body.calendarReconciliation).toEqual({
+      state: 'synced', attempted: 0, synced: 0, removed: 0, failures: [],
+    })
   })
 
   it('accepts a first push, where nothing has been synced yet', async () => {
@@ -71,6 +85,22 @@ describe('POST /api/sync', () => {
       .send({ since: null, changed: emptyPayload })
 
     expect(response.status).toBe(200)
+  })
+
+  it('keeps a successful Cloud exchange when Google reconciliation fails', async () => {
+    mockReconcileGoogleCalendarItems.mockRejectedValueOnce(new Error('Google timed out'))
+
+    const response = await request(app)
+      .post('/api/sync')
+      .set('Authorization', TOKEN)
+      .send({ since: null, changed: emptyPayload })
+
+    expect(response.status).toBe(200)
+    expect(response.body.syncedAt).toBe('2026-08-23T12:00:00.000Z')
+    expect(response.body.calendarReconciliation).toEqual({
+      state: 'unavailable', attempted: 0, synced: 0, removed: 0,
+      failures: [{ itemId: 'calendar', reason: 'calendar_reconciliation_unavailable' }],
+    })
   })
 
   it('refuses an account without a Cloud subscription', async () => {

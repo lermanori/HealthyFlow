@@ -2,6 +2,10 @@ import crypto from 'crypto'
 import { z } from 'zod'
 import { CloudAccess } from './cloud-access'
 import { supabase } from './supabase-client'
+import {
+  CalendarReconciliationSchema,
+  type CalendarReconciliation,
+} from './sync-contracts'
 
 const GoogleTokenResponseSchema = z.object({
   access_token: z.string(),
@@ -96,6 +100,8 @@ type GoogleSyncedTask = {
   scheduled_date: string | null
   location?: string | null
   google_event_id?: string | null
+  google_sync_status?: string | null
+  deleted_at?: string | null
 }
 
 type ExternalCalendarScheduleUpdate = {
@@ -113,6 +119,12 @@ const GOOGLE_SCOPES = [
   'https://www.googleapis.com/auth/calendar.events',
 ]
 const GOOGLE_CALENDAR_NOT_CONNECTED = 'Google Calendar is not connected'
+class GoogleCalendarOwnershipError extends Error {
+  constructor() {
+    super('The Google Calendar event is not owned by this HealthyFlow Item.')
+    this.name = 'GoogleCalendarOwnershipError'
+  }
+}
 export const GoogleCalendarOAuthReturnTargetSchema = z.enum(['web', 'native'])
 export type GoogleCalendarOAuthReturnTarget = z.infer<typeof GoogleCalendarOAuthReturnTargetSchema>
 const GoogleCalendarOAuthStateSchema = z.object({
@@ -452,7 +464,15 @@ function normalizeLocation(value: string | undefined | null): string | null {
 }
 
 function isTimedTask(row: GoogleSyncedTask): boolean {
-  return row.type === 'task' && Boolean(row.scheduled_date && row.start_time)
+  return row.type === 'task' && !row.deleted_at && Boolean(row.scheduled_date && row.start_time)
+}
+
+function ownedGoogleEventId(itemId: string): string {
+  const encoded = itemId.toLowerCase().replace(/[^a-v0-9]/g, '')
+  const stable = encoded.length >= 5
+    ? encoded
+    : crypto.createHash('sha256').update(itemId).digest('hex')
+  return `hf${stable}`
 }
 
 function taskEventTimes(row: GoogleSyncedTask): { start: string; end: string } {
@@ -558,9 +578,12 @@ async function syncTaskToGoogleCalendarForCloud(row: GoogleSyncedTask, timeZone?
   const accessToken = await getGoogleAccessToken(row.user_id)
   const eventBody = taskToGoogleEvent(row, timeZone)
   const existingEventId = row.google_event_id
-  const googleEventBody = !existingEventId && eventBody.location === null
-    ? (({ location: _location, ...body }) => body)(eventBody)
-    : eventBody
+  const identifiedEventBody = existingEventId
+    ? eventBody
+    : { id: ownedGoogleEventId(row.id), ...eventBody }
+  const googleEventBody = !existingEventId && identifiedEventBody.location === null
+    ? (({ location: _location, ...body }) => body)(identifiedEventBody)
+    : identifiedEventBody
   const url = existingEventId
     ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(existingEventId)}`
     : 'https://www.googleapis.com/calendar/v3/calendars/primary/events'
@@ -575,6 +598,11 @@ async function syncTaskToGoogleCalendarForCloud(row: GoogleSyncedTask, timeZone?
   })
 
   if (!response.ok) {
+    if (!existingEventId && response.status === 409) {
+      const recovered = { ...row, google_event_id: ownedGoogleEventId(row.id) }
+      await verifyOwnedGoogleEvent(recovered)
+      return syncTaskToGoogleCalendarForCloud(recovered, timeZone)
+    }
     if (existingEventId && response.status === 404) {
       return syncTaskToGoogleCalendarForCloud({ ...row, google_event_id: null }, timeZone)
     }
@@ -645,6 +673,97 @@ export async function syncTimedTasksForDate(userId: string, date: string, timeZo
   return { synced }
 }
 
+export async function reconcileGoogleCalendarItems(
+  userId: string,
+  input: { itemIds: string[]; timeZone?: string },
+): Promise<CalendarReconciliation> {
+  await CloudAccess.require(userId)
+
+  const requestedIds = [...new Set(input.itemIds)]
+  const requested = requestedIds.length === 0
+    ? []
+    : await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('type', 'task')
+      .in('id', requestedIds)
+  if (!Array.isArray(requested) && requested.error) throw requested.error
+
+  const pending = await supabase
+    .from('tasks')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('type', 'task')
+    .in('google_sync_status', ['pending', 'failed'])
+  if (pending.error) throw pending.error
+
+  const candidates = new Map<string, GoogleSyncedTask>()
+  for (const row of [
+    ...(Array.isArray(requested) ? [] : requested.data ?? []),
+    ...(pending.data ?? []),
+  ] as GoogleSyncedTask[]) {
+    candidates.set(row.id, row)
+  }
+
+  let synced = 0
+  let removed = 0
+  const failures: CalendarReconciliation['failures'] = []
+  for (const row of candidates.values()) {
+    try {
+      const ownership = await verifyOwnedGoogleEvent(row)
+      const authoritative = ownership === 'missing' && row.google_event_id
+        ? { ...row, google_event_id: null }
+        : row
+      const result = await syncTaskToGoogleCalendarForCloud(authoritative, input.timeZone)
+      const update = await supabase.from('tasks').update({
+        google_event_id: result.googleEventId,
+        synced_to_google: result.synced,
+        google_sync_status: result.status,
+      }).eq('id', row.id).eq('user_id', userId)
+      if (update.error) throw update.error
+      if (result.synced) synced += 1
+      else if (row.google_event_id) removed += 1
+    } catch (error) {
+      if (isGoogleCalendarNotConnectedError(error)) {
+        const update = await supabase.from('tasks').update({
+          synced_to_google: false,
+          google_sync_status: 'skipped',
+        }).eq('id', row.id).eq('user_id', userId)
+        if (update.error) throw update.error
+        return CalendarReconciliationSchema.parse({
+          state: 'not_connected',
+          attempted: synced + removed,
+          synced,
+          removed,
+          failures,
+        })
+      }
+      const update = await supabase.from('tasks').update({
+        synced_to_google: false,
+        google_sync_status: 'failed',
+      }).eq('id', row.id).eq('user_id', userId)
+      failures.push({
+        itemId: row.id,
+        reason: update.error
+          ? 'state_update_failed'
+          : error instanceof GoogleCalendarOwnershipError
+            ? 'ownership_mismatch'
+            : 'google_request_failed',
+      })
+    }
+  }
+
+  const attempted = candidates.size
+  return CalendarReconciliationSchema.parse({
+    state: failures.length === 0 ? 'synced' : synced + removed > 0 ? 'partial' : 'unavailable',
+    attempted,
+    synced,
+    removed,
+    failures,
+  })
+}
+
 export async function deleteGoogleCalendarEvent(userId: string, googleEventId: string): Promise<void> {
   await CloudAccess.require(userId)
   return deleteGoogleCalendarEventForCloud(userId, googleEventId)
@@ -664,6 +783,28 @@ async function deleteGoogleCalendarEventForCloud(userId: string, googleEventId: 
     const errorText = await response.text()
     throw new Error(`Google Calendar event delete failed: ${errorText}`)
   }
+}
+
+async function verifyOwnedGoogleEvent(row: GoogleSyncedTask): Promise<'owned' | 'missing'> {
+  if (!row.google_event_id) return 'missing'
+  const accessToken = await getGoogleAccessToken(row.user_id)
+  const response = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(row.google_event_id)}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  if (response.status === 404 || response.status === 410) return 'missing'
+  if (!response.ok) {
+    throw new Error(`Google Calendar ownership check failed: ${await response.text()}`)
+  }
+  const event = GoogleCalendarEventSchema.parse(await response.json())
+  const owner = event.extendedProperties?.private
+  if (
+    owner?.healthyflowTaskId !== row.id
+    || owner?.healthyflowUserId !== row.user_id
+  ) {
+    throw new GoogleCalendarOwnershipError()
+  }
+  return 'owned'
 }
 
 function formatExternalEvent(row: any): ExternalCalendarEvent {

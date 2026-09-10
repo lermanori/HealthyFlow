@@ -56,9 +56,27 @@ export const SyncRequestSchema = z.object({
 })
 export type SyncRequest = z.infer<typeof SyncRequestSchema>
 
+export const CalendarReconciliationSchema = z.object({
+  state: z.enum(['not_connected', 'synced', 'partial', 'unavailable']),
+  attempted: z.number().int().nonnegative(),
+  synced: z.number().int().nonnegative(),
+  removed: z.number().int().nonnegative(),
+  failures: z.array(z.object({
+    itemId: z.string().min(1),
+    reason: z.enum([
+      'calendar_reconciliation_unavailable',
+      'google_request_failed',
+      'ownership_mismatch',
+      'state_update_failed',
+    ]),
+  }).strict()),
+}).strict()
+export type CalendarReconciliation = z.infer<typeof CalendarReconciliationSchema>
+
 export const SyncResponseSchema = z.object({
   syncedAt: z.string(),
   changed: SyncPayloadSchema,
+  calendarReconciliation: CalendarReconciliationSchema.optional(),
 })
 export type SyncResponse = z.infer<typeof SyncResponseSchema>
 
