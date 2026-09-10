@@ -12,6 +12,7 @@ public final class DeviceCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "requestFullAccess", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "getEvents", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "upsertItemEvent", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "readItemEvents", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "deleteItemEvent", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
     ]
@@ -141,6 +142,52 @@ public final class DeviceCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    /// Read the current state of linked HealthyFlow events (#267).
+    ///
+    /// `getEvents` deliberately filters HealthyFlow-owned events out of the
+    /// obligations read, so nothing could see whether a linked event had been
+    /// edited or removed in iOS Calendar. This is that missing read: it reports
+    /// each identifier as `present` with its current fields and
+    /// `lastModifiedDate`, or `missing` when the event is gone or is no longer
+    /// ours. An event whose ownership marker was stripped is deliberately
+    /// `missing` rather than an error — it is no longer a linked record.
+    @objc func readItemEvents(_ call: CAPPluginCall) {
+        guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else {
+            call.reject("Full Device Calendar access has not been granted")
+            return
+        }
+        guard let identifiers = call.getArray("eventIdentifiers") as? [String] else {
+            call.reject("Device Calendar event identifiers are required")
+            return
+        }
+
+        let events: [[String: Any]] = identifiers.map { identifier in
+            guard
+                let event = eventStore.event(withIdentifier: identifier),
+                isHealthyFlowItemEvent(event)
+            else {
+                return ["eventIdentifier": identifier, "state": "missing"]
+            }
+
+            // EventKit does not guarantee a modification date. Without one the
+            // decision layer cannot order a concurrent edit, and it must be told
+            // so rather than handed a substitute that would silently win.
+            let modified = event.lastModifiedDate ?? event.creationDate
+            return [
+                "eventIdentifier": identifier,
+                "state": "present",
+                "title": event.title?.isEmpty == false ? event.title! : "(No title)",
+                "scheduledDate": dayText(event.startDate),
+                "startTime": localTime(event.startDate),
+                "durationMinutes": durationMinutes(event),
+                "location": event.location ?? NSNull(),
+                "lastModifiedAt": modified.map { isoDate($0) } ?? NSNull()
+            ]
+        }
+
+        call.resolve(["events": events])
+    }
+
     @objc func deleteItemEvent(_ call: CAPPluginCall) {
         guard EKEventStore.authorizationStatus(for: .event) == .fullAccess else {
             call.reject("Full Device Calendar access has not been granted")
@@ -264,6 +311,22 @@ public final class DeviceCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
             "completed": false,
             "completedAt": NSNull()
         ]
+    }
+
+    private func dayText(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: date)
+    }
+
+    /// Whole minutes between start and end, floored at one so a zero-length
+    /// event cannot be reported as a duration the schema refuses.
+    private func durationMinutes(_ event: EKEvent) -> Int {
+        let seconds = event.endDate.timeIntervalSince(event.startDate)
+        return max(1, Int((seconds / 60).rounded()))
     }
 
     private func isoDate(_ date: Date) -> String {

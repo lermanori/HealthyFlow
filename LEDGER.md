@@ -1,3 +1,31 @@
+### 2026-09-10 21:19 — `codex/267-device-side-reconciliation`
+
+Closed the loop on #267: the conflict state a reconciliation can now produce is
+visible on the card as `Calendar conflict`, kept distinct from a failed write
+because nothing is broken — both sides changed and neither could be shown to be
+newer, so neither was applied. All six device scenarios pass on a physical
+iPhone, including the deliberate reversal where deleting a HealthyFlow event in
+iOS Calendar now deletes the linked Item. 394 unit tests, typecheck, lint, build
+and the iOS sync pass.
+
+---
+
+### 2026-09-10 20:34 — `codex/267-device-side-reconciliation`
+
+Built the missing direction for #267: a change made in iOS Calendar now reaches
+the Item instead of being overwritten. `reconcileLinkedRecord` decides which
+side wins from the watermarks the link already carried, a new `readItemEvents`
+native bridge reports each linked event's current state and modification time,
+and the reconciler reads the device before it writes. Last save wins; identical
+simultaneous saves settle silently; ties, missing modification times and races
+against a deletion record a conflict and change neither side. Two safety
+properties came out of writing the tests first: an identifier the read did not
+answer is unknown rather than deleted, and a failed read writes nothing at all
+rather than clobbering an edit it could not see. 392 unit tests, typecheck, lint,
+build and the iOS sync pass.
+
+---
+
 ### 2026-09-10 19:47 — `codex/266-account-eventkit-parity`
 
 Answered #266 by observing rather than guessing: the hosted-branch theory is

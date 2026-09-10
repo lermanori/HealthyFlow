@@ -111,6 +111,7 @@ describe('Device Calendar day contract', () => {
         writes.push(input)
         return { eventIdentifier: 'event-1' }
       },
+      readItemEvents: async () => ({ events: [] }),
       deleteItemEvent: async () => ({ deleted: true }),
     })
 
@@ -141,6 +142,7 @@ describe('Device Calendar day contract', () => {
     const sync = createDeviceCalendarItemSync({
       getAuthorizationStatus: async () => ({ status: 'full_access' }),
       upsertItemEvent: async () => ({ eventIdentifier: 'unused' }),
+      readItemEvents: async () => ({ events: [] }),
       deleteItemEvent: async ({ eventIdentifier }) => {
         removed.push(eventIdentifier)
         return { deleted: true }
@@ -166,6 +168,7 @@ describe('Device Calendar day contract', () => {
       links: [],
       sync: {
         upsert: async () => ({ state: 'synced', eventIdentifier: 'event-1' }),
+        readLinked: async () => ({ state: 'read' as const, events: [] }),
         remove: async () => ({ state: 'removed' }),
       },
       now: '2026-09-09T10:01:00.000Z',
@@ -174,6 +177,9 @@ describe('Device Calendar day contract', () => {
     assert.deepEqual(result, {
       state: 'connected',
       failures: [],
+      // Nothing changed on the device side of this pass.
+      deviceChanges: [],
+      conflicts: [],
       links: [{
         itemId: 'item-1',
         eventIdentifier: 'event-1',
@@ -211,6 +217,7 @@ describe('Device Calendar day contract', () => {
           identifiers.push(item.eventIdentifier)
           return { state: 'synced', eventIdentifier: 'event-1' }
         },
+        readLinked: async () => ({ state: 'read' as const, events: [] }),
         remove: async () => ({ state: 'removed' }),
       },
       now: '2026-09-09T11:01:00.000Z',
@@ -243,6 +250,7 @@ describe('Device Calendar day contract', () => {
       }],
       sync: {
         upsert: async () => ({ state: 'synced', eventIdentifier: 'event-recreated' }),
+        readLinked: async () => ({ state: 'read' as const, events: [] }),
         remove: async () => ({ state: 'removed' }),
       },
       now: '2026-09-09T11:00:00.000Z',
@@ -274,6 +282,7 @@ describe('Device Calendar day contract', () => {
       }],
       sync: {
         upsert: async () => ({ state: 'synced', eventIdentifier: 'unused' }),
+        readLinked: async () => ({ state: 'read' as const, events: [] }),
         remove: async (identifier) => {
           removed.push(identifier)
           return { state: 'removed' }
@@ -301,6 +310,7 @@ describe('Device Calendar day contract', () => {
       links: [],
       sync: {
         upsert: async () => ({ state: 'failed', reason: 'Calendar is unavailable' }),
+        readLinked: async () => ({ state: 'read' as const, events: [] }),
         remove: async () => ({ state: 'removed' }),
       },
       now: '2026-09-09T10:01:00.000Z',
@@ -317,6 +327,7 @@ describe('Device Calendar day contract', () => {
       links: failed.links,
       sync: {
         upsert: async () => ({ state: 'synced', eventIdentifier: 'event-1' }),
+        readLinked: async () => ({ state: 'read' as const, events: [] }),
         remove: async () => ({ state: 'removed' }),
       },
       now: '2026-09-09T10:02:00.000Z',
@@ -343,6 +354,7 @@ describe('Device Calendar day contract', () => {
 
     const result = await syncLocalDayWithDeviceCalendar('guest-1', {
       upsert: async () => ({ state: 'synced', eventIdentifier: 'event-1' }),
+      readLinked: async () => ({ state: 'read' as const, events: [] }),
       remove: async () => ({ state: 'removed' }),
     }, '2026-09-09T18:01:00.000Z')
     const database = await loadLocalDatabase('guest-1')
@@ -384,6 +396,7 @@ describe('Device Calendar day contract', () => {
         syncedTimes.push(item.startTime)
         return { state: 'synced', eventIdentifier: 'event-legacy' }
       },
+      readLinked: async () => ({ state: 'read' as const, events: [] }),
       remove: async () => ({ state: 'removed' }),
     }, '2026-09-10T18:01:00.000Z')
 

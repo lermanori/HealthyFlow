@@ -190,11 +190,13 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
     const status = calendarItemStatus(task)
     if (!status) return null
 
-    const presentation: { tone: 'success' | 'danger' | 'accent'; Icon: typeof Calendar; label: string; title?: string } =
+    const presentation: { tone: 'success' | 'danger' | 'warning' | 'accent'; Icon: typeof Calendar; label: string; title?: string } =
       status.provider === 'device'
-      ? status.state === 'failed'
-        ? { tone: 'danger', Icon: AlertTriangle, label: 'Not in Calendar', title: status.error }
-        : { tone: 'success', Icon: Calendar, label: 'In Calendar', title: 'This Item is in your iPhone Calendar.' }
+      ? status.state === 'conflict'
+        ? { tone: 'warning', Icon: AlertTriangle, label: 'Calendar conflict', title: status.error }
+        : status.state === 'failed'
+          ? { tone: 'danger', Icon: AlertTriangle, label: 'Not in Calendar', title: status.error }
+          : { tone: 'success', Icon: Calendar, label: 'In Calendar', title: 'This Item is in your iPhone Calendar.' }
       : status.state === 'failed'
         ? { tone: 'danger', Icon: AlertTriangle, label: 'Google sync failed', title: undefined }
         : status.state === 'pending'
@@ -204,6 +206,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
     const tones = {
       success: 'border-state-success/30 bg-state-success/15 text-state-success',
       danger: 'border-state-danger/30 bg-state-danger/15 text-state-danger',
+      warning: 'border-state-warning/30 bg-state-warning/15 text-state-warning',
       accent: 'border-accent/30 bg-accent/15 text-accent',
     } as const
     const { Icon } = presentation

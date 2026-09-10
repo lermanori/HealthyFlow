@@ -106,7 +106,9 @@ export type LocalTaskRow = z.infer<typeof LocalTaskRowSchema>
 export const DeviceCalendarLinkSchema = z.object({
   itemId: z.string().min(1),
   eventIdentifier: z.string().min(1).nullable(),
-  status: z.enum(['synced', 'failed']),
+  // `conflict` means both sides changed and the order could not be established,
+  // so neither was applied (#267, ADR-0020).
+  status: z.enum(['synced', 'failed', 'conflict']),
   error: z.string().min(1).nullable(),
   itemUpdatedAt: z.string().min(1),
   updatedAt: z.string().min(1),
