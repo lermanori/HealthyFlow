@@ -36,6 +36,7 @@ import {
   type LocalTaskUpdates,
 } from './day'
 import {
+  loadLocalDatabase,
   LocalDatabaseSchema,
   LocalStoreError,
   LocalTaskRowSchema,
@@ -545,6 +546,28 @@ function itemToClient(item: DaySummaryItem) {
   return { ...item, category: item.category, duration: item.duration ?? undefined }
 }
 
+/**
+ * Attach this device's EventKit bookkeeping to a day's Items (ADR-0020).
+ *
+ * The links are device-local and deliberately absent from the DaySummary day
+ * contract, so they are joined on at the edge rather than carried through the
+ * shared schema. An Item with no link gets `null` — meaning EventKit produced no
+ * record for it — which a card reads as "no provider ran", not as success.
+ */
+function withDeviceCalendarLinks<T extends { id: string }>(
+  items: T[],
+  database: LocalDatabase,
+): T[] {
+  if (database.deviceCalendarLinks.length === 0) return items
+  const linkByItem = new Map(database.deviceCalendarLinks.map((link) => [link.itemId, link]))
+  return items.map((item) => {
+    const link = linkByItem.get(item.id)
+    return link
+      ? { ...item, deviceCalendar: { status: link.status, error: link.error } }
+      : item
+  })
+}
+
 function progressToClient(progress: LocalHabitProgress) {
   return {
     habit: {
@@ -572,18 +595,25 @@ export const localServices = {
   createGoal: createLocalGoal,
   updateGoal: updateLocalGoal,
 
-  daySummary: (
+  daySummary: async (
     userId: string,
     date: string,
     calendar?: CalendarSource,
-  ): Promise<DaySummary> =>
-    buildLocalDaySummary(
-      userId,
-      date,
-      Intl.DateTimeFormat().resolvedOptions().timeZone,
-      undefined,
-      calendar,
-    ),
+  ): Promise<DaySummary> => {
+    const [summary, database] = await Promise.all([
+      buildLocalDaySummary(
+        userId,
+        date,
+        Intl.DateTimeFormat().resolvedOptions().timeZone,
+        undefined,
+        calendar,
+      ),
+      loadLocalDatabase(userId),
+    ])
+    // Today renders from the day summary, not from getTasks, so the EventKit
+    // bookkeeping has to be joined here too or a card has nothing to report.
+    return { ...summary, items: withDeviceCalendarLinks(summary.items, database) }
+  },
 
   getTasks: async (userId: string, date?: string) => {
     if (!date) {
@@ -591,7 +621,11 @@ export const localServices = {
       // ever", which no surface asks for and which no server route returns either.
       throw new LocalStoreError('Reading Items from this device needs a date.')
     }
-    return (await localItemsForDay(userId, date)).map(itemToClient)
+    const [items, database] = await Promise.all([
+      localItemsForDay(userId, date),
+      loadLocalDatabase(userId),
+    ])
+    return withDeviceCalendarLinks(items.map(itemToClient), database)
   },
 
   getHabitHistory: (userId: string, to: string, days = 30) =>

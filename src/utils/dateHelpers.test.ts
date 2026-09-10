@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { format } from 'date-fns'
 import {
+  formatClockRange,
   formatRelativeDate,
   formatScheduleHeading,
   formatSelectedDateAnnouncement,
@@ -87,5 +88,22 @@ describe('mobile day swipe intent', () => {
     assert.equal(getDaySwipeDirection(-60, 0), null)
     assert.equal(getDaySwipeDirection(20, 100), null)
     assert.equal(getDaySwipeDirection(80, 70), null)
+  })
+})
+
+describe('an Item clock range', () => {
+  it('reads as a range, like a Calendar obligation', () => {
+    assert.equal(formatClockRange('19:00', 30), '19:00 - 19:30')
+    assert.equal(formatClockRange('09:15', 90), '09:15 - 10:45')
+  })
+
+  it('shows only the time an Item actually carries when it has no duration', () => {
+    assert.equal(formatClockRange('19:00'), '19:00')
+    assert.equal(formatClockRange('19:00', null), '19:00')
+    assert.equal(formatClockRange('19:00', 0), '19:00')
+  })
+
+  it('does not wrap a past-midnight end into an earlier clock', () => {
+    assert.equal(formatClockRange('23:30', 60), '23:30')
   })
 })

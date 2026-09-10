@@ -10,6 +10,29 @@ inventory moves from read to read/write; implementation waits on #267.
 
 ---
 
+### 2026-09-10 17:31 — `codex/265-provider-calendar-status`
+
+Finished the provider-specific Calendar status slice and folded in the
+presentation defects the device check surfaced: the compact badge no longer
+clips, an Item now reads as a clock range like a Calendar obligation, the
+`Fixed` provenance chip appears on a phone instead of only above `sm`, and a
+Calendar row carries the drag grip's gutter so both card kinds share a left
+edge. Frontend typecheck, 356 unit tests, lint and the production build pass.
+
+---
+
+### 2026-09-10 16:44 — `codex/265-provider-calendar-status`
+
+Made Item Calendar status name the provider that actually handled it. The Local
+path now carries this device's EventKit bookkeeping onto each Item and renders
+`In Calendar` / `Not in Calendar` from it, while the hosted Google path keeps its
+own explicitly-labelled states. Correcting the issue's premise: on the Local path
+the old badge showed nothing at all — including after a failed EventKit write —
+rather than showing a false `Syncing`. Frontend typecheck, 351 unit tests, lint
+and the production build pass; device verification is with the founder.
+
+---
+
 ### 2026-09-10 15:59 — `codex/249-guest-grant-ip-guard`
 
 Closed the Guest action-farming path without Apple DeviceCheck: the once-ever ten-action
