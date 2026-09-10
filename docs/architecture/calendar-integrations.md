@@ -78,7 +78,7 @@ session must preserve the same invariant.
 | Explicit account sign-in | Downloads, merges, validates, and remembers the Local day before adopting the session | Needs regression coverage proving Device Calendar starts for the resulting account |
 | Existing-session restore | Verifies the token, then trusts an existing Local-day owner marker | A missing or mismatched marker leaves a registered account on the hosted branch instead of restoring the Local-day invariant |
 | Manual Item write | Local writes emit `healthyflow:local-day-changed`; hosted writes call `/tasks` | Founder account observed on the Local branch reaching EventKit (2026-09-10). The hosted branch still bypasses EventKit for any identity that lands on it |
-| Talk-confirmed Item write | Server confirms the action, then mirrors the returned record into the Local day when `dayUserId` exists | Not yet observed on device for any identity (#266) |
+| Talk-confirmed Item write | Server confirms the action, then mirrors the returned record into the Local day when `dayUserId` exists | Observed reaching EventKit on the founder account, 2026-09-10 (#266) |
 | Device Calendar read | EventKit obligations are composed locally and HealthyFlow-owned events are filtered out | Implemented |
 | HealthyFlow Item export | Local timed Item create/edit/reschedule/delete is reconciled to EventKit | Implemented for the HealthyFlow-to-Calendar direction |
 | Device edit of linked Item | EventKit change triggers refresh and reconciliation | Reconciliation currently writes the HealthyFlow value back to EventKit; it does not apply a Device-side edit or deletion to the Item |
@@ -102,11 +102,16 @@ reaches EventKit on that account. The inference was wrong; #263 had already
 restored the Local-day invariant. This paragraph is kept rather than deleted so
 the same theory is not re-derived from the old symptom.
 
-**Still to observe:** whether a *Talk-confirmed* Item reaches EventKit — it takes
-a different route, mirroring the server's confirmed record into the Local day —
-and the branch for the Guest, newly claimed, returning-free and restored-session
-identities. Diagnostics must expose states and identifiers without logging
-tokens, calendar content, credentials, or other secrets.
+**Observed on a physical iPhone, 2026-09-10:** the founder account reports
+identity `account`, branch `local`, no blockers, and reaches EventKit for both a
+manually created Item and a Talk-confirmed one. The remaining identities report
+the same branch through the Settings diagnostic.
+
+**Still to observe:** creating an Item on each of the Guest, newly claimed,
+returning-free and restored-session identities in turn, rather than reading the
+branch alone. The branch is a necessary condition, not proof of the write.
+Diagnostics must expose states and identifiers without logging tokens, calendar
+content, credentials, or other secrets.
 
 ## Required implementation slices
 

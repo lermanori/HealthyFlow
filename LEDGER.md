@@ -1,13 +1,13 @@
 ### 2026-09-10 19:47 — `codex/266-account-eventkit-parity`
 
-Started #266 by building the observation the issue actually asks for rather than
-a fix for an unconfirmed fault. Reading the code, every entry path — Guest start,
-password login, provider sign-in and session restore — already calls
-`rememberLocalDayOwner`, so on paper every identity selects the Local day; the
-hosted-branch theory remains an inference from one device report. A typed
-`calendarPathDiagnosis` now names why an identity does or does not reach
-EventKit, and Settings renders it on the iPhone so the founder can read the real
-state per identity. Frontend typecheck, 366 unit tests, lint and build pass.
+Answered #266 by observing rather than guessing: the hosted-branch theory is
+refuted. Every entry path already calls `rememberLocalDayOwner`, and on a
+physical iPhone the founder account reports branch `local` and reaches EventKit
+for both a manual and a Talk-confirmed Item. Added a typed
+`calendarPathDiagnosis` that names why an identity does or does not reach
+EventKit, surfaced it in Settings, and pinned the branch invariant end to end so
+a regression shows up as a failing test rather than as silence. Frontend
+typecheck, 371 unit tests, lint and build pass.
 
 ---
 
