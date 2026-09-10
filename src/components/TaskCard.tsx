@@ -189,50 +189,37 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
     const status = calendarItemStatus(task)
     if (!status) return null
 
-    const padding = compact ? 'px-1.5 py-0.5' : 'px-2 py-1'
+    const presentation: { tone: 'success' | 'danger' | 'accent'; Icon: typeof Calendar; label: string; title?: string } =
+      status.provider === 'device'
+      ? status.state === 'failed'
+        ? { tone: 'danger', Icon: AlertTriangle, label: 'Not in Calendar', title: status.error }
+        : { tone: 'success', Icon: Calendar, label: 'In Calendar', title: 'This Item is in your iPhone Calendar.' }
+      : status.state === 'failed'
+        ? { tone: 'danger', Icon: AlertTriangle, label: 'Google sync failed', title: undefined }
+        : status.state === 'pending'
+          ? { tone: 'accent', Icon: RefreshCw, label: 'Syncing to Google', title: undefined }
+          : { tone: 'success', Icon: Calendar, label: 'In Google Calendar', title: undefined }
 
-    if (status.provider === 'device') {
-      if (status.state === 'failed') {
-        return (
-          <span
-            title={status.error}
-            className={`flex items-center space-x-1 rounded-full border border-state-danger/30 bg-state-danger/15 text-xs text-state-danger ${padding}`}
-          >
-            <AlertTriangle className="w-3 h-3" />
-            <span>Not in Calendar</span>
-          </span>
-        )
-      }
-      return (
-        <span className={`flex items-center space-x-1 rounded-full border border-state-success/30 bg-state-success/15 text-xs text-state-success ${padding}`}>
-          <Calendar className="w-3 h-3" />
-          <span>In Calendar</span>
-        </span>
-      )
-    }
+    const tones = {
+      success: 'border-state-success/30 bg-state-success/15 text-state-success',
+      danger: 'border-state-danger/30 bg-state-danger/15 text-state-danger',
+      accent: 'border-accent/30 bg-accent/15 text-accent',
+    } as const
+    const { Icon } = presentation
 
-    if (status.state === 'failed') {
-      return (
-        <span className={`flex items-center space-x-1 rounded-full border border-state-danger/30 bg-state-danger/15 text-xs text-state-danger ${padding}`}>
-          <AlertTriangle className="w-3 h-3" />
-          <span>Google sync failed</span>
-        </span>
-      )
-    }
-
-    if (status.state === 'pending') {
-      return (
-        <span className={`flex items-center space-x-1 rounded-full border border-accent/30 bg-accent/15 text-xs text-accent ${padding}`}>
-          <RefreshCw className="w-3 h-3" />
-          <span>Syncing to Google</span>
-        </span>
-      )
-    }
-
+    // The compact timeline row is `whitespace-nowrap overflow-hidden`, so a text
+    // badge is clipped mid-word there. Compact keeps the icon and moves the words
+    // into the accessible name rather than showing half of them.
     return (
-      <span className={`flex items-center space-x-1 rounded-full border border-state-success/30 bg-state-success/15 text-xs text-state-success ${padding}`}>
-        <Calendar className="w-3 h-3" />
-        <span>In Google Calendar</span>
+      <span
+        title={presentation.title ?? presentation.label}
+        aria-label={presentation.label}
+        className={`flex shrink-0 items-center rounded-full border text-xs ${tones[presentation.tone]} ${
+          compact ? 'gap-0 px-1 py-0 leading-4' : 'gap-1 px-2 py-1'
+        }`}
+      >
+        <Icon className="h-3 w-3 shrink-0" />
+        {!compact && <span>{presentation.label}</span>}
       </span>
     )
   }
