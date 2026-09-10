@@ -1,3 +1,15 @@
+### 2026-09-10 18:12 — `codex/269-calendar-parity-adr`
+
+Recorded the founder's decision that a Calendar event and an Item are the same
+thing to the person using them. ADR-0024 supersedes ADR-0020 §3: editability now
+follows the calendar's own `allowsContentModifications` rather than who created
+the event, read-only events render as fixed with a readable reason instead of a
+dead affordance, and a foreign event is never shadowed by a duplicate Item. The
+native ownership guard is deliberately lifted and the App Store privacy
+inventory moves from read to read/write; implementation waits on #267.
+
+---
+
 ### 2026-09-10 17:31 — `codex/265-provider-calendar-status`
 
 Finished the provider-specific Calendar status slice and folded in the
