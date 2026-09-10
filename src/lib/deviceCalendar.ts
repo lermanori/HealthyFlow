@@ -1,5 +1,6 @@
 import { registerPlugin, type PluginListenerHandle } from '@capacitor/core'
 import { z } from 'zod'
+import { reconcileLinkedRecord } from './deviceCalendarReconcile'
 import DaySummaryContracts from '../../backend/src/day-summary-schema'
 import type { CalendarSource } from '../../backend/src/day-summary-schema'
 import {
@@ -155,6 +156,47 @@ export const DeviceCalendarItemSyncResultSchema = z.discriminatedUnion('state', 
 export type DeviceCalendarItemInput = z.infer<typeof DeviceCalendarItemInputSchema>
 export type DeviceCalendarItemSyncResult = z.infer<typeof DeviceCalendarItemSyncResultSchema>
 
+/**
+ * One linked event as EventKit currently holds it (#267).
+ *
+ * `missing` covers both "deleted in iOS Calendar" and "no longer carries the
+ * HealthyFlow ownership marker": either way it is not a linked record any more.
+ * `lastModifiedAt` is nullable because EventKit does not guarantee one, and the
+ * decision layer must be told that rather than handed a substitute that would
+ * silently win a concurrent edit.
+ */
+export const DeviceCalendarLinkedEventSchema = z.discriminatedUnion('state', [
+  z.object({
+    state: z.literal('missing'),
+    eventIdentifier: z.string().min(1),
+  }).strict(),
+  z.object({
+    state: z.literal('present'),
+    eventIdentifier: z.string().min(1),
+    title: z.string().min(1),
+    scheduledDate: z.string().date(),
+    startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+    durationMinutes: z.number().int().positive(),
+    location: z.string().nullable(),
+    lastModifiedAt: z.string().min(1).nullable(),
+  }).strict(),
+])
+export type DeviceCalendarLinkedEvent = z.infer<typeof DeviceCalendarLinkedEventSchema>
+
+const DeviceCalendarLinkedEventsResponseSchema = z.object({
+  events: z.array(DeviceCalendarLinkedEventSchema),
+}).strict()
+
+export const DeviceCalendarLinkedEventReadSchema = z.discriminatedUnion('state', [
+  z.object({ state: z.literal('read'), events: z.array(DeviceCalendarLinkedEventSchema) }).strict(),
+  z.object({
+    state: z.literal('not_connected'),
+    reason: z.enum(['not_determined', 'restricted', 'denied']),
+  }).strict(),
+  z.object({ state: z.literal('failed'), reason: z.string().min(1) }).strict(),
+])
+export type DeviceCalendarLinkedEventRead = z.infer<typeof DeviceCalendarLinkedEventReadSchema>
+
 export const DeviceCalendarItemRemovalResultSchema = z.discriminatedUnion('state', [
   z.object({ state: z.literal('removed') }).strict(),
   z.object({
@@ -182,11 +224,32 @@ const DeviceCalendarReconcileItemSchema = z.object({
 type DeviceCalendarReconcileItem = z.infer<typeof DeviceCalendarReconcileItemSchema>
 type DeviceCalendarItemSync = {
   upsert(input: DeviceCalendarItemInput): Promise<DeviceCalendarItemSyncResult>
+  readLinked(eventIdentifiers: string[]): Promise<DeviceCalendarLinkedEventRead>
   remove(eventIdentifier: string): Promise<DeviceCalendarItemRemovalResult>
 }
 
+/** A change EventKit made that the Local day still has to absorb. */
+export type DeviceCalendarItemChange =
+  | {
+      kind: 'update'
+      itemId: string
+      title: string
+      scheduledDate: string
+      startTime: string
+      durationMinutes: number
+      location: string | null
+    }
+  | { kind: 'delete'; itemId: string }
+
 export type DeviceCalendarReconcileResult =
-  | { state: 'connected'; links: DeviceCalendarLink[]; failures: string[] }
+  | {
+      state: 'connected'
+      links: DeviceCalendarLink[]
+      failures: string[]
+      /** Applied by the caller, which owns the Local day. */
+      deviceChanges: DeviceCalendarItemChange[]
+      conflicts: string[]
+    }
   | {
       state: 'not_connected'
       links: DeviceCalendarLink[]
@@ -202,7 +265,10 @@ export async function reconcileDeviceCalendarItems(input: {
   const items = z.array(DeviceCalendarReconcileItemSchema).parse(input.items)
   const links = z.array(DeviceCalendarLinkSchema).parse(input.links)
   const byItem = new Map(links.map((link) => [link.itemId, link]))
+  const byId = new Map(items.map((item) => [item.id, item]))
   const failures: string[] = []
+  const conflicts: string[] = []
+  const deviceChanges: DeviceCalendarItemChange[] = []
   const changedAt = input.now ?? new Date().toISOString()
   const scheduledItemIds = new Set(
     items
@@ -210,8 +276,137 @@ export async function reconcileDeviceCalendarItems(input: {
       .map((item) => item.id),
   )
 
+  // ── Device side first ─────────────────────────────────────────────────────
+  //
+  // Read what EventKit currently holds before writing anything, so an edit made
+  // in iOS Calendar is seen rather than overwritten. Items the device side
+  // settles are excluded from the write pass below.
+  const linkedIdentifiers = [...byItem.values()]
+    .map((link) => link.eventIdentifier)
+    .filter((identifier): identifier is string => identifier !== null)
+
+  const read = await input.sync.readLinked(linkedIdentifiers)
+  if (read.state === 'not_connected') {
+    return { state: 'not_connected', links, reason: read.reason }
+  }
+
+  // A failed read is not an empty Calendar. Every linked event would look
+  // deleted, and writing now could clobber a device edit we could not see, so
+  // nothing is written this pass.
+  if (read.state === 'failed') {
+    return {
+      state: 'connected',
+      links: [...byItem.values()].map((link) => ({
+        ...link,
+        status: 'failed' as const,
+        error: read.reason,
+        updatedAt: changedAt,
+      })),
+      failures: [...byItem.keys()],
+      deviceChanges: [],
+      conflicts: [],
+    }
+  }
+
+  const settledByDevice = new Set<string>()
+  const eventById = new Map(read.events.map((event) => [event.eventIdentifier, event]))
+
+  for (const link of [...byItem.values()]) {
+    if (link.eventIdentifier === null) continue
+    const item = byId.get(link.itemId)
+    if (!item) continue
+    // An identifier the read did not answer for is unknown, not deleted. The
+    // native bridge answers for every identifier it is given, so this only
+    // happens when something went wrong — and deleting the person's Item on
+    // that basis would be a failed read masquerading as an instruction.
+    const event = eventById.get(link.eventIdentifier)
+    if (!event) continue
+
+    const decision = reconcileLinkedRecord({
+      item: {
+        id: item.id,
+        title: item.title,
+        scheduledDate: item.scheduledDate,
+        startTime: item.startTime,
+        durationMinutes: item.durationMinutes,
+        location: item.location,
+        updatedAt: item.updatedAt,
+        deleted: item.deleted,
+      },
+      event: event.state === 'present'
+        ? {
+            state: 'present',
+            eventIdentifier: event.eventIdentifier,
+            title: event.title,
+            scheduledDate: event.scheduledDate,
+            startTime: event.startTime,
+            durationMinutes: event.durationMinutes,
+            location: event.location,
+            // A null modification time cannot order anything; the decision layer
+            // turns that into a conflict rather than a silent win.
+            lastModifiedAt: event.lastModifiedAt ?? 'unknown',
+          }
+        : { state: 'missing' },
+      link: {
+        itemId: link.itemId,
+        eventIdentifier: link.eventIdentifier,
+        itemUpdatedAt: link.itemUpdatedAt,
+        updatedAt: link.updatedAt,
+      },
+    })
+
+    if (decision.action === 'apply_to_item') {
+      deviceChanges.push({
+        kind: 'update',
+        itemId: link.itemId,
+        title: decision.event.title,
+        scheduledDate: decision.event.scheduledDate,
+        startTime: decision.event.startTime,
+        durationMinutes: decision.event.durationMinutes,
+        location: decision.event.location,
+      })
+      // The caller stamps the row with `changedAt` when it applies this, so the
+      // watermark has to be that same value — otherwise the next pass reads the
+      // applied change as a fresh Item-side edit and writes it straight back.
+      byItem.set(link.itemId, {
+        ...link,
+        status: 'synced',
+        error: null,
+        itemUpdatedAt: changedAt,
+        updatedAt: changedAt,
+      })
+      settledByDevice.add(link.itemId)
+      continue
+    }
+
+    if (decision.action === 'delete_item') {
+      deviceChanges.push({ kind: 'delete', itemId: link.itemId })
+      byItem.delete(link.itemId)
+      settledByDevice.add(link.itemId)
+      continue
+    }
+
+    if (decision.action === 'conflict') {
+      byItem.set(link.itemId, {
+        ...link,
+        status: 'conflict',
+        error: decision.reason === 'indeterminate_order'
+          ? 'This Item and its Calendar event were both changed, and neither is clearly newer.'
+          : 'This Item and its Calendar event were both changed, and the Calendar did not report when.',
+        updatedAt: changedAt,
+      })
+      conflicts.push(link.itemId)
+      settledByDevice.add(link.itemId)
+      continue
+    }
+
+    // `none`, `write_to_calendar` and `delete_event` fall through to the passes
+    // below, which already own those directions.
+  }
+
   for (const item of items) {
     if (item.deleted || !item.scheduledDate || !item.startTime) continue
+    if (settledByDevice.has(item.id)) continue
     const existing = byItem.get(item.id)
 
     const result = await input.sync.upsert({
@@ -254,6 +449,7 @@ export async function reconcileDeviceCalendarItems(input: {
 
   for (const link of [...byItem.values()]) {
     if (scheduledItemIds.has(link.itemId)) continue
+    if (settledByDevice.has(link.itemId)) continue
     if (link.eventIdentifier === null) {
       byItem.delete(link.itemId)
       continue
@@ -276,7 +472,7 @@ export async function reconcileDeviceCalendarItems(input: {
     failures.push(link.itemId)
   }
 
-  return { state: 'connected', links: [...byItem.values()], failures }
+  return { state: 'connected', links: [...byItem.values()], failures, deviceChanges, conflicts }
 }
 
 /**
@@ -295,6 +491,10 @@ export async function syncLocalDayWithDeviceCalendar(
   | { state: 'connected'; failures: string[] }
   | { state: 'not_connected'; reason: 'not_determined' | 'restricted' | 'denied' }
 > {
+  // One instant for this pass. The reconciler stamps links with it and the rows
+  // it causes to change carry the same value, so the next pass cannot read a
+  // change HealthyFlow just applied as a fresh Item-side edit.
+  const stampedAt = now ?? new Date().toISOString()
   const database = await loadLocalDatabase(userId)
   const result = await reconcileDeviceCalendarItems({
     items: database.tasks.map((row) => ({
@@ -312,25 +512,55 @@ export async function syncLocalDayWithDeviceCalendar(
     })),
     links: database.deviceCalendarLinks,
     sync,
-    now,
+    now: stampedAt,
   })
 
   if (result.state === 'not_connected') {
     return { state: 'not_connected', reason: result.reason }
   }
 
-  if (JSON.stringify(result.links) !== JSON.stringify(database.deviceCalendarLinks)) {
+  const changed = new Map(result.deviceChanges.map((change) => [change.itemId, change]))
+
+  if (
+    changed.size > 0
+    || JSON.stringify(result.links) !== JSON.stringify(database.deviceCalendarLinks)
+  ) {
     await mutateLocalDatabase(userId, (current) => ({
-      next: { ...current, deviceCalendarLinks: result.links },
+      next: {
+        ...current,
+        deviceCalendarLinks: result.links,
+        // Apply what the person changed in iOS Calendar. This is the direction
+        // that did not exist: an edit made there used to be overwritten with
+        // HealthyFlow's older value, and a deletion there left an Item pointing
+        // at an event that was gone.
+        tasks: current.tasks.map((row) => {
+          const change = changed.get(row.id)
+          if (!change) return row
+          if (change.kind === 'delete') {
+            return { ...row, deleted_at: row.deleted_at ?? stampedAt }
+          }
+          return {
+            ...row,
+            title: change.title,
+            scheduled_date: change.scheduledDate,
+            start_time: change.startTime,
+            duration: change.durationMinutes,
+            location: change.location,
+            updated_at: stampedAt,
+          }
+        }),
+      },
       result: undefined,
     }))
   }
   return { state: 'connected', failures: result.failures }
 }
 
+
 interface DeviceCalendarItemPlugin {
   getAuthorizationStatus(): Promise<unknown>
   upsertItemEvent(options: DeviceCalendarItemInput): Promise<unknown>
+  readItemEvents(options: { eventIdentifiers: string[] }): Promise<unknown>
   deleteItemEvent(options: { eventIdentifier: string }): Promise<unknown>
 }
 
@@ -350,6 +580,28 @@ export function createDeviceCalendarItemSync(plugin: DeviceCalendarItemPlugin) {
         )
         return { state: 'synced', eventIdentifier: response.eventIdentifier }
       } catch (error) {
+        return { state: 'failed', reason: errorMessage(error) }
+      }
+    },
+
+    async readLinked(eventIdentifiers: string[]): Promise<DeviceCalendarLinkedEventRead> {
+      if (eventIdentifiers.length === 0) return { state: 'read', events: [] }
+      try {
+        const authorization = DeviceCalendarAuthorizationSchema.parse(
+          await plugin.getAuthorizationStatus(),
+        )
+        if (authorization.status !== 'full_access') {
+          return { state: 'not_connected', reason: authorization.status }
+        }
+        const response = DeviceCalendarLinkedEventsResponseSchema.parse(
+          await plugin.readItemEvents({
+            eventIdentifiers: z.array(z.string().min(1)).parse(eventIdentifiers),
+          }),
+        )
+        return { state: 'read', events: response.events }
+      } catch (error) {
+        // A broken read is never an empty Calendar: reporting no events would
+        // make every linked Item look deleted.
         return { state: 'failed', reason: errorMessage(error) }
       }
     },
@@ -492,6 +744,7 @@ interface DeviceCalendarReadPlugin {
 
 interface DeviceCalendarPlugin extends DeviceCalendarReadPlugin {
   upsertItemEvent(options: DeviceCalendarItemInput): Promise<unknown>
+  readItemEvents(options: { eventIdentifiers: string[] }): Promise<unknown>
   deleteItemEvent(options: { eventIdentifier: string }): Promise<unknown>
 }
 

@@ -1,13 +1,16 @@
 ### 2026-09-10 20:34 — `codex/267-device-side-reconciliation`
 
-Started #267 with the decision layer, test-first: `reconcileLinkedRecord` says
-which side of a linked Item/event pair wins, using the two watermarks the link
-already carried. Last save wins when both moved; identical simultaneous saves
-settle silently; ties, unparseable timestamps and races against a deletion
-surface a conflict and change neither side. Writing the tests first caught a
-real design flaw — deletion had been inferred from `updatedAt`, when it is a
-divergence whether or not the timestamp moved. The native read of a linked
-event's current state is the next slice and is not built yet.
+Built the missing direction for #267: a change made in iOS Calendar now reaches
+the Item instead of being overwritten. `reconcileLinkedRecord` decides which
+side wins from the watermarks the link already carried, a new `readItemEvents`
+native bridge reports each linked event's current state and modification time,
+and the reconciler reads the device before it writes. Last save wins; identical
+simultaneous saves settle silently; ties, missing modification times and races
+against a deletion record a conflict and change neither side. Two safety
+properties came out of writing the tests first: an identifier the read did not
+answer is unknown rather than deleted, and a failed read writes nothing at all
+rather than clobbering an edit it could not see. 392 unit tests, typecheck, lint,
+build and the iOS sync pass.
 
 ---
 
