@@ -13,6 +13,7 @@ import {
   type SyncResponse,
   type SyncRow,
 } from './sync-contracts'
+import { logger } from './utils/logger'
 
 /**
  * One exchange: take what the device changed, give back what the server has.
@@ -206,10 +207,24 @@ async function acceptRows(
     records as SyncRow[],
     SYNC_IDENTITY[collection],
   ))
-  const mapped = records
-    .filter((record) => winners.has(record as SyncRow))
-    .map((record) => SHAPES[collection].toRows(record, userId))
+  const kept = records.filter((record) => winners.has(record as SyncRow))
+  if (kept.length !== records.length) {
+    logger.debug('[sync] merge discarded rows the device sent', {
+      collection,
+      sent: records.length,
+      kept: kept.length,
+      discarded: records
+        .filter((record) => !winners.has(record as SyncRow))
+        .map((record) => String(record.id)),
+    })
+  }
+  const mapped = kept.map((record) => SHAPES[collection].toRows(record, userId))
   if (mapped.length === 0) return
+  logger.debug('[sync] writing', {
+    collection,
+    ids: mapped.map((entry) => String(entry.row.id)),
+    tombstones: mapped.filter((entry) => entry.row.deleted_at != null).map((entry) => String(entry.row.id)),
+  })
   await refuseForeignIds(TABLES[collection], userId, mapped.map((entry) => entry.row))
   const { error } = await supabase
     .from(TABLES[collection])
@@ -252,8 +267,36 @@ async function settingsChangedSince(userId: string, since: string | null): Promi
   return { ...(row.settings ?? {}), updated_at: row.updated_at }
 }
 
+
+/**
+ * What a payload actually carries, for the sync trace.
+ *
+ * Ids and counts only — a row's title is the person's own words and has no place
+ * in a log. Tombstones are called out separately because a deletion that fails
+ * to travel is invisible in a total.
+ */
+function shape(payload: Record<string, unknown>): Record<string, unknown> {
+  const summary: Record<string, unknown> = {}
+  for (const collection of SYNC_COLLECTIONS) {
+    const rows = (payload[collection] ?? []) as Row[]
+    if (rows.length === 0) continue
+    const tombstones = rows.filter((row) => row.deleted_at != null)
+    summary[collection] = tombstones.length > 0
+      ? { rows: rows.length, tombstones: tombstones.map((row) => String(row.id)) }
+      : { rows: rows.length }
+  }
+  if (payload.settings) summary.settings = 'present'
+  return summary
+}
+
 async function exchange(userId: string, input: SyncRequest): Promise<SyncResponse> {
   const now = new Date()
+  logger.debug('[sync] exchange in', {
+    userId,
+    since: input.since,
+    serverNow: now.toISOString(),
+    pushed: shape(input.changed as unknown as Record<string, unknown>),
+  })
 
   // Checked before anything is written, so a bad clock costs one exchange rather
   // than poisoning rows that then win every conflict until real time catches up.
@@ -313,6 +356,11 @@ async function exchange(userId: string, input: SyncRequest): Promise<SyncRespons
     }
   }
 
+  logger.debug('[sync] exchange out', {
+    userId,
+    syncedAt: now.toISOString(),
+    returned: shape(before as unknown as Record<string, unknown>),
+  })
   return { syncedAt: now.toISOString(), changed: before }
 }
 
