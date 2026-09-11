@@ -186,6 +186,7 @@ describe('Device Calendar day contract', () => {
         status: 'synced',
         error: null,
         itemUpdatedAt: '2026-09-09T10:00:00.000Z',
+        eventModifiedAt: null,
         updatedAt: '2026-09-09T10:01:00.000Z',
       }],
     })
@@ -210,6 +211,7 @@ describe('Device Calendar day contract', () => {
         status: 'synced',
         error: null,
         itemUpdatedAt: '2026-09-09T10:00:00.000Z',
+        eventModifiedAt: null,
         updatedAt: '2026-09-09T10:01:00.000Z',
       }],
       sync: {
@@ -246,6 +248,7 @@ describe('Device Calendar day contract', () => {
         status: 'synced',
         error: null,
         itemUpdatedAt: '2026-09-09T10:00:00.000Z',
+        eventModifiedAt: null,
         updatedAt: '2026-09-09T10:01:00.000Z',
       }],
       sync: {
@@ -278,6 +281,7 @@ describe('Device Calendar day contract', () => {
         status: 'synced',
         error: null,
         itemUpdatedAt: '2026-09-09T10:00:00.000Z',
+        eventModifiedAt: null,
         updatedAt: '2026-09-09T10:01:00.000Z',
       }],
       sync: {

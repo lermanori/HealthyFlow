@@ -43,6 +43,9 @@ const link = {
   itemId: 'item-1',
   eventIdentifier: 'event-1',
   itemUpdatedAt: SYNCED_AT,
+  // The event's modification time as last reconciled — the baseline the event is
+  // compared against. Equal to the event's own stamp means "nothing moved".
+  eventModifiedAt: SYNCED_AT,
   updatedAt: SYNCED_AT,
 }
 

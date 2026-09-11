@@ -31,6 +31,9 @@ const link = {
   status: 'synced' as const,
   error: null,
   itemUpdatedAt: '2026-09-09T10:00:00.000Z',
+  // The event's stamp as last reconciled. Equal to the event's own means the
+  // device side has not moved; a newer event stamp is what signals an edit.
+  eventModifiedAt: SYNCED_AT,
   updatedAt: SYNCED_AT,
 }
 
@@ -212,3 +215,56 @@ describe('a read that did not answer', () => {
     assert.deepEqual(result.links, [link])
   })
 })
+
+describe('reconciling when nothing has changed', () => {
+  it('is idempotent — the second pass writes nothing', async () => {
+    // The regression this file gained after shipping an infinite loop: the event
+    // was compared against `link.updatedAt`, which is when *this device*
+    // reconciled. Those are different quantities and never equal, so every pass
+    // decided the device had changed, rewrote the Local day, fired the change
+    // event, and reconciled again — forever.
+    const harness = sync()
+    const settled = { ...link, eventModifiedAt: presentEvent.lastModifiedAt }
+
+    const first = await reconcileDeviceCalendarItems({
+      items: [item], links: [settled], sync: harness.api, now: NOW,
+    })
+    assert.equal(first.state, 'connected')
+    assert.deepEqual(first.state === 'connected' ? first.deviceChanges : [], [])
+    assert.deepEqual(harness.upserts, [])
+
+    const second = await reconcileDeviceCalendarItems({
+      items: [item],
+      links: first.state === 'connected' ? first.links : [],
+      sync: harness.api,
+      now: '2026-09-09T13:00:00.000Z',
+    })
+
+    assert.deepEqual(second.state === 'connected' ? second.deviceChanges : [], [])
+    assert.deepEqual(harness.upserts, [])
+    // Identical links mean the caller writes nothing, so no change event fires
+    // and there is no next pass. That is what breaks the loop.
+    assert.deepEqual(
+      second.state === 'connected' ? second.links : null,
+      first.state === 'connected' ? first.links : undefined,
+    )
+  })
+
+  it('records an unseen event baseline once, then settles', async () => {
+    const harness = sync()
+    const noBaseline = { ...link, eventModifiedAt: null }
+
+    const first = await reconcileDeviceCalendarItems({
+      items: [item], links: [noBaseline], sync: harness.api, now: NOW,
+    })
+
+    // A link written before the baseline existed must not be read as "changed",
+    // or upgrading would overwrite every Item with its event's values.
+    assert.deepEqual(first.state === 'connected' ? first.deviceChanges : [], [])
+    assert.equal(
+      first.state === 'connected' ? first.links[0]?.eventModifiedAt : null,
+      presentEvent.lastModifiedAt,
+    )
+  })
+})
+

@@ -111,6 +111,14 @@ export const DeviceCalendarLinkSchema = z.object({
   status: z.enum(['synced', 'failed', 'conflict']),
   error: z.string().min(1).nullable(),
   itemUpdatedAt: z.string().min(1),
+  /**
+   * EventKit's `lastModifiedDate` as of the last reconciliation.
+   *
+   * Distinct from `updatedAt`, which is when *we* reconciled. Conflating the two
+   * made every pass believe the device had changed, so reconciliation rewrote the
+   * day forever. Null means no baseline has been recorded yet.
+   */
+  eventModifiedAt: z.string().nullable().default(null),
   updatedAt: z.string().min(1),
 }).strict()
 export type DeviceCalendarLink = z.infer<typeof DeviceCalendarLinkSchema>

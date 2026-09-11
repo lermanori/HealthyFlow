@@ -9,10 +9,10 @@
  * every branch — especially the ones that must change nothing — be proved
  * without a device.
  *
- * Change detection uses the watermarks `DeviceCalendarLink` already carries:
- * `itemUpdatedAt` is the Item's `updated_at` at the last successful sync, and
- * `updatedAt` is when that sync ran. A side moved if its current stamp is later
- * than the watermark it was synced at.
+ * Each side is compared against its own last-seen value: the Item against
+ * `itemUpdatedAt`, the event against `eventModifiedAt`. Comparing the event
+ * against `updatedAt` — when *this device* reconciled — is what made every pass
+ * believe the device had changed and rewrite the day in a loop.
  */
 
 export interface ReconcileItemState {
@@ -44,6 +44,8 @@ export interface ReconcileLinkState {
   itemId: string
   eventIdentifier: string | null
   itemUpdatedAt: string
+  /** The event's modification time when it was last reconciled, if ever seen. */
+  eventModifiedAt: string | null
   updatedAt: string
 }
 
@@ -81,9 +83,18 @@ export function reconcileLinkedRecord(input: {
 }): ReconcileDecision {
   const { item, event, link } = input
 
+  // Against the event's own last-seen modification time — never against
+  // `updatedAt`, which is when this device reconciled. Those are different
+  // quantities and are essentially never equal, which made every pass believe
+  // the device had changed and rewrite the day in a loop.
+  //
+  // No baseline means this link predates the record, not that anything moved:
+  // claiming a change there would overwrite the Item with the event's values on
+  // the first pass after an upgrade.
+  const eventMoved = event.state === 'missing'
+    || (link.eventModifiedAt !== null && event.lastModifiedAt !== link.eventModifiedAt)
   // A deletion is a divergence from the linked state whether or not the row's
   // timestamp moved with it, so it is not inferred from `updatedAt`.
-  const eventMoved = event.state === 'missing' || event.lastModifiedAt !== link.updatedAt
   const itemMoved = item.deleted || item.updatedAt !== link.itemUpdatedAt
 
   // Both sides are already gone. They agree; there is nothing to raise.
