@@ -245,6 +245,16 @@ export default function UserManagementPanel() {
     onError: error => toast.error(requestMessage(error, 'Could not update users')),
   })
 
+  const cloudMutation = useMutation({
+    mutationFn: ({ userId, active }: { userId: string; active: boolean }) =>
+      tokenManagerService.setUserCloudAccess(userId, active),
+    onSuccess: async (result) => {
+      toast.success(result.active ? 'Cloud granted' : 'Cloud revoked')
+      await invalidate()
+    },
+    onError: error => toast.error(requestMessage(error, 'Could not change Cloud access')),
+  })
+
   const previewMutation = useMutation({
     mutationFn: (userIds: string[]) => tokenManagerService.previewManagedUserDeletion(userIds),
     onSuccess: result => {
@@ -412,7 +422,8 @@ export default function UserManagementPanel() {
                   <th className="py-3 pr-4 font-medium">Access</th>
                   <th className="py-3 pr-4 font-medium">Authentication</th>
                   <th className="py-3 pr-4 font-medium">Last login</th>
-                  <th className="py-3 font-medium">Credits</th>
+                  <th className="py-3 pr-4 font-medium">Credits</th>
+                  <th className="py-3 font-medium">Cloud</th>
                 </tr>
               </thead>
               <tbody>
@@ -451,9 +462,39 @@ export default function UserManagementPanel() {
                       <p className="text-ink-soft">{formatDate(user.lastLoginAt)}</p>
                       <p className="mt-1 text-xs text-ink-muted">Joined {formatDate(user.createdAt)}</p>
                     </td>
-                    <td className="py-3">
+                    <td className="py-3 pr-4">
                       <p className="font-medium text-ink">{user.balance}</p>
-                      {user.subscriptionActive && <p className="text-xs text-state-success">Active subscription</p>}
+                    </td>
+                    <td className="py-3">
+                      {/*
+                        Cloud is the entitlement `CloudAccess.require` checks on
+                        every sync, so this switch decides whether an account's
+                        day replicates at all. v1 sells no Cloud (ADR-0019) — this
+                        is the operator path for the legacy founder exception.
+                      */}
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={user.subscriptionActive}
+                        aria-label={`Cloud for ${user.email ?? user.name}`}
+                        disabled={cloudMutation.isPending}
+                        onClick={() => cloudMutation.mutate({
+                          userId: user.id,
+                          active: !user.subscriptionActive,
+                        })}
+                        className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
+                          user.subscriptionActive
+                            ? 'border-state-success/40 bg-state-success/30'
+                            : 'border-line bg-card'
+                        }`}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`h-4 w-4 rounded-full bg-ink transition-transform ${
+                            user.subscriptionActive ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
                     </td>
                   </tr>
                 ))}

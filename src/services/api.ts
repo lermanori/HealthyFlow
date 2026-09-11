@@ -2131,6 +2131,18 @@ export const tokenManagerService = {
     return response.data
   },
 
+  /**
+   * Grant or revoke Cloud for one account.
+   *
+   * v1 sells no Cloud, and the free-v1 migration deactivated every subscription
+   * — so the "founder legacy exception" has no row behind it until an operator
+   * turns it back on here.
+   */
+  setUserCloudAccess: async (userId: string, active: boolean): Promise<{ userId: string; active: boolean }> => {
+    const response = await api.patch(`/admin/token-manager/users/${userId}/cloud`, { active })
+    return response.data
+  },
+
   updateSettings: async (settings: { markupRate: number; minMarkupTokens: number }): Promise<BillingSettings> => {
     const response = await api.patch('/admin/token-manager/settings', settings)
     return response.data
