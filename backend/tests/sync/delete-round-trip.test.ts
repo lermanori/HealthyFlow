@@ -95,12 +95,11 @@ describe('a deletion made on the device', () => {
     expect(tables.tasks?.[0]?.deleted_at).toBe('2026-09-11T09:05:00.000Z')
   })
 
-  // KNOWN BUG, reproduced deliberately: `rowsChangedSince` filters on the
-  // device-authored `updated_at` but `since` is a server-clock watermark, so a
-  // row written by one device can sit below another device's watermark and never
-  // be handed over. `it.failing` passes while the bug exists and starts failing
-  // the moment it is fixed — at which point this becomes an ordinary `it`.
-  it.failing('hands the tombstone to a second device that pulls afterwards', async () => {
+  // Was `it.failing` while the pull filtered on the device-authored `updated_at`
+  // against a server-clock watermark. Now that the server stamps and filters on
+  // its own `synced_at`, a row written by one device is always visible to the
+  // other regardless of whose clock was where.
+  it('hands the tombstone to a second device that pulls afterwards', async () => {
     const { Sync } = await import('../../src/sync')
     const empty = {
       tasks: [], habitProgress: [], goals: [], calorieEntries: [], calorieItems: [],
@@ -109,12 +108,14 @@ describe('a deletion made on the device', () => {
       settings: null,
     }
 
-    // Device A authored both rows on ITS clock, which is behind the server.
+    // Device A authored the row on ITS clock, well behind the server — but the
+    // server stamped `synced_at` when it accepted it.
     tables.tasks = [{
       id: 'task-1', user_id: USER, title: 'test event',
       deleted_at: '2026-09-11T09:05:00.000Z',
       created_at: '2026-09-11T09:00:00.000Z',
       updated_at: '2026-09-11T09:05:00.000Z',
+      synced_at: '2026-09-11T09:07:00.000Z',
     }]
 
     // Device B's watermark is a SERVER-clock reading from its last exchange,

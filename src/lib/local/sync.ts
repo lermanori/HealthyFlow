@@ -31,7 +31,13 @@ export type SyncIncoming = Partial<SyncDelta>
  * the same exchange, not a separate first-push mechanism.
  */
 export function collectDelta(database: LocalDatabase): SyncDelta {
-  const since = database.syncedAt
+  // This device's own watermark, compared against `updated_at` values this
+  // device wrote. `syncedAt` is the server's clock and belongs only to the pull
+  // half; using it here dropped changes made inside the clock skew, forever.
+  //
+  // A document with no `pushedAt` predates this split, so it sends everything —
+  // which is also what re-uploads rows stranded by the old comparison.
+  const since = database.pushedAt ?? null
   const delta: Record<string, unknown> = {}
   for (const collection of SYNC_COLLECTIONS) {
     const rows = (database[collection] ?? []) as Row[]
@@ -104,10 +110,29 @@ export async function runSync(
   }>,
 ): Promise<void> {
   const database = await loadLocalDatabase(userId)
+
+  // The push watermark is this device's own clock, taken before the exchange.
+  //
+  // It is compared against `updated_at` on this device's rows, which this device
+  // wrote — so both sides of that comparison must come from the same clock.
+  // Storing the server's `syncedAt` here meant a server running even slightly
+  // ahead put the watermark past changes the device had not sent yet, and those
+  // rows were dropped from every future delta: `updated_at` never moves again.
+  //
+  // Taken *before* rather than after, so a change made during the exchange is
+  // re-sent next time rather than skipped. Re-sending is harmless; the accept
+  // path is idempotent.
+  const pushedAt = new Date().toISOString()
   const reply = await exchange({ since: database.syncedAt, changed: collectDelta(database) })
 
   await mutateLocalDatabase(userId, (current) => {
-    const merged = { ...applyIncoming(current, reply.changed), syncedAt: reply.syncedAt }
+    const merged = {
+      ...applyIncoming(current, reply.changed),
+      // What the server has handed over, on the server's clock.
+      syncedAt: reply.syncedAt,
+      // What this device has uploaded, on its own.
+      pushedAt,
+    }
     // Validated before it is written, because this is the write carrying records
     // this device did not create. A document that saves and cannot be read back
     // destroys access to a day while reporting that it stored one — which is

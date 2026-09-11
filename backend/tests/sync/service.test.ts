@@ -149,10 +149,16 @@ describe('health crossing into the relational schema', () => {
   it('writes the device’s client shape as columns the table has', async () => {
     await push({ weightEntries: [{ id: 'w', userId: 'user-1', date: '2026-08-23', weightKg: 80.5, createdAt: AT, updatedAt: AT }] })
 
-    expect(upsertsTo('weight_entries')[0].args[0][0]).toEqual({
+    const row = upsertsTo('weight_entries')[0].args[0][0]
+
+    expect(row).toMatchObject({
       id: 'w', user_id: 'user-1', date: '2026-08-23', weight_kg: 80.5,
       created_at: AT, updated_at: AT, deleted_at: null,
     })
+    // The server stamps its own position in the stream on everything it accepts,
+    // and never takes the device's word for it.
+    expect(typeof row.synced_at).toBe('string')
+    expect(row.synced_at).not.toBe(AT)
   })
 
   it('carries a deletion, so it does not come back on the next pull', async () => {

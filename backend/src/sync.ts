@@ -135,9 +135,17 @@ export class SyncOwnershipError extends Error {
   }
 }
 
+/**
+ * What the server has accepted for this user since the given watermark.
+ *
+ * Filters on `synced_at` — the server's own stamp — never on `updated_at`, which
+ * is written by whichever device changed the row and therefore carries that
+ * device's clock. Comparing one device's clock against another's watermark left
+ * rows permanently invisible to the other device.
+ */
 async function rowsChangedSince(table: string, userId: string, since: string | null): Promise<Row[]> {
   let query = supabase.from(table).select('*').eq('user_id', userId)
-  if (since) query = query.gt('updated_at', since)
+  if (since) query = query.gt('synced_at', since)
   const { data, error } = await query
   if (error) throw error
   return (data ?? []) as Row[]
@@ -196,6 +204,7 @@ async function acceptRows(
   userId: string,
   records: Row[],
   stored: Row[],
+  syncedAt: string,
 ) {
   if (records.length === 0) return
 
@@ -218,7 +227,13 @@ async function acceptRows(
         .map((record) => String(record.id)),
     })
   }
-  const mapped = kept.map((record) => SHAPES[collection].toRows(record, userId))
+  // The server owns each row's position in the stream, so it stamps `synced_at`
+  // here rather than trusting whatever the device sent.
+  const mapped: { row: Row; exercises?: Row[] }[] = kept
+    .map((record) => {
+      const entry = SHAPES[collection].toRows(record, userId)
+      return { ...entry, row: { ...entry.row, synced_at: syncedAt } }
+    })
   if (mapped.length === 0) return
   logger.debug('[sync] writing', {
     collection,
@@ -332,6 +347,7 @@ async function exchange(userId: string, input: SyncRequest): Promise<SyncRespons
       userId,
       input.changed[collection] as Row[],
       before[collection] as Row[],
+      now.toISOString(),
     )
   }
 

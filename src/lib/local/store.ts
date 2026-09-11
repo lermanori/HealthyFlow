@@ -196,7 +196,10 @@ export const LocalDatabaseSchema = z.object({
    * decide what has already been seen, or a skewed device either misses rows
    * forever or re-sends everything on every exchange.
    */
+  /** The server's clock, as of the last exchange. Filters what the server hands back. */
   syncedAt: z.string().nullable().default(null),
+  /** This device's clock, as of the last exchange. Filters what this device sends. */
+  pushedAt: z.string().nullable().default(null),
   /**
    * When settings last changed. They are stored as a patch object rather than
    * rows, so they carry no per-row timestamp and would otherwise never appear in
@@ -230,6 +233,7 @@ export function emptyLocalDatabase(userId: string): LocalDatabase {
     settings: {},
     ownerEmail: null,
     syncedAt: null,
+    pushedAt: null,
     settingsUpdatedAt: null,
     calorieEntries: [],
     calorieItems: [],
