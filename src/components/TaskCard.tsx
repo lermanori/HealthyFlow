@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { 
   Clock, Check, MoreVertical, Edit, Trash2, Zap, RotateCcw, Calendar,
   ShoppingCart, Utensils, Dumbbell, CheckSquare, Circle, Flame,
-  DollarSign, Target, Folder, RefreshCw, AlertTriangle, MapPin
+  DollarSign, Target, Folder, AlertTriangle, MapPin
 } from 'lucide-react'
 import { HabitItem, Task } from '../services/api'
 import { format, parseISO } from 'date-fns'
@@ -199,9 +199,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
           : { tone: 'success', Icon: Calendar, label: 'In Calendar', title: 'This Item is in your iPhone Calendar.' }
       : status.state === 'failed'
         ? { tone: 'danger', Icon: AlertTriangle, label: 'Google sync failed', title: undefined }
-        : status.state === 'pending'
-          ? { tone: 'accent', Icon: RefreshCw, label: 'Syncing to Google', title: undefined }
-          : { tone: 'success', Icon: Calendar, label: 'In Google Calendar', title: undefined }
+        : { tone: 'success', Icon: Calendar, label: 'In Google Calendar', title: undefined }
 
     const tones = {
       success: 'border-state-success/30 bg-state-success/15 text-state-success',
