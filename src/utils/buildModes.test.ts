@@ -47,3 +47,12 @@ describe('running the iPhone app against a local backend', () => {
     assert.doesNotMatch(pkg.scripts['build:ios'], /build:local/)
   })
 })
+
+describe('Cloud replication is exercisable in both build modes', () => {
+  it('enables it for the local build too, so sync can be debugged locally', () => {
+    // Without this the local build disables useCloudSync on its first line, and
+    // deleting an Item produces no request at all — which reads as a broken
+    // sync rather than a disabled one.
+    assert.match(readFileSync('.env.local-build', 'utf8'), /^VITE_CLOUD_SYNC_ENABLED=true$/m)
+  })
+})
