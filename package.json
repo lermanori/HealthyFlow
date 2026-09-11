@@ -13,6 +13,7 @@
     "build:production": "tsc && vite build --mode production",
     "build:ios": "npm run verify:ios-auth-env && npm run build:production && cap sync ios",
     "build:ios:local": "npm run build:local && cap sync ios",
+    "build:ios:device": "node scripts/build-ios-device-env.mjs && tsc && vite build --mode device-build && cap sync ios",
     "verify:ios-auth-env": "node scripts/verify-ios-auth-env.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives",
