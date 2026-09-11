@@ -59,7 +59,9 @@ describe('Cloud sync release flag', () => {
     const cloudSync = readFileSync('src/hooks/useCloudSync.ts', 'utf8')
 
     assert.match(featureFlags, /VITE_CLOUD_SYNC_ENABLED === 'true'/)
-    assert.match(cloudSync, /if \(!CLOUD_SYNC_ENABLED\) return/)
+    // The shape of the guard may change; what must hold is that the flag stops
+    // the loop before it reaches the network.
+    assert.match(cloudSync, /if \(!CLOUD_SYNC_ENABLED\)[\s\S]{0,240}?return/)
   })
 })
 

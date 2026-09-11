@@ -92,12 +92,24 @@ export function useCloudSync() {
   }, [])
 
   useEffect(() => {
-    if (!CLOUD_SYNC_ENABLED) return
+    // Every reason this loop declines to run used to be silent, so "nothing
+    // happened" could mean a disabled flag, no session, no Local day, no network
+    // or no entitlement — all indistinguishable from a broken sync.
+    if (!CLOUD_SYNC_ENABLED) {
+      console.info('[sync] off: this build has VITE_CLOUD_SYNC_ENABLED unset')
+      return
+    }
     const userId = localDayUser()
     // No local day means there is nothing on this device to send. A Guest has no
     // subscription; every account-entry path opens a Local day before it opens
     // the session, so registered Cloud subscribers reach this branch.
-    if (!user || !userId) return
+    if (!user || !userId) {
+      console.info('[sync] idle: no session or no Local day on this device', {
+        hasSession: Boolean(user),
+        dayUserId: userId,
+      })
+      return
+    }
 
     let cancelled = false
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -116,6 +128,7 @@ export function useCloudSync() {
         // Capacitor knows the native connection state even when WKWebView has
         // not yet rejected an HTTP promise or updated navigator.onLine.
         if (!connected) {
+          console.info('[sync] skipped: the device reports no network')
           if (!cancelled) showCloudStatusUnavailable()
           return
         }
@@ -131,9 +144,11 @@ export function useCloudSync() {
           return
         }
         if (!summary.subscription.active) {
+          console.info('[sync] skipped: this account holds no active Cloud entitlement')
           clearCloudSyncFailure()
           return
         }
+        console.info('[sync] exchanging with the server')
         try {
           await runSync(userId, syncService.exchange)
         } catch (error) {

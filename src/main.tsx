@@ -11,6 +11,13 @@ import { appRouterBasename, initializeNativeApp, isNativeApp } from './lib/nativ
 import PageViewTracker from './lib/analytics/PageViewTracker'
 import NativeVersionGate from './components/NativeVersionGate'
 import './index.css'
+import { API_BASE_URL } from './services/api'
+import { CLOUD_SYNC_ENABLED } from './featureFlags'
+
+// Which build is this, and where is it pointed? Answering that from the
+// console ends a whole class of confusion: a simulator serving a stale
+// production bundle looks exactly like a backend that never answered.
+console.info('[build]', { api: API_BASE_URL, cloudSync: CLOUD_SYNC_ENABLED })
 
 analytics.init()
 
