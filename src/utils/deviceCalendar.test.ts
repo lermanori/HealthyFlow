@@ -571,7 +571,7 @@ describe('Device Calendar day contract', () => {
     assert.match(settings, /Google Calendar · Cloud/)
     assert.match(settings, /openNativeBrowser\(url\)/)
     assert.match(api, /returnTarget: isNativeIOS \? 'native' : 'web'/)
-    assert.match(runbook, /leave `VITE_CLOUD_SYNC_ENABLED` and\s+`VITE_NATIVE_GOOGLE_CALENDAR_ENABLED` unset/)
+    assert.match(runbook, /leave `VITE_NATIVE_GOOGLE_CALENDAR_ENABLED` unset/)
   })
 
   it('feeds the composed Calendar day into Today, Week, Capacity, and Daily Signals', () => {
