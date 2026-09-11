@@ -28,3 +28,22 @@ describe('frontend build modes', () => {
     )
   })
 })
+
+describe('running the iPhone app against a local backend', () => {
+  it('has a script that syncs the local build into iOS', () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
+
+    // `build:local` alone only writes dist/. The iOS app serves
+    // ios/App/App/public, which only `cap sync` updates — so without this the
+    // simulator keeps serving whatever production build was last synced, and a
+    // local backend sees no traffic at all.
+    assert.equal(pkg.scripts['build:ios:local'], 'npm run build:local && cap sync ios')
+  })
+
+  it('keeps the shipping iOS build pinned to production', () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
+
+    assert.match(pkg.scripts['build:ios'], /build:production/)
+    assert.doesNotMatch(pkg.scripts['build:ios'], /build:local/)
+  })
+})
