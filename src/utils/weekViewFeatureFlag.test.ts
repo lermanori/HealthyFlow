@@ -85,9 +85,14 @@ describe('Cloud replication is enabled at build time but gated on the server', (
     assert.match(route, /CloudAccess\.require\(req\.user\.userId\)/)
   })
 
-  it('leaves the native Google Calendar connection opt-in', () => {
+  it('needs no flag to keep direct Google off the iPhone', () => {
     const production = readFileSync('.env.production', 'utf8')
+    const flags = readFileSync('src/featureFlags.ts', 'utf8')
 
-    assert.doesNotMatch(production, /VITE_NATIVE_GOOGLE_CALENDAR_ENABLED=true/)
+    // The guarantee is structural now, so neither the build config nor the flag
+    // module should mention it — a flag that no longer exists cannot be set by
+    // someone who has not read ADR-0020 §4.
+    assert.doesNotMatch(production, /NATIVE_GOOGLE_CALENDAR_ENABLED/)
+    assert.doesNotMatch(flags, /NATIVE_GOOGLE_CALENDAR_ENABLED/)
   })
 })

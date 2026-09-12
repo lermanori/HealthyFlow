@@ -548,7 +548,6 @@ describe('Device Calendar day contract', () => {
 
   it('keeps Device Calendar available on iOS independently of hosted Google', () => {
     const settings = readFileSync('src/pages/SettingsPage.tsx', 'utf8')
-    const flags = readFileSync('src/featureFlags.ts', 'utf8')
     const week = readFileSync('src/pages/WeekViewPage.tsx', 'utf8')
     const timeline = readFileSync('src/components/DayTimeline.tsx', 'utf8')
 
@@ -558,24 +557,32 @@ describe('Device Calendar day contract', () => {
     assert.match(settings, /Calendar data stays on this iPhone/)
     assert.match(settings, /isNativeIOS && \(/)
     assert.match(settings, /Connect Calendar/)
-    assert.match(flags, /VITE_NATIVE_GOOGLE_CALENDAR_ENABLED === 'true'/)
     assert.match(week, /queryFn:\s*\(\)\s*=>\s*calendarService\.getDay\(dateKey\)/)
     assert.match(timeline, /event\.provider\s*===\s*'device'/)
     assert.doesNotMatch(week, /queryFn:[^\n]+getGoogleEvents/)
   })
 
-  it('stages a separate Cloud-only native Google connection with a native OAuth return', () => {
+  it('keeps direct Google off the iPhone entirely, not merely behind a flag', () => {
     const settings = readFileSync('src/pages/SettingsPage.tsx', 'utf8')
     const api = readFileSync('src/services/api.ts', 'utf8')
-    const runbook = readFileSync('docs/runbooks/app-store-v1.md', 'utf8')
+    const flags = readFileSync('src/featureFlags.ts', 'utf8')
 
+    // A Google account added to iOS Calendar is already exposed through
+    // EventKit, so reaching Google again through the backend would show one
+    // meeting twice and write one Item as two events (ADR-0020 §4).
+    //
+    // This used to be a release flag, which meant the guarantee held only while
+    // nobody set it. It is now structural: there is no value of any variable
+    // that reaches direct Google from the iPhone.
+    assert.match(settings, /surfaceEnabled: !isNativeIOS,/)
+    assert.match(api, /surfaceEnabled: false,/)
+    assert.match(api, /includeGoogle: !isNativeIOS,/)
+    assert.doesNotMatch(flags, /NATIVE_GOOGLE_CALENDAR_ENABLED/)
+
+    // The web path is untouched — this is a deferral to the web surface, not a
+    // deletion of the integration.
     assert.match(settings, /canUseHostedGoogleCalendar/)
-    assert.match(settings, /cloudActive: Boolean\(creditSummary\?\.subscription\.active\)/)
-    assert.match(settings, /surfaceEnabled: !isNativeIOS \|\| NATIVE_GOOGLE_CALENDAR_ENABLED/)
     assert.match(settings, /Google Calendar · Cloud/)
-    assert.match(settings, /openNativeBrowser\(url\)/)
-    assert.match(api, /returnTarget: isNativeIOS \? 'native' : 'web'/)
-    assert.match(runbook, /leave `VITE_NATIVE_GOOGLE_CALENDAR_ENABLED` unset/)
   })
 
   it('feeds the composed Calendar day into Today, Week, Capacity, and Daily Signals', () => {

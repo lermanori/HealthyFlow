@@ -15,10 +15,14 @@ founder or an appropriate professional can make. Last verified: **2026-09-10**.
   actions.
 - RevenueCat with Apple In-App Purchase is deferred to v1.1, not cancelled.
 
-The iOS build must leave `VITE_NATIVE_GOOGLE_CALENDAR_ENABLED` unset. The
-separate native Google Calendar connection is retained for v1.1 but is opt-in at
-build time. `src/utils/iosRelease.test.ts` guards the iOS 17 floor, aligned
-app/widget versions and identifiers, and absence of payment SDKs.
+Direct Google Calendar is **not reachable from the iPhone at all** — not behind
+a flag, structurally. A Google account added to iOS Calendar is already exposed
+through EventKit, so reaching Google again through the backend would show one
+meeting twice and write one Item as two events (ADR-0020 §4). The integration
+remains for the web surface and is untouched there.
+
+`src/utils/iosRelease.test.ts` guards the iOS 17 floor, aligned app/widget
+versions and identifiers, and absence of payment SDKs.
 
 **`VITE_CLOUD_SYNC_ENABLED` is set from 2026-09-11.** It is not an acquisition
 path: no user can obtain Cloud in v1 (ADR-0019), and the only identity holding

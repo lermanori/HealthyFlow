@@ -18,7 +18,6 @@ import {
 import { calendarPathDiagnosis, calendarPathReasons } from '../lib/local/calendarPathDiagnostics'
 import { localDayUser, rememberedLocalDayOwner } from '../lib/local/services'
 import { isNativeIOS, openNativeBrowser } from '../lib/native'
-import { NATIVE_GOOGLE_CALENDAR_ENABLED } from '../featureFlags'
 import { AssistantProfileSchema, DEFAULT_PLANNING_WINDOW } from '../../backend/src/settings-schema'
 import { actionExhaustionView } from '../utils/actionExhaustion'
 import Switch from '../components/Switch'
@@ -272,7 +271,7 @@ export default function SettingsPage() {
   const googleCalendarEligible = canUseHostedGoogleCalendar({
     claimed: Boolean(user?.email),
     cloudActive: Boolean(creditSummary?.subscription.active),
-    surfaceEnabled: !isNativeIOS || NATIVE_GOOGLE_CALENDAR_ENABLED,
+    surfaceEnabled: !isNativeIOS,
   })
 
   useEffect(() => {

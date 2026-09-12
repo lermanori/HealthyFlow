@@ -53,10 +53,19 @@ manual sync button is recovery, not the normal workflow. HealthyFlow-owned
 events must not also return as obligations, and a Google calendar exposed by
 EventKit must not be read again through the backend on iPhone.
 
-Direct Google Calendar is a different integration. It is server-backed and is
-kept only for the existing founder Cloud account in v1. Its control stays hidden
-for Guests and free accounts. RevenueCat, StoreKit, Lemon Squeezy, and every
-other purchase rail are outside this architecture for v1.
+Direct Google Calendar is a different integration, and **since 2026-09-12 it is
+not reachable from the iPhone at all** — not behind a release flag, structurally.
+A Google account added to iOS Calendar is already exposed through EventKit, so
+reaching Google again through the backend would show one meeting twice and write
+one Item as two events. ADR-0020 §4 stated that boundary; it is now enforced by
+construction rather than by a variable nobody must set.
+
+The integration itself is untouched and remains the web surface's. This is a
+deferral, not a deletion: it becomes relevant again when the web day is worked
+on.
+
+RevenueCat, StoreKit, Lemon Squeezy, and every other purchase rail are outside
+this architecture for v1.
 
 ## Account and storage boundaries
 
@@ -83,7 +92,7 @@ session must preserve the same invariant.
 | HealthyFlow Item export | Local timed Item create/edit/reschedule/delete is reconciled to EventKit | Implemented for the HealthyFlow-to-Calendar direction |
 | Device edit of linked Item | Both directions reconcile since #267: the device is read before anything is written, last save wins, and a deletion in iOS Calendar deletes the linked Item | Implemented and device-verified 2026-09-10. A conflict is recorded and badged; there is no resolution flow yet, so the person picks a side by editing one |
 | Status UI | Provider-specific since #265: a Device Calendar link decides the badge, Google fields are the fallback, neither means no badge | Implemented. Status still goes stale after Calendar access is revoked (#273) |
-| Direct Google | Backend sync remains and the native connection control is release-flagged and Cloud-gated | Keep hidden for Guest/free v1; verify the founder-only control and prevent duplicate EventKit/Google processing |
+| Direct Google | Unreachable from iPhone since 2026-09-12: `surfaceEnabled: false` and `includeGoogle: !isNativeIOS`, with the release flag deleted. Backend and web unchanged | Implemented. Duplicate EventKit/Google processing is now impossible on device rather than merely disabled |
 
 ### Evidence classification
 

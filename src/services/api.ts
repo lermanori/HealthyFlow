@@ -2,7 +2,7 @@
 import axios from 'axios'
 import { z } from 'zod'
 import { analytics } from '../lib/analytics'
-import { NATIVE_GOOGLE_CALENDAR_ENABLED, WORK_ENABLED } from '../featureFlags'
+import { WORK_ENABLED } from '../featureFlags'
 import type { DemoPersonaId } from '../demoPersonas'
 import type { ItemSource, ItemType } from '../lib/analytics/types'
 import type {
@@ -1143,7 +1143,11 @@ async function getHostedGoogleAccess(): Promise<HostedGoogleCalendarAccessResult
       identityKey,
       result: resolveHostedGoogleCalendarAccess({
         claimed: Boolean(user?.email),
-        surfaceEnabled: isNativeIOS && NATIVE_GOOGLE_CALENDAR_ENABLED,
+        // Never on iPhone. A Google account added to iOS Calendar is already
+        // exposed through EventKit, so reaching Google again through the backend
+        // would show one meeting twice and write one Item as two events
+        // (ADR-0020 §4). Direct Google is a web integration.
+        surfaceEnabled: false,
         readCloudActive: async () => (await creditsService.getSummary()).subscription.active,
         readConnected: async () => CalendarConnectionStatusSchema.parse(
           (await api.get('/calendar/google/status')).data,
@@ -1184,7 +1188,7 @@ const readCalendarDay = createCalendarEventReader({
   isNativeIOS,
   readDevice: (date) => deviceCalendarService.read(date),
   readGoogle: readGoogleCalendarDay,
-  includeGoogle: !isNativeIOS || NATIVE_GOOGLE_CALENDAR_ENABLED,
+  includeGoogle: !isNativeIOS,
 })
 
 const updateGoogleCalendarEventCompletion = createWebGoogleCalendarMutation({

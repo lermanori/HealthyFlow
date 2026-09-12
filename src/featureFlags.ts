@@ -3,7 +3,6 @@ export const DAILY_SIGNALS_ENABLED = import.meta.env?.VITE_DAILY_SIGNALS_ENABLED
 /** Deferred v1.1 capability. Free v1 has no Cloud entitlement to inspect or sync. */
 export const CLOUD_SYNC_ENABLED = import.meta.env?.VITE_CLOUD_SYNC_ENABLED === 'true'
 /** Staged behind #256–#258 until native Google Calendar sync is complete. */
-export const NATIVE_GOOGLE_CALENDAR_ENABLED = import.meta.env?.VITE_NATIVE_GOOGLE_CALENDAR_ENABLED === 'true'
 /**
  * Work — Projects, Focus blocks and Work sessions.
  *
