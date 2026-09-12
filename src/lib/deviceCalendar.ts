@@ -351,6 +351,7 @@ export async function reconcileDeviceCalendarItems(input: {
         itemId: link.itemId,
         eventIdentifier: link.eventIdentifier,
         itemUpdatedAt: link.itemUpdatedAt,
+        eventModifiedAt: link.eventModifiedAt,
         updatedAt: link.updatedAt,
       },
     })
@@ -373,6 +374,7 @@ export async function reconcileDeviceCalendarItems(input: {
         status: 'synced',
         error: null,
         itemUpdatedAt: changedAt,
+        eventModifiedAt: decision.event.lastModifiedAt,
         updatedAt: changedAt,
       })
       settledByDevice.add(link.itemId)
@@ -400,8 +402,24 @@ export async function reconcileDeviceCalendarItems(input: {
       continue
     }
 
-    // `none`, `write_to_calendar` and `delete_event` fall through to the passes
-    // below, which already own those directions.
+    // Record the baseline the first time an event is seen, so a link written
+    // before this field existed settles after one pass instead of being treated
+    // as changed forever.
+    if (event.state === 'present' && link.eventModifiedAt === null) {
+      byItem.set(link.itemId, { ...link, eventModifiedAt: event.lastModifiedAt })
+    }
+
+    if (decision.action === 'none') {
+      // Nothing moved on either side, so there is nothing to write. Writing
+      // anyway would touch the event and bump its modification time, which the
+      // next read sees as a device-side edit — the loop this whole pass exists
+      // to settle.
+      settledByDevice.add(link.itemId)
+      continue
+    }
+
+    // `write_to_calendar` and `delete_event` fall through to the passes below,
+    // which already own those directions.
   }
 
   for (const item of items) {
@@ -433,6 +451,10 @@ export async function reconcileDeviceCalendarItems(input: {
           status: 'synced',
           error: null,
           itemUpdatedAt: item.updatedAt,
+          // Writing the event changes its modification time, so any baseline we
+          // held is stale. Null means "record it next pass" — which settles in
+          // one more reconcile without claiming the device changed.
+          eventModifiedAt: null,
           updatedAt: changedAt,
           }
       : {
@@ -441,6 +463,7 @@ export async function reconcileDeviceCalendarItems(input: {
           status: 'failed',
           error: result.reason,
           itemUpdatedAt: item.updatedAt,
+          eventModifiedAt: existing?.eventModifiedAt ?? null,
           updatedAt: changedAt,
         }
     byItem.set(item.id, link)

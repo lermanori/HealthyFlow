@@ -30,8 +30,12 @@ beforeEach(() => {
 })
 
 describe('what the device sends', () => {
+  // These fixtures set `pushedAt`, not `syncedAt`, and the distinction is the
+  // point: `collectDelta` filters this device's own rows by this device's own
+  // clock. `syncedAt` is the server's, and is irrelevant here — conflating the
+  // two dropped changes made inside the clock skew, permanently.
   it('sends everything when it has never synced', () => {
-    const database = { ...base(), syncedAt: null, tasks: [task()] }
+    const database = { ...base(), pushedAt: null, tasks: [task()] }
 
     assert.equal(collectDelta(database).tasks.length, 1)
   })
@@ -39,7 +43,7 @@ describe('what the device sends', () => {
   it('sends only what changed since the watermark', () => {
     const database = {
       ...base(),
-      syncedAt: '2026-08-23T10:00:00.000Z',
+      pushedAt: '2026-08-23T10:00:00.000Z',
       tasks: [
         task({ id: 'old', updated_at: '2026-08-23T09:00:00.000Z' }),
         task({ id: 'new', updated_at: '2026-08-23T11:00:00.000Z' }),
@@ -52,7 +56,7 @@ describe('what the device sends', () => {
   it('sends a deletion, because it is a change like any other', () => {
     const database = {
       ...base(),
-      syncedAt: '2026-08-23T10:00:00.000Z',
+      pushedAt: '2026-08-23T10:00:00.000Z',
       tasks: [task({ deleted_at: '2026-08-23T11:00:00.000Z', updated_at: '2026-08-23T11:00:00.000Z' })],
     }
 
@@ -62,7 +66,7 @@ describe('what the device sends', () => {
   it('sends a deleted health record too, in the shape the device stores', () => {
     const database = {
       ...base(),
-      syncedAt: null,
+      pushedAt: null,
       weightEntries: [weight({ deletedAt: '2026-08-23T11:00:00.000Z' })],
     }
 
@@ -71,7 +75,7 @@ describe('what the device sends', () => {
   })
 
   it('sends nothing when nothing moved', () => {
-    const database = { ...base(), syncedAt: '2026-08-23T10:00:00.000Z', tasks: [task()] }
+    const database = { ...base(), pushedAt: '2026-08-23T10:00:00.000Z', tasks: [task()] }
 
     assert.equal(collectDelta(database).tasks.length, 0)
   })
@@ -81,7 +85,7 @@ describe('settings, which have one timestamp rather than one each', () => {
   it('sends them when they have changed since the watermark', () => {
     const database = {
       ...base(),
-      syncedAt: '2026-08-23T10:00:00.000Z',
+      pushedAt: '2026-08-23T10:00:00.000Z',
       settings: { calorieIntake: false },
       settingsUpdatedAt: '2026-08-23T11:00:00.000Z',
     }
@@ -94,7 +98,7 @@ describe('settings, which have one timestamp rather than one each', () => {
   it('leaves them alone when they have not', () => {
     const database = {
       ...base(),
-      syncedAt: '2026-08-23T10:00:00.000Z',
+      pushedAt: '2026-08-23T10:00:00.000Z',
       settings: { calorieIntake: false },
       settingsUpdatedAt: '2026-08-23T09:00:00.000Z',
     }
@@ -105,7 +109,7 @@ describe('settings, which have one timestamp rather than one each', () => {
   it('sends nothing at all when this device has never set one', () => {
     // A first push from a device that never touched settings would otherwise
     // upload an empty object and wipe the settings the account already had.
-    const database = { ...base(), syncedAt: null }
+    const database = { ...base(), pushedAt: null }
 
     assert.equal(collectDelta(database).settings, null)
   })

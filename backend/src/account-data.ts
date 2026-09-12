@@ -210,6 +210,19 @@ export const ManagedUserSchema = z.object({
 })
 export type ManagedUser = z.infer<typeof ManagedUserSchema>
 
+/**
+ * Turning Cloud on or off for one account (#268, ADR-0012).
+ *
+ * v1 sells no Cloud: `20260907170000_disable_v1_cloud.sql` deactivated every
+ * subscription, which left the "founder legacy exception" the docs describe with
+ * no row backing it. This is the operator switch that makes that exception real
+ * and revocable, rather than something granted by editing the database by hand.
+ */
+export const SetCloudAccessSchema = z.object({
+  active: z.boolean(),
+})
+export type SetCloudAccessInput = z.infer<typeof SetCloudAccessSchema>
+
 export const AdminUserDeletionCountsSchema = z.object({
   items: z.number().int().nonnegative(),
   health: z.number().int().nonnegative(),

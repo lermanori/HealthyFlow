@@ -1,3 +1,33 @@
+### 2026-09-10 21:41 — `main`
+
+**Where this session stopped.**
+
+Shipped: the Guest action grant is reserved per network for 24 hours (ADR-0023,
+#249) with the migration applied and `GUEST_GRANT_IP_SECRET` set on Railway;
+Item Calendar status names the provider that actually handled it (#265); the
+account→EventKit path was proved rather than assumed and is now diagnosable in
+Settings (#266); and Device Calendar reconciles both ways with last-save-wins
+and typed conflicts (#267). Apple DeviceCheck was dropped, which removed its
+server-key gate from the launch path.
+
+Held by founder decision: full Calendar/Item parity (#269, ADR-0024). The
+current read-only `Fixed` Calendar row is wanted as-is, so Device Calendar stays
+read-only in the App Store privacy inventory and #237's existing answers remain
+correct.
+
+Next: #268 is the last sprint-v1 Calendar item and is verification, not new
+code — and it matters more now that #267 writes to EventKit in both directions.
+The three P0 launch blockers (#235 verified email and recovery, #237
+declarations, #238 submission) are unchanged and all wait on founder or Apple
+decisions rather than on code. #272 and #273 are open Calendar defects found in
+passing; #272 no longer dissolves on its own now that #269 is held.
+
+Carrying: the backend suite has order-dependent flakiness — one or two failures
+per full run, a different test each time, all passing in isolation. Present on
+clean `main` before any of this session's work.
+
+---
+
 ### 2026-09-10 21:19 — `codex/267-device-side-reconciliation`
 
 Closed the loop on #267: the conflict state a reconciliation can now produce is

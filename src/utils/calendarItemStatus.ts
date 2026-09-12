@@ -12,7 +12,7 @@ export type CalendarItemStatus =
   | { provider: 'device'; state: 'synced' }
   | { provider: 'device'; state: 'failed'; error: string }
   | { provider: 'device'; state: 'conflict'; error: string }
-  | { provider: 'google'; state: 'synced' | 'failed' | 'pending' }
+  | { provider: 'google'; state: 'synced' | 'failed' }
 
 export interface CalendarItemStatusInput {
   /** This device's EventKit bookkeeping for the Item, when one exists. */
@@ -50,10 +50,16 @@ export function calendarItemStatus(input: CalendarItemStatusInput): CalendarItem
   }
 
   // No device link: fall back to the hosted Google integration, which is the only
-  // other provider that can have run. `skipped` is a real decision not to sync,
-  // not a status worth a badge.
+  // other provider that can have run.
+  //
+  // `pending` is deliberately not a badge. `day-summary-core` defaults the field
+  // to `'pending'` for any row without a stored value, so every Local Item
+  // carries it — which made a Guest's card claim it was syncing to Google on a
+  // device where the Google adapter does not exist. A status that is also the
+  // schema default cannot be evidence that anything happened.
+  //
+  // `skipped` is a real decision not to sync, and also not worth a badge.
   if (input.googleSyncStatus === 'failed') return { provider: 'google', state: 'failed' }
-  if (input.googleSyncStatus === 'pending') return { provider: 'google', state: 'pending' }
   if (input.syncedToGoogle && input.googleSyncStatus === 'synced') {
     return { provider: 'google', state: 'synced' }
   }

@@ -13,6 +13,7 @@ import {
   listAdminUserAudit,
   listManagedUsers,
   previewAdminUserDeletion,
+  SetCloudAccessSchema,
 } from '../account-data'
 import {
   ContactMessageListSchema,
@@ -93,6 +94,43 @@ router.patch('/token-manager/users/:userId/balance', authenticateToken, requireA
     res.json(result)
   } catch (error) {
     console.error('Set token balance error:', error)
+    res.status(500).json({ error: 'Database error' })
+  }
+})
+
+/**
+ * Grant or revoke Cloud for one account.
+ *
+ * The entitlement is what `CloudAccess.require` checks on every sync, so this is
+ * the switch that decides whether an account's day replicates to the server at
+ * all. v1 sells no Cloud (ADR-0019); this exists so the legacy founder exception
+ * is an operator action with an audit trail rather than a hand-edited row.
+ */
+router.patch('/token-manager/users/:userId/cloud', authenticateToken, requireAdminRole, async (req: AuthRequest, res) => {
+  const parsed = SetCloudAccessSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message })
+  }
+
+  try {
+    const existing = await db.getUserCreditSubscription(req.params.userId)
+    const saved = await db.upsertUserCreditSubscription({
+      user_id: req.params.userId,
+      active: parsed.data.active,
+      // An account that never held a subscription needs defaults; one that did
+      // keeps its own terms, so revoking and restoring does not silently change
+      // what it was entitled to.
+      price_phase: (existing?.price_phase as 'promo' | 'regular') ?? 'promo',
+      monthly_credits: existing?.monthly_credits ?? 0,
+      renewal_date: existing?.renewal_date ?? null,
+      last_monthly_grant_at: existing?.last_monthly_grant_at ?? null,
+    })
+    console.warn(
+      `[admin] Cloud ${parsed.data.active ? 'granted to' : 'revoked from'} ${req.params.userId} by ${req.user.userId}`,
+    )
+    res.json({ userId: saved.user_id, active: saved.active })
+  } catch (error) {
+    console.error('Set Cloud access error:', error)
     res.status(500).json({ error: 'Database error' })
   }
 })

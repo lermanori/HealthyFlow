@@ -32,6 +32,7 @@ async function itemWithLink(status: 'synced' | 'failed', error: string | null) {
         status,
         error,
         itemUpdatedAt: row.updated_at ?? row.created_at,
+        eventModifiedAt: null,
         updatedAt: '2026-08-21T10:00:00.000Z',
       }],
     },

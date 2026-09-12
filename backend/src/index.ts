@@ -39,6 +39,15 @@ const PORT = process.env.PORT || 3001
 // Trust the first proxy hop (Railway) so req.ip is the real client for rate limiting
 app.set('trust proxy', 1)
 
+// Every request, one line. Without it a client pointed at the wrong API is
+// indistinguishable from a server that never answered — which is exactly the
+// question "is this build talking to my local backend?" needs settled first.
+// `debug`, so it is on locally by default and off on Railway unless LOG_LEVEL says otherwise.
+app.use((req, _res, next) => {
+  logger.debug(`[http] ${req.method} ${req.originalUrl}`)
+  next()
+})
+
 // Middleware
 // Restrict app APIs to HealthyFlow surfaces. ChatGPT additionally needs browser
 // access to MCP/OAuth discovery and authorization while connecting an account.

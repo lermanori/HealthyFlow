@@ -168,6 +168,7 @@ describe('choosing what happens to the day already here', () => {
         status: 'synced' as const,
         error: null,
         itemUpdatedAt: '2026-09-09T10:00:00.000Z',
+        eventModifiedAt: null,
         updatedAt: '2026-09-09T10:01:00.000Z',
       }],
     }
@@ -188,6 +189,7 @@ describe('choosing what happens to the day already here', () => {
         status: 'synced' as const,
         error: null,
         itemUpdatedAt: '2026-09-09T10:00:00.000Z',
+        eventModifiedAt: null,
         updatedAt: '2026-09-09T10:01:00.000Z',
       }],
     }

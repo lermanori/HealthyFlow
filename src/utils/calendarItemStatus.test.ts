@@ -46,10 +46,6 @@ test('the hosted Google path keeps its own statuses when no device link exists',
     { provider: 'google', state: 'synced' },
   )
   assert.deepEqual(
-    calendarItemStatus({ googleSyncStatus: 'pending' }),
-    { provider: 'google', state: 'pending' },
-  )
-  assert.deepEqual(
     calendarItemStatus({ googleSyncStatus: 'failed' }),
     { provider: 'google', state: 'failed' },
   )
@@ -84,4 +80,15 @@ test('a conflict without a stated reason still explains itself', () => {
 
   assert.equal(status?.state, 'conflict')
   assert.match(status && 'error' in status ? status.error : '', /both changed/i)
+})
+
+test('the schema default is never rendered as a Google sync in progress', () => {
+  // `day-summary-core` defaults googleSyncStatus to 'pending' for any row with
+  // no stored value, so every Local Item carries it. A Guest on iPhone was shown
+  // "Syncing to Google" for an integration that does not exist there.
+  assert.equal(calendarItemStatus({ googleSyncStatus: 'pending' }), null)
+  assert.equal(
+    calendarItemStatus({ googleSyncStatus: 'pending', syncedToGoogle: false }),
+    null,
+  )
 })

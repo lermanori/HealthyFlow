@@ -59,6 +59,35 @@ describe('Cloud sync release flag', () => {
     const cloudSync = readFileSync('src/hooks/useCloudSync.ts', 'utf8')
 
     assert.match(featureFlags, /VITE_CLOUD_SYNC_ENABLED === 'true'/)
-    assert.match(cloudSync, /if \(!CLOUD_SYNC_ENABLED\) return/)
+    // The shape of the guard may change; what must hold is that the flag stops
+    // the loop before it reaches the network.
+    assert.match(cloudSync, /if \(!CLOUD_SYNC_ENABLED\)[\s\S]{0,240}?return/)
+  })
+})
+
+describe('Cloud replication is enabled at build time but gated on the server', () => {
+  it('turns the flag on for production builds as a recorded decision', () => {
+    const production = readFileSync('.env.production', 'utf8')
+
+    assert.match(production, /VITE_CLOUD_SYNC_ENABLED=true/)
+    // The reason has to travel with the value. A bare `true` here reads as an
+    // accident next time someone audits the free-v1 build.
+    assert.match(production, /ADR-0019/)
+    assert.match(production, /CloudAccess\.require/)
+  })
+
+  it('keeps the entitlement on the server, where a build flag cannot reach it', () => {
+    const route = readFileSync('backend/src/routes/sync.ts', 'utf8')
+
+    // The client flag only decides whether to *attempt* an exchange. If this
+    // gate ever moves client-side, a free account's day starts leaving the
+    // device the moment someone flips a build var.
+    assert.match(route, /CloudAccess\.require\(req\.user\.userId\)/)
+  })
+
+  it('leaves the native Google Calendar connection opt-in', () => {
+    const production = readFileSync('.env.production', 'utf8')
+
+    assert.doesNotMatch(production, /VITE_NATIVE_GOOGLE_CALENDAR_ENABLED=true/)
   })
 })
