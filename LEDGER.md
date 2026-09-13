@@ -1,3 +1,20 @@
+### 2026-09-13 22:23 — `main`
+
+Closed every open Calendar and sync issue: #249, #265, #266, #267, #268, #272,
+#273, #278 and #279, each verified on a physical iPhone. The through-line was
+states that stopped being true with nothing marking them so, and triggers that
+never fired — badges outliving their evidence, three separate silent pauses that
+made the Local day refuse writes offline, and an exchange that was correct but
+never asked for. Sync watermarks were rewritten so the server sequences pulls on
+its own `synced_at` rather than a device-authored `updated_at`, Cloud is grantable
+again from User management, and the request and sync paths finally have logging.
+
+What remains before launch is entirely the founder's: #235 is still blocked on
+choosing a transactional email sender, and #237 and #238 follow it. See
+`docs/history/snapshots/2026-09-13-calendar-and-sync-handoff.md`.
+
+---
+
 ### 2026-09-10 21:41 — `main`
 
 **Where this session stopped.**
