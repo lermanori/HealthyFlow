@@ -201,12 +201,27 @@ export function useCloudSync() {
       console.error('[sync] could not watch for reconnection:', error)
     })
 
+    // Another device's work only arrives on a pull, and nothing on this device
+    // asks for one while it sits open: the triggers are launch, this device's own
+    // edits, and reconnection. So a phone left open showed neither a new Item nor
+    // a deletion made elsewhere until the next cold start.
+    //
+    // Foreground is the moment a person looks at the screen, which is exactly
+    // when the day should be true. `useDeviceCalendarSync` already refreshes on
+    // this event; Cloud not doing so was the asymmetry.
+    const onAppState = (event: Event) => {
+      const detail = (event as CustomEvent<{ isActive?: boolean }>).detail
+      if (detail?.isActive) void sync()
+    }
+
+    window.addEventListener('healthyflow:app-state', onAppState)
     window.addEventListener(LOCAL_DAY_CHANGED_EVENT, onChange)
     return () => {
       cancelled = true
       clearCloudSyncFailure()
       if (timer) clearTimeout(timer)
       void networkListener?.remove()
+      window.removeEventListener('healthyflow:app-state', onAppState)
       window.removeEventListener(LOCAL_DAY_CHANGED_EVENT, onChange)
     }
   }, [user, queryClient])
