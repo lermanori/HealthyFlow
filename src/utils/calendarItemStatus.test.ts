@@ -92,3 +92,27 @@ test('the schema default is never rendered as a Google sync in progress', () => 
     null,
   )
 })
+
+test('an Item written before Calendar access was revoked does not claim to be there', () => {
+  // "The last write succeeded" is a fact about the past. The badge makes a claim
+  // about the present, and the two diverge the moment access is revoked — so the
+  // claim would otherwise stay frozen at its last truth forever (#273).
+  assert.deepEqual(
+    calendarItemStatus({ deviceCalendar: { status: 'unverified', error: null } }),
+    {
+      provider: 'device',
+      state: 'unverified',
+      error: 'HealthyFlow cannot see your Calendar right now, so it cannot confirm this Item is still there.',
+    },
+  )
+})
+
+test('unverified is its own state, distinct from failed and from conflict', () => {
+  const states = (['synced', 'failed', 'conflict', 'unverified'] as const).map((status) =>
+    calendarItemStatus({ deviceCalendar: { status, error: null } })?.state)
+
+  // Never exported, exported and confirmed, exported and failed, exported and
+  // unconfirmable are four different things and must not collapse into three.
+  assert.deepEqual(states, ['synced', 'failed', 'conflict', 'unverified'])
+  assert.equal(calendarItemStatus({}), null)
+})

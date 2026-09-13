@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { 
   Clock, Check, MoreVertical, Edit, Trash2, Zap, RotateCcw, Calendar,
   ShoppingCart, Utensils, Dumbbell, CheckSquare, Circle, Flame,
-  DollarSign, Target, Folder, AlertTriangle, MapPin
+  DollarSign, Target, Folder, AlertTriangle, MapPin, CalendarOff
 } from 'lucide-react'
 import { HabitItem, Task } from '../services/api'
 import { format, parseISO } from 'date-fns'
@@ -190,9 +190,14 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
     const status = calendarItemStatus(task)
     if (!status) return null
 
-    const presentation: { tone: 'success' | 'danger' | 'warning' | 'accent'; Icon: typeof Calendar; label: string; title?: string } =
+    const presentation: { tone: 'success' | 'danger' | 'warning' | 'accent' | 'muted'; Icon: typeof Calendar; label: string; title?: string } =
       status.provider === 'device'
-      ? status.state === 'conflict'
+      ? status.state === 'unverified'
+        // Muted, not amber: nothing is wrong and nothing conflicts. The person
+        // turned Calendar access off, and the honest report is that HealthyFlow
+        // no longer knows — a colour that alarms would overstate it.
+        ? { tone: 'muted', Icon: CalendarOff, label: 'Not verified', title: status.error }
+        : status.state === 'conflict'
         ? { tone: 'warning', Icon: AlertTriangle, label: 'Calendar conflict', title: status.error }
         : status.state === 'failed'
           ? { tone: 'danger', Icon: AlertTriangle, label: 'Not in Calendar', title: status.error }
@@ -206,6 +211,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       danger: 'border-state-danger/30 bg-state-danger/15 text-state-danger',
       warning: 'border-state-warning/30 bg-state-warning/15 text-state-warning',
       accent: 'border-accent/30 bg-accent/15 text-accent',
+      muted: 'border-line bg-card text-ink-muted',
     } as const
     const { Icon } = presentation
 
