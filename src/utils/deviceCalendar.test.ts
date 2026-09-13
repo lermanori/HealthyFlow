@@ -12,6 +12,7 @@ import {
   createDeviceCalendarService,
   createWebGoogleCalendarMutation,
   deviceCalendarReadToDaySource,
+  obligationsFromDeviceEvents,
   reconcileDeviceCalendarItems,
   resolveHostedGoogleCalendarAccess,
   syncLocalDayWithDeviceCalendar,
@@ -543,7 +544,15 @@ describe('Device Calendar day contract', () => {
     assert.match(plugin, /guard isHealthyFlowItemEvent\(event\) else/)
     assert.match(plugin, /eventStore\.save\(/)
     assert.match(plugin, /eventStore\.remove\(/)
-    assert.match(plugin, /filter \{ !isHealthyFlowItemEvent\(\$0\) \}/)
+
+    // An Item's own event must not also arrive as an obligation. That used to be
+    // a native filter on the marker, which hid events whose Item no longer
+    // exists on this device (#272). The bridge now reports the marker and the
+    // Local day — the only side that knows which Items exist — decides.
+    const ts = readFileSync('src/lib/deviceCalendar.ts', 'utf8')
+    assert.doesNotMatch(plugin, /filter \{ !isHealthyFlowItemEvent\(\$0\) \}/)
+    assert.match(plugin, /"healthyFlowItemId": healthyFlowItemId\(event\)/)
+    assert.match(ts, /obligationsFromDeviceEvents/)
   })
 
   it('keeps Device Calendar available on iOS independently of hosted Google', () => {
@@ -734,5 +743,49 @@ describe('Device Calendar day contract', () => {
 
     await assert.rejects(() => update('event-1'), /read-only/)
     assert.equal(backendWrites, 0)
+  })
+})
+
+describe('a HealthyFlow event whose Item is gone', () => {
+  const owned = (itemId: string | null) => ({
+    ...calendarEvent('device', itemId ?? 'someone-elses'),
+    healthyFlowItemId: itemId,
+  })
+
+  it('comes back as an obligation, so its time is counted again', () => {
+    // A reinstall, a new Guest or a switched account leaves the event in iOS
+    // Calendar with no Item behind it. Hiding it by the marker alone made it
+    // neither an obligation nor an Item — invisible, while still occupying real
+    // time, so Capacity overstated the free hours (#272).
+    const obligations = obligationsFromDeviceEvents(
+      [owned('item-gone'), owned(null)],
+      new Set<string>(),
+    )
+
+    assert.deepEqual(obligations.map((event) => event.externalEventId), ['item-gone', 'someone-elses'])
+  })
+
+  it('still hides an event whose Item this device holds, so nothing doubles', () => {
+    const obligations = obligationsFromDeviceEvents(
+      [owned('item-here'), owned(null)],
+      new Set(['item-here']),
+    )
+
+    assert.deepEqual(obligations.map((event) => event.externalEventId), ['someone-elses'])
+  })
+
+  it('never leaks the marker into a Calendar obligation', () => {
+    // Ownership decides what to show; it is not part of what an obligation is,
+    // and the canonical schema is strict about that.
+    const [obligation] = obligationsFromDeviceEvents([owned('item-gone')], new Set<string>())
+
+    assert.ok(!('healthyFlowItemId' in obligation))
+    assert.doesNotThrow(() => DaySummaryCalendarEventSchema.parse(obligation))
+  })
+
+  it('leaves everyone else’s events alone whatever this device holds', () => {
+    const obligations = obligationsFromDeviceEvents([owned(null)], new Set(['item-here']))
+
+    assert.equal(obligations.length, 1)
   })
 })
