@@ -72,8 +72,17 @@ public final class DeviceCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
             end: end,
             calendars: nil
         )
+        // Every event the day holds, HealthyFlow's own included. Whether one of
+        // ours should be hidden depends on whether *this device's day still has
+        // the Item* — which only the Local day knows, so the decision is made
+        // there and the marker travels as data (#272).
+        //
+        // Filtering here by the marker alone hid events belonging to an Item that
+        // no longer exists on this device — after a reinstall, a new Guest or a
+        // switched account. They were neither an obligation nor an Item, so they
+        // vanished from HealthyFlow while still occupying real time, and Capacity
+        // silently overstated the free hours.
         let events = eventStore.events(matching: predicate)
-            .filter { !isHealthyFlowItemEvent($0) }
             .sorted { left, right in left.startDate < right.startDate }
 
         do {
@@ -309,8 +318,17 @@ public final class DeviceCalendarPlugin: CAPPlugin, CAPBridgedPlugin {
             "status": eventStatus(event.status),
             "htmlLink": NSNull(),
             "completed": false,
-            "completedAt": NSNull()
+            "completedAt": NSNull(),
+            // The Item this event was written for, when HealthyFlow wrote it.
+            "healthyFlowItemId": healthyFlowItemId(event) ?? NSNull()
         ]
+    }
+
+    /// The Item id carried by a HealthyFlow-written event, or nil for anyone else's.
+    private func healthyFlowItemId(_ event: EKEvent) -> String? {
+        guard isHealthyFlowItemEvent(event) else { return nil }
+        let id = event.url?.lastPathComponent ?? ""
+        return id.isEmpty ? nil : id
     }
 
     private func dayText(_ date: Date) -> String {

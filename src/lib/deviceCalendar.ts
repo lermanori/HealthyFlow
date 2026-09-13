@@ -9,6 +9,7 @@ import {
   mutateLocalDatabase,
   type DeviceCalendarLink,
 } from './local/store'
+import { localDayUser } from './local/services'
 
 const { DaySummaryCalendarEventSchema } = DaySummaryContracts
 
@@ -16,8 +17,20 @@ export const DeviceCalendarAuthorizationSchema = z.object({
   status: z.enum(['not_determined', 'restricted', 'denied', 'full_access']),
 }).strict()
 
+/**
+ * One event as the bridge returns it: the canonical shape plus the marker.
+ *
+ * `healthyFlowItemId` is the Item this event was written for, or null for
+ * anyone else's event. It is stripped before the event becomes a canonical
+ * Calendar obligation — the marker is how ownership is decided, not part of what
+ * an obligation is.
+ */
+const DeviceCalendarEventPayloadSchema = DaySummaryCalendarEventSchema.extend({
+  healthyFlowItemId: z.string().nullable().default(null),
+})
+
 const DeviceCalendarEventsResponseSchema = z.object({
-  events: z.array(DaySummaryCalendarEventSchema),
+  events: z.array(DeviceCalendarEventPayloadSchema),
 }).strict()
 
 export const DeviceCalendarReadResultSchema = z.discriminatedUnion('state', [
@@ -784,6 +797,29 @@ function errorMessage(error: unknown, fallback = 'Device Calendar could not be r
     : fallback
 }
 
+/**
+ * Decide which of HealthyFlow's own events to hide, and hand back the rest.
+ *
+ * An Item's own event must not also appear as an obligation — that is one
+ * commitment shown twice. But the test is whether **this device's day still has
+ * that Item**, not whether HealthyFlow ever wrote the event. Hiding by the marker
+ * alone made events orphaned by a reinstall, a new Guest or a switched account
+ * invisible: neither obligation nor Item, while still occupying real time, so
+ * Capacity overstated the free hours (#272).
+ *
+ * An orphan therefore comes back as an ordinary obligation. Nothing is invented
+ * — no Item is resurrected from someone else's day — and the time it takes is
+ * counted again.
+ */
+export function obligationsFromDeviceEvents(
+  events: z.infer<typeof DeviceCalendarEventPayloadSchema>[],
+  liveItemIds: ReadonlySet<string>,
+): z.infer<typeof DaySummaryCalendarEventSchema>[] {
+  return events
+    .filter((event) => event.healthyFlowItemId === null || !liveItemIds.has(event.healthyFlowItemId))
+    .map(({ healthyFlowItemId: _marker, ...obligation }) => obligation)
+}
+
 export function createDeviceCalendarService(plugin: DeviceCalendarReadPlugin) {
   return {
     async authorization(): Promise<DeviceCalendarAuthorization> {
@@ -826,7 +862,22 @@ export function createDeviceCalendarService(plugin: DeviceCalendarReadPlugin) {
         const response = DeviceCalendarEventsResponseSchema.parse(
           await plugin.getEvents({ date }),
         )
-        return { state: 'connected', events: response.events }
+
+        // Only this device's own day can say which Items still exist, so the
+        // ownership decision is made here rather than in the bridge.
+        const userId = localDayUser()
+        const liveItemIds = new Set<string>(
+          userId
+            ? (await loadLocalDatabase(userId)).tasks
+              .filter((row) => row.deleted_at === null)
+              .map((row) => String(row.id))
+            : [],
+        )
+
+        return {
+          state: 'connected',
+          events: obligationsFromDeviceEvents(response.events, liveItemIds),
+        }
       } catch (error) {
         return { state: 'unavailable', reason: errorMessage(error) }
       }
