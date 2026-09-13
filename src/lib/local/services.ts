@@ -562,14 +562,25 @@ function itemToClient(item: DaySummaryItem) {
 function withDeviceCalendarLinks<T extends { id: string }>(
   items: T[],
   database: LocalDatabase,
+  calendarConnected = true,
 ): T[] {
   if (database.deviceCalendarLinks.length === 0) return items
   const linkByItem = new Map(database.deviceCalendarLinks.map((link) => [link.itemId, link]))
   return items.map((item) => {
     const link = linkByItem.get(item.id)
-    return link
-      ? { ...item, deviceCalendar: { status: link.status, error: link.error } }
-      : item
+    if (!link) return item
+
+    // A `synced` link is a true record of the last write, and stays one — it
+    // holds the `eventIdentifier` that lets a reconnect reconcile instead of
+    // duplicating. But "the last write succeeded" is a fact about the past, and
+    // the badge makes a claim about the present. Those diverge the moment
+    // Calendar access is revoked, and `updated_at` never moves again, so the
+    // claim would stay frozen at its last truth forever (#273).
+    //
+    // Reported, not stored: reconnecting restores the accurate badge on the next
+    // render with nothing to migrate and no flag to go stale.
+    const status = link.status === 'synced' && !calendarConnected ? 'unverified' : link.status
+    return { ...item, deviceCalendar: { status, error: link.error } }
   })
 }
 
@@ -617,7 +628,14 @@ export const localServices = {
     ])
     // Today renders from the day summary, not from getTasks, so the EventKit
     // bookkeeping has to be joined here too or a card has nothing to report.
-    return { ...summary, items: withDeviceCalendarLinks(summary.items, database) }
+    return {
+      ...summary,
+      items: withDeviceCalendarLinks(
+        summary.items,
+        database,
+        summary.calendar.status === 'connected' || summary.calendar.status === 'connected_empty',
+      ),
+    }
   },
 
   getTasks: async (userId: string, date?: string) => {

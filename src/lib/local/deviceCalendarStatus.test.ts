@@ -9,7 +9,7 @@ import assert from 'node:assert/strict'
 import { beforeEach, describe, it } from 'node:test'
 import { createLocalTask } from './day'
 import { localServices } from './services'
-import { memoryDriver, mutateLocalDatabase, setLocalStoreDriver } from './store'
+import { loadLocalDatabase, memoryDriver, mutateLocalDatabase, setLocalStoreDriver } from './store'
 
 const USER = 'guest-1'
 const TODAY = '2026-08-21'
@@ -46,10 +46,13 @@ describe('Device Calendar status on the Local day', () => {
     setLocalStoreDriver(memoryDriver(null))
   })
 
+  /** A Calendar HealthyFlow can currently see, so a `synced` link is verifiable. */
+  const connected = { status: 'connected_empty' as const, reasonCode: null, events: [] }
+
   it('reaches the day summary, which is what Today renders', async () => {
     const id = await itemWithLink('synced', null)
 
-    const summary = await localServices.daySummary(USER, TODAY)
+    const summary = await localServices.daySummary(USER, TODAY, connected)
     const item = summary.items.find((candidate) => candidate.id === id) as
       | { deviceCalendar?: { status: string; error: string | null } | null }
       | undefined
@@ -99,5 +102,49 @@ describe('Device Calendar status on the Local day', () => {
       | undefined
 
     assert.equal(item?.deviceCalendar, undefined)
+  })
+})
+
+describe('when Calendar access has been revoked', () => {
+  beforeEach(() => {
+    setLocalStoreDriver(memoryDriver(null))
+  })
+
+  it('reports a synced Item as unverified rather than as in the Calendar', async () => {
+    const id = await itemWithLink('synced', null)
+
+    const summary = await localServices.daySummary(USER, TODAY)
+    const item = summary.items.find((candidate) => candidate.id === id) as
+      | { deviceCalendar?: { status: string } | null }
+      | undefined
+
+    // `daySummary` with no calendar source is the disconnected case: the day
+    // refuses to show an empty Calendar as if it were genuinely empty.
+    assert.equal(item?.deviceCalendar?.status, 'unverified')
+  })
+
+  it('leaves a failed write reported as failed', async () => {
+    // Losing access does not turn a write that genuinely failed into an unknown.
+    const id = await itemWithLink('failed', 'The default calendar is read-only.')
+
+    const summary = await localServices.daySummary(USER, TODAY)
+    const item = summary.items.find((candidate) => candidate.id === id) as
+      | { deviceCalendar?: { status: string } | null }
+      | undefined
+
+    assert.equal(item?.deviceCalendar?.status, 'failed')
+  })
+
+  it('keeps the stored link untouched, so reconnecting reconciles rather than duplicates', async () => {
+    const id = await itemWithLink('synced', null)
+    await localServices.daySummary(USER, TODAY)
+
+    const stored = (await loadLocalDatabase(USER)).deviceCalendarLinks
+      .find((link) => link.itemId === id)
+
+    // The eventIdentifier is what lets a reconnect recognise the event it
+    // already made. Reporting is live; the record is not rewritten.
+    assert.equal(stored?.status, 'synced')
+    assert.equal(stored?.eventIdentifier, 'event-1')
   })
 })

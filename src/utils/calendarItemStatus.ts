@@ -12,17 +12,19 @@ export type CalendarItemStatus =
   | { provider: 'device'; state: 'synced' }
   | { provider: 'device'; state: 'failed'; error: string }
   | { provider: 'device'; state: 'conflict'; error: string }
+  | { provider: 'device'; state: 'unverified'; error: string }
   | { provider: 'google'; state: 'synced' | 'failed' }
 
 export interface CalendarItemStatusInput {
   /** This device's EventKit bookkeeping for the Item, when one exists. */
-  deviceCalendar?: { status: 'synced' | 'failed' | 'conflict'; error: string | null } | null
+  deviceCalendar?: { status: 'synced' | 'failed' | 'conflict' | 'unverified'; error: string | null } | null
   syncedToGoogle?: boolean
   googleSyncStatus?: 'pending' | 'synced' | 'skipped' | 'failed'
 }
 
 const DEVICE_WRITE_FAILED = 'HealthyFlow could not write this Item to your iPhone Calendar.'
 const DEVICE_CONFLICT = 'This Item and its Calendar event were both changed, so neither was applied.'
+const DEVICE_UNVERIFIED = 'HealthyFlow cannot see your Calendar right now, so it cannot confirm this Item is still there.'
 
 export function calendarItemStatus(input: CalendarItemStatusInput): CalendarItemStatus | null {
   // A Device Calendar link means EventKit ran for this Item on this device, so it
@@ -32,6 +34,17 @@ export function calendarItemStatus(input: CalendarItemStatusInput): CalendarItem
     // Both sides changed and the order could not be established, so neither was
     // applied (#267). Distinct from a failed write: nothing is broken, but the
     // person has to say which version they meant.
+    // Written once, and no longer checkable: Calendar access is off, so the
+    // last successful write is a fact about the past being read as a claim about
+    // the present. Nothing is broken and nothing conflicts — HealthyFlow simply
+    // cannot look (#273).
+    if (input.deviceCalendar.status === 'unverified') {
+      return {
+        provider: 'device',
+        state: 'unverified',
+        error: input.deviceCalendar.error ?? DEVICE_UNVERIFIED,
+      }
+    }
     if (input.deviceCalendar.status === 'conflict') {
       return {
         provider: 'device',
