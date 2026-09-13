@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Network } from '@capacitor/network'
+import type { PluginListenerHandle } from '@capacitor/core'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
 import { creditsService, syncService, DAY_SUMMARY_QUERY_KEY } from '../services/api'
@@ -179,15 +180,33 @@ export function useCloudSync() {
       timer = setTimeout(() => { void sync() }, AFTER_A_CHANGE_MS)
     }
 
-    window.addEventListener('online', onOnline)
-    window.addEventListener('offline', onOffline)
+    // Capacitor's listener, not the window's. The check above already uses
+    // `Network.getStatus()` precisely because WKWebView does not reliably update
+    // `navigator.onLine` — so listening for the webview's `online` event is
+    // listening to the thing that workaround exists for. Reconnecting after an
+    // offline edit fired no event, and the edit sat on the device until the next
+    // cold start. The plugin has a web implementation, so this is one path for
+    // both surfaces rather than two.
+    let networkListener: PluginListenerHandle | null = null
+    void Network.addListener('networkStatusChange', (status) => {
+      if (cancelled) return
+      if (status.connected) onOnline()
+      else onOffline()
+    }).then((handle) => {
+      if (cancelled) void handle.remove()
+      else networkListener = handle
+    }).catch((error) => {
+      // Without this the app still syncs on launch and on its own edits; it just
+      // stops noticing reconnection. Saying so beats a silent degradation.
+      console.error('[sync] could not watch for reconnection:', error)
+    })
+
     window.addEventListener(LOCAL_DAY_CHANGED_EVENT, onChange)
     return () => {
       cancelled = true
       clearCloudSyncFailure()
       if (timer) clearTimeout(timer)
-      window.removeEventListener('online', onOnline)
-      window.removeEventListener('offline', onOffline)
+      void networkListener?.remove()
       window.removeEventListener(LOCAL_DAY_CHANGED_EVENT, onChange)
     }
   }, [user, queryClient])

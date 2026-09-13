@@ -26,6 +26,38 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
       retry: 1,
+      /**
+       * Reading the day does not need the network either.
+       *
+       * The same `networkMode: 'online'` default pauses *refetches* offline, and
+       * that is how a write could succeed while the screen kept the old day: the
+       * Local document was updated, `invalidateQueries` asked for a refresh, and
+       * the refresh never ran. The write looked lost when it was only unseen.
+       *
+       * Every day read goes through `onDevice`, so on a phone it reads the same
+       * local document the write just changed. A hosted read still needs the
+       * network and now fails with its own error rather than pausing — which the
+       * surfaces already handle, and which is honest where a silent pause was
+       * indistinguishable from a hang.
+       */
+      networkMode: 'always',
+    },
+    mutations: {
+      /**
+       * Writes are local, so being offline is not a reason to hold them.
+       *
+       * React Query defaults to `networkMode: 'online'`, which *pauses* a
+       * mutation while the device is offline — the function is never called at
+       * all, whether or not it touches the network. Every write here goes to the
+       * Local day first (ADR-0011), so the default turned "works offline" into
+       * "does nothing offline": adding, completing, editing, deleting and
+       * reordering an Item all sat paused until connectivity returned.
+       *
+       * A write that genuinely needs the network still fails on its own terms —
+       * an AI action returns its typed refusal rather than hanging, which is the
+       * honest outcome and the one the app already knows how to explain.
+       */
+      networkMode: 'always',
     },
   },
 })
