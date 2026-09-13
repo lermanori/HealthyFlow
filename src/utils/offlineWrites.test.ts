@@ -22,6 +22,15 @@ test('mutations are allowed to run while the device is offline', () => {
   assert.match(main, /mutations:\s*\{[\s\S]*?networkMode:\s*'always'/)
 })
 
+test('refetches are allowed to run too, or a write lands unseen', () => {
+  // The write succeeding is only half of it. `invalidateQueries` after a write
+  // asks for a refresh, and a paused refresh leaves the screen showing the day
+  // as it was — the change is on disk and invisible, which reads as lost.
+  const main = readFileSync('src/main.tsx', 'utf8')
+
+  assert.match(main, /queries:\s*\{[\s\S]*?networkMode:\s*'always'/)
+})
+
 test('the reason travels with the setting', () => {
   const main = readFileSync('src/main.tsx', 'utf8')
 

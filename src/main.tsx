@@ -26,6 +26,21 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
       retry: 1,
+      /**
+       * Reading the day does not need the network either.
+       *
+       * The same `networkMode: 'online'` default pauses *refetches* offline, and
+       * that is how a write could succeed while the screen kept the old day: the
+       * Local document was updated, `invalidateQueries` asked for a refresh, and
+       * the refresh never ran. The write looked lost when it was only unseen.
+       *
+       * Every day read goes through `onDevice`, so on a phone it reads the same
+       * local document the write just changed. A hosted read still needs the
+       * network and now fails with its own error rather than pausing — which the
+       * surfaces already handle, and which is honest where a silent pause was
+       * indistinguishable from a hang.
+       */
+      networkMode: 'always',
     },
     mutations: {
       /**
