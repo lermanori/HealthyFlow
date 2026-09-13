@@ -27,6 +27,23 @@ const queryClient = new QueryClient({
       staleTime: 5 * 60 * 1000, // 5 minutes
       retry: 1,
     },
+    mutations: {
+      /**
+       * Writes are local, so being offline is not a reason to hold them.
+       *
+       * React Query defaults to `networkMode: 'online'`, which *pauses* a
+       * mutation while the device is offline — the function is never called at
+       * all, whether or not it touches the network. Every write here goes to the
+       * Local day first (ADR-0011), so the default turned "works offline" into
+       * "does nothing offline": adding, completing, editing, deleting and
+       * reordering an Item all sat paused until connectivity returned.
+       *
+       * A write that genuinely needs the network still fails on its own terms —
+       * an AI action returns its typed refusal rather than hanging, which is the
+       * honest outcome and the one the app already knows how to explain.
+       */
+      networkMode: 'always',
+    },
   },
 })
 
