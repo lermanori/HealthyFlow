@@ -64,3 +64,23 @@ test('the release gate checks writing offline, not only rendering', () => {
 
   assert.match(gate.split('\n')[0], /write|add|create/i)
 })
+
+test('reconnection is noticed through Capacitor, not the webview', () => {
+  const hook = readFileSync('src/hooks/useCloudSync.ts', 'utf8')
+
+  // The connectivity *check* already uses Network.getStatus() because WKWebView
+  // does not reliably update navigator.onLine. Listening for the webview's
+  // `online` event was listening to the very thing that workaround exists for:
+  // reconnecting after an offline edit fired no event, so the edit sat on the
+  // device until the next cold start.
+  assert.match(hook, /Network\.addListener\('networkStatusChange'/)
+  assert.doesNotMatch(hook, /addEventListener\('online'/)
+  assert.doesNotMatch(hook, /addEventListener\('offline'/)
+})
+
+test('the reconnection listener is removed with the effect', () => {
+  const hook = readFileSync('src/hooks/useCloudSync.ts', 'utf8')
+
+  // A listener that outlives its effect syncs for an identity that has gone.
+  assert.match(hook, /networkListener\?\.remove\(\)/)
+})
