@@ -183,6 +183,24 @@ test('mobile drawer is labelled modal navigation and restores the exact opener',
   await expect(opener).toBeFocused()
 })
 
+test('mobile route navigation starts the destination at the top', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.goto('/app/goals')
+  await expect(page.getByRole('heading', { name: 'Goals', exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Today', exact: true }).click()
+  const skipSetup = page.getByRole('button', { name: 'Just take me in' })
+  if (await skipSetup.isVisible()) await skipSetup.click()
+  await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible()
+
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200)
+
+  await page.getByRole('link', { name: 'Goals', exact: true }).click()
+
+  await expect(page).toHaveURL('/app/goals')
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+})
+
 test('export downloads the authenticated portable JSON filename and content', async ({ page }) => {
   const exportDate = new Date().toISOString().slice(0, 10)
   await page.route('**/api/account/export', (route) => route.fulfill({

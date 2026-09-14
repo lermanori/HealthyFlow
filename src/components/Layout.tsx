@@ -107,9 +107,12 @@ export default function Layout({
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Close mobile menu when route changes
+  // A route is a new screen. The document is the scroll container on mobile, so
+  // leaving its offset untouched opens the next screen part-way down.
   useEffect(() => {
     setIsMobileMenuOpen(false)
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+    contentRef.current?.scrollTo({ top: 0, left: 0, behavior: 'auto' })
   }, [location.pathname])
 
   useModalFocus({
@@ -329,7 +332,10 @@ export default function Layout({
           >
             <div className="flex flex-col h-full">
               {/* Header */}
-              <div className="flex items-center justify-between p-6 border-b border-line/50">
+              <div
+                data-testid="mobile-navigation-header"
+                className="flex items-center justify-between border-b border-line/50 px-6 pb-6 pt-[calc(1.5rem+env(safe-area-inset-top))]"
+              >
                 <div className="flex items-center space-x-3">
                   <AppMark size={40} />
                   <div>

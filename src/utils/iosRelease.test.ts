@@ -6,6 +6,8 @@ const project = readFileSync('ios/App/App.xcodeproj/project.pbxproj', 'utf8')
 const packageJson = readFileSync('package.json', 'utf8')
 const nativePackage = readFileSync('ios/App/CapApp-SPM/Package.swift', 'utf8')
 const releaseRunbook = readFileSync('docs/runbooks/app-store-v1.md', 'utf8')
+const layout = readFileSync('src/components/Layout.tsx', 'utf8')
+const addItemPage = readFileSync('src/pages/AddItemPage.tsx', 'utf8')
 
 describe('free-v1 iOS release configuration', () => {
   it('uses one iOS 17 floor at project, app, widget and Swift-package levels', () => {
@@ -47,5 +49,13 @@ describe('free-v1 iOS release configuration', () => {
     assert.ok(Buffer.byteLength(subtitle) <= 30)
     assert.ok(Buffer.byteLength(keywords) <= 100)
     assert.ok(Buffer.byteLength(description) <= 4_000)
+  })
+
+  it('keeps native navigation inside iOS presentation bounds and time entry direct', () => {
+    assert.match(layout, /mobile-navigation-header/)
+    assert.match(layout, /env\(safe-area-inset-top\)/)
+    assert.match(addItemPage, /data-testid="add-item-time"/)
+    assert.match(addItemPage, /type="time"/)
+    assert.doesNotMatch(addItemPage, /TimePickerSheet/)
   })
 })

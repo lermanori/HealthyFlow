@@ -491,13 +491,34 @@ export default function AddItemPage() {
                   ))}
                 </div>
               </div>
-              <label className="block space-y-2">
-                <span className="text-sm font-medium text-ink-soft">Time</span>
+              <div className="block space-y-2">
+                <label htmlFor="add-item-time" className="text-sm font-medium text-ink-soft">Time</label>
                 <div className="relative">
-                  <Clock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-                  <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className="input-field pl-10" />
+                  <Clock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
+                  <input
+                    id="add-item-time"
+                    data-testid="add-item-time"
+                    type="time"
+                    value={startTime}
+                    onChange={(event) => setStartTime(event.target.value)}
+                    className={`input-field min-h-12 min-w-0 pl-10 ${startTime ? 'pr-24' : ''}`}
+                  />
+                  {startTime ? (
+                    <button
+                      type="button"
+                      onClick={() => setStartTime('')}
+                      className="absolute right-1 top-1/2 min-h-10 -translate-y-1/2 rounded-lg px-3 text-sm font-semibold text-accent hover:bg-raised"
+                      aria-label="Use anytime"
+                    >
+                      Anytime
+                    </button>
+                  ) : (
+                    <span aria-hidden="true" className="pointer-events-none absolute left-10 top-1/2 -translate-y-1/2 text-ink-muted">
+                      Anytime
+                    </span>
+                  )}
                 </div>
-              </label>
+              </div>
             </div>
 
             {todayType === 'habit' && <div className="space-y-3 rounded-xl border border-accent/25 bg-accent/5 p-4">

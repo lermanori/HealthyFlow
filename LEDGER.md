@@ -1,3 +1,13 @@
+### 2026-09-14 16:34 — `codex/session-handoff`
+
+Corrected the native mobile shell so route changes start at the top and the
+navigation drawer respects the iPhone safe area. Add Item now uses one direct
+native time field with a stable `Anytime` state and an inline reset, with no
+custom picker overlay; the final interaction was verified on a physical iPhone
+and covered by focused browser regressions plus the full frontend unit suite.
+
+---
+
 ### 2026-09-13 22:23 — `main`
 
 Closed every open Calendar and sync issue: #249, #265, #266, #267, #268, #272,

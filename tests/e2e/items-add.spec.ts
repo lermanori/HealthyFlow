@@ -38,6 +38,8 @@ test('Adding a Task via the UI makes it appear on today\'s Today', async ({ page
 
   // Should redirect to Today
   await expect(page).toHaveURL('/app', { timeout: 10_000 })
+  const skipSetup = page.getByRole('button', { name: 'Just take me in' })
+  if (await skipSetup.isVisible()) await skipSetup.click()
 
   // Task appears by title
   await expect(page.getByLabel('Daily decisions').getByText('Test Task Title', { exact: true })).toBeVisible({ timeout: 10_000 })
@@ -57,6 +59,25 @@ test('Category options equal the closed set defined in CONTEXT.md', async ({ pag
   const normalized = labels.map(t => t.trim()).sort()
 
   expect(normalized).toEqual(['Fitness', 'Grocery', 'Health', 'Nutrition', 'Personal', 'Work'])
+})
+
+test('time can be entered directly without an intermediary overlay', async ({ page }) => {
+  await page.goto('/app/add')
+  const timeInput = page.getByTestId('add-item-time')
+
+  await expect(page.getByText('Anytime', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Use anytime' })).toHaveCount(0)
+  expect(await timeInput.evaluate((element) => Number.parseFloat(getComputedStyle(element).minHeight))).toBeGreaterThanOrEqual(48)
+  await timeInput.fill('12:40')
+
+  await expect(timeInput).toHaveValue('12:40')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  const anytimeButton = page.getByRole('button', { name: 'Use anytime' })
+  await expect(anytimeButton).toBeVisible()
+  await anytimeButton.click()
+  await expect(timeInput).toHaveValue('')
+  await expect(anytimeButton).toHaveCount(0)
+  await expect(page.getByText('Anytime', { exact: true })).toBeVisible()
 })
 
 test('Add Item domain tabs create calorie and achievement entries through existing surfaces', async ({ page }) => {
