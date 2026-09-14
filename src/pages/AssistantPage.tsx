@@ -14,7 +14,6 @@ import { useTTS } from '../hooks/useTTS'
 import { useAuth } from '../context/AuthContext'
 import { useSettings } from '../hooks/useSettings'
 import { useGoals } from '../hooks/useGoals'
-import { isNativeIOS } from '../lib/native'
 import { analytics } from '../lib/analytics'
 import { applyConfirmedTalkActionToLocalDay } from '../lib/local/services'
 import {
@@ -569,8 +568,10 @@ export default function AssistantPage() {
   const shouldRefocusComposerRef = useRef(false)
   const {
     isListening,
+    isPreparing,
     isDictationSupported,
     dictationError,
+    dictationStatus,
     toggleDictation,
   } = useDictatedText({ text: draft, setText: setDraft, disabled: isSending })
 
@@ -1703,7 +1704,10 @@ export default function AssistantPage() {
             </button>
           </div>
         )}
-        {dictationError && <p className="mb-2 text-xs text-state-danger">{dictationError}</p>}
+        {dictationError && <p className="mb-2 text-xs text-state-danger" role="alert">{dictationError}</p>}
+        {dictationStatus && !dictationError && (
+          <p className="mb-2 text-xs text-ink-muted" role="status">{dictationStatus}</p>
+        )}
         <div className="assistant-composer rounded-[1.5rem] border border-line-strong bg-raised/70 px-3 py-2.5 shadow-inner shadow-black/20 transition-colors focus-within:border-accent/70 focus-within:bg-raised sm:rounded-[1.75rem] sm:p-3">
           <div className="min-w-0">
             <textarea
@@ -1748,17 +1752,16 @@ export default function AssistantPage() {
               ))}
             </select>
             <div className="min-w-0 flex-1" />
-            {!isNativeIOS && (
-              <button
-                type="button"
-                onClick={toggleDictation}
-                disabled={isSending || !isDictationSupported}
-                className={`flex h-11 w-11 flex-none items-center justify-center rounded-full bg-sunken text-ink-soft transition-colors hover:bg-card hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 ${isListening ? 'bg-accent/20 text-accent' : ''}`}
-                aria-label={isListening ? 'Stop dictation' : 'Start dictation'}
-              >
-                <Mic size={20} className="flex-none" />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={toggleDictation}
+              disabled={isSending || !isDictationSupported || isPreparing}
+              className={`flex h-11 w-11 flex-none items-center justify-center rounded-full bg-sunken text-ink-soft transition-colors hover:bg-card hover:text-ink disabled:cursor-not-allowed disabled:opacity-50 ${isListening || isPreparing ? 'bg-accent/20 text-accent' : ''}`}
+              aria-label={isPreparing ? 'Preparing dictation' : isListening ? 'Stop dictation' : 'Start dictation'}
+              aria-pressed={isListening}
+            >
+              {isListening ? <Square size={18} className="flex-none" /> : <Mic size={20} className="flex-none" />}
+            </button>
             <button
               type="submit"
               data-demo-id="talk-send-button"

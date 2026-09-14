@@ -10,7 +10,7 @@ abort "App target not found" unless app_target
 app_group = project.main_group.find_subpath("App", false)
 abort "App group not found" unless app_group
 
-["HealthyFlowViewController.swift", "HealthyFlowWidgetPlugin.swift", "AppleSignInPlugin.swift", "GoogleSignInPlugin.swift", "DeviceCalendarPlugin.swift"].each do |filename|
+["HealthyFlowViewController.swift", "HealthyFlowWidgetPlugin.swift", "AppleSignInPlugin.swift", "GoogleSignInPlugin.swift", "DeviceCalendarPlugin.swift", "NativeSpeechPlugin.swift"].each do |filename|
   reference = app_group.files.find { |file| file.path == filename } || app_group.new_file(filename)
   unless app_target.source_build_phase.files_references.include?(reference)
     app_target.source_build_phase.add_file_reference(reference)
@@ -18,10 +18,10 @@ abort "App group not found" unless app_group
 end
 
 app_target.build_configurations.each do |configuration|
-  configuration.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "17.0"
+  configuration.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "26.0"
 end
 project.build_configurations.each do |configuration|
-  configuration.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "17.0"
+  configuration.build_settings["IPHONEOS_DEPLOYMENT_TARGET"] = "26.0"
 end
 
 target_attributes = project.root_object.attributes["TargetAttributes"] ||= {}
@@ -31,7 +31,7 @@ system_capabilities["com.apple.SignInWithApple"] = { "enabled" => 1 }
 
 widget_target = project.targets.find { |target| target.name == "HealthyFlowWidget" }
 unless widget_target
-  widget_target = project.new_target(:app_extension, "HealthyFlowWidget", :ios, "17.0")
+  widget_target = project.new_target(:app_extension, "HealthyFlowWidget", :ios, "26.0")
 end
 
 widget_group = project.main_group.find_subpath("HealthyFlowWidget", true)
@@ -61,7 +61,7 @@ widget_target.build_configurations.each do |configuration|
   settings["CURRENT_PROJECT_VERSION"] = app_settings["CURRENT_PROJECT_VERSION"] || "1"
   settings["GENERATE_INFOPLIST_FILE"] = "NO"
   settings["INFOPLIST_FILE"] = "HealthyFlowWidget/Info.plist"
-  settings["IPHONEOS_DEPLOYMENT_TARGET"] = "17.0"
+  settings["IPHONEOS_DEPLOYMENT_TARGET"] = "26.0"
   settings["MARKETING_VERSION"] = app_settings["MARKETING_VERSION"] || "1.0"
   settings["PRODUCT_BUNDLE_IDENTIFIER"] = "app.healthyflow.mobile.widget"
   settings["PRODUCT_NAME"] = "$(TARGET_NAME)"

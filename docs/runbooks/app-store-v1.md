@@ -2,7 +2,7 @@
 
 This is the maintained release packet for HealthyFlow v1. It separates facts
 verified from source and code, release-team inferences, and decisions only the
-founder or an appropriate professional can make. Last verified: **2026-09-10**.
+founder or an appropriate professional can make. Last verified: **2026-09-14**.
 
 ## Fixed v1 product contract
 
@@ -21,7 +21,7 @@ through EventKit, so reaching Google again through the backend would show one
 meeting twice and write one Item as two events (ADR-0020 §4). The integration
 remains for the web surface and is untouched there.
 
-`src/utils/iosRelease.test.ts` guards the iOS 17 floor, aligned app/widget
+`src/utils/iosRelease.test.ts` guards the iOS 26 floor, aligned app/widget
 versions and identifiers, and absence of payment SDKs.
 
 **`VITE_CLOUD_SYNC_ENABLED` is set from 2026-09-11.** It is not an acquisition
@@ -31,6 +31,8 @@ the entitlement is the founder's legacy exception. The flag only lets the client
 `CloudAccess.require` on every `POST /sync`, which answers 403 `cloud_not_active`
 for everyone else (`backend/tests/sync/endpoint.test.ts`). The Local day remains
 the source (ADR-0011) and the server is a replica, never a hosted substitute.
+The founder's legacy Cloud state controls replication only; it neither replaces
+nor blocks the claimed account's monthly AI actions or Token Manager balance.
 
 **Human decision for #237:** the app now contains a capability that transmits day
 data to the server for an entitled account, even though no v1 user can obtain
@@ -45,7 +47,7 @@ reads truthfully, are founder/legal calls — not inferences to be made here.
 | App bundle ID | `app.healthyflow.mobile` |
 | Widget bundle ID | `app.healthyflow.mobile.widget` |
 | App Group | `group.app.healthyflow.mobile` |
-| Minimum iOS version | 17.0 everywhere |
+| Minimum iOS version | 26.0 everywhere |
 | Marketing version | 1.0.1 |
 | Build number | 2 |
 | Xcode used for RC check | 26.4.1 (17E202) |
@@ -68,8 +70,9 @@ xcodebuild -project ios/App/App.xcodeproj \
   CODE_SIGNING_ALLOWED=NO build
 ```
 
-Signing, device installation, archive validation, and upload are deliberately
-not part of the credential-free check.
+A signed Debug build was installed on a physical iPhone 14 Pro running iOS 26
+on 2026-09-14 for the native voice check. Archive validation and upload remain
+outside the credential-free release check.
 
 ## App Store copy draft
 
@@ -248,7 +251,7 @@ native asset changes unexpectedly.
 2. Open `ios/App/App.xcodeproj`; select the final Apple team for both targets.
 3. Confirm app and widget identifiers, App Group, Sign in with Apple, Push, and
    production Supabase configuration. Do not change identifiers after upload.
-4. Install a signed Release build on an iOS 17 physical device and execute every
+4. Install a signed Release build on an iOS 26 physical device and execute every
    unresolved smoke gate above with disposable identities/data.
 5. Archive and use Xcode Organizer validation. Resolve every warning or error;
    do not upload a different source state than the tested archive.

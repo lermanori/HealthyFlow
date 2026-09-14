@@ -34,10 +34,14 @@ describe('running the iPhone app against a local backend', () => {
     const pkg = JSON.parse(readFileSync('package.json', 'utf8'))
 
     // `build:local` alone only writes dist/. The iOS app serves
-    // ios/App/App/public, which only `cap sync` updates — so without this the
-    // simulator keeps serving whatever production build was last synced, and a
-    // local backend sees no traffic at all.
-    assert.equal(pkg.scripts['build:ios:local'], 'npm run build:local && cap sync ios')
+    // ios/App/App/public, which only the guarded sync command updates — so
+    // without this the simulator keeps serving whatever production build was
+    // last synced, and a local backend sees no traffic at all.
+    assert.equal(pkg.scripts['build:ios:local'], 'npm run build:local && npm run sync:ios')
+    assert.equal(
+      pkg.scripts['sync:ios'],
+      'cap sync ios && node scripts/ensure-ios-26-package.mjs',
+    )
   })
 
   it('keeps the shipping iOS build pinned to production', () => {

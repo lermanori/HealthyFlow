@@ -1,6 +1,7 @@
 import { Dispatch, SetStateAction, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { useSTT } from './useSTT'
+import { isNativeIOS } from '../lib/native'
 
 interface UseDictatedTextOptions {
   text: string
@@ -12,17 +13,19 @@ export function useDictatedText({ text, setText, disabled = false }: UseDictated
   const dictatedBaseTextRef = useRef('')
   const {
     isListening,
+    isPreparing,
     isSupported,
     transcript,
     interimTranscript,
     error,
+    statusMessage,
     startListening,
     stopListening,
     clearTranscript,
   } = useSTT()
 
   useEffect(() => {
-    const dictatedText = transcript || interimTranscript
+    const dictatedText = [transcript.trim(), interimTranscript.trim()].filter(Boolean).join(' ')
     if (!dictatedText) return
 
     setText([dictatedBaseTextRef.current, dictatedText.trim()].filter(Boolean).join(' '))
@@ -31,18 +34,24 @@ export function useDictatedText({ text, setText, disabled = false }: UseDictated
   const toggleDictation = () => {
     if (disabled) return
     if (!isSupported) {
-      toast.error('Dictation is not supported in this browser')
+      toast.error(
+        isNativeIOS
+          ? "Apple's on-device transcription is unavailable for this device or language."
+          : 'Dictation is not supported in this browser',
+      )
       return
     }
     if (isListening) {
-      stopListening()
+      void stopListening()
       return
     }
 
+    if (isPreparing) return
+
     dictatedBaseTextRef.current = text.trim()
     clearTranscript()
-    startListening({
-      language: 'en-US',
+    void startListening({
+      language: navigator.language || 'en-US',
       continuous: false,
       interimResults: true,
       maxAlternatives: 1,
@@ -51,8 +60,10 @@ export function useDictatedText({ text, setText, disabled = false }: UseDictated
 
   return {
     isListening,
+    isPreparing,
     isDictationSupported: isSupported,
     dictationError: error,
+    dictationStatus: statusMessage,
     toggleDictation,
     clearTranscript,
   }

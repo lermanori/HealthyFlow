@@ -1,3 +1,14 @@
+### 2026-09-14 20:40 — `main`
+
+Replaced the unavailable browser voice path on iPhone with iOS 26's on-device
+SpeechAnalyzer, including native preparation, download, permission and error
+states; the interaction was verified on a physical iPhone. Cloud now governs
+replication only, while claimed-account monthly AI actions and discretionary
+Token Manager balances remain independently usable; focused regressions, full
+frontend and backend suites, both typechecks, and the production build pass.
+
+---
+
 ### 2026-09-14 16:34 — `codex/session-handoff`
 
 Corrected the native mobile shell so route changes start at the top and the

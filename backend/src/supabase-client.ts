@@ -20,6 +20,8 @@ import {
 export { supabase }
 
 const MonthlyFreeCreditClaimSchema = z.object({
+  // Keep the legacy value readable while older databases are still present in
+  // a rolling deploy. Current migrations no longer return it.
   status: z.enum(['granted', 'already_granted', 'not_claimed', 'subscription_active']),
   balance: z.coerce.number().int().nonnegative(),
 })

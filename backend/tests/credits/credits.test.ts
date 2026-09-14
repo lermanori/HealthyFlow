@@ -415,14 +415,18 @@ describe('identity-resolved free actions', () => {
     expect(mockDb.claimMonthlyFreeCredits).toHaveBeenCalledWith('guest-1', 15)
   })
 
-  it('refuses a stale Cloud entitlement instead of granting unavailable v1 access', async () => {
-    mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'subscription_active', balance: 0 })
+  it('uses the existing balance when an older grant RPC reports legacy Cloud', async () => {
+    mockDb.claimMonthlyFreeCredits.mockResolvedValue({ status: 'subscription_active', balance: 4 })
+    mockDb.reserveCredits.mockResolvedValue(3)
 
     await expect(Credits.authorizeAction('cloud-1', textInput)).resolves.toEqual({
-      ok: false,
-      code: 'billing_unavailable',
+      ok: true,
+      actionClass: 'text',
+      credits: 1,
+      charged: 1,
+      coveredBy: 'balance',
     })
-    expect(mockDb.reserveCredits).not.toHaveBeenCalled()
+    expect(mockDb.reserveCredits).toHaveBeenCalledWith('cloud-1', 1)
   })
 
   it('surfaces an unavailable identity read instead of charging an existing balance', async () => {

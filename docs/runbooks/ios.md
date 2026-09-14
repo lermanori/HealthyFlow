@@ -4,7 +4,7 @@ HealthyFlow ships the existing React application inside a Capacitor iOS shell.
 The web application remains the product and source of business logic; native
 code is used at the platform boundary where iOS adds meaningful value.
 
-The minimum deployment target is iOS 17. The Xcode project, `App` target,
+The minimum deployment target is iOS 26. The Xcode project, `App` target,
 `HealthyFlowWidget` target, and Swift package all declare that same floor in
 Debug and Release. `src/utils/iosRelease.test.ts` guards this agreement; do not
 rely on an OS-gated API without updating and re-running that contract.
@@ -23,6 +23,8 @@ rely on an OS-gated API without updating and re-running that contract.
   pruning
 - Native haptics, Share sheet, keyboard resizing, network state, splash screen,
   and theme-aware status bar
+- On-device Talk dictation through iOS 26 SpeechAnalyzer and SpeechTranscriber,
+  bridged into the React composer without a browser speech fallback
 - A server-controlled minimum-version gate that can require an App Store update
 - A small and medium Today widget backed by an App Group
 - App and widget privacy manifests declaring the shared App Group
@@ -62,7 +64,9 @@ Ruby gem.
 
 After adding or removing a Capacitor dependency, always run
 `npm run build:ios` so the native Swift package and copied web bundle stay in
-sync.
+sync. Use `npm run sync:ios` instead of calling `cap sync ios` directly: the
+wrapper restores the Swift 6.2 tools declaration required by the generated iOS
+26 package.
 
 ## Apple Developer setup
 
@@ -92,6 +96,20 @@ the app for those HTTPS URLs, separately enable Associated Domains, add the
 domain entitlement, and publish a valid `apple-app-site-association` file after
 the Apple Team ID is known.
 
+## Native voice setup
+
+The iOS app uses `SpeechAnalyzer` and `SpeechTranscriber` for live, on-device
+dictation. It does not use `SFSpeechRecognizer` and does not fall back to the
+browser speech API. `Info.plist` must retain `NSMicrophoneUsageDescription`;
+the first recording asks for microphone access, while the language model may
+need to download before listening begins.
+
+Test on a physical iOS 26 device with microphone permission not requested,
+granted, denied, and revoked. Also exercise an unsupported device language, a
+missing model while offline, stop/finalization, cancel, and a second recording
+after the first one. Preparation, download, permission, and recognition
+failures must remain visible rather than looking like an empty transcript.
+
 ## Device Calendar setup
 
 The native app uses EventKit as its only Calendar source. Settings requests full
@@ -100,7 +118,7 @@ automatically mirrors timed Items into the default writable Calendar.
 `Info.plist` must retain `NSCalendarsFullAccessUsageDescription` with copy that
 explains both purposes.
 
-Test all four permission paths on iOS 17 or later: not requested, granted,
+Test all four permission paths on iOS 26 or later: not requested, granted,
 denied/restricted, and access revoked after a successful read. With access
 granted, confirm a timed external event and an all-day external event appear in
 Today, the timed event changes Capacity, and neither external event can be

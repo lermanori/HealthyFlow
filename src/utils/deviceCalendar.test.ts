@@ -514,7 +514,7 @@ describe('Device Calendar day contract', () => {
     })
   })
 
-  it('ships an iOS 17 full-access EventKit bridge with the required permission copy', () => {
+  it('ships an iOS 26 full-access EventKit bridge with the required permission copy', () => {
     const pluginPath = 'ios/App/App/DeviceCalendarPlugin.swift'
     assert.equal(existsSync(pluginPath), true, 'DeviceCalendarPlugin.swift must exist')
 

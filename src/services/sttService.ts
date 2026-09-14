@@ -1,3 +1,10 @@
+import { isNativeIOS } from '../lib/native'
+import {
+  NativeSpeech,
+  type NativeSpeechStateEvent,
+  type NativeSpeechTranscriptEvent,
+} from '../lib/nativeSpeech'
+
 export interface STTOptions {
   language?: string
   continuous?: boolean
@@ -7,31 +14,42 @@ export interface STTOptions {
 
 export interface STTState {
   isListening: boolean
+  isPreparing: boolean
   isSupported: boolean
   transcript: string
   interimTranscript: string
   confidence: number
   error: string | null
+  statusMessage: string | null
 }
 
 export class STTService {
   private recognition: SpeechRecognition | null = null
   private state: STTState = {
     isListening: false,
+    isPreparing: false,
     isSupported: false,
     transcript: '',
     interimTranscript: '',
     confidence: 0,
-    error: null
+    error: null,
+    statusMessage: null,
   }
   private listeners: ((state: STTState) => void)[] = []
+  private nativeSetup: Promise<void> | null = null
 
   constructor() {
-    this.initializeRecognition()
+    if (isNativeIOS) {
+      // The iOS app has a 26.0 deployment floor and uses Apple's native,
+      // on-device SpeechAnalyzer exclusively. It never falls back to Web Speech.
+      this.state.isSupported = true
+      this.nativeSetup = this.initializeNativeRecognition()
+    } else {
+      this.initializeBrowserRecognition()
+    }
   }
 
-  private initializeRecognition() {
-    // Check for browser support
+  private initializeBrowserRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     
     if (SpeechRecognition) {
@@ -44,6 +62,52 @@ export class STTService {
     }
     
     this.notifyListeners()
+  }
+
+  private async initializeNativeRecognition() {
+    try {
+      await NativeSpeech.addListener('transcript', (event: NativeSpeechTranscriptEvent) => {
+        this.state.transcript = event.finalized
+        this.state.interimTranscript = event.volatile
+        this.state.confidence = 0
+        this.notifyListeners()
+      })
+      await NativeSpeech.addListener('stateChanged', (event: NativeSpeechStateEvent) => {
+        this.applyNativeState(event)
+      })
+
+      const availability = await NativeSpeech.getAvailability({ locale: navigator.language })
+      this.state.isSupported = availability.available
+      this.state.error = availability.available
+        ? null
+        : availability.reason || 'Apple on-device transcription is unavailable'
+      this.notifyListeners()
+    } catch (error) {
+      this.state.isSupported = false
+      this.state.error = this.errorMessage(error, 'Apple on-device transcription is unavailable')
+      this.notifyListeners()
+    }
+  }
+
+  private applyNativeState(event: NativeSpeechStateEvent) {
+    this.state.isPreparing = event.state === 'preparing' || event.state === 'downloading'
+    this.state.isListening = event.state === 'listening'
+    this.state.statusMessage = event.state === 'idle' ? null : event.message || null
+    if (event.state === 'error') {
+      this.state.error = event.message || 'Voice input failed'
+    } else if (event.state !== 'idle') {
+      this.state.error = null
+    }
+    this.notifyListeners()
+  }
+
+  private errorMessage(error: unknown, fallback: string) {
+    if (error instanceof Error && error.message.trim()) return error.message
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+      const message = String((error as { message?: unknown }).message || '').trim()
+      if (message) return message
+    }
+    return fallback
   }
 
   private setupEventHandlers() {
@@ -117,7 +181,30 @@ export class STTService {
     }
   }
 
-  start(options: STTOptions = {}) {
+  async start(options: STTOptions = {}) {
+    if (isNativeIOS) {
+      await this.nativeSetup
+      if (!this.state.isSupported) {
+        throw new Error(this.state.error || 'Apple on-device transcription is unavailable')
+      }
+      this.state.transcript = ''
+      this.state.interimTranscript = ''
+      this.state.confidence = 0
+      this.state.error = null
+      this.notifyListeners()
+      try {
+        await NativeSpeech.start({ locale: options.language || navigator.language })
+      } catch (error) {
+        this.state.isPreparing = false
+        this.state.isListening = false
+        this.state.error = this.errorMessage(error, 'Voice input could not start')
+        this.state.statusMessage = null
+        this.notifyListeners()
+        throw error
+      }
+      return
+    }
+
     if (!this.recognition || !this.state.isSupported) {
       throw new Error('Speech recognition is not supported')
     }
@@ -127,12 +214,13 @@ export class STTService {
     this.state.interimTranscript = ''
     this.state.confidence = 0
     this.state.error = null
+    this.state.statusMessage = null
 
     // Configure recognition
     this.recognition.lang = options.language || navigator.language || 'en-US'
-    this.recognition.continuous = options.continuous || false
-    this.recognition.interimResults = options.interimResults || true
-    this.recognition.maxAlternatives = options.maxAlternatives || 1
+    this.recognition.continuous = options.continuous ?? false
+    this.recognition.interimResults = options.interimResults ?? true
+    this.recognition.maxAlternatives = options.maxAlternatives ?? 1
 
     try {
       this.recognition.start()
@@ -143,13 +231,21 @@ export class STTService {
     }
   }
 
-  stop() {
+  async stop() {
+    if (isNativeIOS) {
+      await NativeSpeech.stop()
+      return
+    }
     if (this.recognition && this.state.isListening) {
       this.recognition.stop()
     }
   }
 
-  abort() {
+  async abort() {
+    if (isNativeIOS) {
+      await NativeSpeech.cancel()
+      return
+    }
     if (this.recognition && this.state.isListening) {
       this.recognition.abort()
     }
@@ -160,6 +256,7 @@ export class STTService {
     this.state.interimTranscript = ''
     this.state.confidence = 0
     this.state.error = null
+    this.state.statusMessage = null
     this.notifyListeners()
   }
 
@@ -180,6 +277,7 @@ export class STTService {
 
   // Utility method to check if STT is supported
   static isSupported(): boolean {
+    if (isNativeIOS) return true
     return !!(window.SpeechRecognition || window.webkitSpeechRecognition)
   }
 
@@ -196,4 +294,4 @@ export class STTService {
 }
 
 // Create singleton instance
-export const sttService = new STTService() 
+export const sttService = new STTService()

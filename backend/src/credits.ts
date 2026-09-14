@@ -641,7 +641,7 @@ export const Credits = {
    *
    * Order matters. Request shape first (free to check, catches bugs), then the
    * global ceiling (protects the company), then the account's daily cap (protects
-   * one account's balance from a loop), then entitlement, then balance.
+   * one account's balance from a loop), then identity/free grant, then balance.
    */
   async authorizeAction(
     userId: string,
@@ -685,30 +685,13 @@ export const Credits = {
       return { ok: false, code: 'account_required' }
     }
 
-    if (accountState.status === 'subscription_active') {
-      console.error('AI refused: stale Cloud entitlement is unavailable in free v1')
-      return { ok: false, code: 'billing_unavailable' }
-    }
+    // Older databases can still report this state during a rolling deploy. In
+    // free v1, Cloud is a sync entitlement only; AI continues to spend the
+    // account's Token Manager balance.
 
     const reserved = await this.reserve(userId, credits)
     if (!reserved) return { ok: false, code: 'insufficient_credits' }
     return { ok: true, actionClass, credits, charged: credits, coveredBy: 'balance' }
-  },
-
-  /**
-   * Whether Cloud covers this action without touching the balance. Text is always
-   * covered under the daily fair-use ceiling; photo and premium are covered until
-   * their monthly cap, then fall through to the balance rather than being refused.
-   */
-  async entitlementCovers(
-    userId: string,
-    actionClass: ActionClass,
-    textActionsToday: number
-  ): Promise<boolean> {
-    if (actionClass === 'text') return textActionsToday < SUB_TEXT_DAILY_CAP
-    const cap = actionClass === 'photo' ? SUB_PHOTO_MONTHLY_CAP : SUB_PREMIUM_MONTHLY_CAP
-    const used = await db.countUserActionsSince(userId, rangeStarts().thisMonth, actionClass)
-    return used < cap
   },
 
   calculateCharge: calculateAiTokenCharge,

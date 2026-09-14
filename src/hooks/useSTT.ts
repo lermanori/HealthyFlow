@@ -9,24 +9,24 @@ export function useSTT() {
     return unsubscribe
   }, [])
 
-  const startListening = useCallback((options?: STTOptions) => {
+  const startListening = useCallback(async (options?: STTOptions) => {
     if (!STTService.isSupported()) {
-      console.warn('Speech recognition is not supported in this browser')
+      console.warn('Speech recognition is not supported on this device')
       return
     }
     try {
-      sttService.start(options)
+      await sttService.start(options)
     } catch (error) {
       console.error('Failed to start speech recognition:', error)
     }
   }, [])
 
-  const stopListening = useCallback(() => {
-    sttService.stop()
+  const stopListening = useCallback(async () => {
+    await sttService.stop()
   }, [])
 
-  const abortListening = useCallback(() => {
-    sttService.abort()
+  const abortListening = useCallback(async () => {
+    await sttService.abort()
   }, [])
 
   const clearTranscript = useCallback(() => {
@@ -40,11 +40,13 @@ export function useSTT() {
   return {
     // State
     isListening: state.isListening,
+    isPreparing: state.isPreparing,
     isSupported: state.isSupported,
     transcript: state.transcript,
     interimTranscript: state.interimTranscript,
     confidence: state.confidence,
     error: state.error,
+    statusMessage: state.statusMessage,
     
     // Actions
     startListening,
@@ -53,4 +55,4 @@ export function useSTT() {
     clearTranscript,
     getAvailableLanguages
   }
-} 
+}

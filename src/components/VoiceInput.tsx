@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Mic, MicOff, Square, RotateCcw, Settings, Volume2 } from 'lucide-react'
 import { useSTT } from '../hooks/useSTT'
+import { isNativeIOS } from '../lib/native'
 
 interface VoiceInputProps {
   onTranscriptChange: (transcript: string) => void
@@ -20,11 +21,13 @@ export default function VoiceInput({
 }: VoiceInputProps) {
   const {
     isListening,
+    isPreparing,
     isSupported,
     transcript,
     interimTranscript,
     confidence,
     error,
+    statusMessage,
     startListening,
     stopListening,
     clearTranscript,
@@ -36,15 +39,14 @@ export default function VoiceInput({
 
   // Update parent component when transcript changes
   useEffect(() => {
-    if (transcript) {
-      onTranscriptChange(transcript)
-    }
-  }, [transcript, onTranscriptChange])
+    const dictatedText = [transcript.trim(), interimTranscript.trim()].filter(Boolean).join(' ')
+    if (dictatedText) onTranscriptChange(dictatedText)
+  }, [interimTranscript, transcript, onTranscriptChange])
 
   const handleStartListening = () => {
     if (disabled) return
     
-    startListening({
+    void startListening({
       language: selectedLanguage,
       continuous: false,
       interimResults: true,
@@ -53,7 +55,7 @@ export default function VoiceInput({
   }
 
   const handleStopListening = () => {
-    stopListening()
+    void stopListening()
   }
 
   const handleClear = () => {
@@ -82,7 +84,9 @@ export default function VoiceInput({
           <span className="text-sm text-state-warning font-medium">Voice Input Not Supported</span>
         </div>
         <p className="text-xs text-ink-soft mt-1">
-          Speech recognition is not supported in your browser. Try using Chrome, Safari, or Edge.
+          {isNativeIOS
+            ? "Apple's on-device transcription is unavailable for this device or language."
+            : 'Speech recognition is not supported in your browser. Try using Chrome, Safari, or Edge.'}
         </p>
       </div>
     )
@@ -94,7 +98,7 @@ export default function VoiceInput({
       <div className="relative">
         <div className="relative">
           <textarea
-            value={transcript || interimTranscript}
+            value={[transcript.trim(), interimTranscript.trim()].filter(Boolean).join(' ')}
             onChange={(e) => onTranscriptChange(e.target.value)}
             placeholder={placeholder}
             className={`input-field resize-none pr-20 text-ink placeholder-ink-muted ${compact ? 'min-h-24' : 'min-h-32'}`}
@@ -151,17 +155,17 @@ export default function VoiceInput({
             ) : (
               <button
                 onClick={handleStartListening}
-                disabled={disabled}
+                disabled={disabled || isPreparing}
                 className={`btn-primary flex items-center space-x-2 ${compact ? 'px-3 py-2 text-sm' : ''}`}
               >
                 <Mic className="w-4 h-4" />
-                <span>{compact ? 'Start' : 'Start Voice Input'}</span>
+                <span>{isPreparing ? 'Preparing…' : compact ? 'Start' : 'Start Voice Input'}</span>
               </button>
             )}
           </div>
 
           <div className="flex items-center space-x-2">
-            {(transcript || interimTranscript) && (
+            {!isListening && !isPreparing && (transcript || interimTranscript) && (
               <button
                 onClick={handleClear}
                 className="btn-secondary text-xs flex items-center space-x-1"
@@ -173,6 +177,10 @@ export default function VoiceInput({
           </div>
         </div>
       </div>
+
+      {statusMessage && (
+        <p className="text-xs text-ink-muted" role="status">{statusMessage}</p>
+      )}
 
       {/* Settings Panel */}
       <AnimatePresence>

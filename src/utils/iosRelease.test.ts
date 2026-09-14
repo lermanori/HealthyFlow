@@ -10,12 +10,13 @@ const layout = readFileSync('src/components/Layout.tsx', 'utf8')
 const addItemPage = readFileSync('src/pages/AddItemPage.tsx', 'utf8')
 
 describe('free-v1 iOS release configuration', () => {
-  it('uses one iOS 17 floor at project, app, widget and Swift-package levels', () => {
+  it('uses one iOS 26 floor at project, app, widget and Swift-package levels', () => {
     const deploymentTargets = [...project.matchAll(/IPHONEOS_DEPLOYMENT_TARGET = ([\d.]+);/g)]
       .map(([, version]) => version)
     assert.equal(deploymentTargets.length, 6)
-    assert.deepEqual([...new Set(deploymentTargets)], ['17.0'])
-    assert.match(nativePackage, /platforms: \[\.iOS\(\.v17\)\]/)
+    assert.deepEqual([...new Set(deploymentTargets)], ['26.0'])
+    assert.match(nativePackage, /swift-tools-version: 6\.2/)
+    assert.match(nativePackage, /platforms: \[\.iOS\(\.v26\)\]/)
   })
 
   it('keeps app and widget release identity aligned', () => {

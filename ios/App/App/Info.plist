@@ -39,6 +39,8 @@
 	<true/>
 	<key>NSCalendarsFullAccessUsageDescription</key>
 	<string>HealthyFlow reads calendar obligations for Today and available time, and lets you add timed Items to your calendar.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>HealthyFlow uses the microphone to turn what you say into text on this device.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UILaunchStoryboardName</key>
