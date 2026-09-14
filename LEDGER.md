@@ -1,3 +1,17 @@
+### 2026-09-14 18:40 — `codex/235-email-verification-recovery`
+
+Built #235: a new account now gets a verification link, and anyone who forgets
+their password can reset it themselves instead of asking the founder to run the
+admin route. One `auth_email_challenges` table backs both, storing only a hash
+of the emailed token; single use is enforced by a conditional UPDATE rather than
+a read. A reset request answers identically whether or not the address has an
+account, and a mail-provider failure is the one thing reported rather than
+hidden. Resend is reached over its HTTP API behind a `MailSender` seam, so no
+test needs a credential. Reasoning in ADR-0025. Remaining and user-only:
+`RESEND_API_KEY` in Railway, and a verified sending domain.
+
+---
+
 ### 2026-09-14 20:40 — `main`
 
 Replaced the unavailable browser voice path on iPhone with iOS 26's on-device

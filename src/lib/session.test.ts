@@ -35,7 +35,7 @@ const GUEST_VERIFY_RESPONSE = {
   email: null,
   name: 'Guest',
   role: 'user',
-  authMethod: 'guest',
+  authMethod: 'guest', emailVerified: false,
   token: 'renewed-guest-token',
 }
 
@@ -44,7 +44,7 @@ const ACCOUNT_VERIFY_RESPONSE = {
   email: 'someone@example.com',
   name: 'Someone',
   role: 'user',
-  authMethod: 'password',
+  authMethod: 'password', emailVerified: false,
 }
 
 let store: ReturnType<typeof memoryTokenStore>
@@ -126,6 +126,39 @@ describe('opening without a network', () => {
     forgetSessionUser()
 
     assert.equal(readRememberedSessionUser(), null)
+  })
+
+  it('still reads an identity cached before verification existed', () => {
+    // A Guest's session token is the only key to their day (ADR-0010). Throwing
+    // this away over one missing boolean would lock them out of it on the first
+    // offline open after upgrading.
+    localStorage.setItem('healthyflow-session-user-v1', JSON.stringify({
+      id: 'guest-1',
+      email: null,
+      name: 'Guest',
+      role: 'user',
+      authMethod: 'guest',
+    }))
+
+    const remembered = readRememberedSessionUser()
+
+    assert.equal(remembered?.id, 'guest-1')
+    // Not known to be verified, which is the truth about a cache that predates
+    // the question.
+    assert.equal(remembered?.emailVerified, false)
+  })
+
+  it('keeps a cached verification rather than overwriting it with the default', () => {
+    localStorage.setItem('healthyflow-session-user-v1', JSON.stringify({
+      id: 'user-1',
+      email: 'person@example.com',
+      name: 'Person',
+      role: 'user',
+      authMethod: 'google',
+      emailVerified: true,
+    }))
+
+    assert.equal(readRememberedSessionUser()?.emailVerified, true)
   })
 
   it('treats an unreadable cached identity as absent rather than guessing at one', () => {

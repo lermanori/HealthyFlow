@@ -22,6 +22,7 @@ import { AssistantProfileSchema, DEFAULT_PLANNING_WINDOW } from '../../backend/s
 import { actionExhaustionView } from '../utils/actionExhaustion'
 import Switch from '../components/Switch'
 import DeleteAccountDialog from '../components/DeleteAccountDialog'
+import VerifyEmailNotice from '../components/VerifyEmailNotice'
 import { MODULE_PRESENTATIONS } from '../modulePresentation'
 import {
   SETTINGS_CATEGORIES,
@@ -810,6 +811,8 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
               readOnly
             />
           </div>
+          {/* Renders nothing unless there is an unconfirmed address to act on. */}
+          <VerifyEmailNotice />
         </div>
       </div>
 

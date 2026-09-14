@@ -515,14 +515,26 @@ export const SignupStatusSchema = z.object({
 })
 export type SignupStatus = z.infer<typeof SignupStatusSchema>
 
+/**
+ * Whether the verification mail that accompanies a new account went out.
+ *
+ * Optional because a server that has not deployed this yet omits it, and absent
+ * is honestly different from either answer. Present and `unavailable` means the
+ * account exists but no link was sent — the one thing the screen must not
+ * paper over by telling someone to check their inbox.
+ */
+const VerificationEmailStateSchema = z.enum(['sent', 'unavailable']).optional()
+
 const GuestSessionResponseSchema = z.object({
   user: SessionUserSchema,
   token: z.string().min(1),
+  verificationEmail: VerificationEmailStateSchema,
 })
 
 const SignupResponseSchema = z.object({
   user: SessionUserSchema,
   token: z.string().min(1),
+  verificationEmail: VerificationEmailStateSchema,
 })
 
 const ProviderSessionResponseSchema = z.object({
@@ -587,6 +599,69 @@ export const authService = {
       : undefined)
     return applyVerifiedSession(response.data)
   },
+
+  // ── Verified email and self-serve recovery (#235) ─────────────────────────
+
+  /** Ask for a fresh verification link for the signed-in account. */
+  sendVerificationEmail: async () => {
+    const response = await api.post('/auth/verify-email/send')
+    return SendVerificationResponseSchema.parse(response.data)
+  },
+
+  /** Spend a verification link. Needs no session: the token is the proof. */
+  confirmEmail: async (token: string) => {
+    const response = await api.post('/auth/verify-email/confirm', { token })
+    return ConfirmEmailResponseSchema.parse(response.data)
+  },
+
+  /**
+   * Ask for a password reset link.
+   *
+   * The answer is the same whether or not the address has an account, so there
+   * is nothing here to branch on and nothing to report back but the message.
+   */
+  requestPasswordReset: async (email: string) => {
+    const response = await api.post('/auth/password/reset-request', { email })
+    return ResetRequestResponseSchema.parse(response.data)
+  },
+
+  /** Spend a reset link and set the new password. */
+  resetPassword: async (token: string, password: string) => {
+    const response = await api.post('/auth/password/reset', { token, password })
+    return ResetPasswordResponseSchema.parse(response.data)
+  },
+}
+
+const SendVerificationResponseSchema = z.object({
+  state: z.enum(['sent', 'already_verified']),
+  reason: z.string().optional(),
+})
+
+const ConfirmEmailResponseSchema = z.object({ state: z.literal('verified') })
+
+const ResetRequestResponseSchema = z.object({
+  state: z.literal('accepted'),
+  message: z.string().min(1),
+})
+
+const ResetPasswordResponseSchema = z.object({ state: z.literal('reset') })
+
+/**
+ * Why a link would not work, as the server names it.
+ *
+ * Kept as a type rather than collapsed to one string because each of these sends
+ * a person somewhere different: expired and superseded mean "ask for a new one",
+ * already-used often means "it already worked", and unknown means the link is
+ * not ours at all.
+ */
+export const ChallengeRefusalSchema = z.enum(['expired', 'already_used', 'superseded', 'unknown'])
+export type ChallengeRefusal = z.infer<typeof ChallengeRefusalSchema>
+
+/** Read a refusal out of an axios error, or null if it was something else. */
+export function challengeRefusal(error: unknown): ChallengeRefusal | null {
+  const reason = (error as { response?: { data?: { reason?: unknown } } })?.response?.data?.reason
+  const parsed = ChallengeRefusalSchema.safeParse(reason)
+  return parsed.success ? parsed.data : null
 }
 
 export type WaitlistEntry = {

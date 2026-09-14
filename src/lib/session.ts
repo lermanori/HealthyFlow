@@ -77,7 +77,12 @@ export function readRememberedSessionUser(): SessionUser | null {
   const raw = localStorage.getItem(SESSION_USER_KEY)
   if (!raw) return null
   try {
-    return SessionUserSchema.parse(JSON.parse(raw))
+    // `emailVerified` arrived after this cache existed (#235). An identity
+    // written by the previous build is still a valid identity, so it is read
+    // as "not known to be verified" rather than thrown away — discarding it
+    // would log a Guest out of the only key to their own day for the sake of
+    // one boolean. The next verified open replaces it with the server's answer.
+    return SessionUserSchema.parse({ emailVerified: false, ...JSON.parse(raw) })
   } catch {
     // Unreadable means it cannot be trusted as an identity, and an identity is
     // not something to guess at. Treat it as absent.

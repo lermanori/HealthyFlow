@@ -19,6 +19,14 @@ export const SessionUserSchema = z.object({
   name: z.string(),
   role: z.enum(['admin', 'user']),
   authMethod: AuthMethodSchema,
+  /**
+   * Whether this address has been proven reachable (#235).
+   *
+   * Google and Apple accounts are true from creation — their provider proved it.
+   * A Guest is false because there is no address to prove, not because anything
+   * failed. Unverified gates account recovery only; it never gates access.
+   */
+  emailVerified: z.boolean(),
 })
 export type SessionUser = z.infer<typeof SessionUserSchema>
 

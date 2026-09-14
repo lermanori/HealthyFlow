@@ -19,8 +19,31 @@ import {
   type ClaimAccountInput,
 } from '../auth'
 import { authenticateToken, type AuthRequest } from '../middleware/auth'
+import {
+  canonicalEmail,
+  challengeExpiry,
+  challengeLink,
+  checkChallenge,
+  hashChallengeToken,
+  issueChallengeToken,
+  RESET_REQUEST_ACCEPTED,
+  type ChallengeKind,
+  type StoredChallenge,
+} from '../auth-challenges'
+import {
+  appBaseUrl,
+  passwordResetEmail,
+  resendMailSender,
+  verificationEmail,
+  type MailSender,
+  type MailSendResult,
+} from '../mail'
 
 const router = express.Router()
+
+/** Swapped in tests; production always sends through Resend. */
+let mailSender: MailSender = resendMailSender()
+export function setMailSender(sender: MailSender) { mailSender = sender }
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
 // Zod schema — single source of truth for signup input (CLAUDE.md)
@@ -154,6 +177,11 @@ router.post('/signup', signupLimiter, async (req, res) => {
     await Onboarding.seedNewUser(user.id)
     await recordLogin(user.id)
 
+    // The account exists either way. A mail failure is reported rather than
+    // rolled back or hidden: sending someone to their inbox for a link that was
+    // never sent is worse than telling them it did not go out.
+    const verification = await sendVerification(user)
+
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' })
     return res.json({
       user: {
@@ -162,8 +190,10 @@ router.post('/signup', signupLimiter, async (req, res) => {
         name: user.name,
         role: user.role ?? 'user',
         authMethod: user.signup_method ?? 'password',
+        emailVerified: false,
       },
       token,
+      verificationEmail: verification.state,
     })
   } catch (error) {
     if (publicSlotReserved && !accountCreated) {
@@ -217,7 +247,12 @@ router.post('/claim', authenticateToken, async (req: AuthRequest, res) => {
 
   try {
     const session = await Auth.claimGuestAccount(req.user.userId, parsed.data as ClaimAccountInput)
-    return res.json(session)
+    const verification = await sendVerification({
+      id: session.user.id,
+      email: session.user.email,
+      name: session.user.name,
+    })
+    return res.json({ ...session, verificationEmail: verification.state })
   } catch (error) {
     if (error instanceof AuthFlowError) {
       return res.status(error.status).json({ error: error.message, reason: error.reason })
@@ -444,6 +479,211 @@ router.post('/register', async (req, res) => {
 })
 
 // Get all users (admin only)
+// ── Email verification and self-serve recovery (#235) ────────────────────────
+//
+// Deliberately separate from `/users/:userId/reset-password`, which takes
+// ADMIN_TOKEN and a new password directly. Exposing that publicly would be a
+// password change with no proof of address at all.
+
+const RequestResetSchema = z.object({ email: z.string().trim().email() })
+const CompleteResetSchema = z.object({
+  token: z.string().min(1),
+  password: z.string().min(8),
+})
+const ConfirmEmailSchema = z.object({ token: z.string().min(1) })
+
+/**
+ * Asking the server to send recovery mail.
+ *
+ * Tight, because each accepted request sends real mail and because this is the
+ * endpoint an address-harvester would hammer.
+ */
+const recoveryRequestLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts, please try again later.' },
+})
+
+/**
+ * Spending a link, on its own budget.
+ *
+ * Sharing one counter with the requests above would mean a few clicks on a stale
+ * link used up the allowance for asking for a fresh one — locking someone out of
+ * recovery by trying to recover. It is still capped: the token is 256 random
+ * bits, so this is a brake on abuse, not the thing keeping guesses out.
+ */
+const recoveryRedeemLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts, please try again later.' },
+})
+
+async function issueChallenge(
+  user: { id: string; email: string; name: string },
+  kind: ChallengeKind,
+) {
+  const { token, tokenHash } = issueChallengeToken()
+  await db.createEmailChallenge({
+    user_id: user.id,
+    kind,
+    token_hash: tokenHash,
+    email: canonicalEmail(user.email),
+    expires_at: challengeExpiry(kind),
+  })
+
+  const link = challengeLink(appBaseUrl(), kind, token)
+  const body = kind === 'verify_email'
+    ? verificationEmail(link, user.name)
+    : passwordResetEmail(link, user.name)
+
+  return mailSender.send({ to: user.email, ...body })
+}
+
+/**
+ * Issue and send a verification link, for a path that has just created an
+ * account. Never throws: the account is already real, so a mail problem is
+ * reported to the caller instead of failing a signup that succeeded.
+ */
+async function sendVerification(
+  user: { id: string; email: string | null; name: string },
+): Promise<MailSendResult> {
+  if (!user.email) return { state: 'unavailable', reason: 'This account has no address.' }
+  try {
+    return await issueChallenge({ id: user.id, email: user.email, name: user.name }, 'verify_email')
+  } catch (error) {
+    console.error('Verification send error:', error)
+    return { state: 'unavailable', reason: 'Could not send a verification email.' }
+  }
+}
+
+/**
+ * Send a fresh verification link to the signed-in account.
+ *
+ * Provider accounts are not asked: Google and Apple verified the address before
+ * it ever reached HealthyFlow, and asking again would be asking someone to prove
+ * what is already proven.
+ */
+router.post('/verify-email/send', authenticateToken, recoveryRequestLimiter, async (req: AuthRequest, res) => {
+  try {
+    const user = await db.getUserById(req.user.userId)
+    if (!user.email) {
+      return res.status(400).json({ error: 'A Guest has no address to verify.', reason: 'no_email' })
+    }
+    if (user.signup_method === 'google' || user.signup_method === 'apple') {
+      return res.json({ state: 'already_verified', reason: 'provider_verified' })
+    }
+
+    const sent = await issueChallenge({ id: user.id, email: user.email, name: user.name }, 'verify_email')
+    if (sent.state === 'unavailable') {
+      // A failed send is not a sent mail. Saying "check your inbox" here would
+      // leave someone waiting for a link that does not exist.
+      return res.status(503).json({ error: sent.reason, reason: 'mail_unavailable' })
+    }
+    return res.json({ state: 'sent' })
+  } catch (error) {
+    console.error('Verification send error:', error)
+    return res.status(500).json({ error: 'Could not send a verification email.' })
+  }
+})
+
+/** Spend a verification link. */
+router.post('/verify-email/confirm', recoveryRedeemLimiter, async (req, res) => {
+  const parsed = ConfirmEmailSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'A verification token is required.' })
+  }
+
+  try {
+    const stored = await db.getEmailChallengeByHash('verify_email', hashChallengeToken(parsed.data.token))
+    const check = checkChallenge(stored as StoredChallenge | null)
+    if (check.state !== 'usable') {
+      return res.status(400).json({ error: 'This link is no longer usable.', reason: check.state })
+    }
+    if (!await db.consumeEmailChallenge(check.challenge.id)) {
+      // Lost a race with another use of the same link.
+      return res.status(400).json({ error: 'This link is no longer usable.', reason: 'already_used' })
+    }
+
+    await db.markEmailVerified(check.challenge.user_id)
+    return res.json({ state: 'verified' })
+  } catch (error) {
+    console.error('Verification confirm error:', error)
+    return res.status(500).json({ error: 'Could not confirm this address.' })
+  }
+})
+
+/**
+ * Ask for a reset link.
+ *
+ * The answer never changes, so this cannot be used to learn which addresses have
+ * accounts. A mail-provider failure is the one exception: it is reported, because
+ * silence would leave someone waiting for mail that was never sent.
+ */
+router.post('/password/reset-request', recoveryRequestLimiter, async (req, res) => {
+  const parsed = RequestResetSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'A valid email address is required.' })
+  }
+
+  try {
+    const user = await db.getUserByEmail(canonicalEmail(parsed.data.email))
+
+    // A provider account has no password to reset; an absent account has no
+    // anything. Both answer exactly as a real request does.
+    const resettable = user
+      && user.email
+      && user.disabled_at == null
+      && user.signup_method !== 'google'
+      && user.signup_method !== 'apple'
+
+    if (resettable) {
+      const sent = await issueChallenge(
+        { id: user.id, email: user.email, name: user.name },
+        'reset_password',
+      )
+      if (sent.state === 'unavailable') {
+        return res.status(503).json({ error: sent.reason, reason: 'mail_unavailable' })
+      }
+    }
+
+    return res.json({ state: 'accepted', message: RESET_REQUEST_ACCEPTED })
+  } catch (error) {
+    console.error('Reset request error:', error)
+    return res.status(500).json({ error: 'Could not start a password reset.' })
+  }
+})
+
+/** Spend a reset link and set the new password. */
+router.post('/password/reset', recoveryRedeemLimiter, async (req, res) => {
+  const parsed = CompleteResetSchema.safeParse(req.body)
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message })
+  }
+
+  try {
+    const stored = await db.getEmailChallengeByHash('reset_password', hashChallengeToken(parsed.data.token))
+    const check = checkChallenge(stored as StoredChallenge | null)
+    if (check.state !== 'usable') {
+      return res.status(400).json({ error: 'This link is no longer usable.', reason: check.state })
+    }
+    if (!await db.consumeEmailChallenge(check.challenge.id)) {
+      return res.status(400).json({ error: 'This link is no longer usable.', reason: 'already_used' })
+    }
+
+    await db.updateUserPassword(check.challenge.user_id, await bcrypt.hash(parsed.data.password, 10))
+    // Reaching the link proves the address, so there is nothing left to verify.
+    await db.markEmailVerified(check.challenge.user_id)
+    return res.json({ state: 'reset' })
+  } catch (error) {
+    console.error('Reset completion error:', error)
+    return res.status(500).json({ error: 'Could not reset this password.' })
+  }
+})
+
 router.get('/users', async (req, res) => {
   const { adminToken } = req.query
 

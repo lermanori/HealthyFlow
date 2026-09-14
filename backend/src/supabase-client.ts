@@ -42,6 +42,7 @@ type AccountRow = {
   disabled_at?: string | null
   is_test?: boolean
   last_login_at?: string | null
+  email_verified_at?: string | null
 }
 
 // The `db` facade. Self-contained domains live in ./db/*.ts and are composed in
@@ -68,6 +69,8 @@ export const db = {
     claimed_public_signup_slot?: boolean
     /** Whether this Guest won its network's action-grant reservation (ADR-0023). */
     guest_grant_ip_reserved?: boolean
+    /** Set at creation for Google/Apple, which arrive provider-verified (#235). */
+    email_verified_at?: string
   }) {
     const { data, error } = await supabase
       .from('users')
@@ -170,7 +173,7 @@ export const db = {
   async getUserById(userId: string): Promise<AccountRow> {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, name, role, signup_method, disabled_at, is_test, last_login_at')
+      .select('id, email, name, role, signup_method, disabled_at, is_test, last_login_at, email_verified_at')
       .eq('id', userId)
       .single();
 
@@ -216,6 +219,76 @@ export const db = {
       waitlistEntriesDeleted: Number(result?.waitlist_entries_deleted ?? 0),
       publicSignupSeatsReleased: Number(result?.public_signup_seats_released ?? 0),
     };
+  },
+
+  // ── Email verification and recovery challenges (#235) ──────────────────────
+
+  async createEmailChallenge(row: {
+    user_id: string
+    kind: 'verify_email' | 'reset_password'
+    token_hash: string
+    email: string
+    expires_at: string
+  }) {
+    // Supersede this user's older live challenges of the same kind first, so
+    // asking for a new link retires the previous one rather than leaving two
+    // working at once.
+    const { error: supersedeError } = await supabase
+      .from('auth_email_challenges')
+      .update({ superseded_at: new Date().toISOString() })
+      .eq('user_id', row.user_id)
+      .eq('kind', row.kind)
+      .is('consumed_at', null)
+      .is('superseded_at', null)
+    if (supersedeError) throw supersedeError
+
+    const { data, error } = await supabase
+      .from('auth_email_challenges')
+      .insert(row)
+      .select('id, user_id, kind, email, expires_at, consumed_at, superseded_at')
+      .single()
+    if (error) throw error
+    return data
+  },
+
+  /** Looked up by hash: the server never holds the token to compare against. */
+  async getEmailChallengeByHash(kind: 'verify_email' | 'reset_password', tokenHash: string) {
+    const { data, error } = await supabase
+      .from('auth_email_challenges')
+      .select('id, user_id, kind, email, expires_at, consumed_at, superseded_at')
+      .eq('kind', kind)
+      .eq('token_hash', tokenHash)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  /**
+   * Spend a challenge, once.
+   *
+   * `.is('consumed_at', null)` is what makes single-use atomic. A read-then-write
+   * would let two concurrent uses of the same link both pass the check; here the
+   * second matches no row and the caller is told it was already used.
+   */
+  async consumeEmailChallenge(id: string) {
+    const { data, error } = await supabase
+      .from('auth_email_challenges')
+      .update({ consumed_at: new Date().toISOString() })
+      .eq('id', id)
+      .is('consumed_at', null)
+      .is('superseded_at', null)
+      .select('id')
+      .maybeSingle()
+    if (error) throw error
+    return Boolean(data)
+  },
+
+  async markEmailVerified(userId: string, at = new Date().toISOString()) {
+    const { error } = await supabase
+      .from('users')
+      .update({ email_verified_at: at })
+      .eq('id', userId)
+    if (error) throw error
   },
 
   async updateUserPassword(userId: string, passwordHash: string) {

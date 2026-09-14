@@ -7,6 +7,7 @@ import { Waitlist } from '../../src/waitlist'
 jest.mock('../../src/supabase-client', () => ({
   db: {
     createUser: jest.fn(),
+    markEmailVerified: jest.fn(),
     deleteUser: jest.fn(),
     getUserByEmail: jest.fn(),
     getUserByAppleSubject: jest.fn(),
