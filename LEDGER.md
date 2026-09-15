@@ -1,3 +1,17 @@
+### 2026-09-15 19:20 — `main`
+
+Put the board in order so a new session can start from it instead of
+reconstructing state. Three issues were missing entirely: the verification gate
+that shipped today (#288, now Done — PR #287 was branched as `codex/236-...`,
+which pointed at an unrelated closed issue), and the two guards that have each
+cost real time — the stale iOS bundle check (#290) and the backend suite's
+order-dependent flakiness (#289). #237 moved Backlog → Ready as the only
+unblocked P0; #238 stays Backlog behind it and now records exactly what is
+already verified so the smoke list is not redone blindly. README gained a
+"what blocks the next release" row.
+
+---
+
 ### 2026-09-15 18:50 — `main`
 
 Covered the one ADR-0026 path that only had view-level tests: a claimed Guest

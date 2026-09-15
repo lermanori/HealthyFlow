@@ -21,6 +21,7 @@ distributed via TestFlight — see [`docs/ios.md`](./docs/ios.md).
 | How to take money on iOS | [`docs/runbooks/paid-apps-setup.md`](./docs/runbooks/paid-apps-setup.md) |
 | Anything dated or finished | [`docs/history/`](./docs/history/) — unmaintained by design |
 | What is in flight | [Issues](https://github.com/lermanori/HealthyFlow/issues) · [Project 1](https://github.com/users/lermanori/projects/1/views/1) |
+| What blocks the next release | [Open P0s](https://github.com/lermanori/HealthyFlow/issues?q=is%3Aissue+is%3Aopen+label%3AP0) — start here, in board order |
 | How to deploy | [`docs/runbooks/deploy.md`](./docs/runbooks/deploy.md) |
 
 ## Running locally
