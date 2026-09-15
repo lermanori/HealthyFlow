@@ -19,6 +19,22 @@ export const SessionUserSchema = z.object({
   name: z.string(),
   role: z.enum(['admin', 'user']),
   authMethod: AuthMethodSchema,
+  /**
+   * Whether this address has been proven reachable (#235).
+   *
+   * Google and Apple accounts are true from creation — their provider proved it.
+   * A Guest is false because there is no address to prove, not because anything
+   * failed. Unverified gates account recovery only; it never gates access.
+   *
+   * Defaulted rather than required, because the frontend and the backend do not
+   * deploy together: Netlify ships on merge, Railway ships when someone runs
+   * `railway up`. A required field here means the window between those two
+   * deploys is one where every `/auth/verify` response fails to parse and every
+   * account holder silently falls back to a cached identity. Absent is read as
+   * "not known to be verified", which is true of a server that has not been
+   * asked yet, and makes the deploy order stop mattering.
+   */
+  emailVerified: z.boolean().default(false),
 })
 export type SessionUser = z.infer<typeof SessionUserSchema>
 

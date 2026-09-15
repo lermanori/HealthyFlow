@@ -85,13 +85,13 @@ describe('a Guest who signs in to an account, then reopens the app', () => {
     email: 'someone@example.com',
     name: 'Someone',
     role: 'user' as const,
-    authMethod: 'password' as const,
+    authMethod: 'password' as const, emailVerified: false,
   }
 
   beforeEach(() => {
     setLocalStoreDriver(memoryDriver(null))
     rememberSessionUser({
-      id: GUEST, email: null, name: 'Guest', role: 'user', authMethod: 'guest',
+      id: GUEST, email: null, name: 'Guest', role: 'user', authMethod: 'guest', emailVerified: false,
     })
     rememberLocalDayOwner(GUEST)
   })
@@ -174,7 +174,7 @@ describe('restoring a registered account session', () => {
         email: EMAIL,
         name: 'Restored',
         role: 'user',
-        authMethod: 'password',
+        authMethod: 'password', emailVerified: false,
       },
       token: 'verified-token',
       downloadArchive: async () => {
@@ -202,7 +202,7 @@ describe('restoring a registered account session', () => {
         email: EMAIL,
         name: 'Restored',
         role: 'user',
-        authMethod: 'password',
+        authMethod: 'password', emailVerified: false,
       },
       token: 'verified-token',
       downloadArchive: async (token) => {
@@ -244,7 +244,7 @@ describe('restoring a registered account session', () => {
           email: EMAIL,
           name: 'Restored',
           role: 'user',
-          authMethod: 'password',
+          authMethod: 'password', emailVerified: false,
         },
         token: 'verified-token',
         downloadArchive: async () => {
@@ -272,7 +272,7 @@ describe('restoring a registered account session', () => {
         email: EMAIL,
         name: 'Restored',
         role: 'user',
-        authMethod: 'password',
+        authMethod: 'password', emailVerified: false,
       },
       token: 'verified-token',
       downloadArchive: async () => {

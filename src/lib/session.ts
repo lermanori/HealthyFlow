@@ -77,6 +77,9 @@ export function readRememberedSessionUser(): SessionUser | null {
   const raw = localStorage.getItem(SESSION_USER_KEY)
   if (!raw) return null
   try {
+    // An identity cached by a build that predates `emailVerified` (#235) still
+    // parses: the schema defaults it. Discarding such a cache would log a Guest
+    // out of the only key to their own day over one boolean.
     return SessionUserSchema.parse(JSON.parse(raw))
   } catch {
     // Unreadable means it cannot be trusted as an identity, and an identity is

@@ -86,6 +86,15 @@ interface AuthContextType {
   leaveDemoSession: () => Promise<boolean>
   signup: (email: string, password: string, name: string, invite?: string) => Promise<void>
   logout: () => void
+  /**
+   * Re-read the identity from the server.
+   *
+   * For the one case where something the session reports has just changed
+   * server-side and nothing local knows it: confirming an email address (#235).
+   * Resolves false when the session could not be re-read, so a caller can leave
+   * what it has on screen rather than showing a worse answer.
+   */
+  refreshSession: () => Promise<boolean>
   completeAccountDeletion: () => void
   isDemoSession: boolean
   isGuest: boolean
@@ -167,6 +176,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       name: 'Guest',
       role: 'user',
       authMethod: 'guest',
+      // No address, so nothing to have proven. False here is the truth, not a
+      // placeholder for an answer we could not get.
+      emailVerified: false,
     })
     return true
   }
@@ -185,6 +197,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const establishSession = (userData: User) => {
     identifyUser(userData)
     adoptUser(userData)
+  }
+
+  const refreshSession = async (): Promise<boolean> => {
+    if (!readSessionToken()) return false
+    try {
+      const { user: userData } = await authService.verifyToken()
+      establishSession(userData)
+      return true
+    } catch {
+      // Not a sign-out: this is a convenience re-read, and a failed one leaves
+      // the session exactly as it was. Ending it here would log someone out for
+      // a blip on a screen that was only trying to update a badge.
+      return false
+    }
   }
 
   const adoptUser = (userData: User | null) => {
@@ -662,6 +688,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       leaveDemoSession,
       signup,
       logout,
+      refreshSession,
       completeAccountDeletion,
       isDemoSession: Boolean(user && isDemoEmail(user.email)),
       isGuest: isGuestSession(user),

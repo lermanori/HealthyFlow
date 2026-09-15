@@ -78,7 +78,7 @@ describe('every iPhone identity reaches EventKit', () => {
 
   it('a restored session lands on the Local branch and reaches EventKit', async () => {
     const result = await restoreAccountDayForSession({
-      user: { id: ACCOUNT, email: EMAIL, name: 'Restored', role: 'user', authMethod: 'password' },
+      user: { id: ACCOUNT, email: EMAIL, name: 'Restored', role: 'user', authMethod: 'password', emailVerified: false },
       token: 'verified-token',
       downloadArchive: async () => ({ items: [] }),
     })
@@ -90,7 +90,7 @@ describe('every iPhone identity reaches EventKit', () => {
 
   it('a failed restoration reports the hosted branch instead of claiming reach', async () => {
     await assert.rejects(restoreAccountDayForSession({
-      user: { id: ACCOUNT, email: EMAIL, name: 'Restored', role: 'user', authMethod: 'password' },
+      user: { id: ACCOUNT, email: EMAIL, name: 'Restored', role: 'user', authMethod: 'password', emailVerified: false },
       token: 'verified-token',
       downloadArchive: async () => { throw new Error('archive unavailable') },
     }))

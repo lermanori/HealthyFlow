@@ -15,6 +15,8 @@ import WorkoutsPage from './pages/WorkoutsPage'
 import AssistantPage from './pages/AssistantPage'
 import GoalsPage from './pages/GoalsPage'
 import ClaimAccountPage from './pages/ClaimAccountPage'
+import VerifyEmailPage from './pages/VerifyEmailPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import LoginPage from './pages/LoginPage'
 import SignInPage from './pages/SignInPage'
 import DemoPage from './pages/DemoPage'
@@ -117,6 +119,20 @@ function App() {
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner size="lg" />
       </div>
+    )
+  }
+
+  // Recovery is reached from an email link, by someone who is signed out far more
+  // often than not — and a reset link opened while still signed in on another
+  // device has to work too. So these sit ahead of the session check rather than
+  // inside either branch, which is the only way both cases land on the page
+  // instead of the login screen.
+  if (location.pathname === '/verify-email' || location.pathname === '/reset-password') {
+    return (
+      <Routes>
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+      </Routes>
     )
   }
 

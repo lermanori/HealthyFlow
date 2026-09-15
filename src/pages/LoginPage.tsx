@@ -594,6 +594,18 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
+              {/*
+                Only on the sign-in side. Offering a reset while someone is
+                creating an account is offering to recover an account that does
+                not exist yet.
+              */}
+              {mode === 'login' && (
+                <div className="mt-2 text-right">
+                  <Link to="/reset-password" className="text-sm font-medium text-ink-muted underline underline-offset-2 hover:text-ink">
+                    Forgot your password?
+                  </Link>
+                </div>
+              )}
             </div>
 
             {mode === 'signup' && (

@@ -54,6 +54,7 @@ type AppUser = {
   apple_auth_subject?: string | null
   pending_invite_token?: string | null
   disabled_at?: string | null
+  email_verified_at?: string | null
 }
 
 export class AuthFlowError extends Error {
@@ -74,6 +75,7 @@ export function sessionUser(user: AppUser): SessionUser {
     name: user.name,
     role: user.role ?? 'user',
     authMethod: user.signup_method ?? 'password',
+    emailVerified: user.email_verified_at != null,
   }
 }
 
@@ -240,6 +242,23 @@ async function exchangeProviderSession(
   if (byEmail) {
     requireEnabledUser(byEmail)
     await linkExistingUser(byEmail, provider, authUser.id)
+    // Signing in through a provider on this address proves it, whatever the
+    // account was originally created as.
+    //
+    // Never blocking, for the same reason `recordLogin` is not: this is
+    // bookkeeping, and refusing a valid sign-in over it would be worse than
+    // carrying the stamp a little longer. If the write does not land, the
+    // session says `emailVerified: false` — which is true — and the next
+    // sign-in or a verification link will stamp it.
+    if (byEmail.email_verified_at == null) {
+      const verifiedAt = new Date().toISOString()
+      try {
+        await db.markEmailVerified(byEmail.id, verifiedAt)
+        byEmail.email_verified_at = verifiedAt
+      } catch (error) {
+        console.warn('Could not mark a provider-verified address:', error)
+      }
+    }
     return { ...appSession(byEmail), isNewUser: false }
   }
 
@@ -260,6 +279,7 @@ async function exchangeProviderSession(
         ? { google_auth_subject: authUser.id }
         : { apple_auth_subject: authUser.id }),
       signup_method: provider,
+      email_verified_at: new Date().toISOString(),
       pending_invite_token: authorization.via === 'invite' ? authorization.inviteToken : undefined,
       claimed_public_signup_slot: authorization.via === 'public',
     })

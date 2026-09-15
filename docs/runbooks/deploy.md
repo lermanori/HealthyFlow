@@ -162,11 +162,31 @@ NODE_ENV=production
 
 **This list is not exhaustive.** A working production backend also needs
 Supabase credentials (including the Railway-only `SUPABASE_SERVICE_ROLE_KEY`),
-the OpenAI key, Google Calendar OAuth credentials, the APNs block and the iOS
-version-gate block. See `ios.md` for the APNs and version-gate variables,
+the OpenAI key, Google Calendar OAuth credentials, the APNs block, the iOS
+version-gate block, and the mail block below. See `ios.md` for the APNs and version-gate variables,
 and **`backend/.env.example`** for the current full backend shape
 (`.env.example` at the root covers the frontend). There is no `DATABASE_URL`;
 nothing in `backend/src/` reads one.
+
+### Transactional email
+
+Verification and password-reset links are sent through Resend
+(`backend/src/mail.ts`). Three variables, all backend-only:
+
+| Variable | Purpose |
+|---|---|
+| `RESEND_API_KEY` | Resend API key. Set it in Railway directly — never in a file, a log, or the frontend bundle. |
+| `MAIL_FROM` | Sending address, e.g. `HealthyFlow <noreply@healthyflow.app>`. Must be on a domain verified in Resend. |
+| `FRONTEND_URL` | Already listed above; it is also the base of every emailed link, so a localhost value produces links nobody can open. |
+
+Two things must be true in Resend before any of this works: the sending domain
+is verified (its DNS records published), and `MAIL_FROM` is an address on that
+domain. Until then every send returns `unavailable` — which the app reports
+rather than hides, so a failure looks like a failure instead of a link that
+never arrives.
+
+Without `RESEND_API_KEY`, signup still creates the account and answers
+`verificationEmail: "unavailable"`. Nothing silently succeeds.
 
 ## Quick Deploy Commands
 

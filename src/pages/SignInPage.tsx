@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Apple, ArrowRight } from 'lucide-react'
 import { useAuth, type SignInPreview } from '../context/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -221,6 +221,11 @@ export default function SignInPage() {
         <div>
           <label htmlFor="signin-password" className="mb-2 block text-sm font-medium text-ink-soft">Password</label>
           <input id="signin-password" type="password" className="input-field" value={password} autoComplete="current-password" onChange={(event) => setPassword(event.target.value)} required />
+          <div className="mt-2 text-right">
+            <Link to="/reset-password" className="text-sm font-medium text-ink-muted underline underline-offset-2 hover:text-ink">
+              Forgot your password?
+            </Link>
+          </div>
         </div>
 
         {error && (
