@@ -1,3 +1,16 @@
+### 2026-09-15 09:20 — `codex/235-email-verification-recovery`
+
+DNS for healthyflow.app is live: DKIM, both Resend SPF CNAMEs and a DMARC
+`p=none`, added through the Netlify CLI and confirmed byte-exact at the
+authoritative nameserver. Resend still reports the domain pending while its
+checker catches up. `RESEND_API_KEY` and `MAIL_FROM` are set in Railway.
+Made `emailVerified` default rather than required in the session contract:
+Netlify ships on merge and Railway ships on `railway up`, so a required field
+made the gap between those two deploys a window where every `/auth/verify`
+response failed to parse.
+
+---
+
 ### 2026-09-14 18:40 — `codex/235-email-verification-recovery`
 
 Built #235: a new account now gets a verification link, and anyone who forgets

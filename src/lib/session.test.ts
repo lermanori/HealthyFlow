@@ -148,6 +148,21 @@ describe('opening without a network', () => {
     assert.equal(remembered?.emailVerified, false)
   })
 
+  it('accepts a verify response from a server that does not send the field yet', () => {
+    // The frontend and the backend do not deploy together. During that window
+    // the old server answers without `emailVerified`, and a response that fails
+    // to parse would drop every account holder onto a cached identity.
+    const applied = applyVerifiedSession({
+      id: 'user-1',
+      email: 'person@example.com',
+      name: 'Person',
+      role: 'user',
+      authMethod: 'password',
+    })
+
+    assert.equal(applied.user.emailVerified, false)
+  })
+
   it('keeps a cached verification rather than overwriting it with the default', () => {
     localStorage.setItem('healthyflow-session-user-v1', JSON.stringify({
       id: 'user-1',
