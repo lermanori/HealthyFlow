@@ -1,3 +1,13 @@
+### 2026-09-15 19:40 — `main`
+
+Recorded the launch sequence in `docs/runbooks/app-store-v1.md` — which issue
+comes first, who owns each, and what it waits on — so the order survives a lost
+session instead of living in chat. #237 is the only unblocked blocker and is
+founder-only; #290 and #289 run alongside it; #238 comes last and wants #290
+finished first so the release archive cannot ship a stale bundle.
+
+---
+
 ### 2026-09-15 19:20 — `main`
 
 Put the board in order so a new session can start from it instead of

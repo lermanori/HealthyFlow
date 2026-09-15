@@ -241,6 +241,29 @@ not silently rewrite legal copy.
 | Push and widget | Native integration and automated boundaries exist | Physical-device notification and widget refresh required |
 | Archive/upload | Not attempted without credentials | Human signing, Archive validation, TestFlight upload and App Store Connect processing required |
 
+## Order of work to launch
+
+The board is the live state ([open P0s](https://github.com/lermanori/HealthyFlow/issues?q=is%3Aissue+is%3Aopen+label%3AP0));
+this is the sequence and what each step waits on.
+
+| # | Work | Who | Waits on |
+|---|---|---|---|
+| 1 | [#237](https://github.com/lermanori/HealthyFlow/issues/237) — App Store Connect declarations | **Founder only.** DSA trader status, territories, Free price and tax category, age rating, the regulated-medical-device declaration, App Privacy, review contact and demo account. Several need legal judgment; Apple will not decide trader status for you. | nothing — start here |
+| 2 | [#290](https://github.com/lermanori/HealthyFlow/issues/290) — fail the build on a stale iOS bundle | Agent | nothing; run alongside #237 |
+| 3 | [#289](https://github.com/lermanori/HealthyFlow/issues/289) — make the backend suite order-independent | Agent | nothing; run alongside #237 |
+| 4 | Decide `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` | Founder | before any archive |
+| 5 | [#238](https://github.com/lermanori/HealthyFlow/issues/238) — release candidate, upload, submit | Agent builds and smokes; founder submits | #237, and #290 first so the archive cannot ship a stale bundle |
+| 6 | Turn on the iOS version gate | Founder | App Store approval |
+
+Steps 2 and 3 are not launch blockers, but both exist because a silent failure
+already cost real time, and step 5 is exactly where that failure is most
+expensive. #238 carries a comment recording what is already verified, so the
+smoke list is not repeated blindly.
+
+After approval, set `IOS_VERSION_GATE_ENABLED`, `IOS_MINIMUM_VERSION` and
+`IOS_APP_STORE_URL` in Railway. They are deliberately unset until an App Store
+URL exists, and nothing else will remind you.
+
 ## Exact human handoff
 
 Start from clean, current `main`. Stop immediately if any source file or generated
