@@ -1,3 +1,15 @@
+### 2026-09-15 20:15 — `main`
+
+Regenerated the landing screenshots, which were still from 30 July — before the
+Today redesign, the Calendar work and free-v1, so the page was showing an app
+that no longer existed. Also fixed a defect the script had all along: dropping
+the `demoPersona` marker to hide guided-tour chrome silently switches
+`SmartReminders` back on, so the July hero shipped with an "Overdue" card on it
+and this run produced two. The script now dismisses them through the real
+control and throws if one will not go.
+
+---
+
 ### 2026-09-15 19:40 — `main`
 
 Recorded the launch sequence in `docs/runbooks/app-store-v1.md` — which issue

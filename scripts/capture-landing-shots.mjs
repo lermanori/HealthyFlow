@@ -97,6 +97,36 @@ const FLAGGED_SURFACES = {
   VITE_DAILY_SIGNALS_ENABLED: { label: 'the Daily Signals row', find: (page) => page.getByText(/\d+ signals? ·/) },
 }
 
+/**
+ * Clear the Smart Reminders before the shutter.
+ *
+ * `SmartReminders` is disabled while `demoPersona` is in localStorage — and
+ * this script deliberately drops that marker so the shots show the ordinary
+ * app instead of guided-tour chrome. Turning off the chrome turns the
+ * reminders on, which is why the seeded persona's passed Items surface here
+ * and not in the product demo.
+ *
+ * They are correct behaviour but *transient*, and a screenshot freezes them
+ * forever. The hero is the first thing anyone sees, and stacked red "Overdue"
+ * cards sell nagging rather than a day worth planning; they also push the day
+ * itself down behind a dead band.
+ *
+ * Dismissed by clicking the real control, not hidden with CSS, so the shot
+ * stays a picture of the real app. A card that will not dismiss throws rather
+ * than being papered over — silently shipping it is how the July hero went out
+ * with an Overdue card on it.
+ */
+async function dismissSmartReminders(page) {
+  const cards = page.locator('[data-demo-id="smart-reminder"]')
+  for (let i = 0; i < 8; i += 1) {
+    if (await cards.count() === 0) break
+    await cards.first().getByRole('button', { name: /^Dismiss / }).click({ timeout: 1000 }).catch(() => {})
+    await page.waitForTimeout(120)
+  }
+  const left = await cards.count()
+  if (left) throw new Error(`${left} reminder(s) would not dismiss — they would be frozen into the shot`)
+}
+
 async function startWebServer(flags) {
   const env = { ...process.env, VITE_API_URL: API }
   for (const flag of flags) env[flag] = FLAGS_ON.has(flag) ? 'true' : ''
@@ -211,6 +241,7 @@ async function main() {
       if (rendered !== theme) {
         throw new Error(`${shot.name}: rendered the ${rendered} theme but ${theme} was requested`)
       }
+      await dismissSmartReminders(page)
       if (shot.prepare) {
         await shot.prepare(page)
         await page.waitForTimeout(300)
