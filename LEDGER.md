@@ -1,3 +1,16 @@
+### 2026-09-15 17:05 — `codex/236-verify-before-monthly-grant`
+
+The recurring 15-a-month grant now requires a verified address (ADR-0026),
+closing the farming route ADR-0023 left open: reinstall farming of the Guest
+ten is capped per network, but minting accounts for the monthly grant only ever
+cost an address nobody read. Guests are untouched, credits already held stay
+spendable, and accounts created before today are exempt by signup date rather
+than by stamping `email_verified_at` — that column also permits a password
+reset, so grandfathering through it would have handed out account recovery on
+unproven addresses.
+
+---
+
 ### 2026-09-15 16:30 — `main`
 
 #235 verified end to end on device: signup, confirmation link, single use,

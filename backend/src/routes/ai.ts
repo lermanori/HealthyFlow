@@ -72,6 +72,7 @@ function sweepExpiredChatRateLimits(now: number) {
 export const AI_REFUSAL_STATUS: Record<string, number> = {
   insufficient_credits: 402,
   account_required: 403,
+  email_unverified: 403,
   billing_unavailable: 503,
   account_daily_cap: 429,
   global_ceiling: 503,

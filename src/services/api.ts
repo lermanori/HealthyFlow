@@ -78,6 +78,7 @@ const {
   ActionPriceSchema,
   CreditSubscriptionPricingSchema,
   CreditSummarySchema,
+  ReadableCreditSummarySchema,
 } = CreditContracts
 const { ContactMessageSchema, ContactMessageListSchema } = ContactMessageContracts
 
@@ -1349,7 +1350,7 @@ export const creditsService = {
 
   getSummary: async (): Promise<CreditSummary> => {
     const response = await api.get('/credits/summary')
-    const summary = CreditSummarySchema.parse(response.data)
+    const summary = ReadableCreditSummarySchema.parse(response.data)
     const availableActions = availableActionCount(summary)
     analytics.setUserProperties({
       subscription_active: summary.subscription.active,

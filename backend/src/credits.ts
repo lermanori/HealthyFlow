@@ -50,6 +50,16 @@ export const FOUNDING_MEMBER_LIMIT = 100
 /** Refilled to a free account on its first action of a calendar month. */
 export const MONTHLY_FREE_CREDITS = 15
 
+/**
+ * When proving your address became a condition of the monthly grant (ADR-0026).
+ *
+ * Accounts created before this kept an allowance they were given under the old
+ * rule; interrupting them for a condition that did not exist when they signed
+ * up would punish the wrong people. Farming is prospective, so nothing is lost
+ * by letting them be.
+ */
+export const VERIFICATION_REQUIRED_FROM = new Date('2026-09-15T00:00:00.000Z')
+
 /** Granted to a Guest once, on their first AI action (ADR-0018). */
 export const GUEST_INITIAL_CREDITS = 10
 
@@ -214,6 +224,8 @@ export type BillingSettings = {
 /** Why an action was refused. Every one is a real, distinguishable cause. */
 export type ActionRefusal =
   | 'insufficient_credits'
+  /** Signed up, but the address is unproven, so the monthly grant is withheld (ADR-0026). */
+  | 'email_unverified'
   | 'account_required'
   | 'billing_unavailable'
   | 'account_daily_cap'
@@ -605,6 +617,37 @@ export const Credits = {
   },
 
   /**
+   * Whether this account may draw the recurring monthly grant (ADR-0026).
+   *
+   * Only the monthly grant is gated. A Guest's once-ever ten are untouched —
+   * they are already held to one per network per day (ADR-0023), and they are
+   * how someone tries the app before deciding to sign up at all. What is worth
+   * farming is the fifteen that arrive every month forever, and an address
+   * nobody has proven is the cheap half of minting an account to farm them.
+   *
+   * Accounts that predate the rule are eligible regardless. Deliberately keyed
+   * to `created_at` rather than to backfilling `email_verified_at`: that column
+   * is also what lets someone reset their password, so stamping old addresses
+   * as proven to protect their credits would hand out account recovery on
+   * addresses nobody ever proved. The two must not be conflated.
+   */
+  async monthlyGrantEligibility(
+    account: { email: string | null; email_verified_at?: string | null; created_at?: string | null },
+  ): Promise<'eligible' | 'email_unverified'> {
+    if (account.email === null) return 'eligible'
+    if (account.email_verified_at != null) return 'eligible'
+
+    const createdAt = account.created_at ? Date.parse(account.created_at) : NaN
+    // An unreadable creation date must not lock someone out of their allowance
+    // over a parsing problem. The gate exists to stop new farmed accounts, and
+    // a row we cannot date is not evidence of one.
+    if (!Number.isFinite(createdAt)) return 'eligible'
+    if (createdAt < VERIFICATION_REQUIRED_FROM.getTime()) return 'eligible'
+
+    return 'email_unverified'
+  },
+
+  /**
    * Resolve the lazy free grant from the durable account identity. The chosen RPC
    * rechecks identity atomically. If Claim wins after the read, the Guest RPC
    * reports `not_guest` and we continue through the monthly account grant.
@@ -615,6 +658,15 @@ export const Credits = {
       const guestGrant = await db.claimGuestInitialCredits(userId, GUEST_INITIAL_CREDITS)
       if (guestGrant.status !== 'not_guest') return guestGrant
     }
+
+    // Checked before the RPC rather than inside it, so the grant and the summary
+    // read share one copy of the rule and cannot drift apart. Someone who
+    // verifies between this check and their next action simply retries and is
+    // granted — the race costs a retry, never an allowance.
+    if (await this.monthlyGrantEligibility(account) === 'email_unverified') {
+      return { status: 'email_unverified' as const, balance: await db.getCreditBalance(userId) }
+    }
+
     return this.applyMonthlyFreeRefill(userId)
   },
 
@@ -689,8 +741,20 @@ export const Credits = {
     // free v1, Cloud is a sync entitlement only; AI continues to spend the
     // account's Token Manager balance.
 
+    // Reserved first even when the monthly grant was withheld: credits already
+    // held are theirs. Someone who claimed a Guest account still has whatever
+    // was left of their ten, and confiscating that to enforce a rule about the
+    // *next* fifteen would take something already given.
     const reserved = await this.reserve(userId, credits)
-    if (!reserved) return { ok: false, code: 'insufficient_credits' }
+    if (!reserved) {
+      // Only now is the unproven address the thing actually standing in the way,
+      // and it is the one a person can do something about. Answering
+      // "insufficient credits" here would describe the symptom and hide the fix.
+      if (accountState.status === 'email_unverified') {
+        return { ok: false, code: 'email_unverified' }
+      }
+      return { ok: false, code: 'insufficient_credits' }
+    }
     return { ok: true, actionClass, credits, charged: credits, coveredBy: 'balance' }
   },
 
@@ -710,14 +774,31 @@ export const Credits = {
           reason: 'Could not read free action entitlement.',
         }
       })
-    const [balance, buckets, subscription, pricing, monthLogs, freeGrant] = await Promise.all([
+    const eligibilityPromise = db.getUserById(userId)
+      .then(account => this.monthlyGrantEligibility(account))
+      // An unreadable account is not an unverified one. Let the RPC's own answer
+      // stand rather than inventing a refusal from a failed read.
+      .catch(() => 'eligible' as const)
+
+    const [balance, buckets, subscription, pricing, monthLogs, rawFreeGrant, eligibility] = await Promise.all([
       db.getCreditBalance(userId),
       db.getCreditBuckets(userId),
       db.getUserCreditSubscription(userId),
       this.getSubscriptionPricing(userId),
       db.getUsageLogsSince(rangeStarts().thisMonth),
       freeGrantPromise,
+      eligibilityPromise,
     ])
+
+    // The RPC does not know about verification, so the rule is applied here —
+    // the same call the grant path makes, so the two cannot drift.
+    const freeGrant: FreeCreditGrant =
+      eligibility === 'email_unverified'
+        && rawFreeGrant.state !== 'unavailable'
+        && !(rawFreeGrant.state === 'available' && rawFreeGrant.kind === 'guest_initial')
+        && !(rawFreeGrant.state === 'claimed' && rawFreeGrant.kind === 'guest_initial')
+        ? { state: 'email_unverified', kind: 'monthly' }
+        : rawFreeGrant
     const usedThisMonth = monthLogs
       .filter((log: any) => log.user_id === userId && Number(log.credits_delta ?? 0) < 0)
       .reduce((sum: number, log: any) => sum + Math.abs(Number(log.credits_delta ?? 0)), 0)
