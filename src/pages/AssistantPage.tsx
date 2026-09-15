@@ -896,6 +896,11 @@ export default function AssistantPage() {
           const exhaustion = actionExhaustionView(await creditsService.getSummary())
           if (exhaustion?.kind === 'guest' || exhaustion?.kind === 'network') {
             message = `${exhaustion.title}\n\n${exhaustion.detail} [Create a free account](/claim), or [ask the Founders Club for more free actions](/settings/account-billing#founders-club).`
+          } else if (exhaustion?.kind === 'email_unverified') {
+            // Settings is where the resend button already lives, next to the
+            // address itself — so this points there rather than growing a second
+            // copy of the same action inside the chat.
+            message = `${exhaustion.title}\n\n${exhaustion.detail} [Confirm your email](/settings/account-billing).`
           } else if (exhaustion?.kind === 'monthly') {
             const renewalDate = new Intl.DateTimeFormat(undefined, { dateStyle: 'long' })
               .format(new Date(exhaustion.nextAvailableAt))

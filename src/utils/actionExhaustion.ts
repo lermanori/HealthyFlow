@@ -4,6 +4,7 @@ export type ActionExhaustionView =
   | { kind: 'guest'; title: string; detail: string }
   | { kind: 'network'; title: string; detail: string }
   | { kind: 'monthly'; title: string; nextAvailableAt: string }
+  | { kind: 'email_unverified'; title: string; detail: string }
   | { kind: 'unavailable'; title: string; detail: string }
 
 export function actionExhaustionView(summary: CreditSummary): ActionExhaustionView | null {
@@ -25,6 +26,17 @@ export function actionExhaustionView(summary: CreditSummary): ActionExhaustionVi
       kind: 'network',
       title: 'Free Guest AI actions have already been used on this network today.',
       detail: 'Create a free account for 15 AI actions each calendar month.',
+    }
+  }
+
+  // Signed up but never proved the address, so the monthly fifteen were never
+  // paid (ADR-0026). Saying "you have used this month's 15" would be the same
+  // lie `network_limited` exists to prevent — they were never given.
+  if (summary.freeGrant.state === 'email_unverified') {
+    return {
+      kind: 'email_unverified',
+      title: 'Confirm your email to unlock your 15 AI actions a month.',
+      detail: 'We sent a link when you signed up. Ask for a new one if you cannot find it.',
     }
   }
 

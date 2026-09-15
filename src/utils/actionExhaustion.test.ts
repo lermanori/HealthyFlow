@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { actionExhaustionView } from './actionExhaustion'
+import CreditContracts from '../../backend/src/credit-contracts'
 
 const summary = {
   balance: 0,
@@ -106,4 +107,39 @@ test('a network-limited Guest is still network-limited once they hold a balance'
   })
 
   assert.equal(view, null)
+})
+
+test('an account that never proved its address is told the 15 are locked, not spent', () => {
+  const view = actionExhaustionView({
+    ...summary,
+    freeGrant: { state: 'email_unverified', kind: 'monthly' },
+  })
+
+  assert.deepEqual(view, {
+    kind: 'email_unverified',
+    title: 'Confirm your email to unlock your 15 AI actions a month.',
+    detail: 'We sent a link when you signed up. Ask for a new one if you cannot find it.',
+  })
+})
+
+test('an unverified account with credits left is shown nothing, because those are still theirs', () => {
+  // Claiming a Guest account leaves whatever remained of their ten. The gate
+  // withholds the next fifteen; it does not confiscate what was already given.
+  assert.equal(actionExhaustionView({
+    ...summary,
+    balance: 4,
+    freeGrant: { state: 'email_unverified', kind: 'monthly' },
+  }), null)
+})
+
+test('a client older than the server degrades one unknown state, not the whole summary', () => {
+  // Shipping `network_limited` broke every client that predated it. An iOS build
+  // can be weeks old with no way to force an update, so the reader has to bend.
+  const parsed = CreditContracts.ReadableCreditSummarySchema.parse({
+    ...summary,
+    freeGrant: { state: 'a_state_shipped_later', kind: 'monthly' },
+  })
+
+  assert.equal(parsed.freeGrant.state, 'unavailable')
+  assert.equal(actionExhaustionView(parsed)?.kind, 'unavailable')
 })

@@ -56,11 +56,14 @@ export type BillableOpenAIErrorCode =
   | 'global_ceiling'
   | 'prompt_too_large'
   | 'too_many_images'
+  /** Signed up, address unproven, nothing left to spend (ADR-0026). */
+  | 'email_unverified'
 
 /** What a refused action tells the user. Never a guess about which guard fired. */
 const REFUSAL_MESSAGE: Record<string, string> = {
   insufficient_credits: 'You have used your available AI actions.',
   account_required: 'Create a free account to use AI.',
+  email_unverified: 'Confirm your email address to unlock your 15 AI actions a month.',
   billing_unavailable: 'AI billing is temporarily unavailable. Your credits were not charged.',
   account_daily_cap: 'This account has reached its daily AI limit. It resets tomorrow.',
   global_ceiling: 'AI is paused for today while we check unusual usage. Your day is unaffected.',
