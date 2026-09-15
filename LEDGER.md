@@ -1,3 +1,14 @@
+### 2026-09-15 18:50 — `main`
+
+Covered the one ADR-0026 path that only had view-level tests: a claimed Guest
+spending credits left over from their ten while the address is still unproven.
+Five tests now drive the real `authorizeAction` path, and a mutation that
+refuses before reserving — the bug that would confiscate those credits — fails
+exactly the two tests written to catch it. Grandfathering confirmed on device:
+the founder's account still draws its monthly grant unverified.
+
+---
+
 ### 2026-09-15 17:05 — `codex/236-verify-before-monthly-grant`
 
 The recurring 15-a-month grant now requires a verified address (ADR-0026),
