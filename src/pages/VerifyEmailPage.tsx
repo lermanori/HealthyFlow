@@ -63,7 +63,12 @@ export default function VerifyEmailPage() {
   }, [token, refreshSession])
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-5 py-10 text-center">
+    // Same shell as LoginPage. These pages render outside the authenticated
+    // app shell, so nothing else gives them the notch and home-indicator
+    // insets — `native-auth-page` is where those live, and `env(safe-area-*)`
+    // is 0 on the web, so it is applied unconditionally rather than gated.
+    <div className="native-auth-page flex min-h-screen items-start justify-center bg-page px-4 py-6 sm:items-center sm:py-10">
+      <div className="w-full max-w-md space-y-5 text-center">
       {state.step === 'confirming' && (
         <>
           <LoadingSpinner size="lg" />
@@ -98,6 +103,7 @@ export default function VerifyEmailPage() {
           </button>
         </>
       )}
+      </div>
     </div>
   )
 }

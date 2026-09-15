@@ -1,3 +1,14 @@
+### 2026-09-15 16:30 — `main`
+
+#235 verified end to end on device: signup, confirmation link, single use,
+reset, and the non-enumerating reset request. Fixed the one thing that failed
+review — the two recovery pages render outside the authenticated app shell, so
+they never picked up the notch and home-indicator insets. Both now use
+`native-auth-page` the way LoginPage does, wrapped once at the page level so a
+later sub-view cannot be added without it.
+
+---
+
 ### 2026-09-15 09:20 — `codex/235-email-verification-recovery`
 
 DNS for healthyflow.app is live: DKIM, both Resend SPF CNAMEs and a DMARC

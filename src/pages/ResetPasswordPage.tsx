@@ -52,7 +52,7 @@ function RequestForm() {
 
   if (sent) {
     return (
-      <div className="mx-auto w-full max-w-md space-y-5 py-10 text-center">
+      <div className="w-full max-w-md space-y-5 text-center">
         <KeyRound className="mx-auto h-10 w-10 text-ink" />
         <h1 className="text-2xl font-bold text-ink">Check your email</h1>
         <p className="text-sm text-ink-muted">{sent}</p>
@@ -65,7 +65,7 @@ function RequestForm() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-5 py-10">
+    <div className="w-full max-w-md space-y-5">
       <header className="text-center">
         <h1 className="text-2xl font-bold text-ink">Reset your password</h1>
         <p className="mt-2 text-sm text-ink-muted">
@@ -134,7 +134,7 @@ function NewPasswordForm({ token }: { token: string }) {
 
   if (done) {
     return (
-      <div className="mx-auto w-full max-w-md space-y-5 py-10 text-center">
+      <div className="w-full max-w-md space-y-5 text-center">
         <KeyRound className="mx-auto h-10 w-10 text-ink" />
         <h1 className="text-2xl font-bold text-ink">Password changed</h1>
         <p className="text-sm text-ink-muted">Sign in with your new password.</p>
@@ -147,7 +147,7 @@ function NewPasswordForm({ token }: { token: string }) {
 
   if (refused) {
     return (
-      <div className="mx-auto w-full max-w-md space-y-5 py-10 text-center">
+      <div className="w-full max-w-md space-y-5 text-center">
         <MailWarning className="mx-auto h-10 w-10 text-ink-muted" />
         <h1 className="text-2xl font-bold text-ink">This link did not work</h1>
         <p className="text-sm text-ink-muted">{REFUSAL_COPY[refused]}</p>
@@ -160,7 +160,7 @@ function NewPasswordForm({ token }: { token: string }) {
   }
 
   return (
-    <div className="mx-auto w-full max-w-md space-y-5 py-10">
+    <div className="w-full max-w-md space-y-5">
       <header className="text-center">
         <h1 className="text-2xl font-bold text-ink">Choose a new password</h1>
       </header>
@@ -201,5 +201,14 @@ function NewPasswordForm({ token }: { token: string }) {
 export default function ResetPasswordPage() {
   const [params] = useSearchParams()
   const token = params.get('token')
-  return token ? <NewPasswordForm token={token} /> : <RequestForm />
+  return (
+    // Same shell as LoginPage. This page renders outside the authenticated app
+    // shell, so nothing else gives it the notch and home-indicator insets —
+    // `native-auth-page` is where those live. It wraps here rather than in each
+    // of the five sub-views so a view cannot be added later without them.
+    // `env(safe-area-*)` is 0 on the web, so it is applied unconditionally.
+    <div className="native-auth-page flex min-h-screen items-start justify-center bg-page px-4 py-6 sm:items-center sm:py-10">
+      {token ? <NewPasswordForm token={token} /> : <RequestForm />}
+    </div>
+  )
 }
