@@ -111,13 +111,10 @@ test.describe('unauthenticated flows', () => {
     await expect(page.locator('#email')).toBeVisible()
   })
 
-  test('waitlist stays secondary and validates inline', async ({ page }) => {
+  test('entry is open: Create account is offered even when signup status cannot be read', async ({ page }) => {
     await page.route('**/api/auth/signup-status', (route) => route.fulfill({
-      json: {
-        mode: 'waitlist',
-        remaining: 0,
-        offer: launchOffer,
-      },
+      status: 500,
+      json: { error: 'Could not read signup status' },
     }))
 
     await page.goto('/app')
@@ -127,18 +124,18 @@ test.describe('unauthenticated flows', () => {
     await expect(page.locator('#password')).toHaveValue('')
     await expect(page.getByText('demo@healthyflow.com')).toHaveCount(0)
     await expect(page.getByRole('link', { name: 'See a day like yours' })).toHaveAttribute('href', '/app/demo?source=login')
-    await expect(page.locator('#waitlist-email')).toHaveCount(0)
+    await expect(page.getByText(/waitlist/i)).toHaveCount(0)
 
-    await page.getByRole('button', { name: 'Join the waitlist' }).click()
-    await expect(page.locator('#waitlist-email')).toBeVisible()
-    await page.getByRole('button', { name: 'Join the waitlist' }).last().click()
-    await expect(page.getByRole('alert')).toHaveText('Enter your email address.')
+    await page.getByRole('button', { name: 'Create account', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Create your account' })).toBeVisible()
+    // The offer line needs the status; without it the line is left out, not guessed.
+    await expect(page.getByText(/AI actions every month/)).toHaveCount(0)
   })
 
   test('Continue with Google starts PKCE with the invitation retained locally', async ({ page }) => {
     await page.route('**/api/auth/signup-status', (route) => route.fulfill({
       json: {
-        mode: 'waitlist',
+        mode: 'open',
         remaining: 0,
         offer: launchOffer,
       },

@@ -2,7 +2,6 @@ import request from 'supertest'
 import { app } from '../../src/index'
 import { db, supabase } from '../../src/supabase-client'
 import { Onboarding } from '../../src/onboarding'
-import { Waitlist } from '../../src/waitlist'
 
 jest.mock('../../src/supabase-client', () => ({
   db: {
@@ -12,8 +11,6 @@ jest.mock('../../src/supabase-client', () => ({
     getUserByEmail: jest.fn(),
     getUserByAppleSubject: jest.fn(),
     linkAppleIdentity: jest.fn(),
-    clearPendingSignupInvite: jest.fn(),
-    releasePublicSignupSlot: jest.fn(),
   },
   supabase: {
     auth: {
@@ -37,16 +34,8 @@ jest.mock('../../src/onboarding', () => ({
   },
 }))
 
-jest.mock('../../src/waitlist', () => ({
-  Waitlist: {
-    authorizeSignup: jest.fn(),
-    completeInviteSignup: jest.fn(),
-  },
-}))
-
 const mockDb = db as jest.Mocked<typeof db>
 const mockOnboarding = Onboarding as jest.Mocked<typeof Onboarding>
-const mockWaitlist = Waitlist as jest.Mocked<typeof Waitlist>
 const mockAuth = supabase.auth as jest.Mocked<typeof supabase.auth>
 
 const appleUser = {
@@ -70,8 +59,6 @@ beforeEach(() => {
   } as never)
   mockDb.getUserByAppleSubject.mockResolvedValue(null)
   mockDb.getUserByEmail.mockResolvedValue(null)
-  mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: true, via: 'public' })
-  mockDb.releasePublicSignupSlot.mockResolvedValue(true)
   mockOnboarding.seedNewUser.mockResolvedValue({} as never)
 })
 
@@ -94,7 +81,6 @@ describe('POST /api/auth/apple', () => {
     expect(response.body.user.id).toBe('existing-user')
     expect(response.body.isNewUser).toBe(false)
     expect(mockDb.linkAppleIdentity).toHaveBeenCalledWith('existing-user', appleUser.id)
-    expect(mockWaitlist.authorizeSignup).not.toHaveBeenCalled()
   })
 
   it('creates an Apple account with the native profile and seeds onboarding', async () => {
@@ -120,6 +106,8 @@ describe('POST /api/auth/apple', () => {
       name: 'Apple Person',
       apple_auth_subject: appleUser.id,
       signup_method: 'apple',
+    }))
+    expect(mockDb.createUser).toHaveBeenCalledWith(expect.not.objectContaining({
       claimed_public_signup_slot: true,
     }))
     expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('new-apple-user')

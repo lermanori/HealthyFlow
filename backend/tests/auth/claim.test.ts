@@ -3,7 +3,6 @@ import jwt from 'jsonwebtoken'
 import { app } from '../../src/index'
 import { db, supabase } from '../../src/supabase-client'
 import { Onboarding } from '../../src/onboarding'
-import { Waitlist } from '../../src/waitlist'
 
 jest.mock('../../src/supabase-client', () => ({
   db: {
@@ -29,16 +28,11 @@ jest.mock('../../src/onboarding', () => ({
   Onboarding: { seedNewUser: jest.fn() },
 }))
 
-jest.mock('../../src/waitlist', () => ({
-  Waitlist: { authorizeSignup: jest.fn(), getSignupStatus: jest.fn() },
-}))
-
 const mockDb = db as jest.Mocked<typeof db>
 const mockSupabaseAuth = (supabase as unknown as {
   auth: { getUser: jest.Mock }
 }).auth
 const mockOnboarding = Onboarding as jest.Mocked<typeof Onboarding>
-const mockWaitlist = Waitlist as jest.Mocked<typeof Waitlist>
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret'
 
@@ -145,9 +139,7 @@ describe('POST /api/auth/claim', () => {
       .set('Authorization', `Bearer ${guestToken()}`)
       .send({ email: 'someone@example.com', password: 'a-good-password', name: 'Someone' })
 
-    // Entry is open (ADR-0012). Both of these were previously true of every
-    // account-creating path, so they are asserted rather than assumed.
-    expect(mockWaitlist.authorizeSignup).not.toHaveBeenCalled()
+    // Entry is open (ADR-0012), and Claim adds no welcome grant (ADR-0017).
     expect(response.body.signupCredits).toBeUndefined()
   })
 

@@ -157,7 +157,7 @@ for (const theme of ['midnight', 'white'] as const) {
       }, theme)
       await page.route('**/api/auth/signup-status', (route) => route.fulfill({
         json: {
-          mode: 'waitlist',
+          mode: 'open',
           remaining: 0,
           offer: {
             foundingMemberLimit: 100,

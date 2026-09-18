@@ -7,7 +7,6 @@ import type { User as SupabaseAuthUser } from '@supabase/supabase-js'
 import { GUEST_GRANT_IP_WINDOW_HOURS, hashClientIp } from './credits'
 import { Onboarding } from './onboarding'
 import { db, supabase } from './supabase-client'
-import { Waitlist, type SignupAuthorization } from './waitlist'
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key'
 
@@ -35,6 +34,8 @@ const GUEST_DISPLAY_NAME = 'Guest'
 
 export const ProviderSessionSchema = z.object({
   accessToken: z.string().min(1),
+  // Accepted and ignored: builds from before entry opened (ADR-0012) still send
+  // an invitation token, and refusing it would fail a sign-in over nothing.
   invite: z.string().min(1).optional(),
   displayName: z.string().trim().min(1).max(120).optional(),
 })
@@ -52,7 +53,6 @@ type AppUser = {
   signup_method?: 'password' | AuthProvider | 'guest' | null
   google_auth_subject?: string | null
   apple_auth_subject?: string | null
-  pending_invite_token?: string | null
   disabled_at?: string | null
   email_verified_at?: string | null
 }
@@ -119,24 +119,6 @@ async function removeRejectedSupabaseUser(userId: string) {
   }
 }
 
-async function releaseRejectedPublicSignup(provider: AuthProvider) {
-  try {
-    await db.releasePublicSignupSlot()
-  } catch (error) {
-    console.error(`Could not release failed ${provider} signup slot reservation:`, error)
-  }
-}
-
-function accessError(authorization: Extract<SignupAuthorization, { allowed: false }>) {
-  const messages = {
-    closed: 'Registration is currently closed.',
-    invite_invalid: 'This invitation is invalid.',
-    invite_used: 'This invitation has already been used.',
-    invite_expired: 'This invitation has expired.',
-  } as const
-  return new AuthFlowError(403, authorization.reason, messages[authorization.reason])
-}
-
 function requireEnabledUser(user: AppUser) {
   if (user.disabled_at) {
     throw new AuthFlowError(403, 'account_disabled', 'This HealthyFlow account is disabled.')
@@ -147,17 +129,6 @@ async function finishProviderSignup(user: AppUser): Promise<void> {
   // Idempotent: calling this again completes an interrupted first login without
   // re-opening completed onboarding. Account creation grants no Credits (ADR-0017).
   await Onboarding.seedNewUser(user.id)
-}
-
-async function finishPendingInvite(user: AppUser, providerSubject: string) {
-  if (!user.pending_invite_token) return
-  const invite = await Waitlist.completeInviteSignup(user.pending_invite_token, user.id)
-  if (!invite) {
-    await db.deleteUser(user.id)
-    await removeRejectedSupabaseUser(providerSubject)
-    throw new AuthFlowError(403, 'invite_used', 'This invitation has already been used.')
-  }
-  await db.clearPendingSignupInvite(user.id)
 }
 
 async function linkExistingUser(
@@ -228,7 +199,6 @@ async function exchangeProviderSession(
   if (bySubject) {
     requireEnabledUser(bySubject)
     if (bySubject.signup_method === provider) {
-      await finishPendingInvite(bySubject, authUser.id)
       await finishProviderSignup(bySubject)
       return {
         ...appSession(bySubject),
@@ -262,12 +232,7 @@ async function exchangeProviderSession(
     return { ...appSession(byEmail), isNewUser: false }
   }
 
-  const authorization = await Waitlist.authorizeSignup(input.invite)
-  if (!authorization.allowed) {
-    await removeRejectedSupabaseUser(authUser.id)
-    throw accessError(authorization)
-  }
-
+  // Entry is open (ADR-0012): a new account takes no seat and meets no waitlist.
   let user: AppUser | null
   try {
     const passwordHash = await bcrypt.hash(randomBytes(32).toString('base64url'), 10)
@@ -280,21 +245,15 @@ async function exchangeProviderSession(
         : { apple_auth_subject: authUser.id }),
       signup_method: provider,
       email_verified_at: new Date().toISOString(),
-      pending_invite_token: authorization.via === 'invite' ? authorization.inviteToken : undefined,
-      claimed_public_signup_slot: authorization.via === 'public',
     })
   } catch (error) {
-    if (authorization.via === 'public') await releaseRejectedPublicSignup(provider)
     await removeRejectedSupabaseUser(authUser.id)
     throw error
   }
   if (!user) {
-    if (authorization.via === 'public') await releaseRejectedPublicSignup(provider)
     await removeRejectedSupabaseUser(authUser.id)
     throw new AuthFlowError(500, 'account_creation_failed', 'Could not create your HealthyFlow account.')
   }
-
-  await finishPendingInvite(user, authUser.id)
 
   await finishProviderSignup(user)
   return {

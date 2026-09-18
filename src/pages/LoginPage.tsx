@@ -4,10 +4,9 @@ import { Apple, ArrowRight, Eye, EyeOff, Lock, Mail, Play, User } from 'lucide-r
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useHeldDay } from '../hooks/useHeldDay'
-import { waitlistService, type SignupStatus } from '../services/api'
+import { signupService, type SignupStatus } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import AppMark from '../components/AppMark'
-import { analytics } from '../lib/analytics'
 import {
   beginGoogleOAuth,
   beginNativeGoogleSignIn,
@@ -130,19 +129,11 @@ export default function LoginPage() {
   const [googleRetryAvailable, setGoogleRetryAvailable] = useState(false)
   const [isStandalone, setIsStandalone] = useState(false)
   const [signupStatus, setSignupStatus] = useState<SignupStatus | null>(null)
-  const [showWaitlist, setShowWaitlist] = useState(false)
-  const [waitlistEmail, setWaitlistEmail] = useState('')
-  const [waitlistJoined, setWaitlistJoined] = useState(false)
-  const [waitlistError, setWaitlistError] = useState('')
-  const [waitlistSubmitting, setWaitlistSubmitting] = useState(false)
   const { login, loginWithProvider, signup, startGuestSession } = useAuth()
   const heldDay = useHeldDay()
   const [guestConfirmNeeded, setGuestConfirmNeeded] = useState(false)
   const [guestLoading, setGuestLoading] = useState(false)
   const oauthCallbackHandled = useRef(false)
-
-  // An invite always opens the form; otherwise the public slot count decides.
-  const signupAllowed = Boolean(inviteToken) || signupStatus?.mode === 'open'
 
   useEffect(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches
@@ -186,43 +177,11 @@ export default function LoginPage() {
   }, [inviteToken, loginWithProvider])
 
   useEffect(() => {
-    // Fail closed: if the status call fails we leave signupStatus null, which hides
-    // the Create account tab. Showing a signup form we cannot honour would send the
-    // user through a form that 403s. Login is unaffected either way.
-    waitlistService.signupStatus().then(setSignupStatus).catch(() => setSignupStatus(null))
+    // Entry is open (ADR-0012), so Create account never waits on this. It only
+    // supplies the free-action figure; if it fails, that line is left out rather
+    // than guessed.
+    signupService.status().then(setSignupStatus).catch(() => setSignupStatus(null))
   }, [])
-
-  // If the status arrives closed while the signup tab is selected, fall back to
-  // login rather than showing a form that cannot succeed.
-  useEffect(() => {
-    if (signupStatus && !signupAllowed && mode === 'signup') setMode('login')
-  }, [signupStatus, signupAllowed, mode])
-
-  const handleWaitlistSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setWaitlistError('')
-
-    const normalizedEmail = waitlistEmail.trim()
-    if (!normalizedEmail) {
-      setWaitlistError('Enter your email address.')
-      return
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      setWaitlistError('Enter a valid email address.')
-      return
-    }
-
-    setWaitlistSubmitting(true)
-    try {
-      await waitlistService.join({ email: normalizedEmail, source: 'login-page' })
-      analytics.capture('waitlist_submitted', { source: 'login' })
-      setWaitlistJoined(true)
-    } catch (_err) {
-      setWaitlistError('Something went wrong — please try again.')
-    } finally {
-      setWaitlistSubmitting(false)
-    }
-  }
 
   // Reset form when switching modes
   const switchMode = (next: 'login' | 'signup') => {
@@ -405,7 +364,7 @@ export default function LoginPage() {
             <p className="mt-2 text-sm text-ink-muted">{supportingCopy}</p>
           </header>
 
-          {signupAllowed && !inviteToken && (
+          {!inviteToken && (
             <div className="mb-5 flex overflow-hidden rounded-control border border-line" aria-label="Authentication mode">
               <button
                 type="button"
@@ -432,16 +391,18 @@ export default function LoginPage() {
             </p>
           )}
 
-          {!inviteToken && signupStatus?.mode === 'open' && mode === 'signup' && (
+          {!inviteToken && mode === 'signup' && (
             <>
               {demoMeta && (
                 <p className="mb-3 rounded-control border border-accent/25 bg-accent/[.07] px-3 py-2 text-center text-sm text-ink-soft">
                   Only your “{demoMeta.problem}” intent comes with you. The demo workspace does not.
                 </p>
               )}
-              <p className="mb-5 text-center text-sm text-accent">
-                Create an account — free — and get {signupStatus.offer.monthlyFreeCredits} AI actions every month.
-              </p>
+              {signupStatus && (
+                <p className="mb-5 text-center text-sm text-accent">
+                  Create an account — free — and get {signupStatus.offer.monthlyFreeCredits} AI actions every month.
+                </p>
+              )}
             </>
           )}
 
@@ -683,66 +644,6 @@ export default function LoginPage() {
               </Link>
               <p className="mt-2 text-center text-xs text-ink-muted">Explore a prepared workspace. No account needed.</p>
             </div>
-          )}
-
-          {mode === 'login' && !inviteToken && signupStatus?.mode === 'waitlist' && (
-            <section className="mt-5 text-center" aria-labelledby="waitlist-heading">
-              {!waitlistJoined && (
-                <>
-                  <p id="waitlist-heading" className="text-sm text-ink-muted">
-                    New to HealthyFlow?
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowWaitlist((visible) => !visible)
-                      setWaitlistError('')
-                    }}
-                    aria-expanded={showWaitlist}
-                    aria-controls="waitlist-panel"
-                    className="mt-1 text-sm font-semibold text-accent transition-colors hover:text-ink"
-                  >
-                    {showWaitlist ? 'Hide waitlist form' : 'Join the waitlist'}
-                  </button>
-                </>
-              )}
-
-              {(showWaitlist || waitlistJoined) && (
-                <div id="waitlist-panel" className="mt-4 rounded-section border border-line bg-raised/45 p-4 text-left">
-                  {waitlistJoined ? (
-                    <p role="status" className="text-sm text-state-success">
-                      You're on the list. We'll email you when a spot opens.
-                    </p>
-                  ) : (
-                    <form onSubmit={handleWaitlistSubmit} noValidate>
-                      <label htmlFor="waitlist-email" className="mb-2 block text-sm font-medium text-ink-soft">
-                        Email address
-                      </label>
-                      <input
-                        id="waitlist-email"
-                        type="email"
-                        value={waitlistEmail}
-                        onChange={(e) => setWaitlistEmail(e.target.value)}
-                        className="input-field"
-                        placeholder="you@example.com"
-                        required
-                        autoComplete="email"
-                      />
-                      <p className="mt-2 text-xs text-ink-muted">
-                        When invited, create a free account to get{' '}
-                        {signupStatus.offer.monthlyFreeCredits} AI actions every month.
-                      </p>
-                      {waitlistError && (
-                        <p role="alert" className="mt-2 text-sm text-state-danger">{waitlistError}</p>
-                      )}
-                      <button type="submit" disabled={waitlistSubmitting} className="btn-primary mt-3 w-full">
-                        {waitlistSubmitting ? 'Joining…' : 'Join the waitlist'}
-                      </button>
-                    </form>
-                  )}
-                </div>
-              )}
-            </section>
           )}
 
           {isStandalone && (

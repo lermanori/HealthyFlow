@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Coins, Loader2, Mail, RotateCcw, Save, Settings, UserCog, Activity } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { tokenManagerService, TokenManagerTotals } from '../services/api'
-import WaitlistPanel from '../components/admin/WaitlistPanel'
 import UserManagementPanel from '../components/admin/UserManagementPanel'
 
 type RangeKey = 'today' | 'thisWeek' | 'thisMonth'
@@ -252,8 +251,6 @@ export default function TokenManagerPage() {
           </div>
         </div>
       </div>
-
-      <WaitlistPanel />
 
       <UserManagementPanel />
 

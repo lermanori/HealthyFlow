@@ -2,7 +2,6 @@ import request from 'supertest'
 import { app } from '../../src/index'
 import { db, supabase } from '../../src/supabase-client'
 import { Onboarding } from '../../src/onboarding'
-import { Waitlist } from '../../src/waitlist'
 
 jest.mock('../../src/supabase-client', () => ({
   db: {
@@ -12,8 +11,6 @@ jest.mock('../../src/supabase-client', () => ({
     getUserByEmail: jest.fn(),
     getUserByGoogleSubject: jest.fn(),
     linkGoogleIdentity: jest.fn(),
-    clearPendingSignupInvite: jest.fn(),
-    releasePublicSignupSlot: jest.fn(),
   },
   supabase: {
     auth: {
@@ -37,16 +34,8 @@ jest.mock('../../src/onboarding', () => ({
   },
 }))
 
-jest.mock('../../src/waitlist', () => ({
-  Waitlist: {
-    authorizeSignup: jest.fn(),
-    completeInviteSignup: jest.fn(),
-  },
-}))
-
 const mockDb = db as jest.Mocked<typeof db>
 const mockOnboarding = Onboarding as jest.Mocked<typeof Onboarding>
-const mockWaitlist = Waitlist as jest.Mocked<typeof Waitlist>
 const mockAuth = supabase.auth as jest.Mocked<typeof supabase.auth>
 
 const googleUser = {
@@ -70,8 +59,6 @@ beforeEach(() => {
   } as never)
   mockDb.getUserByGoogleSubject.mockResolvedValue(null)
   mockDb.getUserByEmail.mockResolvedValue(null)
-  mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: true, via: 'public' })
-  mockDb.releasePublicSignupSlot.mockResolvedValue(true)
   mockOnboarding.seedNewUser.mockResolvedValue({} as never)
 })
 
@@ -95,15 +82,9 @@ describe('POST /api/auth/google', () => {
     expect(response.body.token).toEqual(expect.any(String))
     expect(response.body.isNewUser).toBe(false)
     expect(mockDb.linkGoogleIdentity).toHaveBeenCalledWith('existing-user', googleUser.id)
-    expect(mockWaitlist.authorizeSignup).not.toHaveBeenCalled()
   })
 
-  it('retains a valid invitation through account creation and seeds onboarding', async () => {
-    mockWaitlist.authorizeSignup.mockResolvedValue({
-      allowed: true,
-      via: 'invite',
-      inviteToken: 'invite-1',
-    })
+  it('creates a new Google account with every public seat taken, and takes none', async () => {
     mockDb.createUser.mockResolvedValue({
       id: 'new-user',
       email: 'person@example.com',
@@ -111,33 +92,29 @@ describe('POST /api/auth/google', () => {
       role: 'user',
       signup_method: 'google',
       google_auth_subject: googleUser.id,
-      pending_invite_token: 'invite-1',
     })
-    mockWaitlist.completeInviteSignup.mockResolvedValue({ token: 'invite-1' } as never)
 
     const response = await request(app)
       .post('/api/auth/google')
-      .send({ accessToken: 'supabase-access-token', invite: 'invite-1' })
+      .send({ accessToken: 'supabase-access-token' })
 
     expect(response.status).toBe(200)
     expect(response.body.isNewUser).toBe(true)
     expect(response.body.signupCredits).toBeUndefined()
-    expect(mockWaitlist.authorizeSignup).toHaveBeenCalledWith('invite-1')
-    expect(mockWaitlist.completeInviteSignup).toHaveBeenCalledWith('invite-1', 'new-user')
-    expect(mockDb.clearPendingSignupInvite).toHaveBeenCalledWith('new-user')
     expect(mockDb.createUser).toHaveBeenCalledWith(expect.objectContaining({
       email: 'person@example.com',
       google_auth_subject: googleUser.id,
       signup_method: 'google',
-      pending_invite_token: 'invite-1',
-      claimed_public_signup_slot: false,
+    }))
+    expect(mockDb.createUser).toHaveBeenCalledWith(expect.not.objectContaining({
+      claimed_public_signup_slot: true,
     }))
     expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('new-user')
   })
 
-  it('records ownership of a public seat for a new Google account', async () => {
+  it('creates the account from an invitation sent before entry opened, needing nothing from it', async () => {
     mockDb.createUser.mockResolvedValue({
-      id: 'new-public-user',
+      id: 'new-user',
       email: 'person@example.com',
       name: 'Google Person',
       role: 'user',
@@ -147,15 +124,14 @@ describe('POST /api/auth/google', () => {
 
     const response = await request(app)
       .post('/api/auth/google')
-      .send({ accessToken: 'supabase-access-token' })
+      .send({ accessToken: 'supabase-access-token', invite: 'expired-long-ago' })
 
     expect(response.status).toBe(200)
-    expect(mockDb.createUser).toHaveBeenCalledWith(expect.objectContaining({
-      claimed_public_signup_slot: true,
-    }))
+    expect(response.body.isNewUser).toBe(true)
+    expect(mockDb.deleteUser).not.toHaveBeenCalled()
   })
 
-  it('returns a reserved public seat when Google account creation fails', async () => {
+  it('removes the orphaned provider identity when Google account creation fails', async () => {
     mockDb.createUser.mockRejectedValue(new Error('insert failed'))
 
     const response = await request(app)
@@ -163,11 +139,10 @@ describe('POST /api/auth/google', () => {
       .send({ accessToken: 'supabase-access-token' })
 
     expect(response.status).toBe(500)
-    expect(mockDb.releasePublicSignupSlot).toHaveBeenCalledTimes(1)
     expect(mockAuth.admin.deleteUser).toHaveBeenCalledWith(googleUser.id)
   })
 
-  it('redeems the persisted invitation before completing an interrupted signup', async () => {
+  it('completes an interrupted signup that still carries an old invitation, without redeeming it', async () => {
     mockDb.getUserByGoogleSubject.mockResolvedValue({
       id: 'new-user',
       email: 'person@example.com',
@@ -177,16 +152,14 @@ describe('POST /api/auth/google', () => {
       google_auth_subject: googleUser.id,
       pending_invite_token: 'invite-1',
     })
-    mockWaitlist.completeInviteSignup.mockResolvedValue({ token: 'invite-1' } as never)
 
     const response = await request(app)
       .post('/api/auth/google')
       .send({ accessToken: 'supabase-access-token' })
 
     expect(response.status).toBe(200)
-    expect(mockWaitlist.completeInviteSignup).toHaveBeenCalledWith('invite-1', 'new-user')
-    expect(mockDb.clearPendingSignupInvite).toHaveBeenCalledWith('new-user')
-    expect(response.body.signupCredits).toBeUndefined()
+    expect(mockDb.deleteUser).not.toHaveBeenCalled()
+    expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('new-user')
   })
 
   it('completes an interrupted Google signup idempotently without another account', async () => {
@@ -205,7 +178,6 @@ describe('POST /api/auth/google', () => {
     expect(response.body.isNewUser).toBe(false)
     expect(response.body.signupCredits).toBeUndefined()
     expect(mockDb.createUser).not.toHaveBeenCalled()
-    expect(mockWaitlist.authorizeSignup).not.toHaveBeenCalled()
     expect(mockOnboarding.seedNewUser).toHaveBeenCalledWith('new-user')
   })
 
@@ -227,24 +199,6 @@ describe('POST /api/auth/google', () => {
     expect(response.status).toBe(403)
     expect(response.body.reason).toBe('account_disabled')
     expect(response.body.token).toBeUndefined()
-  })
-
-  it.each([
-    ['closed', 'Registration is currently closed.'],
-    ['invite_invalid', 'This invitation is invalid.'],
-    ['invite_used', 'This invitation has already been used.'],
-    ['invite_expired', 'This invitation has expired.'],
-  ] as const)('rejects a new user when access is %s and removes the orphaned auth user', async (reason, message) => {
-    mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: false, reason })
-
-    const response = await request(app)
-      .post('/api/auth/google')
-      .send({ accessToken: 'supabase-access-token', invite: reason === 'closed' ? undefined : 'invite-1' })
-
-    expect(response.status).toBe(403)
-    expect(response.body).toEqual({ error: message, reason })
-    expect(mockDb.createUser).not.toHaveBeenCalled()
-    expect(mockAuth.admin.deleteUser).toHaveBeenCalledWith(googleUser.id)
   })
 
   it('returns a clear duplicate-account conflict', async () => {

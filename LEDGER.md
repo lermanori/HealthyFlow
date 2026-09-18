@@ -1,3 +1,15 @@
+### 2026-09-18 20:16 — `issue-292-open-signup`
+
+Opened account creation as ADR-0012 decided: email signup and first-time Google
+or Apple sign-in no longer check or take a public seat, which production was
+eight signups from exhausting. The waitlist module, its routes and the admin
+Waitlist panel are gone (tables kept), login and the demo always offer Create
+account, and old invitation links still work. First slice of the Admin rework
+(#291); backend suite, both typechecks, unit tests, build and the mocked auth,
+demo and login-visual e2e specs pass.
+
+---
+
 ### 2026-09-18 18:57 — `main`
 
 Completed the App Store declaration packet, published the reviewed privacy

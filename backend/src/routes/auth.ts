@@ -6,7 +6,6 @@ import { z } from 'zod'
 import { db } from '../supabase-client'
 import { Credits } from '../credits'
 import { Onboarding } from '../onboarding'
-import { Waitlist } from '../waitlist'
 import { DEMO_PERSONAS, getDemoPersonaUser } from '../demo-personas'
 import {
   AppleSessionSchema,
@@ -51,6 +50,8 @@ const SignupSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
   name: z.string().min(1),
+  // Accepted and ignored: an invitation link from before entry opened (ADR-0012)
+  // still reaches this form, and it needs nothing from the token.
   invite: z.string().min(1).optional(),
 })
 
@@ -114,15 +115,15 @@ async function recordLogin(userId: string) {
   }
 }
 
-// Public: lets the landing page and LoginPage choose between the signup form and
-// the waitlist form. Deliberately exposes no invite tokens or waitlist contents.
+// Public. Entry is open (ADR-0012), so `mode` is always `open`; the endpoint
+// survives for the free-action offer and for builds that predate open entry,
+// which hide Create account unless they read `open`. `remaining` is kept on the
+// wire only because those builds require the field — no client reads it, and
+// there is no seat count to report.
 router.get('/signup-status', async (_req, res) => {
   try {
-    const [status, offer] = await Promise.all([
-      Waitlist.getSignupStatus(),
-      Credits.getLaunchOffer(),
-    ])
-    return res.json({ ...status, offer })
+    const offer = await Credits.getLaunchOffer()
+    return res.json({ mode: 'open', remaining: 0, offer })
   } catch (error) {
     console.error('Signup status error:', error)
     return res.status(500).json({ error: 'Could not read signup status' })
@@ -140,39 +141,17 @@ router.post('/signup', signupLimiter, async (req, res) => {
   }
   const { email, password, name } = parsed.data
 
-  let publicSlotReserved = false
-  let accountCreated = false
   try {
     const existing = await db.getUserByEmail(email)
     if (existing) {
       return res.status(409).json({ error: 'Email already taken' })
     }
 
-    // Access gate. Checked after the duplicate-email check so a returning user
-    // never burns a public slot, and before user creation so a refusal creates
-    // nothing. A valid invite always passes and does not consume a slot.
-    const authorization = await Waitlist.authorizeSignup(parsed.data.invite)
-    if (!authorization.allowed) {
-      return res.status(403).json({
-        error: 'Registration is currently closed.',
-        reason: authorization.reason,
-      })
-    }
-    publicSlotReserved = authorization.via === 'public'
-
+    // Entry is open (ADR-0012): no seat is checked or taken, and any invitation
+    // token the form still sends is ignored.
     const password_hash = await bcrypt.hash(password, 10)
-    const user = await db.createUser({
-      email,
-      name,
-      password_hash,
-      claimed_public_signup_slot: publicSlotReserved,
-    })
+    const user = await db.createUser({ email, name, password_hash })
     if (!user) throw new Error('Account insert returned no user')
-    accountCreated = true
-
-    if (authorization.via === 'invite') {
-      await Waitlist.completeInviteSignup(authorization.inviteToken, user.id)
-    }
 
     await Onboarding.seedNewUser(user.id)
     await recordLogin(user.id)
@@ -196,13 +175,6 @@ router.post('/signup', signupLimiter, async (req, res) => {
       verificationEmail: verification.state,
     })
   } catch (error) {
-    if (publicSlotReserved && !accountCreated) {
-      try {
-        await db.releasePublicSignupSlot()
-      } catch (releaseError) {
-        console.error('Could not release failed signup slot reservation:', releaseError)
-      }
-    }
     console.error('Signup error:', error)
     return res.status(500).json({ error: 'Database error' })
   }

@@ -65,8 +65,6 @@ export const db = {
     google_auth_subject?: string
     apple_auth_subject?: string
     signup_method?: 'password' | 'google' | 'apple' | 'guest'
-    pending_invite_token?: string
-    claimed_public_signup_slot?: boolean
     /** Whether this Guest won its network's action-grant reservation (ADR-0023). */
     guest_grant_ip_reserved?: boolean
     /** Set at creation for Google/Apple, which arrive provider-verified (#235). */
@@ -160,14 +158,6 @@ export const db = {
       .single();
     if (error) throw error;
     return data;
-  },
-
-  async clearPendingSignupInvite(userId: string) {
-    const { error } = await supabase
-      .from('users')
-      .update({ pending_invite_token: null })
-      .eq('id', userId);
-    if (error) throw error;
   },
 
   async getUserById(userId: string): Promise<AccountRow> {
@@ -1516,144 +1506,6 @@ export const db = {
       .single()
     if (error) throw error
     return data
-  },
-
-  // ---- Waitlist access control ----
-
-  async getWaitlistByEmail(email: string) {
-    const { data, error } = await supabase
-      .from('waitlist')
-      .select('*')
-      .eq('email', email)
-      .maybeSingle()
-    if (error) throw error
-    return data
-  },
-
-  async createWaitlistEntry(entry: {
-    email: string
-    name?: string | null
-    source?: string | null
-    utm_source?: string | null
-    utm_medium?: string | null
-    utm_campaign?: string | null
-  }) {
-    const { data, error } = await supabase
-      .from('waitlist')
-      .insert(entry)
-      .select('*')
-      .single()
-    if (error) throw error
-    return data
-  },
-
-  async listWaitlist(status?: string) {
-    let query = supabase.from('waitlist').select('*').order('created_at', { ascending: false })
-    if (status) query = query.eq('status', status)
-    const { data, error } = await query
-    if (error) throw error
-    return data ?? []
-  },
-
-  async setWaitlistStatus(id: string, status: string, invitedAt?: string) {
-    const patch: Record<string, unknown> = { status }
-    if (invitedAt) patch.invited_at = invitedAt
-    const { data, error } = await supabase
-      .from('waitlist')
-      .update(patch)
-      .eq('id', id)
-      .select('*')
-      .single()
-    if (error) throw error
-    return data
-  },
-
-  async deleteWaitlistEntry(id: string) {
-    const { error } = await supabase.from('waitlist').delete().eq('id', id)
-    if (error) throw error
-  },
-
-  async createInvite(invite: { token: string; waitlist_id: string }) {
-    const { data, error } = await supabase
-      .from('invites')
-      .insert(invite)
-      .select('*')
-      .single()
-    if (error) throw error
-    return data
-  },
-
-  async getInviteByToken(token: string) {
-    const { data, error } = await supabase
-      .from('invites')
-      .select('*')
-      .eq('token', token)
-      .maybeSingle()
-    if (error) throw error
-    return data
-  },
-
-  async redeemInvite(token: string, userId: string) {
-    // Guarded on redeemed_at IS NULL so a token cannot be redeemed twice.
-    const { data, error } = await supabase
-      .from('invites')
-      .update({ redeemed_at: new Date().toISOString(), redeemed_by_user_id: userId })
-      .eq('token', token)
-      .is('redeemed_at', null)
-      .select('*')
-      .maybeSingle()
-    if (error) throw error
-    return data
-  },
-
-  async listInvitesForWaitlist(waitlistIds: string[]) {
-    if (waitlistIds.length === 0) return []
-    const { data, error } = await supabase
-      .from('invites')
-      .select('*')
-      .in('waitlist_id', waitlistIds)
-    if (error) throw error
-    return data ?? []
-  },
-
-  async getSignupAccess() {
-    const { data, error } = await supabase
-      .from('signup_access')
-      .select('public_slots_open, public_slots_claimed, updated_at')
-      .eq('id', true)
-      .maybeSingle()
-    if (error) throw error
-    return data
-  },
-
-  async updateSignupAccess(settings: {
-    public_slots_open: number
-    public_slots_claimed: number
-  }) {
-    const { data, error } = await supabase
-      .from('signup_access')
-      .update({
-        public_slots_open: settings.public_slots_open,
-        public_slots_claimed: settings.public_slots_claimed,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', true)
-      .select('public_slots_open, public_slots_claimed, updated_at')
-      .single()
-    if (error) throw error
-    return data
-  },
-
-  async claimPublicSignupSlot(): Promise<boolean> {
-    const { data, error } = await supabase.rpc('claim_public_signup_slot')
-    if (error) throw error
-    return data === true
-  },
-
-  async releasePublicSignupSlot(): Promise<boolean> {
-    const { data, error } = await supabase.rpc('release_public_signup_slot')
-    if (error) throw error
-    return data === true
   },
 
   async getUsageLogsSince(sinceIso: string) {

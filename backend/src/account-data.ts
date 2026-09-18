@@ -251,7 +251,6 @@ export const AdminUserDeletionTargetSchema = z.object({
     'active_subscription',
   ])),
   counts: AdminUserDeletionCountsSchema,
-  releasesPublicSignupSeat: z.boolean(),
 })
 
 export const AdminUserDeletionPreviewSchema = z.object({
@@ -503,7 +502,6 @@ async function deletionCounts(userIds: string[]) {
         ...counts,
         total: Object.values(counts).reduce((sum, value) => sum + value, 0),
       }),
-      releasesPublicSignupSeat: Number(row.public_signup_seats ?? 0) > 0,
     }]
   }))
 }
@@ -545,7 +543,6 @@ export async function previewAdminUserDeletion(
         waitlist: 0,
         total: 0,
       },
-      releasesPublicSignupSeat: counts.get(user.id)?.releasesPublicSignupSeat ?? false,
     })
   })
   const canDelete = previews.every(user => user.blockers.length === 0)

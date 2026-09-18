@@ -3,7 +3,6 @@ import jwt from 'jsonwebtoken'
 import { app } from '../../src/index'
 import { db } from '../../src/supabase-client'
 import { Onboarding } from '../../src/onboarding'
-import { Waitlist } from '../../src/waitlist'
 
 // ponytail: mock db so tests are hermetic — no real Supabase calls
 jest.mock('../../src/supabase-client', () => ({
@@ -11,7 +10,6 @@ jest.mock('../../src/supabase-client', () => ({
     getUserByEmail: jest.fn(),
     getUserById: jest.fn(),
     createUser: jest.fn(),
-    releasePublicSignupSlot: jest.fn(),
     reserveGuestGrantIp: jest.fn(),
   },
 }))
@@ -20,17 +18,8 @@ jest.mock('../../src/onboarding', () => ({
   Onboarding: { seedNewUser: jest.fn() },
 }))
 
-jest.mock('../../src/waitlist', () => ({
-  Waitlist: {
-    authorizeSignup: jest.fn(),
-    completeInviteSignup: jest.fn(),
-    getSignupStatus: jest.fn(),
-  },
-}))
-
 const mockDb = db as jest.Mocked<typeof db>
 const mockOnboarding = Onboarding as jest.Mocked<typeof Onboarding>
-const mockWaitlist = Waitlist as jest.Mocked<typeof Waitlist>
 
 const JWT_SECRET = process.env.JWT_SECRET || 'test-secret'
 const DAY_SECONDS = 24 * 60 * 60
@@ -54,10 +43,8 @@ function guestToken(userId = guestRow.id) {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockDb.releasePublicSignupSlot.mockResolvedValue(true)
   mockDb.createUser.mockResolvedValue(guestRow)
   mockDb.reserveGuestGrantIp.mockResolvedValue(true)
-  mockWaitlist.authorizeSignup.mockResolvedValue({ allowed: true, via: 'public' })
 })
 
 describe('POST /api/auth/guest', () => {
@@ -96,7 +83,6 @@ describe('POST /api/auth/guest', () => {
     const res = await request(app).post('/api/auth/guest').set('X-Forwarded-For', '30.0.0.3')
 
     expect(res.status).toBe(200)
-    expect(mockWaitlist.authorizeSignup).not.toHaveBeenCalled()
     expect(mockDb.createUser).toHaveBeenCalledWith(
       expect.not.objectContaining({ claimed_public_signup_slot: true }),
     )

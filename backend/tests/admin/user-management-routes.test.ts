@@ -170,7 +170,6 @@ describe('admin user-management routes', () => {
           waitlist: 1,
           total: 13,
         },
-        releasesPublicSignupSeat: true,
       }],
     })
 

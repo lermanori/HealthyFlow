@@ -31,7 +31,6 @@ import SettingsContracts, {
   type AssistantProfile,
   type Settings as UserSettings,
 } from '../../backend/src/settings-schema'
-import type { WaitlistJoinInput } from '../../backend/src/waitlist'
 import type { NativePushRegistration } from '../../backend/src/push-contracts'
 import MobileVersionContracts, {
   type IosVersionPolicy,
@@ -465,7 +464,6 @@ export const AdminUserDeletionPreviewSchema = z.object({
       'active_subscription',
     ])),
     counts: AdminUserDeletionCountsSchema,
-    releasesPublicSignupSeat: z.boolean(),
   })),
 })
 export type AdminUserDeletionPreview = z.infer<typeof AdminUserDeletionPreviewSchema>
@@ -665,60 +663,11 @@ export function challengeRefusal(error: unknown): ChallengeRefusal | null {
   return parsed.success ? parsed.data : null
 }
 
-export type WaitlistEntry = {
-  id: string
-  email: string
-  name: string | null
-  status: 'pending' | 'invited' | 'registered'
-  source: string | null
-  created_at: string
-  invited_at: string | null
-}
-
-export type SignupAccess = {
-  public_slots_open: number
-  public_slots_claimed: number
-  updated_at: string
-}
-
-// Waitlist Service — public join + signup availability, plus admin management.
-export const waitlistService = {
-  join: async (input: WaitlistJoinInput) => {
-    const response = await api.post('/waitlist', input)
-    return response.data as { joined: boolean }
-  },
-
-  signupStatus: async () => {
+// Entry is open (ADR-0012). The status only carries the free-action offer now.
+export const signupService = {
+  status: async () => {
     const response = await api.get('/auth/signup-status')
     return SignupStatusSchema.parse(response.data)
-  },
-
-  adminEntries: async (status?: string) => {
-    const response = await api.get('/waitlist/admin/entries', { params: status ? { status } : {} })
-    return response.data as { entries: WaitlistEntry[]; invites: unknown[]; access: SignupAccess | null }
-  },
-
-  adminAdd: async (input: { email: string; name?: string }) => {
-    const response = await api.post('/waitlist/admin/entries', input)
-    return response.data as { entry: WaitlistEntry }
-  },
-
-  adminInvite: async (id: string) => {
-    const response = await api.post(`/waitlist/admin/entries/${id}/invite`)
-    return response.data as { invite: { token: string } }
-  },
-
-  adminRemove: async (id: string) => {
-    const response = await api.delete(`/waitlist/admin/entries/${id}`)
-    return response.data as { deleted: boolean }
-  },
-
-  adminSetSlots: async (publicSlotsOpen: number, publicSlotsClaimed: number) => {
-    const response = await api.patch('/waitlist/admin/slots', {
-      publicSlotsOpen,
-      publicSlotsClaimed,
-    })
-    return response.data as { access: SignupAccess }
   },
 }
 
@@ -2254,8 +2203,6 @@ export const tokenManagerService = {
       id: string
       email: string
       warnings: string[]
-      waitlistEntriesDeleted: number
-      publicSignupSeatsReleased: number
     }>
     failures: Array<{ id: string; email: string; error: string }>
   }> => {
@@ -2267,8 +2214,6 @@ export const tokenManagerService = {
         id: z.string(),
         email: z.string().email(),
         warnings: z.array(z.string()),
-        waitlistEntriesDeleted: z.number().int().nonnegative(),
-        publicSignupSeatsReleased: z.number().int().nonnegative(),
       })),
       failures: z.array(z.object({
         id: z.string(),

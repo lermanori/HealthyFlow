@@ -4,7 +4,6 @@ import {
   ArrowRight,
   CheckCircle2,
   Clock,
-  Mail,
   RotateCcw,
   Sparkles,
 } from 'lucide-react'
@@ -22,7 +21,6 @@ import {
 } from '../demoPersonas'
 import AppMark from '../components/AppMark'
 import { analytics } from '../lib/analytics'
-import { waitlistService, type SignupStatus } from '../services/api'
 
 function DemoBrand({ action, actionLabel }: { action: () => void; actionLabel: string }) {
   return (
@@ -232,26 +230,8 @@ function DemoOutcome({
     user,
   } = useAuth()
   const meta = demoPersonaById(persona)
-  const [signupStatus, setSignupStatus] = useState<SignupStatus | null>(null)
-  const [statusError, setStatusError] = useState(false)
-  const [email, setEmail] = useState('')
-  const [waitlistError, setWaitlistError] = useState('')
-  const [waitlistJoined, setWaitlistJoined] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
   const [openingDemo, setOpeningDemo] = useState(false)
   const hasWorkspaceToReturn = hasDemoReturnSession || Boolean(user && !isDemoSession)
-
-  const loadSignupStatus = () => {
-    setStatusError(false)
-    setSignupStatus(null)
-    waitlistService.signupStatus()
-      .then(setSignupStatus)
-      .catch(() => setStatusError(true))
-  }
-
-  useEffect(() => {
-    if (!hasWorkspaceToReturn) loadSignupStatus()
-  }, [hasWorkspaceToReturn])
 
   const returnToWorkspace = async () => {
     analytics.capture('demo_acquisition_clicked', {
@@ -271,42 +251,6 @@ function DemoOutcome({
     })
     await leaveDemoSession()
     navigate(`/login?${demoSignupSearch(acquisition)}`, { replace: true })
-  }
-
-  const submitWaitlist = async (event: React.FormEvent) => {
-    event.preventDefault()
-    setWaitlistError('')
-    const normalizedEmail = email.trim()
-    if (!normalizedEmail) {
-      setWaitlistError('Enter your email address.')
-      return
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
-      setWaitlistError('Enter a valid email address.')
-      return
-    }
-
-    setSubmitting(true)
-    analytics.capture('demo_acquisition_clicked', {
-      persona,
-      destination: 'waitlist',
-      access_mode: 'waitlist',
-    })
-    try {
-      await waitlistService.join({
-        email: normalizedEmail,
-        source: `demo-${persona}`,
-        utmSource: acquisition.utmSource,
-        utmMedium: acquisition.utmMedium,
-        utmCampaign: acquisition.utmCampaign,
-      })
-      analytics.capture('waitlist_submitted', { source: 'demo', persona })
-      setWaitlistJoined(true)
-    } catch {
-      setWaitlistError('Something went wrong — please try again.')
-    } finally {
-      setSubmitting(false)
-    }
   }
 
   const keepExploring = async () => {
@@ -379,76 +323,20 @@ function DemoOutcome({
                   We carry the reason you chose this demo into your first prompt—never {meta.name}&apos;s Items or records.
                 </p>
 
-                {signupStatus?.mode === 'open' && (
-                  <div className="mt-6 rounded-section border border-accent/35 bg-accent/[.07] p-5">
-                    <p className="font-semibold text-ink">Public signup is open</p>
-                    <p className="mt-1 text-sm text-ink-muted">
-                      Start with “{meta.activationPrompt}”
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => void openSignup()}
-                      className="btn-primary mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 px-6 sm:w-auto"
-                    >
-                      {meta.outcome}
-                      <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                    </button>
-                  </div>
-                )}
-
-                {signupStatus?.mode === 'waitlist' && (
-                  <div className="mt-6 rounded-section border border-accent/35 bg-accent/[.07] p-5">
-                    {waitlistJoined ? (
-                      <div role="status" className="flex items-start gap-3">
-                        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-state-success" />
-                        <div>
-                          <p className="font-semibold text-ink">You&apos;re on the list.</p>
-                          <p className="mt-1 text-sm text-ink-muted">We&apos;ll email you when a spot opens.</p>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <p className="font-semibold text-ink">HealthyFlow is invite-only right now</p>
-                        <p className="mt-1 text-sm text-ink-muted">Join for early access to build your own version of this day.</p>
-                        <form onSubmit={submitWaitlist} noValidate className="mt-4 flex flex-col gap-3 sm:flex-row">
-                          <label htmlFor="demo-waitlist-email" className="sr-only">Email address</label>
-                          <div className="relative min-w-0 flex-1">
-                            <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
-                            <input
-                              id="demo-waitlist-email"
-                              type="email"
-                              value={email}
-                              onChange={(event) => setEmail(event.target.value)}
-                              placeholder="you@example.com"
-                              autoComplete="email"
-                              className="input-field min-h-12 pl-12"
-                            />
-                          </div>
-                          <button type="submit" disabled={submitting} className="btn-primary min-h-12 px-6">
-                            {submitting ? 'Joining…' : 'Join the waitlist'}
-                          </button>
-                        </form>
-                        {waitlistError && <p role="alert" className="mt-3 text-sm text-state-danger">{waitlistError}</p>}
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {!signupStatus && !statusError && (
-                  <div className="mt-6 flex items-center gap-3 rounded-section border border-line bg-raised/50 p-5 text-sm text-ink-muted" role="status">
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-line-strong border-t-accent" />
-                    Checking signup availability…
-                  </div>
-                )}
-
-                {statusError && (
-                  <div className="mt-6 rounded-section border border-state-warning/40 bg-state-warning/10 p-5">
-                    <p className="text-sm text-ink">We couldn&apos;t check signup availability.</p>
-                    <button type="button" onClick={loadSignupStatus} className="mt-3 text-sm font-semibold text-accent">
-                      Try again
-                    </button>
-                  </div>
-                )}
+                <div className="mt-6 rounded-section border border-accent/35 bg-accent/[.07] p-5">
+                  <p className="font-semibold text-ink">Create a free account</p>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    Start with “{meta.activationPrompt}”
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void openSignup()}
+                    className="btn-primary mt-4 inline-flex min-h-12 w-full items-center justify-center gap-2 px-6 sm:w-auto"
+                  >
+                    {meta.outcome}
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
               </>
             )}
 

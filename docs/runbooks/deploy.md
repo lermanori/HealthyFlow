@@ -255,7 +255,7 @@ git push heroku main
 2. **Frontend**: Should now work with real backend data
 3. **Try it without an account**: open `/demo` and start a persona session.
    `POST /auth/demo-session` issues a real JWT against seeded persona data and
-   creates nothing, so it is the safe smoke test while signup is gated.
+   creates nothing, so it is the safe smoke test that leaves no account behind.
 
 Do not rely on the old `demo@healthyflow.com` / `demo123` pair. That account is
 seeded only by the retired SQLite path and is treated as a legacy demo identity
@@ -269,8 +269,8 @@ in the code; the supported demo route is `/demo`.
   dead SQLite import side effect, not a sign the app is using SQLite.
 - **Environment Variables**: Verify all required env vars are set — see
   `backend/.env.example`
-- **Signup appears broken**: the Create-account tab **fails closed**. If the
-  signup-status call errors, or public slots are exhausted, the form is hidden
-  and the waitlist shows instead. Check `public_slots_open` before debugging the
-  form.
+- **Signup appears broken**: entry is open (ADR-0012), so no seat count or
+  waitlist can hide Create account. `signup-status` only supplies the
+  free-action figure; if it fails, that line is omitted and the form still
+  works. Debug `POST /api/auth/signup` and the backend log instead.
 - **Build Errors**: Check logs in your deployment platform

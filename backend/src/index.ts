@@ -25,7 +25,6 @@ import { oauthRoutes } from './routes/oauth'
 import { proactivityRoutes } from './routes/proactivity'
 import { accountRoutes } from './routes/account'
 import { daySummaryRoutes } from './routes/day-summary'
-import { waitlistRoutes } from './routes/waitlist'
 import { mobileRoutes } from './routes/mobile'
 import { goalRoutes } from './routes/goals'
 import { mailRoutes } from './routes/mail'
@@ -168,7 +167,6 @@ app.use('/mcp', mcpRoutes)
 app.use('/api/proactivity', proactivityRoutes)
 app.use('/api/account', accountRoutes)
 app.use('/api/day-summary', daySummaryRoutes)
-app.use('/api/waitlist', waitlistRoutes)
 app.use('/api/mobile', mobileRoutes)
 
 // Test-mode reset route — 404 in production, mounted only when HF_TEST_MODE=1

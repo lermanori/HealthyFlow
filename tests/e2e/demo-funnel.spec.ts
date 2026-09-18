@@ -132,29 +132,6 @@ test.describe('demo acquisition funnel', () => {
     )).toBe('noam')
   })
 
-  test('invite-only access joins the waitlist inline with attribution', async ({ page }) => {
-    let submitted: Record<string, unknown> | null = null
-    await page.route('**/api/auth/signup-status', route => route.fulfill({
-      json: { mode: 'waitlist', remaining: 0, offer: launchOffer },
-    }))
-    await page.route('**/api/waitlist', async route => {
-      submitted = route.request().postDataJSON()
-      await route.fulfill({ json: { joined: true } })
-    })
-
-    await page.goto('/app/demo?persona=lina&stage=finish&reason=closed&source=landing&utm_campaign=beta')
-    await page.locator('#demo-waitlist-email').fill('demo-funnel@example.com')
-    await page.getByRole('button', { name: 'Join the waitlist' }).click()
-
-    await expect(page.getByText("You're on the list.")).toBeVisible()
-    await expect(page).toHaveURL(/stage=finish/)
-    expect(submitted).toMatchObject({
-      email: 'demo-funnel@example.com',
-      source: 'demo-lina',
-      utmCampaign: 'beta',
-    })
-  })
-
   test('a signed-in user returns with the original session', async ({ page }) => {
     const unauthorizedRequests: string[] = []
     page.on('response', response => {
@@ -195,9 +172,6 @@ test.describe('demo acquisition funnel', () => {
 
   test('mobile proof reaches its CTA without an overlay or clipped controls', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 })
-    await page.route('**/api/auth/signup-status', route => route.fulfill({
-      json: { mode: 'waitlist', remaining: 0, offer: launchOffer },
-    }))
     await page.goto('/app/demo?persona=noam&stage=proof&source=landing')
     await page.reload()
 
@@ -210,14 +184,11 @@ test.describe('demo acquisition funnel', () => {
 
     await expect(page).toHaveURL(/persona=noam&stage=finish&reason=finished/)
     await expect(page.getByRole('heading', { name: 'Start with one manageable thing.' })).toBeVisible()
-    await expect(page.locator('#demo-waitlist-email')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Start with one manageable thing' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Try another day' })).toBeVisible()
   })
 
   test('Keep exploring and Try another day have explicit destinations', async ({ page }) => {
-    await page.route('**/api/auth/signup-status', route => route.fulfill({
-      json: { mode: 'open', remaining: 8, offer: launchOffer },
-    }))
     await page.goto('/app/demo?persona=noam&stage=finish&reason=finished&source=e2e')
 
     await page.getByRole('button', { name: 'Keep exploring the real demo' }).click()
