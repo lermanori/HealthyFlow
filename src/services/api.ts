@@ -48,6 +48,11 @@ import ContactMessageContracts, {
   type ContactMessage,
   type ContactMessageCreate,
 } from '../../backend/src/contact-message-contracts'
+import AdminOverviewContracts, {
+  type AdminOverview,
+  type BillingSettings,
+  type UsageTotals,
+} from '../../backend/src/admin-overview-contracts'
 import AdminUserContracts, {
   type AdminUserAuditEntry,
   type AdminUserDeletionPreview,
@@ -92,6 +97,7 @@ const {
   AdminUserDeletionResultSchema,
   ManagedUserSchema,
 } = AdminUserContracts
+const { AdminOverviewSchema, BillingSettingsSchema } = AdminOverviewContracts
 
 export type {
   Category,
@@ -362,72 +368,7 @@ export interface AnalyticsData {
   }
 }
 
-export interface BillingSettings {
-  appTokensPerUsd: number
-  markupRate: number
-  minMarkupTokens: number
-  updatedAt?: string | null
-}
-
-export interface TokenManagerUser {
-  id: string
-  email: string
-  name: string
-  role: 'admin' | 'user'
-  created_at: string
-  balance: number
-  subscription_balance: number
-  topup_balance: number
-  balance_updated_at: string | null
-  subscription: CreditSubscriptionState | null
-}
-
-export interface TokenManagerTotals {
-  requestCount: number
-  billedTokens: number
-  markupTokens: number
-  baseTokens: number
-  openAiCostUsd: number
-  promptTokens: number
-  completionTokens: number
-  totalOpenAiTokens: number
-}
-
-export interface TokenManagerActivity {
-  id: string
-  userId: string
-  userEmail: string | null
-  userName: string | null
-  endpoint: string | null
-  model: string | null
-  promptTokens: number
-  completionTokens: number
-  totalOpenAiTokens: number
-  openAiCostUsd: number
-  creditsDelta: number
-  billedTokens: number
-  reservedTokens: number | null
-  baseTokens: number
-  markupTokens: number
-  reason: string | null
-  estimated: boolean
-  balanceBefore: number | null
-  balanceAfter: number | null
-  createdAt: string
-}
-
-export interface TokenManagerOverview {
-  users: TokenManagerUser[]
-  settings: BillingSettings
-  subscriptionPricing: CreditSubscriptionPricing
-  totals: {
-    today: TokenManagerTotals
-    thisWeek: TokenManagerTotals
-    thisMonth: TokenManagerTotals
-  }
-  activity: TokenManagerActivity[]
-}
-
+export type { AdminOverview, UsageTotals }
 export type { AdminUserAuditEntry, AdminUserDeletionPreview, ManagedUser }
 
 export { ActionPriceSchema, CreditSubscriptionPricingSchema, CreditSummarySchema }
@@ -2081,9 +2022,9 @@ const addAchievementEntry = onDevice(
 )
 
 export const tokenManagerService = {
-  getOverview: async (): Promise<TokenManagerOverview> => {
+  getOverview: async (): Promise<AdminOverview> => {
     const response = await api.get('/admin/token-manager/overview')
-    return response.data
+    return AdminOverviewSchema.parse(response.data)
   },
 
   getContactMessages: async (status: 'pending' | 'handled' | 'all' = 'pending'): Promise<ContactMessage[]> => {
@@ -2118,7 +2059,7 @@ export const tokenManagerService = {
 
   updateSettings: async (settings: { markupRate: number; minMarkupTokens: number }): Promise<BillingSettings> => {
     const response = await api.patch('/admin/token-manager/settings', settings)
-    return response.data
+    return BillingSettingsSchema.parse(response.data)
   },
 
   getManagedUsers: async (): Promise<ManagedUser[]> => {

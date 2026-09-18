@@ -1,3 +1,14 @@
+### 2026-09-18 20:27 — `issue-294-honest-admin-reads`
+
+Admin reads now fail honestly and independently: a failed inbox read shows an
+error with retry instead of "no messages", a failed usage read no longer blanks
+the inbox and user management, and the pending badge counts pending messages
+under every filter. The overview response is a shared Zod contract parsed on
+both sides, and a new hermetic admin e2e spec (mocked admin session) covers
+these states for the remaining Admin slices (#291).
+
+---
+
 ### 2026-09-18 20:20 — `issue-293-guest-deletion`
 
 Deleting a test Guest now reports the success the server already achieved. The

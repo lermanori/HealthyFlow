@@ -75,15 +75,6 @@ describe('admin token-manager API', () => {
     mockCredits.getTokenManagerOverview.mockResolvedValue({
       users: [],
       settings: { appTokensPerUsd: 1000, markupRate: 0.25, minMarkupTokens: 5 },
-      subscriptionPricing: {
-        promoActive: true,
-        phase: 'promo',
-        priceUsd: 9,
-        topUpPriceUsd: 5,
-        topUpCredits: 300,
-        actionPrice: { text: 1, photo: 5, premium: 10 },
-        foundingMemberLimit: 100,
-      },
       totals: {
         today: {
           requestCount: 0,

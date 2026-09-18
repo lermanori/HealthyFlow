@@ -30,3 +30,21 @@ describe('admin user contracts', () => {
     expect(entry.targetUserId).toBe('guest-1')
   })
 })
+
+describe('admin overview contract', () => {
+  it('accepts a Guest billing account, who has no email', async () => {
+    const { AdminOverviewSchema } = (await import('../../src/admin-overview-contracts')).default
+    const totals = {
+      requestCount: 0, billedTokens: 0, markupTokens: 0, baseTokens: 0,
+      openAiCostUsd: 0, promptTokens: 0, completionTokens: 0, totalOpenAiTokens: 0,
+    }
+    const overview = AdminOverviewSchema.parse({
+      users: [{ id: 'guest-1', email: null, name: 'Guest', role: 'user', balance: 10, balance_updated_at: null }],
+      settings: { appTokensPerUsd: 1000, markupRate: 0.25, minMarkupTokens: 5 },
+      totals: { today: totals, thisWeek: totals, thisMonth: totals },
+      activity: [],
+    })
+
+    expect(overview.users[0].email).toBeNull()
+  })
+})

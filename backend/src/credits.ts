@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto'
 import { db } from './supabase-client'
 import type { TokenUsage } from './openai'
 import { z } from 'zod'
+import { AdminOverviewSchema, type AdminOverview } from './admin-overview-contracts'
 import {
   ActionPriceSchema,
   CreditSummarySchema,
@@ -1007,10 +1008,9 @@ export const Credits = {
     return { balance: newBalance, delta }
   },
 
-  async getTokenManagerOverview() {
+  async getTokenManagerOverview(): Promise<AdminOverview> {
     const users = await db.getUsersWithCreditBalances()
     const settings = await this.getBillingSettings()
-    const subscriptionPricing = await this.getSubscriptionPricing()
     const starts = rangeStarts()
     const [monthLogs, recentLogs] = await Promise.all([
       db.getUsageLogsSince(starts.thisMonth),
@@ -1047,16 +1047,15 @@ export const Credits = {
 
     const inRange = (since: string) => monthLogs.filter(log => new Date(log.created_at).getTime() >= new Date(since).getTime())
 
-    return {
+    return AdminOverviewSchema.parse({
       users,
       settings,
-      subscriptionPricing,
       totals: {
         today: summarizeLogs(inRange(starts.today), settings),
         thisWeek: summarizeLogs(inRange(starts.thisWeek), settings),
         thisMonth: summarizeLogs(monthLogs, settings),
       },
       activity: recentLogs.map(withUser),
-    }
+    })
   },
 }

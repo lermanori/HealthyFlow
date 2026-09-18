@@ -20,6 +20,7 @@ const apiPort = Number(process.env.HF_E2E_API_PORT ?? 3001)
 // do not touch the one durable Supabase test user, so they are the only ones safe
 // to run with more than one worker (see the workers: 1 note below).
 const HERMETIC = [
+  'admin',
   'assistant',
   'landing-free-v1',
   'module-presentation',
@@ -45,6 +46,7 @@ const SUBJECTS: Record<string, readonly string[]> = {
   week: ['week-view', 'week-theme-visual'],
   platform: ['phase0-reliability', 'settings-founders-club', 'cloud-status-notifications', 'landing-free-v1'],
   visual: ['responsive-visual-system'],
+  admin: ['admin'],
 }
 
 const subjectProjects = Object.entries(SUBJECTS).map(([name, specs]) => ({

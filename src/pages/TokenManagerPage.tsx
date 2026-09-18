@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Coins, Loader2, Mail, RotateCcw, Save, Settings, UserCog, Activity } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { tokenManagerService, TokenManagerTotals } from '../services/api'
+import { tokenManagerService, type UsageTotals } from '../services/api'
 import UserManagementPanel from '../components/admin/UserManagementPanel'
 
 type RangeKey = 'today' | 'thisWeek' | 'thisMonth'
@@ -37,7 +37,7 @@ function formatDate(value: string | null | undefined) {
   }).format(new Date(value))
 }
 
-function SummaryCards({ totals }: { totals: TokenManagerTotals }) {
+function SummaryCards({ totals }: { totals: UsageTotals }) {
   const cards = [
     ['Requests', totals.requestCount],
     ['OpenAI cost', totals.openAiCostUsd],
@@ -76,9 +76,15 @@ export default function TokenManagerPage() {
     queryKey: ['token-manager-contact-messages', contactStatus],
     queryFn: () => tokenManagerService.getContactMessages(contactStatus),
   })
+  // Its own read, so the badge counts pending messages whichever filter is open.
+  const pendingMessagesQuery = useQuery({
+    queryKey: ['token-manager-contact-messages', 'pending'],
+    queryFn: () => tokenManagerService.getContactMessages('pending'),
+  })
 
   const overview = overviewQuery.data
   const contactMessages = contactMessagesQuery.data ?? []
+  const pendingCount = pendingMessagesQuery.data?.length
 
   useEffect(() => {
     if (!overview) return
@@ -140,22 +146,6 @@ export default function TokenManagerPage() {
     settingsMutation.mutate()
   }
 
-  if (overviewQuery.isLoading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-8 h-8 animate-spin text-accent" />
-      </div>
-    )
-  }
-
-  if (overviewQuery.isError || !overview || !totals) {
-    return (
-      <div className="card">
-        <p className="text-sm text-state-danger">Failed to load token manager.</p>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-6 pb-28 md:pb-0">
       <div className="flex items-center space-x-3">
@@ -165,105 +155,20 @@ export default function TokenManagerPage() {
         <h1 className="text-2xl font-bold text-ink neon-text">Token Manager</h1>
       </div>
 
-      <div className="card space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center space-x-3">
-            <Activity className="w-5 h-5 text-accent" />
-            <h2 className="text-lg font-semibold text-ink">Usage Totals</h2>
-          </div>
-          <div className="flex rounded-lg border border-line/70 bg-page/80 p-1">
-            {(Object.keys(rangeLabels) as RangeKey[]).map(range => (
-              <button
-                key={range}
-                onClick={() => setSelectedRange(range)}
-                className={`px-3 py-2 text-sm rounded-md transition-colors ${
-                  selectedRange === range
-                    ? 'bg-accent/20 text-accent'
-                    : 'text-ink-muted hover:text-ink-soft'
-                }`}
-              >
-                {rangeLabels[range]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <SummaryCards totals={totals} />
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-          <div className="rounded-lg border border-line/50 bg-page/70 p-3">
-            <span className="text-ink-muted">Markup app tokens</span>
-            <p className="text-lg font-semibold text-ink">{formatNumber(totals.markupTokens)}</p>
-          </div>
-          <div className="rounded-lg border border-line/50 bg-page/70 p-3">
-            <span className="text-ink-muted">OpenAI prompt tokens</span>
-            <p className="text-lg font-semibold text-ink">{formatNumber(totals.promptTokens)}</p>
-          </div>
-          <div className="rounded-lg border border-line/50 bg-page/70 p-3">
-            <span className="text-ink-muted">OpenAI completion tokens</span>
-            <p className="text-lg font-semibold text-ink">{formatNumber(totals.completionTokens)}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="card">
-        <div className="flex items-center space-x-3 mb-4">
-          <Settings className="w-5 h-5 text-accent" />
-          <h2 className="text-lg font-semibold text-ink">Billing Settings</h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-ink-soft mb-1">App tokens per $1</label>
-            <input className="input-field" value={overview.settings.appTokensPerUsd} readOnly />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-ink-soft mb-1">Markup percent</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              className="input-field"
-              value={markupPercent}
-              onChange={(event) => setMarkupPercent(event.target.value)}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-ink-soft mb-1">Minimum markup</label>
-            <input
-              type="number"
-              min="0"
-              step="1"
-              className="input-field"
-              value={minMarkupTokens}
-              onChange={(event) => setMinMarkupTokens(event.target.value)}
-            />
-          </div>
-          <div className="flex items-end">
-            <button
-              onClick={saveSettings}
-              disabled={settingsMutation.isPending}
-              className="btn-primary w-full flex items-center justify-center space-x-2"
-            >
-              {settingsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              <span>Save</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <UserManagementPanel />
-
       <div className="card">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center space-x-3">
             <Mail className="w-5 h-5 text-accent" />
             <h2 className="text-lg font-semibold text-ink">Admin Inbox</h2>
-            {contactMessages.some(message => message.status === 'pending') && (
-              <span className="rounded-full bg-accent/20 px-2 py-1 text-xs font-medium text-accent">
-                {contactMessages.filter(message => message.status === 'pending').length} pending
+            {pendingMessagesQuery.isError ? (
+              <span className="rounded-full bg-state-danger/15 px-2 py-1 text-xs font-medium text-state-danger">
+                Pending count unavailable
               </span>
-            )}
+            ) : pendingCount ? (
+              <span className="rounded-full bg-accent/20 px-2 py-1 text-xs font-medium text-accent">
+                {pendingCount} pending
+              </span>
+            ) : null}
           </div>
           <div className="flex rounded-lg border border-line/70 bg-page/80 p-1">
             {(['pending', 'handled', 'all'] as ContactStatusFilter[]).map(status => (
@@ -286,6 +191,13 @@ export default function TokenManagerPage() {
           <div className="flex items-center gap-2 text-sm text-ink-muted">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading messages...
+          </div>
+        ) : contactMessagesQuery.isError ? (
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <p className="text-state-danger">Could not load messages.</p>
+            <button type="button" aria-label="Retry loading messages" onClick={() => void contactMessagesQuery.refetch()} className="btn-secondary text-sm">
+              Retry
+            </button>
           </div>
         ) : contactMessages.length === 0 ? (
           <p className="text-sm text-ink-muted">No {contactStatus === 'all' ? '' : contactStatus} in-app messages.</p>
@@ -348,119 +260,224 @@ export default function TokenManagerPage() {
         )}
       </div>
 
-      <div className="card">
-        <div className="flex items-center space-x-3 mb-4">
-          <UserCog className="w-5 h-5 text-accent" />
-          <h2 className="text-lg font-semibold text-ink">Billing Accounts</h2>
-        </div>
+      <UserManagementPanel />
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-ink-muted">
-                <th className="py-3 pr-4 font-medium">User</th>
-                <th className="py-3 pr-4 font-medium">Role</th>
-                <th className="py-3 pr-4 font-medium">Balance</th>
-                <th className="py-3 pr-4 font-medium">Entitlement</th>
-                <th className="py-3 pr-4 font-medium">Founders grant</th>
-                <th className="py-3 pr-4 font-medium">Updated</th>
-                <th className="py-3 font-medium">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {overview.users.map(user => (
-                <tr key={user.id} className="border-b border-card/80">
-                  <td className="py-3 pr-4">
-                    <p className="font-medium text-ink">{user.name}</p>
-                    <p className="text-xs text-ink-muted">{user.email}</p>
-                  </td>
-                  <td className="py-3 pr-4 text-ink-soft">{user.role}</td>
-                  <td className="py-3 pr-4">
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      className="input-field w-32"
-                      value={balanceDrafts[user.id] ?? '0'}
-                      onChange={(event) => setBalanceDrafts(prev => ({ ...prev, [user.id]: event.target.value }))}
-                    />
-                  </td>
-                  <td className="py-3 pr-4">
-                    <div className="space-y-2">
-                      <p className="text-xs text-ink-muted">
-                        Free v1
-                      </p>
-                      <p className="text-xs text-ink-muted">
-                        {formatNumber(user.balance)} AI actions available
-                      </p>
-                    </div>
-                  </td>
-                  <td className="py-3 pr-4">
-                    <span className="text-xs text-ink-muted">Use balance to grant free actions</span>
-                  </td>
-                  <td className="py-3 pr-4 text-ink-muted">{formatDate(user.balance_updated_at)}</td>
-                  <td className="py-3">
-                    <button
-                      onClick={() => saveBalance(user.id)}
-                      disabled={setBalanceMutation.isPending}
-                      className="btn-secondary text-sm flex items-center space-x-2"
-                    >
-                      <Save className="w-4 h-4" />
-                      <span>Set</span>
-                    </button>
-                  </td>
-                </tr>
+      {overviewQuery.isLoading ? (
+        <div className="card flex items-center gap-2 text-sm text-ink-muted">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading usage and balances…
+        </div>
+      ) : overviewQuery.isError || !overview || !totals ? (
+        <div className="card flex flex-wrap items-center gap-3 text-sm">
+          <p className="text-state-danger">Could not load usage and balances.</p>
+          <button type="button" aria-label="Retry loading usage and balances" onClick={() => void overviewQuery.refetch()} className="btn-secondary text-sm">
+            Retry
+          </button>
+        </div>
+      ) : (
+        <>
+        <div className="card space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center space-x-3">
+              <Activity className="w-5 h-5 text-accent" />
+              <h2 className="text-lg font-semibold text-ink">Usage Totals</h2>
+            </div>
+            <div className="flex rounded-lg border border-line/70 bg-page/80 p-1">
+              {(Object.keys(rangeLabels) as RangeKey[]).map(range => (
+                <button
+                  key={range}
+                  onClick={() => setSelectedRange(range)}
+                  className={`px-3 py-2 text-sm rounded-md transition-colors ${
+                    selectedRange === range
+                      ? 'bg-accent/20 text-accent'
+                      : 'text-ink-muted hover:text-ink-soft'
+                  }`}
+                >
+                  {rangeLabels[range]}
+                </button>
               ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            </div>
+          </div>
 
-      <div className="card">
-        <div className="flex items-center space-x-3 mb-4">
-          <Activity className="w-5 h-5 text-accent" />
-          <h2 className="text-lg font-semibold text-ink">Activity Log</h2>
+          <SummaryCards totals={totals} />
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+            <div className="rounded-lg border border-line/50 bg-page/70 p-3">
+              <span className="text-ink-muted">Markup app tokens</span>
+              <p className="text-lg font-semibold text-ink">{formatNumber(totals.markupTokens)}</p>
+            </div>
+            <div className="rounded-lg border border-line/50 bg-page/70 p-3">
+              <span className="text-ink-muted">OpenAI prompt tokens</span>
+              <p className="text-lg font-semibold text-ink">{formatNumber(totals.promptTokens)}</p>
+            </div>
+            <div className="rounded-lg border border-line/50 bg-page/70 p-3">
+              <span className="text-ink-muted">OpenAI completion tokens</span>
+              <p className="text-lg font-semibold text-ink">{formatNumber(totals.completionTokens)}</p>
+            </div>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead>
-              <tr className="border-b border-line text-left text-ink-muted">
-                <th className="py-3 pr-4 font-medium">Time</th>
-                <th className="py-3 pr-4 font-medium">User</th>
-                <th className="py-3 pr-4 font-medium">Request</th>
-                <th className="py-3 pr-4 font-medium">OpenAI cost</th>
-                <th className="py-3 pr-4 font-medium">Raw tokens</th>
-                <th className="py-3 pr-4 font-medium">Base</th>
-                <th className="py-3 pr-4 font-medium">Markup</th>
-                <th className="py-3 pr-4 font-medium">Charged</th>
-                <th className="py-3 font-medium">Reason</th>
-              </tr>
-            </thead>
-            <tbody>
-              {overview.activity.map(row => (
-                <tr key={row.id} className="border-b border-card/80 text-ink-soft">
-                  <td className="py-3 pr-4 whitespace-nowrap">{formatDate(row.createdAt)}</td>
-                  <td className="py-3 pr-4">
-                    <p className="text-ink">{row.userName ?? '-'}</p>
-                    <p className="text-xs text-ink-muted">{row.userEmail ?? row.userId}</p>
-                  </td>
-                  <td className="py-3 pr-4">
-                    <p>{row.endpoint ?? '-'}</p>
-                    <p className="text-xs text-ink-muted">{row.model ?? '-'}</p>
-                  </td>
-                  <td className="py-3 pr-4">{formatUsd(row.openAiCostUsd)}</td>
-                  <td className="py-3 pr-4">{formatNumber(row.totalOpenAiTokens)}</td>
-                  <td className="py-3 pr-4">{formatNumber(row.baseTokens)}</td>
-                  <td className="py-3 pr-4">{formatNumber(row.markupTokens)}</td>
-                  <td className="py-3 pr-4">{formatNumber(row.billedTokens)}</td>
-                  <td className="py-3">{row.reason ?? '-'}</td>
+        <div className="card">
+          <div className="flex items-center space-x-3 mb-4">
+            <Settings className="w-5 h-5 text-accent" />
+            <h2 className="text-lg font-semibold text-ink">Billing Settings</h2>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-ink-soft mb-1">App tokens per $1</label>
+              <input className="input-field" value={overview.settings.appTokensPerUsd} readOnly />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ink-soft mb-1">Markup percent</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                className="input-field"
+                value={markupPercent}
+                onChange={(event) => setMarkupPercent(event.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-ink-soft mb-1">Minimum markup</label>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                className="input-field"
+                value={minMarkupTokens}
+                onChange={(event) => setMinMarkupTokens(event.target.value)}
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={saveSettings}
+                disabled={settingsMutation.isPending}
+                className="btn-primary w-full flex items-center justify-center space-x-2"
+              >
+                {settingsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>Save</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="flex items-center space-x-3 mb-4">
+            <UserCog className="w-5 h-5 text-accent" />
+            <h2 className="text-lg font-semibold text-ink">Billing Accounts</h2>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-ink-muted">
+                  <th className="py-3 pr-4 font-medium">User</th>
+                  <th className="py-3 pr-4 font-medium">Role</th>
+                  <th className="py-3 pr-4 font-medium">Balance</th>
+                  <th className="py-3 pr-4 font-medium">Entitlement</th>
+                  <th className="py-3 pr-4 font-medium">Founders grant</th>
+                  <th className="py-3 pr-4 font-medium">Updated</th>
+                  <th className="py-3 font-medium">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {overview.users.map(user => (
+                  <tr key={user.id} className="border-b border-card/80">
+                    <td className="py-3 pr-4">
+                      <p className="font-medium text-ink">{user.name}</p>
+                      <p className="text-xs text-ink-muted">{user.email}</p>
+                    </td>
+                    <td className="py-3 pr-4 text-ink-soft">{user.role}</td>
+                    <td className="py-3 pr-4">
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        className="input-field w-32"
+                        value={balanceDrafts[user.id] ?? '0'}
+                        onChange={(event) => setBalanceDrafts(prev => ({ ...prev, [user.id]: event.target.value }))}
+                      />
+                    </td>
+                    <td className="py-3 pr-4">
+                      <div className="space-y-2">
+                        <p className="text-xs text-ink-muted">
+                          Free v1
+                        </p>
+                        <p className="text-xs text-ink-muted">
+                          {formatNumber(user.balance)} AI actions available
+                        </p>
+                      </div>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <span className="text-xs text-ink-muted">Use balance to grant free actions</span>
+                    </td>
+                    <td className="py-3 pr-4 text-ink-muted">{formatDate(user.balance_updated_at)}</td>
+                    <td className="py-3">
+                      <button
+                        onClick={() => saveBalance(user.id)}
+                        disabled={setBalanceMutation.isPending}
+                        className="btn-secondary text-sm flex items-center space-x-2"
+                      >
+                        <Save className="w-4 h-4" />
+                        <span>Set</span>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+
+        <div className="card">
+          <div className="flex items-center space-x-3 mb-4">
+            <Activity className="w-5 h-5 text-accent" />
+            <h2 className="text-lg font-semibold text-ink">Activity Log</h2>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-ink-muted">
+                  <th className="py-3 pr-4 font-medium">Time</th>
+                  <th className="py-3 pr-4 font-medium">User</th>
+                  <th className="py-3 pr-4 font-medium">Request</th>
+                  <th className="py-3 pr-4 font-medium">OpenAI cost</th>
+                  <th className="py-3 pr-4 font-medium">Raw tokens</th>
+                  <th className="py-3 pr-4 font-medium">Base</th>
+                  <th className="py-3 pr-4 font-medium">Markup</th>
+                  <th className="py-3 pr-4 font-medium">Charged</th>
+                  <th className="py-3 font-medium">Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {overview.activity.map(row => (
+                  <tr key={row.id} className="border-b border-card/80 text-ink-soft">
+                    <td className="py-3 pr-4 whitespace-nowrap">{formatDate(row.createdAt)}</td>
+                    <td className="py-3 pr-4">
+                      <p className="text-ink">{row.userName ?? '-'}</p>
+                      <p className="text-xs text-ink-muted">{row.userEmail ?? row.userId}</p>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <p>{row.endpoint ?? '-'}</p>
+                      <p className="text-xs text-ink-muted">{row.model ?? '-'}</p>
+                    </td>
+                    <td className="py-3 pr-4">{formatUsd(row.openAiCostUsd)}</td>
+                    <td className="py-3 pr-4">{formatNumber(row.totalOpenAiTokens)}</td>
+                    <td className="py-3 pr-4">{formatNumber(row.baseTokens)}</td>
+                    <td className="py-3 pr-4">{formatNumber(row.markupTokens)}</td>
+                    <td className="py-3 pr-4">{formatNumber(row.billedTokens)}</td>
+                    <td className="py-3">{row.reason ?? '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        </>
+      )}
     </div>
   )
 }
