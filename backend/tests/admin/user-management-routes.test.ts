@@ -189,8 +189,6 @@ describe('admin user-management routes', () => {
         id: 'user-1',
         email: 'test@example.com',
         warnings: [],
-        waitlistEntriesDeleted: 1,
-        publicSignupSeatsReleased: 1,
       }],
       failures: [],
     })
@@ -212,6 +210,7 @@ describe('admin user-management routes', () => {
       id: 'audit-1',
       actorEmail: 'admin@example.com',
       targetEmail: 'test@example.com',
+      targetUserId: 'user-1',
       action: 'marked_test',
       details: {},
       createdAt: '2026-07-29T00:00:00.000Z',

@@ -1,5 +1,18 @@
 import { z } from 'zod'
 import { db, supabase } from './supabase-client'
+import {
+  AdminUserAuditEntrySchema,
+  AdminUserDeletionCountsSchema,
+  AdminUserDeletionPreviewSchema,
+  AdminUserDeletionResultSchema,
+  AdminUserDeletionTargetSchema,
+  AdminUserProtectionSchema,
+  ManagedUserSchema,
+  type AdminUserAuditEntry,
+  type AdminUserDeletionPreview,
+  type AdminUserDeletionResult,
+  type ManagedUser,
+} from './admin-user-contracts'
 
 const ExportRowSchema = z.record(z.string(), z.unknown())
 const ExportRowsSchema = z.array(ExportRowSchema)
@@ -169,12 +182,6 @@ export async function getAccountCredentials(userId: string) {
   return data
 }
 
-const AdminUserProtectionSchema = z.enum([
-  'current_admin',
-  'administrator',
-  'demo_account',
-  'test_fixture',
-])
 const AdminUserActionSchema = z.enum(['mark_test', 'mark_live', 'disable', 'enable'])
 
 export const AdminUserBatchActionInputSchema = z.object({
@@ -193,23 +200,6 @@ export const AdminUserDeletionPreviewInputSchema = AdminUserDeletionInputSchema.
   userIds: true,
 })
 
-export const ManagedUserSchema = z.object({
-  id: z.string(),
-  // Null for a Guest: an account with no email, not a missing value.
-  email: z.string().email().nullable(),
-  name: z.string(),
-  role: z.enum(['admin', 'user']),
-  signupMethod: z.enum(['password', 'google', 'apple', 'guest']),
-  createdAt: z.string(),
-  lastLoginAt: z.string().nullable(),
-  disabledAt: z.string().nullable(),
-  isTest: z.boolean(),
-  balance: z.number().int().nonnegative(),
-  subscriptionActive: z.boolean(),
-  protection: AdminUserProtectionSchema.nullable(),
-})
-export type ManagedUser = z.infer<typeof ManagedUserSchema>
-
 /**
  * Turning Cloud on or off for one account (#268, ADR-0012).
  *
@@ -222,62 +212,6 @@ export const SetCloudAccessSchema = z.object({
   active: z.boolean(),
 })
 export type SetCloudAccessInput = z.infer<typeof SetCloudAccessSchema>
-
-export const AdminUserDeletionCountsSchema = z.object({
-  items: z.number().int().nonnegative(),
-  health: z.number().int().nonnegative(),
-  calendar: z.number().int().nonnegative(),
-  assistant: z.number().int().nonnegative(),
-  billing: z.number().int().nonnegative(),
-  account: z.number().int().nonnegative(),
-  waitlist: z.number().int().nonnegative(),
-  total: z.number().int().nonnegative(),
-})
-export type AdminUserDeletionCounts = z.infer<typeof AdminUserDeletionCountsSchema>
-
-export const AdminUserDeletionTargetSchema = z.object({
-  id: z.string(),
-  email: z.string().email().nullable(),
-  name: z.string(),
-  isTest: z.boolean(),
-  subscriptionActive: z.boolean(),
-  protection: AdminUserProtectionSchema.nullable(),
-  blockers: z.array(z.enum([
-    'current_admin',
-    'administrator',
-    'demo_account',
-    'test_fixture',
-    'not_test',
-    'active_subscription',
-  ])),
-  counts: AdminUserDeletionCountsSchema,
-})
-
-export const AdminUserDeletionPreviewSchema = z.object({
-  canDelete: z.boolean(),
-  confirmationPhrase: z.string().nullable(),
-  totalRecords: z.number().int().nonnegative(),
-  users: z.array(AdminUserDeletionTargetSchema),
-})
-export type AdminUserDeletionPreview = z.infer<typeof AdminUserDeletionPreviewSchema>
-
-export const AdminUserAuditEntrySchema = z.object({
-  id: z.string(),
-  actorEmail: z.string().email(),
-  targetEmail: z.string().email().nullable(),
-  action: z.enum([
-    'marked_test',
-    'marked_live',
-    'disabled',
-    'enabled',
-    'delete_requested',
-    'delete_completed',
-    'delete_auth_cleanup_failed',
-  ]),
-  details: z.record(z.string(), z.unknown()),
-  createdAt: z.string(),
-})
-export type AdminUserAuditEntry = z.infer<typeof AdminUserAuditEntrySchema>
 
 type AdminUserRow = {
   id: string
@@ -560,7 +494,7 @@ export async function previewAdminUserDeletion(
 export async function deleteManagedTestUsers(
   actorId: string,
   input: AdminUserDeletionInput,
-) {
+): Promise<AdminUserDeletionResult> {
   const preview = await previewAdminUserDeletion(actorId, input.userIds)
   if (!preview.canDelete || !preview.confirmationPhrase) {
     throw new AdminUserControlError(
@@ -631,14 +565,14 @@ export async function deleteManagedTestUsers(
     }
   }
 
-  return { deleted, failures }
+  return AdminUserDeletionResultSchema.parse({ deleted, failures })
 }
 
 export async function listAdminUserAudit(actorId: string): Promise<AdminUserAuditEntry[]> {
   await requireAdminActor(actorId)
   const { data, error } = await supabase
     .from('admin_user_audit_log')
-    .select('id, actor_email, target_email, action, details, created_at')
+    .select('id, actor_email, target_email, target_user_id, action, details, created_at')
     .order('created_at', { ascending: false })
     .limit(50)
   if (error) throw error
@@ -646,6 +580,7 @@ export async function listAdminUserAudit(actorId: string): Promise<AdminUserAudi
     id: row.id,
     actorEmail: row.actor_email,
     targetEmail: row.target_email,
+    targetUserId: row.target_user_id ?? null,
     action: row.action,
     details: row.details ?? {},
     createdAt: row.created_at,

@@ -57,6 +57,12 @@ function formatDate(value: string | null) {
   }).format(new Date(value))
 }
 
+// A Guest has no email. The id is the only thing that tells one from another,
+// and a deleted Guest's entry may no longer carry even that.
+function guestLabel(userId: string | null) {
+  return userId ? `Guest ${userId.slice(0, 8)}` : 'Guest'
+}
+
 function requestMessage(error: unknown, fallback: string) {
   return axios.isAxiosError<{ error?: string }>(error)
     ? error.response?.data?.error ?? fallback
@@ -511,7 +517,7 @@ export default function UserManagementPanel() {
                   <p className="text-ink-soft">
                     <span className="font-medium text-ink">{entry.actorEmail}</span>
                     {' · '}{entry.action.replace(/_/g, ' ')}
-                    {' · '}{entry.targetEmail}
+                    {' · '}{entry.targetEmail ?? guestLabel(entry.targetUserId)}
                   </p>
                   <time className="text-ink-muted">{formatDate(entry.createdAt)}</time>
                 </div>

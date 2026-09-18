@@ -48,6 +48,12 @@ import ContactMessageContracts, {
   type ContactMessage,
   type ContactMessageCreate,
 } from '../../backend/src/contact-message-contracts'
+import AdminUserContracts, {
+  type AdminUserAuditEntry,
+  type AdminUserDeletionPreview,
+  type AdminUserDeletionResult,
+  type ManagedUser,
+} from '../../backend/src/admin-user-contracts'
 import type { WorkoutPlanTalkHandoff } from '../../backend/src/talk-handoff-schema'
 import type { SyncDelta, SyncIncoming } from '../lib/local/sync'
 import {
@@ -80,6 +86,12 @@ const {
   ReadableCreditSummarySchema,
 } = CreditContracts
 const { ContactMessageSchema, ContactMessageListSchema } = ContactMessageContracts
+const {
+  AdminUserAuditEntrySchema,
+  AdminUserDeletionPreviewSchema,
+  AdminUserDeletionResultSchema,
+  ManagedUserSchema,
+} = AdminUserContracts
 
 export type {
   Category,
@@ -416,75 +428,7 @@ export interface TokenManagerOverview {
   activity: TokenManagerActivity[]
 }
 
-export const ManagedUserSchema = z.object({
-  id: z.string(),
-  // Null for a Guest: an account with no email, not a missing value.
-  email: z.string().email().nullable(),
-  name: z.string(),
-  role: z.enum(['admin', 'user']),
-  signupMethod: z.enum(['password', 'google', 'apple', 'guest']),
-  createdAt: z.string(),
-  lastLoginAt: z.string().nullable(),
-  disabledAt: z.string().nullable(),
-  isTest: z.boolean(),
-  balance: z.number().int().nonnegative(),
-  subscriptionActive: z.boolean(),
-  protection: z.enum(['current_admin', 'administrator', 'demo_account', 'test_fixture']).nullable(),
-})
-export type ManagedUser = z.infer<typeof ManagedUserSchema>
-
-export const AdminUserDeletionCountsSchema = z.object({
-  items: z.number().int().nonnegative(),
-  health: z.number().int().nonnegative(),
-  calendar: z.number().int().nonnegative(),
-  assistant: z.number().int().nonnegative(),
-  billing: z.number().int().nonnegative(),
-  account: z.number().int().nonnegative(),
-  waitlist: z.number().int().nonnegative(),
-  total: z.number().int().nonnegative(),
-})
-
-export const AdminUserDeletionPreviewSchema = z.object({
-  canDelete: z.boolean(),
-  confirmationPhrase: z.string().nullable(),
-  totalRecords: z.number().int().nonnegative(),
-  users: z.array(z.object({
-    id: z.string(),
-    email: z.string().email().nullable(),
-    name: z.string(),
-    isTest: z.boolean(),
-    subscriptionActive: z.boolean(),
-    protection: z.enum(['current_admin', 'administrator', 'demo_account', 'test_fixture']).nullable(),
-    blockers: z.array(z.enum([
-      'current_admin',
-      'administrator',
-      'demo_account',
-      'test_fixture',
-      'not_test',
-      'active_subscription',
-    ])),
-    counts: AdminUserDeletionCountsSchema,
-  })),
-})
-export type AdminUserDeletionPreview = z.infer<typeof AdminUserDeletionPreviewSchema>
-
-export const AdminUserAuditEntrySchema = z.object({
-  id: z.string(),
-  actorEmail: z.string().email(),
-  targetEmail: z.string().email().nullable(),
-  action: z.enum([
-    'marked_test',
-    'marked_live',
-    'disabled',
-    'enabled',
-    'delete_requested',
-    'delete_completed',
-    'delete_auth_cleanup_failed',
-  ]),
-  details: z.record(z.string(), z.unknown()),
-  createdAt: z.string(),
-})
-export type AdminUserAuditEntry = z.infer<typeof AdminUserAuditEntrySchema>
+export type { AdminUserAuditEntry, AdminUserDeletionPreview, ManagedUser }
 
 export { ActionPriceSchema, CreditSubscriptionPricingSchema, CreditSummarySchema }
 
@@ -2198,29 +2142,11 @@ export const tokenManagerService = {
   deleteManagedUsers: async (
     userIds: string[],
     confirmation: string,
-  ): Promise<{
-    deleted: Array<{
-      id: string
-      email: string
-      warnings: string[]
-    }>
-    failures: Array<{ id: string; email: string; error: string }>
-  }> => {
+  ): Promise<AdminUserDeletionResult> => {
     const response = await api.delete('/admin/users', {
       data: { userIds, confirmation },
     })
-    return z.object({
-      deleted: z.array(z.object({
-        id: z.string(),
-        email: z.string().email(),
-        warnings: z.array(z.string()),
-      })),
-      failures: z.array(z.object({
-        id: z.string(),
-        email: z.string().email(),
-        error: z.string(),
-      })),
-    }).parse(response.data)
+    return AdminUserDeletionResultSchema.parse(response.data)
   },
 
   getManagedUserAudit: async (): Promise<AdminUserAuditEntry[]> => {

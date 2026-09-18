@@ -1,3 +1,13 @@
+### 2026-09-18 20:20 — `issue-293-guest-deletion`
+
+Deleting a test Guest now reports the success the server already achieved. The
+admin user contracts (list, deletion preview and result, audit entry) moved into
+one shared Zod module read by both server and client, removing the client copy
+that had drifted to require an email; Guest audit targets read "Guest <id>"
+instead of a blank. Second Admin slice (#291); suites, typechecks and build pass.
+
+---
+
 ### 2026-09-18 20:16 — `issue-292-open-signup`
 
 Opened account creation as ADR-0012 decided: email signup and first-time Google
