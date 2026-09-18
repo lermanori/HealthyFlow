@@ -1284,13 +1284,11 @@ export const db = {
    * bill nobody authorised. Reads cost_usd, which is dollars — never credits.
    */
   async sumAiCostUsdSince(sinceIso: string): Promise<number> {
-    const { data, error } = await supabase
-      .from('ai_usage_log')
-      .select('cost_usd')
-      .gte('created_at', sinceIso)
-      .not('cost_usd', 'is', null)
+    // One aggregate in the database: fetching rows stopped at the API's row
+    // limit, and the ceiling would stop counting with it (#296).
+    const { data, error } = await supabase.rpc('sum_ai_cost_usd_since', { p_since: sinceIso })
     if (error) throw error
-    return (data ?? []).reduce((sum: number, row: any) => sum + Number(row.cost_usd ?? 0), 0)
+    return z.coerce.number().parse(data)
   },
 
   /**

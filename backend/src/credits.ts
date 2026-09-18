@@ -491,6 +491,15 @@ function rangeStarts(now = new Date()) {
   }
 }
 
+/**
+ * Midnight UTC of the current day. The daily guards count the UTC day, as
+ * ADR-0023 and the cost-guards runbook state; server-local midnight moved
+ * the boundary with whatever timezone the host happened to run in (#296).
+ */
+function utcDayStart(now = new Date()) {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString()
+}
+
 function emptyTotals() {
   return {
     requestCount: 0,
@@ -726,7 +735,8 @@ export const Credits = {
       throw error
     }
 
-    const spentToday = await db.sumAiCostUsdSince(rangeStarts().today)
+    const dayStart = utcDayStart()
+    const spentToday = await db.sumAiCostUsdSince(dayStart)
     if (spentToday >= GLOBAL_DAILY_COST_CEILING_USD) {
       console.error(
         `AI refused: global daily ceiling reached ($${spentToday.toFixed(2)} of ` +
@@ -735,7 +745,7 @@ export const Credits = {
       return { ok: false, code: 'global_ceiling' }
     }
 
-    const actionsToday = await db.countUserActionsSince(userId, rangeStarts().today)
+    const actionsToday = await db.countUserActionsSince(userId, dayStart)
     if (actionsToday >= FREE_DAILY_ACTION_CAP) {
       return { ok: false, code: 'account_daily_cap' }
     }

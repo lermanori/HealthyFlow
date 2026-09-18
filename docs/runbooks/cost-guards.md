@@ -41,6 +41,11 @@ each returns its own refusal code so the app can say what actually happened.
 | Cloud photo cap | `SUB_PHOTO_MONTHLY_CAP` | **100**/month | The expensive class, on the tier that does not meter. |
 | Cloud premium cap | `SUB_PREMIUM_MONTHLY_CAP` | **50**/month | Same, for the 63×-cost model tier. |
 
+The ceiling's total is one database aggregate, `sum_ai_cost_usd_since`
+(migration `20260918120000`), counted from UTC midnight. **Apply that migration
+before deploying a backend that calls it:** without the function every AI action
+is refused as billing unavailable — the guard fails closed, never open.
+
 **The arithmetic these are chosen against:**
 
 - One account at its daily cap, all premium: 200 × $0.0195 = **$3.90** — well under

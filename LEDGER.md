@@ -1,3 +1,14 @@
+### 2026-09-18 20:38 — `issue-296-ceiling-sums-every-row`
+
+The $25 global spending ceiling now sums the day's recorded cost as one database
+aggregate (`sum_ai_cost_usd_since`) instead of adding up fetched rows, which
+stopped at the 1,000-row read limit; both daily guards count from UTC midnight
+regardless of the server's timezone. Verified on a throwaway Postgres (2,500
+rows sum exactly). The migration must be applied before this backend deploys,
+or AI is refused as billing unavailable.
+
+---
+
 ### 2026-09-18 20:34 — `issue-295-record-failed-call-cost`
 
 Every OpenAI call now records what it cost, including failed actions that are
