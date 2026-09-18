@@ -180,7 +180,11 @@ describe('Credits.refundAction', () => {
     mockDb.grantCredits.mockResolvedValue(10)
     mockDb.insertUsageLog.mockResolvedValue(undefined)
 
-    await Credits.refundAction('user-1', charged, 'refund_failed_call')
+    await Credits.refundAction('user-1', charged, 'refund_failed_call', {
+      endpoint: 'parse-meals',
+      model: 'gpt-4o-mini',
+      usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
+    })
 
     expect(mockDb.grantCredits).toHaveBeenCalledWith('user-1', 5)
     // The audit row is 0-delta so SUM(credits_delta) stays equal to the real
@@ -196,7 +200,8 @@ describe('Credits.refundAction', () => {
     await Credits.refundAction(
       'user-1',
       { ...charged, charged: 0, coveredBy: 'entitlement' },
-      'refund_failed_call'
+      'refund_failed_call',
+      { endpoint: 'parse-meals', model: 'gpt-4o-mini', usage: null },
     )
 
     expect(mockDb.grantCredits).not.toHaveBeenCalled()

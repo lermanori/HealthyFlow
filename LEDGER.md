@@ -1,3 +1,14 @@
+### 2026-09-18 20:34 — `issue-295-record-failed-call-cost`
+
+Every OpenAI call now records what it cost, including failed actions that are
+refunded: schema-violating and empty replies, unreadable meal photos (all OCR
+retries), and failed Talk stages carry their reported usage into the ledger, so
+the $25 global ceiling and Admin finally see that spend. A call whose usage was
+never reported records cost as unknown instead of a guessed zero. Tests cover
+each failure path; the full backend suite, typechecks and build pass.
+
+---
+
 ### 2026-09-18 20:27 — `issue-294-honest-admin-reads`
 
 Admin reads now fail honestly and independently: a failed inbox read shows an

@@ -390,7 +390,7 @@ describe('POST /api/ai/parse-meals — failure paths', () => {
 
     expect(res.status).toBe(500)
     expect(res.body.meals).toBeUndefined()
-    expect(Credits.refundAction).toHaveBeenCalledWith('test-user-id', expect.objectContaining({ ok: true }), 'refund_failed_call')
+    expect(Credits.refundAction).toHaveBeenCalledWith('test-user-id', expect.objectContaining({ ok: true }), 'refund_failed_call', expect.objectContaining({ endpoint: 'parse-meals' }))
     expect(Credits.settleAction).not.toHaveBeenCalled()
   })
 
@@ -407,7 +407,8 @@ describe('POST /api/ai/parse-meals — failure paths', () => {
     expect(Credits.settleAction).toHaveBeenCalledWith(
       'test-user-id',
       expect.objectContaining({ ok: true }),
-      expect.anything(),
+      // This fixture reports no usage, so the cost is recorded as unknown.
+      null,
       expect.objectContaining({ endpoint: 'parse-meals' })
     )
   })

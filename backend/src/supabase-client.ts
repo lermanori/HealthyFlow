@@ -1263,8 +1263,8 @@ export const db = {
     total_tokens?: number
     /** What the USER paid, in credits (actions). Never the same unit as cost_usd. */
     credits_delta: number
-    /** What the call COST US, in dollars. Never summed with credits_delta. */
-    cost_usd?: number
+    /** What the call COST US, in dollars. Never summed with credits_delta. Null when unknown. */
+    cost_usd?: number | null
     reason?: string
     request_id?: string
     reserved_tokens?: number

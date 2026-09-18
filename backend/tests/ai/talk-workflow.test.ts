@@ -529,6 +529,33 @@ describe('plan_work: stage failures', () => {
     expect(result.trace.at(-1)).toMatchObject({ event: 'stage_failed', toolNames: ['validate_daily_plan', 'validate_daily_plan'] })
   })
 
+  it('records the usage a failed stage reported, and unknown when it reported none', async () => {
+    const { Credits } = jest.requireMock('../../src/credits') as { Credits: { settleAction: jest.Mock } }
+    const reported = new TalkStageRunError('Max turns (6) exceeded', {
+      workflowName: 'plan_work',
+      stage: 'draft_focus_block',
+      toolEvents: [],
+      usage: { promptTokens: 900, completionTokens: 100, totalTokens: 1000 },
+    })
+    await turn(deps({ runtime: fakeRuntime([reported]) }))
+    expect(Credits.settleAction).toHaveBeenLastCalledWith(
+      USER_ID, expect.anything(),
+      { promptTokens: 900, completionTokens: 100, totalTokens: 1000 },
+      expect.objectContaining({ endpoint: 'talk-draft_focus_block' }),
+    )
+
+    const silent = new TalkStageRunError('socket hang up', {
+      workflowName: 'plan_work',
+      stage: 'draft_focus_block',
+      toolEvents: [],
+      usage: null,
+    })
+    await turn(deps({ runtime: fakeRuntime([silent]) }))
+    expect(Credits.settleAction).toHaveBeenLastCalledWith(
+      USER_ID, expect.anything(), null, expect.anything(),
+    )
+  })
+
   it('blocks when the Project is no longer usable', async () => {
     getScope.mockResolvedValue(scope({ project: project({ isArchived: true }) }))
     const d = deps()

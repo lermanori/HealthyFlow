@@ -200,7 +200,7 @@ describe('workout API', () => {
 
     expect(res.status).toBe(500)
     expect(res.body).toEqual({ error: 'Could not generate workout plan', code: 'ai_generation_failed' })
-    expect(mockCredits.refundAction).toHaveBeenCalledWith(USER_ID, expect.objectContaining({ ok: true }), 'refund_failed_call')
+    expect(mockCredits.refundAction).toHaveBeenCalledWith(USER_ID, expect.objectContaining({ ok: true }), 'refund_failed_call', expect.objectContaining({ endpoint: 'workout-plan-generate' }))
     expect(mockDb.createWorkoutPlan).not.toHaveBeenCalled()
     errorSpy.mockRestore()
   })

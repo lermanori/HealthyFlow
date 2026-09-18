@@ -504,6 +504,20 @@ function emptyTotals() {
   }
 }
 
+/**
+ * The token and cost columns of a ledger row. Unknown usage leaves them null —
+ * the row then says the cost is unknown rather than claiming it was free.
+ */
+function usageColumns(model: string, usage: TokenUsage | null) {
+  if (!usage) return { cost_usd: null }
+  return {
+    prompt_tokens: usage.promptTokens,
+    completion_tokens: usage.completionTokens,
+    total_tokens: usage.totalTokens,
+    cost_usd: calculateOpenAiCostUsd(model, usage),
+  }
+}
+
 function openAiCostForLog(log: any): number {
   return log.model
     ? calculateOpenAiCostUsd(log.model, {
@@ -871,29 +885,28 @@ export const Credits = {
   async settleAction(
     userId: string,
     authorization: Extract<ActionAuthorization, { ok: true }>,
-    usage: TokenUsage,
+    /** Null when OpenAI reported no usage: the cost is then unknown, never 0. */
+    usage: TokenUsage | null,
     meta: { endpoint: string; model: string }
   ): Promise<void> {
     const settings = await this.getBillingSettings()
-    const charge = calculateAiTokenCharge(meta.model, usage, settings)
-    const costUsd = calculateOpenAiCostUsd(meta.model, usage)
+    const charge = usage ? calculateAiTokenCharge(meta.model, usage, settings) : null
 
     await db.insertUsageLog({
       user_id: userId,
       endpoint: meta.endpoint,
       model: meta.model,
       action_class: authorization.actionClass,
-      prompt_tokens: usage.promptTokens,
-      completion_tokens: usage.completionTokens,
-      total_tokens: usage.totalTokens,
+      ...usageColumns(meta.model, usage),
       // `|| 0` keeps a covered action at 0 rather than -0: a signed zero in a
       // ledger is a question every later reader has to stop and answer.
       credits_delta: -authorization.charged || 0,
-      cost_usd: costUsd,
-      base_tokens: charge.baseTokens,
-      markup_tokens: charge.markupTokens,
+      base_tokens: charge?.baseTokens,
+      markup_tokens: charge?.markupTokens,
       estimated: false,
-      reason: authorization.coveredBy === 'entitlement' ? 'covered_by_subscription' : undefined,
+      reason: authorization.coveredBy === 'entitlement'
+        ? 'covered_by_subscription'
+        : usage ? undefined : 'cost_unknown',
     })
   },
 
@@ -905,7 +918,13 @@ export const Credits = {
   async refundAction(
     userId: string,
     authorization: Extract<ActionAuthorization, { ok: true }>,
-    reason: string
+    reason: string,
+    /**
+     * The call that failed. OpenAI bills a reply that broke its schema or came
+     * back empty, so what it spent is recorded even though the user pays
+     * nothing (#295); the ceiling and Admin would otherwise never see it.
+     */
+    call: { endpoint: string; model: string; usage: TokenUsage | null },
   ): Promise<void> {
     if (authorization.charged > 0) {
       await db.grantCredits(userId, authorization.charged)
@@ -915,9 +934,12 @@ export const Credits = {
     // real balance on every failed call.
     await db.insertUsageLog({
       user_id: userId,
+      endpoint: call.endpoint,
+      model: call.model,
       action_class: authorization.actionClass,
+      ...usageColumns(call.model, call.usage),
       credits_delta: 0,
-      reason,
+      reason: call.usage ? reason : `${reason}_cost_unknown`,
     })
   },
 

@@ -37,6 +37,7 @@ import {
   type TalkWorkflowStore,
 } from './talk-workflow-store'
 import { Work } from './work'
+import type { TokenUsage } from './openai'
 import type { AssistantContext } from './settings-schema'
 
 // The deep Talk orchestration module (ADR-0009).
@@ -445,7 +446,9 @@ async function runAgentStage(ctx: StageContext, stage: PlanWorkStage) {
     maxTurns: plan.maxTurns,
     messages: ctx.messages,
   })
-  let usage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
+  // Unknown until the stage reports it; a stage that fails without reporting
+  // records its cost as unknown rather than 0 (#295).
+  let usage: TokenUsage | null = null
   try {
     const result = await ctx.deps.runtime.run({
       userId: ctx.userId,
@@ -462,6 +465,9 @@ async function runAgentStage(ctx: StageContext, stage: PlanWorkStage) {
     })
     usage = result.usage
     return { result, plan }
+  } catch (error) {
+    if (error instanceof TalkStageRunError) usage = error.detail.usage ?? null
+    throw error
   } finally {
     await Credits.settleAction(ctx.userId, authorization, usage, {
       endpoint: `talk-${stage}`,

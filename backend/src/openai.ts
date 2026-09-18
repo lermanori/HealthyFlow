@@ -38,9 +38,15 @@ export type TokenUsage = {
   totalTokens: number
 }
 
+/**
+ * `usage` on a failure is what OpenAI reported spending on a call that still
+ * failed (#295): a reply that broke its schema or came back empty was billed.
+ * Zero when the request was never sent or OpenAI refused it with an error
+ * status; null when no answer arrived, so the spend cannot be known.
+ */
 export type OpenAIResult<T> =
   | { ok: true; value: T; usage?: TokenUsage }
-  | { ok: false; code: OpenAIErrorCode; message: string }
+  | { ok: false; code: OpenAIErrorCode; message: string; usage: TokenUsage | null }
 
 export type BillableOpenAIErrorCode =
   | OpenAIErrorCode
@@ -572,6 +578,22 @@ function hasZeroFatOcrClaim(ocr: NutritionLabelOcrValue) {
 
 const ZERO_USAGE: TokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
 
+function reportedUsage(raw: OpenAIChatResponse['usage']): TokenUsage | null {
+  return raw
+    ? { promptTokens: raw.prompt_tokens, completionTokens: raw.completion_tokens, totalTokens: raw.total_tokens }
+    : null
+}
+
+/** The spend of several calls made for one action. Unknown if any part is. */
+function combineUsage(a: TokenUsage | null, b: TokenUsage | null | undefined): TokenUsage | null {
+  if (!a || !b) return null
+  return {
+    promptTokens: a.promptTokens + b.promptTokens,
+    completionTokens: a.completionTokens + b.completionTokens,
+    totalTokens: a.totalTokens + b.totalTokens,
+  }
+}
+
 async function callWithBilling<T>(
   opts: BillableCallOpts,
   call: () => Promise<OpenAIResult<T>>
@@ -599,11 +621,15 @@ async function callWithBilling<T>(
 
   const result = await call()
   if (!result.ok) {
-    await Credits.refundAction(opts.userId, authorization, 'refund_failed_call')
+    await Credits.refundAction(opts.userId, authorization, 'refund_failed_call', {
+      endpoint: opts.endpoint,
+      model: opts.model,
+      usage: result.usage,
+    })
     return result
   }
 
-  await Credits.settleAction(opts.userId, authorization, result.usage ?? ZERO_USAGE, {
+  await Credits.settleAction(opts.userId, authorization, result.usage ?? null, {
     endpoint: opts.endpoint,
     model: opts.model,
   })
@@ -717,7 +743,7 @@ async function rawCall(
 ): Promise<OpenAIResult<string>> {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
-    return { ok: false, code: 'no_key', message: 'Missing OPENAI_API_KEY' }
+    return { ok: false, code: 'no_key', message: 'Missing OPENAI_API_KEY', usage: ZERO_USAGE }
   }
 
   const body: any = {
@@ -742,34 +768,20 @@ async function rawCall(
     if (!res.ok) {
       const body = await res.text().catch(() => '')
       console.error('OpenAI upstream error:', res.status, res.statusText, body)
-      return { ok: false, code: 'upstream', message: `Upstream ${res.status}` }
+      // OpenAI refused the request with an error status; a refused request is not billed.
+      return { ok: false, code: 'upstream', message: `Upstream ${res.status}`, usage: ZERO_USAGE }
     }
     const data = (await res.json()) as OpenAIChatResponse
     const content = data.choices?.[0]?.message?.content
     if (!content) {
       console.error('OpenAI response missing content:', data)
-      return { ok: false, code: 'invalid_response', message: 'Missing content' }
+      return { ok: false, code: 'invalid_response', message: 'Missing content', usage: reportedUsage(data.usage) }
     }
-    const rawUsage = data.usage
-    const usage: TokenUsage | undefined = rawUsage
-      ? {
-          promptTokens: rawUsage.prompt_tokens,
-          completionTokens: rawUsage.completion_tokens,
-          totalTokens: rawUsage.total_tokens,
-        }
-      : undefined
-    return { ok: true, value: String(content), usage }
+    return { ok: true, value: String(content), usage: reportedUsage(data.usage) ?? undefined }
   } catch (e) {
     console.error('OpenAI call threw:', e)
-    return { ok: false, code: 'upstream', message: 'Network error' }
-  }
-}
-
-function addUsage(a: TokenUsage, b?: TokenUsage): TokenUsage {
-  return {
-    promptTokens: a.promptTokens + (b?.promptTokens ?? 0),
-    completionTokens: a.completionTokens + (b?.completionTokens ?? 0),
-    totalTokens: a.totalTokens + (b?.totalTokens ?? 0),
+    // No answer arrived, so what OpenAI spent cannot be known.
+    return { ok: false, code: 'upstream', message: 'Network error', usage: null }
   }
 }
 
@@ -821,7 +833,7 @@ async function rawToolCall(
 ): Promise<OpenAIResult<any>> {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) {
-    return { ok: false, code: 'no_key', message: 'Missing OPENAI_API_KEY' }
+    return { ok: false, code: 'no_key', message: 'Missing OPENAI_API_KEY', usage: ZERO_USAGE }
   }
 
   const body: Record<string, unknown> = {
@@ -851,26 +863,20 @@ async function rawToolCall(
     if (!res.ok) {
       const body = await res.text().catch(() => '')
       console.error('OpenAI upstream error:', res.status, res.statusText, body)
-      return { ok: false, code: 'upstream', message: `Upstream ${res.status}` }
+      // OpenAI refused the request with an error status; a refused request is not billed.
+      return { ok: false, code: 'upstream', message: `Upstream ${res.status}`, usage: ZERO_USAGE }
     }
     const data = (await res.json()) as OpenAIChatResponse
     const message = data.choices?.[0]?.message
     if (!message) {
       console.error('OpenAI tool response missing message:', data)
-      return { ok: false, code: 'invalid_response', message: 'Missing message' }
+      return { ok: false, code: 'invalid_response', message: 'Missing message', usage: reportedUsage(data.usage) }
     }
-    const rawUsage = data.usage
-    const usage: TokenUsage | undefined = rawUsage
-      ? {
-          promptTokens: rawUsage.prompt_tokens,
-          completionTokens: rawUsage.completion_tokens,
-          totalTokens: rawUsage.total_tokens,
-        }
-      : undefined
-    return { ok: true, value: message, usage }
+    return { ok: true, value: message, usage: reportedUsage(data.usage) ?? undefined }
   } catch (e) {
     console.error('OpenAI tool call threw:', e)
-    return { ok: false, code: 'upstream', message: 'Network error' }
+    // No answer arrived, so what OpenAI spent cannot be known.
+    return { ok: false, code: 'upstream', message: 'Network error', usage: null }
   }
 }
 
@@ -909,7 +915,7 @@ export const Openai = {
       return { ok: true, value: parsed, usage: result.usage }
     } catch (e) {
       console.error('OpenAI structured parse failed:', e)
-      return { ok: false, code: 'invalid_response', message: 'Schema validation failed' }
+      return { ok: false, code: 'invalid_response', message: 'Schema validation failed', usage: result.usage ?? null }
     }
   },
 
@@ -951,7 +957,7 @@ export const Openai = {
       return { ok: false, code: 'billing_error', message: 'AI billing failed' }
     }
 
-    let usage: TokenUsage = ZERO_USAGE
+    let usage: TokenUsage | null = ZERO_USAGE
     const toolEvents: OpenAIToolEvent[] = []
     const messages: any[] = [
       { role: 'system', content: opts.systemPrompt },
@@ -967,6 +973,7 @@ export const Openai = {
         tools: opts.tools,
       })
 
+      usage = combineUsage(usage, result.usage)
       if (!result.ok) {
         await Credits.settleAction(opts.userId, authorization, usage, {
           endpoint: opts.endpoint,
@@ -974,7 +981,6 @@ export const Openai = {
         })
         return result
       }
-      usage = addUsage(usage, result.usage)
 
       const message = result.value
       const toolCalls = message.tool_calls ?? []
@@ -993,13 +999,13 @@ export const Openai = {
             endpoint: opts.endpoint,
             model: opts.model,
           })
-          return { ok: true, value: { message: fallback, toolEvents }, usage }
+          return { ok: true, value: { message: fallback, toolEvents }, usage: usage ?? undefined }
         }
         await Credits.settleAction(opts.userId, authorization, usage, {
           endpoint: opts.endpoint,
           model: opts.model,
         })
-        return { ok: true, value: { message: content, toolEvents }, usage }
+        return { ok: true, value: { message: content, toolEvents }, usage: usage ?? undefined }
       }
 
       messages.push({
@@ -1112,7 +1118,12 @@ export async function parseMealsWithAi(opts: {
   const systemPrompt = parseMealsSystemPrompt()
   const model = opts.photo ? NUTRITION_LABEL_OCR_MODEL : PARSE_MEALS_MODEL
   let authorization: Extract<ActionAuthorization, { ok: true }>
-  let usage: TokenUsage = ZERO_USAGE
+  let usage: TokenUsage | null = ZERO_USAGE
+  const endpoint = opts.endpoint ?? 'parse-meals'
+  // A failed meal still records every call it made (#295): photo is the class
+  // where a refunded action costs us the most.
+  const refund = (spent: TokenUsage | null) =>
+    Credits.refundAction(opts.userId, authorization, 'refund_failed_call', { endpoint, model, usage: spent })
 
   try {
     // A meal photo classifies as `photo` from the content, not from opts.photo —
@@ -1149,10 +1160,10 @@ export async function parseMealsWithAi(opts: {
     const ocrResult = await callOcr()
 
     if (!ocrResult.ok) {
-      await Credits.refundAction(opts.userId, authorization, 'refund_failed_call')
+      await refund(combineUsage(usage, ocrResult.usage))
       return ocrResult
     }
-    usage = ocrResult.usage ?? ZERO_USAGE
+    usage = combineUsage(usage, ocrResult.usage)
     let ocr = ocrResult.value
     let ocrMeal = nutritionLabelMealFromOcr(ocr, trimmedText || undefined)
     let labelWasVisible = ocr.nutritionLabelVisible
@@ -1160,10 +1171,10 @@ export async function parseMealsWithAi(opts: {
     for (let retry = 0; retry < 2 && (productIdentityNeedsRetry(ocr) || (ocr.nutritionLabelVisible && !ocrMeal)); retry += 1) {
       const retryResult = await callOcr()
       if (!retryResult.ok) {
-        await Credits.refundAction(opts.userId, authorization, 'refund_failed_call')
+        await refund(combineUsage(usage, retryResult.usage))
         return retryResult
       }
-      usage = addUsage(usage, retryResult.usage)
+      usage = combineUsage(usage, retryResult.usage)
       labelWasVisible = labelWasVisible || retryResult.value.nutritionLabelVisible
       const retryMeal = nutritionLabelMealFromOcr(retryResult.value, trimmedText || undefined)
       if (retryMeal && (!ocrMeal || !productIdentityNeedsRetry(retryResult.value))) {
@@ -1179,10 +1190,10 @@ export async function parseMealsWithAi(opts: {
         endpoint: opts.endpoint ?? 'parse-meals',
         model,
       })
-      return { ok: true, value: { meals: [ocrMeal], review }, usage }
+      return { ok: true, value: { meals: [ocrMeal], review }, usage: usage ?? undefined }
     }
     if (labelWasVisible || ocr.nutritionLabelVisible) {
-      await Credits.refundAction(opts.userId, authorization, 'refund_failed_call')
+      await refund(usage)
       return { ok: false, code: 'invalid_response', message: 'Could not reliably read the visible nutrition label' }
     }
   }
@@ -1199,11 +1210,11 @@ export async function parseMealsWithAi(opts: {
   })
 
   if (!result.ok) {
-    await Credits.refundAction(opts.userId, authorization, 'refund_failed_call')
+    await refund(combineUsage(usage, result.usage))
     return result
   }
 
-  usage = addUsage(usage, result.usage)
+  usage = combineUsage(usage, result.usage)
   await Credits.settleAction(opts.userId, authorization, usage, {
     endpoint: opts.endpoint ?? 'parse-meals',
     model,
@@ -1214,6 +1225,6 @@ export async function parseMealsWithAi(opts: {
       meals: result.value.meals.map(normalizeParsedMeal),
       review: defaultReview(),
     },
-    usage,
+    usage: usage ?? undefined,
   }
 }

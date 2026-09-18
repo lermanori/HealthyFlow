@@ -459,6 +459,14 @@ export type TalkStagePlan = {
   traceMetadata: Record<string, string>
 }
 
+type SdkUsage = { inputTokens: number; outputTokens: number; totalTokens: number }
+
+function stageUsage(usage: SdkUsage | undefined): TokenUsage | null {
+  return usage
+    ? { promptTokens: usage.inputTokens, completionTokens: usage.outputTokens, totalTokens: usage.totalTokens }
+    : null
+}
+
 export class TalkStageProfileError extends Error {
   readonly code = 'talk_stage_profile_invalid'
 }
@@ -477,6 +485,11 @@ export class TalkStageRunError extends Error {
       stage: string
       toolEvents: TalkRuntimeToolEvent[]
       cause?: unknown
+      /**
+       * What the run spent before it failed, as the SDK reported it. Null when
+       * nothing reported it, so the cost is unknown rather than 0 (#295).
+       */
+      usage?: TokenUsage | null
     },
   ) {
     super(message)
@@ -641,17 +654,25 @@ export class OpenAiTalkStageRuntime implements TalkStageRuntime {
         maxTurns: plan.maxTurns,
       })
     } catch (error) {
-      // Preserve the tool sequence completed before the throw.
+      // Preserve the tool sequence completed before the throw, and what it cost:
+      // an SDK error carries the run state, which still knows its usage.
       throw new TalkStageRunError(
         error instanceof Error ? error.message : 'Talk stage run failed',
-        { workflowName: input.workflowName, stage: input.stage, toolEvents, cause: error },
+        {
+          workflowName: input.workflowName,
+          stage: input.stage,
+          toolEvents,
+          cause: error,
+          usage: stageUsage((error as { state?: { usage?: SdkUsage } })?.state?.usage),
+        },
       )
     }
 
+    const usage = stageUsage(result.state.usage)
     if (!result.finalOutput) {
       throw new TalkStageRunError(
         `${plan.traceLabel} returned no structured output`,
-        { workflowName: input.workflowName, stage: input.stage, toolEvents },
+        { workflowName: input.workflowName, stage: input.stage, toolEvents, usage },
       )
     }
 
@@ -659,7 +680,7 @@ export class OpenAiTalkStageRuntime implements TalkStageRuntime {
     if (!parsed.success) {
       throw new TalkStageRunError(
         `${plan.traceLabel} violated ${plan.outputContract}`,
-        { workflowName: input.workflowName, stage: input.stage, toolEvents, cause: parsed.error },
+        { workflowName: input.workflowName, stage: input.stage, toolEvents, cause: parsed.error, usage },
       )
     }
 

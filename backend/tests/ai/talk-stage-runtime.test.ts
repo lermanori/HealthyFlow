@@ -226,6 +226,38 @@ describe('stage runtime failures preserve the tool sequence', () => {
     expect(error.toolSequence).toEqual(['validate_daily_plan', 'validate_daily_plan'])
   })
 
+  it('carries the usage the SDK reported when the run throws', async () => {
+    const runtime = new OpenAiTalkStageRuntime(
+      () => [] as any,
+      async () => {
+        throw Object.assign(new Error('Max turns (6) exceeded'), {
+          state: { usage: { inputTokens: 900, outputTokens: 100, totalTokens: 1000 } },
+        })
+      },
+    )
+    const error = await runtime.run(runInput()).catch((e) => e)
+    expect(error).toBeInstanceOf(TalkStageRunError)
+    expect(error.detail.usage).toEqual({ promptTokens: 900, completionTokens: 100, totalTokens: 1000 })
+  })
+
+  it('reports usage as unknown when a throw carries none', async () => {
+    const runtime = new OpenAiTalkStageRuntime(
+      () => [] as any,
+      async () => { throw new Error('socket hang up') },
+    )
+    const error = await runtime.run(runInput()).catch((e) => e)
+    expect(error.detail.usage).toBeNull()
+  })
+
+  it('keeps the usage of a run whose output was missing', async () => {
+    const runtime = new OpenAiTalkStageRuntime(
+      () => [] as any,
+      async () => ({ state: { usage: { inputTokens: 7, outputTokens: 3, totalTokens: 10 } } }),
+    )
+    const error = await runtime.run(runInput()).catch((e) => e)
+    expect(error.detail.usage).toEqual({ promptTokens: 7, completionTokens: 3, totalTokens: 10 })
+  })
+
   it('reports a missing structured output as a typed stage failure, not a generic 500', async () => {
     const runtime = new OpenAiTalkStageRuntime(
       () => [] as any,

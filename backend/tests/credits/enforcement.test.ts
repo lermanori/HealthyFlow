@@ -136,12 +136,13 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
     expect(mockCredits.refundAction).toHaveBeenCalledWith(
       USER_ID,
       expect.objectContaining({ ok: true }),
-      'refund_failed_call'
+      'refund_failed_call',
+      expect.objectContaining({ endpoint: expect.any(String), model: expect.any(String) }),
     )
     expect(mockCredits.settleAction).not.toHaveBeenCalled()
   })
 
-  it('settles with zeroed usage when OpenAI omits usage data', async () => {
+  it('settles with unknown usage, never a guessed zero, when OpenAI omits usage data', async () => {
     mockCredits.authorizeAction.mockResolvedValue({ ok: true, actionClass: 'text', credits: 1, charged: 1, coveredBy: 'balance' })
     const { usage, ...noUsageResponse } = validOpenAIResponse
     nock('https://api.openai.com').post('/v1/chat/completions').reply(200, noUsageResponse)
@@ -155,7 +156,7 @@ describe('POST /api/ai/parse-tasks — credit enforcement', () => {
     expect(mockCredits.settleAction).toHaveBeenCalledWith(
       USER_ID,
       expect.objectContaining({ ok: true, actionClass: 'text' }),
-      { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      null,
       { endpoint: 'parse-tasks', model: 'gpt-4o-mini' }
     )
   })
@@ -255,7 +256,8 @@ describe('POST /api/ai/query-tasks — credit enforcement', () => {
     expect(mockCredits.refundAction).toHaveBeenCalledWith(
       USER_ID,
       expect.objectContaining({ ok: true }),
-      'refund_failed_call'
+      'refund_failed_call',
+      expect.objectContaining({ endpoint: expect.any(String), model: expect.any(String) }),
     )
     expect(mockCredits.settleAction).not.toHaveBeenCalled()
   })
