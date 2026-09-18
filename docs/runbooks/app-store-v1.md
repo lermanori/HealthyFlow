@@ -2,7 +2,7 @@
 
 This is the maintained release packet for HealthyFlow v1. It separates facts
 verified from source and code, release-team inferences, and decisions only the
-founder or an appropriate professional can make. Last verified: **2026-09-14**.
+founder or an appropriate professional can make. Last verified: **2026-09-18**.
 
 ## Fixed v1 product contract
 
@@ -34,11 +34,10 @@ the source (ADR-0011) and the server is a replica, never a hosted substitute.
 The founder's legacy Cloud state controls replication only; it neither replaces
 nor blocks the claimed account's monthly AI actions or Token Manager balance.
 
-**Human decision for #237:** the app now contains a capability that transmits day
-data to the server for an entitled account, even though no v1 user can obtain
-that entitlement. Whether the App Privacy answers must disclose it, and whether
-the approved description's "Cloud backup and transfer are not available" still
-reads truthfully, are founder/legal calls — not inferences to be made here.
+For #237, the App Privacy answers were completed from the full code and
+production-SDK inventory, including the legacy entitled-account sync path. The
+listing copy accurately says that new v1 users cannot obtain Cloud backup,
+cross-device sync, or device transfer.
 
 ## Verified build identity
 
@@ -49,8 +48,13 @@ reads truthfully, are founder/legal calls — not inferences to be made here.
 | App Group | `group.app.healthyflow.mobile` |
 | Minimum iOS version | 26.0 everywhere |
 | Marketing version | 1.0.1 |
-| Build number | 2 |
+| Build number | 5 |
 | Xcode used for RC check | 26.4.1 (17E202) |
+
+Those version/build values are the checked-in Xcode settings for the replacement
+release candidate. App Store Connect also contains `1.0.1 (4)`, uploaded on
+2026-09-16, but device verification showed that it still exposes the retired
+personal support address. Build 4 is stale and must not be submitted.
 
 On 2026-09-08, `npm run build:ios` completed, Swift packages resolved, and a
 credential-free Release simulator build succeeded for both App and widget. The
@@ -74,65 +78,36 @@ A signed Debug build was installed on a physical iPhone 14 Pro running iOS 26
 on 2026-09-14 for the native voice check. Archive validation and upload remain
 outside the credential-free release check.
 
-## App Store copy draft
+## Approved App Store listing copy
 
-The limits below were rechecked against Apple's App Store Connect Help on
-2026-09-08. The name limit is 30 characters, subtitle 30 characters,
-description 4,000 characters, and keywords 100 bytes. The privacy-policy URL is
-required for iOS. Sources: [App information](https://developer.apple.com/help/app-store-connect/reference/app-information/app-information),
-[platform version information](https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information).
+The founder approved the English (U.S.) listing on 2026-09-17. The exact copy is
+in [the approved listing packet](../../output/app-store/v1/listing-draft.md),
+which supersedes the earlier description and keywords in this section.
 
-**Name (11 characters)**
+- Name: `HealthyFlow: Daily Planner` (26 characters).
+- Subtitle: `Tasks, habits, food & fitness` (29 characters).
+- Promotional text, description and keywords follow the approved packet.
+- Marketing URL: `https://healthyflow.app`.
+- Support URL: `https://healthyflow.app/app/support`.
 
-```text
-HealthyFlow
-```
+Apple's version metadata limits were rechecked on 2026-09-17: promotional text
+170 characters, description 4,000 characters, keywords 100 bytes.
+[Platform version information](https://developer.apple.com/help/app-store-connect/reference/app-information/platform-version-information).
 
-**Subtitle (25 characters)**
-
-```text
-Your whole day, one clock
-```
-
-**Keywords (78 bytes)**
+**App Review notes entered 2026-09-18**
 
 ```text
-day planner,habits,nutrition,workouts,capacity,voice,tasks,health,productivity
+No sign-in is required. Tap “Start without an account” to review HealthyFlow as a Guest.
+
+Guest mode includes the complete Local day: tasks, habits, goals, nutrition, weight, workouts, calendar integration, and 10 AI actions. AI features require an internet connection. Manual planning and tracking remain available without AI.
+
+HealthyFlow v1 is free and contains no In-App Purchases, subscriptions, external purchase links, or paid unlocks. Cloud backup, cross-device sync, and device transfer are not available in v1.
+
+Account deletion is available in Settings for users who choose to create an account. Sign in with Apple is supported.
 ```
 
-**Description**
-
-```text
-HealthyFlow turns the moving parts of your day into one calm, usable plan.
-
-See tasks, habits, meals, workouts, goals, calendar events, and available capacity together. Talk naturally to HealthyFlow to capture plans, ask about your day, or turn an idea into structured actions.
-
-Built for real days:
-• See what matters now and what comes next
-• Plan against the time you actually have
-• Track habits, nutrition, workouts, and goals in context
-• Capture and organize with text, voice, or photos
-• Keep using your Local day when the network is unavailable
-• See a compact Today view from the Home Screen widget
-
-HealthyFlow v1 is free and contains no purchases. A Guest receives 10 AI actions once. Claim an account to receive 15 AI actions each calendar month. You can also contact the Founders Club to share feedback or request additional free actions.
-
-Your Local day stays on this device in v1. Cloud backup and transfer are not available, so deleting the app or losing the device can lose Local data.
-```
-
-**Review notes draft**
-
-```text
-HealthyFlow v1 is free. It contains no In-App Purchases, subscriptions, external purchase links, or paid unlocks.
-
-Tap “Start without an account” to enter as a Guest. A Guest receives 10 AI actions once. An account receives 15 AI actions per calendar month. The Founders Club contact form may grant additional actions manually; nothing is sold.
-
-The day is Local in v1. Cloud backup, sync, and device transfer cannot be obtained. AI actions and account services require a network connection; the existing Local day remains readable offline.
-
-Account deletion is available inside Settings. Sign in with Apple is native. Reviewer credentials, if Apple requires an account-specific path, must be entered privately in App Store Connect and must never be committed here.
-```
-
-The founder must approve this copy before it is entered in App Store Connect.
+The founder authorized completion of the review form. The private contact fields
+were entered directly in App Store Connect and are not recorded here.
 
 ## Screenshot set
 
@@ -151,10 +126,10 @@ Capture only synthetic, non-sensitive data on a fresh simulator:
 5. Guest/Claim: exact free entitlements and Local-data warning.
 6. Founders Club: feedback and additional-action request choices.
 
-Uncropped simulator evidence already retained:
-`output/app-store/v1/simulator/01-talk-response.png`. It is smoke evidence, not
-the final 6.9-inch marketing asset. Final screenshots need founder approval and
-must be captured from the final signed candidate.
+The founder approved five marketing screenshots in this order: Today, Talk,
+Health, Nutrition, and Workouts. The iPhone 6.5-inch and iPad 13-inch sets were
+uploaded to version 1.0 on 2026-09-18. Source assets and previews are in
+`output/app-store/v1/screenshots/`.
 
 ## Code-derived data and SDK inventory
 
@@ -167,15 +142,28 @@ These are implementation facts, not completed App Privacy answers.
 | AI | submitted text, optional images/files, assistant messages, structured results, usage and credit ledger | HealthyFlow backend, Supabase, OpenAI |
 | Device Calendar (native v1) | External event title, time, all-day state, notes and location; timed Item title, date, time, duration and location; opaque EventKit identifiers after permission | Read and written in the iPhone app through EventKit; not sent to HealthyFlow by the Device Calendar path |
 | Google Calendar (claimed Cloud only; web in the current build) | Google OAuth tokens, calendar event identifiers/content and sync state when connected | HealthyFlow backend, Supabase, Google Calendar APIs; Guest and claimed-free native v1 do not call this path |
-| Contact | request kind, message and reply-to address | HealthyFlow backend and Supabase |
+| Contact | In-app form: request kind, message and reply-to address. Public support email: sender/reply address, message and attachments | Form: HealthyFlow backend and Supabase. Email: Resend, transient backend forwarding and the privately configured support inbox; not stored in the app database |
 | Notifications | native device token or Web Push subscription | HealthyFlow backend, Supabase, APNs/Web Push |
-| Analytics | stable user ID; optional email/name/role/Guest state; typed product events and page paths | PostHog; production bundle points to the EU ingestion host |
-| Nutrition lookup | food query and selected nutrition result | Open Food Facts / Fuder integration |
+| Analytics | stable user ID; optional email/name/role/Guest state; typed product events, page paths, and session recordings that can include displayed text | PostHog; production bundle points to the EU ingestion host |
+| Nutrition lookup | food query and selected nutrition result | Backend query to Open Food Facts. Fuder is a curated source link, not a query recipient in the current lookup implementation |
 
 PostHog autocapture is disabled. Session recording is enabled with all inputs
-masked; persistence uses local storage and a cookie. The typed catalog does not
-send AI prompt text, but App Privacy must cover the actual SDK behavior and
-current vendor terms, not only the intended event catalog.
+masked; persistence uses local storage and a cookie. General displayed text is
+not masked by the current source configuration: there is no `maskTextSelector`
+or `ph-no-capture` protection. The typed catalog does not send AI prompt text,
+but session recordings can include displayed chat, task and health text. App
+Privacy must cover actual SDK behavior and current vendor terms, not only the
+intended event catalog. See [PostHog's distinct input/text masking controls](https://posthog.com/docs/session-replay/privacy),
+checked 2026-09-15. Production project settings were inspected on 2026-09-17:
+recording is enabled for all sessions at 100% sampling, with normal masking
+(inputs masked; displayed text/images unmasked). Console capture and network
+timing capture are enabled; request/response header and body capture are off.
+Recording retention is 30 days. Exception autocapture is off. The project's
+public ingestion token matches the locally bundled native and web assets.
+Native `capacitor://localhost` events were also visible in this project.
+Client IP discarding is enabled, but a native event still contains city/country
+and GeoIP coordinates with a 5 km accuracy radius: approximate location is
+collected despite discarding the original IP. No analytics settings were changed.
 
 The app and widget privacy manifests currently declare the shared App Group
 `UserDefaults` required-reason API (`1C8F.1`), no tracking domains, and no
@@ -201,8 +189,9 @@ was rechecked on 2026-09-09 in
 - Whether each type is linked to identity, retained, or used for analytics or
   product personalization must be reconciled against production configuration,
   retention and each provider's current policy.
-- Because Local day data can be sent to AI only when the user invokes an AI
-  feature, local storage and server/AI processing need distinct answers.
+- Local storage, AI processing, and analytics need distinct answers. Invoking AI
+  can transmit Local content, and session recording can transmit displayed
+  content independently of an AI request.
 
 Do not enter questionnaire answers from these inferences. The founder must
 confirm the production configuration and, where appropriate, obtain privacy or
@@ -210,17 +199,138 @@ legal review.
 
 ## Public URL readiness and legal-content gate
 
-HTTP behavior checked from production on 2026-09-08:
+Public routes were initially checked on 2026-09-08; the dated updates below
+record subsequent content and delivery verification.
 
 | Proposed field | URL | Technical status | Human gate |
 |---|---|---|---|
-| Privacy Policy URL | `https://healthyflow.app/app/privacy` | HTTP 200; `/privacy` redirects here | Privacy text says product data is saved and synced, which conflicts with Local-only v1. Human/legal approval is required before editing or submission. |
-| Support URL | `https://healthyflow.app/app/support` | HTTP 200; `/support` redirects here | The page exposes a personal address while Terms uses `support@healthyflow.app`. Founder must choose and verify the public support address. |
+| Privacy Policy URL | `https://healthyflow.app/app/privacy` | HTTP 200; `/privacy` redirects here | Founder authorized the free-v1 wording update on 2026-09-15. Copy distinguishes Local storage from AI, account, support, notifications and analytics processing; remaining submission decisions are recorded below. |
+| Support URL | `https://healthyflow.app/app/support` | HTTP 200; `/support` redirects here | Founder selected `support@healthyflow.app` on 2026-09-15. Resend receiving and forwarding verified; web contact changes published and the Support/Privacy links checked in the browser. Shared iOS source uses the same address; an updated native build is still required. |
 | Privacy choices URL | none proposed | Optional in App Store Connect | Founder/legal decision; do not invent one. |
 
-Terms still describes subscriptions, paid features, credits and payments. It
-must receive human/legal review for the free-v1 product before submission. Do
-not silently rewrite legal copy.
+Terms at `https://healthyflow.app/app/terms` now describes free v1 and its AI
+allowances, with no purchase or non-refundable-fee clause. The founder explicitly
+authorized this factual Terms/Privacy alignment on 2026-09-15. It does not
+complete the App Store Connect declarations or certify legal compliance.
+
+### Public support contact — 2026-09-15
+
+- Founder approved `support@healthyflow.app` as the public contact for support,
+  privacy and Terms questions.
+- Resend receiving forwards support mail to the founder-selected private inbox.
+  Netlify DNS now publishes MX priority 10 to
+  `inbound-smtp.eu-west-1.amazonaws.com`; Resend reports receiving **verified**.
+  The signature secret and forwarding destination are configured in Railway.
+- Backend deployment `ecaca434-c3db-4778-b2a9-85d1765ee45e` is **SUCCESS**.
+  A synthetic message to the support address arrived in the destination inbox
+  on 2026-09-15 with its attachment and original Reply-To. Gmail's received
+  headers show SPF, DKIM and DMARC passing. No reply was sent to a third party.
+  The existing privacy alias is also handled and covered by automated tests.
+- Frontend deployment `6aa99cd8b83fb81e1ed50357` published the contact changes.
+  The live Support and Privacy pages show the working address; Terms already
+  used it, and Settings now agrees. The shared source will reach iOS with the
+  next native build; no new iOS binary was produced for this change.
+- Verification: frontend typecheck/build and four relevant frontend tests;
+  backend typecheck/build and 34 support-forwarding/account-email tests passed.
+  The public webhook rejects unsigned requests. See
+  [incoming support mail](deploy.md#incoming-support-mail) for operation,
+  retry limits and the Gmail sending-identity limitation.
+- At the time of the contact-only deployment, Privacy still said "save and sync
+  your items", contrary to the issue comment. The separately authorized wording
+  update below removes that claim.
+
+### Free-v1 Terms and Privacy wording — 2026-09-15
+
+- Founder authorized aligning and publishing the public Terms and Privacy pages
+  with the shipped free-v1 behavior. Both carry the effective date 2026-09-15.
+- Terms states that v1 has no purchases, explains the free AI allowances and
+  discretionary Founders Club grants, and distinguishes Claim from Cloud backup
+  or transfer. The existing general legal clauses were retained.
+- Privacy distinguishes the iPhone Local day from server-held account and AI
+  records, legacy Cloud, PostHog identity/events/replay, support email forwarding,
+  in-app contact requests, notifications and optional integrations. It also
+  describes native on-device voice transcription and browser-provided speech.
+- Deletion/export wording follows the current implementation: Settings exports
+  the server archive, not Local-only records; archived Talk remains stored;
+  account deletion does not call PostHog or erase support email. The policy gives
+  the support route for those requests instead of promising automatic erasure.
+- Evidence: `src/pages/AssistantPage.tsx`, `src/services/api.ts`,
+  `src/context/AuthContext.tsx`, `src/lib/local/services.ts`,
+  `src/lib/analytics/posthogProvider.ts`, `ios/App/App/NativeSpeechPlugin.swift`,
+  and backend account, AI, contact, mail and nutrition implementations.
+- Remaining submission work: confirm provider retention settings and the
+  process for external deletion requests; assess analytics/replay consent and
+  the explicit permission flow for third-party AI. The current app has no
+  dedicated analytics opt-out or AI-sharing consent gate in the reviewed source.
+  Updating policy text does not implement those controls. Apple's
+  [privacy requirements](https://developer.apple.com/app-store/review/guidelines/#privacy),
+  checked 2026-09-15, require disclosure and explicit permission for personal-data
+  sharing with third-party AI. These are separate implementation follow-ups;
+  #237 remains the declaration/portal task, whose App Privacy answers must
+  accurately reflect the implementation that ships.
+- Published on 2026-09-16 in Netlify deployment
+  `6aaa3f4051e407a6e4e920f5`. The production Privacy and Terms pages show the
+  updated copy and effective date; their cross-link and support address were
+  verified in the browser. The shared components are used in both web and native
+  routes; no new native binary was built or uploaded for this copy update.
+- Verification: `npm run typecheck`, `npm run build`, six existing iOS release
+  checks, the existing browser startup test, and `git diff --check` passed.
+  The browser test first hit the sandbox's local-server restriction; its approved
+  rerun passed on 2026-09-16. Existing Browserslist and bundle-size/import warnings
+  remain. Changes are uncommitted; #237's portal declarations remain open.
+
+### App Store Connect declarations — updated 2026-09-18
+
+HealthyFlow app record `6796305059` was inspected in the founder's authenticated
+browser. The product version was aligned to **1.0.1** and remains **Prepare for
+Submission**. Processed build `1.0.1 (4)` was temporarily selected on 2026-09-18,
+then rejected during physical-device smoke because it contains the retired
+personal support address. No Add for Review or Submit for Review action was taken.
+
+| Declaration / field | Verified status |
+|---|---|
+| Privacy Policy URL | Saved `https://healthyflow.app/app/privacy` for English (U.S.) |
+| Support URL | Saved `https://healthyflow.app/app/support` on version 1.0 |
+| Listing copy | Founder-approved September 17: saved name `HealthyFlow: Daily Planner`, subtitle `Tasks, habits, food & fitness`, promotional text, description, keywords and marketing URL. Exact copy is in `output/app-store/v1/listing-draft.md`. Copyright is `2026 Ori Lerman`; primary category is Health & Fitness and secondary category is Productivity |
+| Price | Saved zero-price schedule for all 175 storefront currencies, using the default US base. Pricing does not enable territory availability |
+| In-app purchases / subscriptions | No in-app purchases, auto-renewable subscription groups, or non-renewing subscriptions present |
+| Tax category | Saved `Fitness and Health`, matching the app's healthy-living focus |
+| DSA | Founder directly selected the non-trader/no-EU option. Verified September 17: account-level Digital Services Act compliance is `Active`, and HealthyFlow App Information explicitly states non-trader for this app. The earlier trader-document workflow is no longer pending |
+| Developer agreement | Verified September 17: Free Apps Agreement is `Active` and the prior license-agreement update warning is absent on the Business page. No agreement accepted by the agent. Paid Apps Agreement is `New` and unsigned |
+| Territories | Saved September 17 with founder approval: all 175 countries or regions, including the EU, plus automatic inclusion of future storefronts. Portal shows `Available on App Release`. The app has not been released |
+| Age rating / content rights / regulated medical device | Completed September 18. Calculated rating is 9+ in 172 regions (Vietnam 12+). Health or Wellness Topics is Yes; Medical or Treatment Information is None. Content Rights says the app has the necessary rights to third-party content. The app is declared not a regulated medical device in any country or region |
+| App Privacy answers | Published September 18 with 14 collected data types. The public preview shows data linked to the user and diagnostics/identifier data not linked to the user; no type is declared as tracking |
+| Release method | Saved `Manually release this version`, so approval cannot publish the app automatically |
+| Review contact / demo account | Private contact information saved September 18. Sign-in is not required; review notes direct Apple to `Start without an account` and explain the Guest path. No private contact value or credential is committed here |
+| Build candidate | `1.0.1 (4)` is stale and must not be submitted. Replacement build `1.0.1 (5)` is being prepared from the current source. `Add for Review` was not clicked |
+
+The #237 portal declarations are complete. #238 now requires replacement build
+5, App Store Connect processing, and physical-device release smoke before the
+build can be added or submitted for review. No private identity, contact details,
+or credentials are recorded here.
+
+App Privacy publication, September 18: the saved types are Name, Email Address,
+Health, Fitness, Coarse Location, Photos or Videos, Customer Support, Other User
+Content, Search History, User ID, Device ID, Product Interaction, Performance
+Data, and Other Diagnostic Data. Search History covers retained AI lookup/search
+arguments in conversation tool events. Performance and diagnostics cover the
+verified PostHog network timings and console logs. Name/email are sent through
+analytics identification; native push registration also sends a device token.
+
+All 14 types have purpose, linkage, and tracking answers. User ID and Device ID
+use Analytics and App Functionality; Product Interaction uses Analytics. None
+is marked as tracking because the reviewed implementation uses PostHog as a
+first-party analytics processor and does not link the data with third-party
+advertising data or share it with a data broker. The published preview was
+reopened after publication. No App Review submission action was taken.
+
+September 17 follow-up: the earlier trader setup reached document upload but
+was not finalized before the session expired. After signing back in, the
+founder directly completed the non-trader declaration instead. The agent read
+the saved selection and `Active` compliance status without changing them.
+This is the founder's self-assessment; company registration alone does not
+determine trader status. HealthyFlow's app-specific non-trader status was also
+verified, and worldwide availability was subsequently saved with founder approval.
 
 ## Smoke and release gates
 

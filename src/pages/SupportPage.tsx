@@ -26,13 +26,13 @@ export default function SupportPage() {
           <p className="text-base leading-7 text-ink-soft">If you need help, contact us:</p>
 
           <a
-            href="mailto:lermanori@gmail.com"
+            href="mailto:support@healthyflow.app"
             className="mt-6 flex min-h-14 items-center gap-3 rounded-xl border border-line bg-raised/60 p-4 text-ink transition-colors hover:border-accent/50 hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
           >
             <Mail className="h-5 w-5 shrink-0 text-accent" aria-hidden="true" />
             <span>
               <span className="block text-sm text-ink-muted">Email</span>
-              <span className="font-medium">lermanori@gmail.com</span>
+              <span className="font-medium">support@healthyflow.app</span>
             </span>
           </a>
         </article>

@@ -188,6 +188,50 @@ never arrives.
 Without `RESEND_API_KEY`, signup still creates the account and answers
 `verificationEmail: "unavailable"`. Nothing silently succeeds.
 
+### Incoming support mail
+
+`POST /api/mail/resend` verifies Resend's signature against the raw request
+body, retrieves the original message, and forwards it to the private inbox
+configured in Railway. Business logic lives in `backend/src/mail.ts`.
+
+| Variable | Purpose |
+|---|---|
+| `RESEND_API_KEY` | Existing backend key; receiving requires full access. |
+| `RESEND_WEBHOOK_SECRET` | Signing secret for the `email.received` webhook. Keep it in Railway only. |
+| `SUPPORT_FORWARD_TO` | Private destination inbox. Must be outside `healthyflow.app` to prevent loops. |
+
+Configure the Resend webhook endpoint as
+`https://healthyflow-production.up.railway.app/api/mail/resend`, subscribed to
+`email.received`. Enable receiving for the existing `healthyflow.app` domain,
+then add the exact receiving MX record supplied by Resend in Netlify DNS.
+Deploy the handler and its configuration before adding that MX record.
+
+Only SMTP envelope recipients `support@healthyflow.app` and the previously
+published `privacy@healthyflow.app` are forwarded. Other receiving addresses
+are explicitly ignored by the handler; they remain visible in Resend. The
+customer's Reply-To (or From when no Reply-To exists), body, attachments and
+inline images are preserved. Forwarded mail uses `support@healthyflow.app` as
+its sender. Replies written in the destination Gmail account use that account's
+sending identity; this integration does not configure Gmail to send as support.
+
+Invalid signatures are refused with 400. Missing configuration or a failed
+read/forward returns 503 so Resend can retry. Monitor the Resend webhook
+attempts and receiving inbox for failures. Each inbound email uses a stable
+idempotency key; Resend's 24-hour retention covers ordinary retries. Manually
+replaying an already-forwarded event after that window can send another copy.
+Messages carrying this handler's forwarding header are ignored to prevent loops.
+The handler does not persist message content or the destination in the app's
+database, and production error logs contain only the received email ID.
+
+Verify with a synthetic message and attachment, confirm arrival in the private
+inbox, and check Reply addresses the original sender. Keep message contents,
+the private destination and signing secrets out of issue comments and runbooks.
+
+Provider references: [receiving domains](https://resend.com/docs/dashboard/receiving/custom-domains),
+[forwarding](https://resend.com/docs/dashboard/receiving/forward-emails),
+[webhook verification](https://resend.com/docs/webhooks/verify-webhooks-requests),
+[idempotency](https://resend.com/docs/dashboard/emails/idempotency-keys).
+
 ## Quick Deploy Commands
 
 ```bash

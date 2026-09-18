@@ -1,0 +1,485 @@
+{
+  "version": 5,
+  "userId": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+  "ownerEmail": null,
+  "tasks": [
+    {
+      "id": "62bbdfcb-6ddf-41f5-a437-91f60fb50ef9",
+      "user_id": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "title": "Morning stretch",
+      "type": "task",
+      "category": "fitness",
+      "start_time": "08:00",
+      "duration": 15,
+      "repeat_type": "none",
+      "completed": true,
+      "completed_at": "2026-09-18T08:30:00.000Z",
+      "scheduled_date": "2026-09-18",
+      "created_at": "2026-09-18T06:00:00.000Z",
+      "updated_at": "2026-09-18T06:00:00.000Z",
+      "overdue_notified": true
+    },
+    {
+      "id": "1a81d085-cb72-4f66-92e5-6a9faf527fad",
+      "user_id": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "title": "Finish the design proposal",
+      "type": "task",
+      "category": "work",
+      "start_time": "09:00",
+      "duration": 60,
+      "repeat_type": "none",
+      "completed": true,
+      "completed_at": "2026-09-18T08:30:00.000Z",
+      "scheduled_date": "2026-09-18",
+      "created_at": "2026-09-18T06:00:00.000Z",
+      "updated_at": "2026-09-18T06:00:00.000Z",
+      "overdue_notified": true
+    },
+    {
+      "id": "20fef9e2-12a8-4298-8bc0-20447f6f1378",
+      "user_id": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "title": "Pick up fresh groceries",
+      "type": "task",
+      "category": "grocery",
+      "start_time": "13:30",
+      "duration": 30,
+      "repeat_type": "none",
+      "completed": false,
+      "completed_at": null,
+      "scheduled_date": "2026-09-18",
+      "created_at": "2026-09-18T06:00:00.000Z",
+      "updated_at": "2026-09-18T06:00:00.000Z",
+      "overdue_notified": true
+    },
+    {
+      "id": "95a04faa-ee75-4fbb-ac64-dbe71d5fa52b",
+      "user_id": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "title": "Full-body strength",
+      "type": "task",
+      "category": "fitness",
+      "start_time": "15:00",
+      "duration": 45,
+      "repeat_type": "none",
+      "completed": false,
+      "completed_at": null,
+      "scheduled_date": "2026-09-18",
+      "created_at": "2026-09-18T06:00:00.000Z",
+      "updated_at": "2026-09-18T06:00:00.000Z",
+      "overdue_notified": true
+    },
+    {
+      "id": "d0d44b9d-e1e3-4499-ae23-6bb4dbc76268",
+      "user_id": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "title": "Read a few pages",
+      "type": "task",
+      "category": "personal",
+      "start_time": "19:30",
+      "duration": 20,
+      "repeat_type": "none",
+      "completed": false,
+      "completed_at": null,
+      "scheduled_date": "2026-09-18",
+      "created_at": "2026-09-18T06:00:00.000Z",
+      "updated_at": "2026-09-18T06:00:00.000Z",
+      "overdue_notified": true
+    }
+  ],
+  "settings": {
+    "theme": "white",
+    "smartReminders": false,
+    "notifications": false,
+    "onboardingStatus": "completed",
+    "planningWindow": {
+      "startTime": "08:00",
+      "endTime": "22:00",
+      "transitionBufferMinutes": 10
+    }
+  },
+  "goals": [
+    {
+      "id": "651fa5f8-83ae-46d1-8b48-a7b91a0f9b06",
+      "user_id": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "module": "whole_day",
+      "statement": "Make room for work and life",
+      "context": "Finish the important work, then leave space to recharge.",
+      "created_at": "2026-09-18T06:00:00.000Z",
+      "updated_at": "2026-09-18T06:00:00.000Z",
+      "deleted_at": null
+    },
+    {
+      "id": "10c816c0-8163-4f02-8072-a4126522eb25",
+      "user_id": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "module": "habits",
+      "statement": "Build a calmer evening routine",
+      "context": "Read a little and wind down before bed.",
+      "created_at": "2026-09-18T06:00:00.000Z",
+      "updated_at": "2026-09-18T06:00:00.000Z",
+      "deleted_at": null
+    },
+    {
+      "id": "9bd9d748-87ef-45c4-9093-081220708026",
+      "user_id": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "module": "workouts",
+      "statement": "Feel stronger every week",
+      "context": "Three steady sessions, with room for recovery.",
+      "created_at": "2026-09-18T06:00:00.000Z",
+      "updated_at": "2026-09-18T06:00:00.000Z",
+      "deleted_at": null
+    },
+    {
+      "id": "69d327e9-3b02-477c-8d56-d9e7c2986922",
+      "user_id": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "module": "nutrition",
+      "statement": "Eat well through a busy day",
+      "context": "Simple meals with plenty of variety.",
+      "created_at": "2026-09-18T06:00:00.000Z",
+      "updated_at": "2026-09-18T06:00:00.000Z",
+      "deleted_at": null
+    }
+  ],
+  "calorieEntries": [
+    {
+      "id": "a0ea1091-04ac-47d9-b7a5-d3694ab3ad50",
+      "userId": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "date": "2026-09-18",
+      "time": "08:30",
+      "name": "Yogurt, berries & granola",
+      "calories": 380,
+      "protein": 22,
+      "carbs": 48,
+      "fat": 11,
+      "quantity": "1 bowl",
+      "createdAt": "2026-09-18T06:00:00.000Z",
+      "updatedAt": "2026-09-18T06:00:00.000Z"
+    },
+    {
+      "id": "7aeb38cc-5bf2-4f25-afc9-a0197c2ddfc6",
+      "userId": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "date": "2026-09-18",
+      "time": "12:30",
+      "name": "Chicken & quinoa salad",
+      "calories": 560,
+      "protein": 42,
+      "carbs": 55,
+      "fat": 18,
+      "quantity": "1 plate",
+      "createdAt": "2026-09-18T06:00:00.000Z",
+      "updatedAt": "2026-09-18T06:00:00.000Z"
+    },
+    {
+      "id": "bf8b0dec-026c-44d5-85bf-5f3990cb2e81",
+      "userId": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "date": "2026-09-18",
+      "time": "16:00",
+      "name": "Apple & almond butter",
+      "calories": 210,
+      "protein": 5,
+      "carbs": 25,
+      "fat": 11,
+      "quantity": "1 snack",
+      "createdAt": "2026-09-18T06:00:00.000Z",
+      "updatedAt": "2026-09-18T06:00:00.000Z"
+    }
+  ],
+  "workoutSessions": [
+    {
+      "id": "20c60143-1799-4b35-ae2e-0174e9e336ec",
+      "userId": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "date": "2026-09-18",
+      "title": "Morning mobility",
+      "notes": "Steady pace. Good form.",
+      "exercises": [
+        {
+          "id": "6de47834-b908-49fb-9d26-0cb60eaeb4a3",
+          "name": "Goblet squat",
+          "sets": 3,
+          "reps": 10,
+          "weightKg": 16,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 0,
+          "sessionId": "20c60143-1799-4b35-ae2e-0174e9e336ec"
+        },
+        {
+          "id": "ce3cddae-4aec-4466-aa6a-ccbd3d66788e",
+          "name": "Dumbbell row",
+          "sets": 3,
+          "reps": 12,
+          "weightKg": 12,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 1,
+          "sessionId": "20c60143-1799-4b35-ae2e-0174e9e336ec"
+        },
+        {
+          "id": "1687b1ae-af9d-462f-8e60-b34c38696b48",
+          "name": "Romanian deadlift",
+          "sets": 3,
+          "reps": 10,
+          "weightKg": 20,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 2,
+          "sessionId": "20c60143-1799-4b35-ae2e-0174e9e336ec"
+        },
+        {
+          "id": "8eb5dcf1-b829-454d-b802-95afd480f182",
+          "name": "Plank",
+          "sets": 3,
+          "reps": null,
+          "weightKg": null,
+          "durationMinutes": 1,
+          "distanceKm": null,
+          "notes": null,
+          "position": 3,
+          "sessionId": "20c60143-1799-4b35-ae2e-0174e9e336ec"
+        }
+      ],
+      "createdAt": "2026-09-18T17:00:00.000Z",
+      "updatedAt": "2026-09-18T17:00:00.000Z"
+    },
+    {
+      "id": "73a412ec-3644-4eca-8a7f-dd4dd09d7ba6",
+      "userId": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "date": "2026-09-17",
+      "title": "Full-body strength",
+      "notes": "Steady pace. Good form.",
+      "exercises": [
+        {
+          "id": "6653d78c-dda9-476a-9252-d2a31a431cc8",
+          "name": "Goblet squat",
+          "sets": 3,
+          "reps": 10,
+          "weightKg": 16,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 0,
+          "sessionId": "73a412ec-3644-4eca-8a7f-dd4dd09d7ba6"
+        },
+        {
+          "id": "2822c81a-2da2-4789-a7a9-5ca82a07bae1",
+          "name": "Dumbbell row",
+          "sets": 3,
+          "reps": 12,
+          "weightKg": 12,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 1,
+          "sessionId": "73a412ec-3644-4eca-8a7f-dd4dd09d7ba6"
+        },
+        {
+          "id": "71ac798e-eba9-431c-82eb-11057ca55ad9",
+          "name": "Romanian deadlift",
+          "sets": 3,
+          "reps": 10,
+          "weightKg": 20,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 2,
+          "sessionId": "73a412ec-3644-4eca-8a7f-dd4dd09d7ba6"
+        },
+        {
+          "id": "77193326-d720-4e68-acf9-d196d44bf392",
+          "name": "Plank",
+          "sets": 3,
+          "reps": null,
+          "weightKg": null,
+          "durationMinutes": 1,
+          "distanceKm": null,
+          "notes": null,
+          "position": 3,
+          "sessionId": "73a412ec-3644-4eca-8a7f-dd4dd09d7ba6"
+        }
+      ],
+      "createdAt": "2026-09-17T17:00:00.000Z",
+      "updatedAt": "2026-09-17T17:00:00.000Z"
+    },
+    {
+      "id": "02693c42-16e8-4c92-8d21-227d13c0a67f",
+      "userId": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "date": "2026-09-15",
+      "title": "Upper body",
+      "notes": "Steady pace. Good form.",
+      "exercises": [
+        {
+          "id": "6c5f80d8-b5d2-41a6-bc34-9bdb7975de49",
+          "name": "Goblet squat",
+          "sets": 3,
+          "reps": 10,
+          "weightKg": 16,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 0,
+          "sessionId": "02693c42-16e8-4c92-8d21-227d13c0a67f"
+        },
+        {
+          "id": "5a3a7cf6-2c8e-45d1-95e3-67b228528815",
+          "name": "Dumbbell row",
+          "sets": 3,
+          "reps": 12,
+          "weightKg": 12,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 1,
+          "sessionId": "02693c42-16e8-4c92-8d21-227d13c0a67f"
+        },
+        {
+          "id": "a9943317-dc76-4240-8cca-26c7cf889411",
+          "name": "Romanian deadlift",
+          "sets": 3,
+          "reps": 10,
+          "weightKg": 20,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 2,
+          "sessionId": "02693c42-16e8-4c92-8d21-227d13c0a67f"
+        },
+        {
+          "id": "d2a14b40-a676-484c-bb1d-20b7fa57de4d",
+          "name": "Plank",
+          "sets": 3,
+          "reps": null,
+          "weightKg": null,
+          "durationMinutes": 1,
+          "distanceKm": null,
+          "notes": null,
+          "position": 3,
+          "sessionId": "02693c42-16e8-4c92-8d21-227d13c0a67f"
+        }
+      ],
+      "createdAt": "2026-09-15T17:00:00.000Z",
+      "updatedAt": "2026-09-15T17:00:00.000Z"
+    },
+    {
+      "id": "1b078ab9-8d3e-4d1c-9c21-d0eaf26e1857",
+      "userId": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "date": "2026-09-13",
+      "title": "Full-body strength",
+      "notes": "Steady pace. Good form.",
+      "exercises": [
+        {
+          "id": "2724a791-75fd-4390-aab7-fc184567ccf1",
+          "name": "Goblet squat",
+          "sets": 3,
+          "reps": 10,
+          "weightKg": 16,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 0,
+          "sessionId": "1b078ab9-8d3e-4d1c-9c21-d0eaf26e1857"
+        },
+        {
+          "id": "bc2c4750-70a3-4f05-a54a-2ab2dfd54d87",
+          "name": "Dumbbell row",
+          "sets": 3,
+          "reps": 12,
+          "weightKg": 12,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 1,
+          "sessionId": "1b078ab9-8d3e-4d1c-9c21-d0eaf26e1857"
+        },
+        {
+          "id": "65e6f2da-14d0-4f4a-b573-738689a7cfb0",
+          "name": "Romanian deadlift",
+          "sets": 3,
+          "reps": 10,
+          "weightKg": 20,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 2,
+          "sessionId": "1b078ab9-8d3e-4d1c-9c21-d0eaf26e1857"
+        },
+        {
+          "id": "49635dfe-0e75-4f2b-ae30-fb30255e2fd2",
+          "name": "Plank",
+          "sets": 3,
+          "reps": null,
+          "weightKg": null,
+          "durationMinutes": 1,
+          "distanceKm": null,
+          "notes": null,
+          "position": 3,
+          "sessionId": "1b078ab9-8d3e-4d1c-9c21-d0eaf26e1857"
+        }
+      ],
+      "createdAt": "2026-09-13T17:00:00.000Z",
+      "updatedAt": "2026-09-13T17:00:00.000Z"
+    }
+  ],
+  "workoutPlans": [
+    {
+      "id": "030f546b-dd87-4436-af8e-e9b6b7e78c90",
+      "userId": "95242b67-f149-4f8b-9e52-ddec061c3da8",
+      "name": "Full-body strength",
+      "color": "#779E8C",
+      "note": "A little stronger, one session at a time.",
+      "position": 0,
+      "exercises": [
+        {
+          "id": "6e2c6468-72fe-4869-9280-1ce57cffed57",
+          "planId": "030f546b-dd87-4436-af8e-e9b6b7e78c90",
+          "name": "Goblet squat",
+          "sets": 3,
+          "reps": 10,
+          "weightKg": 16,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 0
+        },
+        {
+          "id": "c1189ab4-f4d5-4889-80f4-80ddcf50c0d8",
+          "planId": "030f546b-dd87-4436-af8e-e9b6b7e78c90",
+          "name": "Dumbbell row",
+          "sets": 3,
+          "reps": 12,
+          "weightKg": 12,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 1
+        },
+        {
+          "id": "e486a649-e5f4-496c-8c84-b921baf896fa",
+          "planId": "030f546b-dd87-4436-af8e-e9b6b7e78c90",
+          "name": "Romanian deadlift",
+          "sets": 3,
+          "reps": 10,
+          "weightKg": 20,
+          "durationMinutes": null,
+          "distanceKm": null,
+          "notes": null,
+          "position": 2
+        },
+        {
+          "id": "5bc29a3c-4712-40b3-8c42-915e72ee0e06",
+          "planId": "030f546b-dd87-4436-af8e-e9b6b7e78c90",
+          "name": "Plank",
+          "sets": 3,
+          "reps": null,
+          "weightKg": null,
+          "durationMinutes": 1,
+          "distanceKm": null,
+          "notes": null,
+          "position": 3
+        }
+      ],
+      "createdAt": "2026-09-18T06:00:00.000Z",
+      "updatedAt": "2026-09-18T06:00:00.000Z"
+    }
+  ],
+  "weightEntries": []
+}

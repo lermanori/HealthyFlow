@@ -1,3 +1,16 @@
+### 2026-09-18 18:57 — `main`
+
+Completed the App Store declaration packet, published the reviewed privacy
+answers, and saved the approved listing, screenshots, review notes, worldwide
+availability, tax category, and manual release method. Added verified inbound
+support forwarding and aligned the public support, Terms, and Privacy surfaces
+with free v1. Physical-device smoke rejected stale TestFlight build 4 because it
+still exposed the retired personal support address; the reproducible replacement
+is now versioned as 1.0.1 (5), with the full test suite and unsigned Release
+app/widget build passing before archive and upload.
+
+---
+
 ### 2026-09-15 20:15 — `main`
 
 Regenerated the landing screenshots, which were still from 30 July — before the

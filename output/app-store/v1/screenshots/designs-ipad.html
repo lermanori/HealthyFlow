@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HealthyFlow iPad App Store Screenshots</title>
+  <style>
+    :root {
+      --ink: #fffaf2;
+      --forest: #102c27;
+      --sage: #628f7d;
+      --mint: #b7d5c6;
+      --cream: #f2ddbc;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      background: #10241f;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", Arial, sans-serif;
+    }
+
+    .stage {
+      position: relative;
+      width: 2064px;
+      height: 2752px;
+      overflow: hidden;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 88% 52%, rgba(183, 213, 198, .84), transparent 38%),
+        radial-gradient(circle at 78% 106%, rgba(242, 221, 188, .98), transparent 43%),
+        linear-gradient(145deg, var(--forest) 0%, #285347 29%, var(--sage) 62%, var(--cream) 100%);
+    }
+
+    .stage::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 8;
+      pointer-events: none;
+      background: linear-gradient(180deg, rgba(0,0,0,.14), transparent 30%, transparent 78%, rgba(20,45,38,.05));
+    }
+
+    .brand {
+      position: absolute;
+      z-index: 12;
+      top: 92px;
+      left: 122px;
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      font-size: 66px;
+      line-height: 1;
+      font-weight: 760;
+      letter-spacing: -2px;
+    }
+
+    .brand img {
+      width: 94px;
+      height: 94px;
+      border-radius: 24px;
+      box-shadow: 0 14px 36px rgba(0,0,0,.22);
+    }
+
+    .headline {
+      position: absolute;
+      z-index: 12;
+      margin: 0;
+      font-size: 122px;
+      line-height: .98;
+      font-weight: 780;
+      letter-spacing: -6px;
+      text-wrap: balance;
+      text-shadow: 0 7px 28px rgba(8,35,28,.20);
+    }
+
+    .feature .headline {
+      top: 82px;
+      left: 160px;
+      width: 1744px;
+      text-align: center;
+    }
+
+    .hero .headline {
+      left: 128px;
+      bottom: 70px;
+      width: 1740px;
+      font-size: 130px;
+    }
+
+    .eyebrow {
+      display: block;
+      margin-bottom: 24px;
+      color: rgba(255,250,242,.75);
+      font-size: 34px;
+      line-height: 1;
+      letter-spacing: 9px;
+      text-transform: uppercase;
+    }
+
+    .tablet {
+      position: absolute;
+      z-index: 4;
+      padding: 18px;
+      border: 14px solid rgba(242,242,247,.74);
+      border-radius: 72px;
+      background: linear-gradient(135deg, #25262a, #050506 38%, #3e4045 72%, #09090a);
+      box-shadow:
+        0 62px 110px rgba(8,38,30,.38),
+        0 12px 28px rgba(0,0,0,.34),
+        inset 0 0 0 5px rgba(255,255,255,.12);
+    }
+
+    .tablet-screen {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      border-radius: 42px;
+      background: #faf8f3;
+    }
+
+    .tablet-screen img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .hero .tablet {
+      top: 330px;
+      left: 278px;
+      width: 1508px;
+      height: 2011px;
+      transform: rotate(-4deg);
+    }
+
+    .feature .tablet {
+      top: 405px;
+      left: 182px;
+      width: 1700px;
+      height: 2267px;
+    }
+
+    .preview {
+      min-height: 100vh;
+      padding: 65px;
+      display: grid;
+      grid-template-columns: repeat(5, 310px);
+      gap: 24px;
+      align-items: start;
+      justify-content: center;
+      background: #eee9e4;
+    }
+
+    .preview .thumb {
+      width: 310px;
+      height: 413px;
+      overflow: hidden;
+      border-radius: 18px;
+      box-shadow: 0 18px 45px rgba(33,20,36,.20);
+    }
+
+    .preview .stage {
+      transform: scale(.15);
+      transform-origin: top left;
+    }
+
+    body:not(.preview) .thumb { width: 2064px; height: 2752px; }
+    body:not(.preview) .thumb:not(.active) { display: none; }
+  </style>
+</head>
+<body>
+  <div class="thumb" data-shot="1">
+    <section class="stage hero">
+      <div class="brand">
+        <img src="../../../../public/icons/icon-light-512x512.png" alt="">
+        <span>HealthyFlow</span>
+      </div>
+      <div class="tablet"><div class="tablet-screen"><img src="raw-ipad/01-today.png" alt="HealthyFlow Today on iPad"></div></div>
+      <h1 class="headline"><span class="eyebrow">Plan less. Know more.</span>Your whole day.<br>One place.</h1>
+    </section>
+  </div>
+
+  <div class="thumb" data-shot="2">
+    <section class="stage feature">
+      <h1 class="headline">Keep what matters<br>in view.</h1>
+      <div class="tablet"><div class="tablet-screen"><img src="raw-ipad/02-goals.png" alt="HealthyFlow Goals on iPad"></div></div>
+    </section>
+  </div>
+
+  <div class="thumb" data-shot="3">
+    <section class="stage feature">
+      <h1 class="headline">Everything health.<br>One daily view.</h1>
+      <div class="tablet"><div class="tablet-screen"><img src="raw-ipad/03-health.png" alt="HealthyFlow Health on iPad"></div></div>
+    </section>
+  </div>
+
+  <div class="thumb" data-shot="4">
+    <section class="stage feature">
+      <h1 class="headline">Food fits<br>into your day.</h1>
+      <div class="tablet"><div class="tablet-screen"><img src="raw-ipad/04-nutrition.png" alt="HealthyFlow Nutrition on iPad"></div></div>
+    </section>
+  </div>
+
+  <div class="thumb" data-shot="5">
+    <section class="stage feature">
+      <h1 class="headline">Make time<br>to feel stronger.</h1>
+      <div class="tablet"><div class="tablet-screen"><img src="raw-ipad/05-workouts.png" alt="HealthyFlow Workouts on iPad"></div></div>
+    </section>
+  </div>
+
+  <script>
+    const shot = new URLSearchParams(location.search).get('shot') || 'all';
+    if (shot === 'all') document.body.classList.add('preview');
+    else document.querySelector(`[data-shot="${shot}"]`)?.classList.add('active');
+  </script>
+</body>
+</html>

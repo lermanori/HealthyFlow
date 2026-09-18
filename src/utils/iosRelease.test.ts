@@ -6,6 +6,7 @@ const project = readFileSync('ios/App/App.xcodeproj/project.pbxproj', 'utf8')
 const packageJson = readFileSync('package.json', 'utf8')
 const nativePackage = readFileSync('ios/App/CapApp-SPM/Package.swift', 'utf8')
 const releaseRunbook = readFileSync('docs/runbooks/app-store-v1.md', 'utf8')
+const listing = readFileSync('output/app-store/v1/listing-draft.md', 'utf8')
 const layout = readFileSync('src/components/Layout.tsx', 'utf8')
 const addItemPage = readFileSync('src/pages/AddItemPage.tsx', 'utf8')
 
@@ -21,7 +22,7 @@ describe('free-v1 iOS release configuration', () => {
 
   it('keeps app and widget release identity aligned', () => {
     assert.equal((project.match(/MARKETING_VERSION = 1\.0\.1;/g) ?? []).length, 4)
-    assert.equal((project.match(/CURRENT_PROJECT_VERSION = 2;/g) ?? []).length, 4)
+    assert.equal((project.match(/CURRENT_PROJECT_VERSION = 5;/g) ?? []).length, 4)
     assert.equal((project.match(/PRODUCT_BUNDLE_IDENTIFIER = app\.healthyflow\.mobile;/g) ?? []).length, 2)
     assert.equal((project.match(/PRODUCT_BUNDLE_IDENTIFIER = app\.healthyflow\.mobile\.widget;/g) ?? []).length, 2)
   })
@@ -40,9 +41,9 @@ describe('free-v1 iOS release configuration', () => {
   })
 
   it("keeps App Store copy within Apple's published byte limits", () => {
-    const subtitle = releaseRunbook.match(/\*\*Subtitle \(\d+ characters\)\*\*\n\n```text\n([^\n]+)\n```/)?.[1]
-    const keywords = releaseRunbook.match(/\*\*Keywords \(\d+ bytes\)\*\*\n\n```text\n([^\n]+)\n```/)?.[1]
-    const description = releaseRunbook.match(/\*\*Description\*\*\n\n```text\n([\s\S]+?)\n```/)?.[1]
+    const subtitle = listing.match(/## Subtitle\n\n([^\n]+)/)?.[1]
+    const keywords = listing.match(/## Keywords\n\n([^\n]+)/)?.[1]
+    const description = listing.match(/## Description\n\n([\s\S]+?)\n\n## Keywords/)?.[1]
 
     assert.ok(subtitle)
     assert.ok(keywords)

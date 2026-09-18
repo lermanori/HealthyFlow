@@ -1,0 +1,21 @@
+{
+  "id": "596e849f-86a8-4a43-84ab-62669fe76cb7",
+  "title": "Make room for tonight",
+  "model": "gpt-4o-mini",
+  "createdAt": "2026-09-17T20:04:35.325649Z",
+  "updatedAt": "2026-09-17T20:04:35.325649Z",
+  "messages": [
+    {
+      "id": "0e4e9061-f563-4caf-be2e-8f873db23f38",
+      "role": "user",
+      "content": "I finished my design proposal. Tonight I want to pick up groceries, do a 45-minute strength workout, and read before bed. Help me put them in a sensible order. Just suggest a simple plan; do not save anything yet.",
+      "createdAt": "2026-09-17T20:04:35.325649Z"
+    },
+    {
+      "id": "372a3cf2-6685-46ea-8d6c-91aa1516243f",
+      "role": "assistant",
+      "content": "Here's a simple plan for your evening:\n\n1. **Pick up groceries** - This can be done first to ensure you have everything you need for the week.\n2. **Do a 45-minute strength workout** - After grocery shopping, you can focus on your workout while you're energized.\n3. **Read before bed** - Finally, wind down with some reading to relax after your workout.\n\nThis order allows you to efficiently complete your tasks while maintaining a good flow for your evening. Let me know if you'd like to save any of these activities!",
+      "createdAt": "2026-09-17T20:04:35.325649Z"
+    }
+  ]
+}

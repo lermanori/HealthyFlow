@@ -9,10 +9,17 @@ const sections = [
     ],
   },
   {
+    title: 'Your Local day and account',
+    body: [
+      'On iPhone, you can use HealthyFlow as a Guest without creating an account. Your tasks, habits, goals, schedules, food and weight entries, workouts, and settings are saved on that device and remain usable offline. AI and account services require an internet connection.',
+      'Claiming an account adds a sign-in identity and access to the recurring free AI allowance. It does not add Cloud backup, cross-device sync, or device transfer. These features cannot be obtained in v1. Deleting the app or losing the device can permanently remove your Local day.',
+    ],
+  },
+  {
     title: 'Your content',
     body: [
       'You keep ownership of the items, notes, schedules, calorie entries, workout data, and other content you add to HealthyFlow.',
-      'You grant HealthyFlow a limited license to host, process, transmit, display, and back up your content only as needed to provide, secure, maintain, and improve the service.',
+      'You grant HealthyFlow a limited license to process, transmit, display, and store your content as needed to provide, secure, and maintain the features you use, as described in the Privacy Policy. This permission does not mean that your Local day is backed up.',
     ],
   },
   {
@@ -30,10 +37,11 @@ const sections = [
     ],
   },
   {
-    title: 'Subscriptions and paid features',
+    title: 'Free v1 and AI allowances',
     body: [
-      'Some features may require payment, usage credits, or a subscription. Prices, feature availability, and limits may change over time.',
-      'Unless stated otherwise at purchase, fees are non-refundable except where required by law.',
+      'HealthyFlow v1 is free. It has no purchases, paid subscriptions, or paid AI-action packs.',
+      'Eligible Guests receive 10 AI actions once. A claimed, verified account receives 15 AI actions each calendar month. Guest grants are subject to shared-network abuse limits. The app shows your available actions; the amount used depends on the AI request and model.',
+      'When your actions run out, you can continue planning and tracking manually. Founders Club lets you share feedback or request extra free actions. Any extra grant is discretionary and is not a purchase or a promise of future access.',
     ],
   },
   {
@@ -77,7 +85,7 @@ export default function TermsOfServicePage() {
         </div>
 
         <article className="rounded-2xl border border-line/50 bg-card/60 p-6 shadow-xl shadow-accent/5 sm:p-8">
-          <p className="mb-3 text-sm font-medium uppercase tracking-wider text-accent">Effective July 2, 2026</p>
+          <p className="mb-3 text-sm font-medium uppercase tracking-wider text-accent">Effective September 15, 2026</p>
           <h1 className="mb-4 text-3xl font-bold text-ink sm:text-4xl">Terms of Service</h1>
           <p className="mb-8 text-base leading-7 text-ink-soft">
             These Terms of Service govern your access to and use of HealthyFlow. By creating an account or using the

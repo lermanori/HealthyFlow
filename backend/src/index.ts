@@ -28,6 +28,7 @@ import { daySummaryRoutes } from './routes/day-summary'
 import { waitlistRoutes } from './routes/waitlist'
 import { mobileRoutes } from './routes/mobile'
 import { goalRoutes } from './routes/goals'
+import { mailRoutes } from './routes/mail'
 import { initDatabase } from './db/database'
 import { db } from './supabase-client'
 import { startProactivityScheduler } from './proactivity'
@@ -136,6 +137,7 @@ app.use(
     next()
   }
 )
+app.use('/api/mail', mailRoutes)
 app.use(express.json({ limit: '6mb' }))
 
 // Initialize database (disabled - using Supabase instead)

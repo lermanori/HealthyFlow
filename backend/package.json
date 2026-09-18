@@ -27,6 +27,8 @@
     "express-rate-limit": "^8.5.2",
     "jsonwebtoken": "^9.0.2",
     "node-cron": "^3.0.3",
+    "postal-mime": "^3.0.0",
+    "resend": "^6.28.1",
     "sqlite3": "^5.1.6",
     "uuid": "^8.3.2",
     "web-push": "^3.6.7",

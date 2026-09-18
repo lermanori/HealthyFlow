@@ -1757,7 +1757,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         <div className="space-y-4">
           <Link to="/support" className="block w-full rounded-lg border border-line-strong p-3 text-left transition-colors hover:bg-card/50">
             <div className="font-medium text-ink-soft">Support</div>
-            <div className="text-sm text-ink-muted">Contact HealthyFlow at lermanori@gmail.com</div>
+            <div className="text-sm text-ink-muted">Contact HealthyFlow at support@healthyflow.app</div>
           </Link>
 
           <button disabled={exportingAccount} onClick={() => void handleExportAccount()} className="w-full text-left p-3 rounded-lg border border-line-strong hover:bg-card/50 transition-colors disabled:cursor-wait disabled:opacity-60">
