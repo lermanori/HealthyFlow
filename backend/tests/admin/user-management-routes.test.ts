@@ -71,6 +71,7 @@ describe('admin user-management routes', () => {
       disabledAt: null,
       isTest: true,
       emailVerified: true,
+      deviceId: null,
       balance: 25,
       freeAllowance: { state: 'available', credits: 15, kind: 'monthly' },
       subscriptionActive: false,

@@ -243,6 +243,7 @@ type AdminUserRow = {
   disabled_at: string | null
   is_test: boolean
   email_verified_at: string | null
+  device_id: string | null
 }
 
 export class AdminUserControlError extends Error {
@@ -304,7 +305,7 @@ async function requireAdminActor(actorId: string): Promise<AdminUserRow> {
   return data as AdminUserRow
 }
 
-const ADMIN_USER_COLUMNS = 'id, email, name, role, signup_method, google_auth_subject, apple_auth_subject, created_at, last_login_at, disabled_at, is_test, email_verified_at'
+const ADMIN_USER_COLUMNS = 'id, email, name, role, signup_method, google_auth_subject, apple_auth_subject, created_at, last_login_at, disabled_at, is_test, email_verified_at, device_id'
 
 async function getAdminUserRows(userIds?: string[]): Promise<AdminUserRow[]> {
   if (userIds) {
@@ -407,6 +408,7 @@ export async function listManagedUsers(actorId: string): Promise<ManagedUser[]> 
     disabledAt: user.disabled_at,
     isTest: Boolean(user.is_test),
     emailVerified: user.email !== null && user.email_verified_at !== null,
+    deviceId: user.device_id ?? null,
     balance: balances.get(user.id) ?? 0,
     freeAllowance: allowances[index],
     subscriptionActive: subscriptions.get(user.id) ?? false,

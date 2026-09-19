@@ -106,13 +106,33 @@ const providerSessionLimiter = rateLimit({
   message: { error: 'Too many sign-in attempts. Please try again later.' },
 })
 
-async function recordLogin(userId: string) {
+/**
+ * The device a request came from (#308): a UUID the app keeps in the iPhone's
+ * Keychain, surviving reinstall, or per browser on the web. Anything else is
+ * ignored rather than refused — it labels accounts in Admin and nothing more.
+ */
+function requestDeviceId(req: express.Request): string | null {
+  const parsed = z.string().uuid().safeParse(req.get('x-hf-device-id'))
+  return parsed.success ? parsed.data.toLowerCase() : null
+}
+
+async function recordLogin(userId: string, deviceId: string | null) {
   try {
     if (typeof (db as Partial<typeof db>).recordUserLogin !== 'function') return
-    await db.recordUserLogin(userId)
+    await db.recordUserLogin(userId, deviceId)
   } catch (error) {
     // Login history helps administration but must never block a valid sign-in.
     console.warn('Could not record user login:', error)
+  }
+}
+
+async function recordDevice(userId: string, deviceId: string | null) {
+  if (!deviceId) return
+  try {
+    await db.recordUserDevice(userId, deviceId)
+  } catch (error) {
+    // Bookkeeping for Admin; it must never block a session.
+    console.warn('Could not record the device:', error)
   }
 }
 
@@ -155,7 +175,7 @@ router.post('/signup', signupLimiter, async (req, res) => {
     if (!user) throw new Error('Account insert returned no user')
 
     await Onboarding.seedNewUser(user.id)
-    await recordLogin(user.id)
+    await recordLogin(user.id, requestDeviceId(req))
 
     // The account exists either way. A mail failure is reported rather than
     // rolled back or hidden: sending someone to their inbox for a link that was
@@ -199,7 +219,7 @@ router.post('/guest', guestLimiter, async (req, res) => {
     // `trust proxy` is set in index.ts, so req.ip is the client address behind
     // Railway's proxy rather than the proxy's own.
     const session = await Auth.startGuestSession(req.ip)
-    await recordLogin(session.user.id)
+    await recordLogin(session.user.id, requestDeviceId(req))
     return res.json(session)
   } catch (error) {
     if (error instanceof AuthFlowError) {
@@ -220,6 +240,7 @@ router.post('/claim', authenticateToken, async (req: AuthRequest, res) => {
 
   try {
     const session = await Auth.claimGuestAccount(req.user.userId, parsed.data as ClaimAccountInput)
+    await recordDevice(session.user.id, requestDeviceId(req))
     const verification = await sendVerification({
       id: session.user.id,
       email: session.user.email,
@@ -247,6 +268,7 @@ router.post('/claim/:provider', authenticateToken, async (req: AuthRequest, res)
 
   try {
     const session = await Auth.claimGuestAccountWithProvider(req.user.userId, provider, parsed.data)
+    await recordDevice(session.user.id, requestDeviceId(req))
     return res.json(session)
   } catch (error) {
     if (error instanceof AuthFlowError) {
@@ -270,7 +292,7 @@ router.post('/google', providerSessionLimiter, async (req, res) => {
 
   try {
     const session = await Auth.exchangeGoogleSession(parsed.data)
-    await recordLogin(session.user.id)
+    await recordLogin(session.user.id, requestDeviceId(req))
     return res.json(session)
   } catch (error) {
     if (error instanceof AuthFlowError) {
@@ -295,7 +317,7 @@ router.post('/apple', providerSessionLimiter, async (req, res) => {
 
   try {
     const session = await Auth.exchangeAppleSession(parsed.data)
-    await recordLogin(session.user.id)
+    await recordLogin(session.user.id, requestDeviceId(req))
     return res.json(session)
   } catch (error) {
     if (error instanceof AuthFlowError) {
@@ -319,7 +341,7 @@ router.post('/demo-session', async (req, res) => {
 
   try {
     const user = await getDemoPersonaUser(parsed.data.persona)
-    await recordLogin(user.id)
+    await recordLogin(user.id, requestDeviceId(req))
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '2h' })
     return res.json({
       user: {
@@ -359,7 +381,7 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({ error: 'This HealthyFlow account is disabled.', reason: 'account_disabled' })
     }
 
-    await recordLogin(user.id)
+    await recordLogin(user.id, requestDeviceId(req))
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' })
 
     res.json({
@@ -396,6 +418,8 @@ router.get('/verify', async (req, res) => {
     if (user.disabled_at) {
       return res.status(403).json({ error: 'Account is disabled.', reason: 'account_disabled' })
     }
+    // Every verified open, so an existing Guest picks up its device (#308).
+    await recordDevice(user.id, requestDeviceId(req))
 
     res.json({
       ...sessionUser(user),

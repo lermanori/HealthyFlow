@@ -62,19 +62,19 @@ export const managedUsers = [
   {
     id: 'admin-1', email: 'admin@example.com', name: 'Admin', role: 'admin', signupMethod: 'password',
     createdAt: '2026-07-01T00:00:00.000Z', lastLoginAt: null, disabledAt: null, isTest: false,
-    emailVerified: true, freeAllowance: { state: 'claimed', kind: 'monthly', nextAvailableAt: '2026-10-01T00:00:00.000Z' },
+    emailVerified: true, deviceId: 'd3a1ce00-0000-4000-8000-000000000001', freeAllowance: { state: 'claimed', kind: 'monthly', nextAvailableAt: '2026-10-01T00:00:00.000Z' },
     balance: 20, subscriptionActive: true, protection: 'current_admin',
   },
   {
     id: 'guest-1', email: null, name: 'Guest', role: 'user', signupMethod: 'guest',
     createdAt: '2026-09-10T00:00:00.000Z', lastLoginAt: null, disabledAt: null, isTest: false,
-    emailVerified: false, freeAllowance: { state: 'network_limited', kind: 'guest_initial' },
+    emailVerified: false, deviceId: 'd3a1ce00-0000-4000-8000-000000000001', freeAllowance: { state: 'network_limited', kind: 'guest_initial' },
     balance: 10, subscriptionActive: false, protection: null,
   },
   {
     id: 'person-1', email: 'person@example.com', name: 'Person', role: 'user', signupMethod: 'password',
     createdAt: '2026-09-12T00:00:00.000Z', lastLoginAt: null, disabledAt: null, isTest: false,
-    emailVerified: false, freeAllowance: { state: 'email_unverified', kind: 'monthly' },
+    emailVerified: false, deviceId: null, freeAllowance: { state: 'email_unverified', kind: 'monthly' },
     balance: 15, subscriptionActive: false, protection: null,
   },
 ]
@@ -337,7 +337,7 @@ test.describe('telling accounts apart', () => {
     await openAdmin(page)
 
     const people = page.getByRole('region', { name: 'User Management' })
-    await page.getByPlaceholder('Search name or email').fill('person-')
+    await page.getByPlaceholder('Search name, email, id or device').fill('person-')
     await expect(people.getByText('person@example.com')).toBeVisible()
     await expect(people.getByText('No email — Guest')).toHaveCount(0)
   })
@@ -349,7 +349,7 @@ test.describe('telling accounts apart', () => {
     await page.getByRole('button', { name: 'Show in People' }).first().click()
 
     const people = page.getByRole('region', { name: 'User Management' })
-    await expect(page.getByPlaceholder('Search name or email')).toHaveValue('guest-1')
+    await expect(page.getByPlaceholder('Search name, email, id or device')).toHaveValue('guest-1')
     await expect(people.getByText('No email — Guest')).toBeVisible()
     await expect(people.getByText('person@example.com')).toHaveCount(0)
   })
@@ -480,5 +480,21 @@ test.describe('Guards', () => {
 
     await expect(page.getByText('Could not load the guards.')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Spend' })).toBeVisible()
+  })
+})
+
+test.describe('devices', () => {
+  test('accounts on one device are tagged together, and the tag filters People to them', async ({ page }) => {
+    await openAdmin(page)
+    const people = page.getByRole('region', { name: 'User Management' })
+
+    await expect(people.getByRole('button', { name: 'Show accounts on device d3a1ce00' }).first()).toContainText('2 accounts')
+    await expect(people.getByText('device not seen yet')).toBeVisible()
+
+    await people.getByRole('button', { name: 'Show accounts on device d3a1ce00' }).first().click()
+    await expect(page.getByPlaceholder('Search name, email, id or device')).toHaveValue('d3a1ce00-0000-4000-8000-000000000001')
+    await expect(people.getByText('No email — Guest')).toBeVisible()
+    await expect(people.getByText('admin@example.com')).toBeVisible()
+    await expect(people.getByText('person@example.com')).toHaveCount(0)
   })
 })

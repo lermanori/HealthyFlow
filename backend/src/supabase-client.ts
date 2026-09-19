@@ -218,11 +218,25 @@ export const db = {
     return users
   },
 
-  async recordUserLogin(userId: string) {
+  async recordUserLogin(userId: string, deviceId: string | null = null) {
     const { error } = await supabase
       .from('users')
-      .update({ last_login_at: new Date().toISOString() })
+      .update({
+        last_login_at: new Date().toISOString(),
+        ...(deviceId ? { device_id: deviceId } : {}),
+      })
       .eq('id', userId);
+
+    if (error) throw error;
+  },
+
+  /** The device an account was last used on (#308). Writes only when it changed. */
+  async recordUserDevice(userId: string, deviceId: string) {
+    const { error } = await supabase
+      .from('users')
+      .update({ device_id: deviceId })
+      .eq('id', userId)
+      .or(`device_id.is.null,device_id.neq.${deviceId}`);
 
     if (error) throw error;
   },

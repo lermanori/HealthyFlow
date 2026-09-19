@@ -2,6 +2,7 @@
 import axios from 'axios'
 import { z } from 'zod'
 import { analytics } from '../lib/analytics'
+import { deviceId } from '../lib/deviceIdentity'
 import { WORK_ENABLED } from '../featureFlags'
 import type { DemoPersonaId } from '../demoPersonas'
 import type { ItemSource, ItemType } from '../lib/analytics/types'
@@ -134,7 +135,12 @@ const api = axios.create({
 })
 
 // Add auth token to requests
-api.interceptors.request.use((config) => {
+api.interceptors.request.use(async (config) => {
+  // Only sign-in, Guest start, Claim and session restore record it (#308).
+  if (config.url?.startsWith('/auth/')) {
+    const device = await deviceId()
+    if (device) config.headers['X-HF-Device-Id'] = device
+  }
   const token = readSessionToken()
   if (token && !config.headers.Authorization) {
     config.headers.Authorization = `Bearer ${token}`

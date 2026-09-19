@@ -310,7 +310,8 @@ export default function UserManagementPanel({
       const matchesQuery = !normalized ||
         user.name.toLowerCase().includes(normalized) ||
         (user.email ?? '').toLowerCase().includes(normalized) ||
-        user.id.toLowerCase().startsWith(normalized)
+        user.id.toLowerCase().startsWith(normalized) ||
+        (user.deviceId ?? '').startsWith(normalized)
       const matchesTest =
         testFilter === 'all' ||
         (testFilter === 'test' ? user.isTest : !user.isTest)
@@ -320,6 +321,14 @@ export default function UserManagementPanel({
       return matchesQuery && matchesTest && matchesAccess
     })
   }, [accessFilter, query, testFilter, users])
+
+  // How many accounts share each device, so a pile of Guests that are really
+  // one person reinstalling reads as one device (#308).
+  const accountsPerDevice = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const user of users) if (user.deviceId) counts.set(user.deviceId, (counts.get(user.deviceId) ?? 0) + 1)
+    return counts
+  }, [users])
 
   const selectableVisibleIds = filteredUsers
     .filter(user => !user.protection)
@@ -498,7 +507,7 @@ export default function UserManagementPanel({
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
             <input
               className="input-field pl-10"
-              placeholder="Search name or email"
+              placeholder="Search name, email, id or device"
               value={query}
               onChange={event => setQuery(event.target.value)}
             />
@@ -598,6 +607,23 @@ export default function UserManagementPanel({
                       >
                         id {user.id.slice(0, 8)}
                       </button>
+                      {user.deviceId ? (
+                        <button
+                          type="button"
+                          aria-label={`Show accounts on device ${user.deviceId.slice(0, 8)}`}
+                          className="mt-1 block text-left font-mono text-xs text-ink-muted hover:text-ink"
+                          onClick={() => setQuery(user.deviceId!)}
+                        >
+                          device {user.deviceId.slice(0, 8)}
+                          {(accountsPerDevice.get(user.deviceId) ?? 0) > 1 && (
+                            <span className="ml-1 rounded-full bg-state-warning/15 px-1.5 text-state-warning">
+                              {accountsPerDevice.get(user.deviceId)} accounts
+                            </span>
+                          )}
+                        </button>
+                      ) : (
+                        <p className="mt-1 text-xs text-ink-muted">device not seen yet</p>
+                      )}
                       {user.protection && (
                         <span className="mt-1 inline-flex items-center gap-1 text-xs text-accent">
                           <ShieldCheck className="h-3.5 w-3.5" /> {protectionLabels[user.protection]}

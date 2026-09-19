@@ -34,6 +34,12 @@ the source (ADR-0011) and the server is a replica, never a hosted substitute.
 The founder's legacy Cloud state controls replication only; it neither replaces
 nor blocks the claimed account's monthly AI actions or balance set in Admin.
 
+**Before submitting a build that includes #308**, check the Device ID answer in
+App Privacy. Device ID is already declared (for the push token) with App
+Functionality, but the published preview shows identifier data as *not linked*
+to the user. The #308 device ID is stored on the account (`users.device_id`), so
+Device ID must be answered as linked to the user. Nothing else changes.
+
 For #237, the App Privacy answers were completed from the full code and
 production-SDK inventory, including the legacy entitled-account sync path. The
 listing copy accurately says that new v1 users cannot obtain Cloud backup,
@@ -144,6 +150,7 @@ These are implementation facts, not completed App Privacy answers.
 | Google Calendar (claimed Cloud only; web in the current build) | Google OAuth tokens, calendar event identifiers/content and sync state when connected | HealthyFlow backend, Supabase, Google Calendar APIs; Guest and claimed-free native v1 do not call this path |
 | Contact | In-app form: request kind, message and reply-to address. Public support email: sender/reply address, message and attachments | Form: HealthyFlow backend and Supabase. Email: Resend, transient backend forwarding and the privately configured support inbox; not stored in the app database |
 | Notifications | native device token or Web Push subscription | HealthyFlow backend, Supabase, APNs/Web Push |
+| Device ID (from #308) | a random UUID kept in the iOS Keychain as a this-device-only item (survives reinstall, never synced or restored to another phone); one random ID per browser on the web. Sent with auth requests only; labels accounts in Admin, never read by a grant (ADR-0027) | HealthyFlow backend and Supabase (`users.device_id`) |
 | Analytics | stable user ID; optional email/name/role/Guest state; typed product events, page paths, and session recordings that can include displayed text | PostHog; production bundle points to the EU ingestion host |
 | Nutrition lookup | food query and selected nutrition result | Backend query to Open Food Facts. Fuder is a curated source link, not a query recipient in the current lookup implementation |
 

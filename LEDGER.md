@@ -1,3 +1,15 @@
+### 2026-09-19 09:47 — `issue-308-device-id`
+
+People now shows the device each account was last used on, and how many accounts
+share it, so a pile of Guests that are really one person reinstalling reads as one
+device and can be marked test together. The iPhone keeps a random ID in the
+Keychain as a this-device-only item — verified on the iOS 26 simulator to survive
+deleting and reinstalling the app — and it travels with auth requests only; the
+server records it on Guest start, sign-in, Claim and every verified open. ADR-0027
+keeps it out of every grant; App Privacy's Device ID answer must become "linked".
+
+---
+
 ### 2026-09-19 09:23 — `issue-307-guards-panel`
 
 Admin now has a Guards panel listing every guard with the limit the server

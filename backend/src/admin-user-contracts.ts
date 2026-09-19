@@ -25,6 +25,9 @@ export const ManagedUserSchema = z.object({
   isTest: z.boolean(),
   // Proven reachable (ADR-0025). Always false for a Guest, who has no address.
   emailVerified: z.boolean(),
+  // The device this account was last used on (#308, ADR-0027). Null until it
+  // next signs in or opens the app on a build that sends it.
+  deviceId: z.string().nullable(),
   balance: z.number().int().nonnegative(),
   // The free grant this account can draw, by the rule the server enforces.
   freeAllowance: FreeCreditGrantSchema,
