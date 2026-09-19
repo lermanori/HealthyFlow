@@ -1,3 +1,14 @@
+### 2026-09-19 08:32 — `issue-297-verify-model-prices`
+
+Re-checked every priced model against OpenAI's published standard pricing
+(2026-09-19): input and output rates were already correct. Cost now prices
+cached input at OpenAI's cached rate, read from chat-completion usage and from
+the Agents SDK for Talk, so recorded cost matches the bill instead of
+overstating it. A test pins the verified price table and the cost-guards runbook
+records the source and date.
+
+---
+
 ### 2026-09-18 20:38 — `issue-296-ceiling-sums-every-row`
 
 The $25 global spending ceiling now sums the day's recorded cost as one database

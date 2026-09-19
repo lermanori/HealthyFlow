@@ -459,12 +459,23 @@ export type TalkStagePlan = {
   traceMetadata: Record<string, string>
 }
 
-type SdkUsage = { inputTokens: number; outputTokens: number; totalTokens: number }
+type SdkUsage = {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  /** One entry per model request; each may report the tokens it read from cache. */
+  inputTokensDetails?: Array<Record<string, number>>
+}
 
 function stageUsage(usage: SdkUsage | undefined): TokenUsage | null {
-  return usage
-    ? { promptTokens: usage.inputTokens, completionTokens: usage.outputTokens, totalTokens: usage.totalTokens }
-    : null
+  if (!usage) return null
+  const cached = (usage.inputTokensDetails ?? []).reduce((sum, entry) => sum + (entry.cached_tokens ?? 0), 0)
+  return {
+    promptTokens: usage.inputTokens,
+    ...(cached > 0 ? { cachedPromptTokens: cached } : {}),
+    completionTokens: usage.outputTokens,
+    totalTokens: usage.totalTokens,
+  }
 }
 
 export class TalkStageProfileError extends Error {
@@ -688,11 +699,8 @@ export class OpenAiTalkStageRuntime implements TalkStageRuntime {
       output: parsed.data,
       outputContract: plan.outputContract,
       toolEvents,
-      usage: {
-        promptTokens: result.state.usage.inputTokens,
-        completionTokens: result.state.usage.outputTokens,
-        totalTokens: result.state.usage.totalTokens,
-      },
+      // The runner's type guarantees usage on a completed run.
+      usage: usage!,
       runtimeVersion: TALK_RUNTIME_VERSION,
       instructionVersions: plan.instructionVersions,
       toolNames: plan.toolNames,

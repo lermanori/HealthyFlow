@@ -137,28 +137,39 @@ export type SupportedAiModel =
 
 type ModelPricing = {
   inputUsdPerMillion: number
+  /** Input served from OpenAI's prompt cache. Absent for a model that does not cache. */
+  cachedInputUsdPerMillion?: number
   outputUsdPerMillion: number
 }
 
+// OpenAI standard-tier prices, USD per 1M tokens, checked against
+// https://developers.openai.com/api/docs/pricing on 2026-09-19 (#297). gpt-5.5
+// and gpt-5.4 are the under-272K-context rates; MAX_PROMPT_CHARS keeps every
+// request far below that. tests/credits/model-pricing.test.ts pins these.
 const DEFAULT_MODEL_PRICING: Record<string, ModelPricing> = {
   'gpt-5.5': {
     inputUsdPerMillion: 5.00,
+    cachedInputUsdPerMillion: 0.50,
     outputUsdPerMillion: 30.00,
   },
   'gpt-5.4': {
     inputUsdPerMillion: 2.50,
+    cachedInputUsdPerMillion: 0.25,
     outputUsdPerMillion: 15.00,
   },
   'gpt-5.4-mini': {
     inputUsdPerMillion: 0.75,
+    cachedInputUsdPerMillion: 0.075,
     outputUsdPerMillion: 4.50,
   },
   'gpt-5-mini': {
     inputUsdPerMillion: 0.25,
+    cachedInputUsdPerMillion: 0.025,
     outputUsdPerMillion: 2.00,
   },
   'gpt-4o-mini': {
     inputUsdPerMillion: 0.15,
+    cachedInputUsdPerMillion: 0.075,
     outputUsdPerMillion: 0.60,
   },
   'gpt-3.5-turbo': {
@@ -212,6 +223,8 @@ export type LaunchOffer = z.infer<typeof LaunchOfferSchema>
 
 type BillingUsage = {
   promptTokens: number
+  /** The part of promptTokens OpenAI served from its prompt cache. */
+  cachedPromptTokens?: number
   completionTokens: number
 }
 
@@ -342,7 +355,12 @@ export function calculateAiTokenCharge(
 
 export function calculateOpenAiCostUsd(model: string, usage: BillingUsage): number {
   const pricing = getPricing(model)
-  const inputUsd = (usage.promptTokens / 1_000_000) * pricing.inputUsdPerMillion
+  // A model that does not cache reports no cached tokens, so its input rate
+  // applies to every one of them — exact, not an estimate.
+  const cached = Math.min(usage.cachedPromptTokens ?? 0, usage.promptTokens)
+  const inputUsd =
+    ((usage.promptTokens - cached) / 1_000_000) * pricing.inputUsdPerMillion +
+    (cached / 1_000_000) * (pricing.cachedInputUsdPerMillion ?? pricing.inputUsdPerMillion)
   const outputUsd = (usage.completionTokens / 1_000_000) * pricing.outputUsdPerMillion
   return inputUsd + outputUsd
 }

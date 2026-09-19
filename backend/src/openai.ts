@@ -34,6 +34,8 @@ export type OpenAIErrorCode = 'no_key' | 'upstream' | 'invalid_response'
 
 export type TokenUsage = {
   promptTokens: number
+  /** The part of promptTokens served from OpenAI's prompt cache, billed lower. */
+  cachedPromptTokens?: number
   completionTokens: number
   totalTokens: number
 }
@@ -115,6 +117,7 @@ interface OpenAIChatResponse {
     prompt_tokens: number
     completion_tokens: number
     total_tokens: number
+    prompt_tokens_details?: { cached_tokens?: number }
   }
 }
 
@@ -579,16 +582,23 @@ function hasZeroFatOcrClaim(ocr: NutritionLabelOcrValue) {
 const ZERO_USAGE: TokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
 
 function reportedUsage(raw: OpenAIChatResponse['usage']): TokenUsage | null {
-  return raw
-    ? { promptTokens: raw.prompt_tokens, completionTokens: raw.completion_tokens, totalTokens: raw.total_tokens }
-    : null
+  if (!raw) return null
+  const cached = raw.prompt_tokens_details?.cached_tokens ?? 0
+  return {
+    promptTokens: raw.prompt_tokens,
+    ...(cached > 0 ? { cachedPromptTokens: cached } : {}),
+    completionTokens: raw.completion_tokens,
+    totalTokens: raw.total_tokens,
+  }
 }
 
 /** The spend of several calls made for one action. Unknown if any part is. */
 function combineUsage(a: TokenUsage | null, b: TokenUsage | null | undefined): TokenUsage | null {
   if (!a || !b) return null
+  const cached = (a.cachedPromptTokens ?? 0) + (b.cachedPromptTokens ?? 0)
   return {
     promptTokens: a.promptTokens + b.promptTokens,
+    ...(cached > 0 ? { cachedPromptTokens: cached } : {}),
     completionTokens: a.completionTokens + b.completionTokens,
     totalTokens: a.totalTokens + b.totalTokens,
   }

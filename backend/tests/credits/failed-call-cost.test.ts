@@ -124,6 +124,22 @@ describe('failed calls still record what OpenAI spent', () => {
     expect(ledgerRow()).toMatchObject({ credits_delta: -1, cost_usd: null })
   })
 
+  it('a reply that reused cached input records it at the cached rate', async () => {
+    nock(OPENAI).post('/v1/chat/completions').reply(200, {
+      choices: [{ message: { content: '{"ok":true}' } }],
+      usage: { ...usage, prompt_tokens_details: { cached_tokens: 400 } },
+    })
+
+    await structured(value => value)
+
+    expect(ledgerRow()).toMatchObject({
+      credits_delta: -1,
+      cost_usd: calculateOpenAiCostUsd('gpt-4o-mini', {
+        promptTokens: 1000, cachedPromptTokens: 400, completionTokens: 200,
+      }),
+    })
+  })
+
   it('a meal photo whose label could not be read records every OCR call it made', async () => {
     authorize('photo', 5)
     const unreadable = {

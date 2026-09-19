@@ -24,6 +24,28 @@ API key.
 | Photo — meal, list, label | $0.0039 | 5 credits |
 | Premium model — gpt-5.4 / 5.5 | $0.0195 | 10 credits |
 
+These serving costs were derived from the model prices below, which were
+re-checked on **2026-09-19** against OpenAI's published standard pricing
+(<https://developers.openai.com/api/docs/pricing>) and were unchanged, so the
+figures above stand. Recorded cost is now slightly lower than they suggest when
+OpenAI serves input from its prompt cache: cached input is billed, and recorded,
+at the cached rate.
+
+| Model | Input | Cached input | Output |
+|---|---:|---:|---:|
+| gpt-5.5 | $5.00 | $0.50 | $30.00 |
+| gpt-5.4 | $2.50 | $0.25 | $15.00 |
+| gpt-5.4-mini | $0.75 | $0.075 | $4.50 |
+| gpt-5-mini | $0.25 | $0.025 | $2.00 |
+| gpt-4o-mini | $0.15 | $0.075 | $0.60 |
+| gpt-3.5-turbo | $0.50 | — (does not cache) | $1.50 |
+
+USD per 1M tokens. gpt-5.5 and gpt-5.4 are the under-272K-context rates;
+`MAX_PROMPT_CHARS` keeps every request far below that. OpenAI's 10% regional
+(data residency) uplift does not apply: requests go to `api.openai.com`.
+`backend/tests/credits/model-pricing.test.ts` pins this table — if it fails, a
+price moved; confirm it on the pricing page before updating the code.
+
 ### Guards in code
 
 Each is enforced in `Credits.authorizeAction` **before any tokens are spent**, and

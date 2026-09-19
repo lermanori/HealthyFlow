@@ -249,6 +249,24 @@ describe('stage runtime failures preserve the tool sequence', () => {
     expect(error.detail.usage).toBeNull()
   })
 
+  it('counts the cached input the SDK reported', async () => {
+    const runtime = new OpenAiTalkStageRuntime(
+      () => [] as any,
+      async () => ({
+        state: {
+          usage: {
+            inputTokens: 1000, outputTokens: 50, totalTokens: 1050,
+            inputTokensDetails: [{ cached_tokens: 300 }, { cached_tokens: 100 }],
+          },
+        },
+      }),
+    )
+    const error = await runtime.run(runInput()).catch((e) => e)
+    expect(error.detail.usage).toEqual({
+      promptTokens: 1000, cachedPromptTokens: 400, completionTokens: 50, totalTokens: 1050,
+    })
+  })
+
   it('keeps the usage of a run whose output was missing', async () => {
     const runtime = new OpenAiTalkStageRuntime(
       () => [] as any,
