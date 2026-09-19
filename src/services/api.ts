@@ -2020,14 +2020,14 @@ const addAchievementEntry = onDevice(
   },
 )
 
-export const tokenManagerService = {
+export const adminService = {
   getOverview: async (): Promise<AdminOverview> => {
-    const response = await api.get('/admin/token-manager/overview')
+    const response = await api.get('/admin/overview')
     return AdminOverviewSchema.parse(response.data)
   },
 
   getContactMessages: async (status: 'pending' | 'handled' | 'all' = 'pending'): Promise<ContactMessage[]> => {
-    const response = await api.get('/admin/token-manager/contact-messages', { params: { status } })
+    const response = await api.get('/admin/contact-messages', { params: { status } })
     return ContactMessageListSchema.parse(response.data)
   },
 
@@ -2035,12 +2035,12 @@ export const tokenManagerService = {
     messageId: string,
     status: 'pending' | 'handled'
   ): Promise<ContactMessage> => {
-    const response = await api.patch(`/admin/token-manager/contact-messages/${messageId}`, { status })
+    const response = await api.patch(`/admin/contact-messages/${messageId}`, { status })
     return ContactMessageSchema.parse(response.data)
   },
 
   setUserBalance: async (userId: string, balance: number): Promise<{ balance: number; delta: number }> => {
-    const response = await api.patch(`/admin/token-manager/users/${userId}/balance`, { balance })
+    const response = await api.patch(`/admin/users/${userId}/balance`, { balance })
     return response.data
   },
 
@@ -2052,7 +2052,7 @@ export const tokenManagerService = {
    * turns it back on here.
    */
   setUserCloudAccess: async (userId: string, active: boolean): Promise<{ userId: string; active: boolean }> => {
-    const response = await api.patch(`/admin/token-manager/users/${userId}/cloud`, { active })
+    const response = await api.patch(`/admin/users/${userId}/cloud`, { active })
     return response.data
   },
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 
 const settingsSource = fs.readFileSync(new URL('../pages/SettingsPage.tsx', import.meta.url), 'utf8')
-const tokenManagerSource = fs.readFileSync(new URL('../pages/TokenManagerPage.tsx', import.meta.url), 'utf8')
+const adminPageSource = fs.readFileSync(new URL('../pages/AdminPage.tsx', import.meta.url), 'utf8')
 
 test('Settings exposes both Founders Club entry points', () => {
   assert.match(settingsSource, /Founders Club/)
@@ -28,6 +28,6 @@ test('the Founders Club surface contains no purchase or price language', () => {
 })
 
 test('the admin inbox shows supplied reply contact before account identity', () => {
-  assert.match(tokenManagerSource, /message\.replyTo \?\? message\.userEmail \?\? message\.userId/)
-  assert.match(tokenManagerSource, /message\.kind === 'feedback' \? 'Feedback' : 'More actions'/)
+  assert.match(adminPageSource, /message\.replyTo \?\? message\.userEmail \?\? message\.userId/)
+  assert.match(adminPageSource, /message\.kind === 'feedback' \? 'Feedback' : 'More actions'/)
 })

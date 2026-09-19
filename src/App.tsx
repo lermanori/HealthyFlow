@@ -7,7 +7,7 @@ import AddItemPage from './pages/AddItemPage'
 import WeekViewPage from './pages/WeekViewPage'
 import WorkPage from './pages/WorkPage'
 import SettingsPage from './pages/SettingsPage'
-import TokenManagerPage from './pages/TokenManagerPage'
+import AdminPage from './pages/AdminPage'
 import CaloriesPage from './pages/CaloriesPage'
 import HealthPage from './pages/HealthPage'
 import AchievementsPage from './pages/AchievementsPage'
@@ -182,7 +182,9 @@ function App() {
           <Route path="/claim" element={<ClaimAccountPage />} />
           <Route path="/sign-in" element={<SignInPage />} />
           <Route path="/settings/*" element={<SettingsPage />} />
-          <Route path="/token-manager" element={user.role === 'admin' ? <TokenManagerPage /> : <Navigate to="/" replace />} />
+          <Route path="/admin" element={user.role === 'admin' ? <AdminPage /> : <Navigate to="/" replace />} />
+          {/* The screen was "Token Manager" until #298; old links still land on it. */}
+          <Route path="/token-manager" element={<Navigate to="/admin" replace />} />
           <Route
             path="/meal-ocr-lab"
             element={(

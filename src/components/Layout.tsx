@@ -10,7 +10,7 @@ import {
   LogOut,
   Menu,
   X,
-  Coins,
+  ShieldCheck,
   MessageCircle,
   Microscope,
   HeartPulse,
@@ -274,7 +274,7 @@ export default function Layout({
       items: [
         { name: 'Settings', href: '/settings', icon: Settings },
         ...(user?.role === 'admin' ? [{ name: 'OCR Lab', href: '/meal-ocr-lab', icon: Microscope }] : []),
-        ...(user?.role === 'admin' ? [{ name: 'Token Manager', href: '/token-manager', icon: Coins }] : []),
+        ...(user?.role === 'admin' ? [{ name: 'Admin', href: '/admin', icon: ShieldCheck }] : []),
       ],
     },
   ] satisfies NavigationGroup[]).filter((group) => group.items.length > 0)

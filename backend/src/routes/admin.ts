@@ -22,6 +22,12 @@ import {
 
 const router = express.Router()
 
+// Each route answers on its /admin/* path and on the /admin/token-manager/*
+// path it had before the screen became Admin (#298): an iPhone build installed
+// before that change still calls the old one. Drop the old paths once every
+// supported build uses the new ones.
+const paths = (path: string) => [path, `/token-manager${path}`]
+
 const SetBalanceSchema = z.object({
   balance: z.number().int().min(0),
 })
@@ -34,17 +40,17 @@ const ContactMessageUpdateSchema = z.object({
   status: z.enum(['pending', 'handled']),
 })
 
-router.get('/token-manager/overview', authenticateToken, requireAdminRole, async (req, res) => {
+router.get(paths('/overview'), authenticateToken, requireAdminRole, async (req, res) => {
   try {
-    const overview = await Credits.getTokenManagerOverview()
+    const overview = await Credits.getAdminOverview()
     res.json(overview)
   } catch (error) {
-    console.error('Token manager overview error:', error)
+    console.error('Admin overview error:', error)
     res.status(500).json({ error: 'Database error' })
   }
 })
 
-router.get('/token-manager/contact-messages', authenticateToken, requireAdminRole, async (req, res) => {
+router.get(paths('/contact-messages'), authenticateToken, requireAdminRole, async (req, res) => {
   const parsed = ContactMessageStatusQuerySchema.safeParse(req.query)
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message })
@@ -59,7 +65,7 @@ router.get('/token-manager/contact-messages', authenticateToken, requireAdminRol
   }
 })
 
-router.patch('/token-manager/contact-messages/:messageId', authenticateToken, requireAdminRole, async (req: AuthRequest, res) => {
+router.patch(paths('/contact-messages/:messageId'), authenticateToken, requireAdminRole, async (req: AuthRequest, res) => {
   const parsed = ContactMessageUpdateSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message })
@@ -78,7 +84,7 @@ router.patch('/token-manager/contact-messages/:messageId', authenticateToken, re
   }
 })
 
-router.patch('/token-manager/users/:userId/balance', authenticateToken, requireAdminRole, async (req, res) => {
+router.patch(paths('/users/:userId/balance'), authenticateToken, requireAdminRole, async (req, res) => {
   const parsed = SetBalanceSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message })
@@ -101,7 +107,7 @@ router.patch('/token-manager/users/:userId/balance', authenticateToken, requireA
  * all. v1 sells no Cloud (ADR-0019); this exists so the legacy founder exception
  * is an operator action with an audit trail rather than a hand-edited row.
  */
-router.patch('/token-manager/users/:userId/cloud', authenticateToken, requireAdminRole, async (req: AuthRequest, res) => {
+router.patch(paths('/users/:userId/cloud'), authenticateToken, requireAdminRole, async (req: AuthRequest, res) => {
   const parsed = SetCloudAccessSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message })
@@ -197,31 +203,6 @@ router.delete('/users', authenticateToken, requireAdminRole, async (req: AuthReq
     }
     console.error('Delete managed users error:', error)
     return res.status(500).json({ error: 'Could not delete users' })
-  }
-})
-
-// Get system statistics
-router.get('/stats', authenticateToken, requireAdminRole, async (req, res) => {
-  try {
-    const users = await db.getAllUsers()
-    const allTasks = await Promise.all(
-      users.map(user => db.getTasksByUserId(user.id))
-    )
-    
-    const totalUsers = users.length
-    const totalTasks = allTasks.flat().length
-    const completedTasks = allTasks.flat().filter((task: any) => task.completed).length
-    
-    res.json({
-      totalUsers,
-      totalTasks,
-      completedTasks,
-      completionRate: totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0,
-      averageTasksPerUser: totalUsers > 0 ? totalTasks / totalUsers : 0
-    })
-  } catch (error) {
-    console.error('Get stats error:', error)
-    res.status(500).json({ error: 'Database error' })
   }
 })
 

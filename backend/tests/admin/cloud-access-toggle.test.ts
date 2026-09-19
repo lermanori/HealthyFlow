@@ -35,10 +35,10 @@ beforeEach(() => {
   mockDb.upsertUserCreditSubscription.mockImplementation(async (row: any) => row as never)
 })
 
-describe('PATCH /api/admin/token-manager/users/:userId/cloud', () => {
+describe('PATCH /api/admin/users/:userId/cloud', () => {
   it('grants Cloud to an account that never held a subscription', async () => {
     const response = await request(app)
-      .patch('/api/admin/token-manager/users/person-1/cloud')
+      .patch('/api/admin/users/person-1/cloud')
       .set('Authorization', ADMIN)
       .send({ active: true })
 
@@ -60,7 +60,7 @@ describe('PATCH /api/admin/token-manager/users/:userId/cloud', () => {
     } as never)
 
     await request(app)
-      .patch('/api/admin/token-manager/users/person-1/cloud')
+      .patch('/api/admin/users/person-1/cloud')
       .set('Authorization', ADMIN)
       .send({ active: true })
 
@@ -77,7 +77,7 @@ describe('PATCH /api/admin/token-manager/users/:userId/cloud', () => {
 
   it('revokes Cloud', async () => {
     const response = await request(app)
-      .patch('/api/admin/token-manager/users/person-1/cloud')
+      .patch('/api/admin/users/person-1/cloud')
       .set('Authorization', ADMIN)
       .send({ active: false })
 
@@ -86,7 +86,7 @@ describe('PATCH /api/admin/token-manager/users/:userId/cloud', () => {
 
   it('refuses a caller who is not an admin', async () => {
     const response = await request(app)
-      .patch('/api/admin/token-manager/users/person-1/cloud')
+      .patch('/api/admin/users/person-1/cloud')
       .set('Authorization', PERSON)
       .send({ active: true })
 
@@ -96,7 +96,7 @@ describe('PATCH /api/admin/token-manager/users/:userId/cloud', () => {
 
   it('refuses a body that does not say which way', async () => {
     const response = await request(app)
-      .patch('/api/admin/token-manager/users/person-1/cloud')
+      .patch('/api/admin/users/person-1/cloud')
       .set('Authorization', ADMIN)
       .send({})
 

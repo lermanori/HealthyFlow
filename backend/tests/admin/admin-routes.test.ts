@@ -16,7 +16,7 @@ jest.mock('../../src/supabase-client', () => ({
 
 jest.mock('../../src/credits', () => ({
   Credits: {
-    getTokenManagerOverview: jest.fn(),
+    getAdminOverview: jest.fn(),
     setBalance: jest.fn(),
     updateSubscriptionPricing: jest.fn(),
     activateSubscription: jest.fn(),
@@ -47,7 +47,7 @@ describe('token manager migrations', () => {
   })
 })
 
-describe('admin token-manager API', () => {
+describe('admin API', () => {
   it('blocks non-admin users', async () => {
     mockDb.getUserById.mockResolvedValue({
       id: 'user-1',
@@ -57,11 +57,11 @@ describe('admin token-manager API', () => {
     })
 
     const res = await request(app)
-      .get('/api/admin/token-manager/overview')
+      .get('/api/admin/overview')
       .set('Authorization', authHeader('user-1'))
 
     expect(res.status).toBe(403)
-    expect(mockCredits.getTokenManagerOverview).not.toHaveBeenCalled()
+    expect(mockCredits.getAdminOverview).not.toHaveBeenCalled()
   })
 
   it('returns overview for admins', async () => {
@@ -71,7 +71,7 @@ describe('admin token-manager API', () => {
       name: 'Admin',
       role: 'admin',
     })
-    mockCredits.getTokenManagerOverview.mockResolvedValue({
+    mockCredits.getAdminOverview.mockResolvedValue({
       users: [],
       totals: {
         today: {
@@ -109,11 +109,11 @@ describe('admin token-manager API', () => {
     })
 
     const res = await request(app)
-      .get('/api/admin/token-manager/overview')
+      .get('/api/admin/overview')
       .set('Authorization', authHeader('admin-1'))
 
     expect(res.status).toBe(200)
-    expect(mockCredits.getTokenManagerOverview).toHaveBeenCalled()
+    expect(mockCredits.getAdminOverview).toHaveBeenCalled()
   })
 
   it('returns contact messages for admins', async () => {
@@ -141,7 +141,7 @@ describe('admin token-manager API', () => {
     ])
 
     const res = await request(app)
-      .get('/api/admin/token-manager/contact-messages')
+      .get('/api/admin/contact-messages')
       .set('Authorization', authHeader('admin-1'))
 
     expect(res.status).toBe(200)
@@ -172,7 +172,7 @@ describe('admin token-manager API', () => {
     })
 
     const res = await request(app)
-      .patch('/api/admin/token-manager/contact-messages/message-1')
+      .patch('/api/admin/contact-messages/message-1')
       .set('Authorization', authHeader('admin-1'))
       .send({ status: 'handled' })
 
@@ -191,13 +191,45 @@ describe('admin token-manager API', () => {
     mockCredits.setBalance.mockResolvedValue({ balance: 1234, delta: 234 })
 
     const res = await request(app)
-      .patch('/api/admin/token-manager/users/user-1/balance')
+      .patch('/api/admin/users/user-1/balance')
       .set('Authorization', authHeader('admin-1'))
       .send({ balance: 1234 })
 
     expect(res.status).toBe(200)
     expect(res.body).toEqual({ balance: 1234, delta: 234 })
     expect(mockCredits.setBalance).toHaveBeenCalledWith('user-1', 1234)
+  })
+
+  it('still answers on the old token-manager paths for builds that predate the rename', async () => {
+    mockDb.getUserById.mockResolvedValue({
+      id: 'admin-1',
+      email: 'lermanori@gmail.com',
+      name: 'Admin',
+      role: 'admin',
+    })
+    mockCredits.getAdminOverview.mockResolvedValue({ users: [], totals: {} as never, activity: [] })
+
+    const res = await request(app)
+      .get('/api/admin/token-manager/overview')
+      .set('Authorization', authHeader('admin-1'))
+
+    expect(res.status).toBe(200)
+    expect(mockCredits.getAdminOverview).toHaveBeenCalled()
+  })
+
+  it('no longer serves the unused system statistics', async () => {
+    mockDb.getUserById.mockResolvedValue({
+      id: 'admin-1',
+      email: 'lermanori@gmail.com',
+      name: 'Admin',
+      role: 'admin',
+    })
+
+    const res = await request(app)
+      .get('/api/admin/stats')
+      .set('Authorization', authHeader('admin-1'))
+
+    expect(res.status).toBe(404)
   })
 
   it('no longer exposes the markup settings', async () => {

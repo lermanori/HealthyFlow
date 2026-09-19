@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-// What GET /admin/token-manager/overview returns, read by the server and the
+// What GET /admin/overview returns, read by the server and the
 // client alike. The figures are still the ledger's legacy cost units; Spend
 // (#305) and Ledger (#306) replace them.
 

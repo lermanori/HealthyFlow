@@ -32,7 +32,7 @@ the entitlement is the founder's legacy exception. The flag only lets the client
 for everyone else (`backend/tests/sync/endpoint.test.ts`). The Local day remains
 the source (ADR-0011) and the server is a replica, never a hosted substitute.
 The founder's legacy Cloud state controls replication only; it neither replaces
-nor blocks the claimed account's monthly AI actions or Token Manager balance.
+nor blocks the claimed account's monthly AI actions or balance set in Admin.
 
 For #237, the App Privacy answers were completed from the full code and
 production-SDK inventory, including the legacy entitled-account sync path. The

@@ -1,3 +1,14 @@
+### 2026-09-19 08:39 — `issue-298-rename-to-admin`
+
+The Token Manager is now Admin: route `/admin` (old links redirect), nav label,
+page, service and query keys renamed, and admin API routes moved to `/admin/*`
+while the old `/admin/token-manager/*` paths keep answering for installed iOS
+builds. Copy speaks in actions: base/markup/charged-token labels are gone,
+balances read as actions with the 1/5/10 key, the ledger shows signed actions,
+and the unused `/admin/stats` endpoint is removed.
+
+---
+
 ### 2026-09-19 08:35 — `issue-304-remove-markup-settings`
 
 Removed the markup Billing Settings (percent, minimum, app tokens per dollar)

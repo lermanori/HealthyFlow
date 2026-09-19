@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Coins, Loader2, Mail, RotateCcw, Save, UserCog, Activity } from 'lucide-react'
+import { CheckCircle2, Loader2, Mail, RotateCcw, Save, ShieldCheck, UserCog, Activity } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { tokenManagerService, type UsageTotals } from '../services/api'
+import { adminService, type UsageTotals } from '../services/api'
 import UserManagementPanel from '../components/admin/UserManagementPanel'
 
 type RangeKey = 'today' | 'thisWeek' | 'thisMonth'
@@ -41,12 +41,10 @@ function SummaryCards({ totals }: { totals: UsageTotals }) {
   const cards = [
     ['Requests', totals.requestCount],
     ['OpenAI cost', totals.openAiCostUsd],
-    ['Base app tokens', totals.baseTokens],
-    ['Charged to user', totals.billedTokens],
   ] as const
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div className="grid grid-cols-2 gap-3">
       {cards.map(([label, value]) => (
         <div key={label} className="rounded-lg border border-line/50 bg-page/70 p-4">
           <p className="text-xs text-ink-muted">{label}</p>
@@ -59,25 +57,25 @@ function SummaryCards({ totals }: { totals: UsageTotals }) {
   )
 }
 
-export default function TokenManagerPage() {
+export default function AdminPage() {
   const queryClient = useQueryClient()
   const [selectedRange, setSelectedRange] = useState<RangeKey>('today')
   const [balanceDrafts, setBalanceDrafts] = useState<Record<string, string>>({})
   const [contactStatus, setContactStatus] = useState<ContactStatusFilter>('pending')
 
   const overviewQuery = useQuery({
-    queryKey: ['token-manager-overview'],
-    queryFn: tokenManagerService.getOverview,
+    queryKey: ['admin', 'overview'],
+    queryFn: adminService.getOverview,
   })
 
   const contactMessagesQuery = useQuery({
-    queryKey: ['token-manager-contact-messages', contactStatus],
-    queryFn: () => tokenManagerService.getContactMessages(contactStatus),
+    queryKey: ['admin', 'contact-messages', contactStatus],
+    queryFn: () => adminService.getContactMessages(contactStatus),
   })
   // Its own read, so the badge counts pending messages whichever filter is open.
   const pendingMessagesQuery = useQuery({
-    queryKey: ['token-manager-contact-messages', 'pending'],
-    queryFn: () => tokenManagerService.getContactMessages('pending'),
+    queryKey: ['admin', 'contact-messages', 'pending'],
+    queryFn: () => adminService.getContactMessages('pending'),
   })
 
   const overview = overviewQuery.data
@@ -91,20 +89,20 @@ export default function TokenManagerPage() {
 
   const setBalanceMutation = useMutation({
     mutationFn: ({ userId, balance }: { userId: string; balance: number }) =>
-      tokenManagerService.setUserBalance(userId, balance),
+      adminService.setUserBalance(userId, balance),
     onSuccess: () => {
       toast.success('Balance updated')
-      queryClient.invalidateQueries({ queryKey: ['token-manager-overview'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'overview'] })
     },
     onError: () => toast.error('Failed to update balance'),
   })
 
   const contactMessageMutation = useMutation({
     mutationFn: ({ messageId, status }: { messageId: string; status: 'pending' | 'handled' }) =>
-      tokenManagerService.updateContactMessageStatus(messageId, status),
+      adminService.updateContactMessageStatus(messageId, status),
     onSuccess: () => {
       toast.success('Message updated')
-      queryClient.invalidateQueries({ queryKey: ['token-manager-contact-messages'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'contact-messages'] })
     },
     onError: () => toast.error('Failed to update message'),
   })
@@ -124,9 +122,9 @@ export default function TokenManagerPage() {
     <div className="space-y-6 pb-28 md:pb-0">
       <div className="flex items-center space-x-3">
         <div className="w-8 h-8 bg-action rounded-lg flex items-center justify-center">
-          <Coins className="w-4 h-4 text-white" />
+          <ShieldCheck className="w-4 h-4 text-white" />
         </div>
-        <h1 className="text-2xl font-bold text-ink neon-text">Token Manager</h1>
+        <h1 className="text-2xl font-bold text-ink neon-text">Admin</h1>
       </div>
 
       <div className="card">
@@ -254,7 +252,7 @@ export default function TokenManagerPage() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center space-x-3">
               <Activity className="w-5 h-5 text-accent" />
-              <h2 className="text-lg font-semibold text-ink">Usage Totals</h2>
+              <h2 className="text-lg font-semibold text-ink">Spend</h2>
             </div>
             <div className="flex rounded-lg border border-line/70 bg-page/80 p-1">
               {(Object.keys(rangeLabels) as RangeKey[]).map(range => (
@@ -274,20 +272,47 @@ export default function TokenManagerPage() {
           </div>
 
           <SummaryCards totals={totals} />
+        </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-            <div className="rounded-lg border border-line/50 bg-page/70 p-3">
-              <span className="text-ink-muted">Markup app tokens</span>
-              <p className="text-lg font-semibold text-ink">{formatNumber(totals.markupTokens)}</p>
-            </div>
-            <div className="rounded-lg border border-line/50 bg-page/70 p-3">
-              <span className="text-ink-muted">OpenAI prompt tokens</span>
-              <p className="text-lg font-semibold text-ink">{formatNumber(totals.promptTokens)}</p>
-            </div>
-            <div className="rounded-lg border border-line/50 bg-page/70 p-3">
-              <span className="text-ink-muted">OpenAI completion tokens</span>
-              <p className="text-lg font-semibold text-ink">{formatNumber(totals.completionTokens)}</p>
-            </div>
+        <div className="card">
+          <div className="flex items-center space-x-3 mb-4">
+            <Activity className="w-5 h-5 text-accent" />
+            <h2 className="text-lg font-semibold text-ink">Ledger</h2>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-ink-muted">
+                  <th className="py-3 pr-4 font-medium">Time</th>
+                  <th className="py-3 pr-4 font-medium">User</th>
+                  <th className="py-3 pr-4 font-medium">Request</th>
+                  <th className="py-3 pr-4 font-medium">OpenAI cost</th>
+                  <th className="py-3 pr-4 font-medium">Model tokens</th>
+                  <th className="py-3 pr-4 font-medium">Actions</th>
+                  <th className="py-3 font-medium">Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {overview.activity.map(row => (
+                  <tr key={row.id} className="border-b border-card/80 text-ink-soft">
+                    <td className="py-3 pr-4 whitespace-nowrap">{formatDate(row.createdAt)}</td>
+                    <td className="py-3 pr-4">
+                      <p className="text-ink">{row.userName ?? '-'}</p>
+                      <p className="text-xs text-ink-muted">{row.userEmail ?? row.userId}</p>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <p>{row.endpoint ?? '-'}</p>
+                      <p className="text-xs text-ink-muted">{row.model ?? '-'}</p>
+                    </td>
+                    <td className="py-3 pr-4">{formatUsd(row.openAiCostUsd)}</td>
+                    <td className="py-3 pr-4">{formatNumber(row.totalOpenAiTokens)}</td>
+                    <td className="py-3 pr-4">{row.creditsDelta > 0 ? `+${formatNumber(row.creditsDelta)}` : formatNumber(row.creditsDelta)}</td>
+                    <td className="py-3">{row.reason ?? '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
 
@@ -296,6 +321,9 @@ export default function TokenManagerPage() {
             <UserCog className="w-5 h-5 text-accent" />
             <h2 className="text-lg font-semibold text-ink">Billing Accounts</h2>
           </div>
+          <p className="mb-4 text-sm text-ink-muted">
+            Balances are in actions: text 1 · photo 5 · premium 10.
+          </p>
 
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -303,7 +331,7 @@ export default function TokenManagerPage() {
                 <tr className="border-b border-line text-left text-ink-muted">
                   <th className="py-3 pr-4 font-medium">User</th>
                   <th className="py-3 pr-4 font-medium">Role</th>
-                  <th className="py-3 pr-4 font-medium">Balance</th>
+                  <th className="py-3 pr-4 font-medium">Actions</th>
                   <th className="py-3 pr-4 font-medium">Entitlement</th>
                   <th className="py-3 pr-4 font-medium">Founders grant</th>
                   <th className="py-3 pr-4 font-medium">Updated</th>
@@ -352,52 +380,6 @@ export default function TokenManagerPage() {
                         <span>Set</span>
                       </button>
                     </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center space-x-3 mb-4">
-            <Activity className="w-5 h-5 text-accent" />
-            <h2 className="text-lg font-semibold text-ink">Activity Log</h2>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-ink-muted">
-                  <th className="py-3 pr-4 font-medium">Time</th>
-                  <th className="py-3 pr-4 font-medium">User</th>
-                  <th className="py-3 pr-4 font-medium">Request</th>
-                  <th className="py-3 pr-4 font-medium">OpenAI cost</th>
-                  <th className="py-3 pr-4 font-medium">Raw tokens</th>
-                  <th className="py-3 pr-4 font-medium">Base</th>
-                  <th className="py-3 pr-4 font-medium">Markup</th>
-                  <th className="py-3 pr-4 font-medium">Charged</th>
-                  <th className="py-3 font-medium">Reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                {overview.activity.map(row => (
-                  <tr key={row.id} className="border-b border-card/80 text-ink-soft">
-                    <td className="py-3 pr-4 whitespace-nowrap">{formatDate(row.createdAt)}</td>
-                    <td className="py-3 pr-4">
-                      <p className="text-ink">{row.userName ?? '-'}</p>
-                      <p className="text-xs text-ink-muted">{row.userEmail ?? row.userId}</p>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <p>{row.endpoint ?? '-'}</p>
-                      <p className="text-xs text-ink-muted">{row.model ?? '-'}</p>
-                    </td>
-                    <td className="py-3 pr-4">{formatUsd(row.openAiCostUsd)}</td>
-                    <td className="py-3 pr-4">{formatNumber(row.totalOpenAiTokens)}</td>
-                    <td className="py-3 pr-4">{formatNumber(row.baseTokens)}</td>
-                    <td className="py-3 pr-4">{formatNumber(row.markupTokens)}</td>
-                    <td className="py-3 pr-4">{formatNumber(row.billedTokens)}</td>
-                    <td className="py-3">{row.reason ?? '-'}</td>
                   </tr>
                 ))}
               </tbody>

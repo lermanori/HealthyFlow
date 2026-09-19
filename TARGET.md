@@ -172,7 +172,7 @@ external checkout. The Local day remains a real product without either an
 account or money.
 
 That legacy exception changes replication only. It neither replaces nor blocks
-the founder's monthly AI actions or any discretionary Token Manager balance.
+the founder's monthly AI actions or any discretionary balance set in Admin.
 
 **Gap recorded 2026-09-06:** the current Settings and administration surfaces
 still carry paid-plan controls. Removing every v1 acquisition/grant path is #233;

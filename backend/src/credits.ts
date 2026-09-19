@@ -762,7 +762,7 @@ export const Credits = {
 
     // Older databases can still report this state during a rolling deploy. In
     // free v1, Cloud is a sync entitlement only; AI continues to spend the
-    // account's Token Manager balance.
+    // account's balance, as set in Admin.
 
     // Reserved first even when the monthly grant was withheld: credits already
     // held are theirs. Someone who claimed a Guest account still has whatever
@@ -1037,7 +1037,7 @@ export const Credits = {
     return { balance: newBalance, delta }
   },
 
-  async getTokenManagerOverview(): Promise<AdminOverview> {
+  async getAdminOverview(): Promise<AdminOverview> {
     const users = await db.getUsersWithCreditBalances()
     const starts = rangeStarts()
     const [monthLogs, recentLogs] = await Promise.all([

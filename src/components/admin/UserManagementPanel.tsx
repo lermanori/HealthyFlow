@@ -20,7 +20,7 @@ import toast from 'react-hot-toast'
 import {
   type AdminUserDeletionPreview,
   type ManagedUser,
-  tokenManagerService,
+  adminService,
 } from '../../services/api'
 
 type TestFilter = 'all' | 'test' | 'live'
@@ -198,11 +198,11 @@ export default function UserManagementPanel() {
 
   const usersQuery = useQuery({
     queryKey: USER_QUERY_KEY,
-    queryFn: tokenManagerService.getManagedUsers,
+    queryFn: adminService.getManagedUsers,
   })
   const auditQuery = useQuery({
     queryKey: AUDIT_QUERY_KEY,
-    queryFn: tokenManagerService.getManagedUserAudit,
+    queryFn: adminService.getManagedUserAudit,
   })
 
   const users = useMemo(() => usersQuery.data ?? [], [usersQuery.data])
@@ -231,12 +231,12 @@ export default function UserManagementPanel() {
   const invalidate = () => Promise.all([
     queryClient.invalidateQueries({ queryKey: USER_QUERY_KEY }),
     queryClient.invalidateQueries({ queryKey: AUDIT_QUERY_KEY }),
-    queryClient.invalidateQueries({ queryKey: ['token-manager-overview'] }),
+    queryClient.invalidateQueries({ queryKey: ['admin', 'overview'] }),
   ])
 
   const actionMutation = useMutation({
     mutationFn: ({ action, userIds }: { action: UserAction; userIds: string[] }) =>
-      tokenManagerService.updateManagedUsers(userIds, action),
+      adminService.updateManagedUsers(userIds, action),
     onSuccess: async (result) => {
       toast.success(`${result.updatedUserIds.length} ${result.updatedUserIds.length === 1 ? 'user' : 'users'} updated`)
       setSelected(new Set())
@@ -247,7 +247,7 @@ export default function UserManagementPanel() {
 
   const cloudMutation = useMutation({
     mutationFn: ({ userId, active }: { userId: string; active: boolean }) =>
-      tokenManagerService.setUserCloudAccess(userId, active),
+      adminService.setUserCloudAccess(userId, active),
     onSuccess: async (result) => {
       toast.success(result.active ? 'Cloud granted' : 'Cloud revoked')
       await invalidate()
@@ -256,7 +256,7 @@ export default function UserManagementPanel() {
   })
 
   const previewMutation = useMutation({
-    mutationFn: (userIds: string[]) => tokenManagerService.previewManagedUserDeletion(userIds),
+    mutationFn: (userIds: string[]) => adminService.previewManagedUserDeletion(userIds),
     onSuccess: result => {
       setConfirmation('')
       setPreview(result)
@@ -265,7 +265,7 @@ export default function UserManagementPanel() {
   })
 
   const deletionMutation = useMutation({
-    mutationFn: () => tokenManagerService.deleteManagedUsers(
+    mutationFn: () => adminService.deleteManagedUsers(
       preview?.users.map(user => user.id) ?? [],
       confirmation,
     ),
@@ -415,7 +415,7 @@ export default function UserManagementPanel() {
                   <th className="py-3 pr-4 font-medium">Access</th>
                   <th className="py-3 pr-4 font-medium">Authentication</th>
                   <th className="py-3 pr-4 font-medium">Last login</th>
-                  <th className="py-3 pr-4 font-medium">Credits</th>
+                  <th className="py-3 pr-4 font-medium">Actions</th>
                   <th className="py-3 font-medium">Cloud</th>
                 </tr>
               </thead>

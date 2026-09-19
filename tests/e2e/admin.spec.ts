@@ -51,7 +51,7 @@ function message(id: string, status: 'pending' | 'handled') {
 
 type Overrides = Partial<Record<'overview' | 'messages' | 'users' | 'audit', (route: Route) => Promise<void>>>
 
-export async function openAdmin(page: Page, overrides: Overrides = {}) {
+export async function openAdmin(page: Page, overrides: Overrides = {}, path = '/app/admin') {
   await page.addInitScript((user) => {
     localStorage.setItem('token', 'admin-token')
     localStorage.setItem('healthyflow-session-user-v1', JSON.stringify(user))
@@ -60,15 +60,15 @@ export async function openAdmin(page: Page, overrides: Overrides = {}) {
   // rather than reaching a backend.
   await page.route('**/api/**', route => route.fulfill({ status: 404, json: { error: 'Not mocked' } }))
   await page.route('**/api/auth/verify', route => route.fulfill({ json: ADMIN }))
-  await page.route('**/api/admin/token-manager/overview', overrides.overview ?? (route => route.fulfill({ json: overview })))
-  await page.route('**/api/admin/token-manager/contact-messages**', overrides.messages ?? (route => {
+  await page.route('**/api/admin/overview', overrides.overview ?? (route => route.fulfill({ json: overview })))
+  await page.route('**/api/admin/contact-messages**', overrides.messages ?? (route => {
     const status = new URL(route.request().url()).searchParams.get('status')
     const all = [message('m-1', 'pending'), message('m-2', 'pending'), message('m-3', 'handled')]
     return route.fulfill({ json: status === 'all' ? all : all.filter(m => m.status === status) })
   }))
   await page.route('**/api/admin/users', overrides.users ?? (route => route.fulfill({ json: managedUsers })))
   await page.route('**/api/admin/users/audit', overrides.audit ?? (route => route.fulfill({ json: [] })))
-  await page.goto('/app/token-manager')
+  await page.goto(path)
 }
 
 test.describe('admin screen reads', () => {
@@ -114,5 +114,26 @@ test.describe('admin screen reads', () => {
     await page.getByRole('button', { name: 'handled', exact: true }).click()
     await expect(page.getByText('Request m-3')).toBeVisible()
     await expect(page.getByText('2 pending')).toBeVisible()
+  })
+})
+
+test.describe('admin screen naming', () => {
+  test('is called Admin and speaks in actions, not tokens', async ({ page }) => {
+    await openAdmin(page)
+
+    await expect(page.getByRole('heading', { name: 'Admin', exact: true })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Admin' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Spend' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Ledger' })).toBeVisible()
+    await expect(page.getByText('Balances are in actions: text 1 · photo 5 · premium 10.')).toBeVisible()
+    const copy = await page.locator('main').innerText()
+    expect(copy.replace(/Model tokens/g, '')).not.toMatch(/token/i)
+  })
+
+  test('an old Token Manager link lands on Admin', async ({ page }) => {
+    await openAdmin(page, {}, '/app/token-manager')
+
+    await expect(page).toHaveURL(/\/app\/admin$/)
+    await expect(page.getByRole('heading', { name: 'Admin', exact: true })).toBeVisible()
   })
 })
