@@ -14,6 +14,7 @@ import {
   listManagedUsers,
   previewAdminUserDeletion,
   SetCloudAccessSchema,
+  setCloudAccess,
 } from '../account-data'
 import {
   ContactMessageListSchema,
@@ -130,25 +131,13 @@ router.patch(paths('/users/:userId/cloud'), authenticateToken, requireAdminRole,
   }
 
   try {
-    const existing = await db.getUserCreditSubscription(req.params.userId)
-    const saved = await db.upsertUserCreditSubscription({
-      user_id: req.params.userId,
-      active: parsed.data.active,
-      // An account that never held a subscription needs defaults; one that did
-      // keeps its own terms, so revoking and restoring does not silently change
-      // what it was entitled to.
-      price_phase: (existing?.price_phase as 'promo' | 'regular') ?? 'promo',
-      monthly_credits: existing?.monthly_credits ?? 0,
-      renewal_date: existing?.renewal_date ?? null,
-      last_monthly_grant_at: existing?.last_monthly_grant_at ?? null,
-    })
-    console.warn(
-      `[admin] Cloud ${parsed.data.active ? 'granted to' : 'revoked from'} ${req.params.userId} by ${req.user.userId}`,
-    )
-    res.json({ userId: saved.user_id, active: saved.active })
+    return res.json(await setCloudAccess(req.user.userId, req.params.userId, parsed.data.active))
   } catch (error) {
+    if (error instanceof AdminUserControlError) {
+      return res.status(error.status).json({ error: error.message, reason: error.code })
+    }
     console.error('Set Cloud access error:', error)
-    res.status(500).json({ error: 'Database error' })
+    return res.status(500).json({ error: 'Database error' })
   }
 })
 

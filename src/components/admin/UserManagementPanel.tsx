@@ -79,6 +79,8 @@ function changedBalance(error: unknown): number | null {
 
 function auditSummary(entry: AdminUserAuditEntry) {
   const target = entry.targetEmail ?? guestLabel(entry.targetUserId)
+  if (entry.action === 'cloud_granted') return `turned Cloud on for ${target}`
+  if (entry.action === 'cloud_revoked') return `turned Cloud off for ${target}`
   if (entry.action === 'balance_set') {
     const note = typeof entry.details.note === 'string' && entry.details.note ? ` — “${entry.details.note}”` : ''
     return `set ${target} ${String(entry.details.from)} → ${String(entry.details.to)} actions${note}`
@@ -90,6 +92,39 @@ function requestMessage(error: unknown, fallback: string) {
   return axios.isAxiosError<{ error?: string }>(error)
     ? error.response?.data?.error ?? fallback
     : fallback
+}
+
+function ConfirmDialog({
+  title,
+  children,
+  confirmLabel,
+  pending,
+  close,
+  confirm,
+}: {
+  title: string
+  children: React.ReactNode
+  confirmLabel: string
+  pending: boolean
+  close: () => void
+  confirm: () => void
+}) {
+  return createPortal((
+    <div className="fixed inset-0 z-[80] flex items-end justify-center p-0 sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby="admin-confirm-title">
+      <button type="button" aria-label="Close" className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={close} disabled={pending} />
+      <div className="relative w-full rounded-t-2xl border border-line bg-page p-5 shadow-2xl sm:max-w-md sm:rounded-2xl sm:p-6">
+        <h2 id="admin-confirm-title" className="text-lg font-semibold text-ink">{title}</h2>
+        <div className="mt-3 space-y-2 text-sm text-ink-muted">{children}</div>
+        <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <button type="button" className="btn-secondary" onClick={close} disabled={pending}>Cancel</button>
+          <button type="button" className="btn-primary inline-flex items-center justify-center gap-2" onClick={confirm} disabled={pending}>
+            {pending && <Loader2 className="h-4 w-4 animate-spin" />}
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  ), document.body)
 }
 
 function DeletionDialog({
@@ -220,6 +255,9 @@ export default function UserManagementPanel() {
   const [confirmation, setConfirmation] = useState('')
   // Keyed by user and never reset by a refetch, so typing survives other refreshes.
   const [balanceDrafts, setBalanceDrafts] = useState<Record<string, BalanceDraft>>({})
+  // A Cloud change is confirmed before it is sent: it decides whether a day
+  // replicates to the server at all.
+  const [cloudChange, setCloudChange] = useState<{ user: ManagedUser; active: boolean } | null>(null)
 
   const usersQuery = useQuery({
     queryKey: USER_QUERY_KEY,
@@ -274,7 +312,8 @@ export default function UserManagementPanel() {
     mutationFn: ({ userId, active }: { userId: string; active: boolean }) =>
       adminService.setUserCloudAccess(userId, active),
     onSuccess: async (result) => {
-      toast.success(result.active ? 'Cloud granted' : 'Cloud revoked')
+      toast.success(result.active ? 'Cloud turned on' : 'Cloud turned off')
+      setCloudChange(null)
       await invalidate()
     },
     onError: error => toast.error(requestMessage(error, 'Could not change Cloud access')),
@@ -598,12 +637,12 @@ export default function UserManagementPanel() {
                         type="button"
                         role="switch"
                         aria-checked={user.subscriptionActive}
-                        aria-label={`Cloud for ${user.email ?? user.name}`}
-                        disabled={cloudMutation.isPending}
-                        onClick={() => cloudMutation.mutate({
-                          userId: user.id,
-                          active: !user.subscriptionActive,
-                        })}
+                        aria-label={user.email === null
+                          ? `Cloud for ${user.name} (needs a claimed account)`
+                          : `Cloud for ${user.email}`}
+                        title={user.email === null ? 'Cloud needs a claimed account; a Guest cannot hold it.' : undefined}
+                        disabled={cloudMutation.isPending || user.email === null}
+                        onClick={() => setCloudChange({ user, active: !user.subscriptionActive })}
                         className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus ${
                           user.subscriptionActive
                             ? 'border-state-success/40 bg-state-success/30'
@@ -654,6 +693,23 @@ export default function UserManagementPanel() {
           )}
         </div>
       </section>
+
+      {cloudChange && (
+        <ConfirmDialog
+          title={`Turn Cloud ${cloudChange.active ? 'on' : 'off'} for ${cloudChange.user.email ?? cloudChange.user.name}?`}
+          confirmLabel={cloudChange.active ? 'Turn Cloud on' : 'Turn Cloud off'}
+          pending={cloudMutation.isPending}
+          close={() => { if (!cloudMutation.isPending) setCloudChange(null) }}
+          confirm={() => cloudMutation.mutate({ userId: cloudChange.user.id, active: cloudChange.active })}
+        >
+          <p>
+            {cloudChange.active
+              ? 'This account’s day will replicate to the server, and hosted Google Calendar becomes available to it.'
+              : 'Replication to the server stops. The day stays on the account’s devices.'}
+          </p>
+          <p>AI actions are not affected. The change is recorded in the admin history.</p>
+        </ConfirmDialog>
+      )}
 
       {preview && (
         <DeletionDialog

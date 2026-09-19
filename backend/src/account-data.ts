@@ -213,6 +213,22 @@ export const SetCloudAccessSchema = z.object({
 })
 export type SetCloudAccessInput = z.infer<typeof SetCloudAccessSchema>
 
+/**
+ * The switch reflects whichever account it is on for (#300). What CloudAccess
+ * checks on every sync changes, and the change is audited in the same database
+ * call. A Guest can never hold Cloud, so it is refused rather than stored.
+ */
+export async function setCloudAccess(actorId: string, userId: string, active: boolean) {
+  const result = await db.adminSetCloudAccess({ userId, active, actorId })
+  if (result.status === 'guest') {
+    throw new AdminUserControlError(400, 'guest_cannot_hold_cloud', 'Cloud needs a claimed account; a Guest cannot hold it.')
+  }
+  if (result.status === 'not_found') {
+    throw new AdminUserControlError(404, 'users_not_found', 'That account no longer exists.')
+  }
+  return { userId, active: result.active }
+}
+
 type AdminUserRow = {
   id: string
   email: string | null

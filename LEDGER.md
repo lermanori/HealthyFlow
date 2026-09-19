@@ -1,3 +1,14 @@
+### 2026-09-19 08:50 — `issue-300-cloud-switch-audited`
+
+The Cloud switch now asks before it changes anything, names what changes
+(replication and hosted Google Calendar, not AI actions), and records every
+grant or revoke in the admin history through one database call
+(`admin_set_cloud_access`) instead of a server log line. A Guest's switch is
+disabled and the server refuses it; new grants no longer count as founding-price
+seats. Verified on a throwaway Postgres; the migration must precede the deploy.
+
+---
+
 ### 2026-09-19 08:46 — `issue-299-set-balance-safely`
 
 Setting an action balance now happens in People and can no longer silently

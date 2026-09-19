@@ -1362,6 +1362,24 @@ export const db = {
   },
 
   /**
+   * Turn Cloud on or off for one account as an administrator (#300). The
+   * entitlement and its audit entry commit together; a Guest is refused.
+   */
+  async adminSetCloudAccess(input: { userId: string; active: boolean; actorId: string }) {
+    const { data, error } = await supabase.rpc('admin_set_cloud_access', {
+      p_user_id: input.userId,
+      p_active: input.active,
+      p_actor_id: input.actorId,
+    })
+    if (error) throw error
+    const row: unknown = Array.isArray(data) ? data[0] : data
+    return z.object({
+      status: z.enum(['granted', 'revoked', 'unchanged', 'guest', 'not_found']),
+      active: z.boolean(),
+    }).parse(row)
+  },
+
+  /**
    * Set an action balance only if it is still the one the administrator saw
    * (#299). The decision, the write, its ledger row and its audit entry commit
    * together in the database.

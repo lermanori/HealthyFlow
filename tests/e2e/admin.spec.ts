@@ -49,7 +49,7 @@ function message(id: string, status: 'pending' | 'handled') {
   }
 }
 
-type Overrides = Partial<Record<'overview' | 'messages' | 'users' | 'audit' | 'balance', (route: Route) => Promise<void>>>
+type Overrides = Partial<Record<'overview' | 'messages' | 'users' | 'audit' | 'balance' | 'cloud', (route: Route) => Promise<void>>>
 
 export async function openAdmin(page: Page, overrides: Overrides = {}, path = '/app/admin') {
   await page.addInitScript((user) => {
@@ -70,6 +70,7 @@ export async function openAdmin(page: Page, overrides: Overrides = {}, path = '/
     ? route.fulfill({ json: { updatedUserIds: route.request().postDataJSON().userIds } })
     : route.fulfill({ json: managedUsers })))
   if (overrides.balance) await page.route('**/api/admin/users/*/balance', overrides.balance)
+  if (overrides.cloud) await page.route('**/api/admin/users/*/cloud', overrides.cloud)
   await page.route('**/api/admin/users/audit', overrides.audit ?? (route => route.fulfill({ json: [] })))
   await page.goto(path)
 }
@@ -191,5 +192,45 @@ test.describe('setting an action balance', () => {
     await refetched
 
     await expect(page.getByLabel('New action balance for Guest')).toHaveValue('40')
+  })
+})
+
+test.describe('the Cloud switch', () => {
+  test('a Guest cannot be given Cloud', async ({ page }) => {
+    await openAdmin(page)
+
+    await expect(page.getByRole('switch', { name: 'Cloud for Guest (needs a claimed account)' })).toBeDisabled()
+  })
+
+  test('asks before changing anything, and cancelling sends nothing', async ({ page }) => {
+    const sent: unknown[] = []
+    await openAdmin(page, {
+      cloud: route => {
+        sent.push(route.request().postDataJSON())
+        return route.fulfill({ json: { userId: 'admin-1', active: false } })
+      },
+    })
+
+    await page.getByRole('switch', { name: 'Cloud for admin@example.com' }).click()
+    await expect(page.getByRole('heading', { name: 'Turn Cloud off for admin@example.com?' })).toBeVisible()
+    await expect(page.getByText('AI actions are not affected.', { exact: false })).toBeVisible()
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    expect(sent).toEqual([])
+
+    await page.getByRole('switch', { name: 'Cloud for admin@example.com' }).click()
+    await page.getByRole('button', { name: 'Turn Cloud off' }).click()
+    await expect(page.getByText('Cloud turned off')).toBeVisible()
+    expect(sent).toEqual([{ active: false }])
+  })
+
+  test('a Cloud change reads as such in the admin history', async ({ page }) => {
+    await openAdmin(page, {
+      audit: route => route.fulfill({ json: [{
+        id: 'a-1', actorEmail: 'admin@example.com', targetEmail: 'admin@example.com', targetUserId: 'admin-1',
+        action: 'cloud_granted', details: {}, createdAt: '2026-09-19T08:00:00.000Z',
+      }] }),
+    })
+
+    await expect(page.getByText('turned Cloud on for admin@example.com')).toBeVisible()
   })
 })
