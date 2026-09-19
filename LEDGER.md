@@ -1,3 +1,19 @@
+### 2026-09-19 16:01 — `claude/post-application-marketing-cts205`
+
+The submission went out from today's `main`, and the landing page had no iPhone
+presence at all, so it now carries a complete App Store surface that one
+attribute reveals: the `#iphone` section, its navigation link and three store
+links, all hidden by CSS while `data-ios-release="pending"` — verified in a
+browser in both states, including that Safari's Smart App Banner meta is never
+inserted before release. Store links carry `utm_campaign` over as Apple's own
+`ct` token and report `signup_cta_clicked` with a new `app_store` destination.
+The runbook now records the submission, the launch-day switches (Railway version
+gate, the landing flip, the 2026-09-18/19 migrations) and one open founder
+action: the submitted binary contains #308, so App Privacy's Device ID answer
+must become linked to the user.
+
+---
+
 ### 2026-09-19 09:47 — `issue-308-device-id`
 
 People now shows the device each account was last used on, and how many accounts

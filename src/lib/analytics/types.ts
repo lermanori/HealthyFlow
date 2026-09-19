@@ -12,11 +12,13 @@ export type ItemSource = 'manual' | 'ai_parse'
 export type AnalyticsEvents = {
   // Lifecycle & identity
   signup_cta_clicked: {
-    destination: 'app' | 'signup' | 'waitlist'
+    /** `app_store` is the landing page's iPhone surface; every other value opens the web app. */
+    destination: 'app' | 'signup' | 'waitlist' | 'app_store'
     placement:
       | 'navigation'
       | 'hero'
       | 'everything_grid'
+      | 'iphone'
       | 'guest'
       | 'claimed_account'
       | 'free_plan'

@@ -2,7 +2,7 @@
 
 This is the maintained release packet for HealthyFlow v1. It separates facts
 verified from source and code, release-team inferences, and decisions only the
-founder or an appropriate professional can make. Last verified: **2026-09-18**.
+founder or an appropriate professional can make. Last verified: **2026-09-19**.
 
 ## Fixed v1 product contract
 
@@ -34,11 +34,25 @@ the source (ADR-0011) and the server is a replica, never a hosted substitute.
 The founder's legacy Cloud state controls replication only; it neither replaces
 nor blocks the claimed account's monthly AI actions or balance set in Admin.
 
-**Before submitting a build that includes #308**, check the Device ID answer in
-App Privacy. Device ID is already declared (for the push token) with App
-Functionality, but the published preview shows identifier data as *not linked*
-to the user. The #308 device ID is stored on the account (`users.device_id`), so
-Device ID must be answered as linked to the user. Nothing else changes.
+**A build containing #308 was submitted on 2026-09-19.** The founder reports the
+submitted archive was taken from that day's `main`, which carries
+`ios/App/App/DeviceIdentityPlugin.swift` and the `users.device_id` write. The
+published App Privacy answers still show identifier data as *not linked* to the
+user, which was accurate only for a pre-#308 binary.
+
+**Open action, founder only: switch Device ID to linked to the user in App
+Privacy.** Device ID is already declared (for the push token) with App
+Functionality; only the linkage answer changes, and App Privacy is editable
+while a version is in review. Nothing else in the questionnaire changes. It is
+a portal action: the submitted binary does not need replacing for it.
+
+The device ID never blocks a session: `recordDevice` and `recordLogin` in
+`backend/src/routes/auth.ts` log and continue when the write fails, and
+`backend/src/credits.ts` does the same for an `ai_refusals` insert. Migration
+`20260919100000_users_device_id.sql` and the 2026-09-18 Admin migrations are
+therefore Admin correctness rather than a user-facing launch gate: until they
+are applied, the Admin reads that depend on them report unavailable and the
+bookkeeping is simply absent. Apply them with the backend deploy regardless.
 
 For #237, the App Privacy answers were completed from the full code and
 production-SDK inventory, including the legacy entitled-account sync path. The
@@ -311,10 +325,17 @@ personal support address. No Add for Review or Submit for Review action was take
 | Review contact / demo account | Private contact information saved September 18. Sign-in is not required; review notes direct Apple to `Start without an account` and explain the Guest path. No private contact value or credential is committed here |
 | Build candidate | `1.0.1 (4)` is stale and must not be submitted. Replacement build `1.0.1 (5)` is being prepared from the current source. `Add for Review` was not clicked |
 
-The #237 portal declarations are complete. #238 now requires replacement build
-5, App Store Connect processing, and physical-device release smoke before the
-build can be added or submitted for review. No private identity, contact details,
+The #237 portal declarations are complete. No private identity, contact details,
 or credentials are recorded here.
+
+**Submitted 2026-09-19, founder-reported, not portal-verified here.** The founder
+submitted a build archived that day from `main`. What that leaves open is the
+Device ID linkage answer above, the launch-day switches below, and the post-approval
+verification in #238 — public product page, download and first launch, the Guest
+and claimed entitlements, no purchase surface, the Local-only disclosure, and the
+support and privacy links. Release is manual, so approval publishes nothing until
+the founder acts. If review comes back with a request, it returns to its own P0
+issue and repeats release-candidate verification before a new build goes up.
 
 App Privacy publication, September 18: the saved types are Name, Email Address,
 Health, Fitness, Coarse Location, Photos or Videos, Customer Support, Other User
@@ -377,9 +398,35 @@ already cost real time, and step 5 is exactly where that failure is most
 expensive. #238 carries a comment recording what is already verified, so the
 smoke list is not repeated blindly.
 
-After approval, set `IOS_VERSION_GATE_ENABLED`, `IOS_MINIMUM_VERSION` and
-`IOS_APP_STORE_URL` in Railway. They are deliberately unset until an App Store
-URL exists, and nothing else will remind you.
+## Launch-day switches
+
+Nothing here happens on its own, and nothing else will remind you.
+
+| Switch | Where | Value |
+|---|---|---|
+| Version gate | Railway | `IOS_VERSION_GATE_ENABLED`, `IOS_MINIMUM_VERSION`, `IOS_APP_STORE_URL`. Deliberately unset until an App Store URL exists (`backend/src/mobile-version.ts`) |
+| Landing page App Store surface | `public/landing.html` | `data-ios-release="pending"` → `"live"` on the `<html>` element, then redeploy Netlify |
+| Migrations | Supabase | Everything from `20260918120000` to `20260919100000` applied before the backend deploy |
+
+The landing page carries a complete iPhone surface that one attribute reveals:
+the `#iphone` section, its navigation link, and three App Store links — hero,
+section and final band. While the attribute says `pending`, CSS hides all of it,
+so no store link is reachable and Safari's Smart App Banner meta is never
+inserted; both states were verified in a browser on 2026-09-19. The links carry
+`utm_campaign` (or `utm_source`) over as Apple's own `ct` campaign token and
+report `signup_cta_clicked` with `destination: 'app_store'`.
+`src/utils/landingHeader.test.ts` guards the dark state, the single app record
+`6796305059`, and that no store link claims the day is backed up.
+
+Two deliberate omissions there, both founder decisions rather than oversights:
+
+- The CTA is a plain button in the site's own style. Apple requires its badge
+  artwork to be used unmodified from Apple's marketing resources, so the badge
+  is a drop-in swap if it is wanted, never a redrawing.
+- `Start free` stays the page's primary action and the store link is secondary,
+  because the web app serves every device. On an iPhone, once the app is live,
+  the reverse is arguably right — a copy decision for the day, not a code
+  change.
 
 ## Exact human handoff
 

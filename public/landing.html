@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-ios-release="pending">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -402,6 +402,27 @@
     /* Keep the arrow decorative so the link's accessible name stays concise. */
     .all-item.cta a::after { content: ' →'; }
 
+    /* ---------- iphone ----------
+       The whole App Store surface is hidden by the pending attribute rather
+       than by script: a store link is never reachable before release, and
+       nothing flashes into view on a slow first paint. */
+    [data-ios-release='pending'] .ios-release { display: none; }
+    .ios-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 20px;
+      margin-top: 36px;
+    }
+    .ios-card {
+      padding: 26px 24px 28px;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+    }
+    .ios-card h3 { font-family: var(--font-display); font-size: 20px; line-height: 1.25; color: var(--ink); }
+    .ios-card p { margin-top: 10px; font-size: 15px; line-height: 1.6; color: var(--ink-2); text-wrap: pretty; }
+    .ios-req { margin-top: 24px; font-size: 13px; line-height: 1.6; color: var(--ink-2); }
+
     /* ---------- free v1 ---------- */
     .v1-grid {
       display: grid;
@@ -543,6 +564,7 @@
       .ai-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 28px; }
       .all-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .v1-grid { grid-template-columns: minmax(0, 1fr); }
+      .ios-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       section { padding-top: 72px; }
       .band { margin-top: 72px; }
       .band-inner { padding: 64px var(--gutter) 68px; }
@@ -559,6 +581,7 @@
       .hero-ctas .btn { flex: 1 1 100%; }
       .ai-grid { grid-template-columns: minmax(0, 1fr); }
       .all-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .ios-grid { grid-template-columns: minmax(0, 1fr); }
       .band-ctas .btn { flex: 1 1 100%; }
     }
     @media (max-width: 360px) {
@@ -588,6 +611,21 @@
       document.head.appendChild(s)
     })()
   </script>
+
+  <!-- Safari renders the Smart App Banner the moment this meta exists, and
+       before release it would point at a product page that does not answer yet.
+       So it is injected from the release attribute instead of being written
+       into the markup. Launch day is one edit: data-ios-release="live" on
+       <html>, which also reveals every .ios-release block below. -->
+  <script>
+    (function () {
+      if (document.documentElement.dataset.iosRelease !== 'live') return
+      document.head.insertAdjacentHTML(
+        'beforeend',
+        '<meta name="apple-itunes-app" content="app-id=6796305059">'
+      )
+    })()
+  </script>
 </head>
 <body>
 
@@ -602,6 +640,7 @@
         <a href="#how">How it works</a>
         <a href="#product">Product</a>
         <a href="#ai">AI</a>
+        <a class="ios-release" href="#iphone">iPhone</a>
         <a href="#free-v1">Free v1</a>
       </nav>
       <div class="nav-cta">
@@ -631,6 +670,7 @@
       <div class="hero-ctas">
         <a class="btn btn-primary" data-access-cta data-placement="hero" href="/app">Start free</a>
         <a class="btn btn-ghost" data-demo-cta href="/app/demo?source=landing">Watch the demo</a>
+        <a class="btn btn-ghost ios-release" data-store-cta data-placement="hero" href="https://apps.apple.com/app/id6796305059">Download on the App Store</a>
       </div>
       <p class="hero-note">No account required · Your day remains usable when AI actions run out</p>
     </div>
@@ -797,6 +837,54 @@
     </div>
   </section>
 
+  <!-- ======== IPHONE ========
+       Hidden until data-ios-release="live". Every claim here is shipped free-v1
+       behaviour and mirrors the approved listing in
+       output/app-store/v1/listing-draft.md — change the two together.
+       The CTA is a plain button in the site's own style. Apple requires its
+       badge artwork to be used unmodified from Apple's marketing resources, so
+       if the badge is wanted here, drop the official asset in and swap the
+       label for it; do not redraw it. -->
+  <section id="iphone" class="ios-release">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <span class="kicker">iPhone</span>
+        <h2 class="section-title">The same day, on your iPhone.</h2>
+        <p class="section-sub">Free on the App Store. No account required, and no in-app purchases.</p>
+      </div>
+      <div class="ios-grid reveal">
+        <div class="ios-card">
+          <h3>Talk it through</h3>
+          <p>Speak or type in plain language. What comes back is a set of changes you review before anything is saved.</p>
+        </div>
+        <div class="ios-card">
+          <h3>Start with a photo</h3>
+          <p>A meal photo or a written plan becomes an editable suggestion instead of a form to fill in.</p>
+        </div>
+        <div class="ios-card">
+          <h3>Your iPhone calendar, both ways</h3>
+          <p>With your permission, the events you already keep join the day — and a timed Item appears in the calendar you already use.</p>
+        </div>
+        <div class="ios-card">
+          <h3>Today on the Home Screen</h3>
+          <p>A widget with what is planned, what is done, and what comes next.</p>
+        </div>
+        <div class="ios-card">
+          <h3>Plan with no connection</h3>
+          <p>Add, complete, reorder and delete offline, and it takes effect at once. AI actions need the internet; the rest of the day does not.</p>
+        </div>
+        <div class="ios-card">
+          <h3>The day stays on the iPhone</h3>
+          <p>Your day is stored on the device itself. Cloud backup and moving to a new phone are not available in this release.</p>
+        </div>
+      </div>
+      <div class="hero-ctas reveal">
+        <a class="btn btn-primary" data-store-cta data-placement="iphone" href="https://apps.apple.com/app/id6796305059">Download on the App Store</a>
+      </div>
+      <p class="ios-req reveal">Requires iPhone with iOS 26 or later.</p>
+    </div>
+  </section>
+
   <!-- ======== FREE V1 ======== -->
   <section id="free-v1">
     <div class="wrap">
@@ -863,6 +951,7 @@
       <div class="band-ctas reveal">
         <a class="btn btn-primary" data-access-cta data-placement="final" href="/app">Start free</a>
         <a class="btn btn-ghost" data-demo-cta href="/app/demo?source=landing">Watch the demo</a>
+        <a class="btn btn-ghost ios-release" data-store-cta data-placement="final" href="https://apps.apple.com/app/id6796305059">Download on the App Store</a>
       </div>
     </div>
   </section>
@@ -916,6 +1005,29 @@
         if (value) href.searchParams.set(name, value);
       });
       el.setAttribute('href', `${href.pathname}${href.search}`);
+    });
+
+    // Store links are deliberately not [data-access-cta]: those open the web app
+    // at /app. App Store Connect reads its own campaign token rather than utm_*,
+    // so the campaign is carried over as `ct` — 40 characters, and only what
+    // App Analytics will hand back.
+    document.querySelectorAll('[data-store-cta]').forEach((el) => {
+      const href = new URL(el.getAttribute('href'));
+      const campaign = campaignParams.get('utm_campaign') || campaignParams.get('utm_source');
+      const token = (campaign || '')
+        .replace(/[^a-zA-Z0-9_-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 40);
+      if (token) href.searchParams.set('ct', token);
+      el.setAttribute('href', href.toString());
+      el.addEventListener('click', () => {
+        if (!window.posthog) return;
+        window.posthog.capture('signup_cta_clicked', {
+          destination: 'app_store',
+          placement: el.dataset.placement,
+          access_mode: 'open',
+        });
+      });
     });
 
     // Reveal-on-scroll animations
