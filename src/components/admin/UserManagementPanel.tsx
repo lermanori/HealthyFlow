@@ -9,6 +9,7 @@ import {
   FlaskConical,
   History,
   Loader2,
+  Pencil,
   Search,
   ShieldCheck,
   Trash2,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import {
+  type AdminUserAuditEntry,
   type AdminUserDeletionPreview,
   type ManagedUser,
   adminService,
@@ -61,6 +63,27 @@ function formatDate(value: string | null) {
 // and a deleted Guest's entry may no longer carry even that.
 function guestLabel(userId: string | null) {
   return userId ? `Guest ${userId.slice(0, 8)}` : 'Guest'
+}
+
+// A Set is applied only against the balance the administrator started from; the
+// server answers 409 with what the balance is now when it moved (#299).
+type BalanceDraft = { value: string; expected: number; note: string }
+
+function changedBalance(error: unknown): number | null {
+  if (!axios.isAxiosError<{ reason?: string; currentBalance?: number }>(error)) return null
+  const data = error.response?.data
+  return error.response?.status === 409 && data?.reason === 'balance_changed' && typeof data.currentBalance === 'number'
+    ? data.currentBalance
+    : null
+}
+
+function auditSummary(entry: AdminUserAuditEntry) {
+  const target = entry.targetEmail ?? guestLabel(entry.targetUserId)
+  if (entry.action === 'balance_set') {
+    const note = typeof entry.details.note === 'string' && entry.details.note ? ` — “${entry.details.note}”` : ''
+    return `set ${target} ${String(entry.details.from)} → ${String(entry.details.to)} actions${note}`
+  }
+  return `${entry.action.replace(/_/g, ' ')} · ${target}`
 }
 
 function requestMessage(error: unknown, fallback: string) {
@@ -195,6 +218,8 @@ export default function UserManagementPanel() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [preview, setPreview] = useState<AdminUserDeletionPreview | null>(null)
   const [confirmation, setConfirmation] = useState('')
+  // Keyed by user and never reset by a refetch, so typing survives other refreshes.
+  const [balanceDrafts, setBalanceDrafts] = useState<Record<string, BalanceDraft>>({})
 
   const usersQuery = useQuery({
     queryKey: USER_QUERY_KEY,
@@ -254,6 +279,49 @@ export default function UserManagementPanel() {
     },
     onError: error => toast.error(requestMessage(error, 'Could not change Cloud access')),
   })
+
+  const clearDraft = (userId: string) => setBalanceDrafts(current => {
+    const next = { ...current }
+    delete next[userId]
+    return next
+  })
+
+  const balanceMutation = useMutation({
+    mutationFn: ({ userId, draft }: { userId: string; draft: BalanceDraft }) =>
+      adminService.setUserBalance(userId, {
+        expectedBalance: draft.expected,
+        balance: Number(draft.value),
+        note: draft.note.trim() || undefined,
+      }),
+    onSuccess: async (result, { userId }) => {
+      toast.success(`Balance set to ${result.balance} actions`)
+      clearDraft(userId)
+      await invalidate()
+    },
+    onError: async (error, { userId }) => {
+      const current = changedBalance(error)
+      if (current === null) {
+        toast.error(requestMessage(error, 'Could not set the balance'))
+        return
+      }
+      // Keep what was typed, now measured against the balance as it is, so a
+      // second Set is a deliberate choice rather than a repeat of the stale one.
+      toast.error(`The balance changed to ${current} since you started. Nothing was changed.`)
+      setBalanceDrafts(drafts => drafts[userId] ? { ...drafts, [userId]: { ...drafts[userId], expected: current } } : drafts)
+      await invalidate()
+    },
+  })
+
+  const saveBalance = (userId: string) => {
+    const draft = balanceDrafts[userId]
+    if (!draft) return
+    const value = Number(draft.value)
+    if (draft.value.trim() === '' || !Number.isInteger(value) || value < 0) {
+      toast.error('A balance is a whole number of actions, 0 or more')
+      return
+    }
+    balanceMutation.mutate({ userId, draft })
+  }
 
   const previewMutation = useMutation({
     mutationFn: (userIds: string[]) => adminService.previewManagedUserDeletion(userIds),
@@ -324,6 +392,7 @@ export default function UserManagementPanel() {
             <p className="mt-2 max-w-2xl text-sm text-ink-muted">
               Test status is always explicit. Disabling preserves data; permanent deletion is limited to reviewed test accounts.
             </p>
+            <p className="mt-1 text-sm text-ink-muted">Balances are in actions: text 1 · photo 5 · premium 10.</p>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center text-xs">
             <div className="rounded-control border border-line bg-sunken/35 px-3 py-2">
@@ -455,8 +524,68 @@ export default function UserManagementPanel() {
                       <p className="text-ink-soft">{formatDate(user.lastLoginAt)}</p>
                       <p className="mt-1 text-xs text-ink-muted">Joined {formatDate(user.createdAt)}</p>
                     </td>
-                    <td className="py-3 pr-4">
-                      <p className="font-medium text-ink">{user.balance}</p>
+                    <td className="py-3 pr-4 align-top">
+                      {balanceDrafts[user.id] ? (
+                        <div className="w-44 space-y-2">
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            aria-label={`New action balance for ${user.email ?? user.name}`}
+                            className="input-field w-full"
+                            value={balanceDrafts[user.id].value}
+                            onChange={event => setBalanceDrafts(drafts => ({
+                              ...drafts,
+                              [user.id]: { ...drafts[user.id], value: event.target.value },
+                            }))}
+                          />
+                          <input
+                            aria-label={`Note for ${user.email ?? user.name}`}
+                            placeholder="Note (optional)"
+                            maxLength={300}
+                            className="input-field w-full text-xs"
+                            value={balanceDrafts[user.id].note}
+                            onChange={event => setBalanceDrafts(drafts => ({
+                              ...drafts,
+                              [user.id]: { ...drafts[user.id], note: event.target.value },
+                            }))}
+                          />
+                          <p className="text-xs text-ink-muted">
+                            Now {user.balance}
+                            {user.balance !== balanceDrafts[user.id].expected && (
+                              <span className="text-state-warning"> · changed from {balanceDrafts[user.id].expected}</span>
+                            )}
+                          </p>
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              className="btn-primary px-3 py-1.5 text-sm"
+                              onClick={() => saveBalance(user.id)}
+                              disabled={balanceMutation.isPending}
+                            >
+                              Set
+                            </button>
+                            <button type="button" className="btn-secondary px-3 py-1.5 text-sm" onClick={() => clearDraft(user.id)}>
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-ink">{user.balance}</span>
+                          <button
+                            type="button"
+                            aria-label={`Set actions for ${user.email ?? user.name}`}
+                            className="rounded-control p-1.5 text-ink-muted hover:bg-card hover:text-ink"
+                            onClick={() => setBalanceDrafts(drafts => ({
+                              ...drafts,
+                              [user.id]: { value: String(user.balance), expected: user.balance, note: '' },
+                            }))}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                        </div>
+                      )}
                     </td>
                     <td className="py-3">
                       {/*
@@ -516,8 +645,7 @@ export default function UserManagementPanel() {
                 <div key={entry.id} className="flex flex-col gap-1 rounded-lg bg-sunken/35 px-3 py-2 text-xs sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-ink-soft">
                     <span className="font-medium text-ink">{entry.actorEmail}</span>
-                    {' · '}{entry.action.replace(/_/g, ' ')}
-                    {' · '}{entry.targetEmail ?? guestLabel(entry.targetUserId)}
+                    {' · '}{auditSummary(entry)}
                   </p>
                   <time className="text-ink-muted">{formatDate(entry.createdAt)}</time>
                 </div>

@@ -80,6 +80,7 @@ export const AdminUserAuditEntrySchema = z.object({
     'delete_requested',
     'delete_completed',
     'delete_auth_cleanup_failed',
+    'balance_set',
   ]),
   details: z.record(z.string(), z.unknown()),
   createdAt: z.string(),

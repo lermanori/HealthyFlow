@@ -2039,9 +2039,16 @@ export const adminService = {
     return ContactMessageSchema.parse(response.data)
   },
 
-  setUserBalance: async (userId: string, balance: number): Promise<{ balance: number; delta: number }> => {
-    const response = await api.patch(`/admin/users/${userId}/balance`, { balance })
-    return response.data
+  /**
+   * Set an action balance, applied only if it is still `expectedBalance` — the
+   * one the administrator was shown. A 409 carries `currentBalance` (#299).
+   */
+  setUserBalance: async (
+    userId: string,
+    input: { expectedBalance: number; balance: number; note?: string },
+  ): Promise<{ balance: number; delta: number }> => {
+    const response = await api.patch(`/admin/users/${userId}/balance`, input)
+    return z.object({ balance: z.number().int(), delta: z.number().int() }).parse(response.data)
   },
 
   /**

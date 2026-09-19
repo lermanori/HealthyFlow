@@ -49,7 +49,7 @@ function message(id: string, status: 'pending' | 'handled') {
   }
 }
 
-type Overrides = Partial<Record<'overview' | 'messages' | 'users' | 'audit', (route: Route) => Promise<void>>>
+type Overrides = Partial<Record<'overview' | 'messages' | 'users' | 'audit' | 'balance', (route: Route) => Promise<void>>>
 
 export async function openAdmin(page: Page, overrides: Overrides = {}, path = '/app/admin') {
   await page.addInitScript((user) => {
@@ -66,7 +66,10 @@ export async function openAdmin(page: Page, overrides: Overrides = {}, path = '/
     const all = [message('m-1', 'pending'), message('m-2', 'pending'), message('m-3', 'handled')]
     return route.fulfill({ json: status === 'all' ? all : all.filter(m => m.status === status) })
   }))
-  await page.route('**/api/admin/users', overrides.users ?? (route => route.fulfill({ json: managedUsers })))
+  await page.route('**/api/admin/users', overrides.users ?? (route => route.request().method() === 'PATCH'
+    ? route.fulfill({ json: { updatedUserIds: route.request().postDataJSON().userIds } })
+    : route.fulfill({ json: managedUsers })))
+  if (overrides.balance) await page.route('**/api/admin/users/*/balance', overrides.balance)
   await page.route('**/api/admin/users/audit', overrides.audit ?? (route => route.fulfill({ json: [] })))
   await page.goto(path)
 }
@@ -135,5 +138,58 @@ test.describe('admin screen naming', () => {
 
     await expect(page).toHaveURL(/\/app\/admin$/)
     await expect(page.getByRole('heading', { name: 'Admin', exact: true })).toBeVisible()
+  })
+})
+
+test.describe('setting an action balance', () => {
+  test('applies against the balance the admin started from, with a note', async ({ page }) => {
+    let body: Record<string, unknown> | null = null
+    await openAdmin(page, {
+      balance: route => {
+        body = route.request().postDataJSON()
+        return route.fulfill({ json: { balance: 25, delta: 15 } })
+      },
+    })
+
+    await expect(page.getByRole('heading', { name: 'Billing Accounts' })).toHaveCount(0)
+    await expect(page.getByText(/AI actions available/)).toHaveCount(0)
+
+    await page.getByRole('button', { name: 'Set actions for Guest' }).click()
+    await page.getByLabel('New action balance for Guest').fill('25')
+    await page.getByLabel('Note for Guest').fill('Founders Club request')
+    await page.getByRole('button', { name: 'Set', exact: true }).click()
+
+    await expect(page.getByText('Balance set to 25 actions')).toBeVisible()
+    expect(body).toEqual({ expectedBalance: 10, balance: 25, note: 'Founders Club request' })
+  })
+
+  test('a balance that moved meanwhile is refused and shown, and nothing is overwritten', async ({ page }) => {
+    await openAdmin(page, {
+      balance: route => route.fulfill({
+        status: 409,
+        json: { error: 'The balance changed since it was shown.', reason: 'balance_changed', currentBalance: 12 },
+      }),
+    })
+
+    await page.getByRole('button', { name: 'Set actions for Guest' }).click()
+    await page.getByLabel('New action balance for Guest').fill('25')
+    await page.getByRole('button', { name: 'Set', exact: true }).click()
+
+    await expect(page.getByText('The balance changed to 12 since you started. Nothing was changed.')).toBeVisible()
+    await expect(page.getByLabel('New action balance for Guest')).toHaveValue('25')
+  })
+
+  test('what was typed survives an unrelated refresh', async ({ page }) => {
+    await openAdmin(page)
+
+    await page.getByRole('button', { name: 'Set actions for Guest' }).click()
+    await page.getByLabel('New action balance for Guest').fill('40')
+
+    const refetched = page.waitForRequest(request => request.url().endsWith('/api/admin/users') && request.method() === 'GET')
+    await page.getByRole('checkbox', { name: 'Select Guest' }).check()
+    await page.getByRole('button', { name: 'Mark test' }).click()
+    await refetched
+
+    await expect(page.getByLabel('New action balance for Guest')).toHaveValue('40')
   })
 })

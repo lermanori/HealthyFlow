@@ -29,7 +29,11 @@ const router = express.Router()
 const paths = (path: string) => [path, `/token-manager${path}`]
 
 const SetBalanceSchema = z.object({
-  balance: z.number().int().min(0),
+  // The balance the administrator was shown. Required: a blind overwrite is
+  // exactly what swallowed spends and grants that landed after the page loaded.
+  expectedBalance: z.number().int().min(0),
+  balance: z.number().int().min(0).max(100_000),
+  note: z.string().trim().max(300).optional(),
 })
 
 const ContactMessageStatusQuerySchema = z.object({
@@ -84,18 +88,30 @@ router.patch(paths('/contact-messages/:messageId'), authenticateToken, requireAd
   }
 })
 
-router.patch(paths('/users/:userId/balance'), authenticateToken, requireAdminRole, async (req, res) => {
+router.patch(paths('/users/:userId/balance'), authenticateToken, requireAdminRole, async (req: AuthRequest, res) => {
   const parsed = SetBalanceSchema.safeParse(req.body)
   if (!parsed.success) {
     return res.status(400).json({ error: parsed.error.issues[0].message })
   }
 
   try {
-    const result = await Credits.setBalance(req.params.userId, parsed.data.balance)
-    res.json(result)
+    const result = await Credits.setBalance(req.params.userId, {
+      expected: parsed.data.expectedBalance,
+      balance: parsed.data.balance,
+      actorId: req.user.userId,
+      note: parsed.data.note || null,
+    })
+    if (result.status === 'conflict') {
+      return res.status(409).json({
+        error: 'The balance changed since it was shown. Nothing was changed.',
+        reason: 'balance_changed',
+        currentBalance: result.currentBalance,
+      })
+    }
+    return res.json({ balance: result.balance, delta: result.delta })
   } catch (error) {
-    console.error('Set token balance error:', error)
-    res.status(500).json({ error: 'Database error' })
+    console.error('Set action balance error:', error)
+    return res.status(500).json({ error: 'Database error' })
   }
 })
 

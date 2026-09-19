@@ -72,7 +72,6 @@ describe('admin API', () => {
       role: 'admin',
     })
     mockCredits.getAdminOverview.mockResolvedValue({
-      users: [],
       totals: {
         today: {
           requestCount: 0,
@@ -181,23 +180,71 @@ describe('admin API', () => {
     expect(mockDb.updateContactMessageStatus).toHaveBeenCalledWith('message-1', 'handled', 'admin-1')
   })
 
-  it('sets a final user balance for admins', async () => {
-    mockDb.getUserById.mockResolvedValue({
-      id: 'admin-1',
-      email: 'lermanori@gmail.com',
-      name: 'Admin',
-      role: 'admin',
+  describe('setting an action balance', () => {
+    beforeEach(() => {
+      mockDb.getUserById.mockResolvedValue({
+        id: 'admin-1',
+        email: 'lermanori@gmail.com',
+        name: 'Admin',
+        role: 'admin',
+      })
     })
-    mockCredits.setBalance.mockResolvedValue({ balance: 1234, delta: 234 })
 
-    const res = await request(app)
-      .patch('/api/admin/users/user-1/balance')
-      .set('Authorization', authHeader('admin-1'))
-      .send({ balance: 1234 })
+    it('applies a balance the admin saw unchanged, as that admin, with the note', async () => {
+      mockCredits.setBalance.mockResolvedValue({ status: 'applied', balance: 30, delta: 18 })
 
-    expect(res.status).toBe(200)
-    expect(res.body).toEqual({ balance: 1234, delta: 234 })
-    expect(mockCredits.setBalance).toHaveBeenCalledWith('user-1', 1234)
+      const res = await request(app)
+        .patch('/api/admin/users/user-1/balance')
+        .set('Authorization', authHeader('admin-1'))
+        .send({ expectedBalance: 12, balance: 30, note: 'Founders Club request' })
+
+      expect(res.status).toBe(200)
+      expect(res.body).toEqual({ balance: 30, delta: 18 })
+      expect(mockCredits.setBalance).toHaveBeenCalledWith('user-1', {
+        expected: 12,
+        balance: 30,
+        actorId: 'admin-1',
+        note: 'Founders Club request',
+      })
+    })
+
+    it('refuses, and says what it is now, when the balance moved since it was shown', async () => {
+      mockCredits.setBalance.mockResolvedValue({ status: 'conflict', currentBalance: 27 })
+
+      const res = await request(app)
+        .patch('/api/admin/users/user-1/balance')
+        .set('Authorization', authHeader('admin-1'))
+        .send({ expectedBalance: 12, balance: 30 })
+
+      expect(res.status).toBe(409)
+      expect(res.body).toMatchObject({ reason: 'balance_changed', currentBalance: 27 })
+    })
+
+    it('will not overwrite blind: the balance the admin saw is required', async () => {
+      const res = await request(app)
+        .patch('/api/admin/users/user-1/balance')
+        .set('Authorization', authHeader('admin-1'))
+        .send({ balance: 30 })
+
+      expect(res.status).toBe(400)
+      expect(mockCredits.setBalance).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('the balance migration', () => {
+    const sql = fs.readdirSync(path.join(__dirname, '../../../supabase/migrations'))
+      .filter(name => name.endsWith('_admin_set_credit_balance.sql'))
+      .map(name => fs.readFileSync(path.join(__dirname, '../../../supabase/migrations', name), 'utf8'))
+      .join('\n')
+
+    it('decides, writes and records in one locked database call', () => {
+      expect(sql).toMatch(/CREATE OR REPLACE FUNCTION admin_set_credit_balance\(/)
+      expect(sql).toMatch(/FOR UPDATE/)
+      expect(sql).toMatch(/'conflict'/)
+      expect(sql).toMatch(/INSERT INTO ai_usage_log[\s\S]*actor_user_id/)
+      expect(sql).toMatch(/INSERT INTO admin_user_audit_log[\s\S]*'balance_set'/)
+      expect(sql).toMatch(/GRANT EXECUTE ON FUNCTION admin_set_credit_balance\(UUID, INTEGER, INTEGER, UUID, TEXT\) TO service_role/)
+    })
   })
 
   it('still answers on the old token-manager paths for builds that predate the rename', async () => {
@@ -207,7 +254,7 @@ describe('admin API', () => {
       name: 'Admin',
       role: 'admin',
     })
-    mockCredits.getAdminOverview.mockResolvedValue({ users: [], totals: {} as never, activity: [] })
+    mockCredits.getAdminOverview.mockResolvedValue({ totals: {} as never, activity: [] })
 
     const res = await request(app)
       .get('/api/admin/token-manager/overview')

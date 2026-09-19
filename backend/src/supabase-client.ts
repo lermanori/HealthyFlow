@@ -1361,59 +1361,31 @@ export const db = {
     return FreeCreditGrantSchema.parse(data)
   },
 
-  async setCreditBalance(userId: string, balance: number): Promise<number> {
-    const { data, error } = await supabase
-      .from('user_credits')
-      .upsert({
-        user_id: userId,
-        balance,
-        subscription_balance: 0,
-        topup_balance: balance,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id' })
-      .select('balance')
-      .single()
-    if (error) throw error
-    return data.balance
-  },
-
-  async getUsersWithCreditBalances() {
-    const users = await this.getAllUsers()
-    const { data: credits, error } = await supabase
-      .from('user_credits')
-      .select('user_id, balance, subscription_balance, topup_balance, updated_at')
-    if (error) throw error
-
-    const { data: subscriptions, error: subscriptionError } = await supabase
-      .from('user_credit_subscriptions')
-      .select('user_id, active, price_phase, monthly_credits, renewal_date, last_monthly_grant_at, updated_at')
-    if (subscriptionError) throw subscriptionError
-
-    const balances = new Map((credits ?? []).map(row => [row.user_id, row]))
-    const subscriptionByUser = new Map((subscriptions ?? []).map(row => [row.user_id, row]))
-    return users.map(user => {
-      const credit = balances.get(user.id)
-      const subscription = subscriptionByUser.get(user.id)
-      return {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role ?? 'user',
-        created_at: user.created_at,
-        balance: credit?.balance ?? 0,
-        subscription_balance: credit?.subscription_balance ?? 0,
-        topup_balance: credit?.topup_balance ?? credit?.balance ?? 0,
-        balance_updated_at: credit?.updated_at ?? null,
-        subscription: subscription ? {
-          active: subscription.active,
-          price_phase: subscription.price_phase,
-          monthly_credits: subscription.monthly_credits,
-          renewal_date: subscription.renewal_date,
-          last_monthly_grant_at: subscription.last_monthly_grant_at,
-          updated_at: subscription.updated_at,
-        } : null,
-      }
+  /**
+   * Set an action balance only if it is still the one the administrator saw
+   * (#299). The decision, the write, its ledger row and its audit entry commit
+   * together in the database.
+   */
+  async adminSetCreditBalance(input: {
+    userId: string
+    expected: number
+    balance: number
+    actorId: string
+    note: string | null
+  }) {
+    const { data, error } = await supabase.rpc('admin_set_credit_balance', {
+      p_user_id: input.userId,
+      p_expected: input.expected,
+      p_balance: input.balance,
+      p_actor_id: input.actorId,
+      p_note: input.note,
     })
+    if (error) throw error
+    const row: unknown = Array.isArray(data) ? data[0] : data
+    return z.object({
+      status: z.enum(['applied', 'conflict']),
+      balance: z.number().int().nonnegative(),
+    }).parse(row)
   },
 
   async getCreditBuckets(userId: string) {

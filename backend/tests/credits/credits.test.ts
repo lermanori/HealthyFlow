@@ -29,9 +29,8 @@ jest.mock('../../src/supabase-client', () => ({
     sumAiCostUsdSince: jest.fn(),
     countUserActionsSince: jest.fn(),
     grantSubscriptionCredits: jest.fn(),
+    adminSetCreditBalance: jest.fn(),
     insertUsageLog: jest.fn(),
-    setCreditBalance: jest.fn(),
-    getUsersWithCreditBalances: jest.fn(),
     getUsageLogsSince: jest.fn(),
     getRecentUsageLogs: jest.fn(),
   },
@@ -154,7 +153,6 @@ describe('Credits.settleAction', () => {
     // is what deleted the underfunded branch that used to drain a balance to zero.
     expect(mockDb.grantCredits).not.toHaveBeenCalled()
     expect(mockDb.reserveCredits).not.toHaveBeenCalled()
-    expect(mockDb.setCreditBalance).not.toHaveBeenCalled()
     expect((mockDb.insertUsageLog.mock.calls[0][0] as any).credits_delta).toBe(-1)
   })
 })
@@ -707,21 +705,24 @@ describe('Credits.getBalance', () => {
 })
 
 describe('Credits.setBalance', () => {
-  it('sets the final balance and logs the delta with before/after values', async () => {
-    mockDb.getCreditBalance.mockResolvedValue(10)
-    mockDb.setCreditBalance.mockResolvedValue(25)
-    mockDb.insertUsageLog.mockResolvedValue(undefined)
+  it('applies through the atomic database call, as the administrator, and reports the change', async () => {
+    mockDb.adminSetCreditBalance.mockResolvedValue({ status: 'applied', balance: 25 })
 
-    const result = await Credits.setBalance('user-1', 25)
+    const result = await Credits.setBalance('user-1', { expected: 10, balance: 25, actorId: 'admin-1', note: 'request' })
 
-    expect(result).toEqual({ balance: 25, delta: 15 })
-    expect(mockDb.setCreditBalance).toHaveBeenCalledWith('user-1', 25)
-    expect(mockDb.insertUsageLog).toHaveBeenCalledWith(expect.objectContaining({
-      user_id: 'user-1',
-      credits_delta: 15,
-      reason: 'admin_balance_set',
-      balance_before: 10,
-      balance_after: 25,
-    }))
+    expect(result).toEqual({ status: 'applied', balance: 25, delta: 15 })
+    expect(mockDb.adminSetCreditBalance).toHaveBeenCalledWith({
+      userId: 'user-1', expected: 10, balance: 25, actorId: 'admin-1', note: 'request',
+    })
+    // The ledger row is written inside that call, not by a second, separate write.
+    expect(mockDb.insertUsageLog).not.toHaveBeenCalled()
+  })
+
+  it('reports the current balance when it moved since the administrator saw it', async () => {
+    mockDb.adminSetCreditBalance.mockResolvedValue({ status: 'conflict', balance: 9 })
+
+    const result = await Credits.setBalance('user-1', { expected: 10, balance: 25, actorId: 'admin-1' })
+
+    expect(result).toEqual({ status: 'conflict', currentBalance: 9 })
   })
 })

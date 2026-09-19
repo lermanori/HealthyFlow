@@ -40,19 +40,7 @@ export const UsageActivitySchema = z.object({
 })
 export type UsageActivity = z.infer<typeof UsageActivitySchema>
 
-export const BillingAccountSchema = z.object({
-  id: z.string(),
-  // Null for a Guest.
-  email: z.string().nullable(),
-  name: z.string(),
-  role: z.enum(['admin', 'user']),
-  balance: z.number().int(),
-  balance_updated_at: z.string().nullable(),
-})
-export type BillingAccount = z.infer<typeof BillingAccountSchema>
-
 export const AdminOverviewSchema = z.object({
-  users: z.array(BillingAccountSchema),
   totals: z.object({
     today: UsageTotalsSchema,
     thisWeek: UsageTotalsSchema,
@@ -65,7 +53,6 @@ export type AdminOverview = z.infer<typeof AdminOverviewSchema>
 const AdminOverviewContracts = {
   UsageTotalsSchema,
   UsageActivitySchema,
-  BillingAccountSchema,
   AdminOverviewSchema,
 }
 

@@ -1021,31 +1021,38 @@ export const Credits = {
     return { balance, credits, dollars, pricing }
   },
 
-  async setBalance(userId: string, balance: number): Promise<{ balance: number; delta: number }> {
-    const previousBalance = await db.getCreditBalance(userId)
-    const newBalance = await db.setCreditBalance(userId, balance)
-    const delta = newBalance - previousBalance
-
-    await db.insertUsageLog({
-      user_id: userId,
-      credits_delta: delta,
-      reason: 'admin_balance_set',
-      balance_before: previousBalance,
-      balance_after: newBalance,
+  /**
+   * An absolute balance, applied only if the balance is still `expected` — the
+   * one the administrator was shown. A spend or grant that landed in between
+   * makes it a conflict rather than being silently overwritten (#299).
+   */
+  async setBalance(
+    userId: string,
+    input: { expected: number; balance: number; actorId: string; note?: string | null },
+  ): Promise<
+    | { status: 'applied'; balance: number; delta: number }
+    | { status: 'conflict'; currentBalance: number }
+  > {
+    const result = await db.adminSetCreditBalance({
+      userId,
+      expected: input.expected,
+      balance: input.balance,
+      actorId: input.actorId,
+      note: input.note ?? null,
     })
-
-    return { balance: newBalance, delta }
+    return result.status === 'applied'
+      ? { status: 'applied', balance: result.balance, delta: result.balance - input.expected }
+      : { status: 'conflict', currentBalance: result.balance }
   },
 
   async getAdminOverview(): Promise<AdminOverview> {
-    const users = await db.getUsersWithCreditBalances()
     const starts = rangeStarts()
     const [monthLogs, recentLogs] = await Promise.all([
       db.getUsageLogsSince(starts.thisMonth),
       db.getRecentUsageLogs(100),
     ])
 
-    const usersById = new Map(users.map(user => [user.id, user]))
+    const usersById = new Map((await db.getAllUsers()).map(user => [user.id, user]))
     const withUser = (log: any) => {
       const user = usersById.get(log.user_id)
       const charge = chargePartsForLog(log)
@@ -1076,7 +1083,6 @@ export const Credits = {
     const inRange = (since: string) => monthLogs.filter(log => new Date(log.created_at).getTime() >= new Date(since).getTime())
 
     return AdminOverviewSchema.parse({
-      users,
       totals: {
         today: summarizeLogs(inRange(starts.today)),
         thisWeek: summarizeLogs(inRange(starts.thisWeek)),

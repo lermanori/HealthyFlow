@@ -1,3 +1,14 @@
+### 2026-09-19 08:46 — `issue-299-set-balance-safely`
+
+Setting an action balance now happens in People and can no longer silently
+overwrite a spend or grant: the admin's edit carries the balance they started
+from, and one locked database call (`admin_set_credit_balance`) either applies
+it — writing the ledger row with the actor and an audit entry with the optional
+note — or refuses with the current value. The Billing Accounts table is gone.
+Verified on a throwaway Postgres; the migration must precede this deploy.
+
+---
+
 ### 2026-09-19 08:39 — `issue-298-rename-to-admin`
 
 The Token Manager is now Admin: route `/admin` (old links redirect), nav label,

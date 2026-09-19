@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Loader2, Mail, RotateCcw, Save, ShieldCheck, UserCog, Activity } from 'lucide-react'
+import { CheckCircle2, Loader2, Mail, RotateCcw, ShieldCheck, Activity } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { adminService, type UsageTotals } from '../services/api'
 import UserManagementPanel from '../components/admin/UserManagementPanel'
@@ -60,7 +60,6 @@ function SummaryCards({ totals }: { totals: UsageTotals }) {
 export default function AdminPage() {
   const queryClient = useQueryClient()
   const [selectedRange, setSelectedRange] = useState<RangeKey>('today')
-  const [balanceDrafts, setBalanceDrafts] = useState<Record<string, string>>({})
   const [contactStatus, setContactStatus] = useState<ContactStatusFilter>('pending')
 
   const overviewQuery = useQuery({
@@ -82,21 +81,6 @@ export default function AdminPage() {
   const contactMessages = contactMessagesQuery.data ?? []
   const pendingCount = pendingMessagesQuery.data?.length
 
-  useEffect(() => {
-    if (!overview) return
-    setBalanceDrafts(Object.fromEntries(overview.users.map(user => [user.id, String(user.balance)])))
-  }, [overview])
-
-  const setBalanceMutation = useMutation({
-    mutationFn: ({ userId, balance }: { userId: string; balance: number }) =>
-      adminService.setUserBalance(userId, balance),
-    onSuccess: () => {
-      toast.success('Balance updated')
-      queryClient.invalidateQueries({ queryKey: ['admin', 'overview'] })
-    },
-    onError: () => toast.error('Failed to update balance'),
-  })
-
   const contactMessageMutation = useMutation({
     mutationFn: ({ messageId, status }: { messageId: string; status: 'pending' | 'handled' }) =>
       adminService.updateContactMessageStatus(messageId, status),
@@ -108,15 +92,6 @@ export default function AdminPage() {
   })
 
   const totals = useMemo(() => overview?.totals[selectedRange], [overview, selectedRange])
-
-  const saveBalance = (userId: string) => {
-    const balance = Number(balanceDrafts[userId])
-    if (!Number.isInteger(balance) || balance < 0) {
-      toast.error('Balance must be a non-negative whole number')
-      return
-    }
-    setBalanceMutation.mutate({ userId, balance })
-  }
 
   return (
     <div className="space-y-6 pb-28 md:pb-0">
@@ -309,77 +284,6 @@ export default function AdminPage() {
                     <td className="py-3 pr-4">{formatNumber(row.totalOpenAiTokens)}</td>
                     <td className="py-3 pr-4">{row.creditsDelta > 0 ? `+${formatNumber(row.creditsDelta)}` : formatNumber(row.creditsDelta)}</td>
                     <td className="py-3">{row.reason ?? '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center space-x-3 mb-4">
-            <UserCog className="w-5 h-5 text-accent" />
-            <h2 className="text-lg font-semibold text-ink">Billing Accounts</h2>
-          </div>
-          <p className="mb-4 text-sm text-ink-muted">
-            Balances are in actions: text 1 · photo 5 · premium 10.
-          </p>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-ink-muted">
-                  <th className="py-3 pr-4 font-medium">User</th>
-                  <th className="py-3 pr-4 font-medium">Role</th>
-                  <th className="py-3 pr-4 font-medium">Actions</th>
-                  <th className="py-3 pr-4 font-medium">Entitlement</th>
-                  <th className="py-3 pr-4 font-medium">Founders grant</th>
-                  <th className="py-3 pr-4 font-medium">Updated</th>
-                  <th className="py-3 font-medium">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {overview.users.map(user => (
-                  <tr key={user.id} className="border-b border-card/80">
-                    <td className="py-3 pr-4">
-                      <p className="font-medium text-ink">{user.name}</p>
-                      <p className="text-xs text-ink-muted">{user.email}</p>
-                    </td>
-                    <td className="py-3 pr-4 text-ink-soft">{user.role}</td>
-                    <td className="py-3 pr-4">
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        className="input-field w-32"
-                        value={balanceDrafts[user.id] ?? '0'}
-                        onChange={(event) => setBalanceDrafts(prev => ({ ...prev, [user.id]: event.target.value }))}
-                      />
-                    </td>
-                    <td className="py-3 pr-4">
-                      <div className="space-y-2">
-                        <p className="text-xs text-ink-muted">
-                          Free v1
-                        </p>
-                        <p className="text-xs text-ink-muted">
-                          {formatNumber(user.balance)} AI actions available
-                        </p>
-                      </div>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span className="text-xs text-ink-muted">Use balance to grant free actions</span>
-                    </td>
-                    <td className="py-3 pr-4 text-ink-muted">{formatDate(user.balance_updated_at)}</td>
-                    <td className="py-3">
-                      <button
-                        onClick={() => saveBalance(user.id)}
-                        disabled={setBalanceMutation.isPending}
-                        className="btn-secondary text-sm flex items-center space-x-2"
-                      >
-                        <Save className="w-4 h-4" />
-                        <span>Set</span>
-                      </button>
-                    </td>
                   </tr>
                 ))}
               </tbody>
