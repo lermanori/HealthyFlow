@@ -1,18 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Loader2, Mail, RotateCcw, ShieldCheck, Activity } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { adminService, type UsageTotals } from '../services/api'
+import { adminService } from '../services/api'
 import UserManagementPanel from '../components/admin/UserManagementPanel'
+import SpendPanel from '../components/admin/SpendPanel'
 
-type RangeKey = 'today' | 'thisWeek' | 'thisMonth'
 type ContactStatusFilter = 'pending' | 'handled' | 'all'
-
-const rangeLabels: Record<RangeKey, string> = {
-  today: 'Today',
-  thisWeek: 'This week',
-  thisMonth: 'This month',
-}
 
 function formatNumber(value: number | null | undefined) {
   return new Intl.NumberFormat().format(value ?? 0)
@@ -37,29 +31,8 @@ function formatDate(value: string | null | undefined) {
   }).format(new Date(value))
 }
 
-function SummaryCards({ totals }: { totals: UsageTotals }) {
-  const cards = [
-    ['Requests', totals.requestCount],
-    ['OpenAI cost', totals.openAiCostUsd],
-  ] as const
-
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      {cards.map(([label, value]) => (
-        <div key={label} className="rounded-lg border border-line/50 bg-page/70 p-4">
-          <p className="text-xs text-ink-muted">{label}</p>
-          <p className="mt-2 text-2xl font-bold text-accent">
-            {label === 'OpenAI cost' ? formatUsd(value) : formatNumber(value)}
-          </p>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 export default function AdminPage() {
   const queryClient = useQueryClient()
-  const [selectedRange, setSelectedRange] = useState<RangeKey>('today')
   const [contactStatus, setContactStatus] = useState<ContactStatusFilter>('pending')
   // The inbox points People at a sender by id, so a Founders Club request —
   // a Guest's included — can be acted on (#302).
@@ -98,7 +71,6 @@ export default function AdminPage() {
     onError: () => toast.error('Failed to update message'),
   })
 
-  const totals = useMemo(() => overview?.totals[selectedRange], [overview, selectedRange])
 
   return (
     <div className="space-y-6 pb-28 md:pb-0">
@@ -224,46 +196,22 @@ export default function AdminPage() {
 
       <UserManagementPanel search={peopleSearch} onSearchChange={setPeopleSearch} />
 
+      <SpendPanel />
+
       {overviewQuery.isLoading ? (
         <div className="card flex items-center gap-2 text-sm text-ink-muted">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Loading usage and balances…
+          Loading the ledger…
         </div>
-      ) : overviewQuery.isError || !overview || !totals ? (
+      ) : overviewQuery.isError || !overview ? (
         <div className="card flex flex-wrap items-center gap-3 text-sm">
-          <p className="text-state-danger">Could not load usage and balances.</p>
-          <button type="button" aria-label="Retry loading usage and balances" onClick={() => void overviewQuery.refetch()} className="btn-secondary text-sm">
+          <p className="text-state-danger">Could not load the ledger.</p>
+          <button type="button" aria-label="Retry loading the ledger" onClick={() => void overviewQuery.refetch()} className="btn-secondary text-sm">
             Retry
           </button>
         </div>
       ) : (
         <>
-        <div className="card space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center space-x-3">
-              <Activity className="w-5 h-5 text-accent" />
-              <h2 className="text-lg font-semibold text-ink">Spend</h2>
-            </div>
-            <div className="flex rounded-lg border border-line/70 bg-page/80 p-1">
-              {(Object.keys(rangeLabels) as RangeKey[]).map(range => (
-                <button
-                  key={range}
-                  onClick={() => setSelectedRange(range)}
-                  className={`px-3 py-2 text-sm rounded-md transition-colors ${
-                    selectedRange === range
-                      ? 'bg-accent/20 text-accent'
-                      : 'text-ink-muted hover:text-ink-soft'
-                  }`}
-                >
-                  {rangeLabels[range]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <SummaryCards totals={totals} />
-        </div>
-
         <div className="card">
           <div className="flex items-center space-x-3 mb-4">
             <Activity className="w-5 h-5 text-accent" />

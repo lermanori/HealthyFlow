@@ -72,38 +72,6 @@ describe('admin API', () => {
       role: 'admin',
     })
     mockCredits.getAdminOverview.mockResolvedValue({
-      totals: {
-        today: {
-          requestCount: 0,
-          billedTokens: 0,
-          markupTokens: 0,
-          baseTokens: 0,
-          openAiCostUsd: 0,
-          promptTokens: 0,
-          completionTokens: 0,
-          totalOpenAiTokens: 0,
-        },
-        thisWeek: {
-          requestCount: 0,
-          billedTokens: 0,
-          markupTokens: 0,
-          baseTokens: 0,
-          openAiCostUsd: 0,
-          promptTokens: 0,
-          completionTokens: 0,
-          totalOpenAiTokens: 0,
-        },
-        thisMonth: {
-          requestCount: 0,
-          billedTokens: 0,
-          markupTokens: 0,
-          baseTokens: 0,
-          openAiCostUsd: 0,
-          promptTokens: 0,
-          completionTokens: 0,
-          totalOpenAiTokens: 0,
-        },
-      },
       activity: [],
     })
 
@@ -254,7 +222,7 @@ describe('admin API', () => {
       name: 'Admin',
       role: 'admin',
     })
-    mockCredits.getAdminOverview.mockResolvedValue({ totals: {} as never, activity: [] })
+    mockCredits.getAdminOverview.mockResolvedValue({ activity: [] })
 
     const res = await request(app)
       .get('/api/admin/token-manager/overview')

@@ -10,6 +10,7 @@ import { pushDb } from './db/push'
 import { assistantConversationsDb } from './db/assistant-conversations'
 import { talkWorkflowsDb } from './db/talk-workflows'
 import { FreeCreditGrantSchema } from './credit-contracts'
+import { SpendSummarySchema } from './admin-overview-contracts'
 import {
   ContactMessageRowSchema,
   type ContactMessageKind,
@@ -1418,6 +1419,16 @@ export const db = {
     })
     if (error) throw error
     return FreeCreditGrantSchema.parse(data)
+  },
+
+  /** One period of Spend, aggregated in the database (#305). */
+  async adminSpendSummary(sinceIso: string, includeTest: boolean) {
+    const { data, error } = await supabase.rpc('admin_spend_summary', {
+      p_since: sinceIso,
+      p_include_test: includeTest,
+    })
+    if (error) throw error
+    return SpendSummarySchema.parse(data)
   },
 
   /**

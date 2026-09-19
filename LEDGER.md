@@ -1,3 +1,15 @@
+### 2026-09-19 09:09 — `issue-305-spend-view`
+
+Spend replaces Usage Totals: for today, this week and this month (UTC, weeks from
+their own Monday), one database aggregate (`admin_spend_summary`) reports
+recorded OpenAI cost, AI calls with unknown cost, actions charged by class,
+refunded attempts, free actions granted and admin balance changes kept apart
+from spending, with a monthly figure to reconcile against the OpenAI bill. Test
+accounts are excluded unless asked. Verified on a throwaway Postgres past the
+1,000-row limit; the migration must precede the deploy.
+
+---
+
 ### 2026-09-19 09:02 — `issue-303-lists-past-1000`
 
 Admin's user reads now stay complete past the API's 1,000-row response limit:

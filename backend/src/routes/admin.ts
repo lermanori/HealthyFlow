@@ -55,6 +55,15 @@ router.get(paths('/overview'), authenticateToken, requireAdminRole, async (req, 
   }
 })
 
+router.get('/spend', authenticateToken, requireAdminRole, async (req, res) => {
+  try {
+    res.json(await Credits.getSpend(req.query.includeTest === 'true'))
+  } catch (error) {
+    console.error('Admin spend error:', error)
+    res.status(500).json({ error: 'Could not read spend' })
+  }
+})
+
 router.get(paths('/contact-messages'), authenticateToken, requireAdminRole, async (req, res) => {
   const parsed = ContactMessageStatusQuerySchema.safeParse(req.query)
   if (!parsed.success) {

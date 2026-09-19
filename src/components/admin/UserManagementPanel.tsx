@@ -331,6 +331,7 @@ export default function UserManagementPanel({
     queryClient.invalidateQueries({ queryKey: USER_QUERY_KEY }),
     queryClient.invalidateQueries({ queryKey: AUDIT_QUERY_KEY }),
     queryClient.invalidateQueries({ queryKey: ['admin', 'overview'] }),
+    queryClient.invalidateQueries({ queryKey: ['admin', 'spend'] }),
   ])
 
   const actionMutation = useMutation({

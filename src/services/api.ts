@@ -50,7 +50,8 @@ import ContactMessageContracts, {
 } from '../../backend/src/contact-message-contracts'
 import AdminOverviewContracts, {
   type AdminOverview,
-  type UsageTotals,
+  type AdminSpend,
+  type SpendSummary,
 } from '../../backend/src/admin-overview-contracts'
 import AdminUserContracts, {
   type AdminUserAuditEntry,
@@ -96,7 +97,7 @@ const {
   AdminUserDeletionResultSchema,
   ManagedUserSchema,
 } = AdminUserContracts
-const { AdminOverviewSchema } = AdminOverviewContracts
+const { AdminOverviewSchema, AdminSpendSchema } = AdminOverviewContracts
 
 export type {
   Category,
@@ -367,7 +368,7 @@ export interface AnalyticsData {
   }
 }
 
-export type { AdminOverview, UsageTotals }
+export type { AdminOverview, AdminSpend, SpendSummary }
 export type { AdminUserAuditEntry, AdminUserDeletionPreview, ManagedUser }
 
 export { ActionPriceSchema, CreditSubscriptionPricingSchema, CreditSummarySchema }
@@ -2024,6 +2025,11 @@ export const adminService = {
   getOverview: async (): Promise<AdminOverview> => {
     const response = await api.get('/admin/overview')
     return AdminOverviewSchema.parse(response.data)
+  },
+
+  getSpend: async (includeTest: boolean): Promise<AdminSpend> => {
+    const response = await api.get('/admin/spend', { params: includeTest ? { includeTest: 'true' } : {} })
+    return AdminSpendSchema.parse(response.data)
   },
 
   getContactMessages: async (status: 'pending' | 'handled' | 'all' = 'pending'): Promise<ContactMessage[]> => {

@@ -12,19 +12,21 @@ const ADMIN = {
   emailVerified: true,
 }
 
-const zeroTotals = {
-  requestCount: 0, billedTokens: 0, markupTokens: 0, baseTokens: 0,
-  openAiCostUsd: 0, promptTokens: 0, completionTokens: 0, totalOpenAiTokens: 0,
-}
+export const overview = { activity: [] }
 
-export const overview = {
-  users: [
-    { id: 'admin-1', email: 'admin@example.com', name: 'Admin', role: 'admin', balance: 20, balance_updated_at: null },
-    { id: 'guest-1', email: null, name: 'Guest', role: 'user', balance: 10, balance_updated_at: null },
-  ],
-  totals: { today: zeroTotals, thisWeek: zeroTotals, thisMonth: zeroTotals },
-  activity: [],
+function spendSummary(costUsd: number) {
+  return {
+    costUsd,
+    requests: 40,
+    uncostedCalls: 2,
+    actions: { text: { count: 30, credits: 30 }, photo: { count: 2, credits: 10 }, premium: { count: 1, credits: 10 } },
+    refundedAttempts: 3,
+    freeGranted: { guest: 20, monthly: 45 },
+    adminChanges: { count: 1, net: -40 },
+    legacyUnitRows: 0,
+  }
 }
+export const spend = { today: spendSummary(0.25), thisWeek: spendSummary(1.5), thisMonth: spendSummary(6.75) }
 
 export const managedUsers = [
   {
@@ -57,7 +59,7 @@ function message(id: string, status: 'pending' | 'handled') {
   }
 }
 
-type Overrides = Partial<Record<'overview' | 'messages' | 'users' | 'audit' | 'balance' | 'cloud', (route: Route) => Promise<void>>>
+type Overrides = Partial<Record<'overview' | 'spend' | 'messages' | 'users' | 'audit' | 'balance' | 'cloud', (route: Route) => Promise<void>>>
 
 export async function openAdmin(page: Page, overrides: Overrides = {}, path = '/app/admin') {
   await page.addInitScript((user) => {
@@ -69,6 +71,7 @@ export async function openAdmin(page: Page, overrides: Overrides = {}, path = '/
   await page.route('**/api/**', route => route.fulfill({ status: 404, json: { error: 'Not mocked' } }))
   await page.route('**/api/auth/verify', route => route.fulfill({ json: ADMIN }))
   await page.route('**/api/admin/overview', overrides.overview ?? (route => route.fulfill({ json: overview })))
+  await page.route('**/api/admin/spend**', overrides.spend ?? (route => route.fulfill({ json: spend })))
   await page.route('**/api/admin/contact-messages**', overrides.messages ?? (route => {
     const status = new URL(route.request().url()).searchParams.get('status')
     const all = [message('m-1', 'pending'), message('m-2', 'pending'), message('m-3', 'handled')]
@@ -100,12 +103,12 @@ test.describe('admin screen reads', () => {
     await expect(page.getByText('Request m-1')).toBeVisible()
   })
 
-  test('a failed usage read leaves the inbox and user management working', async ({ page }) => {
+  test('a failed ledger read leaves the inbox and user management working', async ({ page }) => {
     await openAdmin(page, {
       overview: route => route.fulfill({ status: 500, json: { error: 'Database error' } }),
     })
 
-    await expect(page.getByText('Could not load usage and balances.')).toBeVisible()
+    await expect(page.getByText('Could not load the ledger.')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Admin Inbox' })).toBeVisible()
     await expect(page.getByText('Request m-1')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'User Management' })).toBeVisible()
@@ -325,5 +328,44 @@ test.describe('telling accounts apart', () => {
     await page.getByRole('button', { name: /Copy id of Guest guest-1/ }).click()
     await expect(page.getByText('Id copied')).toBeVisible()
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('guest-1')
+  })
+})
+
+test.describe('Spend', () => {
+  test('shows recorded cost and actions charged, and never counts admin changes as spending', async ({ page }) => {
+    await openAdmin(page)
+
+    const panel = page.getByRole('region', { name: 'Spend' })
+    await expect(panel.getByText('$0.25')).toBeVisible()
+    await expect(panel.getByText('2 of 40 AI calls have an unknown cost')).toBeVisible()
+    await expect(panel.getByText('text 30 · photo 2 · premium 1')).toBeVisible()
+    await expect(panel.getByText('Net -40 actions — not spending')).toBeVisible()
+    await expect(panel.getByText('Periods are UTC.', { exact: false })).toBeVisible()
+
+    await panel.getByRole('button', { name: 'This month' }).click()
+    await expect(panel.getByText(/Recorded this month:/)).toBeVisible()
+    await expect(panel.getByText('$6.75').first()).toBeVisible()
+  })
+
+  test('leaves test accounts out unless asked', async ({ page }) => {
+    const asked: string[] = []
+    await openAdmin(page, {
+      spend: route => {
+        asked.push(new URL(route.request().url()).searchParams.get('includeTest') ?? 'no')
+        return route.fulfill({ json: spend })
+      },
+    })
+
+    await expect(page.getByRole('region', { name: 'Spend' }).getByText('$0.25')).toBeVisible()
+    await page.getByLabel('Include test accounts').check()
+    await expect.poll(() => asked).toEqual(['no', 'true'])
+  })
+
+  test('a failed spend read says so, alone', async ({ page }) => {
+    await openAdmin(page, { spend: route => route.fulfill({ status: 500, json: { error: 'Could not read spend' } }) })
+
+    await expect(page.getByText('Could not load spend.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'User Management' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Ledger' })).toBeVisible()
   })
 })

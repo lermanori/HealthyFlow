@@ -2,7 +2,7 @@ import { createHmac } from 'node:crypto'
 import { db } from './supabase-client'
 import type { TokenUsage } from './openai'
 import { z } from 'zod'
-import { AdminOverviewSchema, type AdminOverview } from './admin-overview-contracts'
+import { AdminOverviewSchema, AdminSpendSchema, type AdminOverview, type AdminSpend } from './admin-overview-contracts'
 import {
   ActionPriceSchema,
   CreditSummarySchema,
@@ -527,16 +527,17 @@ function utcDayStart(now = new Date()) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString()
 }
 
-function emptyTotals() {
+/**
+ * Where Spend's periods begin (#305): the UTC day, the week from its own UTC
+ * Monday (which may fall in last month), and the UTC calendar month.
+ */
+export function spendPeriodStarts(now = new Date()) {
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  const sinceMonday = (today.getUTCDay() + 6) % 7
   return {
-    requestCount: 0,
-    billedTokens: 0,
-    markupTokens: 0,
-    baseTokens: 0,
-    openAiCostUsd: 0,
-    promptTokens: 0,
-    completionTokens: 0,
-    totalOpenAiTokens: 0,
+    today: today.toISOString(),
+    thisWeek: new Date(today.getTime() - sinceMonday * 86_400_000).toISOString(),
+    thisMonth: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString(),
   }
 }
 
@@ -576,22 +577,6 @@ function chargePartsForLog(log: any, settings: CostMeter = COST_METER) {
     baseTokens,
     markupTokens,
   }
-}
-
-function summarizeLogs(logs: any[], settings: CostMeter = COST_METER) {
-  return logs.reduce((totals, log) => {
-    const charge = chargePartsForLog(log, settings)
-    const isOpenAiRequest = Boolean(log.endpoint || log.model)
-    if (isOpenAiRequest) totals.requestCount += 1
-    totals.billedTokens += charge.billedTokens
-    totals.markupTokens += charge.markupTokens
-    totals.baseTokens += charge.baseTokens
-    totals.openAiCostUsd += charge.openAiCostUsd
-    totals.promptTokens += Number(log.prompt_tokens ?? 0)
-    totals.completionTokens += Number(log.completion_tokens ?? 0)
-    totals.totalOpenAiTokens += Number(log.total_tokens ?? 0)
-    return totals
-  }, emptyTotals())
 }
 
 export const Credits = {
@@ -1069,12 +1054,19 @@ export const Credits = {
       : { status: 'conflict', currentBalance: result.balance }
   },
 
-  async getAdminOverview(): Promise<AdminOverview> {
-    const starts = rangeStarts()
-    const [monthLogs, recentLogs] = await Promise.all([
-      db.getUsageLogsSince(starts.thisMonth),
-      db.getRecentUsageLogs(100),
+  /** Spend for today, this week and this month, each one database aggregate (#305). */
+  async getSpend(includeTest: boolean): Promise<AdminSpend> {
+    const starts = spendPeriodStarts()
+    const [today, thisWeek, thisMonth] = await Promise.all([
+      db.adminSpendSummary(starts.today, includeTest),
+      db.adminSpendSummary(starts.thisWeek, includeTest),
+      db.adminSpendSummary(starts.thisMonth, includeTest),
     ])
+    return AdminSpendSchema.parse({ today, thisWeek, thisMonth })
+  },
+
+  async getAdminOverview(): Promise<AdminOverview> {
+    const recentLogs = await db.getRecentUsageLogs(100)
 
     const usersById = new Map((await db.getUsersByIds(recentLogs.map(log => String(log.user_id)))).map(user => [user.id, user]))
     const withUser = (log: any) => {
@@ -1104,14 +1096,7 @@ export const Credits = {
       }
     }
 
-    const inRange = (since: string) => monthLogs.filter(log => new Date(log.created_at).getTime() >= new Date(since).getTime())
-
     return AdminOverviewSchema.parse({
-      totals: {
-        today: summarizeLogs(inRange(starts.today)),
-        thisWeek: summarizeLogs(inRange(starts.thisWeek)),
-        thisMonth: summarizeLogs(monthLogs),
-      },
       activity: recentLogs.map(withUser),
     })
   },
