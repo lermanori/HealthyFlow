@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { db, supabase } from './supabase-client'
+import { db, readAllPages, supabase } from './supabase-client'
 import { Credits } from './credits'
 import {
   AdminUserAuditEntrySchema,
@@ -304,15 +304,26 @@ async function requireAdminActor(actorId: string): Promise<AdminUserRow> {
   return data as AdminUserRow
 }
 
+const ADMIN_USER_COLUMNS = 'id, email, name, role, signup_method, google_auth_subject, apple_auth_subject, created_at, last_login_at, disabled_at, is_test, email_verified_at'
+
 async function getAdminUserRows(userIds?: string[]): Promise<AdminUserRow[]> {
-  let query = supabase
+  if (userIds) {
+    // A selection is small (at most 50), so its ids fit in one request.
+    const { data, error } = await supabase
+      .from('users')
+      .select(ADMIN_USER_COLUMNS)
+      .in('id', userIds)
+      .order('created_at', { ascending: false })
+    if (error) throw error
+    return (data ?? []) as AdminUserRow[]
+  }
+  // Everyone, paged: every Guest install is a row (#303).
+  return readAllPages((from, to) => supabase
     .from('users')
-    .select('id, email, name, role, signup_method, google_auth_subject, apple_auth_subject, created_at, last_login_at, disabled_at, is_test, email_verified_at')
+    .select(ADMIN_USER_COLUMNS)
     .order('created_at', { ascending: false })
-  if (userIds) query = query.in('id', userIds)
-  const { data, error } = await query
-  if (error) throw error
-  return (data ?? []) as AdminUserRow[]
+    .order('id', { ascending: true })
+    .range(from, to)) as Promise<AdminUserRow[]>
 }
 
 function requireAllTargets(userIds: string[], rows: AdminUserRow[]) {
@@ -332,13 +343,23 @@ async function subscriptionState(userIds: string[]) {
   return new Map((data ?? []).map(row => [String(row.user_id), Boolean(row.active)]))
 }
 
-async function balancesByUser(userIds: string[]) {
-  const { data, error } = await supabase
+// Whole tables, paged, rather than every user id in one URL (#303).
+async function allBalances() {
+  const rows = await readAllPages<{ user_id: string; balance: number | null }>((from, to) => supabase
     .from('user_credits')
     .select('user_id, balance')
-    .in('user_id', userIds)
-  if (error) throw error
-  return new Map((data ?? []).map(row => [String(row.user_id), Number(row.balance ?? 0)]))
+    .order('user_id', { ascending: true })
+    .range(from, to))
+  return new Map(rows.map(row => [String(row.user_id), Number(row.balance ?? 0)]))
+}
+
+async function allSubscriptionStates() {
+  const rows = await readAllPages<{ user_id: string; active: boolean }>((from, to) => supabase
+    .from('user_credit_subscriptions')
+    .select('user_id, active')
+    .order('user_id', { ascending: true })
+    .range(from, to))
+  return new Map(rows.map(row => [String(row.user_id), Boolean(row.active)]))
 }
 
 async function insertAdminAudit(input: {
@@ -365,8 +386,8 @@ export async function listManagedUsers(actorId: string): Promise<ManagedUser[]> 
   if (users.length === 0) return []
   const ids = users.map(user => user.id)
   const [balances, subscriptions, grants] = await Promise.all([
-    balancesByUser(ids),
-    subscriptionState(ids),
+    allBalances(),
+    allSubscriptionStates(),
     // A failed allowance read leaves the list usable and says so per account.
     db.adminFreeCreditGrants(ids, Credits.GUEST_INITIAL_CREDITS, Credits.MONTHLY_FREE_CREDITS)
       .catch((error) => {

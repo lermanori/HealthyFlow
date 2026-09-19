@@ -1076,7 +1076,7 @@ export const Credits = {
       db.getRecentUsageLogs(100),
     ])
 
-    const usersById = new Map((await db.getAllUsers()).map(user => [user.id, user]))
+    const usersById = new Map((await db.getUsersByIds(recentLogs.map(log => String(log.user_id)))).map(user => [user.id, user]))
     const withUser = (log: any) => {
       const user = usersById.get(log.user_id)
       const charge = chargePartsForLog(log)

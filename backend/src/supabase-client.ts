@@ -47,6 +47,26 @@ type AccountRow = {
 
 // The `db` facade. Self-contained domains live in ./db/*.ts and are composed in
 // via spread; the remaining (cross-referencing) domains stay inline below.
+/**
+ * Rows per request for Admin's whole-table reads. Below the API's 1,000-row
+ * response limit, so a full page is never silently cut short (#303).
+ */
+export const ADMIN_PAGE_SIZE = Number(process.env.ADMIN_PAGE_SIZE ?? 500)
+
+/** Every row of a read, one page at a time. The query must have a stable order. */
+export async function readAllPages<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+  pageSize = ADMIN_PAGE_SIZE,
+): Promise<T[]> {
+  const rows: T[] = []
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await page(from, from + pageSize - 1)
+    if (error) throw error
+    rows.push(...(data ?? []))
+    if ((data ?? []).length < pageSize) return rows
+  }
+}
+
 export const db = {
   ...projectsDb,
   ...workDb,
@@ -172,13 +192,29 @@ export const db = {
   },
 
   async getAllUsers() {
-    const { data, error } = await supabase
+    // Paged: every Guest install is a row, and one response stops at the API's row limit.
+    return readAllPages((from, to) => supabase
       .from('users')
       .select('id, email, name, role, created_at, signup_method, disabled_at, is_test, last_login_at')
-      .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data;
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: true })
+      .range(from, to))
+  },
+
+  /** Name and email for a known, small set of accounts, e.g. an inbox page's senders. */
+  async getUsersByIds(ids: string[]) {
+    const unique = [...new Set(ids)]
+    const users: Array<{ id: string; email: string | null; name: string }> = []
+    // Ids travel in the URL; 100 keeps each request far below URL limits.
+    for (let start = 0; start < unique.length; start += 100) {
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, email, name')
+        .in('id', unique.slice(start, start + 100))
+      if (error) throw error
+      users.push(...((data ?? []) as typeof users))
+    }
+    return users
   },
 
   async recordUserLogin(userId: string) {
@@ -1103,7 +1139,7 @@ export const db = {
     const { data: messages, error } = await query
     if (error) throw error
 
-    const users = await this.getAllUsers()
+    const users = await this.getUsersByIds((messages ?? []).map(message => String(message.user_id)))
     const usersById = new Map(users.map(user => [user.id, user]))
     return (messages ?? []).map(rawMessage => {
       const message = ContactMessageRowSchema.parse(rawMessage)
@@ -1356,16 +1392,19 @@ export const db = {
    * the caller reports that account as unavailable rather than guessing.
    */
   async adminFreeCreditGrants(userIds: string[], guestCredits: number, monthlyCredits: number) {
-    const { data, error } = await supabase.rpc('admin_free_credit_grants', {
-      p_user_ids: userIds,
-      p_guest_credits: guestCredits,
-      p_monthly_credits: monthlyCredits,
-    })
-    if (error) throw error
     const grants = new Map<string, z.infer<typeof FreeCreditGrantSchema>>()
-    for (const row of (data ?? []) as Array<{ user_id: string; free_grant: unknown }>) {
-      const parsed = FreeCreditGrantSchema.safeParse(row.free_grant)
-      if (parsed.success) grants.set(String(row.user_id), parsed.data)
+    // In chunks, so no single answer approaches the API's row limit (#303).
+    for (let start = 0; start < userIds.length; start += 500) {
+      const { data, error } = await supabase.rpc('admin_free_credit_grants', {
+        p_user_ids: userIds.slice(start, start + 500),
+        p_guest_credits: guestCredits,
+        p_monthly_credits: monthlyCredits,
+      })
+      if (error) throw error
+      for (const row of (data ?? []) as Array<{ user_id: string; free_grant: unknown }>) {
+        const parsed = FreeCreditGrantSchema.safeParse(row.free_grant)
+        if (parsed.success) grants.set(String(row.user_id), parsed.data)
+      }
     }
     return grants
   },

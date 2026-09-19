@@ -1,3 +1,14 @@
+### 2026-09-19 09:02 — `issue-303-lists-past-1000`
+
+Admin's user reads now stay complete past the API's 1,000-row response limit:
+People, balances and Cloud states are read whole-table in stable-ordered pages
+instead of one capped read plus an every-id URL filter, the allowance read asks
+in 500-id chunks, and inbox senders and ledger users are looked up by their own
+ids. A fake PostgREST test lists 2,500 accounts correctly. The backend suite's
+intermittent timeouts under load remain (#289).
+
+---
+
 ### 2026-09-19 08:56 — `issue-302-tell-accounts-apart`
 
 People now tells accounts apart: a copyable, searchable id, whether the address
