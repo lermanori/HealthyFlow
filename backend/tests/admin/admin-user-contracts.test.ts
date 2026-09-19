@@ -40,7 +40,6 @@ describe('admin overview contract', () => {
     }
     const overview = AdminOverviewSchema.parse({
       users: [{ id: 'guest-1', email: null, name: 'Guest', role: 'user', balance: 10, balance_updated_at: null }],
-      settings: { appTokensPerUsd: 1000, markupRate: 0.25, minMarkupTokens: 5 },
       totals: { today: totals, thisWeek: totals, thisMonth: totals },
       activity: [],
     })

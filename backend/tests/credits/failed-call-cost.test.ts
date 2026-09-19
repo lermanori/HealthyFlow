@@ -11,7 +11,6 @@ jest.mock('../../src/supabase-client', () => ({
   db: {
     insertUsageLog: jest.fn(),
     grantCredits: jest.fn(),
-    getBillingSettings: jest.fn(),
   },
 }))
 
@@ -57,7 +56,6 @@ beforeEach(() => {
   nock.cleanAll()
   mockDb.insertUsageLog.mockResolvedValue(undefined)
   mockDb.grantCredits.mockResolvedValue(0)
-  mockDb.getBillingSettings.mockResolvedValue(null)
   authorize('text', 1)
 })
 

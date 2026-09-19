@@ -51,17 +51,8 @@ export const BillingAccountSchema = z.object({
 })
 export type BillingAccount = z.infer<typeof BillingAccountSchema>
 
-export const BillingSettingsSchema = z.object({
-  appTokensPerUsd: z.number(),
-  markupRate: z.number(),
-  minMarkupTokens: z.number(),
-  updatedAt: z.string().nullable().optional(),
-})
-export type BillingSettings = z.infer<typeof BillingSettingsSchema>
-
 export const AdminOverviewSchema = z.object({
   users: z.array(BillingAccountSchema),
-  settings: BillingSettingsSchema,
   totals: z.object({
     today: UsageTotalsSchema,
     thisWeek: UsageTotalsSchema,
@@ -75,7 +66,6 @@ const AdminOverviewContracts = {
   UsageTotalsSchema,
   UsageActivitySchema,
   BillingAccountSchema,
-  BillingSettingsSchema,
   AdminOverviewSchema,
 }
 

@@ -228,11 +228,10 @@ type BillingUsage = {
   completionTokens: number
 }
 
-export type BillingSettings = {
+type CostMeter = {
   appTokensPerUsd: number
   markupRate: number
   minMarkupTokens: number
-  updatedAt?: string | null
 }
 
 /** Why an action was refused. Every one is a real, distinguishable cause. */
@@ -300,11 +299,13 @@ export type ActionPricingInput = {
 // 0 (underfunded). It never fails the request — the AI result is already paid for.
 type SettlementResult = { ok: true; chargeTokens: number; adjustmentTokens: number }
 
-const DEFAULT_BILLING_SETTINGS: BillingSettings = {
+// The historical base/markup columns are still written for cost reporting
+// (ADR-0016), from these fixed constants. They were once editable settings that
+// nothing a user pays ever read; the settings are gone (#304).
+const COST_METER: CostMeter = {
   appTokensPerUsd: APP_TOKENS_PER_USD,
   markupRate: MARKUP_RATE,
   minMarkupTokens: MIN_MARKUP_TOKENS,
-  updatedAt: null,
 }
 
 function getPricing(model: string): ModelPricing {
@@ -338,7 +339,7 @@ function userPromptEstimate(userPrompt: EstimateReserveInput['userPrompt']): num
 export function calculateAiTokenCharge(
   model: string,
   usage: BillingUsage,
-  settings: BillingSettings = DEFAULT_BILLING_SETTINGS
+  settings: CostMeter = COST_METER
 ): ChargeBreakdown {
   const openAiCostUsd = calculateOpenAiCostUsd(model, usage)
   const baseRawTokens = openAiCostUsd * settings.appTokensPerUsd
@@ -435,15 +436,6 @@ export function assertRequestWithinLimits(
   if (images > MAX_IMAGES_PER_REQUEST) throw new TooManyImagesError(images)
   const chars = promptChars(input)
   if (chars > MAX_PROMPT_CHARS) throw new PromptTooLargeError(chars)
-}
-
-function normalizeBillingSettings(row: any): BillingSettings {
-  return {
-    appTokensPerUsd: Number(row?.app_tokens_per_usd ?? APP_TOKENS_PER_USD),
-    markupRate: Number(row?.markup_rate ?? MARKUP_RATE),
-    minMarkupTokens: Number(row?.min_markup_tokens ?? MIN_MARKUP_TOKENS),
-    updatedAt: row?.updated_at ?? null,
-  }
 }
 
 function normalizeSubscriptionPricing(row: any, promoActiveOverride?: boolean): SubscriptionPricing {
@@ -554,7 +546,7 @@ function openAiCostForLog(log: any): number {
     : 0
 }
 
-function chargePartsForLog(log: any, settings: BillingSettings) {
+function chargePartsForLog(log: any, settings: CostMeter = COST_METER) {
   const billedTokens = Math.abs(Math.min(Number(log.credits_delta ?? 0), 0))
   const openAiCostUsd = openAiCostForLog(log)
   const derivedBaseTokens = Math.ceil(openAiCostUsd * settings.appTokensPerUsd)
@@ -569,7 +561,7 @@ function chargePartsForLog(log: any, settings: BillingSettings) {
   }
 }
 
-function summarizeLogs(logs: any[], settings: BillingSettings) {
+function summarizeLogs(logs: any[], settings: CostMeter = COST_METER) {
   return logs.reduce((totals, log) => {
     const charge = chargePartsForLog(log, settings)
     const isOpenAiRequest = Boolean(log.endpoint || log.model)
@@ -605,10 +597,6 @@ export const Credits = {
   GLOBAL_DAILY_COST_CEILING_USD,
   classifyAction,
   priceAction,
-  async getBillingSettings(): Promise<BillingSettings> {
-    return normalizeBillingSettings(await db.getBillingSettings())
-  },
-
   async getSubscriptionPricing(userId?: string): Promise<SubscriptionPricing> {
     const [settings, subscription, foundingMembersClaimed] = await Promise.all([
       db.getCreditSubscriptionSettings(),
@@ -717,14 +705,6 @@ export const Credits = {
       promo_active: input.promoActive,
     })
     return this.getSubscriptionPricing()
-  },
-
-  async updateBillingSettings(input: { markupRate: number; minMarkupTokens: number }): Promise<BillingSettings> {
-    const settings = await db.updateBillingSettings({
-      markup_rate: input.markupRate,
-      min_markup_tokens: input.minMarkupTokens,
-    })
-    return normalizeBillingSettings(settings)
   },
 
   /**
@@ -917,8 +897,7 @@ export const Credits = {
     usage: TokenUsage | null,
     meta: { endpoint: string; model: string }
   ): Promise<void> {
-    const settings = await this.getBillingSettings()
-    const charge = usage ? calculateAiTokenCharge(meta.model, usage, settings) : null
+    const charge = usage ? calculateAiTokenCharge(meta.model, usage) : null
 
     await db.insertUsageLog({
       user_id: userId,
@@ -1060,7 +1039,6 @@ export const Credits = {
 
   async getTokenManagerOverview(): Promise<AdminOverview> {
     const users = await db.getUsersWithCreditBalances()
-    const settings = await this.getBillingSettings()
     const starts = rangeStarts()
     const [monthLogs, recentLogs] = await Promise.all([
       db.getUsageLogsSince(starts.thisMonth),
@@ -1070,7 +1048,7 @@ export const Credits = {
     const usersById = new Map(users.map(user => [user.id, user]))
     const withUser = (log: any) => {
       const user = usersById.get(log.user_id)
-      const charge = chargePartsForLog(log, settings)
+      const charge = chargePartsForLog(log)
       return {
         id: log.id,
         userId: log.user_id,
@@ -1099,11 +1077,10 @@ export const Credits = {
 
     return AdminOverviewSchema.parse({
       users,
-      settings,
       totals: {
-        today: summarizeLogs(inRange(starts.today), settings),
-        thisWeek: summarizeLogs(inRange(starts.thisWeek), settings),
-        thisMonth: summarizeLogs(monthLogs, settings),
+        today: summarizeLogs(inRange(starts.today)),
+        thisWeek: summarizeLogs(inRange(starts.thisWeek)),
+        thisMonth: summarizeLogs(monthLogs),
       },
       activity: recentLogs.map(withUser),
     })

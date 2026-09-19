@@ -26,11 +26,6 @@ const SetBalanceSchema = z.object({
   balance: z.number().int().min(0),
 })
 
-const BillingSettingsSchema = z.object({
-  markupRate: z.number().min(0).max(10),
-  minMarkupTokens: z.number().int().min(0),
-})
-
 const ContactMessageStatusQuerySchema = z.object({
   status: z.enum(['pending', 'handled', 'all']).default('pending'),
 })
@@ -131,21 +126,6 @@ router.patch('/token-manager/users/:userId/cloud', authenticateToken, requireAdm
     res.json({ userId: saved.user_id, active: saved.active })
   } catch (error) {
     console.error('Set Cloud access error:', error)
-    res.status(500).json({ error: 'Database error' })
-  }
-})
-
-router.patch('/token-manager/settings', authenticateToken, requireAdminRole, async (req, res) => {
-  const parsed = BillingSettingsSchema.safeParse(req.body)
-  if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.issues[0].message })
-  }
-
-  try {
-    const settings = await Credits.updateBillingSettings(parsed.data)
-    res.json(settings)
-  } catch (error) {
-    console.error('Update billing settings error:', error)
     res.status(500).json({ error: 'Database error' })
   }
 })

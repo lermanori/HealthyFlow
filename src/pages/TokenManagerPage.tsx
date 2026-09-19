@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Coins, Loader2, Mail, RotateCcw, Save, Settings, UserCog, Activity } from 'lucide-react'
+import { CheckCircle2, Coins, Loader2, Mail, RotateCcw, Save, UserCog, Activity } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { tokenManagerService, type UsageTotals } from '../services/api'
 import UserManagementPanel from '../components/admin/UserManagementPanel'
@@ -63,8 +63,6 @@ export default function TokenManagerPage() {
   const queryClient = useQueryClient()
   const [selectedRange, setSelectedRange] = useState<RangeKey>('today')
   const [balanceDrafts, setBalanceDrafts] = useState<Record<string, string>>({})
-  const [markupPercent, setMarkupPercent] = useState('25')
-  const [minMarkupTokens, setMinMarkupTokens] = useState('5')
   const [contactStatus, setContactStatus] = useState<ContactStatusFilter>('pending')
 
   const overviewQuery = useQuery({
@@ -89,8 +87,6 @@ export default function TokenManagerPage() {
   useEffect(() => {
     if (!overview) return
     setBalanceDrafts(Object.fromEntries(overview.users.map(user => [user.id, String(user.balance)])))
-    setMarkupPercent(String(Math.round(overview.settings.markupRate * 10000) / 100))
-    setMinMarkupTokens(String(overview.settings.minMarkupTokens))
   }, [overview])
 
   const setBalanceMutation = useMutation({
@@ -101,18 +97,6 @@ export default function TokenManagerPage() {
       queryClient.invalidateQueries({ queryKey: ['token-manager-overview'] })
     },
     onError: () => toast.error('Failed to update balance'),
-  })
-
-  const settingsMutation = useMutation({
-    mutationFn: () => tokenManagerService.updateSettings({
-      markupRate: Number(markupPercent) / 100,
-      minMarkupTokens: Number(minMarkupTokens),
-    }),
-    onSuccess: () => {
-      toast.success('Billing settings updated')
-      queryClient.invalidateQueries({ queryKey: ['token-manager-overview'] })
-    },
-    onError: () => toast.error('Failed to update billing settings'),
   })
 
   const contactMessageMutation = useMutation({
@@ -134,16 +118,6 @@ export default function TokenManagerPage() {
       return
     }
     setBalanceMutation.mutate({ userId, balance })
-  }
-
-  const saveSettings = () => {
-    const percent = Number(markupPercent)
-    const minMarkup = Number(minMarkupTokens)
-    if (!Number.isFinite(percent) || percent < 0 || !Number.isInteger(minMarkup) || minMarkup < 0) {
-      toast.error('Markup settings are invalid')
-      return
-    }
-    settingsMutation.mutate()
   }
 
   return (
@@ -313,52 +287,6 @@ export default function TokenManagerPage() {
             <div className="rounded-lg border border-line/50 bg-page/70 p-3">
               <span className="text-ink-muted">OpenAI completion tokens</span>
               <p className="text-lg font-semibold text-ink">{formatNumber(totals.completionTokens)}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center space-x-3 mb-4">
-            <Settings className="w-5 h-5 text-accent" />
-            <h2 className="text-lg font-semibold text-ink">Billing Settings</h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-ink-soft mb-1">App tokens per $1</label>
-              <input className="input-field" value={overview.settings.appTokensPerUsd} readOnly />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-ink-soft mb-1">Markup percent</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                className="input-field"
-                value={markupPercent}
-                onChange={(event) => setMarkupPercent(event.target.value)}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-ink-soft mb-1">Minimum markup</label>
-              <input
-                type="number"
-                min="0"
-                step="1"
-                className="input-field"
-                value={minMarkupTokens}
-                onChange={(event) => setMinMarkupTokens(event.target.value)}
-              />
-            </div>
-            <div className="flex items-end">
-              <button
-                onClick={saveSettings}
-                disabled={settingsMutation.isPending}
-                className="btn-primary w-full flex items-center justify-center space-x-2"
-              >
-                {settingsMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                <span>Save</span>
-              </button>
             </div>
           </div>
         </div>

@@ -1480,32 +1480,6 @@ export const db = {
     return data
   },
 
-  async getBillingSettings() {
-    const { data, error } = await supabase
-      .from('ai_billing_settings')
-      .select('app_tokens_per_usd, markup_rate, min_markup_tokens, updated_at')
-      .eq('id', true)
-      .maybeSingle()
-    if (error) throw error
-    return data
-  },
-
-  async updateBillingSettings(settings: { markup_rate: number; min_markup_tokens: number }) {
-    const { data, error } = await supabase
-      .from('ai_billing_settings')
-      .upsert({
-        id: true,
-        app_tokens_per_usd: 1000,
-        markup_rate: settings.markup_rate,
-        min_markup_tokens: settings.min_markup_tokens,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'id' })
-      .select('app_tokens_per_usd, markup_rate, min_markup_tokens, updated_at')
-      .single()
-    if (error) throw error
-    return data
-  },
-
   async getUsageLogsSince(sinceIso: string) {
     const { data, error } = await supabase
       .from('ai_usage_log')

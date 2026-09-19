@@ -14,8 +14,6 @@ import { db } from '../../src/supabase-client'
 jest.mock('../../src/supabase-client', () => ({
   db: {
     getCreditBalance: jest.fn(),
-    getBillingSettings: jest.fn(),
-    updateBillingSettings: jest.fn(),
     getCreditSubscriptionSettings: jest.fn(),
     updateCreditSubscriptionSettings: jest.fn(),
     getCreditBuckets: jest.fn(),
@@ -53,12 +51,6 @@ import {
 
 beforeEach(() => {
   jest.clearAllMocks()
-  mockDb.getBillingSettings.mockResolvedValue({
-    app_tokens_per_usd: 1000,
-    markup_rate: 0.25,
-    min_markup_tokens: 5,
-    updated_at: null,
-  })
   mockDb.getCreditSubscriptionSettings.mockResolvedValue({
     promo_active: true,
     updated_at: null,
@@ -266,21 +258,35 @@ describe('billing math', () => {
     })).toThrow(UnpricedModelError)
   })
 
-  it('does not let the cost meter move a user-facing price', async () => {
-    // The markup settings are cost accounting. Doubling them must not change what
-    // anyone is charged — that coupling is exactly what drifted before ADR-0016.
-    mockDb.getBillingSettings.mockResolvedValue({
-      app_tokens_per_usd: 1000,
-      markup_rate: 1,
-      min_markup_tokens: 10,
-      updated_at: null,
-    })
-
+  it('prices from the action table alone, with no markup setting to move it', async () => {
+    // The markup settings are gone (#304): they were cost accounting that nothing
+    // user-facing read, and that coupling is exactly what drifted before ADR-0016.
     expect(priceAction({
       endpoint: 'parse-tasks',
       model: 'gpt-4o-mini',
       userPrompt: 'hello',
     })).toBe(ACTION_PRICE.text)
+  })
+})
+
+describe('Credits.settleAction without a settings row', () => {
+  it('settles from the fixed cost constants and never reads billing settings', async () => {
+    // The db mock has no getBillingSettings: a settlement that still read it
+    // would throw here, after the action had already been charged.
+    mockDb.insertUsageLog.mockResolvedValue(undefined)
+
+    await Credits.settleAction(
+      'user-1',
+      { ok: true, actionClass: 'text', credits: 1, charged: 1, coveredBy: 'balance' },
+      { promptTokens: 1000, completionTokens: 200, totalTokens: 1200 },
+      { endpoint: 'parse-tasks', model: 'gpt-4o-mini' },
+    )
+
+    expect(mockDb.insertUsageLog).toHaveBeenCalledWith(expect.objectContaining({
+      credits_delta: -1,
+      base_tokens: expect.any(Number),
+      markup_tokens: expect.any(Number),
+    }))
   })
 })
 

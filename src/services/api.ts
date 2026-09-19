@@ -50,7 +50,6 @@ import ContactMessageContracts, {
 } from '../../backend/src/contact-message-contracts'
 import AdminOverviewContracts, {
   type AdminOverview,
-  type BillingSettings,
   type UsageTotals,
 } from '../../backend/src/admin-overview-contracts'
 import AdminUserContracts, {
@@ -97,7 +96,7 @@ const {
   AdminUserDeletionResultSchema,
   ManagedUserSchema,
 } = AdminUserContracts
-const { AdminOverviewSchema, BillingSettingsSchema } = AdminOverviewContracts
+const { AdminOverviewSchema } = AdminOverviewContracts
 
 export type {
   Category,
@@ -2055,11 +2054,6 @@ export const tokenManagerService = {
   setUserCloudAccess: async (userId: string, active: boolean): Promise<{ userId: string; active: boolean }> => {
     const response = await api.patch(`/admin/token-manager/users/${userId}/cloud`, { active })
     return response.data
-  },
-
-  updateSettings: async (settings: { markupRate: number; minMarkupTokens: number }): Promise<BillingSettings> => {
-    const response = await api.patch('/admin/token-manager/settings', settings)
-    return BillingSettingsSchema.parse(response.data)
   },
 
   getManagedUsers: async (): Promise<ManagedUser[]> => {

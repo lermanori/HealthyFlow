@@ -18,7 +18,6 @@ jest.mock('../../src/credits', () => ({
   Credits: {
     getTokenManagerOverview: jest.fn(),
     setBalance: jest.fn(),
-    updateBillingSettings: jest.fn(),
     updateSubscriptionPricing: jest.fn(),
     activateSubscription: jest.fn(),
     grantTopUp: jest.fn(),
@@ -74,7 +73,6 @@ describe('admin token-manager API', () => {
     })
     mockCredits.getTokenManagerOverview.mockResolvedValue({
       users: [],
-      settings: { appTokensPerUsd: 1000, markupRate: 0.25, minMarkupTokens: 5 },
       totals: {
         today: {
           requestCount: 0,
@@ -202,17 +200,12 @@ describe('admin token-manager API', () => {
     expect(mockCredits.setBalance).toHaveBeenCalledWith('user-1', 1234)
   })
 
-  it('updates billing settings for admins', async () => {
+  it('no longer exposes the markup settings', async () => {
     mockDb.getUserById.mockResolvedValue({
       id: 'admin-1',
       email: 'lermanori@gmail.com',
       name: 'Admin',
       role: 'admin',
-    })
-    mockCredits.updateBillingSettings.mockResolvedValue({
-      appTokensPerUsd: 1000,
-      markupRate: 0.4,
-      minMarkupTokens: 8,
     })
 
     const res = await request(app)
@@ -220,9 +213,7 @@ describe('admin token-manager API', () => {
       .set('Authorization', authHeader('admin-1'))
       .send({ markupRate: 0.4, minMarkupTokens: 8 })
 
-    expect(res.status).toBe(200)
-    expect(res.body).toEqual({ appTokensPerUsd: 1000, markupRate: 0.4, minMarkupTokens: 8 })
-    expect(mockCredits.updateBillingSettings).toHaveBeenCalledWith({ markupRate: 0.4, minMarkupTokens: 8 })
+    expect(res.status).toBe(404)
   })
 
   it('does not expose subscription pricing in free v1', async () => {

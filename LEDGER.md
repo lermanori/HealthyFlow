@@ -1,3 +1,13 @@
+### 2026-09-19 08:35 — `issue-304-remove-markup-settings`
+
+Removed the markup Billing Settings (percent, minimum, app tokens per dollar)
+from the admin screen, their API route and the database client: they changed
+nothing a user pays, yet settlement read them on every AI call after the action
+was charged. The historical base/markup ledger columns are still written, from
+fixed constants, as ADR-0016 requires; prices and pricing tests are unchanged.
+
+---
+
 ### 2026-09-19 08:32 — `issue-297-verify-model-prices`
 
 Re-checked every priced model against OpenAI's published standard pricing

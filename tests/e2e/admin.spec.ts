@@ -22,7 +22,6 @@ export const overview = {
     { id: 'admin-1', email: 'admin@example.com', name: 'Admin', role: 'admin', balance: 20, balance_updated_at: null },
     { id: 'guest-1', email: null, name: 'Guest', role: 'user', balance: 10, balance_updated_at: null },
   ],
-  settings: { appTokensPerUsd: 1000, markupRate: 0.25, minMarkupTokens: 5 },
   totals: { today: zeroTotals, thisWeek: zeroTotals, thisMonth: zeroTotals },
   activity: [],
 }
@@ -99,6 +98,13 @@ test.describe('admin screen reads', () => {
     await expect(page.getByText('Request m-1')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'User Management' })).toBeVisible()
     await expect(page.getByText('No email — Guest')).toBeVisible()
+  })
+
+  test('the markup settings are gone from the screen', async ({ page }) => {
+    await openAdmin(page)
+
+    await expect(page.getByRole('heading', { name: 'User Management' })).toBeVisible()
+    await expect(page.getByText(/Billing Settings|Markup percent|Minimum markup|App tokens per/)).toHaveCount(0)
   })
 
   test('the pending badge counts pending messages under every filter', async ({ page }) => {
