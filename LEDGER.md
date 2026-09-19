@@ -1,3 +1,13 @@
+### 2026-09-19 08:52 — `issue-301-guest-disable-warning`
+
+Disabling a selection that includes a Guest now asks first and says what it
+costs: the Guest's device loses its only session, cannot reach the day stored
+there, and re-enabling does not restore it. Accounts with an email disable as
+before, and the People copy no longer claims disabling preserves everything.
+Covered by the hermetic admin e2e spec.
+
+---
+
 ### 2026-09-19 08:50 — `issue-300-cloud-switch-audited`
 
 The Cloud switch now asks before it changes anything, names what changes

@@ -37,6 +37,11 @@ export const managedUsers = [
     createdAt: '2026-09-10T00:00:00.000Z', lastLoginAt: null, disabledAt: null, isTest: false,
     balance: 10, subscriptionActive: false, protection: null,
   },
+  {
+    id: 'person-1', email: 'person@example.com', name: 'Person', role: 'user', signupMethod: 'password',
+    createdAt: '2026-09-12T00:00:00.000Z', lastLoginAt: null, disabledAt: null, isTest: false,
+    balance: 15, subscriptionActive: false, protection: null,
+  },
 ]
 
 function message(id: string, status: 'pending' | 'handled') {
@@ -232,5 +237,49 @@ test.describe('the Cloud switch', () => {
     })
 
     await expect(page.getByText('turned Cloud on for admin@example.com')).toBeVisible()
+  })
+})
+
+test.describe('disabling a Guest', () => {
+  test('warns that the Guest loses its day on the device, and cancelling sends nothing', async ({ page }) => {
+    const sent: unknown[] = []
+    await openAdmin(page, {
+      users: route => {
+        if (route.request().method() === 'PATCH') {
+          sent.push(route.request().postDataJSON())
+          return route.fulfill({ json: { updatedUserIds: ['guest-1'] } })
+        }
+        return route.fulfill({ json: managedUsers })
+      },
+    })
+
+    await page.getByRole('checkbox', { name: 'Select Guest' }).check()
+    await page.getByRole('button', { name: 'Disable' }).click()
+    await expect(page.getByRole('heading', { name: 'Disable 1 account, including a Guest?' })).toBeVisible()
+    await expect(page.getByText(/cannot reach the day stored on its device/)).toBeVisible()
+    await expect(page.getByText(/Enabling it again does not restore/)).toBeVisible()
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    expect(sent).toEqual([])
+
+    await page.getByRole('button', { name: 'Disable' }).click()
+    await page.getByRole('button', { name: 'Disable anyway' }).click()
+    await expect(page.getByText('1 user updated')).toBeVisible()
+    expect(sent).toEqual([{ userIds: ['guest-1'], action: 'disable' }])
+  })
+
+  test('an account with an email is disabled without that warning', async ({ page }) => {
+    await openAdmin(page)
+
+    await page.getByRole('checkbox', { name: 'Select person@example.com' }).check()
+    await page.getByRole('button', { name: 'Disable' }).click()
+    await expect(page.getByText('1 user updated')).toBeVisible()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+  })
+
+  test('the panel says what disabling keeps and what a Guest loses', async ({ page }) => {
+    await openAdmin(page)
+
+    await expect(page.getByText('Disabling preserves data;')).toHaveCount(0)
+    await expect(page.getByText(/a disabled Guest loses access to the day on its device/)).toBeVisible()
   })
 })

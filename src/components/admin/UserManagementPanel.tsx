@@ -258,6 +258,9 @@ export default function UserManagementPanel() {
   // A Cloud change is confirmed before it is sent: it decides whether a day
   // replicates to the server at all.
   const [cloudChange, setCloudChange] = useState<{ user: ManagedUser; active: boolean } | null>(null)
+  // A Guest's session is the only key to its day (ADR-0010). Disabling one ends
+  // that session on the device, so it is confirmed with what it costs.
+  const [guestDisable, setGuestDisable] = useState<string[] | null>(null)
 
   const usersQuery = useQuery({
     queryKey: USER_QUERY_KEY,
@@ -394,7 +397,13 @@ export default function UserManagementPanel() {
 
   const selectedIds = Array.from(selected)
   const apply = (action: UserAction) => {
-    if (selectedIds.length > 0) actionMutation.mutate({ action, userIds: selectedIds })
+    if (selectedIds.length === 0) return
+    const includesGuest = users.some(user => selected.has(user.id) && user.email === null)
+    if (action === 'disable' && includesGuest) {
+      setGuestDisable(selectedIds)
+      return
+    }
+    actionMutation.mutate({ action, userIds: selectedIds })
   }
   const toggleSelected = (id: string) => {
     setSelected(current => {
@@ -429,7 +438,7 @@ export default function UserManagementPanel() {
               <h2 id="user-management-title" className="text-lg font-semibold text-ink">User Management</h2>
             </div>
             <p className="mt-2 max-w-2xl text-sm text-ink-muted">
-              Test status is always explicit. Disabling preserves data; permanent deletion is limited to reviewed test accounts.
+              Test status is always explicit. Disabling keeps the account&apos;s server data, but a disabled Guest loses access to the day on its device. Permanent deletion is limited to reviewed test accounts.
             </p>
             <p className="mt-1 text-sm text-ink-muted">Balances are in actions: text 1 · photo 5 · premium 10.</p>
           </div>
@@ -693,6 +702,26 @@ export default function UserManagementPanel() {
           )}
         </div>
       </section>
+
+      {guestDisable && (
+        <ConfirmDialog
+          title={`Disable ${guestDisable.length} ${guestDisable.length === 1 ? 'account' : 'accounts'}, including a Guest?`}
+          confirmLabel="Disable anyway"
+          pending={actionMutation.isPending}
+          close={() => { if (!actionMutation.isPending) setGuestDisable(null) }}
+          confirm={() => actionMutation.mutate(
+            { action: 'disable', userIds: guestDisable },
+            { onSettled: () => setGuestDisable(null) },
+          )}
+        >
+          <p>
+            A Guest has no email or password. Its session is the only key to its day, and a disabled
+            Guest&apos;s device loses that session on its next request — after which it cannot reach the
+            day stored on its device.
+          </p>
+          <p>Enabling it again does not restore that session. The server keeps the account&apos;s rows either way.</p>
+        </ConfirmDialog>
+      )}
 
       {cloudChange && (
         <ConfirmDialog
