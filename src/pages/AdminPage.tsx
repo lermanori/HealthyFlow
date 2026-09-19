@@ -61,6 +61,13 @@ export default function AdminPage() {
   const queryClient = useQueryClient()
   const [selectedRange, setSelectedRange] = useState<RangeKey>('today')
   const [contactStatus, setContactStatus] = useState<ContactStatusFilter>('pending')
+  // The inbox points People at a sender by id, so a Founders Club request —
+  // a Guest's included — can be acted on (#302).
+  const [peopleSearch, setPeopleSearch] = useState('')
+  const showInPeople = (userId: string) => {
+    setPeopleSearch(userId)
+    document.getElementById('people')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const overviewQuery = useQuery({
     queryKey: ['admin', 'overview'],
@@ -175,9 +182,17 @@ export default function AdminPage() {
                     <p className="text-xs text-ink-muted">
                       {message.replyTo ?? message.userEmail ?? message.userId}
                     </p>
+                    <p className="font-mono text-xs text-ink-muted">id {message.userId.slice(0, 8)}</p>
                     <p className="mt-3 whitespace-pre-wrap text-sm text-ink-soft">{message.message}</p>
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => showInPeople(message.userId)}
+                      className="btn-secondary text-sm"
+                    >
+                      Show in People
+                    </button>
                     {message.status === 'pending' ? (
                       <button
                         type="button"
@@ -207,7 +222,7 @@ export default function AdminPage() {
         )}
       </div>
 
-      <UserManagementPanel />
+      <UserManagementPanel search={peopleSearch} onSearchChange={setPeopleSearch} />
 
       {overviewQuery.isLoading ? (
         <div className="card flex items-center gap-2 text-sm text-ink-muted">

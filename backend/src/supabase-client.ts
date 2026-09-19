@@ -1350,6 +1350,26 @@ export const db = {
     return z.boolean().parse(data)
   },
 
+  /**
+   * Every listed account's free-grant state, by the same database rule the
+   * single read uses (#302). A row whose state does not parse is left out, so
+   * the caller reports that account as unavailable rather than guessing.
+   */
+  async adminFreeCreditGrants(userIds: string[], guestCredits: number, monthlyCredits: number) {
+    const { data, error } = await supabase.rpc('admin_free_credit_grants', {
+      p_user_ids: userIds,
+      p_guest_credits: guestCredits,
+      p_monthly_credits: monthlyCredits,
+    })
+    if (error) throw error
+    const grants = new Map<string, z.infer<typeof FreeCreditGrantSchema>>()
+    for (const row of (data ?? []) as Array<{ user_id: string; free_grant: unknown }>) {
+      const parsed = FreeCreditGrantSchema.safeParse(row.free_grant)
+      if (parsed.success) grants.set(String(row.user_id), parsed.data)
+    }
+    return grants
+  },
+
   /** Read a lazy free entitlement without writing or folding it into balance. */
   async getFreeCreditGrant(userId: string, guestCredits: number, monthlyCredits: number) {
     const { data, error } = await supabase.rpc('get_free_credit_grant', {

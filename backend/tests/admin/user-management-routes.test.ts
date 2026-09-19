@@ -70,7 +70,9 @@ describe('admin user-management routes', () => {
       lastLoginAt: null,
       disabledAt: null,
       isTest: true,
+      emailVerified: true,
       balance: 25,
+      freeAllowance: { state: 'available', credits: 15, kind: 'monthly' },
       subscriptionActive: false,
       protection: null,
     }])

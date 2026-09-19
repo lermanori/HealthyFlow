@@ -502,6 +502,23 @@ function rangeStarts(now = new Date()) {
 }
 
 /**
+ * The database's free-grant state with ADR-0026 applied: an unproven address
+ * created after the rule is withheld the monthly grant. Shared by the user's
+ * own summary and Admin (#302), so the two can never describe different rules.
+ */
+function withMonthlyEligibility(
+  rawFreeGrant: FreeCreditGrant,
+  eligibility: 'eligible' | 'email_unverified',
+): FreeCreditGrant {
+  return eligibility === 'email_unverified'
+    && rawFreeGrant.state !== 'unavailable'
+    && !(rawFreeGrant.state === 'available' && rawFreeGrant.kind === 'guest_initial')
+    && !(rawFreeGrant.state === 'claimed' && rawFreeGrant.kind === 'guest_initial')
+    ? { state: 'email_unverified', kind: 'monthly' }
+    : rawFreeGrant
+}
+
+/**
  * Midnight UTC of the current day. The daily guards count the UTC day, as
  * ADR-0023 and the cost-guards runbook state; server-local midnight moved
  * the boundary with whatever timezone the host happened to run in (#296).
@@ -678,6 +695,19 @@ export const Credits = {
   },
 
   /**
+   * One account's free-allowance state for Admin (#302): the database rule's
+   * answer with the verification rule applied. A read that failed (null) is
+   * unavailable, never a guessed state.
+   */
+  async freeAllowanceFor(
+    account: { email: string | null; email_verified_at?: string | null; created_at?: string | null },
+    rawFreeGrant: FreeCreditGrant | null,
+  ): Promise<FreeCreditGrant> {
+    if (!rawFreeGrant) return { state: 'unavailable', reason: 'Could not read free action entitlement.' }
+    return withMonthlyEligibility(rawFreeGrant, await this.monthlyGrantEligibility(account))
+  },
+
+  /**
    * Resolve the lazy free grant from the durable account identity. The chosen RPC
    * rechecks identity atomically. If Claim wins after the read, the Guest RPC
    * reports `not_guest` and we continue through the monthly account grant.
@@ -815,13 +845,7 @@ export const Credits = {
 
     // The RPC does not know about verification, so the rule is applied here —
     // the same call the grant path makes, so the two cannot drift.
-    const freeGrant: FreeCreditGrant =
-      eligibility === 'email_unverified'
-        && rawFreeGrant.state !== 'unavailable'
-        && !(rawFreeGrant.state === 'available' && rawFreeGrant.kind === 'guest_initial')
-        && !(rawFreeGrant.state === 'claimed' && rawFreeGrant.kind === 'guest_initial')
-        ? { state: 'email_unverified', kind: 'monthly' }
-        : rawFreeGrant
+    const freeGrant = withMonthlyEligibility(rawFreeGrant, eligibility)
     const usedThisMonth = monthLogs
       .filter((log: any) => log.user_id === userId && Number(log.credits_delta ?? 0) < 0)
       .reduce((sum: number, log: any) => sum + Math.abs(Number(log.credits_delta ?? 0)), 0)

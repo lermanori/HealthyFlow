@@ -88,6 +88,29 @@ function auditSummary(entry: AdminUserAuditEntry) {
   return `${entry.action.replace(/_/g, ' ')} · ${target}`
 }
 
+// Which free grant an account can draw, as the server decides it (#302).
+function allowanceLabel(allowance: ManagedUser['freeAllowance']): { text: string; tone: string } {
+  switch (allowance.state) {
+    case 'available':
+      return allowance.kind === 'guest_initial'
+        ? { text: `${allowance.credits} Guest actions, not yet drawn`, tone: 'text-state-success' }
+        : { text: `${allowance.credits} available this month`, tone: 'text-state-success' }
+    case 'claimed':
+      return allowance.kind === 'guest_initial'
+        ? { text: 'Guest actions received', tone: 'text-ink-muted' }
+        : {
+            text: `This month’s received${allowance.nextAvailableAt ? ` · next ${new Date(allowance.nextAvailableAt).toLocaleDateString()}` : ''}`,
+            tone: 'text-ink-muted',
+          }
+    case 'network_limited':
+      return { text: 'Network already used the Guest grant', tone: 'text-state-warning' }
+    case 'email_unverified':
+      return { text: 'Monthly grant needs a verified email', tone: 'text-state-warning' }
+    case 'unavailable':
+      return { text: 'Unavailable', tone: 'text-state-danger' }
+  }
+}
+
 function requestMessage(error: unknown, fallback: string) {
   return axios.isAxiosError<{ error?: string }>(error)
     ? error.response?.data?.error ?? fallback
@@ -245,9 +268,18 @@ function DeletionDialog({
   ), document.body)
 }
 
-export default function UserManagementPanel() {
+export default function UserManagementPanel({
+  search,
+  onSearchChange,
+}: {
+  // Controlled from outside when the inbox points at an account (#302).
+  search?: string
+  onSearchChange?: (value: string) => void
+} = {}) {
   const queryClient = useQueryClient()
-  const [query, setQuery] = useState('')
+  const [localQuery, setLocalQuery] = useState('')
+  const query = search ?? localQuery
+  const setQuery = onSearchChange ?? setLocalQuery
   const [testFilter, setTestFilter] = useState<TestFilter>('all')
   const [accessFilter, setAccessFilter] = useState<AccessFilter>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -277,7 +309,8 @@ export default function UserManagementPanel() {
     return users.filter(user => {
       const matchesQuery = !normalized ||
         user.name.toLowerCase().includes(normalized) ||
-        (user.email ?? '').toLowerCase().includes(normalized)
+        (user.email ?? '').toLowerCase().includes(normalized) ||
+        user.id.toLowerCase().startsWith(normalized)
       const matchesTest =
         testFilter === 'all' ||
         (testFilter === 'test' ? user.isTest : !user.isTest)
@@ -430,7 +463,7 @@ export default function UserManagementPanel() {
 
   return (
     <>
-      <section className="card" aria-labelledby="user-management-title">
+      <section id="people" className="card" aria-labelledby="user-management-title">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <div className="flex items-center gap-3">
@@ -521,7 +554,7 @@ export default function UserManagementPanel() {
           <p className="mt-6 text-sm text-state-danger">Could not load users.</p>
         ) : (
           <div className="mt-5 overflow-x-auto">
-            <table className="min-w-[960px] w-full text-sm">
+            <table className="min-w-[1120px] w-full text-sm">
               <thead>
                 <tr className="border-b border-line text-left text-ink-muted">
                   <th className="w-12 py-3 pr-3">
@@ -532,6 +565,7 @@ export default function UserManagementPanel() {
                   <th className="py-3 pr-4 font-medium">Access</th>
                   <th className="py-3 pr-4 font-medium">Authentication</th>
                   <th className="py-3 pr-4 font-medium">Last login</th>
+                  <th className="py-3 pr-4 font-medium">Free actions</th>
                   <th className="py-3 pr-4 font-medium">Actions</th>
                   <th className="py-3 font-medium">Cloud</th>
                 </tr>
@@ -551,6 +585,18 @@ export default function UserManagementPanel() {
                     <td className="py-3 pr-4">
                       <p className="font-medium text-ink">{user.name}</p>
                       <p className="text-xs text-ink-muted">{user.email ?? 'No email — Guest'}</p>
+                      <button
+                        type="button"
+                        aria-label={`Copy id of ${user.email ?? user.name} ${user.id}`}
+                        className="mt-1 font-mono text-xs text-ink-muted hover:text-ink"
+                        onClick={() => {
+                          navigator.clipboard.writeText(user.id)
+                            .then(() => toast.success('Id copied'))
+                            .catch(() => toast.error(`Could not copy. The id is ${user.id}`))
+                        }}
+                      >
+                        id {user.id.slice(0, 8)}
+                      </button>
                       {user.protection && (
                         <span className="mt-1 inline-flex items-center gap-1 text-xs text-accent">
                           <ShieldCheck className="h-3.5 w-3.5" /> {protectionLabels[user.protection]}
@@ -567,10 +613,22 @@ export default function UserManagementPanel() {
                         {user.disabledAt ? 'Disabled' : 'Active'}
                       </span>
                     </td>
-                    <td className="py-3 pr-4 capitalize text-ink-soft">{user.signupMethod}</td>
+                    <td className="py-3 pr-4 text-ink-soft">
+                      <p className="capitalize">{user.signupMethod}</p>
+                      {user.email !== null && (
+                        <p className={`mt-1 text-xs ${user.emailVerified ? 'text-ink-muted' : 'text-state-warning'}`}>
+                          {user.emailVerified ? 'Email verified' : 'Email not verified'}
+                        </p>
+                      )}
+                    </td>
                     <td className="py-3 pr-4">
                       <p className="text-ink-soft">{formatDate(user.lastLoginAt)}</p>
                       <p className="mt-1 text-xs text-ink-muted">Joined {formatDate(user.createdAt)}</p>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <p className={`max-w-[11rem] text-xs ${allowanceLabel(user.freeAllowance).tone}`}>
+                        {allowanceLabel(user.freeAllowance).text}
+                      </p>
                     </td>
                     <td className="py-3 pr-4 align-top">
                       {balanceDrafts[user.id] ? (

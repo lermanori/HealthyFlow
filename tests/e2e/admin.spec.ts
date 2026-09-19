@@ -30,16 +30,19 @@ export const managedUsers = [
   {
     id: 'admin-1', email: 'admin@example.com', name: 'Admin', role: 'admin', signupMethod: 'password',
     createdAt: '2026-07-01T00:00:00.000Z', lastLoginAt: null, disabledAt: null, isTest: false,
+    emailVerified: true, freeAllowance: { state: 'claimed', kind: 'monthly', nextAvailableAt: '2026-10-01T00:00:00.000Z' },
     balance: 20, subscriptionActive: true, protection: 'current_admin',
   },
   {
     id: 'guest-1', email: null, name: 'Guest', role: 'user', signupMethod: 'guest',
     createdAt: '2026-09-10T00:00:00.000Z', lastLoginAt: null, disabledAt: null, isTest: false,
+    emailVerified: false, freeAllowance: { state: 'network_limited', kind: 'guest_initial' },
     balance: 10, subscriptionActive: false, protection: null,
   },
   {
     id: 'person-1', email: 'person@example.com', name: 'Person', role: 'user', signupMethod: 'password',
     createdAt: '2026-09-12T00:00:00.000Z', lastLoginAt: null, disabledAt: null, isTest: false,
+    emailVerified: false, freeAllowance: { state: 'email_unverified', kind: 'monthly' },
     balance: 15, subscriptionActive: false, protection: null,
   },
 ]
@@ -281,5 +284,46 @@ test.describe('disabling a Guest', () => {
 
     await expect(page.getByText('Disabling preserves data;')).toHaveCount(0)
     await expect(page.getByText(/a disabled Guest loses access to the day on its device/)).toBeVisible()
+  })
+})
+
+test.describe('telling accounts apart', () => {
+  test('each account shows its id, verification and free-allowance state', async ({ page }) => {
+    await openAdmin(page)
+
+    await expect(page.getByRole('button', { name: /Copy id of Guest guest-1/ })).toHaveText('id guest-1')
+    await expect(page.getByText('Network already used the Guest grant')).toBeVisible()
+    await expect(page.getByText('Monthly grant needs a verified email')).toBeVisible()
+    await expect(page.getByText(/This month’s received/)).toBeVisible()
+    await expect(page.getByText('Email not verified')).toBeVisible()
+    await expect(page.getByText('Email verified', { exact: true })).toBeVisible()
+  })
+
+  test('People can be searched by id', async ({ page }) => {
+    await openAdmin(page)
+
+    await page.getByPlaceholder('Search name or email').fill('person-')
+    await expect(page.getByText('person@example.com')).toBeVisible()
+    await expect(page.getByText('No email — Guest')).toHaveCount(0)
+  })
+
+  test('an inbox message from a Guest leads to that Guest in People', async ({ page }) => {
+    await openAdmin(page)
+
+    await expect(page.getByText('guest@example.com').first()).toBeVisible()
+    await page.getByRole('button', { name: 'Show in People' }).first().click()
+
+    await expect(page.getByPlaceholder('Search name or email')).toHaveValue('guest-1')
+    await expect(page.getByText('No email — Guest')).toBeVisible()
+    await expect(page.getByText('person@example.com')).toHaveCount(0)
+  })
+
+  test('copying an id says whether it worked', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+    await openAdmin(page)
+
+    await page.getByRole('button', { name: /Copy id of Guest guest-1/ }).click()
+    await expect(page.getByText('Id copied')).toBeVisible()
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('guest-1')
   })
 })

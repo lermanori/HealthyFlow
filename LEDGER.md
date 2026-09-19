@@ -1,3 +1,14 @@
+### 2026-09-19 08:56 — `issue-302-tell-accounts-apart`
+
+People now tells accounts apart: a copyable, searchable id, whether the address
+is verified, and each account's free-allowance state (Guest available, received
+or network-limited; monthly available, received or waiting on verification). The
+state comes from the database's own `get_free_credit_grant`, read in bulk, with
+the ADR-0026 rule shared with the user's summary; a failed read shows
+unavailable. Inbox messages carry the sender's id and a Show in People link.
+
+---
+
 ### 2026-09-19 08:52 — `issue-301-guest-disable-warning`
 
 Disabling a selection that includes a Guest now asks first and says what it

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { db, supabase } from './supabase-client'
+import { Credits } from './credits'
 import {
   AdminUserAuditEntrySchema,
   AdminUserDeletionCountsSchema,
@@ -241,6 +242,7 @@ type AdminUserRow = {
   last_login_at: string | null
   disabled_at: string | null
   is_test: boolean
+  email_verified_at: string | null
 }
 
 export class AdminUserControlError extends Error {
@@ -290,7 +292,7 @@ export function adminDeletionConfirmationPhrase(count: number) {
 async function requireAdminActor(actorId: string): Promise<AdminUserRow> {
   const { data, error } = await supabase
     .from('users')
-    .select('id, email, name, role, signup_method, google_auth_subject, apple_auth_subject, created_at, last_login_at, disabled_at, is_test')
+    .select('id, email, name, role, signup_method, google_auth_subject, apple_auth_subject, created_at, last_login_at, disabled_at, is_test, email_verified_at')
     .eq('id', actorId)
     .single()
   if (error || !data) {
@@ -305,7 +307,7 @@ async function requireAdminActor(actorId: string): Promise<AdminUserRow> {
 async function getAdminUserRows(userIds?: string[]): Promise<AdminUserRow[]> {
   let query = supabase
     .from('users')
-    .select('id, email, name, role, signup_method, google_auth_subject, apple_auth_subject, created_at, last_login_at, disabled_at, is_test')
+    .select('id, email, name, role, signup_method, google_auth_subject, apple_auth_subject, created_at, last_login_at, disabled_at, is_test, email_verified_at')
     .order('created_at', { ascending: false })
   if (userIds) query = query.in('id', userIds)
   const { data, error } = await query
@@ -362,11 +364,18 @@ export async function listManagedUsers(actorId: string): Promise<ManagedUser[]> 
   const users = await getAdminUserRows()
   if (users.length === 0) return []
   const ids = users.map(user => user.id)
-  const [balances, subscriptions] = await Promise.all([
+  const [balances, subscriptions, grants] = await Promise.all([
     balancesByUser(ids),
     subscriptionState(ids),
+    // A failed allowance read leaves the list usable and says so per account.
+    db.adminFreeCreditGrants(ids, Credits.GUEST_INITIAL_CREDITS, Credits.MONTHLY_FREE_CREDITS)
+      .catch((error) => {
+        console.error('Free allowance read is unavailable:', error)
+        return null
+      }),
   ])
-  return users.map(user => ManagedUserSchema.parse({
+  const allowances = await Promise.all(users.map(user => Credits.freeAllowanceFor(user, grants?.get(user.id) ?? null)))
+  return users.map((user, index) => ManagedUserSchema.parse({
     id: user.id,
     email: user.email,
     name: user.name,
@@ -376,7 +385,9 @@ export async function listManagedUsers(actorId: string): Promise<ManagedUser[]> 
     lastLoginAt: user.last_login_at,
     disabledAt: user.disabled_at,
     isTest: Boolean(user.is_test),
+    emailVerified: user.email !== null && user.email_verified_at !== null,
     balance: balances.get(user.id) ?? 0,
+    freeAllowance: allowances[index],
     subscriptionActive: subscriptions.get(user.id) ?? false,
     protection: adminUserProtectionFor(actor.id, user),
   }))

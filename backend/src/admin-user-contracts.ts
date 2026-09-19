@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { FreeCreditGrantSchema } from './credit-contracts'
 
 // What the admin user-management API returns. One copy, read by the server and
 // the client alike: the client once kept its own, which drifted to require an
@@ -22,7 +23,11 @@ export const ManagedUserSchema = z.object({
   lastLoginAt: z.string().nullable(),
   disabledAt: z.string().nullable(),
   isTest: z.boolean(),
+  // Proven reachable (ADR-0025). Always false for a Guest, who has no address.
+  emailVerified: z.boolean(),
   balance: z.number().int().nonnegative(),
+  // The free grant this account can draw, by the rule the server enforces.
+  freeAllowance: FreeCreditGrantSchema,
   subscriptionActive: z.boolean(),
   protection: AdminUserProtectionSchema.nullable(),
 })
