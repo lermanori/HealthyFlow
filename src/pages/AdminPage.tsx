@@ -1,25 +1,13 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Loader2, Mail, RotateCcw, ShieldCheck, Activity } from 'lucide-react'
+import { CheckCircle2, Loader2, Mail, RotateCcw, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { adminService } from '../services/api'
 import UserManagementPanel from '../components/admin/UserManagementPanel'
 import SpendPanel from '../components/admin/SpendPanel'
+import LedgerPanel from '../components/admin/LedgerPanel'
 
 type ContactStatusFilter = 'pending' | 'handled' | 'all'
-
-function formatNumber(value: number | null | undefined) {
-  return new Intl.NumberFormat().format(value ?? 0)
-}
-
-function formatUsd(value: number | null | undefined) {
-  return new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 6,
-  }).format(value ?? 0)
-}
 
 function formatDate(value: string | null | undefined) {
   if (!value) return '-'
@@ -37,15 +25,12 @@ export default function AdminPage() {
   // The inbox points People at a sender by id, so a Founders Club request —
   // a Guest's included — can be acted on (#302).
   const [peopleSearch, setPeopleSearch] = useState('')
+  const [ledgerPerson, setLedgerPerson] = useState('')
   const showInPeople = (userId: string) => {
     setPeopleSearch(userId)
     document.getElementById('people')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
-  const overviewQuery = useQuery({
-    queryKey: ['admin', 'overview'],
-    queryFn: adminService.getOverview,
-  })
 
   const contactMessagesQuery = useQuery({
     queryKey: ['admin', 'contact-messages', contactStatus],
@@ -57,7 +42,6 @@ export default function AdminPage() {
     queryFn: () => adminService.getContactMessages('pending'),
   })
 
-  const overview = overviewQuery.data
   const contactMessages = contactMessagesQuery.data ?? []
   const pendingCount = pendingMessagesQuery.data?.length
 
@@ -198,63 +182,7 @@ export default function AdminPage() {
 
       <SpendPanel />
 
-      {overviewQuery.isLoading ? (
-        <div className="card flex items-center gap-2 text-sm text-ink-muted">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading the ledger…
-        </div>
-      ) : overviewQuery.isError || !overview ? (
-        <div className="card flex flex-wrap items-center gap-3 text-sm">
-          <p className="text-state-danger">Could not load the ledger.</p>
-          <button type="button" aria-label="Retry loading the ledger" onClick={() => void overviewQuery.refetch()} className="btn-secondary text-sm">
-            Retry
-          </button>
-        </div>
-      ) : (
-        <>
-        <div className="card">
-          <div className="flex items-center space-x-3 mb-4">
-            <Activity className="w-5 h-5 text-accent" />
-            <h2 className="text-lg font-semibold text-ink">Ledger</h2>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-ink-muted">
-                  <th className="py-3 pr-4 font-medium">Time</th>
-                  <th className="py-3 pr-4 font-medium">User</th>
-                  <th className="py-3 pr-4 font-medium">Request</th>
-                  <th className="py-3 pr-4 font-medium">OpenAI cost</th>
-                  <th className="py-3 pr-4 font-medium">Model tokens</th>
-                  <th className="py-3 pr-4 font-medium">Actions</th>
-                  <th className="py-3 font-medium">Reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                {overview.activity.map(row => (
-                  <tr key={row.id} className="border-b border-card/80 text-ink-soft">
-                    <td className="py-3 pr-4 whitespace-nowrap">{formatDate(row.createdAt)}</td>
-                    <td className="py-3 pr-4">
-                      <p className="text-ink">{row.userName ?? '-'}</p>
-                      <p className="text-xs text-ink-muted">{row.userEmail ?? row.userId}</p>
-                    </td>
-                    <td className="py-3 pr-4">
-                      <p>{row.endpoint ?? '-'}</p>
-                      <p className="text-xs text-ink-muted">{row.model ?? '-'}</p>
-                    </td>
-                    <td className="py-3 pr-4">{formatUsd(row.openAiCostUsd)}</td>
-                    <td className="py-3 pr-4">{formatNumber(row.totalOpenAiTokens)}</td>
-                    <td className="py-3 pr-4">{row.creditsDelta > 0 ? `+${formatNumber(row.creditsDelta)}` : formatNumber(row.creditsDelta)}</td>
-                    <td className="py-3">{row.reason ?? '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-        </>
-      )}
+      <LedgerPanel person={ledgerPerson} onPersonChange={setLedgerPerson} />
     </div>
   )
 }

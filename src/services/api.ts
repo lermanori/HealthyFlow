@@ -49,8 +49,10 @@ import ContactMessageContracts, {
   type ContactMessageCreate,
 } from '../../backend/src/contact-message-contracts'
 import AdminOverviewContracts, {
-  type AdminOverview,
   type AdminSpend,
+  type LedgerFilter,
+  type LedgerPage,
+  type LedgerRow,
   type SpendSummary,
 } from '../../backend/src/admin-overview-contracts'
 import AdminUserContracts, {
@@ -97,7 +99,7 @@ const {
   AdminUserDeletionResultSchema,
   ManagedUserSchema,
 } = AdminUserContracts
-const { AdminOverviewSchema, AdminSpendSchema } = AdminOverviewContracts
+const { AdminSpendSchema, LedgerPageSchema } = AdminOverviewContracts
 
 export type {
   Category,
@@ -368,7 +370,7 @@ export interface AnalyticsData {
   }
 }
 
-export type { AdminOverview, AdminSpend, SpendSummary }
+export type { AdminSpend, LedgerFilter, LedgerPage, LedgerRow, SpendSummary }
 export type { AdminUserAuditEntry, AdminUserDeletionPreview, ManagedUser }
 
 export { ActionPriceSchema, CreditSubscriptionPricingSchema, CreditSummarySchema }
@@ -2022,9 +2024,11 @@ const addAchievementEntry = onDevice(
 )
 
 export const adminService = {
-  getOverview: async (): Promise<AdminOverview> => {
-    const response = await api.get('/admin/overview')
-    return AdminOverviewSchema.parse(response.data)
+  getLedger: async (input: { kind: LedgerFilter; userId?: string; offset: number }): Promise<LedgerPage> => {
+    const params: Record<string, string> = { kind: input.kind, offset: String(input.offset) }
+    if (input.userId) params.userId = input.userId
+    const response = await api.get('/admin/ledger', { params })
+    return LedgerPageSchema.parse(response.data)
   },
 
   getSpend: async (includeTest: boolean): Promise<AdminSpend> => {

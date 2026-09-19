@@ -2,7 +2,13 @@ import { createHmac } from 'node:crypto'
 import { db } from './supabase-client'
 import type { TokenUsage } from './openai'
 import { z } from 'zod'
-import { AdminOverviewSchema, AdminSpendSchema, type AdminOverview, type AdminSpend } from './admin-overview-contracts'
+import {
+  AdminSpendSchema,
+  LedgerPageSchema,
+  type AdminSpend,
+  type LedgerFilter,
+  type LedgerPage,
+} from './admin-overview-contracts'
 import {
   ActionPriceSchema,
   CreditSummarySchema,
@@ -555,28 +561,15 @@ function usageColumns(model: string, usage: TokenUsage | null) {
   }
 }
 
-function openAiCostForLog(log: any): number {
-  return log.model
-    ? calculateOpenAiCostUsd(log.model, {
-      promptTokens: Number(log.prompt_tokens ?? 0),
-      completionTokens: Number(log.completion_tokens ?? 0),
-    })
-    : 0
-}
+const GRANT_REASONS = ['guest_initial_grant', 'monthly_free_refill']
 
-function chargePartsForLog(log: any, settings: CostMeter = COST_METER) {
-  const billedTokens = Math.abs(Math.min(Number(log.credits_delta ?? 0), 0))
-  const openAiCostUsd = openAiCostForLog(log)
-  const derivedBaseTokens = Math.ceil(openAiCostUsd * settings.appTokensPerUsd)
-  const baseTokens = Number(log.base_tokens ?? 0) || derivedBaseTokens
-  const markupTokens = Number(log.markup_tokens ?? 0) || Math.max(billedTokens - baseTokens, 0)
-
-  return {
-    openAiCostUsd,
-    billedTokens,
-    baseTokens,
-    markupTokens,
-  }
+/** What a ledger row is. One place, so the Ledger's filter and its labels agree. */
+function ledgerKind(row: { model: string | null; reason: string | null }) {
+  if (row.reason?.startsWith('refund_failed_call')) return 'refund' as const
+  if (row.reason && GRANT_REASONS.includes(row.reason)) return 'grant' as const
+  if (row.reason === 'admin_balance_set') return 'admin' as const
+  if (row.model) return 'ai' as const
+  return 'other' as const
 }
 
 export const Credits = {
@@ -1065,39 +1058,41 @@ export const Credits = {
     return AdminSpendSchema.parse({ today, thisWeek, thisMonth })
   },
 
-  async getAdminOverview(): Promise<AdminOverview> {
-    const recentLogs = await db.getRecentUsageLogs(100)
-
-    const usersById = new Map((await db.getUsersByIds(recentLogs.map(log => String(log.user_id)))).map(user => [user.id, user]))
-    const withUser = (log: any) => {
-      const user = usersById.get(log.user_id)
-      const charge = chargePartsForLog(log)
-      return {
-        id: log.id,
-        userId: log.user_id,
-        userEmail: user?.email ?? null,
-        userName: user?.name ?? null,
-        endpoint: log.endpoint ?? null,
-        model: log.model ?? null,
-        promptTokens: log.prompt_tokens ?? 0,
-        completionTokens: log.completion_tokens ?? 0,
-        totalOpenAiTokens: log.total_tokens ?? 0,
-        openAiCostUsd: charge.openAiCostUsd,
-        creditsDelta: log.credits_delta ?? 0,
-        billedTokens: charge.billedTokens,
-        reservedTokens: log.reserved_tokens ?? null,
-        baseTokens: charge.baseTokens,
-        markupTokens: charge.markupTokens,
-        reason: log.reason ?? null,
-        estimated: Boolean(log.estimated),
-        balanceBefore: log.balance_before ?? null,
-        balanceAfter: log.balance_after ?? null,
-        createdAt: log.created_at,
-      }
-    }
-
-    return AdminOverviewSchema.parse({
-      activity: recentLogs.map(withUser),
+  /**
+   * One page of the Ledger (#306): each row in signed actions, with the cost
+   * that was recorded, the person's name, and who made an admin change.
+   */
+  async getLedger(input: { userId?: string; kind: LedgerFilter; offset: number; limit: number }): Promise<LedgerPage> {
+    const rows = await db.adminLedgerRows(input)
+    const people = await db.getUsersByIds([
+      ...rows.map(row => row.user_id),
+      ...rows.flatMap(row => (row.actor_user_id ? [row.actor_user_id] : [])),
+    ])
+    const byId = new Map(people.map(person => [person.id, person]))
+    return LedgerPageSchema.parse({
+      rows: rows.map(row => {
+        const kind = ledgerKind(row)
+        const person = byId.get(row.user_id)
+        return {
+          id: row.id,
+          createdAt: row.created_at,
+          userId: row.user_id,
+          userEmail: person?.email ?? null,
+          userName: person?.name ?? null,
+          kind,
+          endpoint: row.endpoint,
+          model: row.model,
+          actionClass: row.action_class,
+          reason: row.reason,
+          creditsDelta: row.credits_delta,
+          balanceAfter: row.balance_after,
+          costUsd: row.cost_usd == null ? null : Number(row.cost_usd),
+          costUnknown: (kind === 'ai' || kind === 'refund') && row.cost_usd == null,
+          actorEmail: row.actor_user_id ? byId.get(row.actor_user_id)?.email ?? null : null,
+          legacyUnit: row.model != null && row.action_class == null && row.credits_delta !== 0,
+        }
+      }),
+      nextOffset: rows.length === input.limit ? input.offset + input.limit : null,
     })
   },
 }

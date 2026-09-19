@@ -12,7 +12,20 @@ const ADMIN = {
   emailVerified: true,
 }
 
-export const overview = { activity: [] }
+function ledgerRow(id: string, extra: Record<string, unknown>) {
+  return {
+    id, createdAt: '2026-09-18T10:00:00.000Z', userId: 'guest-1', userEmail: null, userName: 'Guest',
+    kind: 'ai', endpoint: null, model: null, actionClass: null, reason: null, creditsDelta: 0,
+    balanceAfter: null, costUsd: null, costUnknown: false, actorEmail: null, legacyUnit: false, ...extra,
+  }
+}
+export const ledgerRows = [
+  ledgerRow('r1', { endpoint: 'parse-tasks', model: 'gpt-4o-mini', actionClass: 'text', creditsDelta: -1, costUsd: 0.00031 }),
+  ledgerRow('r2', { kind: 'refund', endpoint: 'parse-meals', model: 'gpt-5.4-mini', actionClass: 'photo', reason: 'refund_failed_call_cost_unknown', costUnknown: true }),
+  ledgerRow('r3', { kind: 'grant', userId: 'person-1', userEmail: 'person@example.com', userName: 'Person', reason: 'monthly_free_refill', creditsDelta: 15, balanceAfter: 15 }),
+  ledgerRow('r4', { kind: 'admin', userId: 'person-1', userEmail: 'person@example.com', userName: 'Person', reason: 'admin_balance_set', creditsDelta: 10, balanceAfter: 25, actorEmail: 'admin@example.com' }),
+  ledgerRow('r5', { userId: 'person-1', userEmail: 'person@example.com', userName: 'Person', endpoint: 'parse-tasks', model: 'gpt-4o-mini', creditsDelta: -6, legacyUnit: true }),
+]
 
 function spendSummary(costUsd: number) {
   return {
@@ -59,7 +72,7 @@ function message(id: string, status: 'pending' | 'handled') {
   }
 }
 
-type Overrides = Partial<Record<'overview' | 'spend' | 'messages' | 'users' | 'audit' | 'balance' | 'cloud', (route: Route) => Promise<void>>>
+type Overrides = Partial<Record<'ledger' | 'spend' | 'messages' | 'users' | 'audit' | 'balance' | 'cloud', (route: Route) => Promise<void>>>
 
 export async function openAdmin(page: Page, overrides: Overrides = {}, path = '/app/admin') {
   await page.addInitScript((user) => {
@@ -70,7 +83,7 @@ export async function openAdmin(page: Page, overrides: Overrides = {}, path = '/
   // rather than reaching a backend.
   await page.route('**/api/**', route => route.fulfill({ status: 404, json: { error: 'Not mocked' } }))
   await page.route('**/api/auth/verify', route => route.fulfill({ json: ADMIN }))
-  await page.route('**/api/admin/overview', overrides.overview ?? (route => route.fulfill({ json: overview })))
+  await page.route('**/api/admin/ledger**', overrides.ledger ?? (route => route.fulfill({ json: { rows: ledgerRows, nextOffset: null } })))
   await page.route('**/api/admin/spend**', overrides.spend ?? (route => route.fulfill({ json: spend })))
   await page.route('**/api/admin/contact-messages**', overrides.messages ?? (route => {
     const status = new URL(route.request().url()).searchParams.get('status')
@@ -105,7 +118,7 @@ test.describe('admin screen reads', () => {
 
   test('a failed ledger read leaves the inbox and user management working', async ({ page }) => {
     await openAdmin(page, {
-      overview: route => route.fulfill({ status: 500, json: { error: 'Database error' } }),
+      ledger: route => route.fulfill({ status: 500, json: { error: 'Could not read the ledger' } }),
     })
 
     await expect(page.getByText('Could not load the ledger.')).toBeVisible()
@@ -305,9 +318,10 @@ test.describe('telling accounts apart', () => {
   test('People can be searched by id', async ({ page }) => {
     await openAdmin(page)
 
+    const people = page.getByRole('region', { name: 'User Management' })
     await page.getByPlaceholder('Search name or email').fill('person-')
-    await expect(page.getByText('person@example.com')).toBeVisible()
-    await expect(page.getByText('No email — Guest')).toHaveCount(0)
+    await expect(people.getByText('person@example.com')).toBeVisible()
+    await expect(people.getByText('No email — Guest')).toHaveCount(0)
   })
 
   test('an inbox message from a Guest leads to that Guest in People', async ({ page }) => {
@@ -316,9 +330,10 @@ test.describe('telling accounts apart', () => {
     await expect(page.getByText('guest@example.com').first()).toBeVisible()
     await page.getByRole('button', { name: 'Show in People' }).first().click()
 
+    const people = page.getByRole('region', { name: 'User Management' })
     await expect(page.getByPlaceholder('Search name or email')).toHaveValue('guest-1')
-    await expect(page.getByText('No email — Guest')).toBeVisible()
-    await expect(page.getByText('person@example.com')).toHaveCount(0)
+    await expect(people.getByText('No email — Guest')).toBeVisible()
+    await expect(people.getByText('person@example.com')).toHaveCount(0)
   })
 
   test('copying an id says whether it worked', async ({ page, context }) => {
@@ -367,5 +382,44 @@ test.describe('Spend', () => {
     await expect(page.getByText('Could not load spend.')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'User Management' })).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Ledger' })).toBeVisible()
+  })
+})
+
+test.describe('Ledger', () => {
+  test('shows signed actions, recorded cost, the admin who acted, and old-unit rows', async ({ page }) => {
+    await openAdmin(page)
+    const ledger = page.getByRole('region', { name: 'Ledger' })
+
+    await expect(ledger.getByRole('row', { name: /Monthly free actions/ })).toContainText('+15')
+    await expect(ledger.getByRole('row', { name: /Balance set in Admin/ })).toContainText('+10')
+    await expect(ledger.getByRole('row', { name: /Balance set in Admin/ })).toContainText('admin@example.com')
+    await expect(ledger.getByRole('row', { name: /Refunded failed parse-meals/ })).toContainText('Unknown')
+    await expect(ledger.getByRole('row', { name: /old credit unit/ })).toContainText('-6')
+    await expect(ledger.getByText('$0.00031')).toBeVisible()
+  })
+
+  test('filters by kind and by person, and pages', async ({ page }) => {
+    const asked: string[] = []
+    await openAdmin(page, {
+      ledger: route => {
+        const url = new URL(route.request().url())
+        asked.push(url.search)
+        const offset = Number(url.searchParams.get('offset'))
+        return route.fulfill({ json: offset === 0
+          ? { rows: ledgerRows, nextOffset: 50 }
+          : { rows: [ledgerRow('r6', { endpoint: 'ai-chat', model: 'gpt-4o-mini', creditsDelta: -1 })], nextOffset: null } })
+      },
+    })
+    const ledger = page.getByRole('region', { name: 'Ledger' })
+
+    await ledger.getByRole('button', { name: 'Load more' }).click()
+    await expect(ledger.getByText('ai-chat · gpt-4o-mini')).toBeVisible()
+    await expect(ledger.getByRole('button', { name: 'Load more' })).toHaveCount(0)
+
+    await ledger.getByLabel('Filter ledger by kind').selectOption('refund')
+    await ledger.getByRole('button', { name: 'Show only Guest guest-1 in the ledger' }).first().click()
+    await expect.poll(() => asked.at(-1)).toContain('userId=guest-1')
+    expect(asked.some(search => search.includes('kind=refund'))).toBe(true)
+    await expect(ledger.getByRole('button', { name: 'Show everyone in the ledger' })).toBeVisible()
   })
 })

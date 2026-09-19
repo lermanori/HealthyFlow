@@ -1,3 +1,15 @@
+### 2026-09-19 09:17 — `issue-306-ledger-view`
+
+The Ledger replaces the Activity Log: each row says what happened in plain words
+(AI call, refund, free grant, admin change), in signed actions with the balance
+after, the recorded cost (or "unknown"), and the administrator behind an admin
+change; rows in the pre-ADR-0016 credit unit are marked. It filters by kind and
+by person and pages instead of stopping at 100. The filters were checked against
+a real PostgREST. The retired overview endpoint now 404s, so an old iOS build's
+Token Manager shows its own load error instead of misreading a new shape.
+
+---
+
 ### 2026-09-19 09:09 — `issue-305-spend-view`
 
 Spend replaces Usage Totals: for today, this week and this month (UTC, weeks from

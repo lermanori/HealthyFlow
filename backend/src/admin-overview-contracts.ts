@@ -1,8 +1,7 @@
 import { z } from 'zod'
 
-// What the Admin read endpoints return, read by the server and the client
-// alike. The overview's activity rows still carry legacy cost units; Ledger
-// (#306) replaces them.
+// What the Admin Spend and Ledger reads return, read by the server and the
+// client alike.
 
 const ActionClassTotalsSchema = z.object({
   count: z.number().int().nonnegative(),
@@ -45,40 +44,51 @@ export const AdminSpendSchema = z.object({
 })
 export type AdminSpend = z.infer<typeof AdminSpendSchema>
 
-export const UsageActivitySchema = z.object({
+export const LedgerKindSchema = z.enum(['ai', 'refund', 'grant', 'admin', 'other'])
+export const LedgerFilterSchema = z.enum(['all', 'ai', 'refund', 'grant', 'admin'])
+export type LedgerFilter = z.infer<typeof LedgerFilterSchema>
+
+/**
+ * One ledger row as the Ledger shows it (#306): what happened, in signed
+ * actions, with the cost that was recorded and who made an admin change.
+ */
+export const LedgerRowSchema = z.object({
   id: z.string(),
+  createdAt: z.string(),
   userId: z.string(),
+  // Null for a Guest.
   userEmail: z.string().nullable(),
   userName: z.string().nullable(),
+  kind: LedgerKindSchema,
   endpoint: z.string().nullable(),
   model: z.string().nullable(),
-  promptTokens: z.number(),
-  completionTokens: z.number(),
-  totalOpenAiTokens: z.number(),
-  openAiCostUsd: z.number(),
-  creditsDelta: z.number(),
-  billedTokens: z.number(),
-  reservedTokens: z.number().nullable(),
-  baseTokens: z.number(),
-  markupTokens: z.number(),
+  actionClass: z.enum(['text', 'photo', 'premium']).nullable(),
   reason: z.string().nullable(),
-  estimated: z.boolean(),
-  balanceBefore: z.number().nullable(),
-  balanceAfter: z.number().nullable(),
-  createdAt: z.string(),
+  // Positive for a grant or an increase, negative for a charge, 0 for a refund.
+  creditsDelta: z.number().int(),
+  balanceAfter: z.number().int().nullable(),
+  // What the call cost as recorded. Null with costUnknown when an AI call's
+  // usage was never reported; null without it for a row that is not a call.
+  costUsd: z.number().nullable(),
+  costUnknown: z.boolean(),
+  actorEmail: z.string().nullable(),
+  // Written in the credit unit used before ADR-0016, not in actions.
+  legacyUnit: z.boolean(),
 })
-export type UsageActivity = z.infer<typeof UsageActivitySchema>
+export type LedgerRow = z.infer<typeof LedgerRowSchema>
 
-export const AdminOverviewSchema = z.object({
-  activity: z.array(UsageActivitySchema),
+export const LedgerPageSchema = z.object({
+  rows: z.array(LedgerRowSchema),
+  nextOffset: z.number().int().nonnegative().nullable(),
 })
-export type AdminOverview = z.infer<typeof AdminOverviewSchema>
+export type LedgerPage = z.infer<typeof LedgerPageSchema>
 
 const AdminOverviewContracts = {
   SpendSummarySchema,
   AdminSpendSchema,
-  UsageActivitySchema,
-  AdminOverviewSchema,
+  LedgerFilterSchema,
+  LedgerRowSchema,
+  LedgerPageSchema,
 }
 
 export default AdminOverviewContracts

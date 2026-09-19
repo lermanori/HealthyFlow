@@ -16,7 +16,7 @@ jest.mock('../../src/supabase-client', () => ({
 
 jest.mock('../../src/credits', () => ({
   Credits: {
-    getAdminOverview: jest.fn(),
+    getLedger: jest.fn(),
     setBalance: jest.fn(),
     updateSubscriptionPricing: jest.fn(),
     activateSubscription: jest.fn(),
@@ -57,30 +57,11 @@ describe('admin API', () => {
     })
 
     const res = await request(app)
-      .get('/api/admin/overview')
+      .get('/api/admin/ledger')
       .set('Authorization', authHeader('user-1'))
 
     expect(res.status).toBe(403)
-    expect(mockCredits.getAdminOverview).not.toHaveBeenCalled()
-  })
-
-  it('returns overview for admins', async () => {
-    mockDb.getUserById.mockResolvedValue({
-      id: 'admin-1',
-      email: 'lermanori@gmail.com',
-      name: 'Admin',
-      role: 'admin',
-    })
-    mockCredits.getAdminOverview.mockResolvedValue({
-      activity: [],
-    })
-
-    const res = await request(app)
-      .get('/api/admin/overview')
-      .set('Authorization', authHeader('admin-1'))
-
-    expect(res.status).toBe(200)
-    expect(mockCredits.getAdminOverview).toHaveBeenCalled()
+    expect(mockCredits.getLedger).not.toHaveBeenCalled()
   })
 
   it('returns contact messages for admins', async () => {
@@ -222,14 +203,28 @@ describe('admin API', () => {
       name: 'Admin',
       role: 'admin',
     })
-    mockCredits.getAdminOverview.mockResolvedValue({ activity: [] })
+    mockDb.getContactMessages.mockResolvedValue([])
 
     const res = await request(app)
-      .get('/api/admin/token-manager/overview')
+      .get('/api/admin/token-manager/contact-messages')
       .set('Authorization', authHeader('admin-1'))
 
     expect(res.status).toBe(200)
-    expect(mockCredits.getAdminOverview).toHaveBeenCalled()
+    expect(mockDb.getContactMessages).toHaveBeenCalled()
+  })
+
+  it('no longer serves the retired overview, so an old build shows its own error', async () => {
+    mockDb.getUserById.mockResolvedValue({
+      id: 'admin-1',
+      email: 'lermanori@gmail.com',
+      name: 'Admin',
+      role: 'admin',
+    })
+
+    for (const path of ['/api/admin/overview', '/api/admin/token-manager/overview']) {
+      const res = await request(app).get(path).set('Authorization', authHeader('admin-1'))
+      expect(res.status).toBe(404)
+    }
   })
 
   it('no longer serves the unused system statistics', async () => {

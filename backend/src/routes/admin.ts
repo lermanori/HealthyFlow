@@ -45,13 +45,22 @@ const ContactMessageUpdateSchema = z.object({
   status: z.enum(['pending', 'handled']),
 })
 
-router.get(paths('/overview'), authenticateToken, requireAdminRole, async (req, res) => {
+const LedgerQuerySchema = z.object({
+  userId: z.string().min(1).optional(),
+  kind: z.enum(['all', 'ai', 'refund', 'grant', 'admin']).default('all'),
+  offset: z.coerce.number().int().min(0).default(0),
+})
+
+router.get('/ledger', authenticateToken, requireAdminRole, async (req, res) => {
+  const parsed = LedgerQuerySchema.safeParse(req.query)
+  if (!parsed.success) {
+    return res.status(400).json({ error: parsed.error.issues[0].message })
+  }
   try {
-    const overview = await Credits.getAdminOverview()
-    res.json(overview)
+    res.json(await Credits.getLedger({ ...parsed.data, limit: 50 }))
   } catch (error) {
-    console.error('Admin overview error:', error)
-    res.status(500).json({ error: 'Database error' })
+    console.error('Admin ledger error:', error)
+    res.status(500).json({ error: 'Could not read the ledger' })
   }
 })
 

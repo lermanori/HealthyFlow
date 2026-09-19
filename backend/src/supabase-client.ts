@@ -1550,14 +1550,41 @@ export const db = {
     return data ?? []
   },
 
-  async getRecentUsageLogs(limit = 100) {
-    const { data, error } = await supabase
+  /**
+   * One page of the ledger, newest first, for Admin's Ledger (#306). The kinds
+   * mirror how Credits.getLedger names a row.
+   */
+  async adminLedgerRows(input: {
+    userId?: string
+    kind: 'all' | 'ai' | 'refund' | 'grant' | 'admin'
+    offset: number
+    limit: number
+  }) {
+    let query = supabase
       .from('ai_usage_log')
-      .select('id, user_id, endpoint, model, prompt_tokens, completion_tokens, total_tokens, credits_delta, reason, reserved_tokens, base_tokens, markup_tokens, estimated, balance_before, balance_after, created_at')
+      .select('id, user_id, endpoint, model, action_class, credits_delta, cost_usd, reason, balance_after, actor_user_id, created_at')
       .order('created_at', { ascending: false })
-      .limit(limit)
+      .order('id', { ascending: false })
+    if (input.userId) query = query.eq('user_id', input.userId)
+    if (input.kind === 'ai') query = query.not('model', 'is', null).or('reason.is.null,reason.not.like.refund_failed_call*')
+    if (input.kind === 'refund') query = query.like('reason', 'refund_failed_call%')
+    if (input.kind === 'grant') query = query.in('reason', ['guest_initial_grant', 'monthly_free_refill'])
+    if (input.kind === 'admin') query = query.eq('reason', 'admin_balance_set')
+    const { data, error } = await query.range(input.offset, input.offset + input.limit - 1)
     if (error) throw error
-    return data ?? []
+    return (data ?? []) as Array<{
+      id: string
+      user_id: string
+      endpoint: string | null
+      model: string | null
+      action_class: 'text' | 'photo' | 'premium' | null
+      credits_delta: number
+      cost_usd: string | number | null
+      reason: string | null
+      balance_after: number | null
+      actor_user_id: string | null
+      created_at: string
+    }>
   },
 
   // Calorie items (reusable, tracked by usage)
