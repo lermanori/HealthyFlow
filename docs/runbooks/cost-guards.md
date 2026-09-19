@@ -68,6 +68,13 @@ The ceiling's total is one database aggregate, `sum_ai_cost_usd_since`
 before deploying a backend that calls it:** without the function every AI action
 is refused as billing unavailable — the guard fails closed, never open.
 
+**Seeing them.** Admin → Guards shows every guard above with the limit the server
+enforces (served from these same constants, so it cannot drift) and today's UTC
+state: spend against the ceiling, refusals by guard, accounts at 80% of the daily
+cap, and Guests created without the network grant. Refusals are recorded in their
+own table, `ai_refusals`, so they never count as a charge or toward a cap. Admin →
+Spend's monthly recorded cost is the figure to reconcile against the OpenAI bill.
+
 **The arithmetic these are chosen against:**
 
 - One account at its daily cap, all premium: 200 × $0.0195 = **$3.90** — well under

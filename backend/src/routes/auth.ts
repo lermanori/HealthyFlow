@@ -2,6 +2,7 @@ import express from 'express'
 import jwt from 'jsonwebtoken'
 import bcrypt from 'bcryptjs'
 import rateLimit from 'express-rate-limit'
+import { AUTH_RATE_LIMITS, windowMs } from '../rate-limits'
 import { z } from 'zod'
 import { db } from '../supabase-client'
 import { Credits } from '../credits'
@@ -77,8 +78,8 @@ const testModeAccountCreationResponse = {
 
 // ponytail: scoped to /signup only — don't rate-limit login or admin routes
 const signupLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 5,
+  windowMs: windowMs(AUTH_RATE_LIMITS.signup),
+  max: AUTH_RATE_LIMITS.signup.max,
   standardHeaders: true,
   legacyHeaders: false,
   // Default keyGenerator uses req.ip (IPv6-safe); requires app-level `trust proxy`
@@ -90,16 +91,16 @@ const signupLimiter = rateLimit({
 // opening the app without an account must not lock real signups out, or vice
 // versa.
 const guestLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 5,
+  windowMs: windowMs(AUTH_RATE_LIMITS.guestStart),
+  max: AUTH_RATE_LIMITS.guestStart.max,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many attempts, please try again later.' },
 })
 
 const providerSessionLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
+  windowMs: windowMs(AUTH_RATE_LIMITS.providerSignIn),
+  max: AUTH_RATE_LIMITS.providerSignIn.max,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many sign-in attempts. Please try again later.' },
@@ -471,8 +472,8 @@ const ConfirmEmailSchema = z.object({ token: z.string().min(1) })
  * endpoint an address-harvester would hammer.
  */
 const recoveryRequestLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
+  windowMs: windowMs(AUTH_RATE_LIMITS.recoveryRequest),
+  max: AUTH_RATE_LIMITS.recoveryRequest.max,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many attempts, please try again later.' },
@@ -487,8 +488,8 @@ const recoveryRequestLimiter = rateLimit({
  * bits, so this is a brake on abuse, not the thing keeping guesses out.
  */
 const recoveryRedeemLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
+  windowMs: windowMs(AUTH_RATE_LIMITS.recoveryRedeem),
+  max: AUTH_RATE_LIMITS.recoveryRedeem.max,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many attempts, please try again later.' },

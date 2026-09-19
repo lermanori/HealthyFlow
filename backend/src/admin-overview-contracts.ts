@@ -83,12 +83,63 @@ export const LedgerPageSchema = z.object({
 })
 export type LedgerPage = z.infer<typeof LedgerPageSchema>
 
+/** Today's guard state as the database reports it (#307). */
+export const GuardStatusSchema = z.object({
+  refusals: z.record(z.string(), z.number().int().nonnegative()),
+  nearCap: z.array(z.object({
+    userId: z.string(),
+    email: z.string().nullable(),
+    actions: z.number().int().nonnegative(),
+  })),
+  guestsWithoutGrant: z.number().int().nonnegative(),
+})
+
+const RateLimitSchema = z.object({ max: z.number().int().positive(), windowMinutes: z.number().positive() })
+
+/** A live value, or an explicit statement that its read failed — never a 0. */
+const live = <T extends z.ZodRawShape>(shape: T) => z.discriminatedUnion('state', [
+  z.object({ state: z.literal('ok'), ...shape }),
+  z.object({ state: z.literal('unavailable') }),
+])
+
+export const AdminGuardsSchema = z.object({
+  // Served from the constants the server enforces, so the panel cannot drift.
+  limits: z.object({
+    requestChars: z.number().int().positive(),
+    imagesPerRequest: z.number().int().positive(),
+    pricedModels: z.array(z.string()),
+    globalDailyCeilingUsd: z.number().positive(),
+    accountDailyActions: z.number().int().positive(),
+    nearCapActions: z.number().int().positive(),
+    guestActions: z.number().int().positive(),
+    monthlyActions: z.number().int().positive(),
+    guestNetworkWindowHours: z.number().positive(),
+    actionPrice: z.object({ text: z.number(), photo: z.number(), premium: z.number() }),
+    toolLoopModelCalls: z.number().int().positive(),
+    entry: z.object({
+      guestStart: RateLimitSchema,
+      signup: RateLimitSchema,
+      providerSignIn: RateLimitSchema,
+      recoveryRequest: RateLimitSchema,
+      recoveryRedeem: RateLimitSchema,
+      accountDelete: RateLimitSchema,
+    }),
+  }),
+  spentToday: live({ usd: z.number().nonnegative() }),
+  refusalsToday: live({ byCode: z.record(z.string(), z.number().int().nonnegative()) }),
+  nearCap: live({ accounts: GuardStatusSchema.shape.nearCap }),
+  guestsWithoutGrantToday: live({ count: z.number().int().nonnegative() }),
+})
+export type AdminGuards = z.infer<typeof AdminGuardsSchema>
+
 const AdminOverviewContracts = {
   SpendSummarySchema,
   AdminSpendSchema,
   LedgerFilterSchema,
   LedgerRowSchema,
   LedgerPageSchema,
+  GuardStatusSchema,
+  AdminGuardsSchema,
 }
 
 export default AdminOverviewContracts

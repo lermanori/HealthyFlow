@@ -1,6 +1,7 @@
 import express from 'express'
 import bcrypt from 'bcryptjs'
 import rateLimit from 'express-rate-limit'
+import { AUTH_RATE_LIMITS, windowMs } from '../rate-limits'
 import { z } from 'zod'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 import {
@@ -19,8 +20,8 @@ const DeleteAccountSchema = z.object({
 })
 
 const deleteLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
+  windowMs: windowMs(AUTH_RATE_LIMITS.accountDelete),
+  max: AUTH_RATE_LIMITS.accountDelete.max,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: AuthRequest) => String(req.user.userId),

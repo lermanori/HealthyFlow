@@ -27,6 +27,7 @@ jest.mock('../../src/supabase-client', () => ({
     getFreeCreditGrant: jest.fn(),
     getFoundingPriceMemberCount: jest.fn(),
     sumAiCostUsdSince: jest.fn(),
+    recordAiRefusal: jest.fn().mockResolvedValue(undefined),
     countUserActionsSince: jest.fn(),
     grantSubscriptionCredits: jest.fn(),
     adminSetCreditBalance: jest.fn(),

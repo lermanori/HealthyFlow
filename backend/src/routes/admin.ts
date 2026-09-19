@@ -2,6 +2,7 @@ import express from 'express'
 import { z } from 'zod'
 import { db } from '../supabase-client'
 import { Credits } from '../credits'
+import { readGuards } from '../guards'
 import { authenticateToken, requireAdminRole, AuthRequest } from '../middleware/auth'
 import {
   AdminUserBatchActionInputSchema,
@@ -61,6 +62,15 @@ router.get('/ledger', authenticateToken, requireAdminRole, async (req, res) => {
   } catch (error) {
     console.error('Admin ledger error:', error)
     res.status(500).json({ error: 'Could not read the ledger' })
+  }
+})
+
+router.get('/guards', authenticateToken, requireAdminRole, async (_req, res) => {
+  try {
+    res.json(await readGuards())
+  } catch (error) {
+    console.error('Admin guards error:', error)
+    res.status(500).json({ error: 'Could not read the guards' })
   }
 })
 

@@ -581,6 +581,9 @@ function hasZeroFatOcrClaim(ocr: NutritionLabelOcrValue) {
 
 const ZERO_USAGE: TokenUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
 
+/** Model calls one Talk tool-loop action may make before it stops (shown in Guards, #307). */
+export const TOOL_LOOP_MAX_MODEL_CALLS = 4
+
 function reportedUsage(raw: OpenAIChatResponse['usage']): TokenUsage | null {
   if (!raw) return null
   const cached = raw.prompt_tokens_details?.cached_tokens ?? 0
@@ -942,7 +945,7 @@ export const Openai = {
   async callBillableTools(
     opts: ToolCallOpts
   ): Promise<BillableOpenAIResult<{ message: string; toolEvents: OpenAIToolEvent[] }>> {
-    const maxIterations = opts.maxIterations ?? 4
+    const maxIterations = opts.maxIterations ?? TOOL_LOOP_MAX_MODEL_CALLS
     const userPrompt = toolMessagePromptEstimate(opts.messages)
     let authorization: Extract<ActionAuthorization, { ok: true }>
 

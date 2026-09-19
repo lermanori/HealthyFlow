@@ -1,3 +1,15 @@
+### 2026-09-19 09:23 — `issue-307-guards-panel`
+
+Admin now has a Guards panel listing every guard with the limit the server
+enforces — served from the same constants, entry rate limits included (moved to
+one shared module) — and today's UTC state: spend against the $25 ceiling,
+refusals by guard, accounts near the daily cap, and Guests without the network
+grant. Refusals are now recorded in their own `ai_refusals` table, so they never
+count as charges or toward caps. This closes the Admin rework (#291); every
+slice's migration must be applied before the backend deploys.
+
+---
+
 ### 2026-09-19 09:17 — `issue-306-ledger-view`
 
 The Ledger replaces the Activity Log: each row says what happened in plain words

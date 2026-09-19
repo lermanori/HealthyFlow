@@ -6,6 +6,7 @@ import { adminService } from '../services/api'
 import UserManagementPanel from '../components/admin/UserManagementPanel'
 import SpendPanel from '../components/admin/SpendPanel'
 import LedgerPanel from '../components/admin/LedgerPanel'
+import GuardsPanel from '../components/admin/GuardsPanel'
 
 type ContactStatusFilter = 'pending' | 'handled' | 'all'
 
@@ -181,6 +182,8 @@ export default function AdminPage() {
       <UserManagementPanel search={peopleSearch} onSearchChange={setPeopleSearch} />
 
       <SpendPanel />
+
+      <GuardsPanel />
 
       <LedgerPanel person={ledgerPerson} onPersonChange={setLedgerPerson} />
     </div>

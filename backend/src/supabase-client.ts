@@ -10,7 +10,7 @@ import { pushDb } from './db/push'
 import { assistantConversationsDb } from './db/assistant-conversations'
 import { talkWorkflowsDb } from './db/talk-workflows'
 import { FreeCreditGrantSchema } from './credit-contracts'
-import { SpendSummarySchema } from './admin-overview-contracts'
+import { GuardStatusSchema, SpendSummarySchema } from './admin-overview-contracts'
 import {
   ContactMessageRowSchema,
   type ContactMessageKind,
@@ -1419,6 +1419,24 @@ export const db = {
     })
     if (error) throw error
     return FreeCreditGrantSchema.parse(data)
+  },
+
+  /** A refused AI action, by the code of the guard that refused it (#307). */
+  async recordAiRefusal(row: { userId: string; code: string; endpoint: string }) {
+    const { error } = await supabase
+      .from('ai_refusals')
+      .insert({ user_id: row.userId, code: row.code, endpoint: row.endpoint })
+    if (error) throw error
+  },
+
+  /** Today's refusals, accounts near the daily cap, and Guests without the grant (#307). */
+  async adminGuardStatus(sinceIso: string, nearCapActions: number) {
+    const { data, error } = await supabase.rpc('admin_guard_status', {
+      p_since: sinceIso,
+      p_near_cap: nearCapActions,
+    })
+    if (error) throw error
+    return GuardStatusSchema.parse(data)
   },
 
   /** One period of Spend, aggregated in the database (#305). */

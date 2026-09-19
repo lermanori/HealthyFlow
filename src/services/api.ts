@@ -49,6 +49,7 @@ import ContactMessageContracts, {
   type ContactMessageCreate,
 } from '../../backend/src/contact-message-contracts'
 import AdminOverviewContracts, {
+  type AdminGuards,
   type AdminSpend,
   type LedgerFilter,
   type LedgerPage,
@@ -99,7 +100,7 @@ const {
   AdminUserDeletionResultSchema,
   ManagedUserSchema,
 } = AdminUserContracts
-const { AdminSpendSchema, LedgerPageSchema } = AdminOverviewContracts
+const { AdminGuardsSchema, AdminSpendSchema, LedgerPageSchema } = AdminOverviewContracts
 
 export type {
   Category,
@@ -370,7 +371,7 @@ export interface AnalyticsData {
   }
 }
 
-export type { AdminSpend, LedgerFilter, LedgerPage, LedgerRow, SpendSummary }
+export type { AdminGuards, AdminSpend, LedgerFilter, LedgerPage, LedgerRow, SpendSummary }
 export type { AdminUserAuditEntry, AdminUserDeletionPreview, ManagedUser }
 
 export { ActionPriceSchema, CreditSubscriptionPricingSchema, CreditSummarySchema }
@@ -2029,6 +2030,11 @@ export const adminService = {
     if (input.userId) params.userId = input.userId
     const response = await api.get('/admin/ledger', { params })
     return LedgerPageSchema.parse(response.data)
+  },
+
+  getGuards: async (): Promise<AdminGuards> => {
+    const response = await api.get('/admin/guards')
+    return AdminGuardsSchema.parse(response.data)
   },
 
   getSpend: async (includeTest: boolean): Promise<AdminSpend> => {

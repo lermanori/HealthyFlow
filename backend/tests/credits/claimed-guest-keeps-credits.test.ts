@@ -17,6 +17,7 @@ jest.mock('../../src/supabase-client', () => ({
     claimGuestInitialCredits: jest.fn(),
     claimMonthlyFreeCredits: jest.fn(),
     sumAiCostUsdSince: jest.fn(),
+    recordAiRefusal: jest.fn().mockResolvedValue(undefined),
     countUserActionsSince: jest.fn(),
     reserveCredits: jest.fn(),
   },

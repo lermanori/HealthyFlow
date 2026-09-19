@@ -187,6 +187,11 @@ const DEFAULT_MODEL_PRICING: Record<string, ModelPricing> = {
 // ponytail: prices default to the map above. Override without a code change by
 // setting AI_MODEL_PRICING (JSON: model -> {inputUsdPerMillion, outputUsdPerMillion}).
 // Moving pricing into a DB-admin table is the follow-up if non-engineers need to edit it.
+/** The models a request may name: a model we cannot cost is a model we refuse to call. */
+export function pricedModels() {
+  return Object.keys(MODEL_PRICING)
+}
+
 export function loadModelPricing(
   raw = process.env.AI_MODEL_PRICING
 ): Record<string, ModelPricing> {
@@ -529,7 +534,7 @@ function withMonthlyEligibility(
  * ADR-0023 and the cost-guards runbook state; server-local midnight moved
  * the boundary with whatever timezone the host happened to run in (#296).
  */
-function utcDayStart(now = new Date()) {
+export function utcDayStart(now = new Date()) {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString()
 }
 
@@ -725,7 +730,27 @@ export const Credits = {
    * global ceiling (protects the company), then the account's daily cap (protects
    * one account's balance from a loop), then identity/free grant, then balance.
    */
+  /**
+   * Every refusal is recorded by its code (#307), in its own table: a refusal
+   * is never a charge and never counts toward a cap. A refusal that cannot be
+   * recorded is still the answer; the failure is logged, not hidden.
+   */
   async authorizeAction(
+    userId: string,
+    input: ActionPricingInput & { systemPrompt?: string }
+  ): Promise<ActionAuthorization> {
+    const decision = await this.decideAction(userId, input)
+    if (!decision.ok) {
+      try {
+        await db.recordAiRefusal({ userId, code: decision.code, endpoint: input.endpoint })
+      } catch (error) {
+        console.error(`Could not record the ${decision.code} refusal:`, error)
+      }
+    }
+    return decision
+  },
+
+  async decideAction(
     userId: string,
     input: ActionPricingInput & { systemPrompt?: string }
   ): Promise<ActionAuthorization> {

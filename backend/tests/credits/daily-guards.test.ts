@@ -5,6 +5,7 @@
 jest.mock('../../src/supabase-client', () => ({
   db: {
     sumAiCostUsdSince: jest.fn(),
+    recordAiRefusal: jest.fn().mockResolvedValue(undefined),
     countUserActionsSince: jest.fn(),
   },
 }))

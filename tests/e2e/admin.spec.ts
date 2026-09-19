@@ -39,6 +39,23 @@ function spendSummary(costUsd: number) {
     legacyUnitRows: 0,
   }
 }
+const limit = (max: number) => ({ max, windowMinutes: 15 })
+export const guards = {
+  limits: {
+    requestChars: 24000, imagesPerRequest: 4, pricedModels: ['gpt-4o-mini', 'gpt-5.4'],
+    globalDailyCeilingUsd: 25, accountDailyActions: 200, nearCapActions: 160, guestActions: 10, monthlyActions: 15,
+    guestNetworkWindowHours: 24, actionPrice: { text: 1, photo: 5, premium: 10 }, toolLoopModelCalls: 4,
+    entry: {
+      guestStart: limit(5), signup: limit(5), providerSignIn: limit(20),
+      recoveryRequest: limit(5), recoveryRedeem: limit(20), accountDelete: limit(5),
+    },
+  },
+  spentToday: { state: 'ok', usd: 21 },
+  refusalsToday: { state: 'ok', byCode: { global_ceiling: 2, insufficient_credits: 7, email_unverified: 1 } },
+  nearCap: { state: 'ok', accounts: [{ userId: 'busy-user-1', email: 'busy@example.com', actions: 180 }] },
+  guestsWithoutGrantToday: { state: 'ok', count: 4 },
+}
+
 export const spend = { today: spendSummary(0.25), thisWeek: spendSummary(1.5), thisMonth: spendSummary(6.75) }
 
 export const managedUsers = [
@@ -72,7 +89,7 @@ function message(id: string, status: 'pending' | 'handled') {
   }
 }
 
-type Overrides = Partial<Record<'ledger' | 'spend' | 'messages' | 'users' | 'audit' | 'balance' | 'cloud', (route: Route) => Promise<void>>>
+type Overrides = Partial<Record<'ledger' | 'guards' | 'spend' | 'messages' | 'users' | 'audit' | 'balance' | 'cloud', (route: Route) => Promise<void>>>
 
 export async function openAdmin(page: Page, overrides: Overrides = {}, path = '/app/admin') {
   await page.addInitScript((user) => {
@@ -85,6 +102,7 @@ export async function openAdmin(page: Page, overrides: Overrides = {}, path = '/
   await page.route('**/api/auth/verify', route => route.fulfill({ json: ADMIN }))
   await page.route('**/api/admin/ledger**', overrides.ledger ?? (route => route.fulfill({ json: { rows: ledgerRows, nextOffset: null } })))
   await page.route('**/api/admin/spend**', overrides.spend ?? (route => route.fulfill({ json: spend })))
+  await page.route('**/api/admin/guards', overrides.guards ?? (route => route.fulfill({ json: guards })))
   await page.route('**/api/admin/contact-messages**', overrides.messages ?? (route => {
     const status = new URL(route.request().url()).searchParams.get('status')
     const all = [message('m-1', 'pending'), message('m-2', 'pending'), message('m-3', 'handled')]
@@ -421,5 +439,46 @@ test.describe('Ledger', () => {
     await expect.poll(() => asked.at(-1)).toContain('userId=guest-1')
     expect(asked.some(search => search.includes('kind=refund'))).toBe(true)
     await expect(ledger.getByRole('button', { name: 'Show everyone in the ledger' })).toBeVisible()
+  })
+})
+
+test.describe('Guards', () => {
+  test('lists every guard with its limit and today’s state', async ({ page }) => {
+    await openAdmin(page)
+    const panel = page.getByRole('region', { name: 'Guards' })
+
+    await expect(panel.getByText('$21.00 of $25.00 spent today · 2 refused today')).toBeVisible()
+    await expect(panel.getByRole('meter', { name: 'Share of the daily ceiling spent' })).toBeVisible()
+    await expect(panel.getByText('busy@example.com · 180')).toBeVisible()
+    await expect(panel.getByText(/4 Guests today without the network grant \(24h window\) · 1 refused today/)).toBeVisible()
+    await expect(panel.getByText('text 1 · photo 5 · premium 10')).toBeVisible()
+    await expect(panel.getByText('7 refused today')).toBeVisible()
+    await expect(panel.getByText('20 per 15 min').first()).toBeVisible()
+    await expect(panel.getByText('Not visible to the app')).toHaveCount(3)
+  })
+
+  test('a live value that could not be read says so, never 0', async ({ page }) => {
+    await openAdmin(page, {
+      guards: route => route.fulfill({ json: {
+        ...guards,
+        spentToday: { state: 'unavailable' },
+        refusalsToday: { state: 'unavailable' },
+        nearCap: { state: 'unavailable' },
+        guestsWithoutGrantToday: { state: 'unavailable' },
+      } }),
+    })
+    const panel = page.getByRole('region', { name: 'Guards' })
+
+    await expect(panel.getByText('Today’s spend unavailable')).toBeVisible()
+    await expect(panel.getByText('Accounts near the cap unavailable')).toBeVisible()
+    await expect(panel.getByText('Refusals unavailable').first()).toBeVisible()
+    await expect(panel.getByText(/0 refused today/)).toHaveCount(0)
+  })
+
+  test('a failed guards read says so, alone', async ({ page }) => {
+    await openAdmin(page, { guards: route => route.fulfill({ status: 500, json: { error: 'Could not read the guards' } }) })
+
+    await expect(page.getByText('Could not load the guards.')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Spend' })).toBeVisible()
   })
 })
