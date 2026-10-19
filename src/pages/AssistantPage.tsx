@@ -260,11 +260,14 @@ function titleFromMessages(messages: ConversationMessage[]) {
   return title.length > 48 ? `${title.slice(0, 45)}...` : title
 }
 
-async function assistantContextWithCalendar(context?: AssistantContext): Promise<AssistantContext | undefined> {
+async function assistantContextWithCalendar(
+  context?: AssistantContext,
+  prompt = '',
+): Promise<AssistantContext | undefined> {
   if (!context) return undefined
   return {
     ...context,
-    calendar: await buildTalkCalendarContext(calendarService.getDaySource),
+    calendar: await buildTalkCalendarContext(calendarService.getDaySource, new Date(), prompt),
   }
 }
 
@@ -1128,7 +1131,10 @@ export default function AssistantPage() {
       const response = await aiService.chat(request.messages, request.model, request.attachment, {
         conversationId: request.conversationId,
         workflow: request.workflow,
-        assistantContext: await assistantContextWithCalendar(request.assistantContext),
+        assistantContext: await assistantContextWithCalendar(
+          request.assistantContext,
+          [...request.messages].reverse().find((message) => message.role === 'user')?.content,
+        ),
         handoff: request.handoff,
         signal: controller.signal,
       })
@@ -1561,7 +1567,10 @@ export default function AssistantPage() {
           try {
             const nextResponse = await aiService.chat(nextMessages, model, undefined, {
               conversationId: activeConversationId,
-              assistantContext: await assistantContextWithCalendar(assistantContext),
+              assistantContext: await assistantContextWithCalendar(
+                assistantContext,
+                [...nextMessages].reverse().find((message) => message.role === 'user')?.content,
+              ),
             })
             setMessages((current) => [
               ...current,
@@ -1689,7 +1698,7 @@ export default function AssistantPage() {
       try {
         const response = await aiService.chat(nextMessages, model, undefined, {
           conversationId: activeConversationId,
-          assistantContext: await assistantContextWithCalendar(assistantContext),
+          assistantContext: await assistantContextWithCalendar(assistantContext, text),
           signal: controller.signal,
         })
         const voiceResponse = VoiceTalkResponseSchema.parse(response)

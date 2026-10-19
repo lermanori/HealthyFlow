@@ -7,6 +7,7 @@ import {
 } from './day-summary-schema'
 import { AchievementSummarySchema } from './achievement-contracts'
 import { WorkoutSessionSchema } from './workout-contracts'
+import { AssistantCalendarContextSchema } from './settings-schema'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
@@ -129,6 +130,18 @@ export const DailyContextSchema = z.object({
     }),
   }),
   signals: z.array(DailySignalSchema),
+})
+
+/** The Talk tool includes the device's dated Calendar read without sending raw lookback rows. */
+export const TalkDailyContextSchema = DailyContextSchema.omit({ lookback: true }).extend({
+  day: DailyContextSchema.shape.day.omit({ calendarEvents: true }),
+  calendar: z.union([
+    AssistantCalendarContextSchema.shape.days.element,
+    z.object({
+      date: DailyContextSchema.shape.date,
+      status: z.literal('not_read'),
+    }).strict(),
+  ]),
 })
 
 export type DailySignalType = z.infer<typeof DailySignalTypeSchema>

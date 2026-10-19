@@ -41,6 +41,8 @@ import {
   DailyContextSchema,
   type DailySignal,
 } from './daily-context'
+import { TalkDailyContextSchema } from './daily-context-schema'
+import { type AssistantContext } from './settings-schema'
 import { CapabilityItemSchema, CategorySchema } from './task-contracts'
 import {
   GoalContext,
@@ -707,6 +709,8 @@ export const AiCapabilityInventorySchema = z.object({
 
 export type AiCapabilityContext = {
   userId: string
+  currentDate?: string
+  calendar?: AssistantContext['calendar']
   caller?: AiCaller
   model?: string | null
   photo?: ParseMealsPhoto
@@ -1036,14 +1040,24 @@ export const AiCapabilities = defineCapabilities({
     },
   },
   get_daily_context: {
-    description: 'Return an anchored daily context with bounded lookback windows and deterministic cross-module signals.',
+    description: 'Read one date of HealthyFlow records, Daily Signals, and the client Calendar read for that exact date. Calendar status not_read means the device did not supply that date; it does not mean empty. Raw lookback history is excluded. Use this for date-specific questions.',
     modules: ['calendar_daily_plan'],
     kind: 'read',
     inputSchema: DailyContextInputSchema,
-    outputSchema: DailyContextSchema,
+    outputSchema: TalkDailyContextSchema,
     async execute(ctx, input) {
       const parsed = input as z.infer<typeof DailyContextInputSchema>
-      return buildDailyContext(ctx.userId, parsed.date)
+      const context = await buildDailyContext(ctx.userId, parsed.date ?? ctx.currentDate)
+      const { calendarEvents: _serverCalendarPlaceholder, ...day } = context.day
+      const calendar = ctx.calendar?.days.find((candidate) => candidate.date === context.date)
+        ?? { date: context.date, status: 'not_read' as const }
+      return {
+        date: context.date,
+        generatedAt: context.generatedAt,
+        day,
+        calendar,
+        signals: context.signals,
+      }
     },
   },
   get_daily_plan: {

@@ -19,12 +19,21 @@ user leaves Talk, and the newest `updatedAt` snapshot wins when device and serve
 hold the same conversation. Neither a failed save nor a failed read is presented
 as an empty history.
 
-Each consented Talk request also carries a bounded seven-day calendar snapshot
-read through the same composed calendar source as Today. This is how Device
-Calendar events that remain local to the iPhone can ground Talk without being
-copied into the hosted calendar database. Each date preserves connected, empty,
-not connected, not entitled, or unavailable status; a failed read never becomes
-an empty calendar.
+Each consented Talk request also carries a bounded seven-date calendar snapshot
+read through the same composed calendar source as Today. By default it covers
+today and the following six days; a named date in the user's message is included
+even when it falls outside that range, and a next-week question reads the following
+week. This is how Device Calendar events that remain local to the iPhone can
+ground Talk without being copied into the hosted calendar database. Each date
+preserves connected, empty, not connected, not entitled, or unavailable status;
+a failed or unrequested date never becomes an empty calendar.
+
+When Talk calls `get_daily_context` for a date, its result includes that exact
+date's client Calendar read alongside the hosted day records and Daily Signals.
+An unrequested date has `calendar.status: not_read`, not an empty event list.
+The tool omits raw habit, calorie and workout lookback rows; Daily Signals still
+use those rows internally, and the `/ai/daily-context` endpoint keeps its full
+contract for the Today surface.
 
 The opt-in `HANDSFREE_PROBE` iPhone build can enter Talk through a Siri App
 Shortcut. Siri owns microphone and dialog turns while locked; the foreground

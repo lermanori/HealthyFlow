@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures/ai-stubs'
 import type { Page } from '@playwright/test'
 import type { FreeCreditGrant } from '../../backend/src/credit-contracts'
+import { daySummaryCalendarEvent } from './fixtures/day-summary'
 
 function exhaustedSummary(freeGrant: FreeCreditGrant) {
   return {
@@ -56,6 +57,53 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.removeItem('healthyflow-assistant-conversations-v1')
   })
+})
+
+test('Talk sends the calendar event for a named date beyond the default week', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.clock.setFixedTime(new Date('2026-10-19T12:00:00'))
+  await page.route('**/api/ai/consent', (route) => route.fulfill({ json: {
+    state: 'accepted',
+    decidedAt: '2026-10-19T09:00:00.000Z',
+    disclosure: {
+      version: 'test-v1', title: 'Use AI features', providers: ['OpenAI'],
+      introduction: 'Test disclosure.', dataCategories: ['Test messages'],
+      processing: 'Test processing.', storage: 'Test storage.', optionalUse: 'Optional.',
+      futureProviders: 'Future providers require permission.',
+    },
+  } }))
+  await page.route('**/api/ai/conversations**', (route) => route.fulfill({ json: [] }))
+  await page.route('**/api/calendar/google/events**', (route) => {
+    const date = new URL(route.request().url()).searchParams.get('date')
+    return route.fulfill({
+      json: date === '2026-10-26' ? [daySummaryCalendarEvent({
+        id: 'dentist-26',
+        title: 'Dentist appointment',
+        location: 'Kaplan Dental',
+        startAt: '2026-10-26T07:00:00.000Z',
+        endAt: '2026-10-26T09:30:00.000Z',
+        localStartTime: '09:00',
+        localEndTime: '11:30',
+      })] : [],
+    })
+  })
+  let sentCalendar: { days: Array<{ date: string; events: Array<{ title: string }> }> } | undefined
+  await page.route('**/api/ai/chat', (route) => {
+    sentCalendar = (route.request().postDataJSON() as { assistantContext?: { calendar?: typeof sentCalendar } })
+      .assistantContext?.calendar
+    return route.fulfill({ json: { message: 'Calendar checked.', toolEvents: [], pendingActions: [] } })
+  })
+
+  await page.goto('/app/talk')
+  await page.waitForLoadState('networkidle')
+  await page.getByRole('button', { name: 'Chat mode' }).click()
+  await page.getByRole('textbox', { name: 'Message Talk' }).fill('ב26 באוקטובר אין לי כלום?')
+  await page.getByRole('button', { name: 'Send' }).click()
+
+  await expect(page.getByText('Calendar checked.')).toBeVisible()
+  expect(sentCalendar?.days.find((day) => day.date === '2026-10-26')?.events).toEqual([
+    expect.objectContaining({ title: 'Dentist appointment' }),
+  ])
 })
 
 test('an exhausted monthly account gets an inline renewal and Founders Club path', async ({ page }) => {

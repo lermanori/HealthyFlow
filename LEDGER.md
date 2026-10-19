@@ -1,3 +1,9 @@
+### 2026-10-19 10:58 — `main`
+
+Talk now reads the calendar for the dates a message actually names (including Hebrew month names and "next week"), and `get_daily_context` returns that exact date's client Calendar read, marking unrequested dates `not_read` instead of empty. Working-tree clutter is cleaned up: Playwright CLI snapshots and ad-hoc screenshots are ignored, and the iOS probe plist ordering is normalized. Typechecks, unit tests and the affected backend suites pass.
+
+---
+
 ### 2026-10-19 08:37 — `main`
 
 The Talk architecture and iOS runbook now describe the current conversation flow and native entry paths. Dated product and UI plans, App Store listing notes, and the review reply are saved alongside the updated landing copy so submission work has a clear record.

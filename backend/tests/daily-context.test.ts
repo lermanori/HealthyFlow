@@ -29,7 +29,7 @@ jest.mock('../src/workouts', () => ({
   }),
 }))
 
-import { AiCapabilities } from '../src/ai-capabilities'
+import { AiCapabilities, aiCapabilityTools } from '../src/ai-capabilities'
 import {
   buildDailyContext,
   DailyContextSchema,
@@ -416,5 +416,45 @@ describe('get_daily_context capability', () => {
     expect(value.lookback.habitHistory.days).toHaveLength(3)
     expect(value.lookback.calorieHistory.days).toHaveLength(7)
     expect(value.lookback.workoutHistory.days).toHaveLength(14)
+  })
+
+  it('gives Talk the requested device Calendar day without irrelevant raw history', async () => {
+    const tool = aiCapabilityTools().find((candidate) => candidate.name === 'get_daily_context')!
+    const calendarDay = {
+      date: '2026-10-26',
+      status: 'connected' as const,
+      reasonCode: null,
+      truncated: false,
+      events: [{
+        title: 'Dentist',
+        description: null,
+        location: 'Kaplan Dental',
+        startAt: '2026-10-26T07:00:00.000Z',
+        endAt: '2026-10-26T09:30:00.000Z',
+        localStartTime: '09:00',
+        localEndTime: '11:30',
+        allDay: false,
+        status: 'confirmed',
+      }],
+    }
+
+    const value = await tool.execute({
+      userId: 'user-1',
+      currentDate: '2026-10-19',
+      calendar: { days: [calendarDay] },
+    }, { date: '2026-10-26' }) as Record<string, any>
+
+    expect(value.date).toBe('2026-10-26')
+    expect(value.calendar).toEqual(calendarDay)
+    expect(value.day).not.toHaveProperty('calendarEvents')
+    expect(value).not.toHaveProperty('lookback')
+  })
+
+  it('marks an unrequested device Calendar date as not read', async () => {
+    const tool = aiCapabilityTools().find((candidate) => candidate.name === 'get_daily_context')!
+    const value = await tool.execute({ userId: 'user-1', currentDate: '2026-10-26' }, {}) as Record<string, any>
+
+    expect(value.date).toBe('2026-10-26')
+    expect(value.calendar).toEqual({ date: '2026-10-26', status: 'not_read' })
   })
 })

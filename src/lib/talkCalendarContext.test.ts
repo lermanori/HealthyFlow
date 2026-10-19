@@ -3,7 +3,7 @@ import { describe, it } from 'node:test'
 import type { CalendarSource } from '../../backend/src/day-summary-schema'
 import { buildTalkCalendarContext } from './talkCalendarContext'
 
-const connectedDay = (title: string): CalendarSource => ({
+const connectedDay = (title: string, date = '2026-10-19'): CalendarSource => ({
   status: 'connected',
   reasonCode: null,
   events: [{
@@ -14,8 +14,8 @@ const connectedDay = (title: string): CalendarSource => ({
     title,
     description: 'Bring the referral',
     location: 'Clinic',
-    startAt: '2026-10-19T07:00:00.000Z',
-    endAt: '2026-10-19T08:00:00.000Z',
+    startAt: `${date}T07:00:00.000Z`,
+    endAt: `${date}T08:00:00.000Z`,
     localStartTime: '10:00',
     localEndTime: '11:00',
     allDay: false,
@@ -27,6 +27,42 @@ const connectedDay = (title: string): CalendarSource => ({
 })
 
 describe('Talk calendar context', () => {
+  it('reads an explicitly asked Hebrew date outside the default seven days', async () => {
+    const dates: string[] = []
+    const context = await buildTalkCalendarContext(async (date) => {
+      dates.push(date)
+      return connectedDay(date === '2026-10-26' ? 'Dentist on October 26' : `Event ${date}`, date)
+    }, new Date('2026-10-19T12:00:00'), 'ב26 באוקטובר אין לי כלום?')
+
+    assert.equal(dates.length, 7)
+    assert.ok(dates.includes('2026-10-26'))
+    assert.equal(context.days.find((day) => day.date === '2026-10-26')?.events[0]?.title, 'Dentist on October 26')
+  })
+
+  it('reads the named date in English and ISO prompts', async () => {
+    for (const prompt of ['October 26', '26 Oct', '2026-10-26']) {
+      const context = await buildTalkCalendarContext(
+        async (date) => connectedDay(`Event ${date}`, date),
+        new Date('2026-10-19T12:00:00'),
+        prompt,
+      )
+      assert.ok(context.days.some((day) => day.date === '2026-10-26'), prompt)
+    }
+  })
+
+  it('reads next week when that week is outside the default window', async () => {
+    const context = await buildTalkCalendarContext(
+      async (date) => connectedDay(`Event ${date}`, date),
+      new Date('2026-10-19T12:00:00'),
+      'מה יש לי בשבוע הבא?',
+    )
+
+    assert.deepEqual(context.days.map((day) => day.date), [
+      '2026-10-26', '2026-10-27', '2026-10-28', '2026-10-29',
+      '2026-10-30', '2026-10-31', '2026-11-01',
+    ])
+  })
+
   it('carries a bounded seven-day device snapshot including tomorrow', async () => {
     const dates: string[] = []
     const context = await buildTalkCalendarContext(async (date) => {
