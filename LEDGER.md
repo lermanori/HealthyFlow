@@ -1,3 +1,12 @@
+### 2026-10-19 08:29 — `main`
+
+Today now positions timed Items and calendar entries by their actual start and end
+times on a stable hourly grid, so a 12:00–15:00 card spans the noon-to-3 PM range.
+Overlapping entries share the available width, and long cards remain draggable.
+The frontend build, typecheck, unit tests, and focused mobile browser checks pass.
+
+---
+
 ### 2026-09-19 09:47 — `issue-308-device-id`
 
 People now shows the device each account was last used on, and how many accounts

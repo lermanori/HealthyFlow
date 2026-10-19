@@ -54,6 +54,8 @@ export function daySummaryItem(input: ItemInput): DaySummaryItem {
     rolledOverFromTaskId: null,
     originalCreatedAt: null,
     completedAt: null,
+    projectId: null,
+    project: null,
     position: null,
     googleEventId: null,
     syncedToGoogle: false,

@@ -23,9 +23,11 @@ interface TaskCardProps {
   className?: string
   compact?: boolean
   onHabitCheckIn?: (habit: HabitItem) => void
+  /** Keep the clock range readable when overlapping Items share the timeline width. */
+  narrowTimeline?: boolean
 }
 
-export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncomplete, onHabitCheckIn, isDragging, className = '', compact = false }: TaskCardProps) {
+export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncomplete, onHabitCheckIn, isDragging, className = '', compact = false, narrowTimeline = false }: TaskCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const moduleDestination = task.type === 'meal'
     ? moduleHealthHref(getModulePresentation('calories'), task.scheduledDate ?? undefined)
@@ -238,6 +240,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
 
   return (
     <motion.div
+      title={narrowTimeline ? task.title : undefined}
       layout={!isDragging}
       initial={{ opacity: 0, y: 20 }}
       animate={{
@@ -248,7 +251,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
       }}
       exit={{ opacity: 0, y: -20 }}
       whileHover={compact ? undefined : { scale: 1.01 }}
-      className={`group relative border transition-all duration-300 ${
+      className={`group relative border transition-all duration-300 ${narrowTimeline ? 'cursor-grab touch-none' : ''} ${
         compact ? 'flex overflow-visible rounded-lg p-2' : 'rounded-xl p-4'
       } ${
         task.completed 
@@ -333,7 +336,7 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
 
                      {/* Project (or category fallback) and Time Info */}
            <div className={`flex min-w-0 items-center overflow-hidden ${compact ? 'mt-0.5 gap-1 whitespace-nowrap leading-4' : 'mt-2 flex-wrap gap-2'}`}>
-             {task.project ? (
+             {!narrowTimeline && (task.project ? (
                <span 
                  className={`flex min-w-0 items-center space-x-1 rounded-full border text-xs ${compact ? 'px-1 py-0 leading-4' : 'px-2 py-1'}`}
                  aria-label={`Project: ${task.project.name}`}
@@ -350,14 +353,14 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
                <span className={`shrink-0 rounded-full border text-xs ${compact ? 'px-1 py-0 leading-4' : 'px-2 py-1'} ${getCategoryColor(task.category)}`}>
                  {getCategoryPresentation(task.category).label}
                </span>
-             )}
+             ))}
             
             {/* One clock range, the same shape a Calendar obligation shows, so
                 two rows describing the same kind of commitment read alike. */}
             {task.startTime ? (
-              <span className="flex shrink-0 items-center space-x-1 text-xs text-ink-muted">
-                <Clock className="h-3 w-3" />
-                <span>{formatClockRange(task.startTime, task.duration)}</span>
+              <span className={`flex shrink-0 items-center space-x-1 text-ink-muted ${narrowTimeline ? 'text-[10px]' : 'text-xs'}`}>
+                {!narrowTimeline && <Clock className="h-3 w-3" />}
+                <span>{narrowTimeline ? formatClockRange(task.startTime, task.duration).replace(' - ', '–') : formatClockRange(task.startTime, task.duration)}</span>
               </span>
             ) : task.duration ? (
               <span className="shrink-0 text-xs text-ink-muted">

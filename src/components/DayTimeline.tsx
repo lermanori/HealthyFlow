@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd'
 import type {
   BeforeCapture,
@@ -16,7 +16,6 @@ import { ExternalCalendarEvent, Task, HabitItem } from '../services/api'
 import TaskCard from './TaskCard'
 import { taskService } from '../services/api'
 import {
-  isSettled,
   isStamped,
   timelineClock,
   timelineHour,
@@ -33,6 +32,7 @@ interface DayTimelineProps {
   records?: TimelineRecord[]
   /** Current hour (0–23) when viewing today, else null. Drives the now-line. */
   nowHour?: number | null
+  nowMinute?: number
   onTasksReorder: (tasks: Task[]) => void
   onTasksPersisted: () => void
   onCompleteTask: (id: string) => void
@@ -64,10 +64,9 @@ interface SlotRow {
   key: string
   /** Wall-clock time used to order rows within the hour. */
   clock: string
-  /** True for rows that belong above the now-line in the current hour. */
-  settled: boolean
+  heightPx: number
   draggable: boolean
-  render: (dragIndex: number) => ReactNode
+  render: (dragIndex: number, overlapping: boolean) => ReactNode
 }
 
 // ponytail: age badge for the anytime shelf — how stale is this untimed item.
@@ -91,8 +90,6 @@ const COMPACT_EMPTY_SLOT_HEIGHT_PX = 28
 const MIN_TIMED_TASK_MINUTES = 30
 const MIN_TIMED_TASK_HEIGHT_PX = 52
 const MIN_TIMED_HABIT_HEIGHT_PX = 72
-const SLOT_VERTICAL_PADDING_PX = 16
-const SLOT_CONTENT_GAP_PX = 4
 
 function formatHour(slot: string): string {
   const h = parseInt(slot, 10)
@@ -162,21 +159,35 @@ function timedTaskBlockHeight(task: Task): number {
   return task.type === 'habit' ? Math.max(height, MIN_TIMED_HABIT_HEIGHT_PX) : height
 }
 
-function slotHeightForContent(tasks: Task[], events: ExternalCalendarEvent[], records: TimelineRecord[], isCompacted: boolean): number {
-  if (isCompacted) return COMPACT_EMPTY_SLOT_HEIGHT_PX
+/** Position overlaps across the whole day, including rows starting in different hours. */
+function positionTimelineRows(rowsBySlot: Record<string, SlotRow[]>) {
+  const rows = HOUR_SLOTS.flatMap(slot => rowsBySlot[slot].map(row => {
+    const hour = parseInt(slot, 10)
+    const minutes = minutesFromTime(row.clock)
+    if (minutes === null) throw new Error(`Invalid timeline clock: ${row.clock}`)
+    const start = Math.min((hour + 1) * 60 - 1, Math.max(hour * 60, minutes))
+    return { ...row, start, end: start + row.heightPx * 60 / HOUR_SLOT_HEIGHT_PX, column: 0, columns: 1 }
+  })).sort((a, b) => a.start - b.start || b.end - a.end)
 
-  const taskHeights = tasks.map(timedTaskBlockHeight)
-  const eventHeights = events.map(event => timedBlockHeight(eventDurationMinutes(event)))
-  const recordHeights = records.map(() => MIN_TIMED_TASK_HEIGHT_PX)
-  const itemHeights = [...eventHeights, ...taskHeights, ...recordHeights]
-  if (itemHeights.length === 0) return HOUR_SLOT_HEIGHT_PX
-
-  const contentHeight =
-    SLOT_VERTICAL_PADDING_PX +
-    itemHeights.reduce((sum, height) => sum + height, 0) +
-    Math.max(0, itemHeights.length - 1) * SLOT_CONTENT_GAP_PX
-
-  return Math.max(HOUR_SLOT_HEIGHT_PX, contentHeight)
+  let group: typeof rows = []
+  let columnEnds: number[] = []
+  let groupEnd = -Infinity
+  const finishGroup = () => {
+    for (const row of group) row.columns = columnEnds.length
+    group = []
+    columnEnds = []
+  }
+  for (const row of rows) {
+    if (row.start >= groupEnd) finishGroup()
+    let column = columnEnds.findIndex(end => end <= row.start)
+    if (column < 0) column = columnEnds.length
+    row.column = column
+    columnEnds[column] = row.end
+    group.push(row)
+    groupEnd = Math.max(groupEnd, row.end)
+  }
+  finishGroup()
+  return new Map(rows.map(row => [row.key, row]))
 }
 
 function compactableEmptySlots(slots: string[], hasContent: (slot: string) => boolean): Set<string> {
@@ -224,14 +235,16 @@ function taskDemoId(task: Task): string {
 function CalendarEventBlock({
   event,
   onComplete,
+  narrow = false,
 }: {
   event: ExternalCalendarEvent
   onComplete: (id: string, completed: boolean) => void
+  narrow?: boolean
 }) {
   const isReadOnly = event.provider === 'device'
   return (
     <div
-      className={`group relative flex h-full min-w-0 items-center overflow-hidden rounded-lg border p-2.5 transition-all duration-300 ${
+      className={`group relative flex h-full min-w-0 items-center overflow-hidden rounded-lg border ${narrow ? 'p-2' : 'p-2.5'} transition-all duration-300 ${
         event.completed
           ? 'bg-card/50 border-line-strong/50 opacity-75'
           : 'card glass-effect hover:shadow-lg'
@@ -254,9 +267,9 @@ function CalendarEventBlock({
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex min-w-0 flex-1 items-center gap-2">
-              <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border border-state-success/30 bg-state-success/20 text-state-success">
+              {!narrow && <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border border-state-success/30 bg-state-success/20 text-state-success">
                 <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </div>
+              </div>}
               <h3 className={`truncate text-sm font-medium sm:text-base ${
                 event.completed ? 'line-through text-ink-muted' : 'text-ink'
               }`}>
@@ -277,15 +290,15 @@ function CalendarEventBlock({
 
             <span
               title="Device Calendar events are read-only in HealthyFlow."
-              className="inline-flex shrink-0 rounded-full border border-state-success/30 bg-state-success/15 px-1.5 py-0.5 text-xs text-state-success sm:px-2 sm:py-1"
+              className={`inline-flex shrink-0 rounded-full border border-state-success/30 bg-state-success/15 text-state-success ${narrow ? 'px-1 text-[10px]' : 'px-1.5 py-0.5 text-xs sm:px-2 sm:py-1'}`}
             >
-              Fixed<span className="hidden sm:inline">&nbsp;· Calendar</span>
+              Fixed{!narrow && <span className="hidden sm:inline">&nbsp;· Calendar</span>}
             </span>
           </div>
 
-          <div className="flex min-w-0 flex-col gap-1 text-xs text-ink-muted sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3">
+          <div className={`flex min-w-0 flex-col gap-1 text-ink-muted sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 ${narrow ? 'text-[10px]' : 'text-xs'}`}>
             <span className="inline-flex min-w-0 items-center gap-1 text-ink-muted">
-              <Clock className="h-3 w-3 shrink-0" />
+              {!narrow && <Clock className="h-3 w-3 shrink-0" />}
               <span className="truncate">{eventTimeRange(event)}</span>
             </span>
             {event.location && (
@@ -463,6 +476,7 @@ export default function DayTimeline({
   calendarEvents = [],
   records = [],
   nowHour = null,
+  nowMinute = 0,
   onTasksReorder,
   onTasksPersisted,
   onCompleteTask,
@@ -546,18 +560,6 @@ export default function DayTimeline({
     recordBuckets[slot].sort((a, b) => a.time.localeCompare(b.time))
   }
 
-  // A Focus block counts as content: without it the hour collapses to the
-  // compact empty height and its row overflows into the next slot.
-  const focusSlots = new Set(focusBlockRows.map(row => row.slot))
-  const hasSlotContent = (slot: string) =>
-    slotBuckets[slot].length > 0 || calendarBuckets[slot].length > 0 || recordBuckets[slot].length > 0 || focusSlots.has(slot)
-  // The current hour never collapses — the now-line has to stay findable on a
-  // quiet afternoon.
-  const compactedEmptySlots = compactableEmptySlots(
-    HOUR_SLOTS,
-    slot => hasSlotContent(slot) || parseInt(slot, 10) === nowHour
-  )
-
   // Reopen a Habit's check-in sheet from one of its progress chunks — a chunk has
   // no module page to navigate to, and the sheet is where the rest gets logged.
   const handleHabitSelect = (habitId: string) => {
@@ -571,16 +573,16 @@ export default function DayTimeline({
    */
   const GripGutter = () => <div aria-hidden="true" className="h-11 w-11 shrink-0 self-center" />
 
-  const renderCalendarRow = (event: ExternalCalendarEvent, index: number) => (
+  const renderCalendarRow = (event: ExternalCalendarEvent, index: number, overlapping = false) => (
     event.provider === 'device' ? (
       <div
         data-timeline-drag-id={`calendar:${event.id}`}
         className="relative flex min-h-0 min-w-0 gap-1.5"
         style={{ height: timedBlockHeight(eventDurationMinutes(event)) }}
       >
-        <GripGutter />
+        {!overlapping && <GripGutter />}
         <div className="h-full min-w-0 flex-1">
-          <CalendarEventBlock event={event} onComplete={onCalendarEventComplete} />
+          <CalendarEventBlock event={event} onComplete={onCalendarEventComplete} narrow={overlapping} />
         </div>
       </div>
     ) : <Draggable draggableId={`calendar:${event.id}`} index={index}>
@@ -597,22 +599,25 @@ export default function DayTimeline({
             height: timedBlockHeight(eventDurationMinutes(event)),
           }}
         >
-          <GripGutter />
+          {!overlapping && <GripGutter />}
           <div className="h-full min-w-0 flex-1">
-            <CalendarEventBlock event={event} onComplete={onCalendarEventComplete} />
+            <CalendarEventBlock event={event} onComplete={onCalendarEventComplete} narrow={overlapping} />
           </div>
         </div>
       )}
     </Draggable>
   )
 
-  const renderTaskRow = (task: Task, index: number) => (
+  const renderTaskRow = (task: Task, index: number, overlapping = false) => (
     <Draggable draggableId={task.id} index={index}>
       {(provided, snapshot) => (
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
           data-testid="timeline-draggable-task"
+          {...(overlapping ? provided.dragHandleProps : {})}
+          data-timeline-drag-handle={overlapping ? 'true' : undefined}
+          aria-label={overlapping ? `Move ${task.title}` : undefined}
           data-demo-id={taskDemoId(task)}
           data-timeline-drag-id={task.id}
           data-stamped={isStamped(task) ? 'true' : 'false'}
@@ -622,7 +627,7 @@ export default function DayTimeline({
             height: timedTaskBlockHeight(task),
           }}
         >
-          <TaskDragGrip dragHandleProps={provided.dragHandleProps} label={`Move ${task.title}`} compact />
+          {!overlapping && <TaskDragGrip dragHandleProps={provided.dragHandleProps} label={`Move ${task.title}`} compact />}
           <TaskCard
             task={task}
             onComplete={onCompleteTask}
@@ -632,6 +637,7 @@ export default function DayTimeline({
             onHabitCheckIn={onHabitCheckIn}
             isDragging={snapshot.isDragging || draggedTaskId === task.id}
             compact
+            narrowTimeline={overlapping}
             className="h-full min-w-0 flex-1"
           />
           {isStamped(task) && (
@@ -644,6 +650,53 @@ export default function DayTimeline({
         </div>
       )}
     </Draggable>
+  )
+
+  const rowsBySlot: Record<string, SlotRow[]> = Object.fromEntries(HOUR_SLOTS.map(slot => [slot, [
+    ...calendarBuckets[slot].map((event): SlotRow => ({
+      key: `calendar:${event.id}`,
+      clock: event.localStartTime ?? (event.startAt
+        ? `${String(new Date(event.startAt).getHours()).padStart(2, '0')}:${String(new Date(event.startAt).getMinutes()).padStart(2, '0')}`
+        : slot),
+      heightPx: timedBlockHeight(eventDurationMinutes(event)),
+      draggable: event.provider !== 'device',
+      render: (index, overlapping) => renderCalendarRow(event, index, overlapping),
+    })),
+    ...slotBuckets[slot].map((task): SlotRow => ({
+      key: task.id,
+      clock: timelineClock(task),
+      heightPx: timedTaskBlockHeight(task),
+      draggable: true,
+      render: (index, overlapping) => renderTaskRow(task, index, overlapping),
+    })),
+    ...recordBuckets[slot].map((record): SlotRow => ({
+      key: record.id,
+      clock: record.time,
+      heightPx: MIN_TIMED_TASK_HEIGHT_PX,
+      draggable: false,
+      render: () => <TimelineRecordBlock record={record} onHabitSelect={handleHabitSelect} />,
+    })),
+    ...focusBlockRows.filter(row => row.slot === slot).map((row): SlotRow => ({
+      key: `focus:${row.id}`,
+      clock: row.clock,
+      heightPx: row.heightPx,
+      draggable: false,
+      render: () => <div style={{ height: row.heightPx }} className="min-w-0">{row.render()}</div>,
+    })),
+  ].sort((a, b) => a.clock.localeCompare(b.clock))]))
+  const positionedRows = positionTimelineRows(rowsBySlot)
+  const afterHoursHeight = [...positionedRows.values()].reduce((height, row) =>
+    Math.max(height, (row.end - 24 * 60) * HOUR_SLOT_HEIGHT_PX / 60), 0
+  )
+  // A three-hour obligation occupies all three hours, not just its starting
+  // bucket. Compress only empty stretches outside every visible card's span.
+  const occupiedSlots = new Set(HOUR_SLOTS.filter(slot => {
+    const start = parseInt(slot, 10) * 60
+    return [...positionedRows.values()].some(row => row.start < start + 60 && row.end > start)
+  }))
+  const compactedEmptySlots = compactableEmptySlots(
+    HOUR_SLOTS,
+    slot => occupiedSlots.has(slot) || parseInt(slot, 10) === nowHour
   )
 
   const findDraggable = (id: string): HTMLElement | null => {
@@ -668,7 +721,8 @@ export default function DayTimeline({
   const handleBeforeCapture = (before: BeforeCapture) => {
     const root = planGridRef.current
     const source = findDraggable(before.draggableId)
-    const sourceTopBefore = source?.getBoundingClientRect().top ?? null
+    const handle = source?.querySelector<HTMLElement>('[data-timeline-drag-handle="true"]') ?? source
+    const handleTopBefore = handle?.getBoundingClientRect().top ?? null
 
     dragSnapshotRef.current = {
       tasks: [...tasks],
@@ -679,11 +733,11 @@ export default function DayTimeline({
     // The library invokes this hook before it measures any draggable or droppable.
     // Expand the real DOM synchronously so compacted hours and hidden Anytime rows
     // become valid measured destinations without a React render race.
+    if (source) source.dataset.timelineDragSource = 'true'
     if (root) root.dataset.dragLayout = 'expanded'
 
-    if (sourceTopBefore !== null && source) {
-      const sourceTopAfter = source.getBoundingClientRect().top
-      const delta = sourceTopAfter - sourceTopBefore
+    if (handleTopBefore !== null && handle) {
+      const delta = handle.getBoundingClientRect().top - handleTopBefore
       if (Math.abs(delta) > 0.5) window.scrollBy({ top: delta, behavior: 'auto' })
     }
   }
@@ -719,6 +773,8 @@ export default function DayTimeline({
       const anchor = findDraggable(focusId)
       const anchorTopBefore = anchor?.getBoundingClientRect().top ?? null
       planGridRef.current?.removeAttribute('data-drag-layout')
+      planGridRef.current?.querySelectorAll<HTMLElement>('[data-timeline-drag-source]')
+        .forEach(element => element.removeAttribute('data-timeline-drag-source'))
 
       window.requestAnimationFrame(() => {
         const restored = findDraggable(focusId)
@@ -727,8 +783,10 @@ export default function DayTimeline({
           if (Math.abs(delta) > 0.5) window.scrollBy({ top: delta, behavior: 'auto' })
         }
         if (shouldRestoreFocus) {
-          restored?.querySelector<HTMLElement>('[data-timeline-drag-handle="true"]')
-            ?.focus({ preventScroll: true })
+          const handle = restored?.matches('[data-timeline-drag-handle="true"]')
+            ? restored
+            : restored?.querySelector<HTMLElement>('[data-timeline-drag-handle="true"]')
+          handle?.focus({ preventScroll: true })
         }
         dragSnapshotRef.current = null
       })
@@ -1027,71 +1085,31 @@ export default function DayTimeline({
             <h3 id="scheduled-heading" className="text-sm font-semibold uppercase tracking-wider text-ink-muted">
               Schedule + obligations
             </h3>
-            <div className="space-y-1">
+            <div>
               {HOUR_SLOTS.map(slot => {
-                const slotTasks = slotBuckets[slot]
-                const slotCalendarEvents = calendarBuckets[slot]
-                const slotRecords = recordBuckets[slot]
-                const slotFocusRows = focusBlockRows.filter(row => row.slot === slot)
-                // A slot holding only a Focus block still has content — without
-                // this it compacts to 28px and turns off pointer events, which
-                // would make Start unclickable.
-                const hasContent = slotTasks.length > 0 || slotCalendarEvents.length > 0 || slotRecords.length > 0 || slotFocusRows.length > 0
+                const hasContent = occupiedSlots.has(slot)
                 const isCompacted = compactedEmptySlots.has(slot)
                 const isCurrentHour = parseInt(slot, 10) === nowHour
-                const slotHeight = slotHeightForContent(slotTasks, slotCalendarEvents, slotRecords, isCompacted)
-                  + (isCompacted ? 0 : slotFocusRows.reduce((total, row) => total + row.heightPx + 4, 0))
-
-                // One ordered list per hour, interleaved by minute so a 07:05
-                // record reads above a 07:45 habit. Draggable rows must receive
-                // contiguous indices, so they are numbered after ordering.
-                const slotRows: SlotRow[] = [
-                  ...slotCalendarEvents.map((event): SlotRow => ({
-                    key: `calendar:${event.id}`,
-                    clock: event.localStartTime ?? slot,
-                    settled: false,
-                    draggable: event.provider !== 'device',
-                    render: (index) => renderCalendarRow(event, index),
-                  })),
-                  ...slotTasks.map((task): SlotRow => ({
-                    key: task.id,
-                    clock: timelineClock(task),
-                    // In the current hour, what is already settled belongs above
-                    // the now-line even though its minute may be later.
-                    settled: isStamped(task) || isSettled(task),
-                    draggable: true,
-                    render: (index) => renderTaskRow(task, index),
-                  })),
-                  ...slotRecords.map((record): SlotRow => ({
-                    key: record.id,
-                    clock: record.time,
-                    settled: true,
-                    draggable: false,
-                    render: () => <TimelineRecordBlock record={record} onHabitSelect={handleHabitSelect} />,
-                  })),
-                  // Never draggable, so never consumes a drag index.
-                  ...slotFocusRows.map((row): SlotRow => ({
-                    key: `focus:${row.id}`,
-                    clock: row.clock,
-                    settled: false,
-                    draggable: false,
-                    render: () => (
-                      <div style={{ height: row.heightPx }} className="min-w-0">{row.render()}</div>
-                    ),
-                  })),
-                ].sort((a, b) => a.clock.localeCompare(b.clock))
-
-                // The now-line cuts *through* the current hour rather than sitting
-                // between hours, so a thing done at 10:05 reads as behind you at 10:30.
-                const settledCount = slotRows.filter(row => row.settled).length
-                const ordered = isCurrentHour
-                  ? [...slotRows.filter(row => row.settled), ...slotRows.filter(row => !row.settled)]
-                  : slotRows
-
+                const slotHeight = isCompacted ? COMPACT_EMPTY_SLOT_HEIGHT_PX : HOUR_SLOT_HEIGHT_PX
                 let dragCursor = 0
-                const renderedRows = ordered.map(row => {
+                const renderedRows = rowsBySlot[slot].map(row => {
                   const index = row.draggable ? dragCursor++ : -1
-                  return <Fragment key={row.key}>{row.render(index)}</Fragment>
+                  const position = positionedRows.get(row.key)!
+                  return (
+                    <div
+                      key={row.key}
+                      data-timeline-entry={row.key}
+                      className="absolute z-10 min-w-0"
+                      style={{
+                        top: (position.start - parseInt(slot, 10) * 60) * HOUR_SLOT_HEIGHT_PX / 60,
+                        left: `${position.column * 100 / position.columns}%`,
+                        width: `calc(${100 / position.columns}% - ${position.columns > 1 ? 4 : 0}px)`,
+                        height: row.heightPx,
+                      }}
+                    >
+                      {row.render(index, position.columns > 1)}
+                    </div>
+                  )
                 })
 
                 return (
@@ -1104,7 +1122,7 @@ export default function DayTimeline({
                         data-slot={slot}
                         data-demo-id={`schedule-slot-${slot}`}
                         data-compacted={isCompacted ? 'true' : 'false'}
-                        className={`timeline-slot relative flex min-w-0 gap-1 overflow-visible rounded px-1 py-2 transition-colors sm:gap-2 sm:px-2 ${hasContent ? 'z-20' : ''} ${isCompacted ? 'pointer-events-none' : ''} ${
+                        className={`timeline-slot relative flex min-w-0 gap-1 overflow-visible rounded px-1 transition-colors sm:gap-2 sm:px-2 ${isCompacted ? 'pointer-events-none' : ''} ${
                           snapshot.isDraggingOver
                             ? 'bg-state-info/10 drop-zone'
                             : hasContent
@@ -1115,16 +1133,20 @@ export default function DayTimeline({
                         }`}
                         style={{ height: slotHeight }}
                       >
-                        <span className={`w-10 flex-shrink-0 text-xs sm:w-12 ${isCompacted ? 'pt-0 text-[11px]' : 'pt-2'} ${hasContent || snapshot.isDraggingOver ? 'text-ink-muted' : 'text-ink-muted'}`}>
+                        <span className={`w-10 flex-shrink-0 text-xs sm:w-12 text-ink-muted ${isCompacted ? 'text-[11px]' : ''}`}>
                           {formatHour(slot)}
                         </span>
 
-                        <div className="relative z-10 min-w-0 flex-1 space-y-1 overflow-visible">
-                          {isCurrentHour ? renderedRows.slice(0, settledCount) : renderedRows}
-                          {isCurrentHour && <NowMarker />}
-                          {isCurrentHour && renderedRows.slice(settledCount)}
-                          {provided.placeholder}
-                          {snapshot.isDraggingOver && slotTasks.length === 0 && (
+                        <div className="relative min-w-0 flex-1 overflow-visible">
+                          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 border-t border-line/30" />
+                          {renderedRows}
+                          {isCurrentHour && (
+                            <div className="pointer-events-none absolute inset-x-0 z-30 -translate-y-1/2" style={{ top: nowMinute * HOUR_SLOT_HEIGHT_PX / 60 }}>
+                              <NowMarker />
+                            </div>
+                          )}
+                          <div className="hidden">{provided.placeholder}</div>
+                          {snapshot.isDraggingOver && rowsBySlot[slot].length === 0 && (
                             <div className="px-1 py-1 text-xs text-state-info">Drop to schedule at {formatHour(slot)}</div>
                           )}
                         </div>
@@ -1133,6 +1155,7 @@ export default function DayTimeline({
                   </Droppable>
                 )
               })}
+              {afterHoursHeight > 0 && <div aria-hidden="true" style={{ height: afterHoursHeight }} />}
             </div>
 
             {allDayEvents.length > 0 && (

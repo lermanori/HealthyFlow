@@ -1998,6 +1998,7 @@ export default function TodayPage() {
           ),
         }))}
         nowHour={isSameDay(selectedDate, now) ? now.getHours() : null}
+        nowMinute={now.getMinutes()}
         onTasksReorder={handleTasksReorder}
         onTasksPersisted={() => {
           queryClient.invalidateQueries({ queryKey: daySummaryQueryKey(selectedDateKey) })

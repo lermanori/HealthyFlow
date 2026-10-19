@@ -31,6 +31,154 @@ const settings = {
   theme: 'midnight',
 }
 
+for (const viewport of [viewports[0], viewports[2]]) {
+  test(`timed Items span their clock hours at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport)
+    await mockToday(page, {
+      theme: 'white',
+      signals: () => [],
+      summary: (date) => daySummaryFixture({
+        date,
+        items: [{ id: 'long-meeting', title: 'פגישת דיווח התקדמות', category: 'work', startTime: '12:00', duration: 180, scheduledDate: date }],
+      }),
+    })
+    await page.goto('/app')
+    await expect(page.locator('#loading-screen')).toBeHidden()
+    const meeting = page.locator('[data-timeline-drag-id="long-meeting"]')
+    await expect(meeting).toBeVisible()
+    const noon = await page.locator('[data-slot="12:00"]').boundingBox()
+    const one = await page.locator('[data-slot="13:00"]').boundingBox()
+    const two = await page.locator('[data-slot="14:00"]').boundingBox()
+    const three = await page.locator('[data-slot="15:00"]').boundingBox()
+    const card = await meeting.boundingBox()
+    expect(noon && one && two && three && card).toBeTruthy()
+    expect(one!.y - noon!.y).toBeCloseTo(two!.y - one!.y, 0)
+    expect(two!.y - one!.y).toBeCloseTo(three!.y - two!.y, 0)
+    expect(card!.y).toBeCloseTo(noon!.y, 0)
+    expect(card!.y + card!.height).toBeCloseTo(three!.y, 0)
+    await page.locator('[data-slot="12:00"]').scrollIntoViewIfNeeded()
+    await page.screenshot({ path: `output/playwright/timeline-clock-${viewport.name}.png` })
+  })
+}
+
+test('timeline keeps fractional starts and overlapping obligations on the same clock', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await mockToday(page, {
+    theme: 'white',
+    signals: () => [],
+    summary: date => daySummaryFixture({
+      date,
+      items: [
+        { id: 'long-meeting', title: 'Afternoon review', startTime: '12:30', duration: 180, scheduledDate: date },
+        { id: 'overlap', title: 'Call Alex', startTime: '13:15', duration: 60, scheduledDate: date },
+      ],
+      calendarEvents: [{ id: 'calendar-review', title: 'Calendar review', localStartTime: '09:15', localEndTime: '10:45' }],
+    }),
+  })
+  await page.goto('/app')
+  await expect(page.locator('#loading-screen')).toBeHidden()
+  const box = async (selector: string) => {
+    const result = await page.locator(selector).boundingBox()
+    expect(result).not.toBeNull()
+    return result!
+  }
+  const noon = await box('[data-slot="12:00"]')
+  const one = await box('[data-slot="13:00"]')
+  const three = await box('[data-slot="15:00"]')
+  const meeting = await box('[data-timeline-drag-id="long-meeting"]')
+  const overlap = await box('[data-timeline-drag-id="overlap"]')
+  await expect(page.locator('[data-timeline-drag-id="long-meeting"]')).toContainText('12:30–15:30')
+  await expect(page.locator('[data-timeline-drag-id="overlap"]')).toContainText('13:15–14:15')
+  expect(meeting.y).toBeCloseTo(noon.y + noon.height / 2, 0)
+  expect(meeting.y + meeting.height).toBeCloseTo(three.y + three.height / 2, 0)
+  expect(overlap.y).toBeCloseTo(one.y + one.height / 4, 0)
+  expect(meeting.x + meeting.width).toBeLessThanOrEqual(overlap.x)
+  const nine = await box('[data-slot="09:00"]')
+  const ten = await box('[data-slot="10:00"]')
+  const calendar = await box('[data-timeline-drag-id="calendar:calendar-review"]')
+  expect(calendar.y).toBeCloseTo(nine.y + nine.height / 4, 0)
+  expect(calendar.y + calendar.height).toBeCloseTo(ten.y + ten.height * 3 / 4, 0)
+  await page.locator('[data-slot="12:00"]').scrollIntoViewIfNeeded()
+  await page.screenshot({ path: 'output/playwright/timeline-overlap-mobile.png' })
+})
+
+test('an Item ending after midnight leaves room below the final hour', async ({ page }) => {
+  await mockToday(page, {
+    signals: () => [],
+    summary: date => daySummaryFixture({ date, items: [{
+      id: 'late-work', title: 'Late work', startTime: '23:00', duration: 120, scheduledDate: date,
+    }] }),
+  })
+  await page.goto('/app')
+  await expect(page.locator('#loading-screen')).toBeHidden()
+  const card = await page.locator('[data-timeline-drag-id="late-work"]').boundingBox()
+  const schedule = await page.locator('[data-demo-id="schedule-section"]').boundingBox()
+  expect(card && schedule).toBeTruthy()
+  expect(card!.y + card!.height).toBeLessThanOrEqual(schedule!.y + schedule!.height + 1)
+})
+
+test('an overlapping Device Calendar event keeps its time and read-only state visible', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await mockToday(page, {
+    signals: () => [],
+    summary: date => daySummaryFixture({
+      date,
+      items: [{ id: 'task-meeting', title: 'Team meeting', startTime: '13:00', duration: 60, scheduledDate: date }],
+      calendarEvents: [{ id: 'device-event', title: 'Parent visit', provider: 'device', localStartTime: '13:15', localEndTime: '14:15' }],
+    }),
+  })
+  await page.goto('/app')
+  await expect(page.locator('#loading-screen')).toBeHidden()
+  const event = page.locator('[data-timeline-drag-id="calendar:device-event"]')
+  await expect(event).toContainText('13:15 - 14:15')
+  await expect(event.getByText('Fixed')).toBeVisible()
+  await expect(event.getByRole('button', { name: 'Device Calendar event, read-only' })).toBeDisabled()
+  const taskBox = await page.locator('[data-timeline-drag-id="task-meeting"]').boundingBox()
+  const eventBox = await event.boundingBox()
+  expect(taskBox && eventBox).toBeTruthy()
+  expect(taskBox!.x + taskBox!.width).toBeLessThanOrEqual(eventBox!.x)
+})
+
+test('timeline drag reschedules a multi-hour Item without stretching the clock', async ({ page }) => {
+  let startTime = '12:00'
+  await mockToday(page, {
+    signals: () => [],
+    summary: date => daySummaryFixture({ date, items: [{
+      id: 'long-meeting', title: 'Afternoon review', startTime, duration: 180, scheduledDate: date,
+    }] }),
+  })
+  await page.route('**/api/tasks/long-meeting', async route => {
+    startTime = route.request().postDataJSON().startTime
+    await route.fulfill({ json: { id: 'long-meeting', title: 'Afternoon review', type: 'task', startTime, duration: 180, scheduledDate: '2026-07-15', createdAt: '2026-07-15T08:00:00Z' } })
+  })
+  await page.goto('/app')
+  await expect(page.locator('#loading-screen')).toBeHidden()
+  const grip = page.getByRole('button', { name: 'Move Afternoon review' })
+  await grip.scrollIntoViewIfNeeded()
+  const gripBox = (await grip.boundingBox())!
+  await page.mouse.move(gripBox.x + gripBox.width / 2, gripBox.y + gripBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(gripBox.x + gripBox.width / 2 + 20, gripBox.y + gripBox.height / 2 + 20, { steps: 5 })
+  await expect(page.locator('.today-plan-grid')).toHaveAttribute('data-drag-layout', 'expanded')
+  await expect(page.getByRole('status', { name: 'Schedule changes' })).toContainText('lifted')
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const destination = (await page.locator('[data-slot="14:00"]').boundingBox())!
+    await page.mouse.move(gripBox.x + gripBox.width / 2, destination.y + destination.height * 0.75, { steps: 8 })
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    if ((await page.getByRole('status', { name: 'Schedule changes' }).textContent())?.includes('to 2 PM')) break
+  }
+  await expect(page.getByRole('status', { name: 'Schedule changes' })).toContainText('to 2 PM')
+  await page.mouse.up()
+  await expect.poll(() => startTime).toBe('14:00')
+  await expect(page.locator('.today-plan-grid')).not.toHaveAttribute('data-drag-layout', 'expanded')
+  const slot = page.locator(`[data-slot="${startTime}"]`)
+  await expect(slot.locator('[data-timeline-drag-id="long-meeting"]')).toBeVisible()
+  const slotBox = await slot.boundingBox()
+  const cardBox = await slot.locator('[data-timeline-drag-id="long-meeting"]').boundingBox()
+  expect(cardBox!.y).toBeCloseTo(slotBox!.y, 0)
+  expect(cardBox!.height).toBeCloseTo(slotBox!.height * 3, 0)
+})
+
 function signalsForDate(date: string): DailySignal[] {
   return [
     {
@@ -371,6 +519,7 @@ async function mockToday(page: Page, options?: {
       email: 'today@healthyflow.local',
       name: 'Today Review',
       role: 'user',
+      authMethod: 'password',
     },
   }))
   await page.route('**/api/settings', (route) => route.fulfill({

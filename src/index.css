@@ -623,6 +623,12 @@
   pointer-events: auto;
 }
 
+/* A long card's drag preview must fit one drop zone, or its leading edge keeps
+   selecting an earlier hour. Apply before the drag engine measures the DOM. */
+.today-plan-grid[data-drag-layout='expanded'] [data-timeline-drag-source='true'] {
+  max-height: 72px;
+}
+
 .today-schedule-panel {
   grid-area: schedule;
 }
