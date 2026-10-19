@@ -78,6 +78,9 @@ export type AnalyticsEvents = {
   }
   onboarding_completed: void
   onboarding_skipped: void
+  first_run_path_selected: {
+    path: 'talk' | 'today'
+  }
   /**
    * Every day setup completion, including re-runs. `changed_window` is the first
    * event in the product that says whether anyone declares their real usable day
@@ -111,7 +114,7 @@ export type AnalyticsEvents = {
   }
   ai_question_asked: {
     surface: 'talk'
-    entry_point: 'talk' | 'today' | 'add' | 'nutrition' | 'workouts' | 'work' | 'daily_signal' | 'kickoff'
+    entry_point: 'talk' | 'first_run' | 'today' | 'add' | 'nutrition' | 'workouts' | 'work' | 'daily_signal' | 'kickoff'
     has_attachment: boolean
     model: string
   }
@@ -162,6 +165,7 @@ export type UserProperties = {
   is_demo?: boolean
   is_guest?: boolean
   onboarding_status?: 'active' | 'completed' | 'skipped'
+  first_run_path?: 'talk' | 'today'
   subscription_active?: boolean
   credit_balance_bucket?: 'none' | 'low' | 'ok'
   signup_credit_cohort?: 'founding' | 'standard'

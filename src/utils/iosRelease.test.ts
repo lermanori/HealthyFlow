@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { describe, it } from 'node:test'
 
@@ -8,9 +9,36 @@ const nativePackage = readFileSync('ios/App/CapApp-SPM/Package.swift', 'utf8')
 const releaseRunbook = readFileSync('docs/runbooks/app-store-v1.md', 'utf8')
 const listing = readFileSync('output/app-store/v1/listing-draft.md', 'utf8')
 const layout = readFileSync('src/components/Layout.tsx', 'utf8')
+const appEntry = readFileSync('src/main.tsx', 'utf8')
 const addItemPage = readFileSync('src/pages/AddItemPage.tsx', 'utf8')
+const appleSignInButton = readFileSync('src/components/AppleSignInButton.tsx', 'utf8')
+const appleButtonArtwork = readFileSync('src/assets/apple/continue-with-apple-black@3x.png')
+const appleAuthPages = [
+  readFileSync('src/pages/LoginPage.tsx', 'utf8'),
+  readFileSync('src/pages/ClaimAccountPage.tsx', 'utf8'),
+  readFileSync('src/pages/SignInPage.tsx', 'utf8'),
+]
 
 describe('free-v1 iOS release configuration', () => {
+  it('includes a non-empty camera usage description before native photo capture', () => {
+    const infoPlist = readFileSync('ios/App/App/Info.plist', 'utf8')
+    const description = infoPlist.match(/<key>NSCameraUsageDescription<\/key>\s*<string>([^<]*)<\/string>/)?.[1].trim()
+    assert.ok(description, 'iOS terminates camera access without NSCameraUsageDescription')
+  })
+
+  it("uses Apple's unmodified official Continue with Apple artwork on every iOS account entry", () => {
+    assert.equal(
+      createHash('sha256').update(appleButtonArtwork).digest('hex'),
+      '4220412717e175c10ffd05cf180b1627907bed98f383dd2b0fc767c75bdc6020',
+    )
+    assert.match(appleSignInButton, /continue-with-apple-black@3x\.png/)
+    assert.match(appleSignInButton, /aria-label="Continue with Apple"/)
+    for (const page of appleAuthPages) {
+      assert.match(page, /<AppleSignInButton/)
+      assert.doesNotMatch(page, /<Apple\b/)
+    }
+  })
+
   it('uses one iOS 26 floor at project, app, widget and Swift-package levels', () => {
     const deploymentTargets = [...project.matchAll(/IPHONEOS_DEPLOYMENT_TARGET = ([\d.]+);/g)]
       .map(([, version]) => version)
@@ -22,7 +50,7 @@ describe('free-v1 iOS release configuration', () => {
 
   it('keeps app and widget release identity aligned', () => {
     assert.equal((project.match(/MARKETING_VERSION = 1\.0\.1;/g) ?? []).length, 4)
-    assert.equal((project.match(/CURRENT_PROJECT_VERSION = 5;/g) ?? []).length, 4)
+    assert.equal((project.match(/CURRENT_PROJECT_VERSION = 7;/g) ?? []).length, 4)
     assert.equal((project.match(/PRODUCT_BUNDLE_IDENTIFIER = app\.healthyflow\.mobile;/g) ?? []).length, 2)
     assert.equal((project.match(/PRODUCT_BUNDLE_IDENTIFIER = app\.healthyflow\.mobile\.widget;/g) ?? []).length, 2)
   })
@@ -59,5 +87,9 @@ describe('free-v1 iOS release configuration', () => {
     assert.match(addItemPage, /data-testid="add-item-time"/)
     assert.match(addItemPage, /type="time"/)
     assert.doesNotMatch(addItemPage, /TimePickerSheet/)
+  })
+
+  it('keeps global alerts below the iOS status-bar safe area', () => {
+    assert.match(appEntry, /top:\s*'calc\(env\(safe-area-inset-top\) \+ 1rem\)'/)
   })
 })

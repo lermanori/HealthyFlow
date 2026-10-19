@@ -14,8 +14,10 @@ public final class NativeSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
     ]
 
     private let audioEngine = AVAudioEngine()
+    private let readyCueNode = AVAudioPlayerNode()
     private var analyzer: SpeechAnalyzer?
     private var transcriber: SpeechTranscriber?
+    private var dictationTranscriber: DictationTranscriber?
     private var analyzerFormat: AVAudioFormat?
     private var audioConverter: AVAudioConverter?
     private var inputBuilder: AsyncStream<AnalyzerInput>.Continuation?
@@ -25,39 +27,65 @@ public final class NativeSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
     private var active = false
     private var finalizedTranscript = ""
     private var volatileTranscript = ""
+    private var sessionGeneration = 0
+
+    private enum TranscriptionEngine {
+        case speech(Locale)
+        case dictation(Locale)
+
+        var locale: Locale {
+            switch self {
+            case .speech(let locale), .dictation(let locale): return locale
+            }
+        }
+    }
+
+    private func transcriptionEngine(for requested: Locale) async -> TranscriptionEngine? {
+        if SpeechTranscriber.isAvailable,
+           let locale = await SpeechTranscriber.supportedLocale(equivalentTo: requested) {
+            return .speech(locale)
+        }
+        if let locale = await DictationTranscriber.supportedLocale(equivalentTo: requested) {
+            return .dictation(locale)
+        }
+        return nil
+    }
 
     @objc func getAvailability(_ call: CAPPluginCall) {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            guard SpeechTranscriber.isAvailable else {
-                call.resolve([
-                    "available": false,
-                    "reason": "Apple on-device transcription is not available on this device."
-                ])
-                return
-            }
-
             let requestedLocale = self.requestedLocale(call.getString("locale"))
-            guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: requestedLocale) else {
+            guard let engine = await self.transcriptionEngine(for: requestedLocale) else {
                 call.resolve([
                     "available": false,
-                    "reason": "On-device transcription does not support this language."
+                    "reason": "Neither Apple on-device transcription engine supports this language on this device."
                 ])
                 return
             }
-
-            let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
-            let modelStatus = await AssetInventory.status(forModules: [transcriber])
+            let modelStatus: AssetInventory.Status
+            let engineName: String
+            switch engine {
+            case .speech(let locale):
+                let module = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
+                modelStatus = await AssetInventory.status(forModules: [module])
+                engineName = "speechTranscriber"
+            case .dictation(let locale):
+                let module = DictationTranscriber(locale: locale, preset: .progressiveShortDictation)
+                modelStatus = await AssetInventory.status(forModules: [module])
+                engineName = "dictationTranscriber"
+            }
             guard modelStatus != .unsupported else {
                 call.resolve([
                     "available": false,
+                    "engine": engineName,
                     "reason": "Apple's on-device language model is unavailable."
                 ])
                 return
             }
             call.resolve([
                 "available": true,
-                "locale": locale.identifier,
+                "locale": engine.locale.identifier,
+                "engine": engineName,
                 "modelStatus": self.modelStatusName(modelStatus),
                 "permission": self.permissionStatusName(AVAudioApplication.shared.recordPermission)
             ])
@@ -73,6 +101,8 @@ public final class NativeSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
             }
 
             self.preparing = true
+            self.sessionGeneration += 1
+            let generation = self.sessionGeneration
             self.emitState("preparing", message: "Preparing on-device voice input…")
 
             guard await self.requestMicrophonePermission() else {
@@ -85,14 +115,34 @@ public final class NativeSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
                 return
             }
 
+            guard generation == self.sessionGeneration else {
+                call.reject("Voice input was cancelled before listening started.", "speech_cancelled")
+                return
+            }
+
             do {
-                let locale = try await self.startSession(localeIdentifier: call.getString("locale"))
+#if HANDSFREE_PROBE
+                let readyCue = call.getBool("readyCue") ?? false
+#else
+                let readyCue = false
+#endif
+                let locale = try await self.startSession(localeIdentifier: call.getString("locale"), generation: generation, readyCue: readyCue)
                 call.resolve(["locale": locale.identifier])
+            } catch is CancellationError {
+                call.reject("Voice input was cancelled before listening started.", "speech_cancelled")
             } catch let error as NativeSpeechError {
+                guard generation == self.sessionGeneration else {
+                    call.reject("Voice input was cancelled before listening started.", "speech_cancelled")
+                    return
+                }
                 await self.cancelSession(clearTranscript: false)
                 self.emitState("error", message: error.errorDescription ?? "Voice input failed.")
                 call.reject(error.errorDescription ?? "Voice input failed.", error.code, error)
             } catch {
+                guard generation == self.sessionGeneration else {
+                    call.reject("Voice input was cancelled before listening started.", "speech_cancelled")
+                    return
+                }
                 await self.cancelSession(clearTranscript: false)
                 self.emitState("error", message: "Voice input could not start.")
                 call.reject("Voice input could not start.", "speech_start_failed", error)
@@ -128,57 +178,89 @@ public final class NativeSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @MainActor
-    private func startSession(localeIdentifier: String?) async throws -> Locale {
-        guard SpeechTranscriber.isAvailable else {
-            throw NativeSpeechError.transcriberUnavailable
-        }
-
+    private func startSession(localeIdentifier: String?, generation: Int, readyCue: Bool) async throws -> Locale {
         let requested = requestedLocale(localeIdentifier)
-        guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: requested) else {
+        guard let engine = await transcriptionEngine(for: requested) else {
             throw NativeSpeechError.localeUnsupported
         }
+        try checkGeneration(generation)
 
-        let transcriber = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
-        let analyzer = SpeechAnalyzer(modules: [transcriber])
-        guard let analyzerFormat = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [transcriber]) else {
-            throw NativeSpeechError.audioFormatUnavailable
-        }
-
-        let modelStatus = await AssetInventory.status(forModules: [transcriber])
-        if modelStatus != .installed {
-            emitState("downloading", message: "Downloading Apple’s on-device language model…")
-            guard let installation = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) else {
-                throw NativeSpeechError.modelUnavailable
+        let analyzer: SpeechAnalyzer
+        let analyzerFormat: AVAudioFormat
+        switch engine {
+        case .speech(let locale):
+            let module = SpeechTranscriber(locale: locale, preset: .progressiveTranscription)
+            analyzer = SpeechAnalyzer(modules: [module])
+            guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [module]) else {
+                throw NativeSpeechError.audioFormatUnavailable
             }
-            try await installation.downloadAndInstall()
+            analyzerFormat = format
+            try checkGeneration(generation)
+            let status = await AssetInventory.status(forModules: [module])
+            try checkGeneration(generation)
+            guard status != .unsupported else { throw NativeSpeechError.modelUnavailable }
+            if status != .installed {
+                emitState("downloading", message: "Downloading Apple’s on-device language model…")
+                guard let installation = try await AssetInventory.assetInstallationRequest(supporting: [module]) else {
+                    throw NativeSpeechError.modelUnavailable
+                }
+                try checkGeneration(generation)
+                try await installation.downloadAndInstall()
+                try checkGeneration(generation)
+            }
+            transcriber = module
+        case .dictation(let locale):
+            let module = DictationTranscriber(locale: locale, preset: .progressiveShortDictation)
+            analyzer = SpeechAnalyzer(modules: [module])
+            guard let format = await SpeechAnalyzer.bestAvailableAudioFormat(compatibleWith: [module]) else {
+                throw NativeSpeechError.audioFormatUnavailable
+            }
+            analyzerFormat = format
+            try checkGeneration(generation)
+            let status = await AssetInventory.status(forModules: [module])
+            try checkGeneration(generation)
+            guard status != .unsupported else { throw NativeSpeechError.modelUnavailable }
+            if status != .installed {
+                emitState("downloading", message: "Downloading Apple’s on-device dictation model…")
+                guard let installation = try await AssetInventory.assetInstallationRequest(supporting: [module]) else {
+                    throw NativeSpeechError.modelUnavailable
+                }
+                try checkGeneration(generation)
+                try await installation.downloadAndInstall()
+                try checkGeneration(generation)
+            }
+            dictationTranscriber = module
         }
 
         let stream = AsyncStream<AnalyzerInput>.makeStream()
-        self.transcriber = transcriber
         self.analyzer = analyzer
         self.analyzerFormat = analyzerFormat
         self.inputBuilder = stream.continuation
         self.finalizedTranscript = ""
         self.volatileTranscript = ""
 
-        resultTask = Task { @MainActor [weak self, transcriber] in
+        resultTask = Task { @MainActor [weak self] in
             do {
-                for try await result in transcriber.results {
-                    guard let self else { return }
-                    let text = String(result.text.characters).trimmingCharacters(in: .whitespacesAndNewlines)
-                    if result.isFinal {
-                        self.finalizedTranscript = Self.join(self.finalizedTranscript, text)
-                        self.volatileTranscript = ""
-                    } else {
-                        self.volatileTranscript = text
+                switch engine {
+                case .speech:
+                    guard let module = self?.transcriber else { return }
+                    for try await result in module.results {
+                        guard let self, generation == self.sessionGeneration else { return }
+                        self.acceptResult(String(result.text.characters), isFinal: result.isFinal)
                     }
-                    self.emitTranscript(isFinal: result.isFinal)
+                case .dictation:
+                    guard let module = self?.dictationTranscriber else { return }
+                    for try await result in module.results {
+                        guard let self, generation == self.sessionGeneration else { return }
+                        self.acceptResult(String(result.text.characters), isFinal: result.isFinal)
+                    }
                 }
             } catch is CancellationError {
                 return
             } catch {
-                guard let self else { return }
+                guard let self, generation == self.sessionGeneration else { return }
                 Task { @MainActor in
+                    guard generation == self.sessionGeneration else { return }
                     await self.cancelSession(clearTranscript: false)
                     self.emitState("error", message: "Apple’s on-device transcription stopped unexpectedly.")
                 }
@@ -186,17 +268,58 @@ public final class NativeSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
         }
 
         try await analyzer.start(inputSequence: stream.stream)
-        try startAudioCapture(analyzerFormat: analyzerFormat)
+        try checkGeneration(generation)
+        try startAudioCapture(analyzerFormat: analyzerFormat, readyCue: readyCue)
         preparing = false
         active = true
+        if readyCue { try playReadyCue() }
         emitState("listening", message: "Listening on this device…")
-        return locale
+        return engine.locale
     }
 
     @MainActor
-    private func startAudioCapture(analyzerFormat: AVAudioFormat) throws {
+    private func acceptResult(_ rawText: String, isFinal: Bool) {
+        let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if isFinal {
+            finalizedTranscript = Self.join(finalizedTranscript, text)
+            volatileTranscript = ""
+        } else {
+            volatileTranscript = text
+        }
+        emitTranscript(isFinal: isFinal)
+    }
+
+    @MainActor
+    private func playReadyCue() throws {
+        guard let format = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1),
+              let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 6_615),
+              let samples = buffer.floatChannelData?[0] else {
+            throw NativeSpeechError.audioFormatUnavailable
+        }
+        buffer.frameLength = 6_615
+        for index in 0..<Int(buffer.frameLength) {
+            let progress = Float(index) / Float(buffer.frameLength)
+            let envelope = min(1, progress * 25, (1 - progress) * 25)
+            let seconds = Float(index) / 44_100
+            samples[index] = 0.18 * envelope * sin(2 * .pi * 880 * seconds)
+        }
+        readyCueNode.scheduleBuffer(buffer, completionHandler: nil)
+        readyCueNode.play()
+    }
+
+    @MainActor
+    private func checkGeneration(_ generation: Int) throws {
+        guard generation == sessionGeneration else { throw CancellationError() }
+    }
+
+    @MainActor
+    private func startAudioCapture(analyzerFormat: AVAudioFormat, readyCue: Bool) throws {
         let audioSession = AVAudioSession.sharedInstance()
-        try audioSession.setCategory(.record, mode: .measurement)
+        if readyCue {
+            try audioSession.setCategory(.playAndRecord, mode: .default, options: [.defaultToSpeaker, .allowBluetoothHFP])
+        } else {
+            try audioSession.setCategory(.record, mode: .measurement)
+        }
         try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
 
         let inputNode = audioEngine.inputNode
@@ -225,6 +348,15 @@ public final class NativeSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
             }
         }
         tapInstalled = true
+        if readyCue {
+            guard let cueFormat = AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 1) else {
+                throw NativeSpeechError.audioFormatUnavailable
+            }
+            if !audioEngine.attachedNodes.contains(readyCueNode) {
+                audioEngine.attach(readyCueNode)
+            }
+            audioEngine.connect(readyCueNode, to: audioEngine.mainMixerNode, format: cueFormat)
+        }
         audioEngine.prepare()
         try audioEngine.start()
     }
@@ -273,6 +405,7 @@ public final class NativeSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @MainActor
     private func cancelSession(clearTranscript: Bool) async {
+        sessionGeneration += 1
         stopAudioCapture()
         await analyzer?.cancelAndFinishNow()
         resultTask?.cancel()
@@ -290,6 +423,7 @@ public final class NativeSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @MainActor
     private func stopAudioCapture() {
+        readyCueNode.stop()
         if tapInstalled {
             audioEngine.inputNode.removeTap(onBus: 0)
             tapInstalled = false
@@ -305,6 +439,7 @@ public final class NativeSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
     private func releaseSessionObjects() {
         analyzer = nil
         transcriber = nil
+        dictationTranscriber = nil
         analyzerFormat = nil
     }
 
@@ -380,7 +515,6 @@ public final class NativeSpeechPlugin: CAPPlugin, CAPBridgedPlugin {
 }
 
 private enum NativeSpeechError: LocalizedError {
-    case transcriberUnavailable
     case localeUnsupported
     case modelUnavailable
     case audioFormatUnavailable
@@ -389,7 +523,6 @@ private enum NativeSpeechError: LocalizedError {
 
     var code: String {
         switch self {
-        case .transcriberUnavailable: return "speech_transcriber_unavailable"
         case .localeUnsupported: return "speech_locale_unsupported"
         case .modelUnavailable: return "speech_model_unavailable"
         case .audioFormatUnavailable: return "speech_audio_format_unavailable"
@@ -400,10 +533,8 @@ private enum NativeSpeechError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .transcriberUnavailable:
-            return "Apple on-device transcription is not available on this device."
         case .localeUnsupported:
-            return "On-device transcription does not support this language."
+            return "Neither Apple on-device transcription engine supports this language on this device."
         case .modelUnavailable:
             return "The on-device language model could not be installed."
         case .audioFormatUnavailable:

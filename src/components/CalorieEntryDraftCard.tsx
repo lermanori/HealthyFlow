@@ -15,6 +15,7 @@ export type CalorieEntryDraftValue = {
 type CalorieEntryDraftCardProps = {
   entries: CalorieEntryDraftValue[]
   editable?: boolean
+  embedded?: boolean
   statusLabel?: string
   statusTone?: 'pending' | 'confirmed' | 'canceled' | 'error'
   footer?: ReactNode
@@ -26,7 +27,7 @@ function statusClasses(tone: CalorieEntryDraftCardProps['statusTone']) {
     case 'confirmed': return 'border-state-success/30 bg-state-success/10 text-state-success'
     case 'canceled': return 'border-line bg-page/70 text-ink-soft'
     case 'error': return 'border-state-danger/35 bg-state-danger/10 text-state-danger'
-    default: return 'border-state-warning/30 bg-state-warning/10 text-state-warning'
+    default: return 'border-accent/20 bg-accent/10 text-accent'
   }
 }
 
@@ -58,6 +59,7 @@ function StatPill({ children, accent = false }: { children: ReactNode; accent?: 
 export default function CalorieEntryDraftCard({
   entries,
   editable = false,
+  embedded = false,
   statusLabel,
   statusTone = 'pending',
   footer,
@@ -71,38 +73,45 @@ export default function CalorieEntryDraftCard({
   }, 0)
 
   return (
-    <div className="box-border w-full max-w-full overflow-hidden rounded-xl border border-accent/25 bg-sunken/55 p-3 shadow-lg shadow-black/15 sm:p-4">
-      <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className={`flex h-8 w-8 flex-none items-center justify-center rounded-md ${
-            statusTone === 'confirmed' ? 'bg-state-success/15 text-state-success' : 'bg-accent/15 text-accent'
-          }`}>
-            {statusTone === 'confirmed' ? <CheckCircle2 className="h-4 w-4" /> : <Flame className="h-4 w-4" />}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-ink">
-              {safeEntries.length === 1 ? 'Calorie entry' : `${safeEntries.length} Calorie entries`}
-            </p>
-            <p className="text-xs text-ink-muted">{totalCalories} cal total</p>
+    <div className={`box-border w-full max-w-full overflow-hidden ${
+      embedded
+        ? 'bg-transparent'
+        : 'rounded-[1.35rem] border border-line border-l-[5px] border-l-category-nutrition bg-card p-4 shadow-[0_10px_28px_rgba(26,25,23,0.08)]'
+    }`}>
+      {!embedded && (
+        <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className={`flex h-8 w-8 flex-none items-center justify-center rounded-md ${
+              statusTone === 'confirmed' ? 'bg-state-success/15 text-state-success' : 'bg-accent/15 text-accent'
+            }`}>
+              {statusTone === 'confirmed' ? <CheckCircle2 className="h-4 w-4" /> : <Flame className="h-4 w-4" />}
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink">
+                {safeEntries.length === 1 ? 'Calorie entry' : `${safeEntries.length} Calorie entries`}
+              </p>
+              <p className="text-xs text-ink-muted">{totalCalories} cal total</p>
+            </div>
           </div>
+          {!canEdit && (
+            <span className="inline-flex flex-none items-center gap-1 rounded-full border border-accent/30 bg-accent/15 px-2 py-1 text-[11px] font-medium text-accent">
+              <Pencil className="h-3 w-3" />
+              <span className="hidden sm:inline">Preview</span>
+            </span>
+          )}
         </div>
-        {!canEdit && (
-          <span className="inline-flex flex-none items-center gap-1 rounded-full border border-accent/30 bg-accent/15 px-2 py-1 text-[11px] font-medium text-accent">
-            <Pencil className="h-3 w-3" />
-            <span className="hidden sm:inline">Preview</span>
-          </span>
-        )}
-      </div>
+      )}
 
       {statusLabel && (
-        <div className={`mb-3 max-w-full overflow-hidden text-ellipsis rounded-md border px-3 py-2 text-xs ${statusClasses(statusTone)}`}>
+        <div className={`mb-3 inline-flex max-w-full items-center gap-2 overflow-hidden text-ellipsis rounded-full border px-3 py-1.5 text-xs ${statusClasses(statusTone)}`}>
+          <span className="h-1.5 w-1.5 flex-none rounded-full bg-current" />
           {statusLabel}
         </div>
       )}
 
       <div className="space-y-3">
         {safeEntries.map((entry, index) => (
-          <div key={index} className="rounded-lg border border-card bg-page/45 p-3">
+          <div key={index} className="rounded-2xl border border-line bg-page/60 p-3">
             {canEdit ? (
               <div className="grid min-w-0 gap-2 sm:grid-cols-2">
                 <label className="grid gap-1 text-xs font-medium text-ink-muted sm:col-span-2">

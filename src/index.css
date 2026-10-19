@@ -455,6 +455,26 @@
   display: none;
 }
 
+.talk-capture-mic-listening {
+  box-shadow:
+    0 0 0 0 rgb(var(--action-primary) / 0.28),
+    var(--shadow-overlay);
+  animation: talk-capture-pulse 1.6s ease-out infinite;
+}
+
+@keyframes talk-capture-pulse {
+  70% {
+    box-shadow:
+      0 0 0 1.25rem rgb(var(--action-primary) / 0),
+      var(--shadow-overlay);
+  }
+  100% {
+    box-shadow:
+      0 0 0 0 rgb(var(--action-primary) / 0),
+      var(--shadow-overlay);
+  }
+}
+
 /* Print styles */
 @media print {
   .no-print {
@@ -512,6 +532,10 @@
 
   .assistant-composer-form {
     padding-bottom: 0.625rem;
+  }
+
+  .assistant-composer-form.assistant-capture-form {
+    padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
   }
 
   .assistant-messages-scroll {

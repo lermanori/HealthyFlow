@@ -12,6 +12,11 @@ import { db } from '../../src/supabase-client'
 
 jest.mock('../../src/supabase-client', () => ({
   db: {
+    getLatestAiConsentDecision: jest.fn().mockResolvedValue({
+      decision: 'accepted',
+      disclosure_version: '2026-09-28.openai.v1',
+      created_at: '2026-09-28T10:00:00.000Z',
+    }),
     getUserById: jest.fn(),
     getCreditBalance: jest.fn(),
     claimGuestInitialCredits: jest.fn(),

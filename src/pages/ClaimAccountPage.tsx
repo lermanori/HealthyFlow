@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Apple, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
+import AppleSignInButton from '../components/AppleSignInButton'
+import GoogleSignInButton from '../components/GoogleSignInButton'
 import { beginNativeGoogleSignIn } from '../services/googleAuth'
 import { beginAppleSignIn } from '../services/appleAuth'
 import { isNativeIOS } from '../lib/native'
@@ -62,31 +64,25 @@ export default function ClaimAccountPage() {
           day does not move, so nothing about it can go wrong here.
         */}
         <p className="mt-2 text-sm text-ink-muted">
-          Your day stays exactly where it is, on this iPhone. A free account
-          gives you 15 AI actions each calendar month.
+          Your day stays exactly where it is, on this iPhone. After you verify
+          your email, a free account gives you 15 AI actions each calendar month.
         </p>
       </header>
 
-      <div className={isNativeIOS ? 'grid grid-cols-2 gap-3' : ''}>
-        <button
-          type="button"
+      <div className={isNativeIOS ? 'space-y-3' : ''}>
+        <GoogleSignInButton
           onClick={() => void run('google')}
           disabled={busy !== null}
-          className="btn-secondary flex w-full items-center justify-center gap-2 px-3 py-3.5"
-        >
-          {busy === 'google' ? <LoadingSpinner size="sm" /> : null}
-          <span className={isNativeIOS ? 'text-xs' : ''}>Continue with Google</span>
-        </button>
+          loading={busy === 'google'}
+          matchAppleSize={isNativeIOS}
+          showIcon={isNativeIOS}
+        />
         {isNativeIOS && (
-          <button
-            type="button"
+          <AppleSignInButton
             onClick={() => void run('apple')}
             disabled={busy !== null}
-            className="flex w-full items-center justify-center gap-2 rounded-control border border-ink bg-ink px-3 py-3.5 text-xs font-semibold text-page transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {busy === 'apple' ? <LoadingSpinner size="sm" /> : <Apple className="h-5 w-5" />}
-            <span>Continue with Apple</span>
-          </button>
+            loading={busy === 'apple'}
+          />
         )}
       </div>
 

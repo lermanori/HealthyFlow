@@ -248,6 +248,8 @@ async function proposalSnapshot(
 
 /** What a refused Talk stage tells the user. One message per real cause. */
 const TALK_REFUSAL_MESSAGE: Record<string, string> = {
+  ai_consent_required: 'Review and allow AI data sharing before using AI features.',
+  ai_consent_unavailable: 'AI permission could not be checked. Nothing was sent and no action was charged.',
   insufficient_credits: 'You have used your available AI actions.',
   account_required: 'Create a free account to use AI.',
   billing_unavailable: 'AI billing is temporarily unavailable. Your credits were not charged.',

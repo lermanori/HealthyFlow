@@ -11,6 +11,7 @@ const tables: Record<string, Array<Record<string, unknown>>> = {
   external_calendar_events: [{ id: 'event-1', user_id: 'user-1', title: 'Event', raw: { secret: true } }],
   api_tokens: [{ id: 'token-1', user_id: 'user-1', name: 'MCP', scopes: ['hf:read'], token_hash: 'secret' }],
   mcp_oauth_grants: [{ id: 'grant-1', user_id: 'user-1', client_name: 'ChatGPT', refresh_token_hash: 'secret' }],
+  ai_data_sharing_consents: [{ id: 1, user_id: 'user-1', disclosure_version: '2026-09-28.openai.v1', decision: 'accepted', created_at: '2026-09-28T10:00:00.000Z' }],
 }
 
 const selectCalls: Array<{ table: string; columns: string }> = []
@@ -58,6 +59,9 @@ test('builds a schema-valid, paginated archive with soft-deleted Items and batch
   expect(archive.items[0].deleted_at).toBeTruthy()
   expect(archive.health.workoutPlanItems).toEqual([{ id: 'plan-item-1', plan_id: 'plan-1', name: 'Squat' }])
   expect(archive.health.workoutSessionExercises).toEqual([{ id: 'session-item-1', session_id: 'session-1', name: 'Run' }])
+  expect(archive.privacy.aiDataSharingConsents).toEqual([
+    { id: 1, user_id: 'user-1', disclosure_version: '2026-09-28.openai.v1', decision: 'accepted', created_at: '2026-09-28T10:00:00.000Z' },
+  ])
 })
 
 test('redacts credentials, token hashes, and opaque calendar raw data through explicit projections', async () => {

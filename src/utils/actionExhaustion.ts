@@ -35,7 +35,7 @@ export function actionExhaustionView(summary: CreditSummary): ActionExhaustionVi
   if (summary.freeGrant.state === 'email_unverified') {
     return {
       kind: 'email_unverified',
-      title: 'Confirm your email to unlock your 15 AI actions a month.',
+      title: 'Confirm your email to receive 15 free AI actions each month.',
       detail: 'We sent a link when you signed up. Ask for a new one if you cannot find it.',
     }
   }

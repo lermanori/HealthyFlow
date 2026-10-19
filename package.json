@@ -26,6 +26,7 @@
     "lab:talk": "npm --prefix tools/talk-prompt-lab run prompt-lab",
     "lab:talk:smoke": "npm --prefix tools/talk-prompt-lab run smoke",
     "test:unit": "tsx --test src/utils/*.test.ts src/lib/*.test.ts src/lib/local/*.test.ts tests/frontend-startup.test.ts",
+    "test:ios-camera": "sh scripts/test-ios-camera.sh",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
   },

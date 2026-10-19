@@ -3,6 +3,7 @@ import { registerPlugin, type PluginListenerHandle } from '@capacitor/core'
 export type NativeSpeechAvailability = {
   available: boolean
   locale?: string
+  engine?: 'speechTranscriber' | 'dictationTranscriber'
   modelStatus?: 'unsupported' | 'supported' | 'downloading' | 'installed' | 'unknown'
   permission?: 'notDetermined' | 'denied' | 'granted' | 'unknown'
   reason?: string
@@ -22,7 +23,7 @@ export type NativeSpeechStateEvent = {
 
 interface NativeSpeechPlugin {
   getAvailability(options?: { locale?: string }): Promise<NativeSpeechAvailability>
-  start(options?: { locale?: string }): Promise<{ locale: string }>
+  start(options?: { locale?: string; readyCue?: boolean }): Promise<{ locale: string }>
   stop(): Promise<{ text: string }>
   cancel(): Promise<void>
   addListener(

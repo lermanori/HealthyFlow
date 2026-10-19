@@ -109,6 +109,28 @@ function labelForCapability(capability: string) {
   return compactToolName(capability).replace(/\b\w/g, (char) => char.toUpperCase())
 }
 
+function friendlyCapabilityLabel(capability: string) {
+  switch (capability) {
+    case 'add_task': return 'New task'
+    case 'add_habit': return 'New habit'
+    case 'add_calorie_entry': return 'New nutrition entry'
+    case 'add_calorie_entries': return 'New nutrition entries'
+    case 'add_weight_entry': return 'New weight entry'
+    case 'add_achievement_entry': return 'New achievement'
+    case 'add_workout_session': return 'New workout'
+    case 'add_workout_plan': return 'New workout plan'
+    case 'create_focus_block': return 'New focus block'
+    case 'add_work_task': return 'New work task'
+    case 'add_goal': return 'New goal'
+    case 'update_goal': return 'Goal update'
+    case 'archive_goal': return 'Archive goal'
+    case 'update_item': return 'Update item'
+    case 'complete_task': return 'Complete task'
+    case 'delete_item': return 'Delete item'
+    default: return labelForCapability(capability)
+  }
+}
+
 function iconForCapability(capability: string) {
   if (capability.includes('calorie')) return <Flame className="h-4 w-4" />
   if (capability.includes('weight')) return <Scale className="h-4 w-4" />
@@ -119,8 +141,25 @@ function iconForCapability(capability: string) {
   return <Pencil className="h-4 w-4" />
 }
 
+function proposalEdgeClass(action: PendingActionView, draft: Record<string, unknown>) {
+  if (action.capability.includes('delete')) return 'border-l-state-danger'
+  if (action.capability.includes('calorie')) return 'border-l-category-nutrition'
+  if (action.capability.includes('workout')) return 'border-l-category-fitness'
+  if (action.capability.includes('goal')) return 'border-l-accent'
+
+  const category = fieldValue(draft.category || action.args?.category)
+  switch (category) {
+    case 'health': return 'border-l-category-health'
+    case 'work': return 'border-l-category-work'
+    case 'fitness': return 'border-l-category-fitness'
+    case 'grocery': return 'border-l-category-grocery'
+    case 'nutrition': return 'border-l-category-nutrition'
+    default: return 'border-l-category-personal'
+  }
+}
+
 function inputClass() {
-  return 'h-11 rounded-md border border-line bg-sunken px-3 text-sm text-ink outline-none transition-colors focus:border-accent'
+  return 'h-11 rounded-xl border border-line bg-page px-3 text-sm text-ink outline-none transition-colors focus:border-accent'
 }
 
 function TextField({
@@ -514,7 +553,7 @@ function statusToneClasses(tone: 'pending' | 'confirmed' | 'canceled' | 'error')
     case 'confirmed': return 'border-state-success/30 bg-state-success/10 text-state-success'
     case 'canceled': return 'border-line bg-page/70 text-ink-soft'
     case 'error': return 'border-state-danger/35 bg-state-danger/10 text-state-danger'
-    default: return 'border-state-warning/30 bg-state-warning/10 text-state-warning'
+    default: return 'border-accent/20 bg-accent/10 text-accent'
   }
 }
 
@@ -624,8 +663,8 @@ export function PendingActionDeck({ actions, onConfirm, onCancel }: PendingActio
   }
 
   return (
-    <section className="mt-3 min-w-0 rounded-lg border border-card bg-page/40 p-2.5 sm:p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
+    <section className="mt-3 min-w-0">
+      <div className="mb-3 flex items-center justify-between gap-2 px-1">
         <div className="min-w-0">
           <div className="text-xs font-semibold text-ink" aria-live="polite">
             Proposal {currentIndex + 1} of {actions.length}
@@ -638,7 +677,7 @@ export function PendingActionDeck({ actions, onConfirm, onCancel }: PendingActio
           <button
             type="button"
             aria-label="Previous proposal"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-line text-ink-soft disabled:opacity-35"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-line bg-card text-ink-soft shadow-sm disabled:opacity-35"
             disabled={currentIndex === 0}
             onClick={() => goTo(currentIndex - 1)}
           >
@@ -647,7 +686,7 @@ export function PendingActionDeck({ actions, onConfirm, onCancel }: PendingActio
           <button
             type="button"
             aria-label="Next proposal"
-            className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-line text-ink-soft disabled:opacity-35"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-line bg-card text-ink-soft shadow-sm disabled:opacity-35"
             disabled={currentIndex === actions.length - 1}
             onClick={() => goTo(currentIndex + 1)}
           >
@@ -662,7 +701,7 @@ export function PendingActionDeck({ actions, onConfirm, onCancel }: PendingActio
         aria-roledescription="carousel"
         aria-label={`${actions.length} Talk proposals`}
         tabIndex={0}
-        className="talk-proposal-deck flex min-w-0 snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
+        className="talk-proposal-deck flex min-w-0 snap-x snap-mandatory overflow-x-auto overscroll-x-contain rounded-[1.5rem] outline-none focus-visible:ring-2 focus-visible:ring-accent/70"
         onKeyDown={(event) => {
           if (event.target !== event.currentTarget) return
           if (event.key === 'ArrowLeft') {
@@ -727,7 +766,7 @@ export default function PendingActionCard({
       ? JSON.stringify(action.args?.exercises ?? [], null, 2)
       : action.args?.exercises,
   }))
-  const [isEditing, setIsEditing] = useState(true)
+  const [isEditing, setIsEditing] = useState(false)
   const statusRef = useRef<HTMLDivElement>(null)
   const previousStateRef = useRef(`${action.status ?? 'pending'}:${action.error ?? ''}`)
 
@@ -782,49 +821,44 @@ export default function PendingActionCard({
   const updateDraftValue = updateItemDraftValue(action, draft)
   const currentWorkTaskPreview = workTaskPreview(action)
   const currentWorkProjectTarget = fieldValue(currentWorkTaskPreview.project?.target)
+  const headerStatus = action.error
+    ? 'Needs attention'
+    : status === 'confirmed'
+      ? 'Added to your day'
+      : status === 'canceled'
+        ? 'Not added'
+        : 'Ready to review'
+  const detailStatusLabel = action.error || !isPending ? statusLabel : undefined
 
   return (
     <div
       ref={statusRef}
       tabIndex={-1}
       aria-live="polite"
-      className={`mt-3 box-border w-full max-w-full overflow-hidden rounded-lg border bg-sunken p-3 shadow-lg shadow-black/20 outline-none sm:p-4 ${
-        action.error
-          ? 'border-state-danger/50'
-          : status === 'confirmed'
-            ? 'border-state-success/50'
-            : status === 'canceled'
-              ? 'border-line'
-              : 'border-state-warning/40'
-      }`}
+      className={`mt-3 box-border w-full max-w-full overflow-hidden rounded-[1.5rem] border border-line border-l-[5px] ${proposalEdgeClass(action, draft)} bg-card p-4 shadow-[0_10px_28px_rgba(26,25,23,0.08)] outline-none sm:p-5`}
     >
-      <div className="mb-3 flex min-w-0 items-center justify-between gap-3">
-        <div className={`flex min-w-0 items-center gap-2 text-sm font-semibold ${
-          action.error
-            ? 'text-state-danger'
-            : status === 'confirmed'
-              ? 'text-state-success'
-              : status === 'canceled'
-                ? 'text-ink-soft'
-                : 'text-state-warning'
-        }`}>
-          <span className={`flex h-8 w-8 items-center justify-center rounded-md ${
+      <div className="mb-4 flex min-w-0 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className={`flex h-10 w-10 flex-none items-center justify-center rounded-xl ${
             action.error
               ? 'bg-state-danger/15 text-state-danger'
               : status === 'confirmed'
                 ? 'bg-state-success/15 text-state-success'
                 : status === 'canceled'
-                  ? 'bg-card text-ink-soft'
-                  : 'bg-state-warning/15 text-state-warning'
+                  ? 'bg-page text-ink-soft'
+                  : 'bg-accent/10 text-accent'
           }`}>
             {iconForCapability(action.capability)}
           </span>
-          <span className="min-w-0 truncate">{labelForCapability(action.capability)}</span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-ink">{friendlyCapabilityLabel(action.capability)}</p>
+            <p className={`mt-0.5 text-xs ${action.error ? 'text-state-danger' : 'text-ink-muted'}`}>{headerStatus}</p>
+          </div>
         </div>
         {isPending && (
           <button
             type="button"
-            className="inline-flex min-h-11 items-center rounded-md border border-line px-3 text-xs text-ink-soft hover:border-accent hover:text-accent"
+            className="inline-flex min-h-10 flex-none items-center rounded-full border border-line bg-page px-4 text-xs font-medium text-ink-soft hover:border-accent hover:text-accent"
             onClick={() => setIsEditing((value) => !value)}
           >
             {isEditing ? 'Preview' : 'Edit'}
@@ -836,7 +870,8 @@ export default function PendingActionCard({
         !['add_task', 'add_habit', 'add_calorie_entry', 'add_calorie_entries', 'complete_task', 'update_item', 'delete_item'].includes(action.capability)
         || (isEditing && ['update_item', 'delete_item'].includes(action.capability))
       ) && (
-        <div className={`mb-3 rounded-md border px-3 py-2 text-xs ${statusToneClasses(pendingStatusTone(action))}`}>
+        <div className={`mb-4 inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-1.5 text-xs ${statusToneClasses(pendingStatusTone(action))}`}>
+          <span className="h-1.5 w-1.5 flex-none rounded-full bg-current" />
           {statusLabel}
         </div>
       )}
@@ -848,7 +883,8 @@ export default function PendingActionCard({
               <TaskDraftCard
                 value={taskDraftValueFromPendingAction(action, draft)}
                 editable
-                statusLabel={statusLabel}
+                embedded
+                statusLabel={action.error ? statusLabel : undefined}
                 statusTone={pendingStatusTone(action)}
                 quickDates={assistantQuickDates()}
                 onChange={(patch) => setDraft((current) => ({ ...current, ...taskDraftPatchToPendingDraft(patch) }))}
@@ -860,7 +896,8 @@ export default function PendingActionCard({
               <TaskDraftCard
                 value={taskDraftValueFromPendingAction(action, draft)}
                 editable
-                statusLabel={statusLabel}
+                embedded
+                statusLabel={action.error ? statusLabel : undefined}
                 statusTone={pendingStatusTone(action)}
                 onChange={(patch) => setDraft((current) => ({ ...current, ...taskDraftPatchToPendingDraft(patch) }))}
               />
@@ -871,7 +908,8 @@ export default function PendingActionCard({
               <CalorieEntryDraftCard
                 entries={calorieDraftsFromPendingAction(action, draft)}
                 editable
-                statusLabel={statusLabel}
+                embedded
+                statusLabel={action.error ? statusLabel : undefined}
                 statusTone={pendingStatusTone(action)}
                 onChange={(_index, patch) => setDraft((current) => ({ ...current, ...patch }))}
               />
@@ -882,7 +920,8 @@ export default function PendingActionCard({
               <CalorieEntryDraftCard
                 entries={calorieDraftsFromPendingAction(action, draft)}
                 editable
-                statusLabel={statusLabel}
+                embedded
+                statusLabel={action.error ? statusLabel : undefined}
                 statusTone={pendingStatusTone(action)}
                 onChange={(index, patch) => {
                   Object.entries(patch).forEach(([key, value]) => setEntryField(index, key, value))
@@ -1020,6 +1059,7 @@ export default function PendingActionCard({
             <div className="min-w-0 sm:col-span-2">
               <TaskDraftCard
                 value={taskDraftValueFromRecord(taskItemFromAction(action)!)}
+                embedded
                 statusLabel={statusLabel}
                 statusTone={pendingStatusTone(action)}
               />
@@ -1059,19 +1099,22 @@ export default function PendingActionCard({
         ['add_task', 'add_habit'].includes(action.capability) ? (
           <TaskDraftCard
             value={taskDraftValueFromPendingAction(action, draft)}
-            statusLabel={statusLabel}
+            embedded
+            statusLabel={detailStatusLabel}
             statusTone={pendingStatusTone(action)}
           />
         ) : ['add_calorie_entry', 'add_calorie_entries'].includes(action.capability) ? (
           <CalorieEntryDraftCard
             entries={calorieDraftsFromPendingAction(action, draft)}
-            statusLabel={statusLabel}
+            embedded
+            statusLabel={detailStatusLabel}
             statusTone={pendingStatusTone(action)}
           />
         ) : ['complete_task', 'update_item'].includes(action.capability) && updateDraftValue ? (
           <TaskDraftCard
             value={updateDraftValue}
-            statusLabel={statusLabel}
+            embedded
+            statusLabel={detailStatusLabel}
             statusTone={pendingStatusTone(action)}
           />
         ) : action.capability === 'add_work_task' ? (
@@ -1096,10 +1139,10 @@ export default function PendingActionCard({
       )}
 
       {isPending && (
-        <div className="mt-4 flex flex-wrap gap-2">
+        <div className="mt-5 grid grid-cols-2 gap-3 border-t border-line pt-4">
           <button
             type="button"
-            className="btn-primary min-h-11 px-3 py-2 text-sm disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-action px-3 py-2 text-center text-xs font-semibold leading-4 text-on-action transition-colors hover:bg-action-hover disabled:cursor-wait disabled:opacity-60 sm:text-sm"
             onClick={confirm}
             disabled={isBusy}
           >
@@ -1115,7 +1158,7 @@ export default function PendingActionCard({
           </button>
           <button
             type="button"
-            className="btn-secondary min-h-11 px-3 py-2 text-sm disabled:cursor-wait disabled:opacity-60"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-line bg-page px-3 py-2 text-center text-xs font-semibold leading-4 text-ink transition-colors hover:border-accent hover:text-accent disabled:cursor-wait disabled:opacity-60 sm:text-sm"
             onClick={() => onCancel(action.id)}
             disabled={isBusy}
           >

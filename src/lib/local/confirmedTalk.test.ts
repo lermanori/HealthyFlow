@@ -4,6 +4,7 @@ import {
   applyConfirmedTalkActionToLocalDay,
   localServices,
   setLocalDayUser,
+  verifyConfirmedTalkTaskOnDevice,
 } from './services'
 import { createLocalTask, localItemsForDay } from './day'
 import {
@@ -54,12 +55,17 @@ describe('a confirmed Talk change and a Local day', () => {
     }
 
     assert.equal(await applyConfirmedTalkActionToLocalDay(action, taskResult()), true)
+    await verifyConfirmedTalkTaskOnDevice(taskResult())
     assert.equal(await applyConfirmedTalkActionToLocalDay(action, taskResult()), true)
 
     const database = await loadLocalDatabase(USER)
     assert.equal(database.tasks.length, 1)
     assert.equal(database.tasks[0]?.id, 'talk-task-1')
     assert.deepEqual((await localItemsForDay(USER, TODAY)).map((item) => item.title), ['Visible immediately'])
+  })
+
+  it('refuses a voice-saved receipt before the confirmed Task is present on disk', async () => {
+    await assert.rejects(verifyConfirmedTalkTaskOnDevice(taskResult()), /could not be read back/)
   })
 
   it('mirrors edits and deletions into the Item collection Talk just changed', async () => {

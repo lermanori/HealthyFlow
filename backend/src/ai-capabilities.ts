@@ -114,7 +114,8 @@ const WeightEntrySchema = z.object({
 const AddTaskInput = z.object({
   title: z.string().trim().min(1).max(200),
   category: CategorySchema.default('personal'),
-  duration: z.number().int().positive().default(15),
+  duration: z.number().int().positive().optional()
+    .describe('Estimated minutes only when the user supplied or clearly implied a duration; otherwise omit it.'),
   startTime: z.string().regex(TIME_RE).nullable().optional(),
   scheduledDate: z.string().regex(DATE_RE).optional(),
   requestId: RequestId,
@@ -855,7 +856,7 @@ async function taskRow(input: z.infer<typeof AddTaskInput>, userId: string, type
     type,
     category: input.category,
     start_time: input.startTime ?? null,
-    duration: input.duration,
+    duration: input.duration ?? null,
     repeat_type: type === 'habit' ? (input as z.infer<typeof AddHabitInput>).repeat : 'none',
     scheduled_date: scheduledDate,
     position,
@@ -871,7 +872,7 @@ function previewTaskDbRow(input: z.infer<typeof AddTaskInput>, type: 'task' | 'h
     type,
     category: input.category,
     start_time: input.startTime ?? null,
-    duration: input.duration,
+    duration: input.duration ?? null,
     repeat_type: type === 'habit' ? (input as z.infer<typeof AddHabitInput>).repeat : 'none',
     scheduled_date: scheduledDate,
     position: null,

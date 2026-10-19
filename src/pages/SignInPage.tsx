@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Apple, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useAuth, type SignInPreview } from '../context/AuthContext'
 import LoadingSpinner from '../components/LoadingSpinner'
+import AppleSignInButton from '../components/AppleSignInButton'
+import GoogleSignInButton from '../components/GoogleSignInButton'
 import { beginNativeGoogleSignIn } from '../services/googleAuth'
 import { beginAppleSignIn } from '../services/appleAuth'
 import { isNativeIOS } from '../lib/native'
@@ -184,26 +186,20 @@ export default function SignInPage() {
         </p>
       </header>
 
-      <div className={isNativeIOS ? 'grid grid-cols-2 gap-3' : ''}>
-        <button
-          type="button"
+      <div className={isNativeIOS ? 'space-y-3' : ''}>
+        <GoogleSignInButton
           onClick={() => void authenticate('google')}
           disabled={busy !== null}
-          className="btn-secondary flex w-full items-center justify-center gap-2 px-3 py-3.5"
-        >
-          {busy === 'google' ? <LoadingSpinner size="sm" /> : null}
-          <span className={isNativeIOS ? 'text-xs' : ''}>Continue with Google</span>
-        </button>
+          loading={busy === 'google'}
+          matchAppleSize={isNativeIOS}
+          showIcon={isNativeIOS}
+        />
         {isNativeIOS && (
-          <button
-            type="button"
+          <AppleSignInButton
             onClick={() => void authenticate('apple')}
             disabled={busy !== null}
-            className="flex w-full items-center justify-center gap-2 rounded-control border border-ink bg-ink px-3 py-3.5 text-xs font-semibold text-page disabled:opacity-50"
-          >
-            {busy === 'apple' ? <LoadingSpinner size="sm" /> : <Apple className="h-5 w-5" />}
-            <span>Continue with Apple</span>
-          </button>
+            loading={busy === 'apple'}
+          />
         )}
       </div>
 

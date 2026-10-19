@@ -446,6 +446,21 @@ describe('AI write capabilities', () => {
     }))
   })
 
+  it('keeps an unspecified Task duration unknown', async () => {
+    ;(db.getAiIdempotency as jest.Mock).mockResolvedValueOnce(null)
+    ;(db.getNextPosition as jest.Mock).mockResolvedValueOnce(0)
+
+    await AiCapabilities.add_task.execute(
+      { userId: 'user-1' },
+      { requestId: 'task-without-duration', title: 'Call Mom', category: 'personal', scheduledDate: '2026-07-02' }
+    )
+
+    expect(db.createTask).toHaveBeenCalledWith(expect.objectContaining({
+      title: 'Call Mom',
+      duration: null,
+    }))
+  })
+
   it('creates multiple calorie entries as one confirmed meal group', async () => {
     ;(db.getAiIdempotency as jest.Mock).mockResolvedValueOnce(null)
 

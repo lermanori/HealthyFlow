@@ -230,6 +230,17 @@ type HealthCollection = 'calorieEntries' | 'weightEntries' | 'workoutSessions' |
 type LocalRecord = { id: string; [key: string]: unknown }
 
 const TaskResultSchema = z.looseObject({ item: CapabilityItemSchema })
+
+/** A voice receipt is issued only after the confirmed Task can be read from disk. */
+export async function verifyConfirmedTalkTaskOnDevice(result: unknown): Promise<void> {
+  const userId = dayUserId
+  if (userId === null) throw new LocalStoreError('No Local day is selected for this voice Task.')
+  const { item } = TaskResultSchema.parse(result)
+  const stored = await readStoredLocalDatabase(userId)
+  if (!stored?.tasks.some((task) => task.id === item.id && task.deleted_at === null)) {
+    throw new LocalStoreError('The confirmed Task could not be read back from this iPhone.')
+  }
+}
 const HabitResultSchema = z.looseObject({ detail: HabitProgressDetailSchema })
 const CalorieResultSchema = z.looseObject({ entry: DaySummaryCalorieEntrySchema })
 const CaloriesResultSchema = z.looseObject({ entries: z.array(DaySummaryCalorieEntrySchema) })

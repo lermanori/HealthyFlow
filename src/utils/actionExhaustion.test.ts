@@ -117,7 +117,7 @@ test('an account that never proved its address is told the 15 are locked, not sp
 
   assert.deepEqual(view, {
     kind: 'email_unverified',
-    title: 'Confirm your email to unlock your 15 AI actions a month.',
+    title: 'Confirm your email to receive 15 free AI actions each month.',
     detail: 'We sent a link when you signed up. Ask for a new one if you cannot find it.',
   })
 })

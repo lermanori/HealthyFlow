@@ -735,6 +735,43 @@ export const summaryService = {
 }
 
 // AI Service
+export const AiConsentDisclosureSchema = z.object({
+  version: z.string().min(1),
+  title: z.string().min(1),
+  providers: z.array(z.string().min(1)).min(1),
+  introduction: z.string().min(1),
+  dataCategories: z.array(z.string().min(1)).min(1),
+  processing: z.string().min(1),
+  storage: z.string().min(1),
+  optionalUse: z.string().min(1),
+  futureProviders: z.string().min(1),
+})
+
+export const AiConsentStatusSchema = z.object({
+  state: z.enum(['required', 'accepted', 'declined', 'withdrawn']),
+  decidedAt: z.string().datetime().nullable(),
+  disclosure: AiConsentDisclosureSchema,
+})
+
+export type AiConsentStatus = z.infer<typeof AiConsentStatusSchema>
+export type AiConsentDecision = Exclude<AiConsentStatus['state'], 'required'>
+export const AI_CONSENT_QUERY_KEY = ['ai-consent'] as const
+
+export const aiConsentService = {
+  getStatus: async (): Promise<AiConsentStatus> => {
+    const response = await api.get('/ai/consent')
+    return AiConsentStatusSchema.parse(response.data)
+  },
+
+  decide: async (
+    version: string,
+    decision: AiConsentDecision,
+  ): Promise<AiConsentStatus> => {
+    const response = await api.post('/ai/consent', { version, decision })
+    return AiConsentStatusSchema.parse(response.data)
+  },
+}
+
 export const aiService = {
   // ponytail: route not implemented server-side; return empty so UI shows graceful fallback, no 404
   getRecommendations: async (): Promise<AIRecommendation[]> => {
@@ -1153,6 +1190,8 @@ export const calendarService = {
   getGoogleEvents: getGoogleCalendarEvents,
 
   getDay: readCalendarDay,
+
+  getDaySource: async (date: string) => combinedCalendarReadToDaySource(await readCalendarDay(date)),
 
   getEvents: async (date: string) => (await readCalendarDay(date)).events,
 

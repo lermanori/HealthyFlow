@@ -11,11 +11,14 @@
 		404AC2A24061B623255D0109 /* HealthyFlowViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EC74A2D46E9AADBE5AEF6F7 /* HealthyFlowViewController.swift */; };
 		4A915A9D30E4000000000001 /* AppleSignInPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000002 /* AppleSignInPlugin.swift */; };
 		4A915A9D30E4000000000003 /* GoogleSignInPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000004 /* GoogleSignInPlugin.swift */; };
-		4A915A9D30E4000000000020 /* DeviceCalendarPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000021 /* DeviceCalendarPlugin.swift */; };
-		4A915A9D30E4000000000030 /* NativeSpeechPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000031 /* NativeSpeechPlugin.swift */; };
-		CFA4DAC4ABDA46155869C87F /* DeviceIdentityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D050A53151A19AEFACA316F /* DeviceIdentityPlugin.swift */; };
 		4A915A9D30E4000000000010 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000011 /* PrivacyInfo.xcprivacy */; };
 		4A915A9D30E4000000000012 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000013 /* PrivacyInfo.xcprivacy */; };
+		4A915A9D30E4000000000020 /* DeviceCalendarPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000021 /* DeviceCalendarPlugin.swift */; };
+		4A915A9D30E4000000000040 /* TalkAttachmentsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000041 /* TalkAttachmentsPlugin.swift */; };
+		4A915A9D30E4000000000030 /* NativeSpeechPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000031 /* NativeSpeechPlugin.swift */; };
+		4A915A9D30E4000000000050 /* HandsFreeTalkProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000051 /* HandsFreeTalkProbe.swift */; };
+		4A915A9D30E4000000000060 /* HandsFreeAudioProbeActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000062 /* HandsFreeAudioProbeActivity.swift */; };
+		4A915A9D30E4000000000061 /* HandsFreeAudioProbeActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000062 /* HandsFreeAudioProbeActivity.swift */; };
 		4D22ABE92AF431CB00220026 /* CapApp-SPM in Frameworks */ = {isa = PBXBuildFile; productRef = 4D22ABE82AF431CB00220026 /* CapApp-SPM */; };
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
@@ -25,8 +28,9 @@
 		50B271D11FEDC1A000F3C39B /* public in Resources */ = {isa = PBXBuildFile; fileRef = 50B271D01FEDC1A000F3C39B /* public */; };
 		9BCA472C8643EC511FBB9719 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52ADF83B639547C055B7653B /* Foundation.framework */; };
 		C96D487F3B27313A0E8CB469 /* HealthyFlowWidgetPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6825B864AB229869C40ADF2F /* HealthyFlowWidgetPlugin.swift */; };
+		CFA4DAC4ABDA46155869C87F /* DeviceIdentityPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D050A53151A19AEFACA316F /* DeviceIdentityPlugin.swift */; };
 		E5EF7525F16D8421E2B9A49B /* HealthyFlowWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B709C7BAF369FC58AE12E28 /* HealthyFlowWidget.swift */; };
-		E92F68ABC6DD4F4B3ABBCCA6 /* HealthyFlowWidget.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 3D0DB2B5FA6EA67B873D1183 /* HealthyFlowWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		E92F68ABC6DD4F4B3ABBCCA6 /* HealthyFlowWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 3D0DB2B5FA6EA67B873D1183 /* HealthyFlowWidget.appex */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -40,30 +44,34 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		30689EA49C64DBFB78F89E3D /* Embed App Extensions */ = {
+		30689EA49C64DBFB78F89E3D /* Embed Foundation Extensions */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				E92F68ABC6DD4F4B3ABBCCA6 /* HealthyFlowWidget.appex in Embed App Extensions */,
+				E92F68ABC6DD4F4B3ABBCCA6 /* HealthyFlowWidget.appex in Embed Foundation Extensions */,
 			);
-			name = "Embed App Extensions";
+			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		2FAD9762203C412B000D30F8 /* config.xml */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = config.xml; sourceTree = "<group>"; };
+		3D050A53151A19AEFACA316F /* DeviceIdentityPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceIdentityPlugin.swift; sourceTree = "<group>"; };
 		3D0DB2B5FA6EA67B873D1183 /* HealthyFlowWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = HealthyFlowWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		4B709C7BAF369FC58AE12E28 /* HealthyFlowWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HealthyFlowWidget.swift; sourceTree = "<group>"; };
 		4A915A9D30E4000000000002 /* AppleSignInPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AppleSignInPlugin.swift; sourceTree = "<group>"; };
 		4A915A9D30E4000000000004 /* GoogleSignInPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GoogleSignInPlugin.swift; sourceTree = "<group>"; };
-		4A915A9D30E4000000000021 /* DeviceCalendarPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceCalendarPlugin.swift; sourceTree = "<group>"; };
-		4A915A9D30E4000000000031 /* NativeSpeechPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeSpeechPlugin.swift; sourceTree = "<group>"; };
-		3D050A53151A19AEFACA316F /* DeviceIdentityPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceIdentityPlugin.swift; sourceTree = "<group>"; };
 		4A915A9D30E4000000000011 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		4A915A9D30E4000000000013 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		4A915A9D30E4000000000021 /* DeviceCalendarPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceCalendarPlugin.swift; sourceTree = "<group>"; };
+		4A915A9D30E4000000000041 /* TalkAttachmentsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkAttachmentsPlugin.swift; sourceTree = "<group>"; };
+		4A915A9D30E4000000000031 /* NativeSpeechPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeSpeechPlugin.swift; sourceTree = "<group>"; };
+		4A915A9D30E4000000000051 /* HandsFreeTalkProbe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HandsFreeTalkProbe.swift; sourceTree = "<group>"; };
+		4A915A9D30E4000000000062 /* HandsFreeAudioProbeActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HandsFreeAudioProbeActivity.swift; sourceTree = "<group>"; };
+		4A915A9D30E4000000000063 /* Info-Probe.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-Probe.plist"; sourceTree = "<group>"; };
+		4B709C7BAF369FC58AE12E28 /* HealthyFlowWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HealthyFlowWidget.swift; sourceTree = "<group>"; };
 		50379B222058CBB4000EE86E /* capacitor.config.json */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.json; path = capacitor.config.json; sourceTree = "<group>"; };
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -131,6 +139,7 @@
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
 				504EC3131FED79650016851F /* Info.plist */,
+				4A915A9D30E4000000000063 /* Info-Probe.plist */,
 				94D3AF2C2E3A100000000001 /* App.entitlements */,
 				2FAD9762203C412B000D30F8 /* config.xml */,
 				50B271D01FEDC1A000F3C39B /* public */,
@@ -139,7 +148,10 @@
 				4A915A9D30E4000000000002 /* AppleSignInPlugin.swift */,
 				4A915A9D30E4000000000004 /* GoogleSignInPlugin.swift */,
 				4A915A9D30E4000000000021 /* DeviceCalendarPlugin.swift */,
+				4A915A9D30E4000000000041 /* TalkAttachmentsPlugin.swift */,
 				4A915A9D30E4000000000031 /* NativeSpeechPlugin.swift */,
+				4A915A9D30E4000000000051 /* HandsFreeTalkProbe.swift */,
+				4A915A9D30E4000000000062 /* HandsFreeAudioProbeActivity.swift */,
 				3D050A53151A19AEFACA316F /* DeviceIdentityPlugin.swift */,
 			);
 			path = App;
@@ -182,7 +194,7 @@
 				504EC3001FED79650016851F /* Sources */,
 				504EC3011FED79650016851F /* Frameworks */,
 				504EC3021FED79650016851F /* Resources */,
-				30689EA49C64DBFB78F89E3D /* Embed App Extensions */,
+				30689EA49C64DBFB78F89E3D /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
@@ -220,8 +232,9 @@
 		504EC2FC1FED79650016851F /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				BuildIndependentTargetsInParallel = YES;
 				LastSwiftUpdateCheck = 0920;
-				LastUpgradeCheck = 0920;
+				LastUpgradeCheck = 2640;
 				TargetAttributes = {
 					504EC3031FED79650016851F = {
 						CreatedOnToolsVersion = 9.2;
@@ -293,7 +306,10 @@
 				4A915A9D30E4000000000001 /* AppleSignInPlugin.swift in Sources */,
 				4A915A9D30E4000000000003 /* GoogleSignInPlugin.swift in Sources */,
 				4A915A9D30E4000000000020 /* DeviceCalendarPlugin.swift in Sources */,
+				4A915A9D30E4000000000040 /* TalkAttachmentsPlugin.swift in Sources */,
 				4A915A9D30E4000000000030 /* NativeSpeechPlugin.swift in Sources */,
+				4A915A9D30E4000000000050 /* HandsFreeTalkProbe.swift in Sources */,
+				4A915A9D30E4000000000060 /* HandsFreeAudioProbeActivity.swift in Sources */,
 				CFA4DAC4ABDA46155869C87F /* DeviceIdentityPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -303,6 +319,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E5EF7525F16D8421E2B9A49B /* HealthyFlowWidget.swift in Sources */,
+				4A915A9D30E4000000000061 /* HandsFreeAudioProbeActivity.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -344,8 +361,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = HealthyFlowWidget/HealthyFlowWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
-				DEVELOPMENT_TEAM = PA7L4ZHG8D;
+				CURRENT_PROJECT_VERSION = 7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = HealthyFlowWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -375,6 +391,7 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
@@ -382,8 +399,10 @@
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -393,8 +412,10 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = PA7L4ZHG8D;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -413,6 +434,7 @@
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
@@ -432,6 +454,7 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
 				CLANG_WARN_EMPTY_BODY = YES;
@@ -439,8 +462,10 @@
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
 				CLANG_WARN_STRICT_PROTOTYPES = YES;
 				CLANG_WARN_SUSPICIOUS_MOVE = YES;
@@ -450,8 +475,10 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = PA7L4ZHG8D;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
@@ -463,6 +490,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				VALIDATE_PRODUCT = YES;
@@ -476,9 +504,8 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
-				DEVELOPMENT_TEAM = PA7L4ZHG8D;
-				INFOPLIST_FILE = App/Info.plist;
+				CURRENT_PROJECT_VERSION = 7;
+				INFOPLIST_FILE = "App/Info-Probe.plist";
 				INFOPLIST_KEY_CFBundleDisplayName = HealthyFlow;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
@@ -502,8 +529,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = App/App.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
-				DEVELOPMENT_TEAM = PA7L4ZHG8D;
+				CURRENT_PROJECT_VERSION = 7;
 				INFOPLIST_FILE = App/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = HealthyFlow;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.healthcare-fitness";
@@ -528,8 +554,7 @@
 				CLANG_ENABLE_OBJC_WEAK = NO;
 				CODE_SIGN_ENTITLEMENTS = HealthyFlowWidget/HealthyFlowWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 5;
-				DEVELOPMENT_TEAM = PA7L4ZHG8D;
+				CURRENT_PROJECT_VERSION = 7;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = HealthyFlowWidget/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;

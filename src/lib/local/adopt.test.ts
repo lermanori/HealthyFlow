@@ -93,7 +93,7 @@ describe('reading an account export onto the device', () => {
 
     // Calendar connections, assistant history, billing, tokens and OAuth grants
     // are the account's, not the day's, and must not land on a device.
-    for (const key of ['calendar', 'assistant', 'billing', 'apiTokens', 'mcpOAuthGrants']) {
+    for (const key of ['calendar', 'assistant', 'privacy', 'billing', 'apiTokens', 'mcpOAuthGrants']) {
       assert.equal(day[key], undefined, `${key} must not reach the device`)
     }
   })

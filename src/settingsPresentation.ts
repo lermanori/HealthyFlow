@@ -25,8 +25,8 @@ export type SettingsCategory = z.infer<typeof SettingsCategorySchema>
 export const SETTINGS_CATEGORIES = z.array(SettingsCategorySchema).parse([
   {
     id: 'account-billing',
-    label: 'Account & Billing',
-    description: 'Profile, AI credits, and subscription status.',
+    label: 'Account & AI actions',
+    description: 'Profile, free AI actions, and Founders Club.',
     order: 10,
     classification: 'routine',
     icon: 'user',

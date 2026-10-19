@@ -53,12 +53,37 @@ export const AssistantProfilePatchSchema = AssistantProfileFieldsSchema.strict()
 
 export const DEFAULT_ASSISTANT_PROFILE = AssistantProfileSchema.parse({})
 
+const AssistantCalendarEventSchema = z.object({
+  title: z.string(),
+  description: z.string().nullable(),
+  location: z.string().nullable(),
+  startAt: z.string().nullable(),
+  endAt: z.string().nullable(),
+  localStartTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable(),
+  localEndTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable(),
+  allDay: z.boolean(),
+  status: z.string().nullable(),
+}).strict()
+
+const AssistantCalendarDaySchema = z.object({
+  date: z.string().date(),
+  status: z.enum(['connected', 'connected_empty', 'not_connected', 'not_entitled', 'unavailable']),
+  reasonCode: z.enum(['not_connected', 'cloud_not_active', 'status_unavailable', 'sync_failed']).nullable(),
+  events: z.array(AssistantCalendarEventSchema).max(20),
+  truncated: z.boolean(),
+}).strict()
+
+export const AssistantCalendarContextSchema = z.object({
+  days: z.array(AssistantCalendarDaySchema).max(7),
+}).strict()
+
 /** A bounded snapshot sent with a Talk turn so Local-first sessions work too. */
 export const AssistantContextSchema = z.object({
   ownerName: z.string().trim().min(1).max(80).nullable().default(null),
   profile: AssistantProfileSchema,
   goals: GoalContextSchema,
   habitHistory: HabitHistoryContextSchema.default({ status: 'unavailable' }),
+  calendar: AssistantCalendarContextSchema.optional(),
 }).strict()
 
 /**
@@ -132,6 +157,7 @@ const SettingsContracts = {
   AssistantFollowUpModeSchema,
   AssistantProfileSchema,
   AssistantProfilePatchSchema,
+  AssistantCalendarContextSchema,
   AssistantContextSchema,
   SettingsSchema,
   SettingsPatchSchema,

@@ -27,6 +27,7 @@ type TaskDraftCardProps = {
   selected?: boolean
   selectable?: boolean
   editable?: boolean
+  embedded?: boolean
   statusLabel?: string
   statusTone?: 'pending' | 'confirmed' | 'canceled' | 'error'
   quickDates?: QuickDate[]
@@ -53,6 +54,17 @@ function getCategoryColor(category: string) {
   return getCategoryPresentation(category).className
 }
 
+function getCategoryEdgeColor(category: string) {
+  switch (getCategoryPresentation(category).id) {
+    case 'health': return 'border-l-category-health'
+    case 'work': return 'border-l-category-work'
+    case 'fitness': return 'border-l-category-fitness'
+    case 'grocery': return 'border-l-category-grocery'
+    case 'nutrition': return 'border-l-category-nutrition'
+    default: return 'border-l-category-personal'
+  }
+}
+
 function getDateLabel(date?: string) {
   if (!date) return 'No date'
   const today = format(new Date(), 'yyyy-MM-dd')
@@ -75,7 +87,7 @@ function statusClasses(tone: TaskDraftCardProps['statusTone']) {
     case 'confirmed': return 'border-state-success/30 bg-state-success/10 text-state-success'
     case 'canceled': return 'border-line bg-page/70 text-ink-soft'
     case 'error': return 'border-state-danger/35 bg-state-danger/10 text-state-danger'
-    default: return 'border-state-warning/30 bg-state-warning/10 text-state-warning'
+    default: return 'border-accent/20 bg-accent/10 text-accent'
   }
 }
 
@@ -102,7 +114,7 @@ function PillSelect({
       value={value}
       onClick={stopControlClick}
       onChange={(event) => onChange?.(event.target.value)}
-      className={`h-8 max-w-full rounded-full border px-2.5 text-xs font-medium outline-none transition-colors focus:border-accent ${className}`}
+      className={`h-9 max-w-full rounded-full border px-3 text-xs font-medium outline-none transition-colors focus:border-accent ${className}`}
     >
       {options.map((option) => (
         <option key={option} value={option}>
@@ -129,7 +141,7 @@ function PillInput({
   suffix?: string
 }) {
   return (
-    <label className={`inline-flex h-8 max-w-full items-center gap-1 rounded-full border px-2.5 text-xs font-medium ${className}`} onClick={stopControlClick}>
+    <label className={`inline-flex h-9 max-w-full items-center gap-1 rounded-full border px-3 text-xs font-medium ${className}`} onClick={stopControlClick}>
       <input
         aria-label={ariaLabel}
         type={type}
@@ -148,6 +160,7 @@ export default function TaskDraftCard({
   selected = false,
   selectable = false,
   editable = false,
+  embedded = false,
   statusLabel,
   statusTone = 'pending',
   quickDates = [],
@@ -159,12 +172,23 @@ export default function TaskDraftCard({
   const update = (patch: Partial<TaskDraftCardValue>) => onChange?.(patch)
   const dateValue = value.scheduledDate ?? format(new Date(), 'yyyy-MM-dd')
   const canEdit = editable && Boolean(onChange)
+  const compactMetadata = [
+    getCategoryPresentation(value.category).label,
+    value.duration ? `${value.duration} min` : null,
+    value.type === 'habit' ? value.repeat || 'daily' : null,
+    value.scheduledDate ? getDateLabel(value.scheduledDate) : null,
+    value.startTime || null,
+  ].filter(Boolean).join(' · ')
 
   return (
     <div
-      className={`task-suggestion box-border w-full max-w-full overflow-hidden rounded-xl border border-accent/25 bg-sunken/55 p-3 shadow-lg shadow-black/15 transition-all sm:p-4 ${
+      className={`task-suggestion box-border w-full max-w-full overflow-hidden transition-all ${
+        embedded
+          ? 'bg-transparent'
+          : `rounded-[1.35rem] border border-line border-l-[5px] ${getCategoryEdgeColor(value.category)} bg-card p-4 shadow-[0_10px_28px_rgba(26,25,23,0.08)]`
+      } ${
         selectable ? 'cursor-pointer' : ''
-      } ${selected ? 'ring-2 ring-focus' : 'hover:border-accent/45'}`}
+      } ${selected ? 'ring-2 ring-focus' : embedded ? '' : 'hover:border-line-strong'}`}
       onClick={selectable ? onToggle : undefined}
     >
       <div className="flex min-w-0 items-start gap-3">
@@ -191,31 +215,36 @@ export default function TaskDraftCard({
                 value={value.title}
                 onClick={stopControlClick}
                 onChange={(event) => update({ title: event.target.value })}
-                className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 py-0.5 text-base font-semibold text-ink outline-none transition-colors focus:border-accent/60 focus:bg-page/60"
+                className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-1 py-1 text-lg font-semibold tracking-tight text-ink outline-none transition-colors focus:border-accent/40 focus:bg-page/70"
                 dir="auto"
                 aria-label="Draft title"
               />
             ) : (
-              <h4 className="min-w-0 flex-1 break-words text-base font-semibold text-ink" dir="auto">{value.title}</h4>
+              <h4 className="min-w-0 flex-1 break-words text-lg font-semibold tracking-tight text-ink" dir="auto">{value.title}</h4>
             )}
-            <span className="inline-flex flex-none items-center gap-1 rounded-full border border-accent/30 bg-accent/15 px-2 py-1 text-[11px] font-medium text-accent">
-              <Pencil className="h-3 w-3" />
-              <span className="hidden sm:inline">Draft</span>
-            </span>
+            {!embedded && (
+              <span className="inline-flex h-9 w-9 flex-none items-center justify-center rounded-full bg-accent/10 text-accent" aria-label="Editable draft">
+                <Pencil className="h-3 w-3" />
+              </span>
+            )}
           </div>
 
           {statusLabel && (
-            <div className={`mt-3 max-w-full overflow-hidden text-ellipsis rounded-md border px-3 py-2 text-xs ${statusClasses(statusTone)}`}>
+            <div className={`mt-3 inline-flex max-w-full items-center gap-2 overflow-hidden text-ellipsis rounded-full border px-3 py-1.5 text-xs ${statusClasses(statusTone)}`}>
+              <span className="h-1.5 w-1.5 flex-none rounded-full bg-current" />
               {statusLabel}
             </div>
           )}
 
+          {embedded && !canEdit ? (
+            <p className="mt-1 truncate text-sm text-ink-muted">{compactMetadata}</p>
+          ) : (
           <div className="mt-3 flex min-w-0 max-w-full flex-wrap gap-2">
             {canEdit ? (
               <PillSelect
                 value={value.category || 'personal'}
                 options={CATEGORY_IDS}
-                className={getCategoryColor(value.category || 'personal')}
+                className="border-line bg-page text-ink-soft"
                 onChange={(category) => update({ category })}
                 ariaLabel="Category"
               />
@@ -241,7 +270,7 @@ export default function TaskDraftCard({
               <PillInput
                 value={value.duration}
                 type="number"
-                className="border-line bg-raised text-ink-soft"
+                className="border-line bg-page text-ink-soft"
                 onChange={(duration) => update({ duration })}
                 ariaLabel="Duration"
                 suffix="min"
@@ -257,7 +286,7 @@ export default function TaskDraftCard({
               <PillSelect
                 value={value.type || 'task'}
                 options={itemTypes}
-                className="border-accent/30 bg-accent/15 text-accent"
+                className="border-line bg-page text-ink-soft"
                 onChange={(type) => update({ type })}
                 ariaLabel="Type"
               />
@@ -286,7 +315,7 @@ export default function TaskDraftCard({
               <PillInput
                 value={value.startTime ?? ''}
                 type="time"
-                className="border-state-info/30 bg-state-info/15 text-state-info"
+                className="border-line bg-page text-ink-soft"
                 onChange={(startTime) => update({ startTime })}
                 ariaLabel="Start time"
               />
@@ -301,7 +330,7 @@ export default function TaskDraftCard({
               <PillInput
                 value={dateValue}
                 type="date"
-                className={getDateColor(dateValue)}
+                className="border-line bg-page text-ink-soft"
                 onChange={(scheduledDate) => update({ scheduledDate })}
                 ariaLabel="Scheduled date"
               />
@@ -312,6 +341,7 @@ export default function TaskDraftCard({
               </span>
             )}
           </div>
+          )}
 
           {quickDates.length > 0 && (
             <div className="mt-4">
@@ -325,10 +355,10 @@ export default function TaskDraftCard({
                       event.stopPropagation()
                       update({ scheduledDate: date.value })
                     }}
-                    className={`rounded-md border px-3 py-2 text-xs font-medium transition-colors ${
+                    className={`min-h-9 rounded-full border px-4 py-2 text-xs font-medium transition-colors ${
                       dateValue === date.value
-                        ? 'border-action bg-action text-on-action'
-                        : 'border-card bg-page/70 text-ink-soft hover:border-accent/60 hover:text-accent'
+                        ? 'border-accent/25 bg-accent/10 text-accent'
+                        : 'border-line bg-page text-ink-soft hover:border-accent/40 hover:text-accent'
                     }`}
                   >
                     {date.label}

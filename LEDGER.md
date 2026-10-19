@@ -1,3 +1,9 @@
+### 2026-10-19 08:36 — `main`
+
+Talk now keeps a persistent conversation, offers chat and voice modes, carries calendar context into replies, and presents compact approval cards. AI data sharing consent is enforced across the app and server, while iOS camera, photo selection, sign-in, and hands-free entry have native fixes and device-focused tests. Frontend and backend typechecks, builds, unit suites, and the camera harness pass; the accumulated app work is ready for review.
+
+---
+
 ### 2026-10-19 08:29 — `main`
 
 Today now positions timed Items and calendar entries by their actual start and end

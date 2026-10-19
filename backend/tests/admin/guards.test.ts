@@ -10,6 +10,7 @@ import request from 'supertest'
 jest.mock('../../src/supabase-client', () => ({
   db: {
     getUserById: jest.fn(),
+    getLatestAiConsentDecision: jest.fn(),
     sumAiCostUsdSince: jest.fn(),
     countUserActionsSince: jest.fn(),
     recordAiRefusal: jest.fn(),
@@ -31,6 +32,11 @@ const input = { endpoint: 'parse-tasks', model: 'gpt-4o-mini', userPrompt: 'plan
 beforeEach(() => {
   jest.clearAllMocks()
   mockDb.getUserById.mockResolvedValue({ id: 'admin-1', email: 'admin@example.com', name: 'Admin', role: 'admin' } as never)
+  mockDb.getLatestAiConsentDecision.mockResolvedValue({
+    decision: 'accepted',
+    disclosure_version: '2026-09-28.openai.v1',
+    created_at: '2026-09-28T10:00:00.000Z',
+  } as never)
   mockDb.recordAiRefusal.mockResolvedValue(undefined)
   mockDb.sumAiCostUsdSince.mockResolvedValue(3.5)
   mockDb.adminGuardStatus.mockResolvedValue({

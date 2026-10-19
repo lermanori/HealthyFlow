@@ -794,6 +794,157 @@ test('Migrates browser chat history without triggering a duplicate autosave', as
   await expect(page.getByText('Could not save chat history.')).toHaveCount(0)
 })
 
+test('Keeps Talk history on this device when the server save is unavailable', async ({ page }) => {
+  const createdAt = new Date().toISOString()
+  await page.route('**/api/ai/consent', (route) => route.fulfill({
+    json: {
+      state: 'accepted',
+      decidedAt: createdAt,
+      disclosure: {
+        version: 'test-v1',
+        title: 'Use AI features',
+        providers: ['OpenAI'],
+        introduction: 'Test disclosure.',
+        dataCategories: ['Test messages'],
+        processing: 'Test processing.',
+        storage: 'Test storage.',
+        optionalUse: 'Optional.',
+        futureProviders: 'Future providers require permission.',
+      },
+    },
+  }))
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: [] })
+      return
+    }
+    await route.fulfill({ status: 503, json: { error: 'History save unavailable' } })
+  })
+  await page.route('**/api/ai/chat', (route) => route.fulfill({
+    json: { message: 'I will remember that locally.', toolEvents: [], pendingActions: [] },
+  }))
+
+  await page.goto('/app/talk')
+  await page.getByRole('textbox', { name: 'Message Talk' }).fill('Remember this conversation')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByText('I will remember that locally.')).toBeVisible()
+
+  await expect.poll(() => page.evaluate(() => {
+    const raw = localStorage.getItem('healthyflow-assistant-conversations-v1')
+    return raw ? JSON.parse(raw)[0]?.messages?.map((message: { content: string }) => message.content) : []
+  })).toContain('Remember this conversation')
+
+  const reopened = await page.context().newPage()
+  await reopened.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: [] })
+      return
+    }
+    await route.fulfill({ status: 503, json: { error: 'History save unavailable' } })
+  })
+  await reopened.goto('/app/talk')
+  await expect(reopened.getByText('Remember this conversation', { exact: true })).toBeVisible()
+  await expect(reopened.getByText('I will remember that locally.')).toBeVisible()
+  await reopened.close()
+})
+
+test('Returning from Today keeps the newest local turn over an older server copy', async ({ page }) => {
+  const createdAt = new Date().toISOString()
+  let staleServerConversation: Record<string, unknown> | null = null
+  let saveRequests = 0
+  await page.route('**/api/ai/consent', (route) => route.fulfill({
+    json: {
+      state: 'accepted',
+      decidedAt: createdAt,
+      disclosure: {
+        version: 'test-v1',
+        title: 'Use AI features',
+        providers: ['OpenAI'],
+        introduction: 'Test disclosure.',
+        dataCategories: ['Test messages'],
+        processing: 'Test processing.',
+        storage: 'Test storage.',
+        optionalUse: 'Optional.',
+        futureProviders: 'Future providers require permission.',
+      },
+    },
+  }))
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') {
+      await route.fulfill({ json: staleServerConversation ? [staleServerConversation] : [] })
+      return
+    }
+    saveRequests += 1
+    await route.fulfill({ json: route.request().postDataJSON() })
+  })
+  await page.route('**/api/ai/chat', (route) => route.fulfill({
+    json: { message: 'Fresh assistant reply', toolEvents: [], pendingActions: [] },
+  }))
+
+  await page.goto('/app/talk')
+  await page.getByRole('textbox', { name: 'Message Talk' }).fill('The message I just sent')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByText('Fresh assistant reply')).toBeVisible()
+
+  const localConversation = await page.evaluate(() => {
+    const raw = localStorage.getItem('healthyflow-assistant-conversations-v1')
+    return raw ? JSON.parse(raw)[0] : null
+  })
+  expect(localConversation).toBeTruthy()
+  staleServerConversation = {
+    ...localConversation,
+    updatedAt: new Date(new Date(localConversation.updatedAt).getTime() - 60_000).toISOString(),
+    messages: [{
+      id: '77777777-7777-4777-8777-777777777777',
+      role: 'user',
+      content: 'Buy a mocha pot',
+      createdAt: new Date(Date.now() - 172_800_000).toISOString(),
+    }],
+  }
+
+  await page.getByRole('link', { name: 'Today', exact: true }).click()
+  await expect.poll(() => saveRequests).toBeGreaterThan(0)
+  await page.getByRole('link', { name: 'Talk', exact: true }).click()
+
+  await expect(page.getByText('The message I just sent', { exact: true })).toBeVisible()
+  await expect(page.getByText('Fresh assistant reply')).toBeVisible()
+  await expect(page.getByText('Buy a mocha pot', { exact: true })).toHaveCount(0)
+})
+
+test('Waits for saved history, then lets the user switch between Chat and Voice', async ({ page }) => {
+  const now = new Date().toISOString()
+  const conversation = {
+    id: '99999999-9999-4999-8999-999999999999',
+    title: 'Existing day',
+    model: 'gpt-4o-mini',
+    createdAt: now,
+    updatedAt: now,
+    messages: [{
+      id: '88888888-8888-4888-8888-888888888888',
+      role: 'user',
+      content: 'Existing history message',
+      createdAt: now,
+    }],
+  }
+  await page.route('**/api/ai/conversations**', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 2_000))
+    await route.fulfill({ json: [conversation] })
+  })
+
+  await page.goto('/app/talk', { waitUntil: 'domcontentloaded' })
+  await page.getByRole('heading', { name: 'Talk' }).waitFor()
+  expect(await page.getByText('Say your day, any order', { exact: true }).isVisible()).toBe(false)
+
+  await expect(page.getByText('Existing history message', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Chat mode' })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Voice mode' }).click()
+  await expect(page.getByText('Say your day, any order', { exact: true })).toBeVisible()
+  await expect(page.getByTestId('talk-voice-capture')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Chat mode' }).click()
+  await expect(page.getByText('Existing history message', { exact: true })).toBeVisible()
+})
+
 test('Serializes autosaves while an earlier chat save is still in flight', async ({ page }) => {
   const now = new Date().toISOString()
   const conversation = {
@@ -1030,6 +1181,23 @@ test('Confirmed assistant task appears on Today without a browser refresh', asyn
   const today = formatLocalDate(new Date())
   const title = `Assistant cache task ${Date.now()}`
   const createdAt = new Date().toISOString()
+  await page.route('**/api/ai/consent', (route) => route.fulfill({
+    json: {
+      state: 'accepted',
+      decidedAt: createdAt,
+      disclosure: {
+        version: 'test-v1',
+        title: 'Use AI features',
+        providers: ['OpenAI'],
+        introduction: 'Test disclosure.',
+        dataCategories: ['Test messages'],
+        processing: 'Test processing.',
+        storage: 'Test storage.',
+        optionalUse: 'Optional.',
+        futureProviders: 'Future providers require permission.',
+      },
+    },
+  }))
   await page.route('**/api/ai/conversations**', (route) => {
     if (route.request().method() === 'GET') return route.fulfill({ json: [] })
     return route.fulfill({ json: route.request().postDataJSON() })
@@ -1096,8 +1264,7 @@ test('Confirmed assistant task appears on Today without a browser refresh', asyn
   await expect(page.getByText(title)).toHaveCount(0)
 
   await page.goto('/app/talk')
-  await page.getByRole('button', { name: 'New Chat' }).click()
-  await page.getByPlaceholder(/Add anything/).fill(`add ${title} today`)
+  await page.getByRole('textbox', { name: 'Message Talk' }).fill(`add ${title} today`)
   await page.getByRole('button', { name: 'Send' }).click()
   await expect(page.getByRole('region', { name: /Talk proposals/ })).toHaveCount(0)
   await page.getByRole('button', { name: 'Confirm' }).click()

@@ -53,6 +53,8 @@ export type OpenAIResult<T> =
 export type BillableOpenAIErrorCode =
   | OpenAIErrorCode
   | 'tool_error'
+  | 'ai_consent_required'
+  | 'ai_consent_unavailable'
   | 'insufficient_credits'
   | 'account_required'
   | 'billing_unavailable'
@@ -69,6 +71,8 @@ export type BillableOpenAIErrorCode =
 
 /** What a refused action tells the user. Never a guess about which guard fired. */
 const REFUSAL_MESSAGE: Record<string, string> = {
+  ai_consent_required: 'Review and allow AI data sharing before using AI features.',
+  ai_consent_unavailable: 'AI permission could not be checked. Nothing was sent and no action was charged.',
   insufficient_credits: 'You have used your available AI actions.',
   account_required: 'Create a free account to use AI.',
   email_unverified: 'Confirm your email address to unlock your 15 AI actions a month.',

@@ -38,6 +38,7 @@ import { isNativeApp, isNativeIOS } from '../lib/native'
 import type { CloudStatusNotification } from '../hooks/useCloudSync'
 import type { DeviceCalendarSyncNotification } from '../hooks/useDeviceCalendarSync'
 import { useOfflineStatus } from '../hooks/useOfflineStatus'
+import HandsFreeTalkProbe from './HandsFreeTalkProbe'
 
 interface LayoutProps {
   children: ReactNode
@@ -465,6 +466,7 @@ export default function Layout({
 
   return (
     <div className={`min-h-screen bg-page ${isNativeApp ? 'native-app-shell' : ''}`}>
+      {user && <HandsFreeTalkProbe owner={user.id} />}
       {/* PWA Install Prompt */}
       <PWAInstallPrompt suppressed={isDemo} />
       

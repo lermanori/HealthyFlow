@@ -71,9 +71,11 @@ export function useCloudSync() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const running = useRef(false)
+  const cloudActive = useRef(false)
   const [cloudStatus, setCloudStatus] = useState<CloudStatusState | null>(null)
 
   useEffect(() => {
+    cloudActive.current = false
     const onCloudStatusChanged = (event: Event) => {
       const { notification } = (event as CustomEvent<CloudStatusChangedDetail>).detail
       setCloudStatus((current) => {
@@ -123,14 +125,15 @@ export function useCloudSync() {
         try {
           connected = (await Network.getStatus()).connected
         } catch (error) {
-          if (!cancelled) reportCloudStatusFailure(error)
+          console.error('[sync] connection check failed:', error)
+          if (!cancelled && cloudActive.current) showCloudStatusUnavailable()
           return
         }
         // Capacitor knows the native connection state even when WKWebView has
         // not yet rejected an HTTP promise or updated navigator.onLine.
         if (!connected) {
           console.info('[sync] skipped: the device reports no network')
-          if (!cancelled) showCloudStatusUnavailable()
+          if (!cancelled && cloudActive.current) showCloudStatusUnavailable()
           return
         }
 
@@ -138,12 +141,14 @@ export function useCloudSync() {
         try {
           summary = await creditsService.getSummary()
         } catch (error) {
-          // This account may not subscribe, so a failed status read cannot
-          // honestly be called a failed sync. It still surfaces: unavailable is
-          // not the same thing as inactive.
-          if (!cancelled) reportCloudStatusFailure(error)
+          // Do not advertise Cloud to a free account merely because this read
+          // failed. Once this session has confirmed the legacy entitlement, a
+          // later failure remains visible to that account.
+          console.error('[sync] subscription check failed:', error)
+          if (!cancelled && cloudActive.current) showCloudStatusUnavailable()
           return
         }
+        cloudActive.current = summary.subscription.active
         if (!summary.subscription.active) {
           console.info('[sync] skipped: this account holds no active Cloud entitlement')
           clearCloudSyncFailure()
@@ -170,7 +175,7 @@ export function useCloudSync() {
     const onOffline = () => {
       if (timer) clearTimeout(timer)
       timer = undefined
-      showCloudStatusUnavailable()
+      if (cloudActive.current) showCloudStatusUnavailable()
     }
     const onChange = () => {
       // ponytail: a sync writes its watermark through the same store funnel;
@@ -218,6 +223,7 @@ export function useCloudSync() {
     window.addEventListener(LOCAL_DAY_CHANGED_EVENT, onChange)
     return () => {
       cancelled = true
+      cloudActive.current = false
       clearCloudSyncFailure()
       if (timer) clearTimeout(timer)
       void networkListener?.remove()

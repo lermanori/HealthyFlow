@@ -73,6 +73,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <App />
               <Toaster
                 position="top-right"
+                containerStyle={{
+                  top: 'calc(env(safe-area-inset-top) + 1rem)',
+                }}
                 toastOptions={{
                   duration: 3000,
                   style: {

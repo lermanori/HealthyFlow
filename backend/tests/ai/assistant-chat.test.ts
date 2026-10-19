@@ -727,6 +727,25 @@ describe('POST /api/ai/chat', () => {
               archivedAt: null,
             }],
           },
+          calendar: {
+            days: [{
+              date: '2026-07-03',
+              status: 'connected',
+              reasonCode: null,
+              truncated: false,
+              events: [{
+                title: 'Dentist tomorrow',
+                description: 'Bring the referral',
+                location: 'Clinic',
+                startAt: '2026-07-03T07:00:00.000Z',
+                endAt: '2026-07-03T08:00:00.000Z',
+                localStartTime: '10:00',
+                localEndTime: '11:00',
+                allDay: false,
+                status: 'confirmed',
+              }],
+            }],
+          },
         },
       })
 
@@ -735,6 +754,8 @@ describe('POST /api/ai/chat', () => {
     expect(systemMessage.content).toContain('Name to use when natural: "Ori"')
     expect(systemMessage.content).toContain('Ship TestFlight')
     expect(systemMessage.content).toContain('Guide the user through the plan')
+    expect(systemMessage.content).toContain('Dentist tomorrow')
+    expect(systemMessage.content).toContain('verified calendar records')
   })
 
   it('rejects unsupported assistant models before calling OpenAI', async () => {

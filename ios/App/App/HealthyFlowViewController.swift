@@ -8,5 +8,9 @@ final class HealthyFlowViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(DeviceCalendarPlugin())
         bridge?.registerPluginInstance(NativeSpeechPlugin())
         bridge?.registerPluginInstance(DeviceIdentityPlugin())
+        bridge?.registerPluginInstance(TalkAttachmentsPlugin())
+#if HANDSFREE_PROBE
+        bridge?.registerPluginInstance(HandsFreeTalkProbePlugin())
+#endif
     }
 }

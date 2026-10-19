@@ -6,7 +6,7 @@ const sections = [
     body: [
       'On iPhone, your tasks, habits and progress, goals, schedules, food and weight entries, workouts, and settings are saved on your device. This Local day remains usable offline. Creating or claiming an account does not add Cloud backup, cross-device sync, or device transfer; these features cannot be obtained in v1.',
       'Local storage does not mean that every use of HealthyFlow stays on the device. AI requests, account services, support, notifications, and analytics involve the processing described below. Content displayed on screen may also be included in session recordings.',
-      'The web app and accounts with existing server-held records may use our servers to store and retrieve product data. An existing legacy Cloud entitlement can also replicate a Local day to our servers. That entitlement is not available to new v1 users.',
+      'The web app and accounts with existing server-held records may use our servers to store and retrieve product data. One developer-operated legacy account may also replicate a Local day to our servers. Cloud backup, sync, and device transfer are not offered to users in this version.',
     ],
   },
   {
@@ -19,9 +19,10 @@ const sections = [
   {
     title: 'AI processing',
     body: [
-      'When you use an AI feature, HealthyFlow sends your request through our backend to OpenAI. This can include your text, selected photos or text files, conversation history, and context used by the feature, such as your profile preferences, goals, habit progress, and relevant planning or health records. Information stored locally can therefore leave the device when included in an AI request.',
-      'We store assistant conversations, responses, proposed actions, and related metadata on our servers to provide chat history and complete requested actions. Archiving a conversation hides it from the chat list; it does not erase its stored messages. OpenAI also processes requests under its applicable service and data-retention terms.',
-      'You can use manual planning and tracking without submitting an AI request. Only include photos, files, health details, or other personal information that you want processed for that request.',
+      'When you use an AI feature, HealthyFlow sends your request through our backend to OpenAI. This can include your text, selected photos or text files, conversation history, and context used by the feature, such as your profile preferences, goals, habit progress, and relevant planning, calendar, or health records. Information stored locally can therefore leave the device when included in an AI request.',
+      'Before the first AI request, HealthyFlow identifies the current AI provider, describes the information that may be shared, and asks for explicit permission. The current provider is OpenAI. If we begin sharing personal data with another AI provider, we will identify that provider and request permission again before sending data to it.',
+      'We store assistant conversations, responses, proposed actions, and related metadata on our servers to provide chat history and complete requested actions. Archiving a conversation hides it from the chat list; it does not erase its stored messages. OpenAI states that API inputs and outputs are not used to train its models by default unless the API customer opts in. For the Chat Completions API HealthyFlow uses, OpenAI may retain customer content in abuse-monitoring logs for up to 30 days by default, or longer when legally required. Image inputs may be retained for manual review if automated safety systems detect potential child sexual abuse material.',
+      'You can decline AI permission and continue using manual planning and tracking. You can later withdraw permission in Settings under Data & Privacy. After withdrawal, HealthyFlow blocks new AI requests unless you review the current disclosure and allow AI features again. Only include photos, files, health details, or other personal information that you want processed for that request.',
       'AI results can be incomplete or inaccurate. You are responsible for reviewing generated items, suggestions, nutrition estimates, or recommendations before relying on them.',
     ],
   },
@@ -53,6 +54,7 @@ const sections = [
     body: [
       'We use information to provide the features you use, maintain accounts and AI allowances, answer support requests, troubleshoot problems, understand usage, and protect the service from abuse.',
       'We do not sell your personal information. Providers involved in operating HealthyFlow include Netlify for the website, Railway for the backend, Supabase for database and authentication services, OpenAI for AI processing, PostHog for analytics and session recordings, and Resend and Google for email. Optional sign-in, calendar, speech, notification, and nutrition services process the information described above.',
+      'We require third-party processors acting for HealthyFlow to provide the same or equivalent protection for personal information described in this policy through their contractual and legal obligations. We review the published privacy, security, and retention terms relevant to the services we use.',
       'Information may be processed in countries other than the country where you live. The providers and services used determine where particular information is processed.',
       'We may disclose information if required by law, to protect rights and safety, or in connection with a merger, acquisition, financing, or sale of assets.',
     ],

@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Apple, ArrowRight, Eye, EyeOff, Lock, Mail, Play, User } from 'lucide-react'
+import { ArrowRight, Eye, EyeOff, Lock, Mail, Play, User } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useHeldDay } from '../hooks/useHeldDay'
 import { signupService, type SignupStatus } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import AppMark from '../components/AppMark'
+import AppleSignInButton from '../components/AppleSignInButton'
+import GoogleSignInButton from '../components/GoogleSignInButton'
 import {
   beginGoogleOAuth,
   beginNativeGoogleSignIn,
@@ -31,17 +33,6 @@ import {
   parseDemoPersonaId,
   readDemoAcquisition,
 } from '../demoPersonas'
-
-function GoogleIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5">
-      <path fill="#4285F4" d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.91h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.4Z" />
-      <path fill="#34A853" d="M12 22c2.7 0 4.98-.9 6.64-2.43l-3.24-2.54c-.9.6-2.05.96-3.4.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.62A10 10 0 0 0 12 22Z" />
-      <path fill="#FBBC05" d="M6.39 13.86A6.01 6.01 0 0 1 6.08 12c0-.65.11-1.28.31-1.86V7.52H3.04A10 10 0 0 0 2 12c0 1.61.38 3.14 1.04 4.48l3.35-2.62Z" />
-      <path fill="#EA4335" d="M12 6.01c1.47 0 2.79.5 3.83 1.5l2.88-2.88A9.66 9.66 0 0 0 12 2a10 10 0 0 0-8.96 5.52l3.35 2.62C7.18 7.77 9.39 6.01 12 6.01Z" />
-    </svg>
-  )
-}
 
 /**
  * Why starting without an account failed, according to what actually came back.
@@ -387,7 +378,7 @@ export default function LoginPage() {
 
           {inviteSignup && signupStatus?.offer && (
             <p className="mb-5 rounded-control bg-accent/10 px-3 py-2 text-center text-sm text-accent">
-              Create an account — free — and get {signupStatus.offer.monthlyFreeCredits} AI actions every month.
+              Create an account — free — and get {signupStatus.offer.monthlyFreeCredits} AI actions every month after you verify your email.
             </p>
           )}
 
@@ -400,7 +391,7 @@ export default function LoginPage() {
               )}
               {signupStatus && (
                 <p className="mb-5 text-center text-sm text-accent">
-                  Create an account — free — and get {signupStatus.offer.monthlyFreeCredits} AI actions every month.
+                  Create an account — free — and get {signupStatus.offer.monthlyFreeCredits} AI actions every month after you verify your email.
                 </p>
               )}
             </>
@@ -452,34 +443,21 @@ export default function LoginPage() {
             </section>
           )}
 
-          <div className={isNativeIOS ? 'grid grid-cols-2 gap-3' : ''}>
-            <button
-              type="button"
+          <div className={isNativeIOS ? 'space-y-3' : ''}>
+            <GoogleSignInButton
               onClick={googleRetryAvailable ? retryGoogleExchange : handleGoogleSignIn}
               disabled={guestLoading || googleLoading || appleLoading || loading}
-              className="btn-secondary flex w-full items-center justify-center gap-2 px-3 py-3.5"
-              aria-label={googleRetryAvailable ? 'Retry Google sign-in' : 'Continue with Google'}
-            >
-              {googleLoading ? <LoadingSpinner size="sm" /> : <GoogleIcon />}
-              <span className={isNativeIOS ? 'text-xs' : ''}>
-                {googleLoading
-                  ? 'Finishing…'
-                  : googleRetryAvailable
-                    ? 'Retry Google'
-                    : 'Continue with Google'}
-              </span>
-            </button>
+              loading={googleLoading}
+              label={googleRetryAvailable ? 'Retry Google' : 'Continue with Google'}
+              matchAppleSize={isNativeIOS}
+              showIcon
+            />
             {isNativeIOS && (
-              <button
-                type="button"
+              <AppleSignInButton
                 onClick={handleAppleSignIn}
                 disabled={guestLoading || appleLoading || googleLoading || loading}
-                className="flex w-full items-center justify-center gap-2 rounded-control border border-ink bg-ink px-3 py-3.5 text-xs font-semibold text-page transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                aria-label="Continue with Apple"
-              >
-                {appleLoading ? <LoadingSpinner size="sm" /> : <Apple className="h-5 w-5" />}
-                <span>{appleLoading ? 'Finishing…' : 'Continue with Apple'}</span>
-              </button>
+                loading={appleLoading}
+              />
             )}
           </div>
 

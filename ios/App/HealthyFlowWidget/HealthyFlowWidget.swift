@@ -1,5 +1,8 @@
 import SwiftUI
 import WidgetKit
+#if HANDSFREE_PROBE
+import ActivityKit
+#endif
 
 private struct TodaySummary: Codable {
     let date: String
@@ -179,7 +182,9 @@ private struct HealthyFlowWidgetView: View {
     }
 }
 
+#if !HANDSFREE_PROBE
 @main
+#endif
 struct HealthyFlowTodayWidget: Widget {
     let kind = "HealthyFlowTodayWidget"
 
@@ -192,3 +197,39 @@ struct HealthyFlowTodayWidget: Widget {
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
+
+#if HANDSFREE_PROBE
+private struct HandsFreeAudioProbeWidget: Widget {
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: HandsFreeAudioProbeActivity.self) { context in
+            HStack(spacing: 12) {
+                Image(systemName: "waveform")
+                Text("HealthyFlow audio test · \(context.state.phase)")
+            }
+            .padding()
+            .activityBackgroundTint(.black)
+            .activitySystemActionForegroundColor(.white)
+        } dynamicIsland: { context in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.center) {
+                    Text("HealthyFlow audio test · \(context.state.phase)")
+                }
+            } compactLeading: {
+                Image(systemName: "waveform")
+            } compactTrailing: {
+                Text("Test")
+            } minimal: {
+                Image(systemName: "waveform")
+            }
+        }
+    }
+}
+
+@main
+struct HealthyFlowProbeWidgetBundle: WidgetBundle {
+    var body: some Widget {
+        HealthyFlowTodayWidget()
+        HandsFreeAudioProbeWidget()
+    }
+}
+#endif

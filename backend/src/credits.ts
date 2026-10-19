@@ -14,6 +14,7 @@ import {
   CreditSummarySchema,
   type FreeCreditGrant,
 } from './credit-contracts'
+import { AiConsent } from './ai-consent'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COST LEDGER — internal accounting only. Never prices anything a user sees.
@@ -247,6 +248,8 @@ type CostMeter = {
 
 /** Why an action was refused. Every one is a real, distinguishable cause. */
 export type ActionRefusal =
+  | 'ai_consent_required'
+  | 'ai_consent_unavailable'
   | 'insufficient_credits'
   /** Signed up, but the address is unproven, so the monthly grant is withheld (ADR-0026). */
   | 'email_unverified'
@@ -726,9 +729,9 @@ export const Credits = {
    * forget the fourth; a typed result rather than a throw so every refusal is
    * explicit at the call site.
    *
-   * Order matters. Request shape first (free to check, catches bugs), then the
-   * global ceiling (protects the company), then the account's daily cap (protects
-   * one account's balance from a loop), then identity/free grant, then balance.
+   * Order matters. Consent first, before any grant or charge is touched. Request
+   * shape follows, then the global ceiling, account daily cap, identity/free
+   * grant, and finally balance.
    */
   /**
    * Every refusal is recorded by its code (#307), in its own table: a refusal
@@ -754,6 +757,16 @@ export const Credits = {
     userId: string,
     input: ActionPricingInput & { systemPrompt?: string }
   ): Promise<ActionAuthorization> {
+    try {
+      const consent = await AiConsent.getStatus(userId)
+      if (consent.state !== 'accepted') {
+        return { ok: false, code: 'ai_consent_required' }
+      }
+    } catch (error) {
+      console.error('AI consent read is unavailable:', error)
+      return { ok: false, code: 'ai_consent_unavailable' }
+    }
+
     let actionClass: ActionClass
     let credits: number
     try {

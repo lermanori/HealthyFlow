@@ -1080,6 +1080,37 @@ export const db = {
     return data.settings as Record<string, unknown>
   },
 
+  async getLatestAiConsentDecision(userId: string, disclosureVersion: string) {
+    const { data, error } = await supabase
+      .from('ai_data_sharing_consents')
+      .select('decision, disclosure_version, created_at')
+      .eq('user_id', userId)
+      .eq('disclosure_version', disclosureVersion)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (error) throw error
+    return data
+  },
+
+  async recordAiConsentDecision(input: {
+    userId: string
+    disclosureVersion: string
+    decision: 'accepted' | 'declined' | 'withdrawn'
+  }) {
+    const { data, error } = await supabase
+      .from('ai_data_sharing_consents')
+      .insert({
+        user_id: input.userId,
+        disclosure_version: input.disclosureVersion,
+        decision: input.decision,
+      })
+      .select('decision, disclosure_version, created_at')
+      .single()
+    if (error) throw error
+    return data
+  },
+
   // Proactivity: rhythm (one JSONB row per user, mirrors user_settings)
   async getUserRhythm(userId: string): Promise<Record<string, unknown>> {
     const { data, error } = await supabase

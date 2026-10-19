@@ -19,6 +19,13 @@ describe('iOS 26 on-device Talk dictation', () => {
     assert.doesNotMatch(plugin, /SFSpeechRecognizer/)
   })
 
+  it("offers Apple's on-device dictation engine when SpeechTranscriber does not support a locale", () => {
+    assert.match(plugin, /DictationTranscriber\.supportedLocale\(equivalentTo: requested\)/)
+    assert.match(plugin, /DictationTranscriber\(locale: locale, preset: \.progressiveShortDictation\)/)
+    assert.match(plugin, /engineName = "dictationTranscriber"/)
+    assert.doesNotMatch(plugin, /SFSpeechRecognizer/)
+  })
+
   it('captures microphone buffers and publishes volatile and final text', () => {
     assert.match(plugin, /AVAudioEngine/)
     assert.match(plugin, /installTap\(onBus: 0/)

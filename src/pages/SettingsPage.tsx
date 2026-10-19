@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, CalendarDays, CheckCircle2, ChevronRight, Loader2, Settings, Bell, FolderSync as Sync, User, Shield, ShieldCheck, Smartphone, Unplug, Sparkles, Mail, Copy, X, KeyRound, Trash2, HeartPulse } from 'lucide-react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -7,7 +7,7 @@ import { useNotifications } from '../hooks/useNotifications'
 import { useCredits } from '../hooks/useCredits'
 import { useSettings, applyTheme } from '../hooks/useSettings'
 import toast from 'react-hot-toast'
-import api, { accountService, ApiTokenRecord, ApiTokenScope, AssistantProfile, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DAILY_SIGNALS_QUERY_KEY, DailyTouchpointRhythm, DAY_SUMMARY_QUERY_KEY, McpOAuthGrant, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
+import api, { accountService, AI_CONSENT_QUERY_KEY, aiConsentService, ApiTokenRecord, ApiTokenScope, AssistantProfile, calendarService, CalendarConnectionStatus, connectionsService, contactMessagesService, DAILY_SIGNALS_QUERY_KEY, DailyTouchpointRhythm, DAY_SUMMARY_QUERY_KEY, McpOAuthGrant, pushService, rhythmService, TouchpointType, UserRhythm, UserRhythmPatch, UserSettings, WeeklyTouchpointRhythm } from '../services/api'
 import { enablePush } from '../lib/push'
 import { analytics } from '../lib/analytics'
 import {
@@ -269,6 +269,25 @@ export default function SettingsPage() {
   const [showDeleteAccount, setShowDeleteAccount] = useState(false)
   const requestedCategory = parseSettingsCategory(location.pathname)
   const activeCategory: SettingsCategoryId = requestedCategory ?? 'account-billing'
+  const aiConsentQuery = useQuery({
+    queryKey: AI_CONSENT_QUERY_KEY,
+    queryFn: aiConsentService.getStatus,
+    enabled: activeCategory === 'data-privacy',
+    retry: false,
+  })
+  const withdrawAiConsent = useMutation({
+    mutationFn: async () => {
+      const current = aiConsentQuery.data ?? await aiConsentService.getStatus()
+      return aiConsentService.decide(current.disclosure.version, 'withdrawn')
+    },
+    onSuccess: (status) => {
+      queryClient.setQueryData(AI_CONSENT_QUERY_KEY, status)
+      toast.success('AI permission withdrawn. Manual planning remains available.')
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.error ?? 'Could not withdraw AI permission.')
+    },
+  })
   const googleCalendarEligible = canUseHostedGoogleCalendar({
     claimed: Boolean(user?.email),
     cloudActive: Boolean(creditSummary?.subscription.active),
@@ -1755,6 +1774,52 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
         </div>
         
         <div className="space-y-4">
+          <div className="rounded-lg border border-line-strong p-4">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-5 w-5 flex-none text-accent" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-ink-soft">AI data sharing</div>
+                {aiConsentQuery.isLoading ? (
+                  <p className="mt-1 text-sm text-ink-muted" role="status">Checking AI permission…</p>
+                ) : aiConsentQuery.isError ? (
+                  <div className="mt-2 space-y-3" role="alert">
+                    <p className="text-sm text-state-danger">AI permission could not be checked.</p>
+                    <button
+                      type="button"
+                      className="btn-secondary min-h-11 px-4 py-2 text-sm"
+                      onClick={() => void aiConsentQuery.refetch()}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : aiConsentQuery.data?.state === 'accepted' ? (
+                  <div className="mt-1 space-y-3">
+                    <p className="text-sm text-ink-muted">
+                      AI features are allowed to share the disclosed information with {aiConsentQuery.data.disclosure.providers.join(', ')}.
+                    </p>
+                    <button
+                      type="button"
+                      disabled={withdrawAiConsent.isPending}
+                      className="btn-secondary min-h-11 px-4 py-2 text-sm disabled:cursor-wait disabled:opacity-55"
+                      onClick={() => withdrawAiConsent.mutate()}
+                    >
+                      {withdrawAiConsent.isPending ? 'Withdrawing…' : 'Withdraw AI permission'}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-1 space-y-2">
+                    <p className="text-sm text-ink-muted">
+                      AI features are not enabled. Manual planning and tracking remain available.
+                    </p>
+                    <Link to="/talk" className="inline-flex min-h-11 items-center text-sm font-medium text-accent underline underline-offset-2">
+                      Open Talk to review AI permission
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           <Link to="/support" className="block w-full rounded-lg border border-line-strong p-3 text-left transition-colors hover:bg-card/50">
             <div className="font-medium text-ink-soft">Support</div>
             <div className="text-sm text-ink-muted">Contact HealthyFlow at support@healthyflow.app</div>

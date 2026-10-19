@@ -1,6 +1,7 @@
 import { App, type URLOpenListenerEvent } from '@capacitor/app'
 import { Browser } from '@capacitor/browser'
-import { Capacitor } from '@capacitor/core'
+import { Capacitor, registerPlugin } from '@capacitor/core'
+import { z } from 'zod'
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics'
 import { Network } from '@capacitor/network'
 import { Share } from '@capacitor/share'
@@ -12,6 +13,24 @@ export const isNativeApp = Capacitor.isNativePlatform()
 export const isNativeIOS = isNativeApp && Capacitor.getPlatform() === 'ios'
 export const appRouterBasename = isNativeApp ? '/' : '/app'
 export const nativeOAuthRedirectUrl = 'healthyflow://oauth/callback'
+
+const TalkAttachmentResultSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('cancelled') }),
+  z.object({
+    status: z.literal('selected'),
+    name: z.string().min(1),
+    mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'text/plain', 'text/markdown']),
+    data: z.string(),
+  }),
+])
+const TalkAttachments = registerPlugin<{ choose(): Promise<unknown> }>('TalkAttachments')
+
+export async function chooseNativeTalkAttachment(): Promise<File | null> {
+  const result = TalkAttachmentResultSchema.parse(await TalkAttachments.choose())
+  if (result.status === 'cancelled') return null
+  const bytes = Uint8Array.from(atob(result.data), (character) => character.charCodeAt(0))
+  return new File([bytes], result.name, { type: result.mimeType })
+}
 
 export function navigateNativeUrl(rawUrl: string) {
   const route = nativeRouteFromUrl(rawUrl)
