@@ -1,5 +1,47 @@
 [
   {
+    "id": "whole-day-next-action",
+    "label": "Choose a next action from the whole day",
+    "anchor": { "date": "2026-10-19", "time": "14:10", "timeZone": "Asia/Jerusalem" },
+    "user": "I have about an hour. What should I do next to move HealthyFlow forward? Use what you know about my day and patterns, and be honest if Capacity isn't exact.",
+    "fixtureState": {
+      "tasks": [
+        { "id": "task-review-notes", "title": "Finish App Store reviewer notes", "completed": false, "scheduledDate": "2026-10-19", "startTime": null, "duration": 45 },
+        { "id": "task-groceries", "title": "Buy groceries", "completed": false, "scheduledDate": "2026-10-19", "startTime": "18:00", "duration": 30 }
+      ]
+    },
+    "toolResults": {
+      "get_today": {
+        "date": "2026-10-19",
+        "tasks": [
+          { "id": "task-review-notes", "title": "Finish App Store reviewer notes", "type": "task", "completed": false, "startTime": null, "duration": 45, "scheduledDate": "2026-10-19" },
+          { "id": "task-groceries", "title": "Buy groceries", "type": "task", "completed": false, "startTime": "18:00", "duration": 30, "scheduledDate": "2026-10-19" }
+        ],
+        "habitInstances": [
+          { "id": "habit-walk", "title": "Afternoon walk", "completed": false, "duration": 20, "scheduledDate": "2026-10-19" }
+        ],
+        "capacity": {
+          "status": "partial",
+          "upperBoundMinutes": 75,
+          "reasons": [
+            { "code": "calendar_unavailable", "message": "Calendar obligations could not be read." }
+          ]
+        }
+      },
+      "list_goals": {
+        "goals": [
+          { "id": "goal-app-store", "title": "Ship HealthyFlow on the App Store", "status": "active", "direction": "Complete submission and reviewer follow-up before adding more product scope." }
+        ]
+      },
+      "list_habit_history": {
+        "days": 30,
+        "patterns": [
+          { "habit": "Focused product work", "observation": "7 of the last 9 completed sessions started before 16:30; 4 of 5 planned later sessions were missed." }
+        ]
+      }
+    }
+  },
+  {
     "id": "mixed-capture",
     "label": "Chaotic mixed capture",
     "anchor": { "date": "2026-08-26", "time": "17:20", "timeZone": "Europe/Vienna" },

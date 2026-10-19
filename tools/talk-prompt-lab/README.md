@@ -18,11 +18,23 @@ pending action.
 npm run lab:talk
 ```
 
-The lab reads `OPENAI_API_KEY` from the shell. If it is absent, it safely reads
-the HealthyFlow repository's primary-worktree `.env` without printing or
-copying the key.
+The lab reads `OPENAI_API_KEY` from the shell. If it is absent, it checks the
+ignored `tools/talk-prompt-lab/.env.local` file and then the HealthyFlow
+repository's primary-worktree `.env`, without printing or copying the key.
 Calls go directly to OpenAI and therefore use the OpenAI account's API billing,
 not HealthyFlow's credit ledger.
+
+Run the deterministic Promptfoo suite with:
+
+```bash
+npm --prefix tools/talk-prompt-lab run eval
+```
+
+The first case requires Talk to read Today, active Goals, and Habit history;
+recommend an existing Goal-aligned Task; preserve a partial Capacity result as
+uncertain; and create no write preview. The provider returns the reply, tool
+trajectory, pending previews, unchanged fixture state, usage, and latency as a
+single structured result so later cases can grade the same observable contract.
 
 Controls:
 

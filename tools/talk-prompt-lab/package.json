@@ -4,6 +4,12 @@
   "type": "module",
   "scripts": {
     "prompt-lab": "node talk-prompt-lab.mjs",
-    "smoke": "node talk-prompt-lab.mjs --smoke"
+    "smoke": "node talk-prompt-lab.mjs --smoke",
+    "test": "node --test eval/*.test.mjs",
+    "eval": "PROMPTFOO_CONFIG_DIR=.promptfoo PROMPTFOO_DISABLE_TELEMETRY=true promptfoo eval -c promptfooconfig.yaml --no-cache",
+    "eval:view": "PROMPTFOO_CONFIG_DIR=.promptfoo PROMPTFOO_DISABLE_TELEMETRY=true promptfoo view"
+  },
+  "devDependencies": {
+    "promptfoo": "^0.124.1"
   }
 }

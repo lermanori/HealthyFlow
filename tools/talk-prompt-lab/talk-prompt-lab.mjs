@@ -22,7 +22,7 @@ import { initialState, MODELS, reduceLabState } from './lab-state.mjs'
 const LAB_DIR = dirname(fileURLToPath(import.meta.url))
 const REPOSITORY_ROOT = resolve(LAB_DIR, '../..')
 const OPENAI_URL = 'https://api.openai.com/v1/chat/completions'
-const MAX_TOOL_ITERATIONS = 4
+const MAX_TOOL_ITERATIONS = 6
 const bold = '\u001b[1m'
 const dim = '\u001b[2m'
 const cyan = '\u001b[36m'
@@ -38,7 +38,7 @@ function variantLabel(filename) {
   return filename.replace(/\.md$/, '').replace(/^\d+-/, '').replaceAll('-', ' ')
 }
 
-function loadVariants() {
+export function loadVariants() {
   return readdirSync(join(LAB_DIR, 'prompts'))
     .filter((filename) => filename.endsWith('.md'))
     .sort()
@@ -62,7 +62,7 @@ function offsetDate(date, offset) {
   return instant.toISOString().slice(0, 10)
 }
 
-function dateContext(anchor) {
+export function dateContext(anchor) {
   const nextSeven = Array.from({ length: 7 }, (_, index) => `- ${weekdayDate(offsetDate(anchor.date, index))}`).join('\n')
   return `Date context:
 - Client time zone: ${anchor.timeZone}
@@ -81,7 +81,7 @@ Named weekday resolution:
 - Never compute a weekday from a date yourself; use the dated list above.`
 }
 
-function renderSystemPrompt(variant, scenario) {
+export function renderSystemPrompt(variant, scenario) {
   const context = dateContext(scenario.anchor)
   return variant.template.includes('{{DATE_CONTEXT}}')
     ? variant.template.replaceAll('{{DATE_CONTEXT}}', context)
@@ -117,6 +117,8 @@ function loadEnvFile(path) {
 
 function ensureApiKey() {
   if (process.env.OPENAI_API_KEY) return true
+  loadEnvFile(join(LAB_DIR, '.env.local'))
+  if (process.env.OPENAI_API_KEY) return true
   const primary = primaryWorktreeRoot()
   loadEnvFile(primary ? join(primary, '.env') : null)
   return Boolean(process.env.OPENAI_API_KEY)
@@ -136,6 +138,8 @@ const CATEGORY = { type: 'string', enum: ['health', 'work', 'personal', 'fitness
 
 const TOOL_DEFINITIONS = [
   ['get_today', "Return a bounded overview of today's HealthyFlow Tasks, Habit instances, calories, weight, achievements, and workout sessions.", objectSchema({})],
+  ['list_goals', 'Return active Goals. Goals are remembered direction, not scheduled work or evidence of an outcome.', objectSchema({ limit: { type: 'integer', minimum: 1, maximum: 50 } })],
+  ['list_habit_history', 'Return bounded Habit completion history so the assistant can use observed patterns without inventing a preference.', objectSchema({ days: { type: 'integer', minimum: 1, maximum: 90 } })],
   ['list_tasks', 'List bounded HealthyFlow Items for a date so current Item ids can be verified.', objectSchema({ date: DATE, limit: { type: 'integer', minimum: 1, maximum: 50 } })],
   ['list_calorie_entries', 'List Calorie entries for a date.', objectSchema({ date: DATE })],
   ['search_calorie_history', 'Search the user’s previous Calorie entries by food name before using an estimate.', objectSchema({ query: { type: 'string' } }, ['query'])],
@@ -189,8 +193,8 @@ function generationParams(model) {
     : { temperature: 0.2, max_tokens: 1400 }
 }
 
-async function openAiTurn({ model, systemPrompt, scenario }) {
-  if (!ensureApiKey()) throw new Error('OPENAI_API_KEY is missing from the shell and the primary HealthyFlow .env')
+export async function openAiTurn({ model, systemPrompt, scenario }) {
+  if (!ensureApiKey()) throw new Error('OPENAI_API_KEY is missing from the shell, tools/talk-prompt-lab/.env.local, and the primary HealthyFlow .env')
 
   const messages = [
     { role: 'system', content: systemPrompt },
@@ -253,7 +257,7 @@ async function openAiTurn({ model, systemPrompt, scenario }) {
   }
 
   return {
-    output: 'The model exhausted the four-iteration prototype tool budget without returning a final answer.',
+    output: `The model exhausted the ${MAX_TOOL_ITERATIONS}-iteration prototype tool budget without returning a final answer.`,
     toolEvents,
     usage,
     elapsedMs: Date.now() - startedAt,
@@ -337,64 +341,75 @@ async function runVariants(selectedVariants, scenario, model, setStatus) {
   return runs
 }
 
-const variants = loadVariants()
-const scenarios = loadJson(join(LAB_DIR, 'scenarios.json'))
-
-if (process.argv.includes('--smoke')) {
-  const rendered = renderSystemPrompt(variants[0], scenarios[0])
-  const preview = fakeToolResult(scenarios[0], 'add_task', { title: 'Call dentist' })
-  if (!rendered.includes('Current local date') || preview.pendingAction.status !== 'preview_only') {
-    throw new Error('Prompt Lab smoke check failed')
-  }
-  console.log(`Prompt Lab ready: ${variants.length} prompts, ${scenarios.length} scenarios, ${TOOL_DEFINITIONS.length} fake tools.`)
-  process.exit(0)
+export function loadScenarios() {
+  return loadJson(join(LAB_DIR, 'scenarios.json'))
 }
 
-if (!process.stdin.isTTY) {
-  console.error('The Prompt Lab needs an interactive terminal. Run npm run prompt-lab from Terminal.')
-  process.exit(1)
-}
+async function main() {
+  const variants = loadVariants()
+  const scenarios = loadScenarios()
 
-let state = initialState(variants.length, scenarios.length)
-readline.emitKeypressEvents(process.stdin)
-process.stdin.setRawMode(true)
-process.stdin.resume()
-render(state, variants, scenarios)
-
-async function executeRun(all) {
-  if (state.busy) return
-  const scenario = scenarios[state.scenarioIndex]
-  const model = MODELS[state.modelIndex]
-  const selected = all ? variants : [variants[state.promptIndex]]
-  state = reduceLabState(state, { type: 'run_started', status: `starting ${selected.length} run${selected.length === 1 ? '' : 's'}` })
-  render(state, variants, scenarios)
-  try {
-    const runs = await runVariants(selected, scenario, model, (status) => {
-      state = { ...state, status }
-      render(state, variants, scenarios)
-    })
-    state = reduceLabState(state, { type: 'run_finished', runs })
-  } catch (error) {
-    state = reduceLabState(state, { type: 'run_failed', error: error instanceof Error ? error.message : String(error) })
-  }
-  render(state, variants, scenarios)
-}
-
-process.stdin.on('keypress', (_text, key) => {
-  if (key.ctrl && key.name === 'c') key.name = 'q'
-  if (key.name === 'q') {
-    process.stdin.setRawMode(false)
-    process.stdin.pause()
-    console.clear()
-    console.log('Prompt Lab closed. Nothing was persisted.')
+  if (process.argv.includes('--smoke')) {
+    const rendered = renderSystemPrompt(variants[0], scenarios[0])
+    const preview = fakeToolResult(scenarios[0], 'add_task', { title: 'Call dentist' })
+    if (!rendered.includes('Current local date') || preview.pendingAction.status !== 'preview_only') {
+      throw new Error('Prompt Lab smoke check failed')
+    }
+    console.log(`Prompt Lab ready: ${variants.length} prompts, ${scenarios.length} scenarios, ${TOOL_DEFINITIONS.length} fake tools.`)
     return
   }
-  if (state.busy) return
-  if (key.name === 'p') state = reduceLabState(state, { type: 'next_prompt' })
-  if (key.name === 's') state = reduceLabState(state, { type: 'next_scenario' })
-  if (key.name === 'm') state = reduceLabState(state, { type: 'next_model' })
-  if (key.name === 'v') state = reduceLabState(state, { type: 'toggle_view' })
-  if (key.name === 'r') return void executeRun(false)
-  if (key.name === 'a') return void executeRun(true)
+
+  if (!process.stdin.isTTY) {
+    console.error('The Prompt Lab needs an interactive terminal. Run npm run prompt-lab from Terminal.')
+    process.exitCode = 1
+    return
+  }
+
+  let state = initialState(variants.length, scenarios.length)
+  readline.emitKeypressEvents(process.stdin)
+  process.stdin.setRawMode(true)
+  process.stdin.resume()
   render(state, variants, scenarios)
-})
+
+  async function executeRun(all) {
+    if (state.busy) return
+    const scenario = scenarios[state.scenarioIndex]
+    const model = MODELS[state.modelIndex]
+    const selected = all ? variants : [variants[state.promptIndex]]
+    state = reduceLabState(state, { type: 'run_started', status: `starting ${selected.length} run${selected.length === 1 ? '' : 's'}` })
+    render(state, variants, scenarios)
+    try {
+      const runs = await runVariants(selected, scenario, model, (status) => {
+        state = { ...state, status }
+        render(state, variants, scenarios)
+      })
+      state = reduceLabState(state, { type: 'run_finished', runs })
+    } catch (error) {
+      state = reduceLabState(state, { type: 'run_failed', error: error instanceof Error ? error.message : String(error) })
+    }
+    render(state, variants, scenarios)
+  }
+
+  process.stdin.on('keypress', (_text, key) => {
+    if (key.ctrl && key.name === 'c') key.name = 'q'
+    if (key.name === 'q') {
+      process.stdin.setRawMode(false)
+      process.stdin.pause()
+      console.clear()
+      console.log('Prompt Lab closed. Nothing was persisted.')
+      return
+    }
+    if (state.busy) return
+    if (key.name === 'p') state = reduceLabState(state, { type: 'next_prompt' })
+    if (key.name === 's') state = reduceLabState(state, { type: 'next_scenario' })
+    if (key.name === 'm') state = reduceLabState(state, { type: 'next_model' })
+    if (key.name === 'v') state = reduceLabState(state, { type: 'toggle_view' })
+    if (key.name === 'r') return void executeRun(false)
+    if (key.name === 'a') return void executeRun(true)
+    render(state, variants, scenarios)
+  })
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  await main()
+}
