@@ -1,5 +1,11 @@
 ### 2026-10-19 08:37 — `main`
 
+The Talk architecture and iOS runbook now describe the current conversation flow and native entry paths. Dated product and UI plans, App Store listing notes, and the review reply are saved alongside the updated landing copy so submission work has a clear record.
+
+---
+
+### 2026-10-19 08:37 — `main`
+
 The social video project now contains three editable Remotion compositions with timed captions, narration assets, and shared styling. React hook usage was corrected before committing; the video lint and TypeScript checks pass, and generated renders and dependencies stay untracked.
 
 ---

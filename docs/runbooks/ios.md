@@ -9,6 +9,12 @@ The minimum deployment target is iOS 26. The Xcode project, `App` target,
 Debug and Release. `src/utils/iosRelease.test.ts` guards this agreement; do not
 rely on an OS-gated API without updating and re-running that contract.
 
+Apps built with the iOS 27 SDK require a UIKit scene lifecycle. The `App`
+target declares one `Main` storyboard scene in `Info.plist`; `SceneDelegate`
+in `AppDelegate.swift` forwards both cold-start and running-app URL and
+universal-link callbacks to Capacitor's `ApplicationDelegateProxy`. Preserve
+that wiring when regenerating the native project.
+
 ## What is implemented
 
 - Native iOS project and App icon under `ios/`
@@ -17,6 +23,8 @@ rely on an OS-gated API without updating and re-running that contract.
 - Google OAuth through the system browser with
   `healthyflow://oauth/callback`
 - Native Sign in with Apple through AuthenticationServices and Supabase Auth
+- Talk attachments through system camera, Photos, and Files pickers, with a
+  camera permission check and an Open Settings action after denial
 - Device Calendar obligations read through EventKit and automatic mirroring of
   timed Items back to EventKit, without a HealthyFlow backend request
 - APNs registration, authenticated device storage, delivery, and stale-token
@@ -35,6 +43,26 @@ The Today widget is intentionally a native feature rather than a duplicate
 application. React builds a small validated summary from the canonical
 `DaySummary`; a local Capacitor plugin writes that summary into the shared App
 Group; WidgetKit renders it and deep-links back into HealthyFlow.
+
+## Verifying Talk attachments
+
+Run `npm run test:ios-camera` on macOS with Xcode installed. This exercises the
+camera authorization gate for allowed, denied, restricted, and first-request
+outcomes. Frontend unit tests cover the native attachment bridge's selected,
+cancelled, malformed, and failed responses.
+
+After `npm run build:ios`, test on physical iPhone and iPad devices. In Talk,
+enter a draft and tap the paperclip. Verify Take Photo with Camera allowed and
+denied, first-request allow/deny, cancellation, and returning from Open Settings.
+Denied access must show an explanation rather than presenting a blank camera;
+restricted access must report the restriction. Choose Photo and Choose File
+must work independently of Camera permission. Cancelling or failing must keep
+the draft and any previous attachment. Confirm repeat selection and an attached
+photo preview before sending. Photos are prepared as JPEGs up to 2048 pixels on
+the longest side; files retain their original bytes and existing size limits.
+
+The native pickers and Settings transition require device verification; the
+authorization unit test does not prove those UI transitions work on hardware.
 
 ## Local workflow
 
@@ -98,8 +126,11 @@ the Apple Team ID is known.
 
 ## Native voice setup
 
-The iOS app uses `SpeechAnalyzer` and `SpeechTranscriber` for live, on-device
-dictation. It does not use `SFSpeechRecognizer` and does not fall back to the
+The iOS app uses `SpeechAnalyzer` with `SpeechTranscriber` for live, on-device
+dictation. When the latter does not support the selected locale on a device,
+it uses Apple's on-device `DictationTranscriber` and reports the selected engine
+in `NativeSpeech.getAvailability`. If neither engine supports the locale, it
+surfaces an explicit error. It does not use `SFSpeechRecognizer` or fall back to the
 browser speech API. `Info.plist` must retain `NSMicrophoneUsageDescription`;
 the first recording asks for microphone access, while the language model may
 need to download before listening begins.
@@ -277,6 +308,35 @@ The source-grounded metadata, screenshot plan, privacy inventory, smoke evidence
 and human handoff are maintained in
 [`app-store-v1.md`](./app-store-v1.md). Do not upload or submit a build until every
 human-owned gate in that document is resolved.
+
+## App Review: AI data-sharing permission
+
+Apply `supabase/migrations/20260928130000_ai_data_sharing_consent.sql` before
+deploying the backend that enforces AI permission. Then deploy the backend before
+the frontend or native build. If the permission record cannot be read, every AI
+endpoint fails closed without sending data or charging an action.
+
+Use an account or Guest that has no decision for the current disclosure version,
+then give App Review these steps:
+
+1. Open **Talk**, type a message, and tap **Send**.
+2. Before any AI request is sent, HealthyFlow shows **Use AI features**. The
+   dialog names OpenAI and lists text or dictation, attachments, recent Talk
+   messages, and relevant profile, Goals, planning and calendar, habit, food,
+   weight, and workout information.
+3. Tap **Continue without AI**. The dialog closes, the draft and any attachment
+   remain in the composer, and manual planning and tracking remain available.
+4. Tap **Send** again, then tap **Allow AI features**. The saved draft is sent
+   and Talk displays the response.
+5. Open **Settings → Data & Privacy → AI data sharing** and tap **Withdraw AI
+   permission**. Return to Talk and send another message; the current disclosure
+   appears again before anything is sent.
+
+Repeat the first-use check once with **Take Photo** and once with **Choose
+Photo** on a physical device. In each case the selected image remains attached
+after declining, and no request reaches the AI provider until permission is
+allowed. A new AI provider or materially changed data disclosure requires a new
+disclosure version, which makes the next AI use request permission again.
 
 ## Validation gate
 

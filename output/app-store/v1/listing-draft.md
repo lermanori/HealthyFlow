@@ -35,9 +35,9 @@ Features:
 
 Start without an account. Plan and record your day offline; AI and account services need an internet connection.
 
-HealthyFlow is free, with no in-app purchases or subscriptions. Start with 10 AI actions. Create and verify an account for 15 actions each calendar month. Text requests use 1 action, photos 5, and premium models 10. When your allowance runs out, you can keep planning and logging manually.
+HealthyFlow is free, with no in-app purchases or subscriptions. Start with 10 AI actions. Create and verify an account for 15 actions each calendar month. Text requests use 1 action, photos 5, and advanced models 10. When your allowance runs out, you can keep planning and logging manually.
 
-Your day is stored on this device. Cloud backup and transfer are not available to new users in this release. Deleting the app or losing your device can mean losing that data. AI submissions and analytics are handled as described in our privacy policy.
+Your day is stored on this device. Cloud backup, sync, and device transfer are not available in this version. Deleting the app or losing your device can mean losing that data. AI submissions and analytics are handled as described in our privacy policy.
 
 Your whole day. One place.
 

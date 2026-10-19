@@ -115,6 +115,14 @@ Account deletion is available in Settings for users who choose to create an acco
 The founder authorized completion of the review form. The private contact fields
 were entered directly in App Store Connect and are not recorded here.
 
+**September 22 rejection: business-model questions (2026-09-28).** Apple asked
+the Guideline 2.1(b) business-model questions for 1.0.1 (6). A draft reply, the
+evidence behind each statement, an audit of wording that reads as paid, and
+replacement review notes are in
+[the business-model reply draft](../../output/app-store/v1/review-reply-business-model.md)
+(#313). None of it has been sent or entered. The notes above are the
+September 18 entry.
+
 ## Screenshot set
 
 Apple accepts 1–10 screenshots in JPG, JPEG, or PNG. A highest-resolution set

@@ -5,6 +5,39 @@ AI composer. It owns typed text, dictation, file/photo attachments, model choice
 AI responses, action proposals and proposal confirmation. Other modules own their
 records and deterministic forms; they do not own another AI prompt box.
 
+The surface has two explicit views over the same ongoing conversation. **Chat**
+shows the thread and compact composer. **Voice** gives dictation the full capture
+surface; sending returns to Chat for the response and proposal review. Talk waits
+for saved history before choosing a view: an existing thread opens in Chat and an
+empty thread opens in Voice. This prevents the Voice surface flashing while a
+saved thread is still loading.
+
+Conversation snapshots are mirrored to device storage as well as the server. A
+failed server save remains visible after reopening on the same device and is
+retried against the server on a later load. A pending save is flushed when the
+user leaves Talk, and the newest `updatedAt` snapshot wins when device and server
+hold the same conversation. Neither a failed save nor a failed read is presented
+as an empty history.
+
+Each consented Talk request also carries a bounded seven-day calendar snapshot
+read through the same composed calendar source as Today. This is how Device
+Calendar events that remain local to the iPhone can ground Talk without being
+copied into the hosted calendar database. Each date preserves connected, empty,
+not connected, not entitled, or unavailable status; a failed read never becomes
+an empty calendar.
+
+The opt-in `HANDSFREE_PROBE` iPhone build can enter Talk through a Siri App
+Shortcut. Siri owns microphone and dialog turns while locked; the foreground
+native adapter handles speech in the unlocked test. Talk still sends the AI
+turn, displays the pending action, and confirms or cancels the server's
+proposal id. The first voice slice accepts one `add_task` proposal and exact
+spoken yes/no only. Its locked Siri Debug path can request one additional
+spoken detail when Talk asks a clarification question; whether Siri reliably
+completes that turn on a locked pilot iPhone is still under test. Other or
+multiple proposals remain for on-screen review.
+AI consent and microphone setup must already be complete before hands-free use.
+This adapter is absent from ordinary builds and does not connect to Salesforce.
+
 ## Contextual entry
 
 A module that can use AI opens Talk with a closed `talkHandoffContext` router
