@@ -14,8 +14,8 @@
 		4A915A9D30E4000000000010 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000011 /* PrivacyInfo.xcprivacy */; };
 		4A915A9D30E4000000000012 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000013 /* PrivacyInfo.xcprivacy */; };
 		4A915A9D30E4000000000020 /* DeviceCalendarPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000021 /* DeviceCalendarPlugin.swift */; };
-		4A915A9D30E4000000000040 /* TalkAttachmentsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000041 /* TalkAttachmentsPlugin.swift */; };
 		4A915A9D30E4000000000030 /* NativeSpeechPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000031 /* NativeSpeechPlugin.swift */; };
+		4A915A9D30E4000000000040 /* TalkAttachmentsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000041 /* TalkAttachmentsPlugin.swift */; };
 		4A915A9D30E4000000000050 /* HandsFreeTalkProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000051 /* HandsFreeTalkProbe.swift */; };
 		4A915A9D30E4000000000060 /* HandsFreeAudioProbeActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000062 /* HandsFreeAudioProbeActivity.swift */; };
 		4A915A9D30E4000000000061 /* HandsFreeAudioProbeActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A915A9D30E4000000000062 /* HandsFreeAudioProbeActivity.swift */; };
@@ -66,8 +66,8 @@
 		4A915A9D30E4000000000011 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		4A915A9D30E4000000000013 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		4A915A9D30E4000000000021 /* DeviceCalendarPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceCalendarPlugin.swift; sourceTree = "<group>"; };
-		4A915A9D30E4000000000041 /* TalkAttachmentsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkAttachmentsPlugin.swift; sourceTree = "<group>"; };
 		4A915A9D30E4000000000031 /* NativeSpeechPlugin.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = NativeSpeechPlugin.swift; sourceTree = "<group>"; };
+		4A915A9D30E4000000000041 /* TalkAttachmentsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TalkAttachmentsPlugin.swift; sourceTree = "<group>"; };
 		4A915A9D30E4000000000051 /* HandsFreeTalkProbe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HandsFreeTalkProbe.swift; sourceTree = "<group>"; };
 		4A915A9D30E4000000000062 /* HandsFreeAudioProbeActivity.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HandsFreeAudioProbeActivity.swift; sourceTree = "<group>"; };
 		4A915A9D30E4000000000063 /* Info-Probe.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-Probe.plist"; sourceTree = "<group>"; };
