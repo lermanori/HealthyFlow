@@ -1,0 +1,345 @@
+[
+  {
+    "text": "Most",
+    "startMs": 20,
+    "endMs": 340,
+    "timestampMs": 280,
+    "confidence": 0.869923
+  },
+  {
+    "text": " planners",
+    "startMs": 340,
+    "endMs": 830,
+    "timestampMs": 620,
+    "confidence": 0.981776
+  },
+  {
+    "text": " do",
+    "startMs": 830,
+    "endMs": 940,
+    "timestampMs": 980,
+    "confidence": 0.993741
+  },
+  {
+    "text": " one",
+    "startMs": 940,
+    "endMs": 1140,
+    "timestampMs": 1200,
+    "confidence": 0.985214
+  },
+  {
+    "text": " of",
+    "startMs": 1140,
+    "endMs": 1360,
+    "timestampMs": 1320,
+    "confidence": 0.995222
+  },
+  {
+    "text": " two",
+    "startMs": 1360,
+    "endMs": 1470,
+    "timestampMs": 1520,
+    "confidence": 0.991265
+  },
+  {
+    "text": " things",
+    "startMs": 1470,
+    "endMs": 1920,
+    "timestampMs": 1860,
+    "confidence": 0.99398
+  },
+  {
+    "text": " with",
+    "startMs": 1920,
+    "endMs": 2230,
+    "timestampMs": 2080,
+    "confidence": 0.997729
+  },
+  {
+    "text": " what",
+    "startMs": 2230,
+    "endMs": 2540,
+    "timestampMs": 2240,
+    "confidence": 0.99782
+  },
+  {
+    "text": " you",
+    "startMs": 2540,
+    "endMs": 2770,
+    "timestampMs": 2380,
+    "confidence": 0.999596
+  },
+  {
+    "text": " didn't",
+    "startMs": 2770,
+    "endMs": 3720,
+    "timestampMs": 2580,
+    "confidence": 0.999001
+  },
+  {
+    "text": " finish.",
+    "startMs": 3720,
+    "endMs": 3720,
+    "timestampMs": 3040,
+    "confidence": 0.998955
+  },
+  {
+    "text": " Lose",
+    "startMs": 3720,
+    "endMs": 4680,
+    "timestampMs": 3960,
+    "confidence": 0.990484
+  },
+  {
+    "text": " it",
+    "startMs": 4680,
+    "endMs": 4710,
+    "timestampMs": 4260,
+    "confidence": 0.996432
+  },
+  {
+    "text": " or",
+    "startMs": 4710,
+    "endMs": 4940,
+    "timestampMs": 4860,
+    "confidence": 0.664137
+  },
+  {
+    "text": " bury",
+    "startMs": 4940,
+    "endMs": 5390,
+    "timestampMs": 5160,
+    "confidence": 0.998731
+  },
+  {
+    "text": " you",
+    "startMs": 5390,
+    "endMs": 5750,
+    "timestampMs": 5440,
+    "confidence": 0.9983
+  },
+  {
+    "text": " in",
+    "startMs": 5750,
+    "endMs": 6350,
+    "timestampMs": 5640,
+    "confidence": 0.991874
+  },
+  {
+    "text": " red.",
+    "startMs": 6350,
+    "endMs": 6720,
+    "timestampMs": 5900,
+    "confidence": 0.995596
+  },
+  {
+    "text": " HealthyFlow",
+    "startMs": 6720,
+    "endMs": 7760,
+    "timestampMs": 7100,
+    "confidence": 0.995427
+  },
+  {
+    "text": " carries",
+    "startMs": 7760,
+    "endMs": 8410,
+    "timestampMs": 7780,
+    "confidence": 0.996881
+  },
+  {
+    "text": " it.",
+    "startMs": 8410,
+    "endMs": 8920,
+    "timestampMs": 8160,
+    "confidence": 0.999256
+  },
+  {
+    "text": " Tonight's",
+    "startMs": 8920,
+    "endMs": 9470,
+    "timestampMs": 9200,
+    "confidence": 0.99878
+  },
+  {
+    "text": " unfinished",
+    "startMs": 9470,
+    "endMs": 10090,
+    "timestampMs": 9860,
+    "confidence": 0.996668
+  },
+  {
+    "text": " task",
+    "startMs": 10090,
+    "endMs": 10380,
+    "timestampMs": 10280,
+    "confidence": 0.996907
+  },
+  {
+    "text": " is",
+    "startMs": 10380,
+    "endMs": 10560,
+    "timestampMs": 10520,
+    "confidence": 0.98265
+  },
+  {
+    "text": " on",
+    "startMs": 10560,
+    "endMs": 10760,
+    "timestampMs": 10720,
+    "confidence": 0.990138
+  },
+  {
+    "text": " tomorrow,",
+    "startMs": 10760,
+    "endMs": 11560,
+    "timestampMs": 11180,
+    "confidence": 0.994419
+  },
+  {
+    "text": " marked",
+    "startMs": 11560,
+    "endMs": 12170,
+    "timestampMs": 11900,
+    "confidence": 0.998681
+  },
+  {
+    "text": " from",
+    "startMs": 12170,
+    "endMs": 12360,
+    "timestampMs": 12340,
+    "confidence": 0.595024
+  },
+  {
+    "text": " Thursday,",
+    "startMs": 12360,
+    "endMs": 13200,
+    "timestampMs": 12780,
+    "confidence": 0.996413
+  },
+  {
+    "text": " so",
+    "startMs": 13200,
+    "endMs": 13350,
+    "timestampMs": 13360,
+    "confidence": 0.924648
+  },
+  {
+    "text": " nothing",
+    "startMs": 13350,
+    "endMs": 14030,
+    "timestampMs": 13660,
+    "confidence": 0.998601
+  },
+  {
+    "text": " hides.",
+    "startMs": 14030,
+    "endMs": 14840,
+    "timestampMs": 14060,
+    "confidence": 0.999706
+  },
+  {
+    "text": " Habits",
+    "startMs": 14840,
+    "endMs": 15380,
+    "timestampMs": 15080,
+    "confidence": 0.988738
+  },
+  {
+    "text": " don't",
+    "startMs": 15380,
+    "endMs": 15830,
+    "timestampMs": 15480,
+    "confidence": 0.998719
+  },
+  {
+    "text": " pile",
+    "startMs": 15830,
+    "endMs": 16100,
+    "timestampMs": 15780,
+    "confidence": 0.999737
+  },
+  {
+    "text": " up.",
+    "startMs": 16100,
+    "endMs": 16680,
+    "timestampMs": 16220,
+    "confidence": 0.998015
+  },
+  {
+    "text": " Miss",
+    "startMs": 16680,
+    "endMs": 17030,
+    "timestampMs": 16860,
+    "confidence": 0.98493
+  },
+  {
+    "text": " a",
+    "startMs": 17030,
+    "endMs": 17120,
+    "timestampMs": 17060,
+    "confidence": 0.998285
+  },
+  {
+    "text": " day",
+    "startMs": 17120,
+    "endMs": 17480,
+    "timestampMs": 17280,
+    "confidence": 0.999722
+  },
+  {
+    "text": " and",
+    "startMs": 17480,
+    "endMs": 17640,
+    "timestampMs": 17600,
+    "confidence": 0.70023
+  },
+  {
+    "text": " tomorrow",
+    "startMs": 17640,
+    "endMs": 18330,
+    "timestampMs": 17980,
+    "confidence": 0.99968
+  },
+  {
+    "text": " starts",
+    "startMs": 18330,
+    "endMs": 19320,
+    "timestampMs": 18360,
+    "confidence": 0.998372
+  },
+  {
+    "text": " fresh.",
+    "startMs": 19320,
+    "endMs": 19640,
+    "timestampMs": 18760,
+    "confidence": 0.999725
+  },
+  {
+    "text": " HealthyFlow,",
+    "startMs": 19640,
+    "endMs": 20950,
+    "timestampMs": 19980,
+    "confidence": 0.998942
+  },
+  {
+    "text": " nothing",
+    "startMs": 20950,
+    "endMs": 21350,
+    "timestampMs": 21260,
+    "confidence": 0.975364
+  },
+  {
+    "text": " silently",
+    "startMs": 21350,
+    "endMs": 21840,
+    "timestampMs": 21860,
+    "confidence": 0.983682
+  },
+  {
+    "text": " dropped.",
+    "startMs": 21840,
+    "endMs": 22480,
+    "timestampMs": 22280,
+    "confidence": 0.967848
+  }
+]

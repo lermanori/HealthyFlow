@@ -1,0 +1,289 @@
+[
+  {
+    "text": "My",
+    "startMs": 90,
+    "endMs": 250,
+    "timestampMs": 300,
+    "confidence": 0.958502
+  },
+  {
+    "text": " day",
+    "startMs": 250,
+    "endMs": 510,
+    "timestampMs": 460,
+    "confidence": 0.992767
+  },
+  {
+    "text": " used",
+    "startMs": 510,
+    "endMs": 860,
+    "timestampMs": 680,
+    "confidence": 0.990346
+  },
+  {
+    "text": " to",
+    "startMs": 860,
+    "endMs": 1030,
+    "timestampMs": 880,
+    "confidence": 0.998727
+  },
+  {
+    "text": " live",
+    "startMs": 1030,
+    "endMs": 1380,
+    "timestampMs": 1040,
+    "confidence": 0.998932
+  },
+  {
+    "text": " in",
+    "startMs": 1380,
+    "endMs": 1540,
+    "timestampMs": 1220,
+    "confidence": 0.996071
+  },
+  {
+    "text": " five",
+    "startMs": 1540,
+    "endMs": 1900,
+    "timestampMs": 1480,
+    "confidence": 0.838245
+  },
+  {
+    "text": " apps,",
+    "startMs": 1900,
+    "endMs": 2470,
+    "timestampMs": 1900,
+    "confidence": 0.954228
+  },
+  {
+    "text": " now",
+    "startMs": 2470,
+    "endMs": 2700,
+    "timestampMs": 2620,
+    "confidence": 0.846151
+  },
+  {
+    "text": " I",
+    "startMs": 2700,
+    "endMs": 2780,
+    "timestampMs": 2760,
+    "confidence": 0.961052
+  },
+  {
+    "text": " just",
+    "startMs": 2780,
+    "endMs": 3100,
+    "timestampMs": 2900,
+    "confidence": 0.993384
+  },
+  {
+    "text": " say",
+    "startMs": 3100,
+    "endMs": 3340,
+    "timestampMs": 3120,
+    "confidence": 0.996995
+  },
+  {
+    "text": " it.",
+    "startMs": 3340,
+    "endMs": 3780,
+    "timestampMs": 3480,
+    "confidence": 0.997828
+  },
+  {
+    "text": " Gym",
+    "startMs": 3900,
+    "endMs": 4060,
+    "timestampMs": 4020,
+    "confidence": 0.57192
+  },
+  {
+    "text": " at",
+    "startMs": 4060,
+    "endMs": 4220,
+    "timestampMs": 4220,
+    "confidence": 0.950652
+  },
+  {
+    "text": " seven,",
+    "startMs": 4220,
+    "endMs": 4890,
+    "timestampMs": 4500,
+    "confidence": 0.69912
+  },
+  {
+    "text": " stand",
+    "startMs": 4890,
+    "endMs": 5060,
+    "timestampMs": 5200,
+    "confidence": 0.991717
+  },
+  {
+    "text": " up",
+    "startMs": 5060,
+    "endMs": 5200,
+    "timestampMs": 5360,
+    "confidence": 0.686427
+  },
+  {
+    "text": " 9:30,",
+    "startMs": 5200,
+    "endMs": 6340,
+    "timestampMs": 5560,
+    "confidence": 0.890264
+  },
+  {
+    "text": " call",
+    "startMs": 6340,
+    "endMs": 6730,
+    "timestampMs": 6540,
+    "confidence": 0.722147
+  },
+  {
+    "text": " mom,",
+    "startMs": 6730,
+    "endMs": 7480,
+    "timestampMs": 6940,
+    "confidence": 0.793149
+  },
+  {
+    "text": " salad",
+    "startMs": 7480,
+    "endMs": 7900,
+    "timestampMs": 7760,
+    "confidence": 0.971263
+  },
+  {
+    "text": " for",
+    "startMs": 7900,
+    "endMs": 8220,
+    "timestampMs": 7960,
+    "confidence": 0.998426
+  },
+  {
+    "text": " lunch.",
+    "startMs": 8220,
+    "endMs": 8780,
+    "timestampMs": 8280,
+    "confidence": 0.999714
+  },
+  {
+    "text": " And",
+    "startMs": 8900,
+    "endMs": 9110,
+    "timestampMs": 9020,
+    "confidence": 0.994416
+  },
+  {
+    "text": " it",
+    "startMs": 9110,
+    "endMs": 9280,
+    "timestampMs": 9120,
+    "confidence": 0.989591
+  },
+  {
+    "text": " all",
+    "startMs": 9280,
+    "endMs": 9540,
+    "timestampMs": 9300,
+    "confidence": 0.998563
+  },
+  {
+    "text": " lands",
+    "startMs": 9540,
+    "endMs": 9950,
+    "timestampMs": 9520,
+    "confidence": 0.99717
+  },
+  {
+    "text": " on",
+    "startMs": 9950,
+    "endMs": 10120,
+    "timestampMs": 9720,
+    "confidence": 0.993551
+  },
+  {
+    "text": " one",
+    "startMs": 10120,
+    "endMs": 10620,
+    "timestampMs": 10020,
+    "confidence": 0.997927
+  },
+  {
+    "text": " day.",
+    "startMs": 10620,
+    "endMs": 10920,
+    "timestampMs": 10340,
+    "confidence": 0.999626
+  },
+  {
+    "text": " Then",
+    "startMs": 11030,
+    "endMs": 11310,
+    "timestampMs": 11180,
+    "confidence": 0.997409
+  },
+  {
+    "text": " it",
+    "startMs": 11310,
+    "endMs": 11380,
+    "timestampMs": 11280,
+    "confidence": 0.985037
+  },
+  {
+    "text": " tells",
+    "startMs": 11380,
+    "endMs": 11720,
+    "timestampMs": 11480,
+    "confidence": 0.996337
+  },
+  {
+    "text": " me",
+    "startMs": 11720,
+    "endMs": 11860,
+    "timestampMs": 11620,
+    "confidence": 0.996242
+  },
+  {
+    "text": " the",
+    "startMs": 11860,
+    "endMs": 12040,
+    "timestampMs": 11800,
+    "confidence": 0.998955
+  },
+  {
+    "text": " truth,",
+    "startMs": 12040,
+    "endMs": 12660,
+    "timestampMs": 12080,
+    "confidence": 0.999744
+  },
+  {
+    "text": " what's",
+    "startMs": 12660,
+    "endMs": 13130,
+    "timestampMs": 12800,
+    "confidence": 0.82161
+  },
+  {
+    "text": " actually",
+    "startMs": 13130,
+    "endMs": 13820,
+    "timestampMs": 13400,
+    "confidence": 0.996865
+  },
+  {
+    "text": " left.",
+    "startMs": 13820,
+    "endMs": 14500,
+    "timestampMs": 13800,
+    "confidence": 0.999157
+  },
+  {
+    "text": " HealthyFlow.",
+    "startMs": 14617,
+    "endMs": 15229,
+    "timestampMs": 14617,
+    "confidence": null
+  }
+]

@@ -1,0 +1,303 @@
+[
+  {
+    "text": "Most",
+    "startMs": 90,
+    "endMs": 290,
+    "timestampMs": 360,
+    "confidence": 0.960429
+  },
+  {
+    "text": " planners",
+    "startMs": 290,
+    "endMs": 870,
+    "timestampMs": 720,
+    "confidence": 0.987387
+  },
+  {
+    "text": " tell",
+    "startMs": 870,
+    "endMs": 1160,
+    "timestampMs": 1040,
+    "confidence": 0.997912
+  },
+  {
+    "text": " you",
+    "startMs": 1160,
+    "endMs": 1370,
+    "timestampMs": 1260,
+    "confidence": 0.997908
+  },
+  {
+    "text": " you're",
+    "startMs": 1370,
+    "endMs": 1790,
+    "timestampMs": 1380,
+    "confidence": 0.938328
+  },
+  {
+    "text": " free",
+    "startMs": 1790,
+    "endMs": 2080,
+    "timestampMs": 1680,
+    "confidence": 0.995201
+  },
+  {
+    "text": " all",
+    "startMs": 2080,
+    "endMs": 2290,
+    "timestampMs": 1980,
+    "confidence": 0.986963
+  },
+  {
+    "text": " afternoon.",
+    "startMs": 2290,
+    "endMs": 3000,
+    "timestampMs": 2560,
+    "confidence": 0.996443
+  },
+  {
+    "text": " They're",
+    "startMs": 3000,
+    "endMs": 3380,
+    "timestampMs": 3260,
+    "confidence": 0.995839
+  },
+  {
+    "text": " guessing.",
+    "startMs": 3380,
+    "endMs": 4000,
+    "timestampMs": 3660,
+    "confidence": 0.998094
+  },
+  {
+    "text": " HealthyFlow",
+    "startMs": 4000,
+    "endMs": 5290,
+    "timestampMs": 4840,
+    "confidence": 0.97915
+  },
+  {
+    "text": " counts.",
+    "startMs": 5290,
+    "endMs": 6000,
+    "timestampMs": 5520,
+    "confidence": 0.737622
+  },
+  {
+    "text": " Gym,",
+    "startMs": 6000,
+    "endMs": 7160,
+    "timestampMs": 6460,
+    "confidence": 0.972805
+  },
+  {
+    "text": " stand-up,",
+    "startMs": 7160,
+    "endMs": 8000,
+    "timestampMs": 7300,
+    "confidence": 0.764672
+  },
+  {
+    "text": " lunch,",
+    "startMs": 8000,
+    "endMs": 8630,
+    "timestampMs": 8180,
+    "confidence": 0.98528
+  },
+  {
+    "text": " the",
+    "startMs": 8630,
+    "endMs": 8710,
+    "timestampMs": 8820,
+    "confidence": 0.8912
+  },
+  {
+    "text": " meeting",
+    "startMs": 8710,
+    "endMs": 9080,
+    "timestampMs": 9000,
+    "confidence": 0.997238
+  },
+  {
+    "text": " on",
+    "startMs": 9080,
+    "endMs": 9200,
+    "timestampMs": 9180,
+    "confidence": 0.990955
+  },
+  {
+    "text": " your",
+    "startMs": 9200,
+    "endMs": 9450,
+    "timestampMs": 9360,
+    "confidence": 0.997212
+  },
+  {
+    "text": " calendar.",
+    "startMs": 9450,
+    "endMs": 10000,
+    "timestampMs": 9720,
+    "confidence": 0.993208
+  },
+  {
+    "text": " 3",
+    "startMs": 10000,
+    "endMs": 10470,
+    "timestampMs": 10640,
+    "confidence": 0.512898
+  },
+  {
+    "text": " hours",
+    "startMs": 10470,
+    "endMs": 10720,
+    "timestampMs": 10920,
+    "confidence": 0.943434
+  },
+  {
+    "text": " 40,",
+    "startMs": 10720,
+    "endMs": 11440,
+    "timestampMs": 11360,
+    "confidence": 0.769758
+  },
+  {
+    "text": " at",
+    "startMs": 11440,
+    "endMs": 11900,
+    "timestampMs": 12020,
+    "confidence": 0.990214
+  },
+  {
+    "text": " most,",
+    "startMs": 11900,
+    "endMs": 12230,
+    "timestampMs": 12380,
+    "confidence": 0.998932
+  },
+  {
+    "text": " because",
+    "startMs": 12230,
+    "endMs": 13150,
+    "timestampMs": 13140,
+    "confidence": 0.884744
+  },
+  {
+    "text": " \"call",
+    "startMs": 13150,
+    "endMs": 13610,
+    "timestampMs": 13500,
+    "confidence": 0.732854
+  },
+  {
+    "text": " mom\"",
+    "startMs": 13610,
+    "endMs": 14000,
+    "timestampMs": 13780,
+    "confidence": 0.97838
+  },
+  {
+    "text": " has",
+    "startMs": 14000,
+    "endMs": 14190,
+    "timestampMs": 14120,
+    "confidence": 0.948435
+  },
+  {
+    "text": " no",
+    "startMs": 14190,
+    "endMs": 14280,
+    "timestampMs": 14380,
+    "confidence": 0.997272
+  },
+  {
+    "text": " length",
+    "startMs": 14280,
+    "endMs": 14720,
+    "timestampMs": 14680,
+    "confidence": 0.995171
+  },
+  {
+    "text": " yet.",
+    "startMs": 14720,
+    "endMs": 15000,
+    "timestampMs": 14960,
+    "confidence": 0.995604
+  },
+  {
+    "text": " Give",
+    "startMs": 15000,
+    "endMs": 15540,
+    "timestampMs": 15700,
+    "confidence": 0.996424
+  },
+  {
+    "text": " it",
+    "startMs": 15540,
+    "endMs": 15580,
+    "timestampMs": 15840,
+    "confidence": 0.994101
+  },
+  {
+    "text": " one,",
+    "startMs": 15580,
+    "endMs": 15990,
+    "timestampMs": 16080,
+    "confidence": 0.844236
+  },
+  {
+    "text": " and",
+    "startMs": 15990,
+    "endMs": 16480,
+    "timestampMs": 16600,
+    "confidence": 0.994446
+  },
+  {
+    "text": " the",
+    "startMs": 16480,
+    "endMs": 16530,
+    "timestampMs": 16720,
+    "confidence": 0.998891
+  },
+  {
+    "text": " number's",
+    "startMs": 16530,
+    "endMs": 17250,
+    "timestampMs": 16900,
+    "confidence": 0.542468
+  },
+  {
+    "text": " exact.",
+    "startMs": 17250,
+    "endMs": 18000,
+    "timestampMs": 17480,
+    "confidence": 0.999409
+  },
+  {
+    "text": " HealthyFlow.",
+    "startMs": 18000,
+    "endMs": 19690,
+    "timestampMs": 18680,
+    "confidence": 0.995492
+  },
+  {
+    "text": " The",
+    "startMs": 19690,
+    "endMs": 19710,
+    "timestampMs": 19880,
+    "confidence": 0.681296
+  },
+  {
+    "text": " honest",
+    "startMs": 19710,
+    "endMs": 20400,
+    "timestampMs": 20180,
+    "confidence": 0.600501
+  },
+  {
+    "text": " clock.",
+    "startMs": 20400,
+    "endMs": 21000,
+    "timestampMs": 20580,
+    "confidence": 0.994303
+  }
+]

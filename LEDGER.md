@@ -1,5 +1,11 @@
 ### 2026-10-19 08:37 — `main`
 
+The social video project now contains three editable Remotion compositions with timed captions, narration assets, and shared styling. React hook usage was corrected before committing; the video lint and TypeScript checks pass, and generated renders and dependencies stay untracked.
+
+---
+
+### 2026-10-19 08:37 — `main`
+
 The Talk Prompt Lab now has a Promptfoo provider, explicit behavioral assertions, and local configuration for repeatable conversation evaluations. Its smoke checks, unit tests, and Promptfoo configuration validation pass; the local API key and evaluation database remain outside version control.
 
 ---
