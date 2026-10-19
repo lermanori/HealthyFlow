@@ -833,6 +833,7 @@ export const aiService = {
       conversationId?: string
       workflow?: { name: 'plan_work'; projectId: string; anchorDate?: string }
       assistantContext?: AssistantContext
+      calendar?: NonNullable<AssistantContext['calendar']>
       handoff?: WorkoutPlanTalkHandoff
       signal?: AbortSignal
     } = {},
@@ -844,6 +845,7 @@ export const aiService = {
       conversationId: options.conversationId,
       workflow: options.workflow,
       assistantContext: options.assistantContext,
+      calendar: options.calendar,
       handoff: options.handoff,
     }, { signal: options.signal })
     return response.data

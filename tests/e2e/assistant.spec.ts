@@ -87,23 +87,104 @@ test('Talk sends the calendar event for a named date beyond the default week', a
       })] : [],
     })
   })
-  let sentCalendar: { days: Array<{ date: string; events: Array<{ title: string }> }> } | undefined
+  const sentCalendars: Array<{ days: Array<{ date: string; events: Array<{ title: string }> }> } | undefined> = []
   await page.route('**/api/ai/chat', (route) => {
-    sentCalendar = (route.request().postDataJSON() as { assistantContext?: { calendar?: typeof sentCalendar } })
+    const sentCalendar = (route.request().postDataJSON() as { assistantContext?: { calendar?: typeof sentCalendars[number] } })
       .assistantContext?.calendar
+    sentCalendars.push(sentCalendar)
     return route.fulfill({ json: { message: 'Calendar checked.', toolEvents: [], pendingActions: [] } })
   })
 
   await page.goto('/app/talk')
-  await page.waitForLoadState('networkidle')
   await page.getByRole('button', { name: 'Chat mode' }).click()
   await page.getByRole('textbox', { name: 'Message Talk' }).fill('ב26 באוקטובר אין לי כלום?')
   await page.getByRole('button', { name: 'Send' }).click()
 
   await expect(page.getByText('Calendar checked.')).toBeVisible()
-  expect(sentCalendar?.days.find((day) => day.date === '2026-10-26')?.events).toEqual([
+  expect(sentCalendars[0]?.days.find((day) => day.date === '2026-10-26')?.events).toEqual([
     expect.objectContaining({ title: 'Dentist appointment' }),
   ])
+
+  await page.getByRole('textbox', { name: 'Message Talk' }).fill('And is that morning free?')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect.poll(() => sentCalendars.length).toBe(2)
+  expect(sentCalendars[1]?.days.some((day) => day.date === '2026-10-26')).toBe(true)
+})
+
+test('Talk still sends the named Calendar date when personal settings cannot load', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-10-19T12:00:00'))
+  await page.route('**/api/settings', (route) => route.fulfill({ status: 503, json: { error: 'Settings unavailable' } }))
+  await page.route('**/api/ai/consent', (route) => route.fulfill({ json: {
+    state: 'accepted', decidedAt: '2026-10-19T09:00:00.000Z',
+    disclosure: {
+      version: 'test-v1', title: 'Use AI features', providers: ['OpenAI'],
+      introduction: 'Test disclosure.', dataCategories: ['Test messages'],
+      processing: 'Test processing.', storage: 'Test storage.', optionalUse: 'Optional.',
+      futureProviders: 'Future providers require permission.',
+    },
+  } }))
+  await page.route('**/api/ai/conversations**', (route) => route.fulfill({ json: [] }))
+  await page.route('**/api/calendar/google/events**', (route) => route.fulfill({ json: [
+    daySummaryCalendarEvent({ id: 'dentist-26', title: 'Dentist appointment' }),
+  ] }))
+
+  let sent: { calendar?: { days: Array<{ date: string; events: Array<{ title: string }> }> } } | undefined
+  await page.route('**/api/ai/chat', (route) => {
+    sent = route.request().postDataJSON()
+    return route.fulfill({ json: { message: 'Calendar checked.', toolEvents: [], pendingActions: [] } })
+  })
+
+  await page.goto('/app/talk')
+  await page.getByRole('button', { name: 'Chat mode' }).click()
+  await page.getByRole('textbox', { name: 'Message Talk' }).fill('ב26 באוקטובר אין לי כלום?')
+  await page.getByRole('button', { name: 'Send' }).click()
+
+  await expect(page.getByText('Calendar checked.')).toBeVisible()
+  expect(sent?.calendar?.days.find((day) => day.date === '2026-10-26')?.events).toEqual([
+    expect.objectContaining({ title: 'Dentist appointment' }),
+  ])
+})
+
+test('Talk keeps a bare day and its holiday event for a follow-up question', async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-10-19T12:00:00'))
+  await page.route('**/api/ai/consent', (route) => route.fulfill({ json: {
+    state: 'accepted', decidedAt: '2026-10-19T09:00:00.000Z',
+    disclosure: {
+      version: 'test-v1', title: 'Use AI features', providers: ['OpenAI'],
+      introduction: 'Test disclosure.', dataCategories: ['Test messages'],
+      processing: 'Test processing.', storage: 'Test storage.', optionalUse: 'Optional.',
+      futureProviders: 'Future providers require permission.',
+    },
+  } }))
+  await page.route('**/api/ai/conversations**', (route) => route.fulfill({ json: [] }))
+  await page.route('**/api/calendar/google/events**', (route) => {
+    const date = new URL(route.request().url()).searchParams.get('date')
+    return route.fulfill({ json: date === '2026-10-26' ? [daySummaryCalendarEvent({
+      id: 'holiday-26', title: 'National Day', description: 'Public holiday',
+      startAt: '2026-10-25T22:00:00.000Z', endAt: '2026-10-26T21:59:59.000Z',
+      allDay: true,
+    })] : [] })
+  })
+
+  const sentCalendars: Array<{ days: Array<{ date: string; events: Array<{ title: string }> }> } | undefined> = []
+  await page.route('**/api/ai/chat', (route) => {
+    sentCalendars.push((route.request().postDataJSON() as { calendar?: typeof sentCalendars[number] }).calendar)
+    return route.fulfill({ json: { message: 'Calendar checked.', toolEvents: [], pendingActions: [] } })
+  })
+
+  await page.goto('/app/talk')
+  await page.getByRole('button', { name: 'Chat mode' }).click()
+  await page.getByRole('textbox', { name: 'Message Talk' }).fill('מה יש ב26?')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect(page.getByText('Calendar checked.')).toBeVisible()
+  expect(sentCalendars[0]?.days.find((day) => day.date === '2026-10-26')?.events)
+    .toEqual([expect.objectContaining({ title: 'National Day' })])
+
+  await page.getByRole('textbox', { name: 'Message Talk' }).fill('איזה חג ציבורי?')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect.poll(() => sentCalendars.length).toBe(2)
+  expect(sentCalendars[1]?.days.find((day) => day.date === '2026-10-26')?.events)
+    .toEqual([expect.objectContaining({ title: 'National Day' })])
 })
 
 test('an exhausted monthly account gets an inline renewal and Founders Club path', async ({ page }) => {

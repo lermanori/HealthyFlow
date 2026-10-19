@@ -140,6 +140,7 @@ export const TalkDailyContextSchema = DailyContextSchema.omit({ lookback: true }
     z.object({
       date: DailyContextSchema.shape.date,
       status: z.literal('not_read'),
+      availableDates: z.array(DailyContextSchema.shape.date).max(7),
     }).strict(),
   ]),
 })

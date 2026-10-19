@@ -21,19 +21,30 @@ as an empty history.
 
 Each consented Talk request also carries a bounded seven-date calendar snapshot
 read through the same composed calendar source as Today. By default it covers
-today and the following six days; a named date in the user's message is included
-even when it falls outside that range, and a next-week question reads the following
-week. This is how Device Calendar events that remain local to the iPhone can
-ground Talk without being copied into the hosted calendar database. Each date
+today and the following six days; a named date or bare day-of-month reference
+such as "ב26" is included even when it falls outside that range, and a next-week
+question reads the following week. This is how Device Calendar events that remain
+local to the iPhone can ground Talk without being copied into the hosted
+calendar database. A bare day means its next occurrence. Each date
 preserves connected, empty, not connected, not entitled, or unavailable status;
 a failed or unrequested date never becomes an empty calendar.
 
 When Talk calls `get_daily_context` for a date, its result includes that exact
 date's client Calendar read alongside the hosted day records and Daily Signals.
 An unrequested date has `calendar.status: not_read`, not an empty event list.
+That result lists `availableDates` so a missing request date can be distinguished
+from an absent client snapshot without exposing Calendar content.
 The tool omits raw habit, calorie and workout lookback rows; Daily Signals still
 use those rows internally, and the `/ai/daily-context` endpoint keeps its full
 contract for the Today surface.
+Ordinary Talk chat turns send this Calendar read even when Settings or Goals are
+unavailable; those personal-context reads cannot suppress Calendar evidence
+from the same device.
+Follow-up chat turns retain the most recent referenced date in the
+bounded Calendar snapshot when the new message refers to it without naming it.
+Talk treats event titles and descriptions as the limits of Calendar evidence.
+A generic holiday such as "National Day" is not translated into a specific
+independence day or attributed to a country unless the record says so.
 
 The opt-in `HANDSFREE_PROBE` iPhone build can enter Talk through a Siri App
 Shortcut. Siri owns microphone and dialog turns while locked; the foreground

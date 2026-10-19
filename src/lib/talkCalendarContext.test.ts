@@ -50,6 +50,38 @@ describe('Talk calendar context', () => {
     }
   })
 
+  it('keeps the previously named date available for a follow-up question', async () => {
+    const context = await buildTalkCalendarContext(
+      async (date) => connectedDay(`Event ${date}`, date),
+      new Date('2026-10-19T12:00:00'),
+      'And is that morning free?',
+      ['ב26 באוקטובר אין לי כלום?'],
+    )
+
+    assert.ok(context.days.some((day) => day.date === '2026-10-26'))
+  })
+
+  it('reads unambiguous numeric and alternate Hebrew date phrasing', async () => {
+    for (const prompt of ['26/10', '26.10', '10/26', 'ב-26 לאוקטובר', 'באוקטובר 26']) {
+      const context = await buildTalkCalendarContext(
+        async (date) => connectedDay(`Event ${date}`, date),
+        new Date('2026-10-19T12:00:00'),
+        prompt,
+      )
+      assert.ok(context.days.some((day) => day.date === '2026-10-26'), prompt)
+    }
+  })
+
+  it('keeps a bare day-of-month reference available for a holiday follow-up', async () => {
+    const read = async (date: string) => connectedDay(`Event ${date}`, date)
+    const now = new Date('2026-10-19T12:00:00')
+    const first = await buildTalkCalendarContext(read, now, 'מה יש ב26?')
+    const followUp = await buildTalkCalendarContext(read, now, 'איזה חג ציבורי?', ['מה יש ב26?'])
+
+    assert.ok(first.days.some((day) => day.date === '2026-10-26'))
+    assert.ok(followUp.days.some((day) => day.date === '2026-10-26'))
+  })
+
   it('reads next week when that week is outside the default window', async () => {
     const context = await buildTalkCalendarContext(
       async (date) => connectedDay(`Event ${date}`, date),

@@ -1040,7 +1040,7 @@ export const AiCapabilities = defineCapabilities({
     },
   },
   get_daily_context: {
-    description: 'Read one date of HealthyFlow records, Daily Signals, and the client Calendar read for that exact date. Calendar status not_read means the device did not supply that date; it does not mean empty. Raw lookback history is excluded. Use this for date-specific questions.',
+    description: 'Read one date of HealthyFlow records, Daily Signals, and the client Calendar read for that exact date. Calendar status not_read means the device did not supply that date; availableDates lists the dates it did supply, and neither implies an empty Calendar. Raw lookback history is excluded. Use this for date-specific questions.',
     modules: ['calendar_daily_plan'],
     kind: 'read',
     inputSchema: DailyContextInputSchema,
@@ -1050,7 +1050,11 @@ export const AiCapabilities = defineCapabilities({
       const context = await buildDailyContext(ctx.userId, parsed.date ?? ctx.currentDate)
       const { calendarEvents: _serverCalendarPlaceholder, ...day } = context.day
       const calendar = ctx.calendar?.days.find((candidate) => candidate.date === context.date)
-        ?? { date: context.date, status: 'not_read' as const }
+        ?? {
+          date: context.date,
+          status: 'not_read' as const,
+          availableDates: ctx.calendar?.days.map((candidate) => candidate.date) ?? [],
+        }
       return {
         date: context.date,
         generatedAt: context.generatedAt,

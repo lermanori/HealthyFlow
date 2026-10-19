@@ -1,3 +1,9 @@
+### 2026-10-19 12:37 — `main`
+
+Talk now sends the device Calendar snapshot independently of personal settings and carries named, numeric, and bare day-of-month dates through follow-up questions. `get_daily_context` distinguishes an unrequested date from an empty Calendar with `availableDates`, and the assistant is instructed to preserve ambiguous holiday titles rather than inventing an occasion or country. Focused unit, backend, and browser tests, typechecks, and production builds pass; the iOS bundle is copied into the Xcode project, and the user reports the backend has been deployed.
+
+---
+
 ### 2026-10-19 10:58 — `main`
 
 Talk now reads the calendar for the dates a message actually names (including Hebrew month names and "next week"), and `get_daily_context` returns that exact date's client Calendar read, marking unrequested dates `not_read` instead of empty. Working-tree clutter is cleaned up: Playwright CLI snapshots and ad-hoc screenshots are ignored, and the iOS probe plist ordering is normalized. Typechecks, unit tests and the affected backend suites pass.

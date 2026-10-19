@@ -759,9 +759,13 @@ describe('POST /api/ai/chat', () => {
     expect(systemMessage.content).toContain('A date absent from the snapshot was not read')
   })
 
-  it('passes a requested device Calendar day through get_daily_context without raw history', async () => {
+  it('passes a requested device Calendar day through get_daily_context without personal settings or raw history', async () => {
+    let firstModelRequest: any
     nock('https://api.openai.com')
-      .post('/v1/chat/completions')
+      .post('/v1/chat/completions', (body: any) => {
+        firstModelRequest = body
+        return true
+      })
       .reply(200, toolCallResponse('get_daily_context', { date: '2026-10-26' }))
       .post('/v1/chat/completions')
       .reply(200, finalAnswerResponse)
@@ -771,33 +775,43 @@ describe('POST /api/ai/chat', () => {
       .set('Authorization', authHeader('chat-user-calendar-tool'))
       .send({
         messages: [{ role: 'user', content: 'What is on my calendar October 26?' }],
-        assistantContext: {
-          ownerName: null,
-          profile: {},
-          goals: { status: 'unavailable' },
-          calendar: { days: [{
-            date: '2026-10-26',
-            status: 'connected',
-            reasonCode: null,
-            truncated: false,
-            events: [{
-              title: 'Dentist',
-              description: null,
-              location: 'Kaplan Dental',
-              startAt: '2026-10-26T07:00:00.000Z',
-              endAt: '2026-10-26T09:30:00.000Z',
-              localStartTime: '09:00',
-              localEndTime: '11:30',
-              allDay: false,
-              status: 'confirmed',
-            }],
-          }] },
-        },
+        calendar: { days: [{
+          date: '2026-10-26',
+          status: 'connected',
+          reasonCode: null,
+          truncated: false,
+          events: [{
+            title: 'Dentist',
+            description: null,
+            location: 'Kaplan Dental',
+            startAt: '2026-10-26T07:00:00.000Z',
+            endAt: '2026-10-26T09:30:00.000Z',
+            localStartTime: '09:00',
+            localEndTime: '11:30',
+            allDay: false,
+            status: 'confirmed',
+          }, {
+            title: 'National Day',
+            description: 'Public holiday',
+            location: null,
+            startAt: '2026-10-25T22:00:00.000Z',
+            endAt: '2026-10-26T21:59:59.000Z',
+            localStartTime: null,
+            localEndTime: null,
+            allDay: true,
+            status: 'confirmed',
+          }],
+        }] },
       })
 
     expect(res.status).toBe(200)
+    expect(firstModelRequest.messages.find((message: any) => message.role === 'system').content)
+      .toContain('Dentist')
+    expect(firstModelRequest.messages.find((message: any) => message.role === 'system').content)
+      .toContain('"National Day" does not by itself mean "Independence Day"')
     const result = res.body.toolEvents[0].result
     expect(result.calendar.events[0].title).toBe('Dentist')
+    expect(result.calendar.events[1]).toMatchObject({ title: 'National Day', description: 'Public holiday' })
     expect(result).not.toHaveProperty('lookback')
     expect(result.day).not.toHaveProperty('calendarEvents')
   })

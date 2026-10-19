@@ -50,24 +50,54 @@ function namedDates(prompt: string, now: Date) {
     add(Number(match[1]), Number(match[2]), Number(match[3]))
   }
 
-  const dayMonth = new RegExp(`(?:^|[\\s([{])(?:ב[-־]?)?(\\d{1,2})\\s+(?:ב[-־]?)?(${MONTH_PATTERN})(?:,?\\s+(\\d{4}))?`, 'giu')
+  for (const match of prompt.matchAll(/(?:^|\D)(\d{1,2})[./](\d{1,2})(?:[./](\d{4}))?(?!\d)/g)) {
+    const first = Number(match[1])
+    const second = Number(match[2])
+    const year = Number(match[3] ?? now.getFullYear())
+    // Only unambiguous numeric dates: 26/10 and 10/26 both mean October 26.
+    if (first > 12 && second <= 12) add(year, second, first)
+    else if (second > 12 && first <= 12) add(year, first, second)
+  }
+
+  const dayMonth = new RegExp(`(?:^|[\\s([{])(?:[בה][-־]?)?(\\d{1,2})\\s+(?:[בל][-־]?)?(${MONTH_PATTERN})(?:,?\\s+(\\d{4}))?`, 'giu')
   for (const match of prompt.matchAll(dayMonth)) {
     add(Number(match[3] ?? now.getFullYear()), MONTHS[match[2].toLowerCase()], Number(match[1]))
   }
 
-  const monthDay = new RegExp(`(?:^|[\\s([{])(${MONTH_PATTERN})\\s+(\\d{1,2})(?:,?\\s+(\\d{4}))?`, 'giu')
+  const monthDay = new RegExp(`(?:^|[\\s([{])(?:ב[-־]?)?(${MONTH_PATTERN})\\s+(\\d{1,2})(?:,?\\s+(\\d{4}))?`, 'giu')
   for (const match of prompt.matchAll(monthDay)) {
     add(Number(match[3] ?? now.getFullYear()), MONTHS[match[1].toLowerCase()], Number(match[2]))
+  }
+
+  if (dates.length === 0) {
+    // A bare day such as "ב26" refers to its next occurrence, like a bare weekday.
+    const bareDay = /(?:^|[\s([{])ב[-־]?(\d{1,2})(?![\d./])|\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/giu
+    for (const match of prompt.matchAll(bareDay)) {
+      const day = Number(match[1] ?? match[2])
+      if (day < 1 || day > 31) continue
+      for (let offset = 0; offset < 12; offset += 1) {
+        const candidate = new Date(now.getFullYear(), now.getMonth() + offset, day)
+        if (candidate.getDate() === day && candidate >= new Date(now.getFullYear(), now.getMonth(), now.getDate())) {
+          const key = localDateKey(candidate)
+          if (!dates.includes(key)) dates.push(key)
+          break
+        }
+      }
+    }
   }
 
   return dates
 }
 
-function datesToRead(now: Date, prompt: string) {
+function datesToRead(now: Date, prompt: string, previousPrompts: readonly string[]) {
   const nextWeek = /\bnext week\b|בשבוע הבא/iu.test(prompt)
+  const currentDates = namedDates(prompt, now)
+  const previousDates = currentDates.length === 0
+    ? (previousPrompts.map((message) => namedDates(message, now)).find((dates) => dates.length > 0) ?? [])
+    : []
   const nearby = Array.from({ length: TALK_CALENDAR_DAYS }, (_, offset) =>
     dateAtOffset(now, offset + (nextWeek ? 7 : 0)))
-  return [...new Set([...namedDates(prompt, now), ...nearby])]
+  return [...new Set([...currentDates, ...previousDates, ...nearby])]
     .slice(0, TALK_CALENDAR_DAYS)
     .sort()
 }
@@ -76,8 +106,9 @@ export async function buildTalkCalendarContext(
   readDay: (date: string) => Promise<CalendarSource>,
   now = new Date(),
   prompt = '',
+  previousPrompts: readonly string[] = [],
 ): Promise<NonNullable<AssistantContext['calendar']>> {
-  const days = await Promise.all(datesToRead(now, prompt).map(async (date) => {
+  const days = await Promise.all(datesToRead(now, prompt, previousPrompts).map(async (date) => {
     try {
       const source = await readDay(date)
       return {

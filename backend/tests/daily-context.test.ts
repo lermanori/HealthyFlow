@@ -455,6 +455,20 @@ describe('get_daily_context capability', () => {
     const value = await tool.execute({ userId: 'user-1', currentDate: '2026-10-26' }, {}) as Record<string, any>
 
     expect(value.date).toBe('2026-10-26')
-    expect(value.calendar).toEqual({ date: '2026-10-26', status: 'not_read' })
+    expect(value.calendar).toEqual({ date: '2026-10-26', status: 'not_read', availableDates: [] })
+  })
+
+  it('shows which dates the client supplied when the requested one was not read', async () => {
+    const tool = aiCapabilityTools().find((candidate) => candidate.name === 'get_daily_context')!
+    const value = await tool.execute({
+      userId: 'user-1',
+      calendar: { days: [{
+        date: '2026-10-25', status: 'connected_empty', reasonCode: null, events: [], truncated: false,
+      }] },
+    }, { date: '2026-10-26' }) as Record<string, any>
+
+    expect(value.calendar).toEqual({
+      date: '2026-10-26', status: 'not_read', availableDates: ['2026-10-25'],
+    })
   })
 })
