@@ -56,3 +56,7 @@ docs/generated/
 
 # Generated per-machine for physical-device builds (scripts/build-ios-device-env.mjs)
 .env.device-build
+
+# Ad-hoc Playwright CLI snapshots and screenshots (output/app-store/ stays tracked)
+.playwright-cli/
+output/playwright/
