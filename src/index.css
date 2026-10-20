@@ -483,7 +483,8 @@
 }
 
 .pwa-mobile-header {
-  background: rgb(var(--surface-card) / 0.98);
+  /* Opaque: scrolled content must never show through the status bar (#334). */
+  background: rgb(var(--surface-card));
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }

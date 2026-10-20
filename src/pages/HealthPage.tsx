@@ -72,7 +72,7 @@ export default function HealthPage() {
         <div className="border-b border-line/70 p-4 lg:p-5">
           <h2 id="health-overview-heading" className="text-lg font-semibold text-ink">Daily overview</h2>
           <p className="mt-1 text-sm text-ink-muted">
-            A neutral summary of what is recorded. Missing data is never treated as failure.
+            What you have logged for this day. Skipping a day is fine.
           </p>
         </div>
         <div className="grid sm:grid-cols-2 xl:grid-cols-5">

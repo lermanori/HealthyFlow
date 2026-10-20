@@ -1777,7 +1777,7 @@ export default function AssistantPage() {
               ? 'Loading your conversation…'
               : isCaptureMode
                 ? 'Say your day, any order'
-                : 'One ongoing conversation about your day'}
+                : 'About your day'}
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -74,7 +74,7 @@ export const SETTINGS_CATEGORIES = z.array(SettingsCategorySchema).parse([
   {
     id: 'data-privacy',
     label: 'Data & Privacy',
-    description: 'Export and destructive account controls.',
+    description: 'Export your data or delete your account.',
     order: 70,
     classification: 'destructive',
     icon: 'shield',

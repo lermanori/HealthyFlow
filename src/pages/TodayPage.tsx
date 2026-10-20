@@ -695,7 +695,7 @@ function DecisionBand({ summary, nowMinutes }: { summary: DaySummary; nowMinutes
                 {nextPlanReference
                   ? nextPlanReference.kind === 'calendar_transition'
                     ? `Protected until ${nextPlanReference.endTime}.`
-                    : 'This points to the owning source record; Today does not copy it.'
+                    : 'It is on your timeline below.'
                   : next?.conflictIds.length
                   ? `${next.conflictIds.length} overlapping ${next.conflictIds.length === 1 ? 'obligation' : 'obligations'}`
                   : [

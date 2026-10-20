@@ -1,3 +1,9 @@
+### 2026-10-20 17:05 — `fix/334-pre-resubmission-polish`
+
+Pre-resubmission polish from a Simulator walkthrough of the Railway-backed iOS build (#334). A build without `VITE_API_URL`, or a production build aimed at localhost, now fails instead of shipping a dead app; the login no longer claims Guest start works offline and shows a failed start under its button; the mobile header is opaque; spec-like copy on login, Today, Health, Goals, Settings, the menu, Talk and the demo is rewritten. Typecheck, 488 unit tests and the production build pass; Playwright auth/platform/visual show only the 20 failures already present on HEAD. Capacity under-counting known load (B3) and a badge overlap (B4) remain open on #334.
+
+---
+
 ### 2026-10-19 12:37 — `main`
 
 Talk now sends the device Calendar snapshot independently of personal settings and carries named, numeric, and bare day-of-month dates through follow-up questions. `get_daily_context` distinguishes an unrequested date from an empty Calendar with `availableDates`, and the assistant is instructed to preserve ambiguous holiday titles rather than inventing an occasion or country. Focused unit, backend, and browser tests, typechecks, and production builds pass; the iOS bundle is copied into the Xcode project, and the user reports the backend has been deployed.

@@ -178,7 +178,7 @@ export default function GoalsPage() {
             <h1 className="text-2xl font-bold text-ink">Goals</h1>
           </div>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-ink-muted">
-            Bigger direction in your own words. Goals guide planning; the owning module still records what was planned and what actually happened.
+            Bigger direction in your own words. Talk uses your Goals when it helps plan your days.
           </p>
         </div>
         <Link to="/talk" className="btn-secondary inline-flex min-h-11 items-center justify-center gap-2 px-4 py-2 text-sm">
@@ -197,7 +197,7 @@ export default function GoalsPage() {
         </div>
         <div className="grid gap-3 sm:grid-cols-[12rem_1fr]">
           <label className="grid gap-1.5 text-sm text-ink-muted">
-            Module
+            Area
             <select className="input-field min-h-11" value={module} onChange={(event) => setModule(event.target.value as GoalModule)}>
               {GOAL_MODULES.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
             </select>
@@ -208,7 +208,7 @@ export default function GoalsPage() {
               className="input-field min-h-24 resize-y"
               maxLength={500}
               value={statement}
-              placeholder="Launch HealthyFlow without sacrificing training consistency."
+              placeholder="Run a half marathon this spring without dropping my evening reading."
               onChange={(event) => setStatement(event.target.value)}
             />
           </label>

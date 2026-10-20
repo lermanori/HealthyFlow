@@ -340,8 +340,8 @@ export default function Layout({
                 <div className="flex items-center space-x-3">
                   <AppMark size={40} />
                   <div>
-                    <h1 id="mobile-navigation-title" className="text-xl font-bold text-ink">HealthyFlow navigation</h1>
-                    <p className="text-xs text-ink-muted">Plan your day. Track what matters.</p>
+                    <h1 id="mobile-navigation-title" className="text-xl font-bold text-ink">HealthyFlow<span className="sr-only"> navigation</span></h1>
+                    <p className="text-xs text-ink-muted">Your whole day, on one page.</p>
                   </div>
                 </div>
                 
@@ -514,7 +514,7 @@ export default function Layout({
                 <AppMark size={40} />
                 <div>
                   <h1 className="text-xl font-bold text-ink">HealthyFlow</h1>
-                  <p className="text-xs text-ink-muted">Plan your day. Track what matters.</p>
+                  <p className="text-xs text-ink-muted">Your whole day, on one page.</p>
                 </div>
               </div>
               

@@ -119,7 +119,7 @@ test.describe('unauthenticated flows', () => {
 
     await page.goto('/app')
 
-    await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Your whole day, on one page' })).toBeVisible()
     await expect(page.locator('#email')).toHaveValue('')
     await expect(page.locator('#password')).toHaveValue('')
     await expect(page.getByText('demo@healthyflow.com')).toHaveCount(0)

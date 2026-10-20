@@ -26,7 +26,7 @@ export const demoPersonas = [
     ],
     icon: Briefcase,
     preview: [
-      ['07:45', 'Paste messy notes into parse-tasks'],
+      ['07:45', 'Turn messy notes into a plan'],
       ['09:00', 'Reply to pricing email'],
       ['11:00', 'Review launch page copy'],
       ['14:00', 'Prep investor update bullets'],

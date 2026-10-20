@@ -114,6 +114,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [error, setError] = useState(takeAuthNotice)
+  // Shown beside the Guest button, not in the form below the fold, so a failed
+  // start never looks like a button that did nothing.
+  const [guestError, setGuestError] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(() => isGoogleOAuthCallback())
   const [appleLoading, setAppleLoading] = useState(false)
@@ -246,11 +249,12 @@ export default function LoginPage() {
     }
     setGuestConfirmNeeded(false)
     setError('')
+    setGuestError('')
     setGuestLoading(true)
     try {
       await startGuestSession()
-    } catch (guestError) {
-      setError(guestStartMessage(guestError))
+    } catch (startError) {
+      setGuestError(guestStartMessage(startError))
     } finally {
       setGuestLoading(false)
     }
@@ -331,14 +335,16 @@ export default function LoginPage() {
     const value = initialParams.get(name)
     if (value) demoSearch.set(name, value)
   }
-  const heading = inviteSignup ? "You're invited" : mode === 'signup' ? 'Create your account' : 'Welcome back'
+  const heading = inviteSignup ? "You're invited" : mode === 'signup' ? 'Create your account' : 'Your whole day, on one page'
   const supportingCopy = inviteSignup
     ? 'Create your account to start planning with HealthyFlow.'
     : mode === 'signup'
       ? demoMeta
         ? `Start your clean workspace with: “${demoMeta.activationPrompt}”`
         : 'Start with one place for your tasks, habits, health, and workouts.'
-      : 'Sign in to continue planning your day.'
+      : isNativeIOS
+        ? 'Start without an account, or sign in to pick up your day.'
+        : 'Sign in to pick up your day.'
 
   return (
     <div className="native-auth-page relative flex min-h-screen items-start justify-center bg-page px-4 py-6 sm:items-center sm:py-10">
@@ -437,9 +443,14 @@ export default function LoginPage() {
                 somewhere else.
               */}
               <p className="mt-2 text-center text-xs text-ink-muted">
-                Free, works offline, nothing to fill in. Your day stays on this
-                iPhone — adding an email later is what makes it recoverable.
+                Free, nothing to fill in. Your day stays on this iPhone — adding
+                an email later is what makes it recoverable.
               </p>
+              {guestError && (
+                <p role="alert" className="mt-2 rounded-control bg-state-danger/10 px-3 py-2 text-sm text-state-danger">
+                  {guestError}
+                </p>
+              )}
             </section>
           )}
 

@@ -181,7 +181,7 @@ function DemoValueProof({
 
         <section className="mt-6 rounded-2xl border border-line bg-sunken/35 p-5">
           <p className="text-sm font-bold text-accent">That&apos;s the whole preview.</p>
-          <h2 className="mt-2 text-2xl font-bold">The value is clear before asking you to explore.</h2>
+          <h2 className="mt-2 text-2xl font-bold">Want this for your own day?</h2>
           <p className="mt-3 text-sm leading-6 text-ink-muted">
             The real workspace is optional. Continue to make this outcome yours, or open {meta.name}&apos;s workspace if you want to inspect it.
           </p>

@@ -723,7 +723,7 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
       case 'connections-advanced':
         return `${calendarConnected ? 'Calendar connected' : 'Calendar not connected'} · ${oauthGrants.filter((grant) => !grant.revokedAt).length} ChatGPT connections`
       case 'data-privacy':
-        return 'Export data or manage destructive actions'
+        return 'Export your data or delete your account'
     }
   }
 
@@ -760,12 +760,8 @@ After connecting, use HealthyFlow tools to read my Tasks, Habit instances, Calor
                     <Icon className="h-5 w-5 shrink-0" />
                     <span className="min-w-0 flex-1">
                       <span className="block text-sm font-semibold">{category.label}</span>
-                      {category.classification !== 'routine' && (
-                        <span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
-                          category.classification === 'destructive'
-                            ? 'border-state-danger/30 text-state-danger'
-                            : 'border-state-warning/30 text-state-warning'
-                        }`}>
+                      {category.classification === 'advanced' && (
+                        <span className="mt-1 inline-flex rounded-full border border-state-warning/30 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-state-warning">
                           {category.classification}
                         </span>
                       )}
