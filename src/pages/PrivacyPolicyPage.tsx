@@ -30,7 +30,7 @@ const sections = [
     title: 'Voice, calendar, and notifications',
     body: [
       'On iPhone, microphone access is used for Apple on-device transcription. HealthyFlow does not upload that microphone audio for transcription. If you send the resulting text to an AI feature, it is processed as described above. On the web, voice recognition is provided by your browser and may involve its speech-service provider.',
-      'With your permission, Device Calendar reads event titles, times, notes, and locations and can write linked HealthyFlow items to calendars on your iPhone. This calendar integration runs on the device. Calendar content you include in an AI request or display in a recorded session may be transmitted separately.',
+      'With your permission, Device Calendar reads event titles, times, notes, and locations and can write linked HealthyFlow items to calendars on your iPhone. This calendar integration runs on the device. Calendar content you include in an AI request is transmitted as described under AI processing.',
       'For accounts with an existing Cloud entitlement, the optional Google Calendar connection on the web uses Google authorization tokens and exchanges event data through our backend. It is separate from Device Calendar and is not offered through the native iPhone app.',
       'If you enable notifications, we process notification preferences and a device token or browser push subscription, and send notifications through Apple Push Notification service or your browser push provider. You can revoke microphone, calendar, and notification permissions in device or browser settings.',
     ],
@@ -39,7 +39,7 @@ const sections = [
     title: 'Analytics',
     body: [
       'We use PostHog to understand feature usage and diagnose problems. Analytics can include device and browser information, page visits, product events, a stable user identifier, and, when available, account name, email address, role, Guest status, and usage properties. Cookies and local storage help associate visits and activity.',
-      'HealthyFlow does not record sessions or capture what is displayed on screen. Product events do not include AI prompt text, task titles, chat messages, or health entries.',
+      'HealthyFlow does not record sessions or capture what is displayed on screen. Product events record that an action happened, such as logging a meal; they do not include the content of AI prompts, chat messages, task titles, or health entries.',
     ],
   },
   {

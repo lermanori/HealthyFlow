@@ -1,3 +1,9 @@
+### 2026-10-20 17:40 — `main`
+
+PostHog project recording is now off at the source as well as in the client (#312), verified against the app's project token. The Privacy Policy drops its last reference to recorded sessions and states precisely what product events carry: that an action happened, never prompt, chat, task or health content. App Privacy answers were reviewed and left unchanged; they over-declare relative to the new behaviour, which is safe for review.
+
+---
+
 ### 2026-10-20 17:20 — `main`
 
 Session replay is off for v1 (#312): the app and the landing page pass `disable_session_recording: true`, and the Privacy Policy (now effective October 20, 2026), the analytics runbook and the App Store runbook say so. The in-flight Talk context-selection work is parked on `talk-context-selection` (#333), so `main` is clean for the release candidate. Typecheck, 488 unit tests and the production build pass; turning replay off in the PostHog project and re-checking App Privacy remain founder actions.
