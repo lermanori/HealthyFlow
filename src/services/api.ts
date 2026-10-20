@@ -28,9 +28,16 @@ import {
   type PlanningWindow,
 } from '../../backend/src/day-summary-schema'
 import SettingsContracts, {
+  TalkContextPlanSchema,
+  RhythmSchema,
+  type Rhythm,
+  type RhythmPatch,
   type AssistantContext,
   type AssistantProfile,
   type Settings as UserSettings,
+  type TalkContextPlan,
+  type TalkDayContext,
+  type TalkReviewContext,
 } from '../../backend/src/settings-schema'
 import type { NativePushRegistration } from '../../backend/src/push-contracts'
 import MobileVersionContracts, {
@@ -773,6 +780,15 @@ export const aiConsentService = {
 }
 
 export const aiService = {
+  planTalkContext: async (
+    messages: AssistantChatMessage[],
+    previousPlan?: TalkContextPlan,
+    signal?: AbortSignal,
+  ): Promise<TalkContextPlan> => {
+    const recent = messages.slice(-8).map(({ role, content }) => ({ role, content }))
+    const response = await api.post('/ai/chat/context-plan', { messages: recent, previousPlan }, { signal })
+    return TalkContextPlanSchema.parse(response.data)
+  },
   // ponytail: route not implemented server-side; return empty so UI shows graceful fallback, no 404
   getRecommendations: async (): Promise<AIRecommendation[]> => {
     return []
@@ -833,7 +849,11 @@ export const aiService = {
       conversationId?: string
       workflow?: { name: 'plan_work'; projectId: string; anchorDate?: string }
       assistantContext?: AssistantContext
+      talkMemory?: string
       calendar?: NonNullable<AssistantContext['calendar']>
+      day?: TalkDayContext
+      review?: TalkReviewContext
+      contextPlan?: TalkContextPlan
       handoff?: WorkoutPlanTalkHandoff
       signal?: AbortSignal
     } = {},
@@ -845,10 +865,19 @@ export const aiService = {
       conversationId: options.conversationId,
       workflow: options.workflow,
       assistantContext: options.assistantContext,
+      talkMemory: options.talkMemory,
       calendar: options.calendar,
+      day: options.day,
+      review: options.review,
+      contextPlan: options.contextPlan,
       handoff: options.handoff,
     }, { signal: options.signal })
     return response.data
+  },
+
+  updateTalkMemory: async (latestUserMessage: string, currentMemory: string): Promise<{ memory: string }> => {
+    const response = await api.post('/ai/chat/memory', { latestUserMessage, currentMemory })
+    return z.object({ memory: z.string().max(1600) }).strict().parse(response.data)
   },
 
   getTalkWorkflow: async (conversationId: string): Promise<AssistantTalkWorkflow | null> => {
@@ -1407,35 +1436,12 @@ export interface PushSubscriptionJSON {
   keys?: { p256dh?: string; auth?: string }
 }
 
-export type TouchpointType = 'morning' | 'midday' | 'weekly'
+export type TouchpointType = 'daily' | 'weekly'
 
-export interface DailyTouchpointRhythm {
-  enabled: boolean
-  time: string
-  days: Array<0 | 1 | 2 | 3 | 4 | 5 | 6>
-  lastSent: string | null
-}
-
-export interface WeeklyTouchpointRhythm {
-  enabled: boolean
-  time: string
-  day: 0 | 1 | 2 | 3 | 4 | 5 | 6
-  lastSent: string | null
-}
-
-export interface UserRhythm {
-  timezone: string
-  morning: DailyTouchpointRhythm
-  midday: DailyTouchpointRhythm
-  weekly: WeeklyTouchpointRhythm
-}
-
-export type UserRhythmPatch = Partial<{
-  timezone: string
-  morning: Partial<DailyTouchpointRhythm>
-  midday: Partial<DailyTouchpointRhythm>
-  weekly: Partial<WeeklyTouchpointRhythm>
-}>
+export type DailyTouchpointRhythm = Rhythm['daily']
+export type WeeklyTouchpointRhythm = Rhythm['weeklyReview']
+export type UserRhythm = Rhythm
+export type UserRhythmPatch = RhythmPatch
 
 export const pushService = {
   subscribe: async (subscription: PushSubscriptionJSON): Promise<void> => {
@@ -1459,10 +1465,6 @@ export const pushService = {
   sendTest: async (): Promise<void> => {
     await api.post('/proactivity/test-notification')
   },
-  getKickoff: async (type: 'morning' | 'midday' | 'weekly'): Promise<string> => {
-    const response = await api.get('/proactivity/kickoff', { params: { type } })
-    return response.data.message
-  },
 }
 
 export const mobileVersionService = {
@@ -1475,11 +1477,11 @@ export const mobileVersionService = {
 export const rhythmService = {
   getRhythm: async (): Promise<UserRhythm> => {
     const response = await api.get('/proactivity/rhythm')
-    return response.data
+    return RhythmSchema.parse(response.data)
   },
   updateRhythm: async (partial: UserRhythmPatch): Promise<UserRhythm> => {
     const response = await api.put('/proactivity/rhythm', partial)
-    return response.data
+    return RhythmSchema.parse(response.data)
   },
 }
 

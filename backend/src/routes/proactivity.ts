@@ -1,20 +1,18 @@
 import express from 'express'
 import { z } from 'zod'
 import { db } from '../supabase-client'
+import { RhythmPatchSchema } from '../settings-schema'
 import { authenticateToken, AuthRequest } from '../middleware/auth'
 import {
   RhythmSchema,
   NativePushRegistrationSchema,
   PushSubscriptionSchema,
-  TOUCHPOINT_TYPES,
-  buildKickoffMessage,
   sendPushToUser,
-  type TouchpointType,
 } from '../proactivity'
 
 const router = express.Router()
 
-// GET /api/proactivity/rhythm
+// GET /api/proactivity/rhythm — review schedule; old planning fields are ignored.
 router.get('/rhythm', authenticateToken, async (req: AuthRequest, res) => {
   try {
     const stored = await db.getUserRhythm(req.user.userId)
@@ -25,15 +23,8 @@ router.get('/rhythm', authenticateToken, async (req: AuthRequest, res) => {
 })
 
 // PUT /api/proactivity/rhythm — accepts a partial patch of the rhythm.
-const RhythmPatch = z.object({
-  timezone: z.string(),
-  morning: z.record(z.string(), z.unknown()),
-  midday: z.record(z.string(), z.unknown()),
-  weekly: z.record(z.string(), z.unknown()),
-}).partial().strict()
-
 router.put('/rhythm', authenticateToken, async (req: AuthRequest, res) => {
-  const parsed = RhythmPatch.safeParse(req.body)
+  const parsed = RhythmPatchSchema.safeParse(req.body)
   if (!parsed.success) return res.status(400).json({ error: parsed.error.issues })
   try {
     const stored = await db.upsertUserRhythm(req.user.userId, parsed.data)
@@ -112,30 +103,11 @@ router.post('/test-notification', authenticateToken, async (req: AuthRequest, re
     await sendPushToUser(req.user.userId, {
       title: 'HealthyFlow test 🔔',
       body: 'Push is working. Tap to open the assistant.',
-      url: '/talk?kickoff=morning',
+      url: '/talk',
     })
     res.json({ ok: true })
   } catch {
     res.status(500).json({ error: 'Failed to send test notification' })
-  }
-})
-
-// GET /api/proactivity/kickoff?type=morning
-router.get('/kickoff', authenticateToken, async (req: AuthRequest, res) => {
-  const type = req.query.type
-  if (typeof type !== 'string' || !TOUCHPOINT_TYPES.includes(type as TouchpointType)) {
-    return res.status(400).json({ error: 'Invalid kickoff type' })
-  }
-  try {
-    const message = await buildKickoffMessage(
-      req.user.userId,
-      type as TouchpointType,
-      req.header('x-client-time-zone'),
-    )
-    res.json({ message })
-  } catch (err) {
-    // No silent fallback — surface the failure so the assistant shows its error state.
-    res.status(500).json({ error: 'Failed to build kickoff' })
   }
 })
 

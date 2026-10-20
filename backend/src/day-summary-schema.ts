@@ -573,6 +573,7 @@ const DaySummaryContracts = {
   DaySummaryCalendarEventSchema,
   DaySummaryCalorieEntrySchema,
   DaySummaryWeightEntrySchema,
+  isDaySummaryItemAddressed,
 }
 
 export default DaySummaryContracts

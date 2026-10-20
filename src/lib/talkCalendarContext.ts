@@ -1,5 +1,5 @@
-import type { CalendarSource } from '../../backend/src/day-summary-schema'
-import type { AssistantContext } from '../../backend/src/settings-schema'
+import type { CalendarSource, DaySummary } from '../../backend/src/day-summary-schema'
+import type { AssistantContext, TalkContextPlan, TalkDayContext } from '../../backend/src/settings-schema'
 
 const TALK_CALENDAR_DAYS = 7
 const MAX_EVENTS_PER_DAY = 20
@@ -71,7 +71,7 @@ function namedDates(prompt: string, now: Date) {
 
   if (dates.length === 0) {
     // A bare day such as "ב26" refers to its next occurrence, like a bare weekday.
-    const bareDay = /(?:^|[\s([{])ב[-־]?(\d{1,2})(?![\d./])|\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/giu
+    const bareDay = /(?:^|[\s([{])(?:ו[-־]?)?ב[-־]?(\d{1,2})(?![\d./])|\b(?:on\s+)?the\s+(\d{1,2})(?:st|nd|rd|th)\b/giu
     for (const match of prompt.matchAll(bareDay)) {
       const day = Number(match[1] ?? match[2])
       if (day < 1 || day > 31) continue
@@ -90,7 +90,7 @@ function namedDates(prompt: string, now: Date) {
 }
 
 function datesToRead(now: Date, prompt: string, previousPrompts: readonly string[]) {
-  const nextWeek = /\bnext week\b|בשבוע הבא/iu.test(prompt)
+  const nextWeek = /\bnext week\b|(?:^|[\s([{])(?:וב|ב)?שבוע הבא/iu.test(prompt)
   const currentDates = namedDates(prompt, now)
   const previousDates = currentDates.length === 0
     ? (previousPrompts.map((message) => namedDates(message, now)).find((dates) => dates.length > 0) ?? [])
@@ -140,4 +140,84 @@ export async function buildTalkCalendarContext(
   }))
 
   return { days }
+}
+
+/** Read only the dates selected for this Talk turn, from the same owners as Today. */
+export async function buildPlannedTalkEvidence(
+  plan: TalkContextPlan,
+  readCalendar: (date: string) => Promise<CalendarSource>,
+  readDay: (date: string) => Promise<DaySummary>,
+): Promise<{ calendar?: NonNullable<AssistantContext['calendar']>; day?: TalkDayContext }> {
+  const needsCalendar = plan.sources.includes('calendar')
+  const needsDay = plan.sources.includes('day')
+  if (!needsCalendar && !needsDay) return {}
+
+  const days = await Promise.all(plan.dates.map(async (date) => {
+    let summary: DaySummary | null = null
+    if (needsDay) {
+      try {
+        summary = await readDay(date)
+      } catch {
+        // Calendar remains independently readable even when the day failed.
+      }
+    }
+
+    let calendar: CalendarSource | null = null
+    if (needsCalendar) {
+      if (summary) {
+        calendar = summary.calendar
+      } else {
+        try {
+          calendar = await readCalendar(date)
+        } catch {
+          calendar = { status: 'unavailable', reasonCode: 'status_unavailable', events: [] }
+        }
+      }
+    }
+    return { date, summary, calendar }
+  }))
+
+  const calendar = needsCalendar ? {
+    days: days.map(({ date, calendar: source }) => {
+      const read = source ?? { status: 'unavailable' as const, reasonCode: 'status_unavailable' as const, events: [] }
+      return {
+        date,
+        status: read.status,
+        reasonCode: read.reasonCode,
+        events: read.events.slice(0, MAX_EVENTS_PER_DAY).map((event) => ({
+          title: event.title,
+          description: event.description,
+          location: event.location,
+          startAt: event.startAt,
+          endAt: event.endAt,
+          localStartTime: event.localStartTime,
+          localEndTime: event.localEndTime,
+          allDay: event.allDay,
+          status: event.status,
+        })),
+        truncated: read.events.length > MAX_EVENTS_PER_DAY,
+      }
+    }),
+  } : undefined
+
+  const day: TalkDayContext | undefined = needsDay ? {
+    days: days.map(({ date, summary }) => summary
+      ? {
+          date,
+          status: 'ready' as const,
+          items: summary.items.slice(0, 50).map((item) => ({
+            title: item.title,
+            type: item.type,
+            startTime: item.startTime,
+            duration: item.duration,
+            completed: item.completed,
+            scheduledDate: item.scheduledDate,
+          })),
+          truncated: summary.items.length > 50,
+          capacity: plan.intent === 'day_capacity' ? summary.capacity : null,
+        }
+      : { date, status: 'unavailable' as const, reasonCode: 'day_read_failed' as const }),
+  } : undefined
+
+  return { calendar, day }
 }

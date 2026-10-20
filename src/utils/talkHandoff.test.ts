@@ -2,11 +2,15 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import {
   assertTalkHandoffPendingActions,
+  dailyReviewPrompt,
+  reviewDayEvidence,
   talkHandoffContext,
   talkHandoffLabel,
   talkHandoffPrompt,
   talkHandoffState,
+  weeklyReviewPrompt,
 } from '../talkHandoff'
+import type { DaySummary } from '../../backend/src/day-summary-schema'
 
 describe('module → Talk handoff', () => {
   it('round-trips bounded structured context through router state', () => {
@@ -62,5 +66,37 @@ describe('module → Talk handoff', () => {
       { source: 'workouts', intent: 'draft_workout_plan' },
       [{ capability: 'add_workout_plan' }],
     ))
+  })
+})
+
+function reviewDay(date: string, options: { completed?: boolean; nutrition?: 'not_logged' | 'unavailable' } = {}): DaySummary {
+  return {
+    date,
+    items: [{ id: 'task-1', title: 'Call Maya', type: 'task', completed: Boolean(options.completed), isHabitInstance: false }],
+    calendar: { status: 'connected', events: [{ title: 'Meeting' }] },
+    supporting: {
+      nutrition: { status: options.nutrition ?? 'not_logged', entries: [], weight: { status: 'not_recorded' } },
+      workouts: { status: 'not_logged', sessions: [] },
+      progress: { status: 'not_recorded', entries: [] },
+    },
+  } as unknown as DaySummary
+}
+
+describe('Talk reviews', () => {
+  it('does not count a plan or Calendar event as an actual outcome', () => {
+    const day = reviewDay('2026-10-19')
+    assert.equal(reviewDayEvidence(day).hasOutcome, false)
+    assert.match(dailyReviewPrompt(day.date), /what actually happened on 2026-10-19/i)
+    assert.doesNotMatch(dailyReviewPrompt(day.date), /Call Maya/)
+  })
+
+  it('labels failed module reads instead of calling them empty', () => {
+    assert.deepEqual(reviewDayEvidence(reviewDay('2026-10-19', { nutrition: 'unavailable' })).evidence.unavailable, ['nutrition'])
+  })
+
+  it('keeps a weekly review request short and free of stored day details', () => {
+    const prompt = weeklyReviewPrompt(['2026-10-17', '2026-10-18', '2026-10-19'])
+    assert.match(prompt, /2026-10-19/)
+    assert.doesNotMatch(prompt, /Call Maya/)
   })
 })

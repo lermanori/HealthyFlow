@@ -5,6 +5,12 @@ AI composer. It owns typed text, dictation, file/photo attachments, model choice
 AI responses, action proposals and proposal confirmation. Other modules own their
 records and deterministic forms; they do not own another AI prompt box.
 
+User-facing Talk answers default to GPT-5.4 mini, the lowest selectable model.
+The server also upgrades requests from older clients that still specify GPT-4o
+mini or GPT-5 mini to GPT-5.4 mini; saved conversation records retain their
+original model value until the client opens them. Internal task parsing and
+context planning use their own model choices.
+
 The surface has two explicit views over the same ongoing conversation. **Chat**
 shows the thread and compact composer. **Voice** gives dictation the full capture
 surface; sending returns to Chat for the response and proposal review. Talk waits
@@ -19,30 +25,44 @@ user leaves Talk, and the newest `updatedAt` snapshot wins when device and serve
 hold the same conversation. Neither a failed save nor a failed read is presented
 as an empty history.
 
-Each consented Talk request also carries a bounded seven-date calendar snapshot
-read through the same composed calendar source as Today. By default it covers
-today and the following six days; a named date or bare day-of-month reference
-such as "ב26" is included even when it falls outside that range, and a next-week
-question reads the following week. This is how Device Calendar events that remain
-local to the iPhone can ground Talk without being copied into the hosted
-calendar database. A bare day means its next occurrence. Each date
-preserves connected, empty, not connected, not entitled, or unavailable status;
-a failed or unrequested date never becomes an empty calendar.
+Talk also keeps a separate, short assistant-maintained memory on the device for
+durable facts and response preferences explicitly stated by the user. After a
+successful answer, a structured extraction call sees the latest user message and
+current memory, but no assistant reply or Calendar/Today records. It may update
+the memory only with an exact supporting quote from that message. The result is
+included in later answer context as unverified personal context. The user can
+inspect, edit, or clear it in Talk; it does not write Settings or Goals, and a
+failed memory update is surfaced without removing the answer. Memory is local to
+the device and account, not part of hosted conversation history. Deleting a chat
+message does not silently erase a memory note; the user can remove it in Talk.
+The admin testing reset clears both conversations and memory.
 
-When Talk calls `get_daily_context` for a date, its result includes that exact
-date's client Calendar read alongside the hosted day records and Daily Signals.
-An unrequested date has `calendar.status: not_read`, not an empty event list.
-That result lists `availableDates` so a missing request date can be distinguished
-from an absent client snapshot without exposing Calendar content.
-The tool omits raw habit, calorie and workout lookback rows; Daily Signals still
-use those rows internally, and the `/ai/daily-context` endpoint keeps its full
-contract for the Today surface.
-Ordinary Talk chat turns send this Calendar read even when Settings or Goals are
-unavailable; those personal-context reads cannot suppress Calendar evidence
-from the same device.
-Follow-up chat turns retain the most recent referenced date in the
-bounded Calendar snapshot when the new message refers to it without naming it.
-Talk treats event titles and descriptions as the limits of Calendar evidence.
+After AI consent, an ordinary Talk turn first calls `/ai/chat/context-plan` with
+at most eight recent messages and the last validated read scope for that
+conversation, when available. A server-keyed structured call selects the exact
+local dates (up to seven) and needed sources, or asks for clarification. The
+planner does not see Calendar events and does not spend a second user action;
+its provider cost is logged separately. A failed plan surfaces as an error.
+For an elliptical follow-up, the planner can explicitly continue the previous
+scope; the server then carries its dates and sources unless the user named new
+ones. The client keeps that compact scope on device for 24 hours.
+
+For selected dates, the client reads Calendar from the same composed source as
+Today, including EventKit on iPhone, and reads the local Day Summary only when
+needed. Calendar and day reads fail independently. Each date preserves its
+connected, empty, not connected, not entitled, or unavailable Calendar status;
+an unrequested or failed date never becomes an empty calendar. Talk sends the
+bounded evidence with its answer call. The server rejects missing planned
+evidence before billing and omits broad `get_daily_context` and `get_today` reads
+from all planned turns. When a turn needs only selected Calendar/day evidence,
+or no source was selected, other read capabilities are not offered to the
+answer model. Unrelated hosted records therefore cannot displace
+the selected device evidence or appear after a planner omission.
+
+Explicit Work workflows still use their durable workflow context. Older Talk
+clients may still send the seven-date snapshot; `get_daily_context` reports
+`calendar.status: not_read` for any date they did not supply. Talk treats event
+titles and descriptions as the limits of Calendar evidence.
 A generic holiday such as "National Day" is not translated into a specific
 independence day or attributed to a country unless the record says so.
 
@@ -57,6 +77,62 @@ completes that turn on a locked pilot iPhone is still under test. Other or
 multiple proposals remain for on-screen review.
 AI consent and microphone setup must already be complete before hands-free use.
 This adapter is absent from ordinary builds and does not connect to Salesforce.
+
+## Daily and weekly reviews
+
+The former morning, midday, and weekly Planning Rhythm prompts are retired.
+Settings → Notifications offers two separate opt-in invitations: an end-of-day
+review (20:30 by default) and a weekly reflection (Sunday 19:00 by default).
+Old `morning`, `midday`, and `weekly` values in `user_rhythm` do not enable the
+new invitations. The server sends a generic push with a local date and no AI
+call. It has no access to the iPhone's Local day, so a push never claims that a
+check ran or that outcomes are missing. Notification delivery also is not
+guaranteed merely because the schedule fired.
+
+On opening an invitation, Talk reads the selected Local Day Summary on the device
+and continues the existing conversation. The request sends bounded, typed review
+evidence for that turn; the saved chat message contains only the short review
+request and dates. An end-of-day review distinguishes
+planned Items and Calendar events from recorded outcomes, and asks what happened
+when no outcome is recorded in available sources. A weekly review reads the
+seven days ending on the notification's date. It suggests one small experiment
+only when at least two readable days have recorded outcomes. Failed date or
+module reads are named as unavailable and never counted as empty days. A review
+uses an AI action when the user starts it; sending the invitation does not.
+Talk prepares any writes for explicit review and confirmation.
+
+The current push scheduler cannot suppress an end-of-day invitation merely
+because outcomes were recorded on the device. Conditional closed-app delivery
+requires a device-owned scheduling mechanism, so the invitation asks neutrally
+and Talk checks actual records after opening. Conflict alerts are not part of
+these reviews.
+
+## Short-lived Calendar diagnosis
+
+The iPhone already sends its selected Calendar days in the ordinary `/ai/chat`
+request. For an account-scoped investigation, the backend can emit a temporary
+`[DEBUG-talk-calendar-v1]` trace for the planner result, the bounded Calendar
+evidence received from the device, and the final answer. Set both
+`TALK_CALENDAR_TRACE_USER_ID` and `TALK_CALENDAR_TRACE_UNTIL` (UTC ISO instant no
+more than one hour ahead) on Railway. Without both fields, or after expiry, the
+trace is off. It omits credentials, account id, event locations and descriptions;
+it does include message text, event titles and times, so keep exported logs in
+the ignored `.talk-debug/` directory and remove them after diagnosis.
+
+Ask the question on the already-installed iPhone app, then collect the tagged
+Railway logs and inspect the same turn locally:
+
+```sh
+mkdir -p .talk-debug
+railway logs --lines 500 > .talk-debug/railway.log
+node scripts/inspect-talk-calendar-trace.mjs .talk-debug/railway.log --dates 2026-10-25..2026-10-31 --event מילואים
+```
+
+The command separates missing planner dates, missing Calendar reads, and events
+absent from a completed read. It prints the answer for comparison; it does not
+call OpenAI or change user data. This is a diagnostic fixture, not the older
+synthetic Prompt Lab and not a persistent chat-history feature. Only an EventKit
+reader fix would require a new iPhone build.
 
 ## Contextual entry
 

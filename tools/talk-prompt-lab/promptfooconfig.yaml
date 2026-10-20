@@ -6,60 +6,11 @@ prompts:
 
 providers:
   - id: file://eval/talk-provider.mjs
-    label: gpt-4o-mini
+    label: synthetic-gpt-4o-mini
     config:
-      model: gpt-4o-mini
+      name: synthetic-gpt-4o-mini
+      targetModule: ./targets/synthetic-openai.mjs
+      options:
+        model: gpt-4o-mini
 
-tests:
-  - description: Uses the whole day to choose a grounded next action
-    vars:
-      scenarioId: whole-day-next-action
-      DATE_CONTEXT: |-
-        Date context:
-        - Client time zone: Asia/Jerusalem
-        - Current local date: Monday, 2026-10-19
-        - Current local time: 14:10
-        - Yesterday: Sunday, 2026-10-18
-        - Tomorrow: Tuesday, 2026-10-20
-
-        Next 7 days (counting today):
-        - Monday, 2026-10-19
-        - Tuesday, 2026-10-20
-        - Wednesday, 2026-10-21
-        - Thursday, 2026-10-22
-        - Friday, 2026-10-23
-        - Saturday, 2026-10-24
-        - Sunday, 2026-10-25
-
-        Named weekday resolution:
-        - A bare weekday name means the NEXT occurrence, counting today if it matches.
-        - Hebrew weekday names: ראשון=Sunday, שני=Monday, שלישי=Tuesday, רביעי=Wednesday, חמישי=Thursday, שישי=Friday, שבת=Saturday.
-        - The Israeli week starts on Sunday.
-        - Never compute a weekday from a date yourself; use the dated list above.
-    assert:
-      - type: javascript
-        value: file://eval/assertions.cjs:validateTalkBehavior
-        config:
-          requiredTools:
-            - get_today
-            - list_goals
-            - list_habit_history
-          forbiddenTools:
-            - add_task
-            - add_habit
-            - add_calorie_entry
-            - add_weight_entry
-            - add_workout_session
-            - update_item
-            - complete_task
-            - delete_item
-          replyIncludes:
-            - App Store reviewer notes
-            - Calendar
-          replyIncludesOneOf:
-            - [upper bound, at most, not exact]
-            - ['16:30', later sessions, '4 of 5']
-          replyExcludes:
-            - estimate
-            - about 75
-          requireNoPendingActions: true
+tests: file://eval/generate-tests.cjs

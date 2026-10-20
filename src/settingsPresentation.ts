@@ -34,7 +34,7 @@ export const SETTINGS_CATEGORIES = z.array(SettingsCategorySchema).parse([
   {
     id: 'planning',
     label: 'Planning',
-    description: 'Planning rhythm, usable day, and week preferences.',
+    description: 'Usable day and week preferences.',
     order: 20,
     classification: 'routine',
     icon: 'calendar',
@@ -42,7 +42,7 @@ export const SETTINGS_CATEGORIES = z.array(SettingsCategorySchema).parse([
   {
     id: 'notifications',
     label: 'Notifications',
-    description: 'Push permission, reminders, and reports.',
+    description: 'Push permission and Talk reviews.',
     order: 30,
     classification: 'routine',
     icon: 'bell',

@@ -31,6 +31,12 @@ export const test = base.extend<object>({
     await page.route('**/api/ai/query-tasks', (route) =>
       route.fulfill({ path: path.join(FIXTURES, 'query-tasks.json'), contentType: 'application/json' })
     )
+    await page.route('**/api/ai/chat/context-plan', (route) => route.fulfill({ json: {
+      kind: 'ready', intent: 'conversation', dates: [], sources: [], clarification: null,
+    } }))
+    await page.route('**/api/ai/chat/memory', (route) => route.fulfill({ json: {
+      memory: route.request().postDataJSON().currentMemory,
+    } }))
     await use(page)
   },
 })

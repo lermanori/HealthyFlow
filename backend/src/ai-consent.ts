@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { db } from './supabase-client'
 
-export const AI_CONSENT_VERSION = '2026-09-28.openai.v1'
+export const AI_CONSENT_VERSION = '2026-10-19.openai-talk-memory.v1'
 
 export const AiConsentDecisionSchema = z.enum(['accepted', 'declined', 'withdrawn'])
 export type AiConsentDecision = z.infer<typeof AiConsentDecisionSchema>
@@ -26,10 +26,11 @@ export const AI_CONSENT_DISCLOSURE = {
     'What you type or dictate',
     'Photos or text files you attach',
     'Recent Talk messages',
+    'Editable assistant memory built from things you tell Talk, including response preferences',
     'Relevant information from your profile, Goals, planning and calendar, habits, food, weight, and workouts',
   ],
   processing: 'OpenAI processes this information to generate responses and proposed changes.',
-  storage: 'HealthyFlow stores your Talk history on its servers.',
+  storage: 'HealthyFlow stores your Talk history on its servers. Assistant memory is saved on this device.',
   optionalUse: 'You can continue using manual planning and tracking without enabling AI.',
   futureProviders: 'If HealthyFlow begins sharing data with another AI provider, we will identify that provider and ask for your permission again.',
 } as const

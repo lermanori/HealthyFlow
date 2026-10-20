@@ -41,15 +41,12 @@ import {
   DAILY_SIGNALS_QUERY_KEY,
   DAY_SUMMARY_QUERY_KEY,
   isDaySummaryItemAddressed,
-  rhythmService,
   settingsService,
   taskService,
   ExternalCalendarEvent,
   FocusBlockTransitionInput,
   Task,
   HabitItem,
-  TouchpointType,
-  UserRhythm,
   type DaySummary,
 } from '../services/api'
 import DayTimeline, { timedFocusBlockHeight } from '../components/DayTimeline'
@@ -85,52 +82,6 @@ import { completionHaptic, shareFromHealthyFlow } from '../lib/native'
 import { updateTodayWidget } from '../lib/widget'
 import { talkHandoffState } from '../talkHandoff'
 
-const touchpointCtas: Record<TouchpointType, { title: string; body: string; button: string }> = {
-  morning: {
-    title: 'Morning planning is ready',
-    body: 'Set the shape of the day before the timeline fills up.',
-    button: 'Start morning planning',
-  },
-  midday: {
-    title: 'Mid-day check-in is ready',
-    body: 'Rebalance what is left and move anything that changed.',
-    button: 'Start mid-day check-in',
-  },
-  weekly: {
-    title: 'Weekly planning is ready',
-    body: 'Zoom out, reset priorities, and make the week easier to trust.',
-    button: 'Start weekly planning',
-  },
-}
-
-type TouchpointCta = (typeof touchpointCtas)[TouchpointType]
-
-type DueKickoff = {
-  type: TouchpointType
-  startMinutes: number
-} & TouchpointCta
-
-const weekdayIndexes: Record<string, 0 | 1 | 2 | 3 | 4 | 5 | 6> = {
-  Sun: 0,
-  Mon: 1,
-  Tue: 2,
-  Wed: 3,
-  Thu: 4,
-  Fri: 5,
-  Sat: 6,
-}
-
-const touchpointWindowMinutes: Record<TouchpointType, number> = {
-  morning: 4 * 60,
-  midday: 4 * 60,
-  weekly: 12 * 60,
-}
-
-const daytimeCutoffs = {
-  morningEnds: 12 * 60,
-  middayEnds: 18 * 60,
-}
-
 /** Which Focus block's overlay was open, so an accidental reload can restore it. */
 const FOCUS_OVERLAY_KEY = 'hf.focusOverlay'
 
@@ -162,81 +113,6 @@ type DaySwipeGesture = {
 function parseTimeToMinutes(time: string) {
   const [hours, minutes] = time.split(':').map(Number)
   return (hours || 0) * 60 + (minutes || 0)
-}
-
-function getRhythmLocalParts(now: Date, timezone: string) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: timezone,
-    weekday: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-    hourCycle: 'h23',
-  }).formatToParts(now)
-  const value = (type: Intl.DateTimeFormatPartTypes) =>
-    parts.find((part) => part.type === type)?.value
-  const weekday = weekdayIndexes[value('weekday') ?? ''] ?? now.getDay()
-  const hour = Number(value('hour') ?? now.getHours())
-  const minute = Number(value('minute') ?? now.getMinutes())
-  return { weekday, minutes: hour * 60 + minute }
-}
-
-function getDueKickoff(rhythm: UserRhythm | undefined, now: Date): DueKickoff | null {
-  if (!rhythm) return null
-
-  const { weekday, minutes } = getRhythmLocalParts(now, rhythm.timezone)
-  const candidates: DueKickoff[] = []
-
-  const addCandidate = (type: TouchpointType, startMinutes: number) => {
-    const windowMinutes = touchpointWindowMinutes[type]
-    if (minutes >= startMinutes && minutes < startMinutes + windowMinutes) {
-      candidates.push({ type, startMinutes, ...touchpointCtas[type] })
-    }
-  }
-
-  if (rhythm.morning.enabled && rhythm.morning.days.includes(weekday)) {
-    addCandidate('morning', parseTimeToMinutes(rhythm.morning.time))
-  }
-
-  if (rhythm.midday.enabled && rhythm.midday.days.includes(weekday)) {
-    addCandidate('midday', parseTimeToMinutes(rhythm.midday.time))
-  }
-
-  if (rhythm.weekly.enabled && rhythm.weekly.day === weekday) {
-    addCandidate('weekly', parseTimeToMinutes(rhythm.weekly.time))
-  }
-
-  const scheduledDue = candidates.sort((a, b) => b.startMinutes - a.startMinutes)[0]
-  if (scheduledDue) return scheduledDue
-
-  if (rhythm.weekly.enabled && rhythm.weekly.day === weekday) {
-    return {
-      type: 'weekly',
-      startMinutes: parseTimeToMinutes(rhythm.weekly.time),
-      ...touchpointCtas.weekly,
-    }
-  }
-
-  if (minutes < daytimeCutoffs.morningEnds && rhythm.morning.days.includes(weekday)) {
-    return {
-      type: 'morning',
-      startMinutes: parseTimeToMinutes(rhythm.morning.time),
-      ...touchpointCtas.morning,
-    }
-  }
-
-  if (minutes < daytimeCutoffs.middayEnds && rhythm.midday.days.includes(weekday)) {
-    return {
-      type: 'midday',
-      startMinutes: parseTimeToMinutes(rhythm.midday.time),
-      ...touchpointCtas.midday,
-    }
-  }
-
-  return {
-    type: 'midday',
-    startMinutes: parseTimeToMinutes(rhythm.midday.time),
-    ...touchpointCtas.midday,
-  }
 }
 
 function WeekRibbon({
@@ -1063,26 +939,6 @@ function DayContextSummary({
   )
 }
 
-function RhythmKickoffRow({ kickoff }: { kickoff: DueKickoff }) {
-  return (
-    <div data-demo-id="morning-planning-card" className="flex min-h-12 flex-col gap-2 border-y border-line/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-      <div className="flex min-w-0 items-center gap-2">
-        <Sparkles className="h-4 w-4 shrink-0 text-accent" aria-hidden="true" />
-        <p className="truncate text-sm text-ink-soft">
-          <span className="font-semibold text-ink">{kickoff.title}.</span>{' '}
-          {kickoff.body}
-        </p>
-      </div>
-      <Link
-        to={`/talk?kickoff=${kickoff.type}`}
-        className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg px-3 text-sm font-semibold text-accent hover:bg-accent/10"
-      >
-        <span>{kickoff.button}</span>
-      </Link>
-    </div>
-  )
-}
-
 export default function TodayPage() {
   const [selectedDate, setSelectedDate] = useState(new Date())
   const [now, setNow] = useState(new Date())
@@ -1203,12 +1059,6 @@ export default function TodayPage() {
     [daySummary, tasksData]
   )
 
-  const { data: rhythm } = useQuery({
-    queryKey: ['user-rhythm'],
-    queryFn: rhythmService.getRhythm,
-    retry: false,
-  })
-
   const loadByDay = (daySummary?.week.days ?? []).reduce((acc, day) => {
     acc[day.date] = { total: day.total, completed: day.completed, addressed: day.addressed }
     return acc
@@ -1232,10 +1082,6 @@ export default function TodayPage() {
           .filter(Boolean)
           .join(' · ')
   const isViewingToday = isSameDay(selectedDate, now)
-  const dueKickoff = useMemo(
-    () => (isViewingToday ? getDueKickoff(rhythm, now) : null),
-    [isViewingToday, now, rhythm]
-  )
 
   useEffect(() => {
     if (!isViewingToday || !daySummary) return
@@ -1860,7 +1706,6 @@ export default function TodayPage() {
         />
       )}
       {DAILY_SIGNALS_ENABLED && <AIRecommendationsBox date={selectedDateKey} />}
-      {isViewingToday && dueKickoff && <RhythmKickoffRow kickoff={dueKickoff} />}
 
       {!daySetupBannerDismissed && settings && settings.onboardingStatus !== 'completed' && (
         <section className="flex flex-col gap-3 rounded-xl border border-accent/30 bg-accent/[.06] p-4 sm:flex-row sm:items-center sm:justify-between">

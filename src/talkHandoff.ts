@@ -1,8 +1,11 @@
 import { z } from 'zod'
 import { DemoPersonaIdSchema, demoPersonaById } from './demoPersonas'
 import TalkHandoffContracts from '../backend/src/talk-handoff-schema'
+import DaySummaryContracts, { type DaySummary } from '../backend/src/day-summary-schema'
+import type { TalkReviewContext } from '../backend/src/settings-schema'
 
 const { WorkoutPlanTalkHandoffSchema } = TalkHandoffContracts
+const { isDaySummaryItemAddressed } = DaySummaryContracts
 
 const TalkDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
 
@@ -40,6 +43,44 @@ export function talkHandoffContext(value: unknown): TalkHandoffContext | null {
 
 export function talkHandoffState(context: TalkHandoffContext) {
   return { [TALK_HANDOFF_STATE_KEY]: TalkHandoffContextSchema.parse(context) }
+}
+
+/** A review reads actual records, never infers an outcome from a Calendar event. */
+export function reviewDayEvidence(day: DaySummary) {
+  const addressed = day.items.filter(isDaySummaryItemAddressed)
+  const unavailable: Array<'nutrition' | 'workouts' | 'progress'> = []
+  if (day.supporting.nutrition.status === 'unavailable') unavailable.push('nutrition')
+  if (day.supporting.workouts.status === 'unavailable') unavailable.push('workouts')
+  if (day.supporting.progress.status === 'unavailable') unavailable.push('progress')
+  const evidence: Extract<TalkReviewContext['days'][number], { status: 'ready' }> = {
+    date: day.date,
+    status: 'ready',
+    addressedItems: addressed.slice(0, 12).map((item) => ({ title: item.title, type: item.type, completed: item.completed })),
+    addressedItemCount: addressed.length,
+    habitsWithProgress: day.items.filter((item) => item.type === 'habit' && (item.habitInfo?.progressTotal ?? 0) > 0).length,
+    openItems: day.items.filter((item) => !isDaySummaryItemAddressed(item) && !item.isHabitInstance)
+      .slice(0, 12).map((item) => item.title),
+    calorieEntryCount: day.supporting.nutrition.entries.length,
+    workoutSessionCount: day.supporting.workouts.sessions.length,
+    weightRecorded: day.supporting.nutrition.weight.status === 'recorded',
+    progressEntryCount: day.supporting.progress.entries.length,
+    unavailable,
+  }
+  const hasOutcome = evidence.addressedItemCount > 0
+    || evidence.habitsWithProgress > 0
+    || evidence.calorieEntryCount > 0
+    || evidence.workoutSessionCount > 0
+    || evidence.weightRecorded
+    || evidence.progressEntryCount > 0
+  return { evidence, hasOutcome }
+}
+
+export function dailyReviewPrompt(date: string): string {
+  return `Review what actually happened on ${date}. Ask me one useful question and help me record my answer. Treat planned Items and Calendar events as plans, not outcomes.`
+}
+
+export function weeklyReviewPrompt(dates: string[]): string {
+  return `Review recorded outcomes for ${dates.join(', ')}. If enough days have actual records, help me see one pattern and one small improvement. If not, ask me what happened. Do not treat plans as outcomes.`
 }
 
 /**

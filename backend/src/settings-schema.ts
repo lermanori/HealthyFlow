@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { PlanningWindowSchema } from './day-summary-schema'
+import { DaySummaryCapacitySchema, DaySummaryItemSchema, PlanningWindowSchema } from './day-summary-schema'
 import { GoalContextSchema } from './goals-schema'
 import { HabitHistoryContextSchema } from './habit-contracts'
 
@@ -22,6 +22,39 @@ export const WeekStartsOnSchema = z.union([
 export const AssistantResponseStyleSchema = z.enum(['concise', 'balanced', 'detailed'])
 export const AssistantPlanningStyleSchema = z.enum(['one_step_at_a_time', 'guided', 'direct'])
 export const AssistantFollowUpModeSchema = z.enum(['ask_about_outcomes', 'only_when_asked'])
+
+const ReviewTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+const ReviewLastSentSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().default(null)
+const DailyReviewFieldsSchema = z.object({
+  enabled: z.boolean().default(false),
+  time: ReviewTimeSchema.default('20:30'),
+  lastSent: ReviewLastSentSchema,
+})
+export const DailyReviewScheduleSchema = DailyReviewFieldsSchema.prefault({})
+const WeeklyReviewFieldsSchema = z.object({
+  enabled: z.boolean().default(false),
+  time: ReviewTimeSchema.default('19:00'),
+  day: z.number().int().min(0).max(6).default(0),
+  lastSent: ReviewLastSentSchema,
+})
+export const WeeklyReviewScheduleSchema = WeeklyReviewFieldsSchema.prefault({})
+/** Existing user_rhythm rows may contain old planning fields; they are ignored. */
+export const RhythmSchema = z.object({
+  timezone: z.string().default('UTC'),
+  daily: DailyReviewScheduleSchema,
+  weeklyReview: WeeklyReviewScheduleSchema,
+}).prefault({})
+export type Rhythm = z.infer<typeof RhythmSchema>
+export const RhythmPatchSchema = z.object({
+  timezone: z.string(),
+  daily: z.object({ enabled: z.boolean(), time: ReviewTimeSchema }).partial().strict(),
+  weeklyReview: z.object({
+    enabled: z.boolean(),
+    time: ReviewTimeSchema,
+    day: z.number().int().min(0).max(6),
+  }).partial().strict(),
+}).partial().strict()
+export type RhythmPatch = z.infer<typeof RhythmPatchSchema>
 
 /**
  * User-owned context for Talk.
@@ -75,6 +108,79 @@ const AssistantCalendarDaySchema = z.object({
 
 export const AssistantCalendarContextSchema = z.object({
   days: z.array(AssistantCalendarDaySchema).max(7),
+}).strict()
+
+const TalkDayItemSchema = DaySummaryItemSchema.pick({
+  title: true,
+  type: true,
+  startTime: true,
+  duration: true,
+  completed: true,
+  scheduledDate: true,
+})
+
+export const TalkDayContextSchema = z.object({
+  days: z.array(z.discriminatedUnion('status', [
+    z.object({
+      date: z.string().date(),
+      status: z.literal('ready'),
+      items: z.array(TalkDayItemSchema).max(50),
+      truncated: z.boolean(),
+      capacity: DaySummaryCapacitySchema.nullable(),
+    }).strict(),
+    z.object({
+      date: z.string().date(),
+      status: z.literal('unavailable'),
+      reasonCode: z.literal('day_read_failed'),
+    }).strict(),
+  ])).max(7),
+}).strict()
+
+const TalkReviewReadyDaySchema = z.object({
+  date: z.string().date(),
+  status: z.literal('ready'),
+  addressedItems: z.array(z.object({
+    title: z.string(),
+    type: DaySummaryItemSchema.shape.type,
+    completed: z.boolean(),
+  }).strict()).max(12),
+  addressedItemCount: z.number().int().nonnegative(),
+  habitsWithProgress: z.number().int().nonnegative(),
+  openItems: z.array(z.string()).max(12),
+  calorieEntryCount: z.number().int().nonnegative(),
+  workoutSessionCount: z.number().int().nonnegative(),
+  weightRecorded: z.boolean(),
+  progressEntryCount: z.number().int().nonnegative(),
+  unavailable: z.array(z.enum(['nutrition', 'workouts', 'progress'])),
+}).strict()
+export const TalkReviewContextSchema = z.object({
+  kind: z.enum(['daily', 'weekly']),
+  days: z.array(z.discriminatedUnion('status', [
+    TalkReviewReadyDaySchema,
+    z.object({
+      date: z.string().date(),
+      status: z.literal('unavailable'),
+      reasonCode: z.literal('day_read_failed'),
+    }).strict(),
+  ])).min(1).max(7),
+}).strict().refine((review) => review.kind !== 'daily' || review.days.length === 1, {
+  message: 'A daily review must read exactly one date',
+})
+export type TalkReviewContext = z.infer<typeof TalkReviewContextSchema>
+
+/** The read plan is about where to look, never an answer or a write decision. */
+export const TalkContextSourceSchema = z.enum([
+  'calendar', 'day', 'goals', 'habit_history', 'nutrition', 'workout', 'weight', 'achievements',
+])
+
+export const TalkContextPlanSchema = z.object({
+  kind: z.enum(['ready', 'clarify']),
+  intent: z.enum(['conversation', 'calendar_events', 'schedule_conflicts', 'day_capacity', 'other_app_data']),
+  dates: z.array(z.string().date()).max(7),
+  sources: z.array(TalkContextSourceSchema).max(8),
+  clarification: z.string().trim().min(1).max(240).nullable(),
+  // Optional on the wire so already-installed clients can still send their plan.
+  continuesPreviousTopic: z.boolean().optional(),
 }).strict()
 
 /** A bounded snapshot sent with a Talk turn so Local-first sessions work too. */
@@ -147,6 +253,8 @@ export const SettingsPatchSchema = z.object({
 export type ModuleSettingKey = z.infer<typeof ModuleSettingKeySchema>
 export type AssistantProfile = z.infer<typeof AssistantProfileSchema>
 export type AssistantContext = z.infer<typeof AssistantContextSchema>
+export type TalkContextPlan = z.infer<typeof TalkContextPlanSchema>
+export type TalkDayContext = z.infer<typeof TalkDayContextSchema>
 export type Settings = z.infer<typeof SettingsSchema>
 
 const SettingsContracts = {

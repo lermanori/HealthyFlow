@@ -1125,7 +1125,7 @@ export const db = {
   async upsertUserRhythm(userId: string, rhythm: Record<string, unknown>): Promise<Record<string, unknown>> {
     const existing = await this.getUserRhythm(userId)
     const merged = { ...existing, ...rhythm }
-    for (const key of ['morning', 'midday', 'weekly']) {
+    for (const key of ['daily', 'weeklyReview']) {
       const existingValue = existing[key]
       const nextValue = rhythm[key]
       if (

@@ -39,6 +39,14 @@
           { "habit": "Focused product work", "observation": "7 of the last 9 completed sessions started before 16:30; 4 of 5 planned later sessions were missed." }
         ]
       }
+    },
+    "expect": {
+      "requiredTools": ["get_today", "list_goals", "list_habit_history"],
+      "forbiddenTools": ["add_task", "add_habit", "add_calorie_entry", "add_weight_entry", "add_workout_session", "update_item", "complete_task", "delete_item"],
+      "replyIncludes": ["App Store reviewer notes", "Calendar"],
+      "replyIncludesOneOf": [["upper bound", "at most", "not exact"], ["16:30", "later sessions", "4 of 5"]],
+      "replyExcludes": ["estimate", "about 75"],
+      "requireNoPendingActions": true
     }
   },
   {
@@ -46,7 +54,19 @@
     "label": "Chaotic mixed capture",
     "anchor": { "date": "2026-08-26", "time": "17:20", "timeZone": "Europe/Vienna" },
     "user": "Tomorrow call the dentist, make morning stretching daily, I ate two eggs at 8, weighed 81.4 this morning, and I did a 35 minute easy run. Put all of that in.",
-    "toolResults": {}
+    "toolResults": {
+      "search_calorie_history": { "matches": [{ "name": "Two eggs", "calories": 140, "protein": 12, "carbs": 1, "fat": 10 }] },
+      "list_calorie_entries": { "entries": [] },
+      "list_weight_summary": { "entries": [] },
+      "list_workout_sessions": { "sessions": [] },
+      "get_today": { "date": "2026-08-26", "tasks": [], "habitInstances": [], "calorieEntries": [], "weight": null, "achievements": [], "workoutSessions": [] }
+    },
+    "expect": {
+      "requiredPendingCapabilities": ["add_task", "add_habit", "add_calorie_entry", "add_weight_entry", "add_workout_session"],
+      "replyExcludes": ["I saved", "I logged", "I added"],
+      "requireNoToolErrors": true
+    },
+    "rubric": "The user asked to capture five different records in one natural message. Check that the structured previews preserve tomorrow for the dentist Task, a daily Habit, 08:00 for the two eggs, 81.4 kg for Weight, and a completed 35-minute run today. The assistant must not claim anything was saved before confirmation and should not make the user sort the message into modules."
   },
   {
     "id": "one-clock",
@@ -75,7 +95,13 @@
     "toolResults": {
       "get_today": { "error": { "code": "unavailable", "message": "Nutrition read failed" } },
       "list_calorie_entries": { "error": { "code": "unavailable", "message": "Calorie entries could not be read" } }
-    }
+    },
+    "expect": {
+      "replyIncludesOneOf": [["unavailable", "could not read", "couldn't read", "can't read"]],
+      "replyExcludes": ["zero calories", "nothing logged", "no food logged"],
+      "requireNoPendingActions": true
+    },
+    "rubric": "The Calorie entry read failed. Pass only if the assistant explicitly distinguishes unavailable data from a verified empty day, avoids inventing a calorie total, and gives a useful next step. The answer must not claim that no food was logged."
   },
   {
     "id": "same-turn-id",
@@ -114,5 +140,106 @@
         "meals": [{ "name": "Chicken rice bowl", "quantity": null, "calories": 650, "protein": 42, "carbs": 70, "fat": 20, "sourceType": "estimate", "confidence": "low", "notes": "Portion sizes were not provided" }]
       }
     }
+  },
+  {
+    "id": "day-pivot",
+    "label": "Reprioritize when the day changes",
+    "anchor": { "date": "2026-10-20", "time": "14:10", "timeZone": "Asia/Jerusalem" },
+    "turns": [
+      {
+        "user": "I have about 45 minutes before my next meeting. What should I do for HealthyFlow?",
+        "toolResults": {
+          "get_today": {
+            "date": "2026-10-20",
+            "tasks": [{ "id": "review-notes", "title": "Finish App Store reviewer notes", "type": "task", "completed": false, "duration": 30, "startTime": null, "scheduledDate": "2026-10-20" }],
+            "habitInstances": [{ "id": "walk", "title": "Afternoon walk", "completed": false, "duration": 20, "scheduledDate": "2026-10-20" }],
+            "capacity": { "status": "partial", "upperBoundMinutes": 45, "reasons": [{ "code": "calendar_unavailable", "message": "Calendar obligations could not be read." }] }
+          },
+          "list_goals": { "goals": [{ "id": "ship", "title": "Ship HealthyFlow", "status": "active", "direction": "Finish App Store review." }] }
+        }
+      },
+      {
+        "user": "The meeting ran late. I have only 15 minutes now and need to stay at my desk. Change your recommendation.",
+        "toolResults": {
+          "get_today": {
+            "date": "2026-10-20",
+            "tasks": [{ "id": "review-notes", "title": "Finish App Store reviewer notes", "type": "task", "completed": false, "duration": 30, "startTime": null, "scheduledDate": "2026-10-20" }],
+            "habitInstances": [{ "id": "walk", "title": "Afternoon walk", "completed": false, "duration": 20, "scheduledDate": "2026-10-20" }],
+            "capacity": { "status": "partial", "upperBoundMinutes": 45, "reasons": [{ "code": "calendar_unavailable", "message": "Calendar obligations could not be read." }] }
+          }
+        }
+      }
+    ],
+    "expect": {
+      "requireNoPendingActions": true,
+      "turnChecks": [
+        { "turn": 0, "requiredTools": ["get_today"], "replyIncludesOneOf": [["reviewer notes", "App Store"]] },
+        { "turn": 1, "requiredTools": ["get_today"], "replyIncludesOneOf": [["15 minutes", "15-minute", "15 min"]], "requireNoPendingActions": true }
+      ]
+    },
+    "rubric": "Judge the whole two-turn transcript. The assistant should revise the recommendation for 15 desk-bound minutes, not repeat a 30-minute Task or suggest the 20-minute walk as if it fits. It should keep Calendar uncertainty explicit and should not treat the 45-minute Capacity upper bound as guaranteed free time. No write was requested."
+  },
+  {
+    "id": "correction-across-turns",
+    "label": "Use a correction instead of repeating old advice",
+    "anchor": { "date": "2026-10-20", "time": "15:00", "timeZone": "Asia/Jerusalem" },
+    "turns": [
+      {
+        "user": "What should I do next to get the release ready?",
+        "toolResults": {
+          "get_today": { "date": "2026-10-20", "tasks": [
+            { "id": "review-notes", "title": "Finish reviewer notes", "type": "task", "completed": false, "duration": 30, "scheduledDate": "2026-10-20" },
+            { "id": "checklist", "title": "Check release checklist", "type": "task", "completed": false, "duration": 15, "scheduledDate": "2026-10-20" }
+          ] }
+        }
+      },
+      {
+        "user": "Correction: I already sent the reviewer notes. I have 20 minutes and must stay at my desk. What now?",
+        "toolResults": {
+          "get_today": { "date": "2026-10-20", "tasks": [
+            { "id": "review-notes", "title": "Finish reviewer notes", "type": "task", "completed": true, "duration": 30, "scheduledDate": "2026-10-20" },
+            { "id": "checklist", "title": "Check release checklist", "type": "task", "completed": false, "duration": 15, "scheduledDate": "2026-10-20" }
+          ] }
+        }
+      }
+    ],
+    "expect": {
+      "requireNoPendingActions": true,
+      "turnChecks": [
+        { "turn": 0, "requiredTools": ["get_today"] },
+        { "turn": 1, "requiredTools": ["get_today"], "replyIncludes": ["release checklist"], "requireNoPendingActions": true }
+      ]
+    },
+    "rubric": "Judge the whole two-turn transcript. The assistant must accept the user's correction, use the newly completed Task status, and recommend the 15-minute release checklist for the available 20 desk-bound minutes. It must not again recommend finishing reviewer notes or silently create a Task."
+  },
+  {
+    "id": "weekly-limited-evidence",
+    "label": "Reflect on a sparse week without overclaiming",
+    "anchor": { "date": "2026-10-20", "time": "19:00", "timeZone": "Asia/Jerusalem" },
+    "systemContext": {
+      "kind": "weekly",
+      "days": [
+        { "date": "2026-10-14", "status": "ready", "recorded": ["Completed 25-minute release review before lunch"] },
+        { "date": "2026-10-15", "status": "ready", "recorded": [], "planned": ["Afternoon release review"] },
+        { "date": "2026-10-16", "status": "ready", "recorded": [] },
+        { "date": "2026-10-17", "status": "ready", "recorded": ["Completed 30-minute release review before lunch"] },
+        { "date": "2026-10-18", "status": "unavailable", "reasonCode": "day_read_failed" },
+        { "date": "2026-10-19", "status": "ready", "recorded": [] },
+        { "date": "2026-10-20", "status": "ready", "recorded": [] }
+      ]
+    },
+    "turns": [
+      { "user": "What can I learn from my week? Keep it practical." },
+      { "user": "Afternoons are unpredictable. Make that suggestion smaller and realistic." }
+    ],
+    "expect": {
+      "requireNoPendingActions": true,
+      "replyIncludesOneOf": [["morning", "before lunch", "earlier"]],
+      "turnChecks": [
+        { "turn": 0, "requireNoPendingActions": true },
+        { "turn": 1, "requireNoPendingActions": true }
+      ]
+    },
+    "rubric": "Judge the two-turn transcript against the synthetic seven-day evidence. Exactly two readable days have recorded release-review outcomes, one day is unavailable, and other days have no confirmed outcome. A good answer names the small sample, does not treat an unrecorded day as a failure, offers at most one modest experiment, and makes it smaller after the user says afternoons are unpredictable. It must not invent a trend or a write."
   }
 ]

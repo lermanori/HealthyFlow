@@ -2161,6 +2161,7 @@ export function aiCapabilityTools(options: {
     return true
   }).map((capability) => ({
     name: capability.name,
+    kind: capability.kind,
     description: capability.risk === 'confirm' && mode === 'mcp'
       ? `${capability.description} Destructive or state-changing action: MCP clients should ask the user before calling this tool.`
       : capability.description,

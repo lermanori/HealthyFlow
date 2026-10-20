@@ -1,10 +1,10 @@
 import { ClipboardEvent as ReactClipboardEvent, FormEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { format } from 'date-fns'
+import { format, subDays } from 'date-fns'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronDown, History, Image as ImageIcon, MessageCircle, Mic, Paperclip, Pause, Play, Send, Square, Volume2, Wrench, X } from 'lucide-react'
+import { ChevronDown, History, Image as ImageIcon, MessageCircle, Mic, Paperclip, Pause, Play, Send, Square, Trash2, Volume2, Wrench, X } from 'lucide-react'
 import toast from 'react-hot-toast'
-import { aiConsentService, aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantContext, AssistantConversation, AssistantPendingAction, AssistantStoredMessage, AssistantToolEvent, calendarService, creditsService, GOALS_QUERY_KEY, HABIT_HISTORY_QUERY_KEY, goalService, pushService, taskService, type AiConsentStatus, type Goal } from '../services/api'
+import { aiConsentService, aiService, AssistantChatAttachment, AssistantChatAttachmentMetadata, AssistantChatMessage, AssistantChatModel, AssistantContext, AssistantConversation, AssistantPendingAction, AssistantStoredMessage, AssistantToolEvent, calendarService, creditsService, daySummaryService, GOALS_QUERY_KEY, HABIT_HISTORY_QUERY_KEY, goalService, taskService, type AiConsentStatus, type Goal } from '../services/api'
 import { GoalCreateInputSchema, GoalUpdateInputSchema } from '../../backend/src/goals-schema'
 import { useDictatedText } from '../hooks/useDictatedText'
 import { PendingActionDeck, type PendingActionView } from '../components/PendingActionCard'
@@ -19,16 +19,21 @@ import { chooseNativeTalkAttachment, isNativeIOS } from '../lib/native'
 import { applyConfirmedTalkActionToLocalDay, verifyConfirmedTalkTaskOnDevice } from '../lib/local/services'
 import {
   assertTalkHandoffPendingActions,
+  dailyReviewPrompt,
+  reviewDayEvidence,
   talkHandoffContext,
   talkHandoffLabel,
   talkHandoffPrompt,
+  weeklyReviewPrompt,
   type TalkHandoffContext,
 } from '../talkHandoff'
+import { IsoDateSchema } from '../../backend/src/day-summary-schema'
 import type { WorkoutPlanTalkHandoff } from '../../backend/src/talk-handoff-schema'
 import { actionExhaustionView } from '../utils/actionExhaustion'
 import AiConsentDialog from '../components/AiConsentDialog'
 import { registerVoiceTalkHandler, type VoiceTalkHandler, VoiceTalkResponseSchema } from '../lib/handsFreeProbe'
-import { buildTalkCalendarContext } from '../lib/talkCalendarContext'
+import { buildPlannedTalkEvidence, buildTalkCalendarContext } from '../lib/talkCalendarContext'
+import { TalkContextPlanSchema, type TalkContextPlan, type TalkReviewContext } from '../../backend/src/settings-schema'
 
 type ConversationPendingAction = PendingActionView
 
@@ -45,7 +50,9 @@ type TalkRequest = {
   conversationId: string
   workflow?: { name: 'plan_work'; projectId: string; anchorDate?: string }
   assistantContext?: AssistantContext
+  talkMemory?: string
   handoff?: WorkoutPlanTalkHandoff
+  review?: TalkReviewContext
   forceMock: boolean
 }
 
@@ -67,6 +74,7 @@ type DailySignalTalkContext = {
 
 const ASSISTANT_CONVERSATIONS_KEY = 'healthyflow-assistant-conversations-v1'
 const ASSISTANT_CONVERSATIONS_MIGRATED_KEY = 'healthyflow-assistant-conversations-v1-migrated'
+const TALK_MEMORY_KEY = 'healthyflow-talk-memory-v1:'
 const MAX_STORED_CONVERSATIONS = 20
 const MAX_CHAT_CONTEXT_MESSAGES = 30
 const MAX_IMAGE_ATTACHMENT_BYTES = 4 * 1024 * 1024
@@ -124,9 +132,13 @@ function ConfirmedProposalReceipt({ actions }: { actions: ConversationPendingAct
   )
 }
 
+const MIN_TALK_MODEL: AssistantChatModel = 'gpt-5.4-mini'
+
+function availableTalkModel(model: AssistantChatModel): AssistantChatModel {
+  return model === 'gpt-4o-mini' || model === 'gpt-5-mini' ? MIN_TALK_MODEL : model
+}
+
 const assistantModels: Array<{ value: AssistantChatModel; label: string }> = [
-  { value: 'gpt-4o-mini', label: 'GPT-4o mini' },
-  { value: 'gpt-5-mini', label: 'GPT-5 mini' },
   { value: 'gpt-5.4-mini', label: 'GPT-5.4 mini' },
   { value: 'gpt-5.4', label: 'GPT-5.4' },
   { value: 'gpt-5.5', label: 'GPT-5.5' },
@@ -221,6 +233,10 @@ function conversationUpdatedAt(conversation: StoredConversation) {
   return Number.isFinite(timestamp) ? timestamp : null
 }
 
+function nextConversationUpdatedAt(conversation: StoredConversation) {
+  return new Date(Math.max(Date.now(), (conversationUpdatedAt(conversation) ?? 0) + 1)).toISOString()
+}
+
 function mergeConversationSnapshots(
   serverConversations: StoredConversation[],
   localConversations: StoredConversation[],
@@ -253,7 +269,7 @@ function mergeConversationSnapshots(
   return { conversations, localConversationsToSync }
 }
 
-function titleFromMessages(messages: ConversationMessage[]) {
+function titleFromMessages(messages: AssistantStoredMessage[]) {
   const firstUserMessage = messages.find((message) => message.role === 'user')
   const title = (firstUserMessage?.displayContent ?? firstUserMessage?.content ?? '').trim()
   if (!title) return 'New chat'
@@ -280,6 +296,78 @@ async function chatContextWithCalendar(context: AssistantContext | undefined, me
     calendar,
     assistantContext: context ? { ...context, calendar } : undefined,
   }
+}
+
+const TALK_LAST_PLAN_KEY = 'healthyflow-talk-last-read-plan-v1:'
+const TALK_LAST_PLAN_MAX_AGE_MS = 24 * 60 * 60 * 1000
+
+function previousTalkPlan(conversationId?: string): TalkContextPlan | undefined {
+  if (!conversationId) return undefined
+  try {
+    const stored = localStorage.getItem(`${TALK_LAST_PLAN_KEY}${conversationId}`)
+    if (!stored) return undefined
+    const value = JSON.parse(stored) as { savedAt?: number; plan?: unknown }
+    if (!value.savedAt || Date.now() - value.savedAt > TALK_LAST_PLAN_MAX_AGE_MS) return undefined
+    const parsed = TalkContextPlanSchema.safeParse(value.plan)
+    return parsed.success && parsed.data.kind === 'ready' ? parsed.data : undefined
+  } catch (error) {
+    console.warn('Talk could not read its optional previous read scope:', error)
+    return undefined
+  }
+}
+
+function saveTalkPlan(conversationId: string | undefined, plan: TalkContextPlan) {
+  if (!conversationId) return
+  try {
+    const key = `${TALK_LAST_PLAN_KEY}${conversationId}`
+    if (plan.sources.length === 0) localStorage.removeItem(key)
+    else localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), plan }))
+  } catch (error) {
+    console.warn('Talk could not save its optional read scope:', error)
+  }
+}
+
+async function sendPlannedTalkChat(
+  messages: AssistantChatMessage[],
+  model: AssistantChatModel,
+  attachment: AssistantChatAttachment | undefined,
+  options: Parameters<typeof aiService.chat>[3],
+) {
+  // The explicit Work workflow has its own durable context and tool boundary.
+  if (options?.workflow || options?.handoff) {
+    return aiService.chat(messages, model, attachment, {
+      ...options,
+      ...await chatContextWithCalendar(options.assistantContext, messages),
+    })
+  }
+
+  if (options?.review) {
+    const contextPlan: TalkContextPlan = {
+      kind: 'ready', intent: 'other_app_data', dates: [], sources: [], clarification: null,
+    }
+    return aiService.chat(messages, model, attachment, { ...options, contextPlan })
+  }
+
+  const plan = await aiService.planTalkContext(
+    messages,
+    previousTalkPlan(options?.conversationId),
+    options?.signal,
+  )
+  if (plan.kind === 'clarify') {
+    return { message: plan.clarification!, toolEvents: [], pendingActions: [] }
+  }
+  const evidence = await buildPlannedTalkEvidence(
+    plan,
+    calendarService.getDaySource,
+    daySummaryService.get,
+  )
+  const response = await aiService.chat(messages, model, attachment, {
+    ...options,
+    ...evidence,
+    contextPlan: plan,
+  })
+  saveTalkPlan(options?.conversationId, plan)
+  return response
 }
 
 function renderInlineMarkdown(text: string) {
@@ -340,12 +428,6 @@ function MarkdownMessage({ content }: { content: string }) {
   return <div className="space-y-1.5">{elements}</div>
 }
 
-function kickoffDisplayLabel(type: 'morning' | 'midday' | 'weekly') {
-  if (type === 'morning') return 'Start morning planning'
-  if (type === 'weekly') return 'Start weekly planning'
-  return 'Start mid-day check-in'
-}
-
 function compactJson(value: unknown) {
   const text = JSON.stringify(value)
   if (!text) return 'null'
@@ -393,30 +475,52 @@ function ConversationDayDivider({ children }: { children: string }) {
   )
 }
 
-function HistoricalMessage({ message }: { message: AssistantStoredMessage }) {
+function MessageDeleteButton({ onDelete, disabled }: { onDelete: () => void; disabled: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onDelete}
+      disabled={disabled}
+      aria-label="Delete message"
+      title="Delete message"
+      className="mt-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-card hover:text-state-danger disabled:opacity-40"
+    >
+      <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+    </button>
+  )
+}
+
+function HistoricalMessage({ message, onDelete, deleteDisabled }: {
+  message: AssistantStoredMessage
+  onDelete: () => void
+  deleteDisabled: boolean
+}) {
   if (message.hidden) return null
   return (
     <div className={`mx-auto flex w-full max-w-3xl ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-      <div className={`max-w-[88%] break-words rounded-[1.5rem] px-4 py-3 text-sm leading-6 ${
+      <div className="max-w-[88%] min-w-0">
+        <div className={`break-words rounded-[1.5rem] px-4 py-3 text-sm leading-6 ${
         message.role === 'user'
           ? 'rounded-br-md bg-action text-on-action'
           : message.error
             ? 'rounded-tl-md border border-state-danger/40 bg-state-danger/10 text-state-danger'
             : 'rounded-tl-md bg-card text-ink shadow-section'
-      }`}>
-        {message.role === 'assistant' ? (
-          <MarkdownMessage content={message.content} />
-        ) : (
-          <span className="whitespace-pre-wrap">{message.displayContent ?? message.content}</span>
-        )}
-        {message.attachment && (
-          <div className={`mt-2 inline-flex max-w-full items-center gap-2 rounded-md px-2 py-1 text-xs ${
-            message.role === 'user' ? 'bg-black/10 text-on-action' : 'bg-sunken text-ink-soft'
-          }`}>
-            {message.attachment.kind === 'image' ? <ImageIcon className="h-3.5 w-3.5 flex-none" /> : <Paperclip className="h-3.5 w-3.5 flex-none" />}
-            <span className="truncate">{message.attachment.name}</span>
-          </div>
-        )}
+        }`}>
+          {message.role === 'assistant' ? (
+            <MarkdownMessage content={message.content} />
+          ) : (
+            <span className="whitespace-pre-wrap">{message.displayContent ?? message.content}</span>
+          )}
+          {message.attachment && (
+            <div className={`mt-2 inline-flex max-w-full items-center gap-2 rounded-md px-2 py-1 text-xs ${
+              message.role === 'user' ? 'bg-black/10 text-on-action' : 'bg-sunken text-ink-soft'
+            }`}>
+              {message.attachment.kind === 'image' ? <ImageIcon className="h-3.5 w-3.5 flex-none" /> : <Paperclip className="h-3.5 w-3.5 flex-none" />}
+              <span className="truncate">{message.attachment.name}</span>
+            </div>
+          )}
+        </div>
+        <MessageDeleteButton onDelete={onDelete} disabled={deleteDisabled} />
       </div>
     </div>
   )
@@ -627,6 +731,35 @@ export default function AssistantPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const isFirstRun = searchParams.get('firstRun') === '1'
   const { user } = useAuth()
+  const [talkMemory, setTalkMemory] = useState('')
+  const [memoryOwnerId, setMemoryOwnerId] = useState<string | null>(null)
+  const [showMemory, setShowMemory] = useState(false)
+  const [memoryDraft, setMemoryDraft] = useState('')
+  const memoryRef = useRef('')
+  useEffect(() => {
+    if (!user?.id) return
+    try {
+      const saved = localStorage.getItem(`${TALK_MEMORY_KEY}${user.id}`) ?? ''
+      if (saved.length > 1600) throw new Error('Saved memory exceeds its limit')
+      memoryRef.current = saved
+      setTalkMemory(saved)
+      setMemoryDraft(saved)
+      setMemoryOwnerId(user.id)
+    } catch {
+      toast.error('Talk could not read its memory on this device.')
+      setMemoryOwnerId(null)
+    }
+  }, [user?.id])
+  const saveTalkMemory = (value: string, preserveUnsavedDraft = false) => {
+    if (!user?.id || memoryOwnerId !== user.id) throw new Error('Talk memory is not ready')
+    const memory = value.trim()
+    if (memory.length > 1600) throw new Error('Talk memory is too long')
+    localStorage.setItem(`${TALK_MEMORY_KEY}${user.id}`, memory)
+    const previous = memoryRef.current
+    memoryRef.current = memory
+    setTalkMemory(memory)
+    setMemoryDraft((draft) => preserveUnsavedDraft && draft !== previous ? draft : memory)
+  }
   const {
     settings: assistantSettings,
     resolution: assistantSettingsResolution,
@@ -683,12 +816,13 @@ export default function AssistantPage() {
     return handoffContext ? talkHandoffPrompt(handoffContext) : ''
   })
   const [isSending, setIsSending] = useState(false)
-  const [model, setModel] = useState<AssistantChatModel>('gpt-4o-mini')
+  const [model, setModel] = useState<AssistantChatModel>(MIN_TALK_MODEL)
   const [attachment, setAttachment] = useState<ComposerAttachment | null>(null)
   const [isChoosingAttachment, setIsChoosingAttachment] = useState(false)
   const [activeSpeechMessageId, setActiveSpeechMessageId] = useState<string | null>(null)
   const [talkRecovery, setTalkRecovery] = useState<TalkRecovery | null>(null)
   const [isHistoryLoaded, setIsHistoryLoaded] = useState(false)
+  const [isEditingHistory, setIsEditingHistory] = useState(false)
   const [aiConsentDisclosure, setAiConsentDisclosure] = useState<AiConsentStatus['disclosure'] | null>(null)
   const [aiConsentError, setAiConsentError] = useState<string | null>(null)
   const [isAiConsentChecking, setIsAiConsentChecking] = useState(false)
@@ -923,10 +1057,10 @@ export default function AssistantPage() {
         setConversations(mergedConversations)
         const firstConversation = mergedConversations[0]
         if (firstConversation && !opensFreshSignalChatRef.current) {
-          skipNextPersistRef.current = true
+          skipNextPersistRef.current = firstConversation.messages.length > 0
           setActiveConversationId(firstConversation.id)
           setMessages(firstConversation.messages)
-          setModel(firstConversation.model)
+          setModel(availableTalkModel(firstConversation.model))
           setTalkMode('chat')
         } else {
           setTalkMode('voice')
@@ -944,10 +1078,10 @@ export default function AssistantPage() {
         setConversations(localConversations)
         const firstConversation = localConversations[0]
         if (firstConversation && !opensFreshSignalChatRef.current) {
-          skipNextPersistRef.current = true
+          skipNextPersistRef.current = firstConversation.messages.length > 0
           setActiveConversationId(firstConversation.id)
           setMessages(firstConversation.messages)
-          setModel(firstConversation.model)
+          setModel(availableTalkModel(firstConversation.model))
           setTalkMode('chat')
         } else {
           setTalkMode('voice')
@@ -1025,17 +1159,20 @@ export default function AssistantPage() {
     [activeConversationId, conversations],
   )
   const earlierHistoryDays = useMemo(() => {
-    const days: Array<{ key: string; label: string; messages: AssistantStoredMessage[] }> = []
+    const days: Array<{ key: string; label: string; messages: Array<{ conversationId: string; message: AssistantStoredMessage }> }> = []
     earlierConversations.forEach((conversation) => {
-      const key = conversationDayKey(conversation.updatedAt)
+      if (conversation.messages.length === 0) return
+      const conversationDay = conversation.messages[0]?.createdAt ?? conversation.createdAt
+      const key = conversationDayKey(conversationDay)
       const existingDay = days.find((day) => day.key === key)
+      const entries = conversation.messages.map((message) => ({ conversationId: conversation.id, message }))
       if (existingDay) {
-        existingDay.messages.push(...conversation.messages)
+        existingDay.messages.push(...entries)
       } else {
         days.push({
           key,
-          label: conversationDayLabel(conversation.updatedAt),
-          messages: [...conversation.messages],
+          label: conversationDayLabel(conversationDay),
+          messages: entries,
         })
       }
     })
@@ -1139,11 +1276,13 @@ export default function AssistantPage() {
         return
       }
 
-      const response = await aiService.chat(request.messages, request.model, request.attachment, {
+      const response = await sendPlannedTalkChat(request.messages, request.model, request.attachment, {
         conversationId: request.conversationId,
         workflow: request.workflow,
-        ...await chatContextWithCalendar(request.assistantContext, request.messages),
+        assistantContext: request.assistantContext,
+        talkMemory: request.talkMemory,
         handoff: request.handoff,
+        review: request.review,
         signal: controller.signal,
       })
       assertTalkHandoffPendingActions(request.handoff ?? null, response.pendingActions)
@@ -1158,6 +1297,18 @@ export default function AssistantPage() {
           createdAt: new Date().toISOString(),
         },
       ])
+      // The answer is already visible. Memory is a separate, non-billable
+      // internal pass over the user's words only; its failure never erases it.
+      const latestUserMessage = request.messages.at(-1)
+      if (latestUserMessage?.role === 'user' && memoryOwnerId === user?.id) {
+        const before = memoryRef.current
+        try {
+          const updated = await aiService.updateTalkMemory(latestUserMessage.content, before)
+          if (memoryRef.current === before && updated.memory !== before) saveTalkMemory(updated.memory, true)
+        } catch {
+          toast.error('Talk answered, but could not update its memory. You can retry next time.')
+        }
+      }
     } catch (error: any) {
       if (controller.signal.aborted || error?.name === 'AbortError' || error?.code === 'ERR_CANCELED') {
         setTalkRecovery({ kind: 'canceled', request })
@@ -1219,6 +1370,7 @@ export default function AssistantPage() {
       conversationId?: string
       workflow?: { name: 'plan_work'; projectId: string; anchorDate?: string }
       entryPoint?: TalkEntryPoint
+      review?: TalkReviewContext
     } = {}
   ) => {
     const trimmed = content.trim()
@@ -1226,11 +1378,12 @@ export default function AssistantPage() {
     const entryPoint: TalkEntryPoint = options.entryPoint
       ?? handoffContext?.source
       ?? (workContext ? 'work' : signalContext ? 'daily_signal' : isFirstRun ? 'first_run' : 'talk')
+    const effectiveModel = availableTalkModel(requestModel)
     analytics.capture('ai_question_asked', {
       surface: 'talk',
       entry_point: entryPoint,
       has_attachment: Boolean(messageAttachment),
-      model: requestModel,
+      model: effectiveModel,
     })
     const userContent = trimmed || `Review the attached ${messageAttachment?.kind === 'image' ? 'image' : 'file'}.`
 
@@ -1269,12 +1422,14 @@ export default function AssistantPage() {
       : undefined
     await runTalkRequest({
       messages: nextMessages,
-      model: requestModel,
+      model: effectiveModel,
       attachment: requestAttachment,
       conversationId: options.conversationId ?? activeConversationId,
       workflow: options.workflow ?? workContext?.workflow,
       assistantContext,
+      talkMemory: memoryOwnerId === user?.id ? memoryRef.current : undefined,
       handoff: handoffContext?.intent === 'draft_workout_plan' ? handoffContext : undefined,
+      review: options.review,
       forceMock: Boolean(options.forceMock),
     })
   }
@@ -1290,6 +1445,7 @@ export default function AssistantPage() {
       conversationId?: string
       workflow?: { name: 'plan_work'; projectId: string; anchorDate?: string }
       entryPoint?: TalkEntryPoint
+      review?: TalkReviewContext
     } = {}
   ) => {
     const trimmed = content.trim()
@@ -1326,48 +1482,72 @@ export default function AssistantPage() {
     sendMessage(draft)
   }
 
-  const kickoffFiredRef = useRef(false)
+  const reviewRequestRef = useRef<string | null>(null)
 
   useEffect(() => {
-    const kickoff = searchParams.get('kickoff')
+    const review = searchParams.get('review')
+    if (!review) {
+      reviewRequestRef.current = null
+      return
+    }
+    const requestKey = searchParams.toString()
     if (
-      !kickoff
-      || kickoffFiredRef.current
+      reviewRequestRef.current === requestKey
+      || !isHistoryLoaded
+      || isSending
+      || isAiConsentChecking
+      || isAiConsentSaving
       || assistantSettingsResolution === 'loading'
       || goalsResolution === 'loading'
     ) return
-    if (!['morning', 'midday', 'weekly'].includes(kickoff)) return
-    kickoffFiredRef.current = true
-    // Clear the param so a refresh doesn't re-fire the kickoff.
-    const next = new URLSearchParams(searchParams)
-    next.delete('kickoff')
-    setSearchParams(next, { replace: true })
+    if (review !== 'daily' && review !== 'weekly') return
+    reviewRequestRef.current = requestKey
 
     ;(async () => {
       try {
-        const seed = await pushService.getKickoff(kickoff as 'morning' | 'midday' | 'weekly')
-        const kickoffModel: AssistantChatModel = 'gpt-4o-mini'
-        const kickoffConversationId = crypto.randomUUID()
-        setActiveConversationId(kickoffConversationId)
-        setMessages([])
-        setDraft('')
-        setAttachment(null)
-        setModel(kickoffModel)
+        const requestedDate = searchParams.get('date')
+        if (requestedDate && !IsoDateSchema.safeParse(requestedDate).success) {
+          throw new Error('This review link has an invalid date.')
+        }
+        const date = requestedDate ?? format(new Date(), 'yyyy-MM-dd')
+        const dates = review === 'daily'
+          ? [date]
+          : Array.from({ length: 7 }, (_, index) => format(subDays(new Date(`${date}T12:00:00`), 6 - index), 'yyyy-MM-dd'))
+        const reads = await Promise.allSettled(dates.map((value) => daySummaryService.get(value)))
+        const available = reads.flatMap((result) => result.status === 'fulfilled' ? [result.value] : [])
+        const failedDates = dates.filter((_, index) => reads[index].status === 'rejected')
+        if (review === 'daily' && failedDates.length > 0) {
+          throw new Error('Today’s records could not be read. The review did not start.')
+        }
+        if (review === 'weekly' && available.length === 0) {
+          throw new Error('This week’s records could not be read. The review did not start.')
+        }
+        const reviewContext: TalkReviewContext = {
+          kind: review,
+          days: reads.map((result, index) => result.status === 'fulfilled'
+            ? reviewDayEvidence(result.value).evidence
+            : { date: dates[index], status: 'unavailable', reasonCode: 'day_read_failed' }),
+        }
+        const prompt = review === 'daily' ? dailyReviewPrompt(date) : weeklyReviewPrompt(dates)
+        const next = new URLSearchParams(searchParams)
+        next.delete('review')
+        next.delete('date')
+        setSearchParams(next, { replace: true })
         await sendMessage(
-          seed,
+          prompt,
           null,
-          [],
-          kickoffModel,
-          kickoffDisplayLabel(kickoff as 'morning' | 'midday' | 'weekly'),
-          { conversationId: kickoffConversationId, entryPoint: 'kickoff' },
+          apiMessages,
+          model,
+          review === 'daily' ? 'Review today' : 'Review my week',
+          { conversationId: activeConversationId, entryPoint: 'kickoff', review: reviewContext },
         )
-      } catch {
-        toast.error('Could not start your planning session.')
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : 'Could not start the review.')
       }
     })()
-    // The kickoff intentionally waits for the user-owned assistant context read.
+    // The review waits for the ongoing Talk conversation and user-owned context.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assistantSettingsResolution, goalsResolution])
+  }, [assistantSettingsResolution, goalsResolution, isAiConsentChecking, isAiConsentSaving, isHistoryLoaded, isSending, searchParams])
 
   const handleAttachmentChange = async (file: File | undefined) => {
     if (!file) return
@@ -1575,6 +1755,7 @@ export default function AssistantPage() {
           try {
             const nextResponse = await aiService.chat(nextMessages, model, undefined, {
               conversationId: activeConversationId,
+              talkMemory: memoryOwnerId === user?.id ? memoryRef.current : undefined,
               ...await chatContextWithCalendar(assistantContext, nextMessages),
             })
             setMessages((current) => [
@@ -1701,9 +1882,9 @@ export default function AssistantPage() {
       setMessages((current) => [...current, userMessage])
       analytics.capture('ai_question_asked', { surface: 'talk', entry_point: 'talk', has_attachment: false, model })
       try {
-        const response = await aiService.chat(nextMessages, model, undefined, {
+        const response = await sendPlannedTalkChat(nextMessages, model, undefined, {
           conversationId: activeConversationId,
-          ...await chatContextWithCalendar(assistantContext, nextMessages),
+          assistantContext,
           signal: controller.signal,
         })
         const voiceResponse = VoiceTalkResponseSchema.parse(response)
@@ -1761,6 +1942,104 @@ export default function AssistantPage() {
     confirm: (actionId) => voiceHandlerRef.current!.confirm(actionId),
     cancel: (actionId) => voiceHandlerRef.current!.cancel(actionId),
   }), [])
+
+  const deleteMessage = (conversationId: string, messageId: string) => {
+    if (isEditingHistory || isSending || activeRequestRef.current) return
+    const conversation = conversationsRef.current.find((item) => item.id === conversationId)
+    const message = conversation?.messages.find((item) => item.id === messageId)
+    if (!conversation || !message) return
+    if (message.pendingActions?.some((action) => action.status !== 'confirmed' && action.status !== 'canceled')) {
+      toast.error('Finish or cancel this proposal before deleting its message.')
+      return
+    }
+    if (!window.confirm('Delete this message from Talk?')) return
+
+    const remaining = conversation.messages.filter((item) => item.id !== messageId)
+    const nextConversation: StoredConversation = {
+      ...conversation,
+      title: titleFromMessages(remaining),
+      updatedAt: nextConversationUpdatedAt(conversation),
+      messages: remaining,
+    }
+    const nextConversations = conversationsRef.current.map((item) => item.id === conversationId ? nextConversation : item)
+    conversationsRef.current = nextConversations
+    setConversations(nextConversations)
+    if (conversationId === activeConversationId) {
+      if (activeSpeechMessageId === messageId) {
+        stopSpeech()
+        setActiveSpeechMessageId(null)
+      }
+      if (talkRecovery?.errorMessageId === messageId) setTalkRecovery(null)
+      setMessages(remaining as ConversationMessage[])
+    }
+    if (!demoSession) {
+      void queueConversationSave(nextConversation).catch(() => {
+        toast.error('Message deleted on this device, but could not sync to the server.')
+      })
+    }
+  }
+
+  const resetTalkForTesting = async () => {
+    if (user?.role !== 'admin' || isEditingHistory || isSending || activeRequestRef.current) return
+    if (!window.confirm('Reset Talk conversations and assistant memory on this device, and archive the conversations in your account for testing? Pending proposals in those conversations will no longer appear in Talk.')) return
+    setIsEditingHistory(true)
+    const archivedIds = new Set<string>()
+    let resetError: string | null = null
+    try {
+      if (saveTimerRef.current !== null) {
+        window.clearTimeout(saveTimerRef.current)
+        saveTimerRef.current = null
+      }
+      const pending = pendingConversationSaveRef.current
+      pendingConversationSaveRef.current = null
+      const pendingSave = pending ? queueConversationSave(pending) : null
+      await Promise.all([...saveQueuesRef.current.values(), ...(pendingSave ? [pendingSave] : [])])
+
+      let batch = conversationsRef.current
+      while (batch.length > 0) {
+        for (const conversation of batch) {
+          if (!demoSession) await aiService.deleteConversation(conversation.id)
+          archivedIds.add(conversation.id)
+        }
+        if (demoSession) break
+        batch = await aiService.getConversations()
+        if (batch.some((conversation) => archivedIds.has(conversation.id))) {
+          throw new Error('Archived Talk conversations still appear on the server. Try again.')
+        }
+      }
+    } catch (error) {
+      resetError = error instanceof Error ? error.message : 'Talk reset could not finish. Try again.'
+    }
+
+    try {
+      const remaining = conversationsRef.current.filter((conversation) => !archivedIds.has(conversation.id))
+      if (!demoSession && archivedIds.size > 0) {
+        localStorage.setItem(ASSISTANT_CONVERSATIONS_KEY, JSON.stringify(remaining))
+      }
+      conversationsRef.current = remaining
+      setConversations(remaining)
+      if (archivedIds.size > 0) {
+        setActiveConversationId(crypto.randomUUID())
+        setMessages([])
+        setTalkRecovery(null)
+        setAttachment(null)
+        setDraft('')
+        setShowEarlierHistory(false)
+        setTalkMode('chat')
+        stopSpeech()
+      }
+      if (!resetError) saveTalkMemory('')
+    } catch {
+      resetError = 'Talk history was archived, but this device could not clear its copy.'
+    } finally {
+      setIsEditingHistory(false)
+    }
+    if (resetError) {
+      toast.error(`Talk reset did not finish: ${resetError}`)
+    } else {
+      toast.success('Talk reset for testing.')
+    }
+  }
 
   const isCaptureMode = isHistoryLoaded && talkMode === 'voice' && !showEarlierHistory
 
@@ -1843,10 +2122,62 @@ export default function AssistantPage() {
         </div>
       </div>
 
+      <div className="border-b border-line px-4 py-2">
+        <button
+          type="button"
+          onClick={() => {
+            setMemoryDraft(memoryOwnerId === user?.id ? talkMemory : '')
+            setShowMemory((visible) => !visible)
+          }}
+          aria-expanded={showMemory}
+          className="text-xs font-medium text-accent underline underline-offset-2"
+        >
+          {showMemory ? 'Hide Talk memory' : 'What Talk remembers'}
+        </button>
+        {showMemory && (
+          <div className="mt-2 space-y-2">
+            <p className="text-xs text-ink-muted">Talk updates these notes from what you say. They shape replies but do not count as verified Calendar or Today records. Saved on this device.</p>
+            <label htmlFor="talk-memory" className="sr-only">Talk memory</label>
+            <textarea
+              id="talk-memory"
+              value={memoryOwnerId === user?.id ? memoryDraft : ''}
+              onChange={(event) => setMemoryDraft(event.target.value)}
+              maxLength={1600}
+              rows={4}
+              placeholder="Talk has not remembered anything yet."
+              className="w-full rounded-xl border border-line bg-card p-3 text-sm text-ink"
+            />
+            <div className="flex gap-3">
+              <button type="button" className="text-sm font-medium text-accent" onClick={() => {
+                try { saveTalkMemory(memoryDraft); toast.success('Talk memory saved.') }
+                catch { toast.error('Talk could not save its memory on this device.') }
+              }}>Save memory</button>
+              <button type="button" className="text-sm text-state-danger" onClick={() => {
+                try { saveTalkMemory(''); toast.success('Talk memory cleared.') }
+                catch { toast.error('Talk could not clear its memory on this device.') }
+              }}>Clear memory</button>
+            </div>
+          </div>
+        )}
+      </div>
+
       {apiMessages.length >= MAX_CHAT_CONTEXT_MESSAGES && (
         <p className="border-b border-card bg-page/60 px-4 py-2 text-xs text-ink-muted" role="note">
           Talk uses the latest 30 messages as context; your full chat remains saved.
         </p>
+      )}
+
+      {showEarlierHistory && user?.role === 'admin' && (
+        <div className="border-b border-line px-4 py-2 text-right">
+          <button
+            type="button"
+            onClick={() => void resetTalkForTesting()}
+            disabled={isEditingHistory || isSending || conversations.length === 0}
+            className="rounded-md px-2 py-1.5 text-xs font-medium text-state-danger hover:bg-state-danger/10 disabled:opacity-40"
+          >
+            {isEditingHistory ? 'Resetting Talk…' : 'Reset Talk for testing'}
+          </button>
+        </div>
       )}
 
       {assistantSettingsResolution === 'error' && (
@@ -1902,8 +2233,13 @@ export default function AssistantPage() {
         {showEarlierHistory && earlierHistoryDays.map((day) => (
           <section key={day.key} className="space-y-3" aria-label={`${day.label} conversation`}>
             <ConversationDayDivider>{day.label}</ConversationDayDivider>
-            {day.messages.map((message) => (
-              <HistoricalMessage key={message.id} message={message} />
+            {day.messages.map(({ conversationId, message }) => (
+              <HistoricalMessage
+                key={message.id}
+                message={message}
+                onDelete={() => deleteMessage(conversationId, message.id)}
+                deleteDisabled={isEditingHistory || isSending}
+              />
             ))}
           </section>
         ))}
@@ -1957,6 +2293,10 @@ export default function AssistantPage() {
                     </div>
                   )}
                 </div>
+                <MessageDeleteButton
+                  onDelete={() => deleteMessage(activeConversationId, message.id)}
+                  disabled={isEditingHistory || isSending}
+                />
                 {message.role === 'assistant' && !message.error && isTTSSupported && (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     {activeSpeechMessageId === message.id && isSpeaking ? (

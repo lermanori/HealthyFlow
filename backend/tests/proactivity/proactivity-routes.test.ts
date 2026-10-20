@@ -14,19 +14,13 @@ jest.mock('../../src/supabase-client', () => ({
     listNativePushDevices: jest.fn(),
   },
 }))
-jest.mock('../../src/daily-context', () => ({
-  buildDailyContext: jest.fn(),
-}))
 
 import request from 'supertest'
 import jwt from 'jsonwebtoken'
 import { app } from '../../src/index'
 import { db } from '../../src/supabase-client'
-import { buildDailyContext } from '../../src/daily-context'
-import { buildKickoffMessage } from '../../src/proactivity'
 
 const mockDb = db as unknown as Record<string, jest.Mock>
-const mockBuildDailyContext = buildDailyContext as jest.Mock
 const TOKEN = `Bearer ${jwt.sign({ userId: 'u1' }, process.env.JWT_SECRET!)}`
 
 beforeEach(() => {
@@ -39,18 +33,18 @@ describe('proactivity routes', () => {
     mockDb.getUserRhythm.mockResolvedValue({})
     const res = await request(app).get('/api/proactivity/rhythm').set('Authorization', TOKEN)
     expect(res.status).toBe(200)
-    expect(res.body.morning.time).toBe('07:00')
+    expect(res.body.daily).toEqual({ enabled: false, time: '20:30', lastSent: null })
     expect(res.body.timezone).toBe('UTC')
   })
 
   it('PUT /rhythm validates and upserts', async () => {
-    mockDb.upsertUserRhythm.mockResolvedValue({ timezone: 'America/New_York', morning: { time: '06:30' } })
+    mockDb.upsertUserRhythm.mockResolvedValue({ timezone: 'America/New_York', daily: { enabled: true, time: '21:00' } })
     const res = await request(app)
       .put('/api/proactivity/rhythm')
       .set('Authorization', TOKEN)
-      .send({ timezone: 'America/New_York', morning: { time: '06:30' } })
+      .send({ timezone: 'America/New_York', daily: { enabled: true, time: '21:00' } })
     expect(res.status).toBe(200)
-    expect(mockDb.upsertUserRhythm).toHaveBeenCalledWith('u1', { timezone: 'America/New_York', morning: { time: '06:30' } })
+    expect(mockDb.upsertUserRhythm).toHaveBeenCalledWith('u1', { timezone: 'America/New_York', daily: { enabled: true, time: '21:00' } })
   })
 
   it('POST /push/subscribe stores the subscription', async () => {
@@ -138,55 +132,4 @@ describe('proactivity routes', () => {
     expect(res.body).toEqual({ ok: true })
   })
 
-  it('GET /kickoff builds a morning seed message from daily context', async () => {
-    mockBuildDailyContext.mockResolvedValue({
-      date: '2026-07-09',
-      day: { tasks: [{ title: 'Gym', completed: false, startTime: '08:00' }], calorieEntries: [], workoutSessions: [] },
-      signals: [],
-    })
-    const res = await request(app).get('/api/proactivity/kickoff?type=morning').set('Authorization', TOKEN)
-    expect(res.status).toBe(200)
-    expect(typeof res.body.message).toBe('string')
-    expect(res.body.message.toLowerCase()).toContain('morning')
-    expect(res.body.message).toContain('Run this as a topic-by-topic check-in')
-    expect(res.body.message).toContain('Do not move to the next topic until I answer')
-  })
-
-  it('GET /kickoff rejects an unknown type', async () => {
-    const res = await request(app).get('/api/proactivity/kickoff?type=bogus').set('Authorization', TOKEN)
-    expect(res.status).toBe(400)
-  })
-
-  it('builds weekly planning from seven dated days instead of today alone', async () => {
-    mockBuildDailyContext.mockImplementation(async (_userId: string, date: string) => ({
-      date,
-      day: {
-        tasks: [{ title: `Item for ${date}`, completed: false, startTime: date.endsWith('-26') ? '09:00' : null }],
-        calorieEntries: [],
-        workoutSessions: [],
-      },
-      signals: [],
-    }))
-
-    const message = await buildKickoffMessage(
-      'u1',
-      'weekly',
-      'Europe/Vienna',
-      new Date('2026-08-26T10:00:00.000Z'),
-    )
-
-    expect(mockBuildDailyContext).toHaveBeenCalledTimes(7)
-    expect(mockBuildDailyContext.mock.calls.map((call) => call[1])).toEqual([
-      '2026-08-26',
-      '2026-08-27',
-      '2026-08-28',
-      '2026-08-29',
-      '2026-08-30',
-      '2026-08-31',
-      '2026-09-01',
-    ])
-    expect(message).toContain('Coming 7 days:')
-    expect(message).toContain('Item for 2026-08-26 at 09:00')
-    expect(message).toContain('Item for 2026-09-01')
-  })
 })

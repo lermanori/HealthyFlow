@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="icon" href="data:,">
+  <title>Talk context selection — quick reference</title>
+  <style>
+    :root { color-scheme: light; --ink: #1c2b22; --green: #41685b; --muted: #617168; --line: #d8ded5; --page: #f4f3ec; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--page); color: var(--ink); font: 16px/1.5 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { max-width: 920px; margin: 32px auto; padding: 42px; border: 1px solid var(--line); border-radius: 22px; background: white; }
+    h1 { margin: 0 0 9px; font-size: clamp(2rem, 4vw, 3rem); line-height: 1; letter-spacing: -.05em; }
+    h2 { margin: 29px 0 11px; font-size: 1.2rem; }
+    p { color: var(--muted); }
+    .eyebrow { color: var(--green); font-size: .75rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+    .flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 8px; margin: 26px 0; }
+    .flow span { flex: 1 1 130px; padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: #edf3ed; font-weight: 700; text-align: center; }
+    .flow b { align-self: center; color: var(--green); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 11px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: .75rem; letter-spacing: .08em; text-transform: uppercase; }
+    code { padding: 2px 5px; border-radius: 5px; background: #edf1ed; font: .9em ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .rule { padding: 13px 16px; border-left: 4px solid var(--green); border-radius: 4px 12px 12px 4px; background: #e7eee7; }
+    a { color: var(--green); }
+    @media print { body { background: white; font-size: 12px; } main { max-width: none; margin: 0; padding: 0; border: 0; } }
+  </style>
+</head>
+<body>
+  <main>
+    <p class="eyebrow">HealthyFlow · reference 002 · proposed design</p>
+    <h1>How Talk gets the right evidence</h1>
+    <p>Use this to review a Talk context plan. It is a proposal, not shipped behavior.</p>
+    <div class="flow"><span>Resolve user’s reference</span><b>→</b><span>Select sources + dates</span><b>→</b><span>Read owners</span><b>→</b><span>Answer from statuses + records</span></div>
+
+    <h2>Who owns the truth?</h2>
+    <table>
+      <thead><tr><th>Question</th><th>Required evidence</th><th>Owner</th></tr></thead>
+      <tbody>
+        <tr><td>What is on October 26?</td><td>Calendar for October 26</td><td>EventKit on iPhone</td></tr>
+        <tr><td>Any conflicts on October 26?</td><td>Calendar + scheduled Items for October 26</td><td>EventKit + Local day on iPhone</td></tr>
+        <tr><td>How much Capacity remains?</td><td>Typed Day Summary Capacity result and reasons</td><td>Day Summary calculation</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Three statuses that cannot be swapped</h2>
+    <table>
+      <thead><tr><th>Status</th><th>Meaning</th><th>Allowed answer</th></tr></thead>
+      <tbody>
+        <tr><td><code>connected_empty</code></td><td>The connected Calendar was read and returned no events.</td><td>“No Calendar events found for this date.”</td></tr>
+        <tr><td><code>not_read</code></td><td>The device did not supply this date.</td><td>“I have not checked that date.”</td></tr>
+        <tr><td><code>unavailable</code></td><td>The Calendar read failed.</td><td>“I could not read your Calendar.”</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Review rule</h2>
+    <div class="rule"><strong>Before accepting an answer, check:</strong> (1) Was the date and subject resolved from the conversation? (2) Were all required sources read? (3) Does each claim match a successful source read?</div>
+    <p>The router can propose a read plan. Application code validates dates and source dependencies. If evidence is missing, the app requests it or Talk states the limitation. It never turns a failed or omitted read into an empty day.</p>
+    <p><a href="../lessons/0002-talk-context-selection.html">Open the interactive lesson</a> · <a href="../docs/history/2026-10-19-talk-context-selection-architecture.md">Read the full proposal</a></p>
+  </main>
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { loadScenarios, openAiTurn } from '../talk-prompt-lab.mjs'
+import { loadScenarios } from '../scenario-catalog.mjs'
 
 export default class HealthyFlowTalkProvider {
   constructor(options = {}) {
@@ -6,7 +6,7 @@ export default class HealthyFlowTalkProvider {
   }
 
   id() {
-    return `healthyflow-talk:${this.config.model ?? 'gpt-4o-mini'}`
+    return `healthyflow-talk:${this.config.name ?? this.config.targetModule ?? 'unconfigured'}`
   }
 
   async callApi(systemPrompt, context = {}) {
@@ -16,21 +16,32 @@ export default class HealthyFlowTalkProvider {
       return { error: `Unknown Talk evaluation scenario: ${scenarioId ?? '(missing)'}` }
     }
 
-    const result = await openAiTurn({
-      model: this.config.model ?? 'gpt-4o-mini',
-      systemPrompt,
+    if (!this.config.targetModule) {
+      return { error: 'Talk evaluation targetModule is required.' }
+    }
+    const targetUrl = new URL(this.config.targetModule, import.meta.url)
+    const target = await import(targetUrl.href)
+    if (typeof target.runScenario !== 'function') {
+      return { error: `Talk evaluation target ${this.config.targetModule} must export runScenario.` }
+    }
+    const result = await target.runScenario({
       scenario,
+      systemPrompt,
+      options: this.config.options ?? {},
     })
-    const pendingActions = result.toolEvents
-      .map((event) => event.result?.pendingAction)
-      .filter(Boolean)
-
+    if (!result || typeof result.reply !== 'string' || !Array.isArray(result.turns)
+      || !Array.isArray(result.toolEvents) || !Array.isArray(result.pendingActions)
+      || !result.usage || typeof result.usage.totalTokens !== 'number'
+      || typeof result.elapsedMs !== 'number') {
+      return { error: `Talk evaluation target ${this.config.targetModule} returned an invalid trace.` }
+    }
     return {
       output: JSON.stringify({
-        reply: result.output,
+        reply: result.reply,
+        turns: result.turns,
         toolEvents: result.toolEvents,
-        pendingActions,
-        finalFixtureState: scenario.fixtureState ?? null,
+        pendingActions: result.pendingActions,
+        finalFixtureState: result.finalState,
         usage: result.usage,
         latencyMs: result.elapsedMs,
       }),

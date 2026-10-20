@@ -39,6 +39,17 @@ function formatLocalDate(date: Date) {
   ].join('-')
 }
 
+async function stubCalendarReadPlan(page: Page, dates = ['2026-10-26'], intent = 'calendar_events') {
+  const requests: Array<{ previousPlan?: { dates: string[]; sources: string[] } }> = []
+  await page.route('**/api/ai/chat/context-plan', (route) => {
+    requests.push(route.request().postDataJSON())
+    return route.fulfill({ json: {
+      kind: 'ready', intent, dates, sources: ['calendar'], clarification: null,
+    } })
+  })
+  return requests
+}
+
 async function pasteImageFiles(page: Page, files: Array<{ name: string; type: string; size?: number }>) {
   await page.getByPlaceholder(/Add anything/).evaluate((element, pastedFiles) => {
     const transfer = new DataTransfer()
@@ -59,7 +70,198 @@ test.beforeEach(async ({ page }) => {
   })
 })
 
+test('Talk remembers a stated preference and lets the user edit it before the next answer', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('talk-memory-test-cleared')) return
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith('healthyflow-talk-memory-v1:')) localStorage.removeItem(key)
+    }
+    sessionStorage.setItem('talk-memory-test-cleared', 'true')
+  })
+  await page.route('**/api/ai/conversations**', (route) => route.request().method() === 'GET'
+    ? route.fulfill({ json: [] })
+    : route.fulfill({ json: route.request().postDataJSON() }))
+  await page.route('**/api/ai/consent', (route) => route.fulfill({ json: {
+    state: 'accepted', decidedAt: '2026-10-19T09:00:00.000Z',
+    disclosure: {
+      version: 'test-v1', title: 'Use AI features', providers: ['OpenAI'],
+      introduction: 'Test disclosure.', dataCategories: ['Test messages'],
+      processing: 'Test processing.', storage: 'Test storage.',
+      optionalUse: 'Optional.', futureProviders: 'Future providers require permission.',
+    },
+  } }))
+  const sent: Array<{ talkMemory?: string }> = []
+  const memoryRequests: Array<{ currentMemory: string }> = []
+  await page.route('**/api/ai/chat', (route) => {
+    sent.push(route.request().postDataJSON())
+    return route.fulfill({ json: { message: 'Understood.', toolEvents: [], pendingActions: [] } })
+  })
+  await page.route('**/api/ai/chat/memory', (route) => {
+    memoryRequests.push(route.request().postDataJSON())
+    return route.fulfill({ json: {
+      memory: route.request().postDataJSON().currentMemory || 'Prefers concise replies.',
+    } })
+  })
+
+  await page.goto('/app/talk')
+  await page.getByRole('button', { name: 'Chat mode' }).click()
+  await page.getByRole('textbox', { name: 'Message Talk' }).fill('I prefer concise replies.')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect.poll(() => memoryRequests.length).toBe(1)
+  await page.getByRole('button', { name: 'What Talk remembers' }).click()
+  await expect(page.getByRole('textbox', { name: 'Talk memory' })).toHaveValue('Prefers concise replies.')
+  await page.getByRole('textbox', { name: 'Talk memory' }).fill('Prefers short Hebrew replies.')
+  await page.getByRole('button', { name: 'Save memory' }).click()
+  await page.getByRole('textbox', { name: 'Message Talk' }).fill('What should I do next?')
+  await page.getByRole('button', { name: 'Send' }).click()
+  await expect.poll(() => sent.length).toBe(2)
+  expect(sent[1].talkMemory).toBe('Prefers short Hebrew replies.')
+  await page.reload()
+  await page.getByRole('button', { name: 'What Talk remembers' }).click()
+  await expect(page.getByRole('textbox', { name: 'Talk memory' })).toHaveValue('Prefers short Hebrew replies.')
+})
+
+test('Deleting individual Talk messages syncs the remaining history, including an empty conversation', async ({ page }) => {
+  const now = new Date().toISOString()
+  let conversation = {
+    id: '99999999-9999-4999-8999-999999999991',
+    title: 'First message', model: 'gpt-4o-mini', createdAt: now, updatedAt: now,
+    messages: [
+      { id: '88888888-8888-4888-8888-888888888881', role: 'user', content: 'First message', createdAt: now },
+      { id: '88888888-8888-4888-8888-888888888882', role: 'assistant', content: 'First answer', createdAt: now },
+    ],
+  }
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: [conversation] })
+    if (route.request().method() === 'PUT') {
+      conversation = route.request().postDataJSON()
+      return route.fulfill({ json: conversation })
+    }
+    return route.fulfill({ status: 404 })
+  })
+  page.on('dialog', (dialog) => void dialog.accept())
+
+  await page.goto('/app/talk')
+  await expect(page.getByText('First message', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Delete message' }).first().click()
+  await expect(page.getByText('First message', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('First answer', { exact: true })).toBeVisible()
+  await expect.poll(() => conversation.messages.map((message) => message.content)).toEqual(['First answer'])
+
+  await page.getByRole('button', { name: 'Delete message' }).click()
+  await expect.poll(() => conversation.messages).toEqual([])
+  await expect.poll(() => page.evaluate(() => {
+    const stored = localStorage.getItem('healthyflow-assistant-conversations-v1')
+    return stored ? JSON.parse(stored)[0]?.messages : null
+  })).toEqual([])
+  await page.reload()
+  await expect(page.getByText('First message', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('First answer', { exact: true })).toHaveCount(0)
+})
+
+test('Admin can reset Talk for testing without leaving device history to restore it', async ({ page }) => {
+  const now = new Date().toISOString()
+  const earlier = new Date(Date.now() - 86_400_000).toISOString()
+  const conversation = {
+    id: '99999999-9999-4999-8999-999999999992',
+    title: 'Test chat', model: 'gpt-4o-mini', createdAt: now, updatedAt: now,
+    messages: [{ id: '88888888-8888-4888-8888-888888888883', role: 'user', content: 'Test chat', createdAt: now }],
+  }
+  const olderConversation = {
+    id: '99999999-9999-4999-8999-999999999995',
+    title: 'Older proposal', model: 'gpt-4o-mini', createdAt: earlier, updatedAt: earlier,
+    messages: [{
+      id: '88888888-8888-4888-8888-888888888886', role: 'assistant', content: 'Older proposal', createdAt: earlier,
+      pendingActions: [{ id: '77777777-7777-4777-8777-777777777777', status: 'pending' }],
+    }],
+  }
+  const unseenLegacyConversation = {
+    id: '99999999-9999-4999-8999-999999999996',
+    title: 'Legacy chat', model: 'gpt-4o-mini',
+    createdAt: new Date(Date.now() - 172_800_000).toISOString(),
+    updatedAt: new Date(Date.now() - 172_800_000).toISOString(),
+    messages: [{ id: '88888888-8888-4888-8888-888888888887', role: 'user', content: 'Legacy chat', createdAt: earlier }],
+  }
+  const fillerConversations = Array.from({ length: 18 }, (_, index) => ({
+    id: `10000000-0000-4000-8000-${String(index + 1).padStart(12, '0')}`,
+    title: `Filler ${index}`, model: 'gpt-4o-mini', createdAt: now,
+    updatedAt: new Date(Date.now() - (index + 1) * 60_000).toISOString(), messages: [],
+  }))
+  const allConversations = [conversation, ...fillerConversations, olderConversation, unseenLegacyConversation]
+  const archivedIds = new Set<string>()
+  await page.addInitScript(() => {
+    const stored = localStorage.getItem('healthyflow-session-user-v1')
+    if (stored) localStorage.setItem('healthyflow-session-user-v1', JSON.stringify({ ...JSON.parse(stored), role: 'admin' }))
+  })
+  await page.route('**/api/auth/verify', async (route) => {
+    const user = JSON.parse(await page.evaluate(() => localStorage.getItem('healthyflow-session-user-v1') ?? '{}'))
+    await route.fulfill({ json: user })
+  })
+  await page.route('**/api/ai/conversations**', async (route) => {
+    if (route.request().method() === 'GET') return route.fulfill({
+      json: allConversations.filter((item) => !archivedIds.has(item.id)).slice(0, 20),
+    })
+    if (route.request().method() === 'DELETE') {
+      archivedIds.add(route.request().url().split('/').pop() ?? '')
+      return route.fulfill({ status: 204 })
+    }
+    return route.fulfill({ json: route.request().postDataJSON() })
+  })
+  page.on('dialog', (dialog) => void dialog.accept())
+
+  await page.goto('/app/talk')
+  await expect(page.getByText('Test chat', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Show earlier conversation history' }).click()
+  await expect(page.getByText('Older proposal', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Reset Talk for testing' }).click()
+  await expect.poll(() => archivedIds.size).toBe(21)
+  await expect(page.getByText('Test chat', { exact: true })).toHaveCount(0)
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('healthyflow-assistant-conversations-v1'))).toBe('[]')
+  await page.reload()
+  await expect(page.getByText('Test chat', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('Legacy chat', { exact: true })).toHaveCount(0)
+})
+
+test('Deleting a message from earlier Talk history updates its original conversation', async ({ page }) => {
+  const now = new Date().toISOString()
+  const earlier = new Date(Date.now() - 86_400_000).toISOString()
+  const conversations = [
+    {
+      id: '99999999-9999-4999-8999-999999999993', title: 'Current chat', model: 'gpt-4o-mini',
+      createdAt: now, updatedAt: now,
+      messages: [{ id: '88888888-8888-4888-8888-888888888884', role: 'user', content: 'Current chat', createdAt: now }],
+    },
+    {
+      id: '99999999-9999-4999-8999-999999999994', title: 'Earlier chat', model: 'gpt-4o-mini',
+      createdAt: earlier, updatedAt: earlier,
+      messages: [{ id: '88888888-8888-4888-8888-888888888885', role: 'user', content: 'Earlier chat', createdAt: earlier }],
+    },
+  ]
+  const savedIds: string[] = []
+  await page.route('**/api/ai/conversations**', (route) => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: conversations })
+    if (route.request().method() === 'PUT') {
+      const saved = route.request().postDataJSON()
+      savedIds.push(saved.id)
+      return route.fulfill({ json: saved })
+    }
+    return route.fulfill({ status: 404 })
+  })
+  page.on('dialog', (dialog) => void dialog.accept())
+
+  await page.goto('/app/talk')
+  await page.getByRole('button', { name: 'Show earlier conversation history' }).click()
+  await expect(page.getByRole('button', { name: 'Reset Talk for testing' })).toHaveCount(0)
+  await expect(page.getByText('Earlier chat', { exact: true })).toBeVisible()
+  await page.getByRole('region', { name: /conversation/ }).filter({ hasText: 'Earlier chat' })
+    .getByRole('button', { name: 'Delete message' }).click()
+  await expect(page.getByText('Earlier chat', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('Current chat', { exact: true })).toBeVisible()
+  await expect.poll(() => savedIds).toContain('99999999-9999-4999-8999-999999999994')
+})
+
 test('Talk sends the calendar event for a named date beyond the default week', async ({ page }) => {
+  await stubCalendarReadPlan(page)
   await page.setViewportSize({ width: 390, height: 844 })
   await page.clock.setFixedTime(new Date('2026-10-19T12:00:00'))
   await page.route('**/api/ai/consent', (route) => route.fulfill({ json: {
@@ -89,8 +291,8 @@ test('Talk sends the calendar event for a named date beyond the default week', a
   })
   const sentCalendars: Array<{ days: Array<{ date: string; events: Array<{ title: string }> }> } | undefined> = []
   await page.route('**/api/ai/chat', (route) => {
-    const sentCalendar = (route.request().postDataJSON() as { assistantContext?: { calendar?: typeof sentCalendars[number] } })
-      .assistantContext?.calendar
+    const sentCalendar = (route.request().postDataJSON() as { calendar?: typeof sentCalendars[number] })
+      .calendar
     sentCalendars.push(sentCalendar)
     return route.fulfill({ json: { message: 'Calendar checked.', toolEvents: [], pendingActions: [] } })
   })
@@ -112,6 +314,7 @@ test('Talk sends the calendar event for a named date beyond the default week', a
 })
 
 test('Talk still sends the named Calendar date when personal settings cannot load', async ({ page }) => {
+  await stubCalendarReadPlan(page)
   await page.clock.setFixedTime(new Date('2026-10-19T12:00:00'))
   await page.route('**/api/settings', (route) => route.fulfill({ status: 503, json: { error: 'Settings unavailable' } }))
   await page.route('**/api/ai/consent', (route) => route.fulfill({ json: {
@@ -146,6 +349,7 @@ test('Talk still sends the named Calendar date when personal settings cannot loa
 })
 
 test('Talk keeps a bare day and its holiday event for a follow-up question', async ({ page }) => {
+  await stubCalendarReadPlan(page)
   await page.clock.setFixedTime(new Date('2026-10-19T12:00:00'))
   await page.route('**/api/ai/consent', (route) => route.fulfill({ json: {
     state: 'accepted', decidedAt: '2026-10-19T09:00:00.000Z',
@@ -185,6 +389,45 @@ test('Talk keeps a bare day and its holiday event for a follow-up question', asy
   await expect.poll(() => sentCalendars.length).toBe(2)
   expect(sentCalendars[1]?.days.find((day) => day.date === '2026-10-26')?.events)
     .toEqual([expect.objectContaining({ title: 'National Day' })])
+})
+
+test('Talk reads October 26 across the exact Hebrew next-week follow-up sequence', async ({ page }) => {
+  const planRequests = await stubCalendarReadPlan(page)
+  await page.clock.setFixedTime(new Date('2026-10-19T12:00:00'))
+  await page.route('**/api/ai/consent', (route) => route.fulfill({ json: {
+    state: 'accepted', decidedAt: '2026-10-19T09:00:00.000Z',
+    disclosure: {
+      version: 'test-v1', title: 'Use AI features', providers: ['OpenAI'],
+      introduction: 'Test disclosure.', dataCategories: ['Test messages'],
+      processing: 'Test processing.', storage: 'Test storage.',
+      optionalUse: 'Optional.', futureProviders: 'Future providers require permission.',
+    },
+  } }))
+  await page.route('**/api/ai/conversations**', (route) => route.fulfill({ json: [] }))
+  await page.route('**/api/calendar/google/events**', (route) => {
+    const date = new URL(route.request().url()).searchParams.get('date')
+    return route.fulfill({ json: date === '2026-10-26'
+      ? [daySummaryCalendarEvent({ id: 'dentist-26', title: 'Dentist appointment' })]
+      : [] })
+  })
+  const sentCalendars: Array<{ days: Array<{ date: string; events: Array<{ title: string }> }> }> = []
+  await page.route('**/api/ai/chat', (route) => {
+    sentCalendars.push(route.request().postDataJSON().calendar)
+    return route.fulfill({ json: { message: 'Calendar checked.', toolEvents: [], pendingActions: [] } })
+  })
+
+  await page.goto('/app/talk')
+  await page.getByRole('button', { name: 'Chat mode' }).click()
+  for (const [index, prompt] of ['האם יש לי התנגשויות שבוע הבא?', 'וב26?', 'תבדוק'].entries()) {
+    await page.getByRole('textbox', { name: 'Message Talk' }).fill(prompt)
+    await page.getByRole('button', { name: 'Send' }).click()
+    await expect.poll(() => sentCalendars.length).toBe(index + 1)
+    expect(sentCalendars[index].days.find((day) => day.date === '2026-10-26')?.events)
+      .toEqual([expect.objectContaining({ title: 'Dentist appointment' })])
+  }
+  expect(planRequests[2]?.previousPlan).toMatchObject({
+    dates: ['2026-10-26'], sources: ['calendar'],
+  })
 })
 
 test('an exhausted monthly account gets an inline renewal and Founders Club path', async ({ page }) => {
@@ -914,6 +1157,7 @@ test('Migrates browser chat history without triggering a duplicate autosave', as
 
   await page.goto('/app/talk')
   await expect(page.getByText('Plan tomorrow').first()).toBeVisible()
+  await expect(page.getByLabel('Assistant model')).toHaveValue('gpt-5.4-mini')
   await expect.poll(() => page.evaluate(() =>
     localStorage.getItem('healthyflow-assistant-conversations-v1-migrated')
   )).toBe('true')

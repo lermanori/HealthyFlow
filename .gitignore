@@ -53,6 +53,7 @@ docs/generated/
 
 # Throwaway notes — declared untracked in CLAUDE.md
 .scratch/
+.talk-debug/
 
 # Generated per-machine for physical-device builds (scripts/build-ios-device-env.mjs)
 .env.device-build

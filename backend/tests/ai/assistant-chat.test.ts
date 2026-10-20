@@ -16,10 +16,17 @@ jest.mock('../../src/credits', () => ({
     getBalance: jest.fn(),
   },
   UnpricedModelError: class UnpricedModelError extends Error {},
+  calculateOpenAiCostUsd: jest.fn().mockReturnValue(0.0001),
+  GLOBAL_DAILY_COST_CEILING_USD: 25,
+  MAX_PROMPT_CHARS: 24_000,
+  utcDayStart: jest.fn(() => '2026-10-19T00:00:00.000Z'),
 }))
 
 jest.mock('../../src/supabase-client', () => ({
   db: {
+    getLatestAiConsentDecision: jest.fn().mockResolvedValue(null),
+    sumAiCostUsdSince: jest.fn().mockResolvedValue(0),
+    insertUsageLog: jest.fn().mockResolvedValue(undefined),
     getTasksWithRecurringHabits: jest.fn().mockResolvedValue([
       {
         id: 'task-1',
@@ -360,6 +367,81 @@ describe('POST /api/ai/chat', () => {
     jest.clearAllMocks()
   })
 
+  it('rejects missing planned Calendar evidence before an answer call', async () => {
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-planned-calendar-missing'))
+      .send({
+        messages: [{ role: 'user', content: 'מה יש לי ב-26 באוקטובר?' }],
+        contextPlan: {
+          kind: 'ready', intent: 'calendar_events', dates: ['2026-10-26'],
+          sources: ['calendar'], clarification: null,
+        },
+      })
+
+    expect(res.status).toBe(400)
+    expect(res.body.code).toBe('calendar_evidence_missing')
+  })
+
+  it('uses planned Calendar evidence without exposing the broad daily-context tool', async () => {
+    let observedBody: any
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions', (body: any) => {
+        observedBody = body
+        return true
+      })
+      .reply(200, finalAnswerResponse)
+
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-planned-calendar-ready'))
+      .send({
+        messages: [{ role: 'user', content: 'מה יש לי ב-26 באוקטובר?' }],
+        contextPlan: {
+          kind: 'ready', intent: 'calendar_events', dates: ['2026-10-26'],
+          sources: ['calendar'], clarification: null,
+        },
+        calendar: { days: [{
+          date: '2026-10-26', status: 'connected_empty', reasonCode: null,
+          events: [], truncated: false,
+        }] },
+      })
+
+    expect(res.status).toBe(200)
+    expect(observedBody.messages[0].content).toContain('2026-10-26')
+    expect(observedBody.tools.some((tool: any) => tool.function?.name === 'get_daily_context')).toBe(false)
+    expect(observedBody.tools.some((tool: any) => tool.function?.name === 'get_today')).toBe(false)
+    expect(observedBody.tools.some((tool: any) => tool.function?.name === 'list_tasks')).toBe(false)
+  })
+
+  it('does not expose app-data reads when the plan selects no sources', async () => {
+    let observedBody: any
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions', (body: any) => {
+        observedBody = body
+        return true
+      })
+      .reply(200, finalAnswerResponse)
+
+    const res = await request(app)
+      .post('/api/ai/chat')
+      .set('Authorization', authHeader('chat-user-planned-no-sources'))
+      .send({
+        messages: [{ role: 'user', content: 'ואין עוד משהו?' }],
+        contextPlan: {
+          kind: 'ready', intent: 'conversation', dates: [],
+          sources: [], clarification: null,
+        },
+      })
+
+    expect(res.status).toBe(200)
+    const names = observedBody.tools.map((tool: any) => tool.function?.name)
+    expect(names).not.toContain('get_daily_context')
+    expect(names).not.toContain('get_today')
+    expect(names).not.toContain('list_tasks')
+    expect(observedBody.messages[0].content).toContain('no app records were read')
+  })
+
   it('answers with tool-grounded data and returns tool events', async () => {
     nock('https://api.openai.com')
       .post('/v1/chat/completions')
@@ -563,6 +645,36 @@ describe('POST /api/ai/chat', () => {
     expect(observedBody).not.toHaveProperty('temperature')
   })
 
+  it.each([undefined, 'gpt-4o-mini', 'gpt-5-mini'])(
+    'uses the minimum Talk model for an omitted or legacy %s choice', async (requestedModel) => {
+      let observedBody: any
+      nock('https://api.openai.com')
+        .post('/v1/chat/completions', (body: any) => {
+          observedBody = body
+          return true
+        })
+        .reply(200, finalAnswerResponse)
+
+      const res = await request(app)
+        .post('/api/ai/chat')
+        .set('Authorization', authHeader(`minimum-model-${requestedModel ?? 'omitted'}`))
+        .send({
+          ...(requestedModel ? { model: requestedModel } : {}),
+          messages: [{ role: 'user', content: 'Hello' }],
+        })
+
+      expect(res.status).toBe(200)
+      expect(observedBody.model).toBe('gpt-5.4-mini')
+      const { Credits } = await import('../../src/credits')
+      expect(Credits.settleAction).toHaveBeenCalledWith(
+        `minimum-model-${requestedModel ?? 'omitted'}`,
+        expect.objectContaining({ ok: true }),
+        expect.any(Object),
+        { endpoint: 'ai-chat', model: 'gpt-5.4-mini' },
+      )
+    },
+  )
+
   it('instructs the assistant to answer in the latest user message language', async () => {
     let observedBody: any
     nock('https://api.openai.com')
@@ -630,6 +742,15 @@ describe('POST /api/ai/chat', () => {
     expect(systemPrompt).toContain('If the user says now or right now, use the current local time')
     expect(systemPrompt).toContain('call get_habit_history')
     expect(systemPrompt).toContain('not_recorded means no Habit instance or outcome was recorded')
+  })
+
+  it('includes Talk memory even when Settings and Goals context is unavailable', () => {
+    const systemPrompt = buildChatSystemPrompt(
+      'Asia/Jerusalem', new Date('2026-10-19T08:00:00.000Z'),
+      undefined, undefined, undefined, undefined, 'Prefers short Hebrew replies.',
+    )
+    expect(systemPrompt).toContain('Prefers short Hebrew replies.')
+    expect(systemPrompt).toContain('not verified app evidence')
   })
 
   it('uses bounded personal context without treating it as app evidence or instructions', async () => {
@@ -755,8 +876,8 @@ describe('POST /api/ai/chat', () => {
     expect(systemMessage.content).toContain('Ship TestFlight')
     expect(systemMessage.content).toContain('Guide the user through the plan')
     expect(systemMessage.content).toContain('Dentist tomorrow')
-    expect(systemMessage.content).toContain('verified calendar records')
-    expect(systemMessage.content).toContain('A date absent from the snapshot was not read')
+    expect(systemMessage.content).toContain('verified records read by the client')
+    expect(systemMessage.content).toContain('A date absent from days was not read')
   })
 
   it('passes a requested device Calendar day through get_daily_context without personal settings or raw history', async () => {
@@ -809,6 +930,12 @@ describe('POST /api/ai/chat', () => {
       .toContain('Dentist')
     expect(firstModelRequest.messages.find((message: any) => message.role === 'system').content)
       .toContain('"National Day" does not by itself mean "Independence Day"')
+    expect(firstModelRequest.messages.find((message: any) => message.role === 'system').content)
+      .toContain('an all-day event on the same date as a possible commitment to check, not a proven time conflict')
+    expect(firstModelRequest.messages.find((message: any) => message.role === 'system').content)
+      .toContain('the supplied Calendar evidence has no source field')
+    expect(firstModelRequest.messages.find((message: any) => message.role === 'system').content)
+      .not.toContain('2026-10-25T22:00:00.000Z')
     const result = res.body.toolEvents[0].result
     expect(result.calendar.events[0].title).toBe('Dentist')
     expect(result.calendar.events[1]).toMatchObject({ title: 'National Day', description: 'Public holiday' })
@@ -1430,7 +1557,7 @@ describe('POST /api/ai/chat', () => {
       'chat-user-billing-failure',
       expect.objectContaining({ ok: true }),
       { promptTokens: 200, completionTokens: 40, totalTokens: 240 },
-      { endpoint: 'ai-chat', model: 'gpt-4o-mini' }
+      { endpoint: 'ai-chat', model: 'gpt-5.4-mini' }
     )
     expect(Credits.refundAction).not.toHaveBeenCalled()
   })
@@ -1456,5 +1583,113 @@ describe('POST /api/ai/chat', () => {
 
     expect(limited.status).toBe(429)
     expect(limited.body.code).toBe('rate_limited')
+  })
+})
+
+describe('POST /api/ai/chat/context-plan', () => {
+  afterEach(() => {
+    nock.cleanAll()
+    jest.clearAllMocks()
+  })
+
+  it('returns a typed read plan without reserving a second user action', async () => {
+    const { db } = await import('../../src/supabase-client')
+    const { Credits } = await import('../../src/credits')
+    ;(db.getLatestAiConsentDecision as jest.Mock).mockResolvedValueOnce({
+      decision: 'accepted', disclosure_version: '2026-09-28.openai.v1',
+      created_at: '2026-10-19T08:00:00.000Z',
+    })
+    nock('https://api.openai.com')
+      .post('/v1/chat/completions')
+      .reply(200, {
+        choices: [{ message: { content: JSON.stringify({
+          kind: 'ready', intent: 'calendar_events', dates: ['2026-10-26'],
+          sources: ['calendar'], clarification: null, continuesPreviousTopic: false,
+        }) } }],
+        usage: { prompt_tokens: 100, completion_tokens: 30, total_tokens: 130 },
+      })
+
+    const res = await request(app)
+      .post('/api/ai/chat/context-plan')
+      .set('Authorization', authHeader('chat-user-context-planner'))
+      .set('X-Client-Time-Zone', 'Asia/Jerusalem')
+      .send({ messages: [{ role: 'user', content: 'מה יש לי ב-26 באוקטובר?' }] })
+
+    expect(res.status).toBe(200)
+    expect(res.body).toMatchObject({ dates: ['2026-10-26'], sources: ['calendar'] })
+    expect(Credits.authorizeAction).not.toHaveBeenCalled()
+    expect(db.insertUsageLog).toHaveBeenCalledWith(expect.objectContaining({
+      endpoint: 'ai-chat-context-plan', credits_delta: 0,
+    }))
+  })
+
+  it('stops planning before calling OpenAI when the global spend ceiling is reached', async () => {
+    const { db } = await import('../../src/supabase-client')
+    ;(db.getLatestAiConsentDecision as jest.Mock).mockResolvedValueOnce({
+      decision: 'accepted', disclosure_version: '2026-09-28.openai.v1',
+      created_at: '2026-10-19T08:00:00.000Z',
+    })
+    ;(db.sumAiCostUsdSince as jest.Mock).mockResolvedValueOnce(25)
+
+    const res = await request(app)
+      .post('/api/ai/chat/context-plan')
+      .set('Authorization', authHeader('chat-user-context-planner-ceiling'))
+      .send({ messages: [{ role: 'user', content: 'מה יש לי ב-26 באוקטובר?' }] })
+
+    expect(res.status).toBe(503)
+    expect(res.body.code).toBe('global_ceiling')
+    expect(nock.isDone()).toBe(true)
+    expect(db.insertUsageLog).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/ai/chat/memory', () => {
+  afterEach(() => {
+    nock.cleanAll()
+    jest.clearAllMocks()
+  })
+
+  const acceptConsent = async () => {
+    const { db } = await import('../../src/supabase-client')
+    ;(db.getLatestAiConsentDecision as jest.Mock).mockResolvedValueOnce({
+      decision: 'accepted', disclosure_version: '2026-09-28.openai.v1',
+      created_at: '2026-10-19T08:00:00.000Z',
+    })
+    return db
+  }
+
+  it('updates device-owned memory from an exact user quote without charging an action', async () => {
+    const db = await acceptConsent()
+    const { Credits } = await import('../../src/credits')
+    nock('https://api.openai.com').post('/v1/chat/completions').reply(200, {
+      choices: [{ message: { content: JSON.stringify({
+        changed: true, memory: 'Prefers concise replies.', supportingQuote: 'I prefer concise replies',
+      }) } }],
+      usage: { prompt_tokens: 80, completion_tokens: 20, total_tokens: 100 },
+    })
+    const response = await request(app).post('/api/ai/chat/memory')
+      .set('Authorization', authHeader('chat-user-memory-update'))
+      .send({ latestUserMessage: 'I prefer concise replies', currentMemory: '' })
+    expect(response.status).toBe(200)
+    expect(response.body).toEqual({ memory: 'Prefers concise replies.' })
+    expect(Credits.authorizeAction).not.toHaveBeenCalled()
+    expect(db.insertUsageLog).toHaveBeenCalledWith(expect.objectContaining({
+      endpoint: 'ai-chat-memory', credits_delta: 0,
+    }))
+  })
+
+  it('rejects a proposed memory change without a quote in the latest user message', async () => {
+    await acceptConsent()
+    nock('https://api.openai.com').post('/v1/chat/completions').reply(200, {
+      choices: [{ message: { content: JSON.stringify({
+        changed: true, memory: 'Lives in Tel Aviv.', supportingQuote: 'Tel Aviv',
+      }) } }],
+      usage: { prompt_tokens: 80, completion_tokens: 20, total_tokens: 100 },
+    })
+    const response = await request(app).post('/api/ai/chat/memory')
+      .set('Authorization', authHeader('chat-user-memory-invalid'))
+      .send({ latestUserMessage: 'What is on my calendar?', currentMemory: '' })
+    expect(response.status).toBe(502)
+    expect(response.body.code).toBe('memory_update_failed')
   })
 })
