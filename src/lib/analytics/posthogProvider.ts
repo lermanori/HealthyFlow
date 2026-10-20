@@ -22,9 +22,10 @@ export class PostHogProvider implements AnalyticsProvider {
       capture_pageleave: true,
       // Typed catalog only — see docs/analytics/STRATEGY.md "not tracked".
       autocapture: false,
-      session_recording: {
-        maskAllInputs: true,
-      },
+      // Session replay is off for v1 (#312): masking covers inputs only, so a
+      // recording would carry displayed task, chat and health text. This wins
+      // over the PostHog project setting.
+      disable_session_recording: true,
       persistence: 'localStorage+cookie',
     })
     this.initialized = true

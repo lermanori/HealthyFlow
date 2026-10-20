@@ -95,9 +95,11 @@ const showNewPaywall = useFeatureFlag('new-paywall-copy', false)
 
 ## Session recordings
 
-Enabled via PostHog project settings; the client config sets `maskAllInputs`
-so no typed text is recorded. Don't add `ph-no-capture` exceptions that would
-expose user content.
+Off. Both the app (`posthogProvider.ts`) and `public/landing.html` pass
+`disable_session_recording: true`, which overrides the PostHog project setting
+(#312, 2026-10-20). PostHog masks inputs only, so a recording would carry
+displayed task, chat and health text. Turning it back on needs text masking,
+its own consent, and matching Privacy Policy and App Privacy changes.
 
 ## Pageviews
 

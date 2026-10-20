@@ -5,7 +5,7 @@ const sections = [
     title: 'Your Local day',
     body: [
       'On iPhone, your tasks, habits and progress, goals, schedules, food and weight entries, workouts, and settings are saved on your device. This Local day remains usable offline. Creating or claiming an account does not add Cloud backup, cross-device sync, or device transfer; these features cannot be obtained in v1.',
-      'Local storage does not mean that every use of HealthyFlow stays on the device. AI requests, account services, support, notifications, and analytics involve the processing described below. Content displayed on screen may also be included in session recordings.',
+      'Local storage does not mean that every use of HealthyFlow stays on the device. AI requests, account services, support, notifications, and analytics involve the processing described below.',
       'The web app and accounts with existing server-held records may use our servers to store and retrieve product data. One developer-operated legacy account may also replicate a Local day to our servers. Cloud backup, sync, and device transfer are not offered to users in this version.',
     ],
   },
@@ -36,10 +36,10 @@ const sections = [
     ],
   },
   {
-    title: 'Analytics and session recordings',
+    title: 'Analytics',
     body: [
       'We use PostHog to understand feature usage and diagnose problems. Analytics can include device and browser information, page visits, product events, a stable user identifier, and, when available, account name, email address, role, Guest status, and usage properties. Cookies and local storage help associate visits and activity.',
-      'Session recordings can capture interactions and content displayed in the app. Input fields are masked, but other on-screen text is not masked by default, so a recording may contain task titles, chat messages, or health information shown outside an input field. Our product-event code does not include AI prompt text; this does not exclude displayed text from recordings.',
+      'HealthyFlow does not record sessions or capture what is displayed on screen. Product events do not include AI prompt text, task titles, chat messages, or health entries.',
     ],
   },
   {
@@ -53,7 +53,7 @@ const sections = [
     title: 'How we use and share information',
     body: [
       'We use information to provide the features you use, maintain accounts and AI allowances, answer support requests, troubleshoot problems, understand usage, and protect the service from abuse.',
-      'We do not sell your personal information. Providers involved in operating HealthyFlow include Netlify for the website, Railway for the backend, Supabase for database and authentication services, OpenAI for AI processing, PostHog for analytics and session recordings, and Resend and Google for email. Optional sign-in, calendar, speech, notification, and nutrition services process the information described above.',
+      'We do not sell your personal information. Providers involved in operating HealthyFlow include Netlify for the website, Railway for the backend, Supabase for database and authentication services, OpenAI for AI processing, PostHog for analytics, and Resend and Google for email. Optional sign-in, calendar, speech, notification, and nutrition services process the information described above.',
       'We require third-party processors acting for HealthyFlow to provide the same or equivalent protection for personal information described in this policy through their contractual and legal obligations. We review the published privacy, security, and retention terms relevant to the services we use.',
       'Information may be processed in countries other than the country where you live. The providers and services used determine where particular information is processed.',
       'We may disclose information if required by law, to protect rights and safety, or in connection with a merger, acquisition, financing, or sale of assets.',
@@ -103,7 +103,7 @@ export default function PrivacyPolicyPage() {
         </div>
 
         <article className="rounded-2xl border border-line/50 bg-card/60 p-6 shadow-xl shadow-accent/5 sm:p-8">
-          <p className="mb-3 text-sm font-medium uppercase tracking-wider text-accent">Effective September 15, 2026</p>
+          <p className="mb-3 text-sm font-medium uppercase tracking-wider text-accent">Effective October 20, 2026</p>
           <h1 className="mb-4 text-3xl font-bold text-ink sm:text-4xl">Privacy Policy</h1>
           <p className="mb-8 text-base leading-7 text-ink-soft">
             This Privacy Policy explains how HealthyFlow collects, uses, shares, and protects information when you use

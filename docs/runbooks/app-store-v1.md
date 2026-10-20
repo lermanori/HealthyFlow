@@ -159,21 +159,19 @@ These are implementation facts, not completed App Privacy answers.
 | Contact | In-app form: request kind, message and reply-to address. Public support email: sender/reply address, message and attachments | Form: HealthyFlow backend and Supabase. Email: Resend, transient backend forwarding and the privately configured support inbox; not stored in the app database |
 | Notifications | native device token or Web Push subscription | HealthyFlow backend, Supabase, APNs/Web Push |
 | Device ID (from #308) | a random UUID kept in the iOS Keychain as a this-device-only item (survives reinstall, never synced or restored to another phone); one random ID per browser on the web. Sent with auth requests only; labels accounts in Admin, never read by a grant (ADR-0027) | HealthyFlow backend and Supabase (`users.device_id`) |
-| Analytics | stable user ID; optional email/name/role/Guest state; typed product events, page paths, and session recordings that can include displayed text | PostHog; production bundle points to the EU ingestion host |
+| Analytics | stable user ID; optional email/name/role/Guest state; typed product events and page paths; no session recordings (off since 2026-10-20, #312) | PostHog; production bundle points to the EU ingestion host |
 | Nutrition lookup | food query and selected nutrition result | Backend query to Open Food Facts. Fuder is a curated source link, not a query recipient in the current lookup implementation |
 
-PostHog autocapture is disabled. Session recording is enabled with all inputs
-masked; persistence uses local storage and a cookie. General displayed text is
-not masked by the current source configuration: there is no `maskTextSelector`
-or `ph-no-capture` protection. The typed catalog does not send AI prompt text,
-but session recordings can include displayed chat, task and health text. App
-Privacy must cover actual SDK behavior and current vendor terms, not only the
-intended event catalog. See [PostHog's distinct input/text masking controls](https://posthog.com/docs/session-replay/privacy),
-checked 2026-09-15. Production project settings were inspected on 2026-09-17:
-recording is enabled for all sessions at 100% sampling, with normal masking
-(inputs masked; displayed text/images unmasked). Console capture and network
-timing capture are enabled; request/response header and body capture are off.
-Recording retention is 30 days. Exception autocapture is off. The project's
+PostHog autocapture is disabled. Session recording is **off** as of 2026-10-20
+(#312): the app and the landing page pass `disable_session_recording: true`,
+which overrides the project setting, and the Privacy Policy no longer describes
+recordings. Persistence uses local storage and a cookie. The typed catalog does
+not send AI prompt text. App Privacy must cover actual SDK behavior and current
+vendor terms, not only the intended event catalog. Recordings made before the
+change remain under the project's 30-day retention; turning recording off in
+the PostHog project settings as well is a founder action. Settings inspected on
+2026-09-17 (before the change): console capture and network timing capture
+enabled; request/response header and body capture off; exception autocapture off. The project's
 public ingestion token matches the locally bundled native and web assets.
 Native `capacitor://localhost` events were also visible in this project.
 Client IP discarding is enabled, but a native event still contains city/country
@@ -205,8 +203,7 @@ was rechecked on 2026-09-09 in
   product personalization must be reconciled against production configuration,
   retention and each provider's current policy.
 - Local storage, AI processing, and analytics need distinct answers. Invoking AI
-  can transmit Local content, and session recording can transmit displayed
-  content independently of an AI request.
+  can transmit Local content.
 
 Do not enter questionnaire answers from these inferences. The founder must
 confirm the production configuration and, where appropriate, obtain privacy or
