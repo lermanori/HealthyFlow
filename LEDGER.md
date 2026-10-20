@@ -1,3 +1,9 @@
+### 2026-10-20 18:15 — `main`
+
+The iOS app and widget are bumped to 1.1.0 (1) for the resubmission, and the release test now checks that app and widget versions agree instead of pinning a number. A signed Release archive of 1.1.0 (1) was built from this commit and verified: production Railway endpoint, no probe intents, session replay off. Upload to App Store Connect and the physical-device smoke test (#314) remain.
+
+---
+
 ### 2026-10-20 17:40 — `main`
 
 PostHog project recording is now off at the source as well as in the client (#312), verified against the app's project token. The Privacy Policy drops its last reference to recorded sessions and states precisely what product events carry: that an action happened, never prompt, chat, task or health content. App Privacy answers were reviewed and left unchanged; they over-declare relative to the new behaviour, which is safe for review.

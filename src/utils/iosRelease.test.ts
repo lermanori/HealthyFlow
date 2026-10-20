@@ -49,8 +49,13 @@ describe('free-v1 iOS release configuration', () => {
   })
 
   it('keeps app and widget release identity aligned', () => {
-    assert.equal((project.match(/MARKETING_VERSION = 1\.0\.1;/g) ?? []).length, 4)
-    assert.equal((project.match(/CURRENT_PROJECT_VERSION = 7;/g) ?? []).length, 4)
+    // Alignment, not a pinned number: a version bump must not need a test edit.
+    const versions = [...project.matchAll(/MARKETING_VERSION = (\d+\.\d+\.\d+);/g)].map(([, v]) => v)
+    const builds = [...project.matchAll(/CURRENT_PROJECT_VERSION = (\d+);/g)].map(([, b]) => b)
+    assert.equal(versions.length, 4)
+    assert.equal(new Set(versions).size, 1)
+    assert.equal(builds.length, 4)
+    assert.equal(new Set(builds).size, 1)
     assert.equal((project.match(/PRODUCT_BUNDLE_IDENTIFIER = app\.healthyflow\.mobile;/g) ?? []).length, 2)
     assert.equal((project.match(/PRODUCT_BUNDLE_IDENTIFIER = app\.healthyflow\.mobile\.widget;/g) ?? []).length, 2)
   })
