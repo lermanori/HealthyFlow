@@ -547,7 +547,9 @@ export class HealthyFlowMcpOAuthProvider implements OAuthServerProvider {
     params: AuthorizationParams,
     res: Response
   ) {
-    if (!params.resource || params.resource.toString() !== this.config.resource) {
+    // RFC 8707 makes `resource` optional; this server has exactly one resource,
+    // so an omitted value means it. A different resource is still refused.
+    if (params.resource && params.resource.toString() !== this.config.resource) {
       throw new InvalidTargetError('The resource must be the HealthyFlow MCP endpoint')
     }
     const scopes = normalizeScopes(params.scopes)
@@ -592,7 +594,7 @@ export class HealthyFlowMcpOAuthProvider implements OAuthServerProvider {
     redirectUri?: string,
     resource?: URL
   ) {
-    if (!redirectUri || !resource || resource.toString() !== this.config.resource) {
+    if (!redirectUri || (resource && resource.toString() !== this.config.resource)) {
       throw new InvalidGrantError('Authorization code exchange does not match its original request')
     }
 
@@ -623,7 +625,7 @@ export class HealthyFlowMcpOAuthProvider implements OAuthServerProvider {
     requestedScopes?: string[],
     resource?: URL
   ) {
-    if (!resource || resource.toString() !== this.config.resource) {
+    if (resource && resource.toString() !== this.config.resource) {
       throw new InvalidTargetError('Refresh token is for a different resource')
     }
 

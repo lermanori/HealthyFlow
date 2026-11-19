@@ -719,6 +719,99 @@ describe('MCP OAuth for non-ChatGPT clients', () => {
     }
   })
 
+  async function approvedCodeForRegisteredClient(resource?: string) {
+    const redirectUri = 'http://127.0.0.1:53682/callback'
+    const registration = await request(app)
+      .post('/oauth/register')
+      .send({
+        client_name: 'Desktop client',
+        redirect_uris: [redirectUri],
+        grant_types: ['authorization_code', 'refresh_token'],
+        response_types: ['code'],
+        token_endpoint_auth_method: 'none',
+      })
+    const clientId = registration.body.client_id as string
+    const { verifier, challenge } = pkcePair()
+    const authorize = await request(app)
+      .get('/oauth/authorize')
+      .query({
+        response_type: 'code',
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        scope: 'hf:read hf:write:add',
+        state: 'desktop-state',
+        code_challenge: challenge,
+        code_challenge_method: 'S256',
+        ...(resource ? { resource } : {}),
+      })
+    expect(authorize.status).toBe(302)
+    const signedRequest = new URL(authorize.headers.location).searchParams.get(
+      'request'
+    )
+    expect(signedRequest).toBeTruthy()
+    const approval = await request(app)
+      .post('/api/oauth/authorize')
+      .set('Authorization', APP_TOKEN)
+      .send({ request: signedRequest, decision: 'approve' })
+    expect(approval.status).toBe(200)
+    const code = new URL(approval.body.redirectUrl).searchParams.get('code')!
+    return { clientId, redirectUri, verifier, code }
+  }
+
+  it('completes code exchange and refresh when the client omits resource', async () => {
+    const { clientId, redirectUri, verifier, code } =
+      await approvedCodeForRegisteredClient()
+
+    const exchange = await request(app)
+      .post('/oauth/token')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .send(
+        form({
+          grant_type: 'authorization_code',
+          client_id: clientId,
+          code,
+          code_verifier: verifier,
+          redirect_uri: redirectUri,
+        })
+      )
+    expect(exchange.status).toBe(200)
+    expect(exchange.body.access_token).toBeTruthy()
+
+    const refresh = await request(app)
+      .post('/oauth/token')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .send(
+        form({
+          grant_type: 'refresh_token',
+          client_id: clientId,
+          refresh_token: exchange.body.refresh_token,
+        })
+      )
+    expect(refresh.status).toBe(200)
+    expect(refresh.body.refresh_token).toMatch(/^hf_refresh_/)
+    expect(refresh.body.refresh_token).not.toBe(exchange.body.refresh_token)
+  })
+
+  it('still rejects a token exchange for a different resource', async () => {
+    const { clientId, redirectUri, verifier, code } =
+      await approvedCodeForRegisteredClient(RESOURCE)
+
+    const exchange = await request(app)
+      .post('/oauth/token')
+      .set('Content-Type', 'application/x-www-form-urlencoded')
+      .send(
+        form({
+          grant_type: 'authorization_code',
+          client_id: clientId,
+          code,
+          code_verifier: verifier,
+          redirect_uri: redirectUri,
+          resource: 'https://evil.example/mcp',
+        })
+      )
+    expect(exchange.status).toBe(400)
+  })
+
   it('refuses CIMD clients from origins that are not allowed', async () => {
     const evilClientId = 'https://evil.example/client.json'
     mockClientMetadata({
