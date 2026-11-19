@@ -644,14 +644,14 @@
 }
 
 .today-plan-grid[data-drag-layout='expanded'] .timeline-slot[data-compacted='true'] {
-  height: 72px !important;
+  height: var(--today-hour-height, 72px) !important;
   pointer-events: auto;
 }
 
 /* A long card's drag preview must fit one drop zone, or its leading edge keeps
    selecting an earlier hour. Apply before the drag engine measures the DOM. */
 .today-plan-grid[data-drag-layout='expanded'] [data-timeline-drag-source='true'] {
-  max-height: 72px;
+  max-height: var(--today-hour-height, 72px);
 }
 
 .today-schedule-panel {

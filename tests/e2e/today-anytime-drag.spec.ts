@@ -62,6 +62,19 @@ async function setupDragWorkspace(
   let rollbackCalls = 0
   let reorderedIds: string[] = []
 
+  // Fully mocked, including identity: this suite also runs without globalSetup
+  // or the shared Supabase test account's saved browser state.
+  await page.addInitScript(() => localStorage.setItem('token', 'today-drag-token'))
+  await page.route('**/api/**', route => route.abort('blockedbyclient'))
+  await page.route(/^https?:\/\//, route => {
+    const url = new URL(route.request().url())
+    return ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+      ? route.fallback()
+      : route.abort('blockedbyclient')
+  })
+  await page.route('**/api/auth/verify', route => route.fulfill({ json: {
+    id: 'today-drag-user', email: 'drag@healthyflow.local', name: 'Drag Review', role: 'user', authMethod: 'password',
+  } }))
   await page.route('**/api/settings', route => route.fulfill({ json: settings }))
   await page.route('**/api/proactivity/rhythm', route => route.fulfill({
     json: {
@@ -132,7 +145,7 @@ async function setupDragWorkspace(
       return route.fulfill({ json: updated })
     }
 
-    return route.continue()
+    return route.fallback()
   })
 
   return {
@@ -308,14 +321,14 @@ test('keyboard drag expands all hours, reorders Anytime, restores focus, and per
   const handle = page.getByRole('button', { name: 'Move Flexible 25', exact: true })
   await handle.press('Space')
   await expect(page.locator('.today-plan-grid')).toHaveAttribute('data-drag-layout', 'expanded')
-  await expect(page.locator('[data-slot="06:00"]')).toHaveCSS('height', '72px')
+  await expect(page.locator('[data-slot="06:00"]')).toHaveCSS('height', '144px')
 
   await handle.press('ArrowDown')
   await expect(page.getByRole('status', { name: 'Schedule changes' })).toContainText('Anytime, position 2')
   await handle.press('Space')
 
   await expect(page.locator('.today-plan-grid')).not.toHaveAttribute('data-drag-layout', 'expanded')
-  await expect(page.locator('[data-slot="06:00"]')).toHaveCSS('height', '28px')
+  await expect(page.locator('[data-slot="06:00"]')).toHaveCSS('height', '144px')
   await expect(handle).toBeFocused()
   await expect.poll(state.getReorderCalls).toBeGreaterThan(0)
 
@@ -379,7 +392,7 @@ test('failed virtual Habit reorder restores its synthetic id, order, layout, and
   await expect(page.locator(`[data-timeline-drag-id="${VIRTUAL_HABIT_ID}"]`)).toBeVisible()
   await expect(page.locator(`[data-timeline-drag-id="${MATERIALIZED_HABIT_ID}"]`)).toHaveCount(0)
   await expect(page.locator('.today-plan-grid')).not.toHaveAttribute('data-drag-layout', 'expanded')
-  await expect(page.locator('[data-slot="06:00"]')).toHaveCSS('height', '28px')
+  await expect(page.locator('[data-slot="06:00"]')).toHaveCSS('height', '144px')
   await expect.poll(state.getRollbackCalls).toBe(1)
 
   const restoredItems = state.getItems().filter(item => !item.startTime)

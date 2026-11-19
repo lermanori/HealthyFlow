@@ -131,8 +131,12 @@ test('an overlapping Device Calendar event keeps its time and read-only state vi
   await expect(page.locator('#loading-screen')).toBeHidden()
   const event = page.locator('[data-timeline-drag-id="calendar:device-event"]')
   await expect(event).toContainText('13:15 - 14:15')
-  await expect(event.getByText('Fixed')).toBeVisible()
-  await expect(event.getByRole('button', { name: 'Device Calendar event, read-only' })).toBeDisabled()
+  await event.getByRole('button', { name: 'View details for Parent visit' }).click()
+  const details = page.getByRole('dialog', { name: 'Parent visit' })
+  await expect(details).toContainText('Device Calendar')
+  await expect(details).toContainText('Read-only in HealthyFlow')
+  await expect(details.getByRole('button', { name: /Mark complete|Mark incomplete|Edit|Delete/ })).toHaveCount(0)
+  await details.getByRole('button', { name: 'Close details' }).click()
   const taskBox = await page.locator('[data-timeline-drag-id="task-meeting"]').boundingBox()
   const eventBox = await event.boundingBox()
   expect(taskBox && eventBox).toBeTruthy()
@@ -177,6 +181,183 @@ test('timeline drag reschedules a multi-hour Item without stretching the clock',
   const cardBox = await slot.locator('[data-timeline-drag-id="long-meeting"]').boundingBox()
   expect(cardBox!.y).toBeCloseTo(slotBox!.y, 0)
   expect(cardBox!.height).toBeCloseTo(slotBox!.height * 3, 0)
+})
+
+for (const viewport of [viewports[0], viewports[2]]) {
+  test(`Day calendar keeps three overlaps apart and restores full width at ${viewport.width}px`, async ({ page }) => {
+    await page.setViewportSize(viewport)
+    await mockToday(page, {
+      signals: () => [],
+      summary: date => daySummaryFixture({
+        date,
+        items: [
+          { id: 'workshop', title: 'Workshop with the entire product team', startTime: '09:30', duration: 180, scheduledDate: date },
+          { id: 'overlap-task', title: 'Prepare detailed customer feedback', startTime: '10:00', duration: 60, scheduledDate: date },
+          { id: 'overlap-habit', title: 'Walk outside', type: 'habit', startTime: '10:30', duration: 20, scheduledDate: date, habitInfo: { target: { value: 20, unit: 'minutes' }, outcome: 'pending', progressTotal: 0 } },
+          { id: 'after-workshop', title: 'Write the afternoon summary', startTime: '12:30', duration: 60, scheduledDate: date },
+        ],
+      }),
+    })
+    await page.goto('/app')
+    await expect(page.locator('#loading-screen')).toBeHidden()
+    const box = async (id: string) => {
+      const result = await page.locator(`[data-timeline-drag-id="${id}"]`).boundingBox()
+      expect(result).not.toBeNull()
+      return result!
+    }
+    const blocks = await Promise.all(['workshop', 'overlap-task', 'overlap-habit'].map(box))
+    for (let left = 0; left < blocks.length; left++) {
+      for (let right = left + 1; right < blocks.length; right++) {
+        const a = blocks[left], b = blocks[right]
+        expect(a.x + a.width <= b.x + 1 || b.x + b.width <= a.x + 1).toBe(true)
+      }
+    }
+    const after = await box('after-workshop')
+    expect(after.width).toBeGreaterThan(blocks[0].width * 2.8)
+    expect(after.y).toBeCloseTo(blocks[0].y + blocks[0].height, 0)
+    expect(blocks[0].height / blocks[1].height).toBeCloseTo(3, 1)
+    expect(blocks[2].height / blocks[1].height).toBeCloseTo(1 / 3, 1)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+
+    await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
+    const zoomed = await Promise.all(['workshop', 'overlap-task', 'overlap-habit'].map(box))
+    expect(zoomed[0].height).toBeGreaterThan(blocks[0].height)
+    expect(zoomed[0].height / zoomed[1].height).toBeCloseTo(3, 1)
+    expect(zoomed[2].height / zoomed[1].height).toBeCloseTo(1 / 3, 1)
+    await page.getByRole('button', { name: 'Zoom out', exact: true }).click()
+    expect((await box('workshop')).height).toBeCloseTo(blocks[0].height, 0)
+  })
+}
+
+test('List reveals full titles and opens details with keyboard focus restored on close', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 740 })
+  const title = 'Review the complete product research and prepare all decisions for the afternoon customer workshop'
+  await mockToday(page, {
+    signals: () => [],
+    summary: date => daySummaryFixture({ date, items: [{ id: 'long-title', title, startTime: '09:30', duration: 180, location: 'Meeting room on the second floor', scheduledDate: date }] }),
+  })
+  await page.goto('/app')
+  const schedule = page.locator('[data-demo-id="schedule-section"]')
+  await page.getByRole('button', { name: 'List', exact: true }).click()
+  const open = schedule.getByRole('button', { name: `View details for ${title}` })
+  await expect(open).toBeVisible()
+  const text = open.getByRole('heading', { name: title })
+  await expect(text).toBeVisible()
+  expect(await text.evaluate(element => element.scrollHeight <= element.clientHeight + 1 && element.scrollWidth <= element.clientWidth + 1)).toBe(true)
+  await open.focus()
+  await open.press('Enter')
+  const details = page.getByRole('dialog', { name: title })
+  await expect(details).toBeVisible()
+  await expect(details).toContainText(/09:30\s*[-–]\s*12:30/)
+  await expect(details).toContainText('Meeting room on the second floor')
+  await expect(details.getByRole('button', { name: 'Close details' })).toBeFocused()
+  expect(await details.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
+  await page.keyboard.press('Shift+Tab')
+  expect(await details.evaluate(element => element.contains(document.activeElement))).toBe(true)
+  await page.keyboard.press('Tab')
+  expect(await details.evaluate(element => element.contains(document.activeElement))).toBe(true)
+  await page.keyboard.press('Escape')
+  await expect(details).toBeHidden()
+  await expect(open).toBeFocused()
+  await open.click()
+  await details.getByRole('button', { name: 'Close details' }).click()
+  await expect(open).toBeFocused()
+  await page.getByRole('button', { name: 'Day', exact: true }).click()
+  await expect(page.locator('[data-slot="09:00"]')).toBeVisible()
+})
+
+test('details completion and List completion stay separate from opening an Item', async ({ page }) => {
+  let completed = false
+  await mockToday(page, {
+    signals: () => [],
+    summary: date => daySummaryFixture({ date, items: [{ id: 'task-details', title: 'Review the customer notes', startTime: '10:00', duration: 60, scheduledDate: date, completed }] }),
+  })
+  await page.route('**/api/tasks/complete/task-details', async route => {
+    completed = true
+    await route.fulfill({ json: { id: 'task-details', title: 'Review the customer notes', type: 'task', startTime: '10:00', duration: 60, scheduledDate: '2026-07-15', completed: true, createdAt: '2026-07-15T08:00:00Z' } })
+  })
+  await page.route('**/api/tasks/task-details', async route => {
+    completed = route.request().postDataJSON().completed
+    await route.fulfill({ json: { id: 'task-details', title: 'Review the customer notes', type: 'task', startTime: '10:00', duration: 60, scheduledDate: '2026-07-15', completed, createdAt: '2026-07-15T08:00:00Z' } })
+  })
+  await page.goto('/app')
+  await page.getByRole('button', { name: 'View details for Review the customer notes', exact: true }).click()
+  const details = page.getByRole('dialog', { name: 'Review the customer notes' })
+  await details.getByRole('button', { name: 'Mark complete', exact: true }).click()
+  await expect.poll(() => completed).toBe(true)
+  await expect(details).toBeVisible()
+  await expect(details.getByRole('button', { name: 'Mark incomplete', exact: true })).toBeVisible()
+  await details.getByRole('button', { name: 'Close details' }).click()
+  await page.getByRole('button', { name: 'List', exact: true }).click()
+  const item = page.locator('[data-timeline-drag-id="task-details"]')
+  await item.getByRole('button', { name: 'Uncheck task', exact: true }).click()
+  await expect.poll(() => completed).toBe(false)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(item.getByRole('button', { name: 'Check task', exact: true })).toBeVisible()
+})
+
+test('Habit and Calendar details expose their full information and keep check-in separate', async ({ page }) => {
+  const habitTitle = 'Take a restorative walk outside before the afternoon meetings'
+  await mockToday(page, {
+    signals: () => [],
+    summary: date => daySummaryFixture({
+      date,
+      items: [{ id: 'habit-details', title: habitTitle, type: 'habit', repeat: 'daily', startTime: '10:30', duration: 20, scheduledDate: date, habitInfo: { target: { value: 20, unit: 'minutes' }, outcome: 'partial', progressTotal: 10 } }],
+      calendarEvents: [{ id: 'calendar-details', title: 'Customer workshop', provider: 'device', localStartTime: '09:30', localEndTime: '12:30', location: 'Market café', description: 'Bring the complete customer interview notes.' }],
+    }),
+  })
+  await page.route('**/api/tasks/habit-details/habit-progress?**', route => route.fulfill({ json: { habit: { id: 'habit-details', title: habitTitle, type: 'habit', habitInfo: { target: { value: 20, unit: 'minutes' }, outcome: 'partial', progressTotal: 10 } }, entries: [] } }))
+  await page.goto('/app')
+  await page.getByRole('button', { name: `View details for ${habitTitle}`, exact: true }).click()
+  const habitDetails = page.getByRole('dialog', { name: habitTitle })
+  await expect(habitDetails).toContainText('10')
+  await expect(habitDetails).toContainText('20')
+  await expect(habitDetails).toContainText(/daily/i)
+  await habitDetails.getByRole('button', { name: 'Close details' }).click()
+  await page.getByRole('button', { name: 'List', exact: true }).click()
+  await page.locator('[data-timeline-drag-id="habit-details"]').getByRole('button', { name: `Check in ${habitTitle}` }).click()
+  const checkIn = page.getByRole('dialog', { name: habitTitle })
+  await expect(checkIn.getByText('How much did you do?')).toBeVisible()
+  await expect(checkIn.getByRole('button', { name: 'Close details' })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(checkIn).toBeHidden()
+  await page.getByRole('button', { name: 'View details for Customer workshop', exact: true }).click()
+  const calendarDetails = page.getByRole('dialog', { name: 'Customer workshop' })
+  await expect(calendarDetails).toContainText('Bring the complete customer interview notes.')
+  await expect(calendarDetails).toContainText('Market café')
+  await expect(calendarDetails).toContainText('09:30')
+  await expect(calendarDetails).toContainText('12:30')
+  await expect(calendarDetails).toContainText('Read-only in HealthyFlow')
+  await expect(calendarDetails.getByRole('button', { name: /Mark complete|Mark incomplete/ })).toHaveCount(0)
+  await expect(calendarDetails.getByRole('button', { name: /Edit|Delete|Check calendar/ })).toHaveCount(0)
+  await calendarDetails.getByRole('button', { name: 'Close details' }).click()
+  await expect(page.locator('[data-timeline-drag-id="calendar:calendar-details"]').getByRole('button', { name: 'Device Calendar event, read-only' })).toBeDisabled()
+})
+
+test('early planned Items and actual records survive switching between Day and List', async ({ page }) => {
+  await mockToday(page, {
+    signals: () => [],
+    summary: date => {
+      const summary = daySummaryFixture({ date, items: [{ id: 'early-task', title: 'Early airport departure', startTime: '02:15', duration: 60, scheduledDate: date }] })
+      summary.modules.nutrition = 'enabled'
+      summary.calorieEntries = [{ id: 'breakfast', date, time: '07:20', loggedTime: '07:20', name: 'Oats and fruit', calories: 410, protein: 12, carbs: 61, fat: 9, quantity: '1 bowl', createdAt: null, updatedAt: null }]
+      return summary
+    },
+  })
+  await page.goto('/app')
+  const early = page.locator('[data-timeline-drag-id="early-task"]')
+  await expect(early).toContainText('02:15–03:15')
+  const two = await page.locator('[data-slot="02:00"]').boundingBox()
+  const earlyBox = await early.boundingBox()
+  expect(two && earlyBox).toBeTruthy()
+  expect(earlyBox!.y).toBeCloseTo(two!.y + two!.height / 4, 0)
+  const record = page.getByTestId('timeline-record').filter({ hasText: 'Oats and fruit' })
+  await expect(record).toBeVisible()
+  await expect(record).toHaveAttribute('href', '/app/calories?date=2026-07-15')
+  await page.getByRole('button', { name: 'List', exact: true }).click()
+  await expect(early).toContainText('02:15–03:15')
+  await expect(record).toBeVisible()
+  await expect(record).toHaveAttribute('href', '/app/calories?date=2026-07-15')
 })
 
 function signalsForDate(date: string): DailySignal[] {
@@ -509,6 +690,15 @@ async function mockToday(page: Page, options?: {
   signals?: (date: string) => DailySignal[]
   onSummaryRequest?: () => void
 }) {
+  // This spec is hermetic: an unhandled API call must never reach a developer's
+  // backend or a hosted account. More specific routes below take precedence.
+  await page.route('**/api/**', route => route.abort('blockedbyclient'))
+  await page.route(/^https?:\/\//, route => {
+    const url = new URL(route.request().url())
+    return ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+      ? route.fallback()
+      : route.abort('blockedbyclient')
+  })
   await page.addInitScript(() => {
     localStorage.setItem('token', 'today-workspace-token')
   })
@@ -987,9 +1177,8 @@ test('completion feedback is undoable, silent, and preserves text selection', as
   })
   await page.goto('/app')
 
-  const task = page.locator('[data-testid="timeline-draggable-task"]').filter({
-    hasText: 'Finish the product brief',
-  }).first()
+  await page.getByRole('button', { name: 'List', exact: true }).click()
+  const task = page.locator('[data-timeline-drag-id="task-focus"]')
   const title = task.getByRole('heading', { name: 'Finish the product brief' })
   expect(await title.evaluate((element) => getComputedStyle(element).userSelect)).not.toBe('none')
 

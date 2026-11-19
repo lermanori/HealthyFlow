@@ -9,11 +9,14 @@ import type {
   MovementMode,
   ResponderProvided,
 } from '@hello-pangea/dnd'
-import { Award, CalendarDays, Check, Clock, Dumbbell, Flame, GripVertical, MapPin, RotateCcw, Scale } from 'lucide-react'
+import { Award, Check, Clock, Dumbbell, Flame, GripVertical, Minus, Plus, RotateCcw, Scale } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { ExternalCalendarEvent, Task, HabitItem } from '../services/api'
+import TimelineDetailsSheet from './TimelineDetailsSheet'
 import TaskCard from './TaskCard'
+import { positionDayTimelineEntries } from '../utils/dayTimelineLayout'
+import { formatClockRange } from '../utils/dateHelpers'
 import { taskService } from '../services/api'
 import {
   isStamped,
@@ -83,13 +86,12 @@ function ageBadge(scheduledDate: string): string | null {
   return `${weeks} wk${weeks === 1 ? '' : 's'}`
 }
 
-// ponytail: mirrors backend/src/utils/hourSlots.ts — 18 slots 6am–11pm
-const HOUR_SLOTS: string[] = Array.from({ length: 18 }, (_, i) => `${String(i + 6).padStart(2, '0')}:00`)
+// The legacy base scale remains shared with Focus-block callers.
 const HOUR_SLOT_HEIGHT_PX = 72
-const COMPACT_EMPTY_SLOT_HEIGHT_PX = 28
 const MIN_TIMED_TASK_MINUTES = 30
 const MIN_TIMED_TASK_HEIGHT_PX = 52
 const MIN_TIMED_HABIT_HEIGHT_PX = 72
+const HOUR_HEIGHTS = [108, 144, 180, 216]
 
 function formatHour(slot: string): string {
   const h = parseInt(slot, 10)
@@ -107,7 +109,7 @@ function eventHour(event: ExternalCalendarEvent): number | null {
 function eventTimeRange(event: ExternalCalendarEvent): string {
   if (event.allDay) return 'All day'
   if (event.localStartTime) {
-    return event.localEndTime ? `${event.localStartTime} - ${event.localEndTime}` : event.localStartTime
+    return event.localEndTime ? `${event.localStartTime} - ${event.localEndTime}` : `${event.localStartTime} · duration not set`
   }
 
   if (!event.startAt) return 'Time not set'
@@ -117,7 +119,7 @@ function eventTimeRange(event: ExternalCalendarEvent): string {
   })
   const start = formatter.format(new Date(event.startAt))
   const end = event.endAt ? formatter.format(new Date(event.endAt)) : null
-  return end ? `${start} - ${end}` : start
+  return end ? `${start} - ${end}` : `${start} · duration not set`
 }
 
 function minutesFromTime(value: string): number | null {
@@ -137,7 +139,8 @@ function eventDurationMinutes(event: ExternalCalendarEvent): number | undefined 
   }
 
   if (!event.startAt || !event.endAt) return undefined
-  return Math.max(MIN_TIMED_TASK_MINUTES, Math.round((new Date(event.endAt).getTime() - new Date(event.startAt).getTime()) / 60000))
+  const duration = Math.round((new Date(event.endAt).getTime() - new Date(event.startAt).getTime()) / 60000)
+  return duration > 0 ? duration : undefined
 }
 
 function timedBlockHeight(duration?: number): number {
@@ -152,60 +155,6 @@ function timedBlockHeight(duration?: number): number {
  */
 export function timedFocusBlockHeight(plannedMinutes: number): number {
   return Math.max(timedBlockHeight(plannedMinutes), MIN_TIMED_HABIT_HEIGHT_PX)
-}
-
-function timedTaskBlockHeight(task: Task): number {
-  const height = timedBlockHeight(task.duration)
-  return task.type === 'habit' ? Math.max(height, MIN_TIMED_HABIT_HEIGHT_PX) : height
-}
-
-/** Position overlaps across the whole day, including rows starting in different hours. */
-function positionTimelineRows(rowsBySlot: Record<string, SlotRow[]>) {
-  const rows = HOUR_SLOTS.flatMap(slot => rowsBySlot[slot].map(row => {
-    const hour = parseInt(slot, 10)
-    const minutes = minutesFromTime(row.clock)
-    if (minutes === null) throw new Error(`Invalid timeline clock: ${row.clock}`)
-    const start = Math.min((hour + 1) * 60 - 1, Math.max(hour * 60, minutes))
-    return { ...row, start, end: start + row.heightPx * 60 / HOUR_SLOT_HEIGHT_PX, column: 0, columns: 1 }
-  })).sort((a, b) => a.start - b.start || b.end - a.end)
-
-  let group: typeof rows = []
-  let columnEnds: number[] = []
-  let groupEnd = -Infinity
-  const finishGroup = () => {
-    for (const row of group) row.columns = columnEnds.length
-    group = []
-    columnEnds = []
-  }
-  for (const row of rows) {
-    if (row.start >= groupEnd) finishGroup()
-    let column = columnEnds.findIndex(end => end <= row.start)
-    if (column < 0) column = columnEnds.length
-    row.column = column
-    columnEnds[column] = row.end
-    group.push(row)
-    groupEnd = Math.max(groupEnd, row.end)
-  }
-  finishGroup()
-  return new Map(rows.map(row => [row.key, row]))
-}
-
-function compactableEmptySlots(slots: string[], hasContent: (slot: string) => boolean): Set<string> {
-  const compacted = new Set<string>()
-  let run: string[] = []
-
-  const flush = () => {
-    if (run.length >= 4) run.forEach(slot => compacted.add(slot))
-    run = []
-  }
-
-  for (const slot of slots) {
-    if (hasContent(slot)) flush()
-    else run.push(slot)
-  }
-  flush()
-
-  return compacted
 }
 
 function localDateKey(date = new Date()): string {
@@ -232,84 +181,32 @@ function taskDemoId(task: Task): string {
   return 'today-task-card'
 }
 
-function CalendarEventBlock({
-  event,
-  onComplete,
-  narrow = false,
+/** Day is a proportional clock; List supplies full titles and separate completion. */
+function TimelineEntryBlock({
+  title, time, kind, completed, onOpen, onComplete, completionLabel, readOnly = false, list = false,
 }: {
-  event: ExternalCalendarEvent
-  onComplete: (id: string, completed: boolean) => void
-  narrow?: boolean
+  title: string
+  time: string
+  kind: string
+  completed: boolean
+  onOpen: () => void
+  onComplete: () => void
+  completionLabel: string
+  readOnly?: boolean
+  list?: boolean
 }) {
-  const isReadOnly = event.provider === 'device'
+  const accent = kind === 'Calendar' ? 'border-state-success/50 bg-state-success/10' : kind === 'Habit' ? 'border-category-fitness/50 bg-category-fitness/10' : 'border-accent/50 bg-accent/10'
   return (
-    <div
-      className={`group relative flex h-full min-w-0 items-center overflow-hidden rounded-lg border ${narrow ? 'p-2' : 'p-2.5'} transition-all duration-300 ${
-        event.completed
-          ? 'bg-card/50 border-line-strong/50 opacity-75'
-          : 'card glass-effect hover:shadow-lg'
-      }`}
-    >
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        <button
-          type="button"
-          onClick={() => onComplete(event.id, !event.completed)}
-          disabled={isReadOnly}
-          title={isReadOnly ? 'Device Calendar events are read-only' : undefined}
-          className="-m-3 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-55"
-          aria-label={isReadOnly ? 'Device Calendar event, read-only' : event.completed ? 'Uncheck calendar event' : 'Check calendar event'}
-        >
-          <span aria-hidden="true" className={`flex h-4 w-4 items-center justify-center rounded-full border-2 transition-colors sm:h-5 sm:w-5 ${event.completed ? 'border-state-success bg-state-success text-on-action' : 'border-line-strong'}`}>
-            {event.completed && <Check className="h-3 w-3" />}
-          </span>
-        </button>
-
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="flex min-w-0 flex-1 items-center gap-2">
-              {!narrow && <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border border-state-success/30 bg-state-success/20 text-state-success">
-                <CalendarDays className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-              </div>}
-              <h3 className={`truncate text-sm font-medium sm:text-base ${
-                event.completed ? 'line-through text-ink-muted' : 'text-ink'
-              }`}>
-                {event.htmlLink ? (
-                  <a
-                    href={event.htmlLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={eventClick => eventClick.stopPropagation()}
-                    className="rounded-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
-                    aria-label={`Open ${event.title} in Calendar`}
-                  >
-                    {event.title}
-                  </a>
-                ) : event.title}
-              </h3>
-            </div>
-
-            <span
-              title="Device Calendar events are read-only in HealthyFlow."
-              className={`inline-flex shrink-0 rounded-full border border-state-success/30 bg-state-success/15 text-state-success ${narrow ? 'px-1 text-[10px]' : 'px-1.5 py-0.5 text-xs sm:px-2 sm:py-1'}`}
-            >
-              Fixed{!narrow && <span className="hidden sm:inline">&nbsp;· Calendar</span>}
-            </span>
-          </div>
-
-          <div className={`flex min-w-0 flex-col gap-1 text-ink-muted sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 ${narrow ? 'text-[10px]' : 'text-xs'}`}>
-            <span className="inline-flex min-w-0 items-center gap-1 text-ink-muted">
-              {!narrow && <Clock className="h-3 w-3 shrink-0" />}
-              <span className="truncate">{eventTimeRange(event)}</span>
-            </span>
-            {event.location && (
-              <span className="inline-flex min-w-0 max-w-full items-center gap-1 text-ink-muted">
-                <MapPin className="h-3 w-3 shrink-0" />
-                <span className="truncate">{event.location}</span>
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
+    <div className={`relative flex h-full min-w-0 overflow-hidden rounded-lg border-l-[3px] ${accent} ${completed ? 'opacity-70' : ''} ${list ? 'items-start gap-1 py-2' : ''}`}>
+      {list && <button type="button" onClick={onComplete} disabled={readOnly} aria-label={completionLabel} title={readOnly ? 'Device Calendar events are read-only' : undefined} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:opacity-60">
+        <span aria-hidden="true" className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${completed ? 'border-state-success bg-state-success text-on-action' : 'border-line-strong'}`}>{kind === 'Habit' ? <RotateCcw className="h-3 w-3" /> : completed ? <Check className="h-3 w-3" /> : null}</span>
+      </button>}
+      <button type="button" onClick={onOpen} aria-label={`View details for ${title}`} title={`${title} · ${time}`} className={`flex min-w-0 flex-1 flex-col items-start justify-start overflow-hidden text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus ${list ? 'min-h-11 px-2 py-1' : 'h-full px-1.5 py-1.5'}`}>
+        <h3 className={`w-full shrink-0 break-words text-sm font-semibold leading-[17px] ${completed ? 'text-ink-muted line-through' : 'text-ink'} ${list ? '' : 'line-clamp-3'}`}>{title}</h3>
+        <span className={`mt-1 block shrink-0 text-[10px] tabular-nums text-ink-muted ${list ? 'break-words text-xs' : ''}`}>{time}</span>
+        {list && <span className="mt-1 text-xs text-ink-muted">{kind}{readOnly ? ' · Read-only' : ''}</span>}
+        {!list && kind === 'Calendar' && <span className="mt-1 text-[10px] text-state-success">{readOnly ? 'Fixed' : 'Calendar'}</span>}
+      </button>
     </div>
   )
 }
@@ -353,9 +250,11 @@ const RECORD_STYLE: Record<RecordKind, { icon: typeof Flame; accent: string; chi
 function TimelineRecordBlock({
   record,
   onHabitSelect,
+  list = false,
 }: {
   record: TimelineRecord
   onHabitSelect?: (habitId: string) => void
+  list?: boolean
 }) {
   const style = RECORD_STYLE[record.kind]
   const Icon = style.icon
@@ -367,8 +266,8 @@ function TimelineRecordBlock({
         <Icon className="h-3.5 w-3.5" />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="flex min-w-0 items-baseline gap-2">
-          <span className="truncate text-sm font-medium text-ink">{record.title}</span>
+        <span className={`flex min-w-0 gap-2 ${list ? 'flex-wrap items-baseline' : 'items-baseline'}`}>
+          <span className={`${list ? 'break-words' : 'truncate'} text-sm font-medium text-ink`}>{record.title}</span>
           <span className={`shrink-0 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide ${style.chip}`}>
             {record.kind === 'calendar-transition' ? 'Protected' : 'Actual'}
           </span>
@@ -378,7 +277,7 @@ function TimelineRecordBlock({
             {record.stamped && <span className="opacity-60">logged</span>}
           </span>
         </span>
-        <span className="block truncate text-xs text-ink-muted">{record.detail}</span>
+        <span className={`block ${list ? 'break-words' : 'truncate'} text-xs text-ink-muted`}>{record.detail}</span>
       </span>
     </>
   )
@@ -489,6 +388,21 @@ export default function DayTimeline({
   supportingContent,
   focusBlockRows = [],
 }: DayTimelineProps) {
+  const [view, setView] = useState<'day' | 'list'>('day')
+  const [zoomIndex, setZoomIndex] = useState(1)
+  const [details, setDetails] = useState<{ kind: 'item' | 'calendar'; id: string; date: string } | null>(null)
+  const hourHeight = HOUR_HEIGHTS[zoomIndex]
+  const blockHeight = (duration?: number) => (duration && duration > 0 ? duration : MIN_TIMED_TASK_MINUTES) * hourHeight / 60
+  const earliestHour = Math.min(6,
+    ...tasks.filter(task => timelineHour(task) !== null).map(task => parseInt(timelineClock(task), 10)),
+    ...calendarEvents.map(eventHour).filter((hour): hour is number => hour !== null),
+    ...records.map(record => parseInt(record.time, 10)),
+    ...focusBlockRows.map(row => parseInt(row.clock, 10)),
+  )
+  const HOUR_SLOTS = Array.from({ length: 24 - earliestHour }, (_, index) => `${String(index + earliestHour).padStart(2, '0')}:00`)
+  const clockSlot = (clock: string) => `${clock.slice(0, 2)}:00`
+  const selectedTask = details?.kind === 'item' && details.date === dateKey ? tasks.find(task => task.id === details.id) : undefined
+  const selectedEvent = details?.kind === 'calendar' && details.date === dateKey ? calendarEvents.find(event => event.id === details.id) : undefined
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null)
   const [dragStatus, setDragStatus] = useState('')
   const [isAnytimeExpanded, setIsAnytimeExpanded] = useState(false)
@@ -511,7 +425,12 @@ export default function DayTimeline({
 
   useEffect(() => {
     setIsAnytimeExpanded(false)
+    setDetails(null)
   }, [dateKey])
+
+  useEffect(() => {
+    if (details && !selectedTask && !selectedEvent) setDetails(null)
+  }, [details, selectedTask, selectedEvent])
 
   useEffect(() => {
     const panel = anytimePanelRef.current
@@ -525,13 +444,12 @@ export default function DayTimeline({
 
   // Group scheduled tasks into hour buckets. A task keeps its real startTime (e.g.
   // "09:30") but renders under its hour's slot; off-the-hour times only snap to ":00"
-  // when actually dragged. Hours outside 6am–11pm clamp to the nearest edge slot so a
-  // timed task is never dropped from the view (it has a startTime, so it can't fall
-  // through to the Anytime backlog).
+  // when actually dragged. Earlier clock times expand the visible grid rather
+  // than silently shifting an Item to 6am.
   const slotBuckets: Record<string, Task[]> = {}
   for (const slot of HOUR_SLOTS) slotBuckets[slot] = []
   for (const t of scheduled) {
-    slotBuckets[timelineHour(t) as string].push(t)
+    slotBuckets[clockSlot(timelineClock(t))]?.push(t)
   }
   for (const slot of HOUR_SLOTS) {
     // Order within an hour is by minute, not by kind or creation order — a 07:05
@@ -547,14 +465,13 @@ export default function DayTimeline({
   for (const event of calendarEvents) {
     const hour = eventHour(event)
     if (hour === null) continue
-    const clampedHour = Math.min(23, Math.max(6, hour))
-    calendarBuckets[`${String(clampedHour).padStart(2, '0')}:00`].push(event)
+    calendarBuckets[`${String(hour).padStart(2, '0')}:00`]?.push(event)
   }
   // Read-only record rows bucket by their (server-resolved) logged hour.
   const recordBuckets: Record<string, TimelineRecord[]> = {}
   for (const slot of HOUR_SLOTS) recordBuckets[slot] = []
   for (const record of records) {
-    recordBuckets[record.hour]?.push(record)
+    recordBuckets[clockSlot(record.time)]?.push(record)
   }
   for (const slot of HOUR_SLOTS) {
     recordBuckets[slot].sort((a, b) => a.time.localeCompare(b.time))
@@ -567,90 +484,36 @@ export default function DayTimeline({
     if (habit?.type === 'habit') onHabitCheckIn(habit)
   }
 
-  /**
-   * A row with no drag grip still needs the grip's gutter, or its card starts
-   * 50px left of every Item's card and the timeline reads as two columns.
-   */
-  const GripGutter = () => <div aria-hidden="true" className="h-11 w-11 shrink-0 self-center" />
+  const openItem = (task: Task) => setDetails({ kind: 'item', id: task.id, date: dateKey })
+  const openEvent = (event: ExternalCalendarEvent) => setDetails({ kind: 'calendar', id: event.id, date: dateKey })
+  const itemTime = (task: Task) => task.startTime
+    ? `${formatClockRange(task.startTime, task.duration).replace(' - ', '–')}${task.duration && task.duration > 0 ? '' : ' · duration not set'}`
+    : isStamped(task) ? `logged ${timelineClock(task)}` : task.duration ? `Anytime · ${task.duration} min` : 'Anytime · duration not set'
+  const itemBlock = (task: Task, list = false) => <TimelineEntryBlock
+    title={task.title} time={itemTime(task)} kind={task.type === 'habit' ? 'Habit' : task.type === 'meal' ? 'Meal plan' : task.type === 'workout' ? 'Workout plan' : task.type === 'grocery' ? 'Grocery' : 'Task'} completed={task.completed} onOpen={() => openItem(task)}
+    onComplete={() => task.type === 'habit' ? onHabitCheckIn(task) : task.completed ? onUncompleteTask(task.id) : onCompleteTask(task.id)}
+    completionLabel={task.type === 'habit' ? `Check in ${task.title}` : task.completed ? 'Uncheck task' : 'Check task'} list={list}
+  />
+  const calendarBlock = (event: ExternalCalendarEvent, list = false) => <TimelineEntryBlock
+    title={event.title} time={eventTimeRange(event)} kind="Calendar" completed={event.completed} onOpen={() => openEvent(event)} onComplete={() => onCalendarEventComplete(event.id, !event.completed)}
+    completionLabel={event.provider === 'device' ? 'Device Calendar event, read-only' : event.completed ? 'Uncheck calendar event' : 'Check calendar event'} readOnly={event.provider === 'device'} list={list}
+  />
 
   const renderCalendarRow = (event: ExternalCalendarEvent, index: number, overlapping = false) => (
-    event.provider === 'device' ? (
-      <div
-        data-timeline-drag-id={`calendar:${event.id}`}
-        className="relative flex min-h-0 min-w-0 gap-1.5"
-        style={{ height: timedBlockHeight(eventDurationMinutes(event)) }}
-      >
-        {!overlapping && <GripGutter />}
-        <div className="h-full min-w-0 flex-1">
-          <CalendarEventBlock event={event} onComplete={onCalendarEventComplete} narrow={overlapping} />
-        </div>
-      </div>
-    ) : <Draggable draggableId={`calendar:${event.id}`} index={index}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          {...provided.dragHandleProps}
-          data-timeline-drag-handle="true"
-          data-timeline-drag-id={`calendar:${event.id}`}
-          className={`relative flex min-h-0 min-w-0 gap-1.5 ${snapshot.isDragging ? 'opacity-90' : ''}`}
-          style={{
-            ...provided.draggableProps.style,
-            height: timedBlockHeight(eventDurationMinutes(event)),
-          }}
-        >
-          {!overlapping && <GripGutter />}
-          <div className="h-full min-w-0 flex-1">
-            <CalendarEventBlock event={event} onComplete={onCalendarEventComplete} narrow={overlapping} />
-          </div>
-        </div>
-      )}
+    event.provider === 'device' ? <div data-timeline-drag-id={`calendar:${event.id}`} className="h-full min-w-0">{calendarBlock(event)}</div>
+    : <Draggable draggableId={`calendar:${event.id}`} index={index}>
+      {(provided, snapshot) => <div ref={provided.innerRef} {...provided.draggableProps} {...(overlapping ? provided.dragHandleProps : {})} data-timeline-drag-handle={overlapping ? 'true' : undefined} aria-label={overlapping ? `Move ${event.title}` : undefined} data-timeline-drag-id={`calendar:${event.id}`} className={`relative flex min-h-0 min-w-0 gap-1 ${snapshot.isDragging ? 'opacity-90' : ''}`} style={{ ...provided.draggableProps.style, height: blockHeight(eventDurationMinutes(event)) }}>
+        {!overlapping && <TaskDragGrip dragHandleProps={provided.dragHandleProps} label={`Move ${event.title}`} compact />}
+        <div className="h-full min-w-0 flex-1">{calendarBlock(event)}</div>
+      </div>}
     </Draggable>
   )
-
-  const renderTaskRow = (task: Task, index: number, overlapping = false) => (
-    <Draggable draggableId={task.id} index={index}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          data-testid="timeline-draggable-task"
-          {...(overlapping ? provided.dragHandleProps : {})}
-          data-timeline-drag-handle={overlapping ? 'true' : undefined}
-          aria-label={overlapping ? `Move ${task.title}` : undefined}
-          data-demo-id={taskDemoId(task)}
-          data-timeline-drag-id={task.id}
-          data-stamped={isStamped(task) ? 'true' : 'false'}
-          className="relative flex min-h-0 min-w-0 gap-1.5"
-          style={{
-            ...provided.draggableProps.style,
-            height: timedTaskBlockHeight(task),
-          }}
-        >
-          {!overlapping && <TaskDragGrip dragHandleProps={provided.dragHandleProps} label={`Move ${task.title}`} compact />}
-          <TaskCard
-            task={task}
-            onComplete={onCompleteTask}
-            onUncomplete={onUncompleteTask}
-            onEdit={onEditTask}
-            onDelete={onDeleteTask}
-            onHabitCheckIn={onHabitCheckIn}
-            isDragging={snapshot.isDragging || draggedTaskId === task.id}
-            compact
-            narrowTimeline={overlapping}
-            className="h-full min-w-0 flex-1"
-          />
-          {isStamped(task) && (
-            // An untimed Item only has an hour because it was settled — say when,
-            // or the timeline asserts a time the Item never actually had.
-            <span className="pointer-events-none absolute right-2 top-2 rounded-full border border-accent/30 bg-accent/15 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-accent">
-              logged {timelineClock(task)}
-            </span>
-          )}
-        </div>
-      )}
-    </Draggable>
-  )
+  const renderTaskRow = (task: Task, index: number, overlapping = false) => <Draggable draggableId={task.id} index={index}>
+    {(provided) => <div ref={provided.innerRef} {...provided.draggableProps} {...(overlapping ? provided.dragHandleProps : {})} data-timeline-drag-handle={overlapping ? 'true' : undefined} aria-label={overlapping ? `Move ${task.title}` : undefined} data-testid="timeline-draggable-task" data-demo-id={taskDemoId(task)} data-timeline-drag-id={task.id} data-stamped={isStamped(task) ? 'true' : 'false'} className="relative flex min-h-0 min-w-0 gap-1" style={{ ...provided.draggableProps.style, height: blockHeight(task.duration) }}>
+      {!overlapping && <TaskDragGrip dragHandleProps={provided.dragHandleProps} label={`Move ${task.title}`} compact />}
+      <div className="h-full min-w-0 flex-1">{itemBlock(task)}</div>
+    </div>}
+  </Draggable>
 
   const rowsBySlot: Record<string, SlotRow[]> = Object.fromEntries(HOUR_SLOTS.map(slot => [slot, [
     ...calendarBuckets[slot].map((event): SlotRow => ({
@@ -658,14 +521,14 @@ export default function DayTimeline({
       clock: event.localStartTime ?? (event.startAt
         ? `${String(new Date(event.startAt).getHours()).padStart(2, '0')}:${String(new Date(event.startAt).getMinutes()).padStart(2, '0')}`
         : slot),
-      heightPx: timedBlockHeight(eventDurationMinutes(event)),
+      heightPx: blockHeight(eventDurationMinutes(event)),
       draggable: event.provider !== 'device',
       render: (index, overlapping) => renderCalendarRow(event, index, overlapping),
     })),
     ...slotBuckets[slot].map((task): SlotRow => ({
       key: task.id,
       clock: timelineClock(task),
-      heightPx: timedTaskBlockHeight(task),
+      heightPx: blockHeight(task.duration),
       draggable: true,
       render: (index, overlapping) => renderTaskRow(task, index, overlapping),
     })),
@@ -676,28 +539,26 @@ export default function DayTimeline({
       draggable: false,
       render: () => <TimelineRecordBlock record={record} onHabitSelect={handleHabitSelect} />,
     })),
-    ...focusBlockRows.filter(row => row.slot === slot).map((row): SlotRow => ({
+    ...focusBlockRows.filter(row => clockSlot(row.clock) === slot).map((row): SlotRow => ({
       key: `focus:${row.id}`,
       clock: row.clock,
-      heightPx: row.heightPx,
+      heightPx: row.heightPx * hourHeight / HOUR_SLOT_HEIGHT_PX,
       draggable: false,
-      render: () => <div style={{ height: row.heightPx }} className="min-w-0">{row.render()}</div>,
+      render: () => <div style={{ height: row.heightPx * hourHeight / HOUR_SLOT_HEIGHT_PX }} className="min-w-0">{row.render()}</div>,
     })),
   ].sort((a, b) => a.clock.localeCompare(b.clock))]))
-  const positionedRows = positionTimelineRows(rowsBySlot)
+  const positionedRows = new Map(positionDayTimelineEntries(HOUR_SLOTS.flatMap(slot => rowsBySlot[slot].map(row => {
+    const start = minutesFromTime(row.clock)
+    if (start === null) throw new Error(`Invalid timeline clock: ${row.clock}`)
+    return { ...row, start, end: start + row.heightPx * 60 / hourHeight }
+  }))).map(row => [row.key, row]))
   const afterHoursHeight = [...positionedRows.values()].reduce((height, row) =>
-    Math.max(height, (row.end - 24 * 60) * HOUR_SLOT_HEIGHT_PX / 60), 0
+    Math.max(height, (row.end - 24 * 60) * hourHeight / 60), 0
   )
-  // A three-hour obligation occupies all three hours, not just its starting
-  // bucket. Compress only empty stretches outside every visible card's span.
   const occupiedSlots = new Set(HOUR_SLOTS.filter(slot => {
     const start = parseInt(slot, 10) * 60
     return [...positionedRows.values()].some(row => row.start < start + 60 && row.end > start)
   }))
-  const compactedEmptySlots = compactableEmptySlots(
-    HOUR_SLOTS,
-    slot => occupiedSlots.has(slot) || parseInt(slot, 10) === nowHour
-  )
 
   const findDraggable = (id: string): HTMLElement | null => {
     const root = planGridRef.current
@@ -970,7 +831,12 @@ export default function DayTimeline({
 
   return (
     <div className="space-y-3 md:space-y-4">
-      <h2 className="text-xl font-semibold text-ink">{heading}</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold text-ink">{heading}</h2>
+        <div role="group" aria-label="Calendar view" className="flex rounded-xl border border-line bg-card p-1">
+          {(['day', 'list'] as const).map(option => <button key={option} type="button" aria-pressed={view === option} onClick={() => setView(option)} className={`min-h-11 min-w-[52px] rounded-lg px-3 text-sm font-medium ${view === option ? 'bg-raised text-ink shadow-sm' : 'text-ink-muted hover:text-ink'}`}>{option === 'day' ? 'Day' : 'List'}</button>)}
+        </div>
+      </div>
 
       {/* Named so it is distinguishable from the other role="status" regions on
           the page (Layout's module notices, LoadingSpinner) — both for assistive
@@ -988,7 +854,7 @@ export default function DayTimeline({
         <div
           ref={planGridRef}
           className="today-plan-grid"
-          style={{ '--today-anytime-height': `${anytimePanelHeight}px` } as CSSProperties}
+          style={{ '--today-anytime-height': `${anytimePanelHeight}px`, '--today-hour-height': `${hourHeight}px` } as CSSProperties}
         >
           {/* DOM order deliberately matches mobile: Anytime access, Schedule, supporting context. */}
           <section ref={anytimePanelRef} className="today-anytime-panel min-w-0" data-demo-id="anytime-backlog" aria-labelledby="anytime-heading">
@@ -1054,6 +920,7 @@ export default function DayTimeline({
                               onEdit={onEditTask}
                               onDelete={onDeleteTask}
                               onHabitCheckIn={onHabitCheckIn}
+                              onOpen={openItem}
                               isDragging={snapshot.isDragging || draggedTaskId === task.id}
                               compact
                               className="min-w-0"
@@ -1085,12 +952,19 @@ export default function DayTimeline({
             <h3 id="scheduled-heading" className="text-sm font-semibold uppercase tracking-wider text-ink-muted">
               Schedule + obligations
             </h3>
-            <div>
+            {view === 'day' ? <>
+            <div className="flex items-center justify-between gap-2 text-xs text-ink-muted">
+              <span>Blocks follow the clock · Tap for details</span>
+              <div className="flex shrink-0 gap-1" role="group" aria-label="Calendar zoom">
+                <button type="button" aria-label="Zoom out" disabled={zoomIndex === 0} onClick={() => setZoomIndex(index => index - 1)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-line hover:bg-card disabled:opacity-40"><Minus className="h-4 w-4" /></button>
+                <button type="button" aria-label="Zoom in" disabled={zoomIndex === HOUR_HEIGHTS.length - 1} onClick={() => setZoomIndex(index => index + 1)} className="flex h-11 w-11 items-center justify-center rounded-lg border border-line hover:bg-card disabled:opacity-40"><Plus className="h-4 w-4" /></button>
+              </div>
+            </div>
+            <div aria-label="Day timeline">
               {HOUR_SLOTS.map(slot => {
                 const hasContent = occupiedSlots.has(slot)
-                const isCompacted = compactedEmptySlots.has(slot)
                 const isCurrentHour = parseInt(slot, 10) === nowHour
-                const slotHeight = isCompacted ? COMPACT_EMPTY_SLOT_HEIGHT_PX : HOUR_SLOT_HEIGHT_PX
+                const slotHeight = hourHeight
                 let dragCursor = 0
                 const renderedRows = rowsBySlot[slot].map(row => {
                   const index = row.draggable ? dragCursor++ : -1
@@ -1101,9 +975,9 @@ export default function DayTimeline({
                       data-timeline-entry={row.key}
                       className="absolute z-10 min-w-0"
                       style={{
-                        top: (position.start - parseInt(slot, 10) * 60) * HOUR_SLOT_HEIGHT_PX / 60,
+                        top: (position.start - parseInt(slot, 10) * 60) * hourHeight / 60,
                         left: `${position.column * 100 / position.columns}%`,
-                        width: `calc(${100 / position.columns}% - ${position.columns > 1 ? 4 : 0}px)`,
+                        width: `calc(${position.columnSpan * 100 / position.columns}% - ${position.columns > 1 ? 4 : 0}px)`,
                         height: row.heightPx,
                       }}
                     >
@@ -1121,19 +995,17 @@ export default function DayTimeline({
                         data-testid="timeline-hour-slot"
                         data-slot={slot}
                         data-demo-id={`schedule-slot-${slot}`}
-                        data-compacted={isCompacted ? 'true' : 'false'}
-                        className={`timeline-slot relative flex min-w-0 gap-1 overflow-visible rounded px-1 transition-colors sm:gap-2 sm:px-2 ${isCompacted ? 'pointer-events-none' : ''} ${
+                        data-compacted="false"
+                        className={`timeline-slot relative flex min-w-0 gap-1 overflow-visible rounded px-1 transition-colors sm:gap-2 sm:px-2 ${
                           snapshot.isDraggingOver
                             ? 'bg-state-info/10 drop-zone'
                             : hasContent
                               ? 'bg-card/30'
-                              : isCompacted
-                                ? 'bg-transparent hover:bg-card/5'
-                                : 'bg-transparent hover:bg-card/10'
+                              : 'bg-transparent hover:bg-card/10'
                         }`}
                         style={{ height: slotHeight }}
                       >
-                        <span className={`w-10 flex-shrink-0 text-xs sm:w-12 text-ink-muted ${isCompacted ? 'text-[11px]' : ''}`}>
+                        <span className="w-10 flex-shrink-0 text-xs text-ink-muted sm:w-12">
                           {formatHour(slot)}
                         </span>
 
@@ -1141,7 +1013,7 @@ export default function DayTimeline({
                           <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 border-t border-line/30" />
                           {renderedRows}
                           {isCurrentHour && (
-                            <div className="pointer-events-none absolute inset-x-0 z-30 -translate-y-1/2" style={{ top: nowMinute * HOUR_SLOT_HEIGHT_PX / 60 }}>
+                            <div className="pointer-events-none absolute inset-x-0 z-30 -translate-y-1/2" style={{ top: nowMinute * hourHeight / 60 }}>
                               <NowMarker />
                             </div>
                           )}
@@ -1157,13 +1029,20 @@ export default function DayTimeline({
               })}
               {afterHoursHeight > 0 && <div aria-hidden="true" style={{ height: afterHoursHeight }} />}
             </div>
+            </> : <div className="space-y-2" aria-label="Schedule list">
+              {[...scheduled.map(task => ({ key: task.id, clock: timelineClock(task), render: () => itemBlock(task, true) })),
+                ...calendarEvents.filter(event => !allDayEvents.includes(event)).map(event => ({ key: `calendar:${event.id}`, clock: event.localStartTime ?? (event.startAt ? `${String(new Date(event.startAt).getHours()).padStart(2, '0')}:${String(new Date(event.startAt).getMinutes()).padStart(2, '0')}` : ''), render: () => calendarBlock(event, true) })),
+                ...records.map(record => ({ key: record.id, clock: record.time, render: () => <TimelineRecordBlock record={record} onHabitSelect={handleHabitSelect} list /> })),
+                ...focusBlockRows.map(row => ({ key: `focus:${row.id}`, clock: row.clock, render: row.render })),
+              ].sort((a, b) => a.clock.localeCompare(b.clock)).map(row => <div key={row.key} data-timeline-entry={row.key} data-timeline-drag-id={row.key}>{row.render()}</div>)}
+            </div>}
 
             {allDayEvents.length > 0 && (
               <div className="space-y-2">
                 <h4 className="text-sm font-medium uppercase tracking-wider text-ink-muted">All-day calendar</h4>
                 <div className="space-y-2 rounded-lg bg-card/20 p-3">
                   {allDayEvents.map(event => (
-                    <CalendarEventBlock key={event.id} event={event} onComplete={onCalendarEventComplete} />
+                    <div key={event.id}>{calendarBlock(event, true)}</div>
                   ))}
                 </div>
               </div>
@@ -1184,6 +1063,10 @@ export default function DayTimeline({
           )}
         </div>
       </DragDropContext>
+      {(selectedTask || selectedEvent) && <TimelineDetailsSheet
+        selection={selectedTask ? { task: selectedTask } : { event: selectedEvent! }} dateKey={dateKey} eventTimeRange={eventTimeRange} onClose={() => setDetails(null)}
+        onComplete={onCompleteTask} onUncomplete={onUncompleteTask} onCalendarComplete={onCalendarEventComplete} onHabitCheckIn={onHabitCheckIn} onEdit={onEditTask} onDelete={onDeleteTask}
+      />}
     </div>
   )
 }

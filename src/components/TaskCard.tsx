@@ -17,6 +17,7 @@ interface TaskCardProps {
   task: Task
   onComplete: (id: string) => void
   onEdit: (task: Task) => void
+  onOpen?: (task: Task) => void
   onDelete: (task: Task) => void
   onUncomplete?: (id: string) => void
   isDragging?: boolean
@@ -27,7 +28,7 @@ interface TaskCardProps {
   narrowTimeline?: boolean
 }
 
-export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncomplete, onHabitCheckIn, isDragging, className = '', compact = false, narrowTimeline = false }: TaskCardProps) {
+export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncomplete, onHabitCheckIn, onOpen, isDragging, className = '', compact = false, narrowTimeline = false }: TaskCardProps) {
   const [showMenu, setShowMenu] = useState(false)
   const moduleDestination = task.type === 'meal'
     ? moduleHealthHref(getModulePresentation('calories'), task.scheduledDate ?? undefined)
@@ -258,7 +259,11 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
           ? 'bg-card/50 border-line-strong/50 opacity-75' 
           : 'card glass-effect hover:shadow-lg'
       } ${showMenu ? 'z-[100]' : ''} ${isDragging ? 'z-10 rotate-1' : ''} ${className}`}
-      onClick={() => task.type === 'habit' && onHabitCheckIn?.(task)}
+      onClick={(event) => {
+        if ((event.target as HTMLElement).closest('button, a, input, textarea, select')) return
+        if (onOpen) onOpen(task)
+        else if (task.type === 'habit') onHabitCheckIn?.(task)
+      }}
     >
       {/* Completion Checkbox */}
       <div className={`flex min-h-0 min-w-0 ${compact ? 'w-full items-center gap-2' : 'items-start space-x-3'}`}>
@@ -285,7 +290,16 @@ export default function TaskCard({ task, onComplete, onEdit, onDelete, onUncompl
               <h3 className={`truncate font-medium ${compact ? 'text-sm leading-4' : ''} ${
                 task.completed ? 'line-through text-ink-muted' : 'text-ink'
               }`}>
-                {task.title}
+                {onOpen ? (
+                  <button
+                    type="button"
+                    onClick={(event) => { event.stopPropagation(); onOpen(task) }}
+                    aria-label={`Open details for ${task.title}`}
+                    className="block min-h-11 w-full select-text truncate rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus"
+                  >
+                    {task.title}
+                  </button>
+                ) : task.title}
               </h3>
               {planLabel && (
                 <span className={`shrink-0 rounded-full border text-[9px] font-semibold uppercase tracking-wide ${compact ? 'px-1 py-0' : 'px-1.5 py-0.5'} ${getTypeColor(task.type)}`}>
