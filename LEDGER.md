@@ -1,3 +1,9 @@
+### 2026-11-19 11:45 — `feat/today-calendar-day-list`
+
+The iOS app and widget are bumped to 1.2.0 (1) to ship the Day and List timeline as a new App Store version. `npm run build:ios` built the production bundle (production Railway API) and synced it into `ios/App/App/public`; the iOS release test passes (app and widget agree). Archive, upload to App Store Connect and a device check remain.
+
+---
+
 ### 2026-11-19 11:30 — `feat/today-calendar-day-list`
 
 Today's timeline follows Apple Calendar: a Day view where overlapping Items and Calendar events sit in side-by-side columns sized to their real start and end, multi-hour blocks span their hours, an Item regains full width when its overlaps end, titles wrap instead of a single truncated line, zoom buttons change the hour height, and a List view shows every full title. Tapping an Item, Habit or Calendar event opens a details sheet; completion stays a separate control. Typecheck, unit tests and the production build pass. The isolated Today Playwright run passes all nine Day/List tests; the 12 failures already present on `main` (stale screenshots, Daily Signals) remain, and two others failed only in the full run and passed 3/3 alone. Ships to iOS only with a new TestFlight build.
