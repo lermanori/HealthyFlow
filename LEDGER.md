@@ -1,3 +1,9 @@
+### 2026-11-19 09:45 — `fix/mcp-claude-connect`
+
+Connecting HealthyFlow's MCP server from Claude and the ChatGPT desktop app failed after consent. Three backend fixes: Claude's published OAuth client (`https://claude.ai/oauth/mcp-oauth-client-metadata`) is accepted by default; MCP/OAuth paths withhold CORS headers from unknown origins instead of answering 500 (desktop clients send their own Origin); and a client that omits the OAuth `resource` gets the single HealthyFlow resource, while a different resource is still refused. Backend `npm run test:ci` (112 suites, 1020 tests) and `npm run build` pass. Production still sets `MCP_OAUTH_CLIENT_ID_ORIGINS=https://chatgpt.com`, which overrides the new default: add `https://claude.ai` or remove the variable when deploying.
+
+---
+
 ### 2026-10-20 18:15 — `main`
 
 The iOS app and widget are bumped to 1.1.0 (1) for the resubmission, and the release test now checks that app and widget versions agree instead of pinning a number. A signed Release archive of 1.1.0 (1) was built from this commit and verified: production Railway endpoint, no probe intents, session replay off. Upload to App Store Connect and the physical-device smoke test (#314) remain.
