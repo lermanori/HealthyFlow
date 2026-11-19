@@ -603,3 +603,102 @@ describe('mixed-auth MCP discovery', () => {
     )
   })
 })
+
+describe('MCP OAuth for non-ChatGPT clients', () => {
+  const CLAUDE_CLIENT_ID = 'https://claude.ai/oauth/mcp-oauth-client-metadata'
+  const CLAUDE_REDIRECT_URI = 'https://claude.ai/api/mcp/auth_callback'
+
+  function pkcePair() {
+    const verifier = crypto.randomBytes(32).toString('base64url')
+    const challenge = crypto
+      .createHash('sha256')
+      .update(verifier)
+      .digest('base64url')
+    return { verifier, challenge }
+  }
+
+  function mockClientMetadata(document: Record<string, unknown>) {
+    global.fetch = jest.fn(async () =>
+      new Response(JSON.stringify(document), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+    ) as jest.Mock
+  }
+
+  async function withDefaultClientIdOrigins(run: () => Promise<void>) {
+    const configured = process.env.MCP_OAUTH_CLIENT_ID_ORIGINS
+    delete process.env.MCP_OAUTH_CLIENT_ID_ORIGINS
+    try {
+      await run()
+    } finally {
+      process.env.MCP_OAUTH_CLIENT_ID_ORIGINS = configured
+    }
+  }
+
+  it("accepts Claude's CIMD client and redirects to consent", async () => {
+    mockClientMetadata({
+      client_id: CLAUDE_CLIENT_ID,
+      client_name: 'Claude',
+      client_uri: 'https://claude.ai',
+      redirect_uris: [CLAUDE_REDIRECT_URI],
+      grant_types: [
+        'authorization_code',
+        'refresh_token',
+        'urn:ietf:params:oauth:grant-type:jwt-bearer',
+      ],
+      response_types: ['code'],
+      token_endpoint_auth_method: 'none',
+    })
+
+    await withDefaultClientIdOrigins(async () => {
+      const response = await request(app)
+        .get('/oauth/authorize')
+        .query({
+          response_type: 'code',
+          client_id: CLAUDE_CLIENT_ID,
+          redirect_uri: CLAUDE_REDIRECT_URI,
+          scope: 'hf:read hf:write:add',
+          state: 'claude-state',
+          code_challenge: pkcePair().challenge,
+          code_challenge_method: 'S256',
+          resource: RESOURCE,
+        })
+
+      expect(response.status).toBe(302)
+      expect(new URL(response.headers.location).pathname).toBe(
+        '/app/oauth/authorize'
+      )
+    })
+  })
+
+  it('refuses CIMD clients from origins that are not allowed', async () => {
+    const evilClientId = 'https://evil.example/client.json'
+    mockClientMetadata({
+      client_id: evilClientId,
+      client_name: 'Evil',
+      redirect_uris: ['https://evil.example/callback'],
+      grant_types: ['authorization_code'],
+      response_types: ['code'],
+      token_endpoint_auth_method: 'none',
+    })
+
+    await withDefaultClientIdOrigins(async () => {
+      const response = await request(app)
+        .get('/oauth/authorize')
+        .query({
+          response_type: 'code',
+          client_id: evilClientId,
+          redirect_uri: 'https://evil.example/callback',
+          scope: 'hf:read',
+          state: 'evil-state',
+          code_challenge: pkcePair().challenge,
+          code_challenge_method: 'S256',
+          resource: RESOURCE,
+        })
+
+      expect(response.status).toBe(400)
+      expect(response.body.error).toBe('invalid_client')
+    })
+  })
+})

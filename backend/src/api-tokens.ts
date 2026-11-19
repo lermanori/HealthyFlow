@@ -231,7 +231,7 @@ function allowedClientIdOrigins() {
   const configured = process.env.MCP_OAUTH_CLIENT_ID_ORIGINS
   const values = configured
     ? configured.split(',').map((value) => value.trim()).filter(Boolean)
-    : ['https://chatgpt.com', 'https://www.chatgpt.com']
+    : ['https://chatgpt.com', 'https://www.chatgpt.com', 'https://claude.ai']
   return new Set(values.map((value) => new URL(value).origin))
 }
 
