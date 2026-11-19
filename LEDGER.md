@@ -1,3 +1,9 @@
+### 2026-11-19 12:45 — `feat/today-calendar-day-list`
+
+Tasks ChatGPT added "for today" appeared in Anytime as four weeks old: `add_task` saved whatever `scheduledDate` the model guessed, and the field told the model nothing. The field now says to omit it for today, and a date before yesterday (UTC) is refused with a recoverable error that states today's date, so the model corrects itself or asks. The write-capability tests now pin their clock to the 2026-07-02 they were written for. Edit Task is portalled to `document.body` with a dialog role, padding and a plain "Save Changes", so the app header and tab bar no longer cover it on phones (hermetic test reproduces the covering and now passes). Backend 1026 tests and build pass; the isolated Today run shows only the 12 failures already on `main`.
+
+---
+
 ### 2026-11-19 12:15 — `feat/today-calendar-day-list`
 
 Empty hours on the Day timeline shrink again, now every empty hour rather than only runs of four, so a sparse day fits on about one phone screen; the current hour stays full for the Now marker, and dragging still expands every hour to full height. `compactEmptyHours` is unit-tested and a hermetic Today test checks compacted and busy hour heights. The full isolated Today run has the 12 failures already on `main` plus the touch-size check, which fails on the top-bar Talk link re-rendering mid-measurement; it passes alone and is outside the timeline.

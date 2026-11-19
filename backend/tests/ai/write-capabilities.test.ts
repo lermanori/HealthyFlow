@@ -50,11 +50,18 @@ import { Workouts } from '../../src/workouts'
 describe('AI write capabilities', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    // These cases are written for 2026-07-02 as "today"; pin the clock (Date only)
+    // so date rules such as refusing past scheduled dates see the same day.
+    jest.useFakeTimers({
+      now: new Date('2026-07-02T12:00:00.000Z'),
+      doNotFake: ['nextTick', 'setImmediate', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'queueMicrotask', 'hrtime', 'performance'],
+    })
     ;(db.getNextPosition as jest.Mock).mockResolvedValue(7)
     ;(db.deleteCalorieEntry as jest.Mock).mockResolvedValue(undefined)
   })
 
   afterEach(() => {
+    jest.useRealTimers()
     jest.restoreAllMocks()
   })
 

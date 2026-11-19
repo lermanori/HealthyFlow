@@ -119,7 +119,8 @@ const AddTaskInput = z.object({
   duration: z.number().int().positive().optional()
     .describe('Estimated minutes only when the user supplied or clearly implied a duration; otherwise omit it.'),
   startTime: z.string().regex(TIME_RE).nullable().optional(),
-  scheduledDate: z.string().regex(DATE_RE).optional(),
+  scheduledDate: z.string().regex(DATE_RE).optional()
+    .describe("The user's local calendar date (YYYY-MM-DD). Omit it for today; never guess today's date. Past dates are refused."),
   requestId: RequestId,
 })
 
@@ -415,6 +416,19 @@ const weightToClient = (row: any) => ({
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
+}
+
+// A model that guesses "today" can send a date weeks in the past, and the new
+// Item then appears as weeks-old carried work. The server only knows UTC, so the
+// user's day may still be yesterday; anything earlier is refused, with the date
+// the model needs to correct itself.
+function refusePastScheduledDate(scheduledDate: string) {
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
+  if (scheduledDate < yesterday) {
+    throw new RecoverableToolError(
+      `scheduledDate ${scheduledDate} is in the past. Today is ${todayIso()} (UTC). Omit scheduledDate for today, use a future date, or ask the user which date they meant.`,
+    )
+  }
 }
 
 function clampRows<T>(rows: T[], limit: number) {
@@ -847,6 +861,7 @@ function defineCapabilities<const TDefinitions extends Record<string, RawAiCapab
 }
 
 async function taskRow(input: z.infer<typeof AddTaskInput>, userId: string, type: 'task' | 'habit') {
+  if (type === 'task' && input.scheduledDate) refusePastScheduledDate(input.scheduledDate)
   const scheduledDate = type === 'task'
     ? (input.scheduledDate ?? todayIso())
     : null
