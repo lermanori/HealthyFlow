@@ -812,6 +812,37 @@ describe('MCP OAuth for non-ChatGPT clients', () => {
     expect(exchange.status).toBe(400)
   })
 
+  it('logs why a token request failed without logging field values', async () => {
+    const { logger } = await import('../src/utils/logger')
+    const warn = jest.spyOn(logger, 'warn').mockImplementation(() => {})
+    try {
+      const response = await request(app)
+        .post('/oauth/token')
+        .set('Content-Type', 'application/x-www-form-urlencoded')
+        .send(
+          form({
+            grant_type: 'authorization_code',
+            code: 'secret-code-value',
+            client_assertion_type:
+              'urn:ietf:params:oauth:client-assertion-type:jwt-bearer',
+            client_assertion: 'secret-assertion-value',
+          })
+        )
+
+      expect(response.status).toBe(400)
+      expect(warn).toHaveBeenCalledWith('[oauth] token request failed', {
+        status: 400,
+        error: response.body.error,
+        errorDescription: response.body.error_description,
+        grantType: 'authorization_code',
+        fields: ['client_assertion', 'client_assertion_type', 'code', 'grant_type'],
+      })
+      expect(JSON.stringify(warn.mock.calls)).not.toContain('secret-')
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
   it('refuses CIMD clients from origins that are not allowed', async () => {
     const evilClientId = 'https://evil.example/client.json'
     mockClientMetadata({

@@ -12,6 +12,7 @@ import {
   resolveMcpOAuthConfig,
 } from '../api-tokens'
 import { authenticateToken, type AuthRequest } from '../middleware/auth'
+import { logger } from '../utils/logger'
 
 const router = express.Router()
 const config = resolveMcpOAuthConfig()
@@ -49,7 +50,37 @@ router.get('/.well-known/oauth-authorization-server', (_req, res) =>
 
 router.use('/oauth/register', handleRegister)
 router.use('/oauth/authorize', handleAuthorize)
-router.use('/oauth/token', handleToken)
+// The SDK token handler answers OAuth errors without logging them, which leaves a
+// failed connector sign-in invisible. Record why, with field names only: codes,
+// verifiers, assertions and refresh tokens are credentials.
+function logTokenFailures(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+) {
+  const json = res.json.bind(res)
+  res.json = (body: any) => {
+    if (res.statusCode >= 400) {
+      const fields = req.body && typeof req.body === 'object' ? Object.keys(req.body).sort() : []
+      logger.warn('[oauth] token request failed', {
+        status: res.statusCode,
+        error: body?.error,
+        errorDescription: body?.error_description,
+        grantType: typeof req.body?.grant_type === 'string' ? req.body.grant_type : undefined,
+        fields,
+      })
+    }
+    return json(body)
+  }
+  next()
+}
+
+router.use(
+  '/oauth/token',
+  express.urlencoded({ extended: false }),
+  logTokenFailures,
+  handleToken
+)
 router.use('/oauth/revoke', handleRevoke)
 
 router.get(
