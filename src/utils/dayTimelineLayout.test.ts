@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert'
 import test from 'node:test'
-import { positionDayTimelineEntries } from './dayTimelineLayout'
+import { compactEmptyHours, positionDayTimelineEntries } from './dayTimelineLayout'
 
 test('a multi-hour event and fractional overlaps share lanes without changing their times', () => {
   const rows = positionDayTimelineEntries([
@@ -87,4 +87,17 @@ test('an event reclaims empty neighboring lanes only when free for its whole int
       }
     }
   }
+})
+
+test('every empty hour is compacted, including a single gap between busy hours', () => {
+  const slots = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00']
+  const busy = new Set(['08:00', '10:00'])
+  assert.deepEqual(
+    [...compactEmptyHours(slots, slot => busy.has(slot))],
+    ['06:00', '07:00', '09:00', '11:00', '12:00'],
+  )
+})
+
+test('a day with nothing scheduled compacts every hour it is given', () => {
+  assert.deepEqual([...compactEmptyHours(['06:00', '07:00'], () => false)], ['06:00', '07:00'])
 })

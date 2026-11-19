@@ -31,6 +31,29 @@ const settings = {
   theme: 'midnight',
 }
 
+test('empty hours shrink so a sparse day needs little scrolling', async ({ page }) => {
+  await page.setViewportSize(viewports[2])
+  await mockToday(page, {
+    signals: () => [],
+    summary: (date) => daySummaryFixture({
+      date,
+      items: [{ id: 'standup', title: 'Standup', category: 'work', startTime: '10:00', duration: 60, scheduledDate: date }],
+    }),
+  })
+  await page.goto('/app')
+  await expect(page.locator('[data-timeline-drag-id="standup"]')).toBeVisible()
+  const nowHour = await page.evaluate(() => new Date().getHours())
+  const emptyHour = ['06:00', '07:00', '20:00'].find(slot => parseInt(slot, 10) !== nowHour)!
+  const empty = page.locator(`[data-slot="${emptyHour}"]`)
+  const busy = page.locator('[data-slot="10:00"]')
+  await expect(empty).toHaveAttribute('data-compacted', 'true')
+  await expect(busy).toHaveAttribute('data-compacted', 'false')
+  const emptyBox = await empty.boundingBox()
+  const busyBox = await busy.boundingBox()
+  expect(emptyBox!.height).toBeLessThanOrEqual(32)
+  expect(busyBox!.height).toBeGreaterThanOrEqual(100)
+})
+
 for (const viewport of [viewports[0], viewports[2]]) {
   test(`timed Items span their clock hours at ${viewport.width}px`, async ({ page }) => {
     await page.setViewportSize(viewport)

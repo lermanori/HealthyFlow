@@ -1,3 +1,9 @@
+### 2026-11-19 12:15 — `feat/today-calendar-day-list`
+
+Empty hours on the Day timeline shrink again, now every empty hour rather than only runs of four, so a sparse day fits on about one phone screen; the current hour stays full for the Now marker, and dragging still expands every hour to full height. `compactEmptyHours` is unit-tested and a hermetic Today test checks compacted and busy hour heights. The full isolated Today run has the 12 failures already on `main` plus the touch-size check, which fails on the top-bar Talk link re-rendering mid-measurement; it passes alone and is outside the timeline.
+
+---
+
 ### 2026-11-19 11:45 — `feat/today-calendar-day-list`
 
 The iOS app and widget are bumped to 1.2.0 (1) to ship the Day and List timeline as a new App Store version. `npm run build:ios` built the production bundle (production Railway API) and synced it into `ios/App/App/public`; the iOS release test passes (app and widget agree). Archive, upload to App Store Connect and a device check remain.

@@ -15,7 +15,7 @@ import toast from 'react-hot-toast'
 import { ExternalCalendarEvent, Task, HabitItem } from '../services/api'
 import TimelineDetailsSheet from './TimelineDetailsSheet'
 import TaskCard from './TaskCard'
-import { positionDayTimelineEntries } from '../utils/dayTimelineLayout'
+import { compactEmptyHours, positionDayTimelineEntries } from '../utils/dayTimelineLayout'
 import { formatClockRange } from '../utils/dateHelpers'
 import { taskService } from '../services/api'
 import {
@@ -92,6 +92,8 @@ const MIN_TIMED_TASK_MINUTES = 30
 const MIN_TIMED_TASK_HEIGHT_PX = 52
 const MIN_TIMED_HABIT_HEIGHT_PX = 72
 const HOUR_HEIGHTS = [108, 144, 180, 216]
+// An hour with nothing in it keeps its label but not its height.
+const COMPACT_EMPTY_SLOT_HEIGHT_PX = 28
 
 function formatHour(slot: string): string {
   const h = parseInt(slot, 10)
@@ -559,6 +561,11 @@ export default function DayTimeline({
     const start = parseInt(slot, 10) * 60
     return [...positionedRows.values()].some(row => row.start < start + 60 && row.end > start)
   }))
+  // The current hour stays full so the Now marker keeps its place on the clock.
+  const compactedEmptySlots = compactEmptyHours(
+    HOUR_SLOTS,
+    slot => occupiedSlots.has(slot) || parseInt(slot, 10) === nowHour
+  )
 
   const findDraggable = (id: string): HTMLElement | null => {
     const root = planGridRef.current
@@ -964,7 +971,8 @@ export default function DayTimeline({
               {HOUR_SLOTS.map(slot => {
                 const hasContent = occupiedSlots.has(slot)
                 const isCurrentHour = parseInt(slot, 10) === nowHour
-                const slotHeight = hourHeight
+                const isCompacted = compactedEmptySlots.has(slot)
+                const slotHeight = isCompacted ? COMPACT_EMPTY_SLOT_HEIGHT_PX : hourHeight
                 let dragCursor = 0
                 const renderedRows = rowsBySlot[slot].map(row => {
                   const index = row.draggable ? dragCursor++ : -1
@@ -995,8 +1003,8 @@ export default function DayTimeline({
                         data-testid="timeline-hour-slot"
                         data-slot={slot}
                         data-demo-id={`schedule-slot-${slot}`}
-                        data-compacted="false"
-                        className={`timeline-slot relative flex min-w-0 gap-1 overflow-visible rounded px-1 transition-colors sm:gap-2 sm:px-2 ${
+                        data-compacted={isCompacted ? 'true' : 'false'}
+                        className={`timeline-slot relative flex min-w-0 gap-1 overflow-visible rounded px-1 transition-colors sm:gap-2 sm:px-2 ${isCompacted ? 'pointer-events-none' : ''} ${
                           snapshot.isDraggingOver
                             ? 'bg-state-info/10 drop-zone'
                             : hasContent

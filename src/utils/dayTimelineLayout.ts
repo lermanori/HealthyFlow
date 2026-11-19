@@ -32,3 +32,8 @@ export function positionDayTimelineEntries<T extends { key: string; start: numbe
   finishGroup()
   return sorted
 }
+
+/** Hours with nothing in them shrink so a sparse day needs little scrolling. */
+export function compactEmptyHours(slots: string[], hasContent: (slot: string) => boolean): Set<string> {
+  return new Set(slots.filter(slot => !hasContent(slot)))
+}
