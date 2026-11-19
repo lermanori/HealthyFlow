@@ -1,3 +1,9 @@
+### 2026-11-19 11:40 — `fix/mcp-claude-connect`
+
+Tasks added from ChatGPT through MCP reached Postgres but never appeared in the app: devices pull rows with `synced_at` after their watermark, and only the sync route stamped `synced_at`, so every server-side write stayed invisible to an already-synced device. Migration `20261119110000_stamp_synced_at_on_server_writes.sql` adds a trigger on all eleven synced tables that stamps `synced_at` on any write that did not set a new one (the sync route's own stamp is kept) and backfills NULL rows; verified on scratch Postgres 14. MCP `delete_item` now soft-deletes (Task and Habit series) so the tombstone syncs. Backend `npm run test:ci` (1023) and build pass. Legacy REST task deletes still hard-delete.
+
+---
+
 ### 2026-11-19 11:00 — `fix/mcp-claude-connect`
 
 Every MCP OAuth token exchange answered 500, so no connector (ChatGPT or Claude) could ever finish connecting: `exchange_mcp_oauth_code` referenced `client_id` and `resource` unqualified while its `RETURNS TABLE` declares the same names, and Postgres refuses the UPDATE as ambiguous. Reproduced on a scratch Postgres 14 and fixed by migration `20261119100000_fix_mcp_oauth_code_exchange.sql` (same contract, qualified columns; valid exchange returns the grant, wrong client and replay return nothing). Jest mocks the database, which is why the suite never saw it. The token endpoint now also logs why a request failed (status, error, field names only). The migration must be applied with `npx supabase db push --linked`.

@@ -1940,11 +1940,10 @@ export const AiCapabilities = defineCapabilities({
       if (parsedVirtual) {
         await db.softDeleteHabitInstance(parsedVirtual.originalHabitId, parsedVirtual.date, ctx.userId)
       } else if (task.type === 'habit' && input.deleteScope === 'habit') {
-        await db.deleteHabitSeries(task.original_habit_id || task.id, ctx.userId)
-      } else if (task.type === 'habit') {
-        await db.softDeleteTask(task.id)
+        // Soft deletes only: devices learn about a deletion from the tombstone.
+        await db.softDeleteHabitSeries(task.original_habit_id || task.id, ctx.userId)
       } else {
-        await db.deleteTask(task.id)
+        await db.softDeleteTask(task.id)
       }
       return mutationResult({ deleted: true, itemId: input.itemId }, [input.itemId])
     },

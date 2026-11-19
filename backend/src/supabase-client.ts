@@ -497,6 +497,18 @@ export const db = {
     if (error) throw error;
   },
 
+  // The tombstone form of deleteHabitSeries: a synced device only learns about a
+  // deletion from a row whose deleted_at is set.
+  async softDeleteHabitSeries(parentHabitId: string, userId: string) {
+    const { error } = await supabase
+      .from('tasks')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .or(`id.eq.${parentHabitId},original_habit_id.eq.${parentHabitId}`);
+
+    if (error) throw error;
+  },
+
   async getHabitSeriesRows(parentHabitId: string, userId: string) {
     const { data, error } = await supabase
       .from('tasks')
