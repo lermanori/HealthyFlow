@@ -1,3 +1,9 @@
+### 2026-11-19 11:30 — `feat/today-calendar-day-list`
+
+Today's timeline follows Apple Calendar: a Day view where overlapping Items and Calendar events sit in side-by-side columns sized to their real start and end, multi-hour blocks span their hours, an Item regains full width when its overlaps end, titles wrap instead of a single truncated line, zoom buttons change the hour height, and a List view shows every full title. Tapping an Item, Habit or Calendar event opens a details sheet; completion stays a separate control. Typecheck, unit tests and the production build pass. The isolated Today Playwright run passes all nine Day/List tests; the 12 failures already present on `main` (stale screenshots, Daily Signals) remain, and two others failed only in the full run and passed 3/3 alone. Ships to iOS only with a new TestFlight build.
+
+---
+
 ### 2026-11-19 11:40 — `fix/mcp-claude-connect`
 
 Tasks added from ChatGPT through MCP reached Postgres but never appeared in the app: devices pull rows with `synced_at` after their watermark, and only the sync route stamped `synced_at`, so every server-side write stayed invisible to an already-synced device. Migration `20261119110000_stamp_synced_at_on_server_writes.sql` adds a trigger on all eleven synced tables that stamps `synced_at` on any write that did not set a new one (the sync route's own stamp is kept) and backfills NULL rows; verified on scratch Postgres 14. MCP `delete_item` now soft-deletes (Task and Habit series) so the tombstone syncs. Backend `npm run test:ci` (1023) and build pass. Legacy REST task deletes still hard-delete.
