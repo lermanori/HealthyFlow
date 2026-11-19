@@ -49,10 +49,10 @@ app.use((req, _res, next) => {
 })
 
 // Middleware
-// Restrict app APIs to HealthyFlow surfaces. ChatGPT additionally needs browser
-// access to MCP/OAuth discovery and authorization while connecting an account.
+// Restrict app APIs to HealthyFlow surfaces. ChatGPT and Claude additionally need
+// browser access to MCP/OAuth discovery and authorization while connecting an account.
 const CORS_ROOT_DOMAINS = ['healthyflow.app', 'deluxe-souffle-b9b7f7.netlify.app']
-const CHATGPT_CORS_ROOT_DOMAINS = ['chatgpt.com']
+const CONNECTOR_CORS_ROOT_DOMAINS = ['chatgpt.com', 'claude.ai']
 const originMatchesRoots = (origin: string, roots: string[]): boolean => {
   let hostname: string
   try {
@@ -73,17 +73,24 @@ const isAllowedOrigin = (origin: string) =>
   originMatchesRoots(origin, CORS_ROOT_DOMAINS)
 const isAllowedMcpOAuthOrigin = (origin: string) =>
   isAllowedOrigin(origin) ||
-  originMatchesRoots(origin, CHATGPT_CORS_ROOT_DOMAINS)
-const corsFor = (isAllowed: (origin: string) => boolean) =>
+  originMatchesRoots(origin, CONNECTOR_CORS_ROOT_DOMAINS)
+const corsFor = (
+  isAllowed: (origin: string) => boolean,
+  onDisallowed: 'reject' | 'omit-headers'
+) =>
   cors({
     origin: (origin, callback) => {
       // Allow non-browser requests (curl, server-to-server, health checks) with no Origin header.
       if (!origin || isAllowed(origin)) return callback(null, true)
+      if (onDisallowed === 'omit-headers') return callback(null, false)
       callback(new Error(`Origin not allowed by CORS: ${origin}`))
     },
   })
-const appCors = corsFor(isAllowedOrigin)
-const mcpOAuthCors = corsFor(isAllowedMcpOAuthOrigin)
+const appCors = corsFor(isAllowedOrigin, 'reject')
+// MCP and OAuth are bearer/PKCE protected, not cookie protected, and desktop
+// connector clients send their own Origin. Withhold CORS headers from unknown
+// origins (browsers still cannot read the response) instead of failing the request.
+const mcpOAuthCors = corsFor(isAllowedMcpOAuthOrigin, 'omit-headers')
 const isMcpOAuthCorsPath = (path: string) =>
   path === '/mcp' ||
   path.startsWith('/mcp/') ||

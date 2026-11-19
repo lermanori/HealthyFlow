@@ -672,6 +672,53 @@ describe('MCP OAuth for non-ChatGPT clients', () => {
     })
   })
 
+  it('serves OAuth and MCP requests from unlisted origins without CORS headers', async () => {
+    const registration = await request(app)
+      .post('/oauth/register')
+      .send({
+        client_name: 'Desktop client',
+        redirect_uris: ['http://127.0.0.1:53682/callback'],
+        grant_types: ['authorization_code', 'refresh_token'],
+        response_types: ['code'],
+        token_endpoint_auth_method: 'none',
+      })
+    expect(registration.status).toBe(201)
+
+    for (const origin of ['https://openai.com', 'app://-']) {
+      const token = await request(app)
+        .post('/oauth/token')
+        .set('Origin', origin)
+        .set('Content-Type', 'application/x-www-form-urlencoded')
+        .send(
+          form({
+            grant_type: 'authorization_code',
+            client_id: registration.body.client_id,
+            code: 'not-a-real-code',
+            code_verifier: 'x'.repeat(43),
+            redirect_uri: 'http://127.0.0.1:53682/callback',
+            resource: RESOURCE,
+          })
+        )
+      expect(token.status).toBe(400)
+      expect(token.body.error).toBe('invalid_grant')
+
+      const tools = await request(app)
+        .post('/mcp')
+        .set('Origin', origin)
+        .set('Accept', 'application/json, text/event-stream')
+        .send({ jsonrpc: '2.0', id: 1, method: 'tools/list' })
+      expect(tools.status).toBe(200)
+      expect(tools.headers['access-control-allow-origin']).toBeUndefined()
+    }
+  })
+
+  it('keeps app APIs closed to connector origins', async () => {
+    for (const origin of ['https://claude.ai', 'https://chatgpt.com']) {
+      const response = await request(app).get('/api/health').set('Origin', origin)
+      expect(response.headers['access-control-allow-origin']).toBeUndefined()
+    }
+  })
+
   it('refuses CIMD clients from origins that are not allowed', async () => {
     const evilClientId = 'https://evil.example/client.json'
     mockClientMetadata({
