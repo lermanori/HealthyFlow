@@ -1,3 +1,9 @@
+### 2026-11-19 11:00 — `fix/mcp-claude-connect`
+
+Every MCP OAuth token exchange answered 500, so no connector (ChatGPT or Claude) could ever finish connecting: `exchange_mcp_oauth_code` referenced `client_id` and `resource` unqualified while its `RETURNS TABLE` declares the same names, and Postgres refuses the UPDATE as ambiguous. Reproduced on a scratch Postgres 14 and fixed by migration `20261119100000_fix_mcp_oauth_code_exchange.sql` (same contract, qualified columns; valid exchange returns the grant, wrong client and replay return nothing). Jest mocks the database, which is why the suite never saw it. The token endpoint now also logs why a request failed (status, error, field names only). The migration must be applied with `npx supabase db push --linked`.
+
+---
+
 ### 2026-11-19 09:45 — `fix/mcp-claude-connect`
 
 Connecting HealthyFlow's MCP server from Claude and the ChatGPT desktop app failed after consent. Three backend fixes: Claude's published OAuth client (`https://claude.ai/oauth/mcp-oauth-client-metadata`) is accepted by default; MCP/OAuth paths withhold CORS headers from unknown origins instead of answering 500 (desktop clients send their own Origin); and a client that omits the OAuth `resource` gets the single HealthyFlow resource, while a different resource is still refused. Backend `npm run test:ci` (112 suites, 1020 tests) and `npm run build` pass. Production still sets `MCP_OAUTH_CLIENT_ID_ORIGINS=https://chatgpt.com`, which overrides the new default: add `https://claude.ai` or remove the variable when deploying.
