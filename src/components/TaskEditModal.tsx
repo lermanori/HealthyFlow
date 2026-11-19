@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Clock, Sparkles, Calendar, MapPin } from 'lucide-react'
 import { format, addDays } from 'date-fns'
@@ -90,10 +91,12 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
     { label: 'Next Week', value: format(addDays(new Date(), 7), 'yyyy-MM-dd') },
   ]
 
-  return (
+  // Portalled like the other dialogs: inside the page, a transformed or blurred
+  // ancestor confines `fixed` positioning and the app header and tab bar paint over it.
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="task-edit-title">
           {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -108,7 +111,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="surface-overlay relative mx-4 flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden"
+            className="surface-overlay relative mx-4 flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden p-5"
           >
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
@@ -116,7 +119,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                 <div className="flex h-8 w-8 items-center justify-center rounded-control bg-action">
                   <Sparkles className="w-4 h-4 text-white" />
                 </div>
-                <h2 className="text-lg font-semibold text-ink">Edit Task</h2>
+                <h2 id="task-edit-title" className="text-lg font-semibold text-ink">Edit Task</h2>
               </div>
               <button
                 onClick={onClose}
@@ -302,7 +305,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
                       onClick={handleSubmit}
                       className={`btn-primary ${isMobile ? 'flex-1 py-3 text-base font-medium' : ''}`}
                     >
-                      {isMobile ? '💾 Save Changes' : 'Save Changes'}
+                      Save Changes
                     </button>
                   </div>
                 </div>
@@ -313,6 +316,7 @@ export default function TaskEditModal({ task, isOpen, onClose, onSave }: TaskEdi
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   )
 }

@@ -1543,3 +1543,56 @@ test('decision, signal, and Anytime regions pass targeted accessibility checks',
 
   expect(results.violations).toEqual([])
 })
+
+test('Edit Task opens above the app header and tab bar on a phone', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  const title = 'Altitude Labs proposal and strategy document'
+  await mockToday(page, {
+    signals: () => [],
+    summary: date => daySummaryFixture({ date, items: [{ id: 'edit-me', title, category: 'work', startTime: '09:00', duration: 90, scheduledDate: date }] }),
+  })
+  await page.goto('/app')
+  await expect(page.locator('#loading-screen')).toBeHidden()
+  await page.getByRole('button', { name: `View details for ${title}` }).first().click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Edit', exact: true }).click()
+
+  const heading = page.getByRole('heading', { name: 'Edit Task' })
+  await expect(heading).toBeVisible()
+  // Nothing from the page may paint over the form: the topmost element at each
+  // control's centre must belong to that control.
+  const topmostIsSelf = (locator: typeof heading) => locator.evaluate((element) => {
+    const rect = element.getBoundingClientRect()
+    const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)
+    return !!hit && (hit === element || element.contains(hit))
+  })
+  expect(await topmostIsSelf(heading)).toBe(true)
+  const save = page.getByRole('button', { name: /Save Changes/ })
+  await save.scrollIntoViewIfNeeded()
+  expect(await topmostIsSelf(save)).toBe(true)
+  // The overlay owns the whole screen: the header strip, the tab bar strip and the
+  // panel's own top and bottom edges must all hit the modal or its backdrop.
+  const covered = await heading.evaluate((element) => {
+    const overlay = element.closest('[role="dialog"]')!
+    const panel = element.closest('.surface-overlay')!.getBoundingClientRect()
+    const points: [string, number, number][] = [
+      ['header strip', innerWidth / 2, 20],
+      ['tab bar strip', innerWidth / 2, innerHeight - 20],
+      ['panel top edge', panel.left + 24, panel.top + 4],
+      ['panel bottom edge', panel.left + 24, panel.bottom - 4],
+    ]
+    return points.filter(([, x, y]) => {
+      const hit = document.elementFromPoint(x, y)
+      return !hit || !overlay.contains(hit)
+    }).map(([name]) => name)
+  })
+  expect(covered).toEqual([])
+  const panel = await heading.evaluate(element => element.closest('.surface-overlay')!.getBoundingClientRect())
+  expect(panel.left).toBeGreaterThanOrEqual(12)
+  expect(panel.top).toBeGreaterThanOrEqual(0)
+  expect(panel.bottom).toBeLessThanOrEqual(844)
+  // Content sits inside the panel, not on its border.
+  const titleField = await page.getByRole('dialog').locator('input').first().boundingBox()
+  expect(titleField!.x).toBeGreaterThanOrEqual(panel.left + 16)
+  expect(titleField!.x + titleField!.width).toBeLessThanOrEqual(panel.right - 16)
+  await expect(save).toHaveText('Save Changes')
+})
